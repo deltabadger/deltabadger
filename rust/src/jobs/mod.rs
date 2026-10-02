@@ -16,6 +16,7 @@
 //! time, wakes and record (`rust_job.<name>:<scope>`).
 pub mod data_api;
 pub mod import;
+pub mod reference;
 pub mod schedule;
 pub mod state;
 

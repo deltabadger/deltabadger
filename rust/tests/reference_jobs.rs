@@ -308,3 +308,220 @@ async fn a_unit_that_rolls_back_still_keeps_the_gap_before_the_next_phase() {
     let wait = std::time::Duration::from_micros(longest.load(std::sync::atomic::Ordering::SeqCst));
     assert!(wait < std::time::Duration::from_millis(100) + import::CHUNK_GAP, "another writer waited {wait:?}");
 }
+
+use common::seed::{self, BotSpec};
+use deltabadger::engine::FixedClock;
+use deltabadger::jobs::data_api::{Config, DataApi};
+use deltabadger::jobs::{reference, Cx, Outcome};
+use deltabadger::venue::http::ScriptedTransport;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+fn scripted(t: &ScriptedTransport) -> Option<DataApi<ScriptedTransport>> {
+    Some(DataApi::new(Config { url: "http://data-api:3000".into(), token: "tok".into() }, t.clone(), t.clone()))
+}
+async fn run(name: &str, api: Option<DataApi<ScriptedTransport>>, c: Connection, now: &str) -> Outcome {
+    reference::run_once(name, api, Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(now)) }).await
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_still_runs() {
+    for spec in reference::specs() {
+        let (_d, c) = db();
+        let out = run(spec.name, None, c, "2026-10-02T10:30:00Z").await;
+        if spec.name == reference::PRUNE { assert_eq!(out, Outcome::Done); }
+        else { assert!(matches!(&out, Outcome::Failed(m) if m.contains("not deltabadger")), "{}: {out:?}", spec.name); }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_stock_jobs_switch_and_a_legacy_row_stop_it_before_any_request() {
+    let (d, c) = db();
+    deltabadger::app_config::set(&c, &seed::cipher(), "stock_sync_enabled", "false", at("2026-10-01T00:00:00Z")).unwrap();
+    let t = ScriptedTransport::default(); // any request would panic: nothing is scripted
+    assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("switched off")));
+    let c = reopen(&d);
+    c.execute("DELETE FROM app_configs", []).unwrap();
+    asset(&c, "alpaca_0b5c", "IBIT", "Stock");
+    assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("legacy")));
+    assert!(t.requests().is_empty());
+    assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "not even the backfill flag");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rate_limits_and_network_failures_retry_and_other_failures_do_not() {
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/listings", 429, json!({ "error": "slow down" }))
+        .network("GET /api/v2/listings", "post_send", "Faraday::TimeoutError: Net::ReadTimeout")
+        .reply("GET /api/v2/listings", 500, json!({ "error": "boom" }));
+    for expected in ["RateLimited", "Transient", "Failed"] {
+        let (_d, c) = db();
+        let out = run(reference::ALPACA_CRYPTO, scripted(&t), c, "2026-10-02T10:15:00Z").await;
+        assert!(format!("{out:?}").starts_with(expected), "{expected}: {out:?}");
+    }
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/indices", 500, json!({ "error": "boom" })).network("GET /api/v1/assets", "post_send", "Faraday::TimeoutError: Net::ReadTimeout");
+    let (_d, c) = db();
+    assert!(matches!(run(reference::INDICES, scripted(&t), c, "2026-10-02T10:30:00Z").await, Outcome::Transient(_)), "PullFailed is retried");
+    let (_d, c) = db();
+    assert!(matches!(run(reference::ASSETS, scripted(&t), c, "2026-10-02T00:20:00Z").await, Outcome::Failed(_)), "the asset sync rescues everything");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_degraded_crypto_payload_creates_usd_imports_nothing_and_says_why() {
+    let (d, c) = db();
+    exchange(&c, "Exchanges::Alpaca", true);
+    let rows: Vec<serde_json::Value> = (1..=29).map(|i| {
+        asset(&c, &format!("coin-{i:02}"), &format!("C{i:02}"), "Cryptocurrency");
+        json!({ "base_asset_id": format!("crypto:coin-{i:02}"), "symbol": format!("C{i:02}/USD"), "base_decimals": 8, "quote_decimals": 2, "price_decimals": 2 })
+    }).collect();
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/listings?venue=alpaca_crypto", 200, json!({ "data": rows }));
+    let out = run(reference::ALPACA_CRYPTO, scripted(&t), c, "2026-10-02T10:15:00Z").await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("degraded") && m.contains("29 resolved")), "{out:?}");
+    let c = reopen(&d);
+    assert_eq!(one::<String>(&c, "SELECT category || ' ' || color FROM assets WHERE external_id = 'usd'"), "Fiat #355E3B", "created before the guard, as Rails does");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers"), 0);
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM app_configs"), 0, "no baseline ratchet on a bailed run");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn one_venue_failing_does_not_stop_the_others() {
+    let (d, c) = db();
+    exchange(&c, "Exchanges::Kraken", true);
+    exchange(&c, "Exchanges::Binance", true);
+    exchange(&c, "Exchanges::Gemini", false); // unavailable: never asked
+    exchange(&c, "Exchanges::Alpaca", true);  // a stock venue: never asked here
+    asset(&c, "bitcoin", "BTC", "Cryptocurrency");
+    asset(&c, "usd", "USD", "Fiat");
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/tickers/kraken", 404, json!({ "error": "Invalid exchange: kraken" }))
+        .reply("GET /api/v1/tickers/binance", 200, json!({ "data": [{ "ticker": "BTCUSD", "base": "BTC", "quote": "USD", "base_external_id": "bitcoin",
+            "quote_external_id": "usd", "base_decimals": 5, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.00001", "minimum_quote_size": "5" }] }));
+    let out = run(reference::TICKERS, scripted(&t), c, "2026-10-02T12:15:30Z").await;
+    assert_eq!(out, Outcome::Failed(r#"kraken: {"error":"Invalid exchange: kraken"}"#.into()));
+    assert_eq!(one::<String>(&reopen(&d), "SELECT ticker FROM tickers"), "BTCUSD");
+    assert_eq!(reference::name_id("Exchanges::BinanceUs"), "binance_us");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn prune_deletes_only_rows_older_than_90_days() {
+    let (d, c) = db();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-06-01 00:00:00"));
+    for at in ["2026-07-03 03:59:59", "2026-07-04 04:00:00", "2026-07-05 04:00:00"] {
+        c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'x', 0, '{}', ?2)", rusqlite::params![bot, at]).unwrap();
+    }
+    assert_eq!(run(reference::PRUNE, None, c, "2026-10-02T04:00:00Z").await, Outcome::Done);
+    assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM bot_activity_logs"), 2, "exactly 90 days old stays: `created_at < 90.days.ago`");
+}
+
+const RUNTIME_THREAD_BOUND: Duration = Duration::from_millis(250); // the engine ticks on this thread
+const WRITE_LOCK_BOUND: Duration = Duration::from_millis(100);     // one write unit
+
+/// A task on the same current-thread runtime that wakes every millisecond and records its longest gap.
+fn thread_gap_meter() -> (Arc<AtomicU64>, tokio::task::JoinHandle<()>) {
+    let max_us = Arc::new(AtomicU64::new(0));
+    let m = max_us.clone();
+    let task = tokio::spawn(async move {
+        let mut last = Instant::now();
+        loop {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+            let now = Instant::now();
+            m.fetch_max((now - last).as_micros() as u64, Ordering::Relaxed);
+            last = now;
+        }
+    });
+    (max_us, task)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds() {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    // The owner's kind of install: an Alpaca paper venue with 50 bots that pass eligibility (a guarded write re-checks them
+    // in every unit), a full stock catalogue imported once before under older names, and a 90-day pruning backlog.
+    let (d, o, s) = common::install_alpaca();
+    let c = o.primary;
+    for _ in 0..50 { seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")); }
+    let bot: i64 = one(&c, "SELECT min(id) FROM bots");
+    let alpaca = s.exchange_id;
+    c.execute_batch("BEGIN").unwrap();
+    for i in 0..11_600 {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, 'Stock', '2026-01-01', '2026-01-01')",
+                  [format!("S{i:05}.US"), format!("S{i:05}")]).unwrap();
+        // 6,800 listed before: 6,700 still listed (every tenth renamed now), 100 delisted, whose names 100 new listings take.
+        if i < 6_800 {
+            c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                       minimum_base_size, minimum_quote_size, created_at, updated_at) VALUES (?1, ?2, ?2, 'USD', last_insert_rowid(), ?3, 9, 2, 2, 1, 1, '2026-01-01', '2026-01-01')",
+                      rusqlite::params![alpaca, format!("S{i:05}"), s.quote]).unwrap();
+        }
+    }
+    for n in 0..20_000 {
+        c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'x', 0, '{}', ?2)",
+                  rusqlite::params![bot, format!("2026-05-01 00:{:02}:{:02}", n / 60 % 60, n % 60)]).unwrap();
+    }
+    c.execute_batch("COMMIT").unwrap();
+    let assets: Vec<Value> = (0..11_600).map(|i| json!({ "asset_id": format!("stock:S{i:05}"), "external_id": format!("S{i:05}.US"),
+        "type": if i % 10 == 0 { "etf" } else { "stock" }, "symbol": format!("S{i:05}"), "name": format!("Company {i}"), "market_cap_rank": i,
+        "image_url": null, "color": "#123456", "logo_url": format!("/logos/s/{i}.png") })).collect();
+    let listing = |i: usize, ticker: String| json!({ "listing_id": i, "base": ticker, "quote": "USD", "ticker": ticker,
+        "base_external_id": format!("S{i:05}.US"), "quote_external_id": "USD.FOREX", "fractionable": true });
+    let listings: Vec<Value> = (0..6_700).map(|i| listing(i, if i % 10 == 0 { format!("S{i:05}N") } else { format!("S{i:05}") }))
+        .chain((6_800..6_900).map(|i| listing(i, format!("S{:05}", i - 100)))).collect();
+    // wiremock serves from its own background runtime, so building and sending these bodies is not on the measured thread.
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v2/assets")).respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": assets }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v2/listings")).respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": listings }))).mount(&server).await;
+    let api = DataApi::live(Config { url: server.uri(), token: "tok".into() });
+
+    // A writer on another thread, as the web is: its longest wait for SQLite's write lock.
+    let (stop, longest_wait) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicU64::new(0)));
+    let probe = {
+        let (stop, longest, file) = (stop.clone(), longest_wait.clone(), d.path().join("production.sqlite3"));
+        std::thread::spawn(move || {
+            let p = Connection::open(file).unwrap();
+            p.busy_timeout(Duration::from_secs(5)).unwrap();
+            while !stop.load(Ordering::SeqCst) {
+                let t0 = Instant::now();
+                p.execute_batch("BEGIN IMMEDIATE; COMMIT;").unwrap();
+                longest.fetch_max(t0.elapsed().as_micros() as u64, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        })
+    };
+    let file = c.path().expect("a file database").to_string(); // the key import::holds keeps
+    let db = Db::new(c, seed::cipher());
+    let (gap, meter) = thread_gap_meter();
+    let stocks = reference::run_once(reference::STOCKS, Some(api), Cx { db: db.clone(), clock: &FixedClock(at("2026-10-02T10:05:00Z")) }).await;
+    let prune = reference::run_once(reference::PRUNE, None::<DataApi<ScriptedTransport>>, Cx { db, clock: &FixedClock(at("2026-10-02T10:05:00Z")) }).await;
+    meter.abort();
+    stop.store(true, Ordering::SeqCst);
+    probe.join().unwrap();
+    assert_eq!((stocks, prune), (Outcome::Done, Outcome::Done));
+    let c = reopen(&d);
+    assert_eq!(one::<i64>(&c, &format!("SELECT count(*) FROM tickers WHERE exchange_id = {alpaca} AND base LIKE '__stale_%'")), 100, "the delisted names were taken");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM bot_activity_logs"), 0, "the backlog is gone");
+    let holds = import::holds(&file);
+    let (gap, wait) = (Duration::from_micros(gap.load(Ordering::Relaxed)), Duration::from_micros(longest_wait.load(Ordering::SeqCst)));
+    eprintln!("measured: longest hold per phase {holds:?}; longest runtime-thread gap {gap:?}; longest wait of another writer {wait:?} (CHUNK = {})",
+              deltabadger::jobs::CHUNK);
+    for phase in ["stock assets", "usd", "exchange assets", "tickers", "sweep", "prune"] {
+        let held = holds.get(phase).unwrap_or_else(|| panic!("no {phase} phase ran"));
+        assert!(*held < WRITE_LOCK_BOUND, "{phase} held the write lock {held:?}");
+    }
+    assert!(gap < RUNTIME_THREAD_BOUND, "the runtime thread was held {gap:?}");
+    assert!(wait < WRITE_LOCK_BOUND + import::CHUNK_GAP, "another writer waited {wait:?}: more than the unit in hand and one gap");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn empty_assets_and_indices_payloads_refresh_nothing() {
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/assets", 200, json!({ "data": [] })).reply("GET /api/v2/indices", 200, json!({ "data": [] }));
+    for (job, now) in [(reference::ASSETS, "2026-10-02T00:20:00Z"), (reference::INDICES, "2026-10-02T10:30:00Z")] {
+        let (d, c) = db();
+        assert_eq!(run(job, scripted(&t), c, now).await, Outcome::NothingNew, "{job}: Rails writes nothing, and the source keeps its age");
+        assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "{job}: not even an incomplete mark");
+    }
+}
