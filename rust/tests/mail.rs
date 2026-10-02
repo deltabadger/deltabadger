@@ -100,3 +100,33 @@ fn the_ported_ruby_is_the_ruby_that_was_recorded() {
         assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-check rust/src/mail against it, re-run script/rust/mail_vectors.rb and the mail parity grid");
     }
 }
+
+// ---- The engine's mail markers (engine::notice) ----
+use deltabadger::engine::notice::Notice;
+
+#[test]
+fn markers_are_read_back_as_the_notices_they_were_written_for() {
+    use deltabadger::engine::notice::{self, Pending};
+    let now = Utc.with_ymd_and_hms(2026, 9, 10, 12, 0, 30).unwrap();
+    let at = "2026-09-10T12:00:30.000Z".to_string();
+    let errors = notice::error_marker(None, "unknown", "a \"b\" <c>", now);
+    let errors = notice::error_marker(Some(&errors), "throttle", "EAPI:Rate limit exceeded", now);
+    let transient = json!({ "last_failure_kind": "throttle", notice::FUNDS: notice::funds_marker(Some(2), now), notice::ERROR: errors,
+                            notice::STOPPED: notice::stopped_marker("unauthorized.", now), notice::LIMIT: notice::limit_marker(now) });
+    let found = notice::pending_in(7, transient.as_object().unwrap());
+    let pending = |notice| Pending { bot_id: 7, stamped_at: at.clone(), notice };
+    // An error is bounded when its marker is written: 500 characters and an ellipsis, whatever the venue sent.
+    let long = notice::stopped_marker(&"é".repeat(600), now);
+    assert_eq!(long["error"].as_str().unwrap().chars().count(), 501);
+    assert!(long["error"].as_str().unwrap().ends_with('…'));
+    assert_eq!(notice::bounded("short", 500), "short");
+    assert_eq!(found, [pending(Notice::EndOfFunds { quote_asset_id: Some(2) }),
+                       pending(Notice::Error { kind: "unknown".into(), error: "a \"b\" <c>".into() }),
+                       pending(Notice::Error { kind: "throttle".into(), error: "EAPI:Rate limit exceeded".into() }),
+                       pending(Notice::StoppedByError { error: "unauthorized.".into() }), pending(Notice::StoppedByAmountLimit)]);
+    assert_eq!(found.iter().map(|p| p.notice.mail()).collect::<Vec<_>>(), ["end_of_funds", "notify_about_error", "notify_about_error", "stopped_by_error", "stopped_by_amount_limit"]);
+    assert_eq!(found[0].raised_at(), Some(now));
+    // A marker of another shape is not a notice, and a kind that is not a plain word is never turned into a JSON path.
+    let odd = json!({ notice::FUNDS: "yes", notice::STOPPED: { "stamped_at": "2026-09-10T12:00:30.000Z" }, notice::ERROR: { "a.b": { "error": "x", "stamped_at": "y" } }, notice::LIMIT: {} });
+    assert_eq!(notice::pending_in(7, odd.as_object().unwrap()), []);
+}

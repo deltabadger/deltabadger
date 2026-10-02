@@ -44,7 +44,8 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
                 if name == "last_end_of_funds_notification" { continue; }
                 let mut v = raw(r.get_ref(i)?);
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
-                if name == "transient_data" { if let Value::Object(m) = &mut v { m.remove("failure_notifications"); m.remove("rust_placement"); } }
+                // The mail markers are this engine's own (engine::notice): Rails has none, so they are no part of the comparison.
+                if name == "transient_data" { if let Value::Object(m) = &mut v { m.remove("failure_notifications"); m.remove("rust_placement"); for key in crate::engine::notice::KEYS { m.remove(key); } } }
                 row.insert(name.clone(), v);
             }
             rows.insert(row["id"].to_string(), Value::Object(row));

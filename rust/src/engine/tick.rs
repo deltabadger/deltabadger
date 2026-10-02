@@ -3,6 +3,7 @@
 use super::amount::{self, RowKind, Sizing};
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
+use super::notice;
 use super::placement::{self, Recovery, Sent};
 use super::polling::{self, PollFailure};
 use super::{Clock, EngineError};
@@ -17,6 +18,19 @@ use std::time::Duration;
 pub const MAX_ATTEMPTS: u32 = 4;
 const BLOCKING_KINDS: [&str; 3] = ["invalid_key", "permission_denied", "restricted"];
 const THREE_DAYS: f64 = 259_200.0;
+/// The marker that makes the out-of-funds mail durable: transient_data.rust_funds_mail_pending, written with the stamp.
+pub const FUNDS_MAIL_PENDING: &str = "rust_funds_mail_pending";
+
+/// The out-of-funds budget stamp and the mail it owes, in ONE statement: both land or neither does. `touch`:
+/// Bot::Fundable stamps through `update!` (updated_at moves), Bot::Failable through `update_column` (it does not).
+fn stamp_funds_low(c: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>, touch: bool) -> Result<(), EngineError> {
+    let marker = json!({ "quote_asset": bot.quote_asset_id(), "stamped_at": iso8601_ms(now) }).to_string();
+    let updated_at = if touch { ", updated_at = ?1" } else { "" };
+    c.execute(&format!("UPDATE bots SET last_end_of_funds_notification = ?1{updated_at}, \
+                        transient_data = json_set(transient_data, '$.{FUNDS_MAIL_PENDING}', json(?3)) WHERE id = ?2"),
+              params![format_time(now), bot.id, marker])?;
+    Ok(())
+}
 
 /// ActiveJob's exception_executions, one counter per retry_on handler.
 #[derive(Debug, Default, Clone, Copy)]
@@ -31,10 +45,25 @@ pub fn retry_wait(executions: u32, rate_limited: bool) -> Duration {
 }
 
 pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
-    let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2 WHERE id = ?4 AND status IN ({})", model::working_list()),
-              params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id])?;
-    if n == 0 { return Ok(()); }
-    model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)
+    stop_owing_mail(c, bot_id, stop_message_key, None, now).map(|_| ())
+}
+
+/// `stop`, and in the same statement the marker of the mail Rails sends with this stop (engine::notice): the mail is owed
+/// only if this call is the one that stopped the bot. Returns whether it was (false: a stop, archive or delete got there first).
+/// The stop (with its marker) and its activity-log row are one transaction on every path: the caller's when it has one,
+/// else this call's own. A log row that cannot be written leaves the bot working and nothing owed, so a retry writes all three.
+pub fn stop_owing_mail(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
+    let (path, marker) = match &mail { Some((key, marker)) => (format!("$.{key}"), marker.to_string()), None => ("$".into(), String::new()) };
+    model::locked(c, |c| {
+        // Without a mail the CASE leaves transient_data exactly as stored.
+        let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2, \
+                                    transient_data = CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END \
+                                    WHERE id = ?4 AND status IN ({})", model::working_list()),
+                  params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id, path, marker])?;
+        if n == 0 { return Ok(false); }
+        model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)?;
+        Ok(true)
+    })
 }
 
 enum Fail {
@@ -75,6 +104,55 @@ pub struct TickContext<'a> {
 
 fn record_failure(c: &Connection, bot_id: i64, kind: Option<&str>) -> Result<(), EngineError> {
     model::merge_transient_compact(c, bot_id, &[("last_failure_kind", kind.map(Value::from).unwrap_or(Value::Null))])
+}
+
+/// Which of Bot::ActionJob's failing exits is recording the failure: it decides the mail.
+#[derive(Clone, Copy, PartialEq)]
+enum Exit {
+    /// `rescue StandardError`, not blocking: notify_recoverable (end_of_funds for a buy refused for funds, else notify_about_error).
+    Recoverable,
+    /// `rescue StandardError`, the second blocking failure in a row: always notifies; the mail is stopped_by_error, owed by the stop itself.
+    Blocking,
+    /// EXHAUSTION_HANDLER after a rate limit: notify_about_error whatever the kind.
+    Exhausted,
+}
+
+/// Bot::Failable#notify_about_failure? and #record_failure!(kind, notified:), with the marker of the mail Rails then sends
+/// (engine::notice), written with the budget it spends.
+/// - A buy refused for funds shares Bot::Fundable's budget: one mail a day per user and quote asset, stamped on
+///   bots.last_end_of_funds_notification with update_column (updated_at does not move). The engine only buys.
+/// - Every other kind has its own day in transient_data.failure_notifications[kind] (`unknown` for no kind): an ISO 8601
+///   time without fraction, never cleared by a success.
+fn record_notified_failure(c: &Connection, bot_id: i64, kind: Option<&str>, error: &str, exit: Exit, clock: &dyn Clock) -> Result<(), EngineError> {
+    let now = clock.now();
+    let bot = model::load_bot(c, bot_id)?;
+    let shared = kind == Some("insufficient_funds");
+    let key = kind.unwrap_or("unknown");
+    let budget = bot.transient.get("failure_notifications").and_then(Value::as_object).cloned().unwrap_or_default();
+    let notify = exit == Exit::Blocking || if shared {
+        !notified_in_last_day(c, &bot, clock)?
+    } else {
+        // `notified_at.blank? || Time.zone.parse(notified_at) < 1.day.ago`. A value this cannot read counts as open:
+        // one mail too many, never one too few.
+        match budget.get(key).and_then(Value::as_str).filter(|s| !s.trim().is_empty()) {
+            Some(at) => chrono::DateTime::parse_from_rfc3339(at).map_or(true, |at| at.with_timezone(&chrono::Utc) < now - chrono::Duration::days(1)),
+            None => true,
+        }
+    };
+    let mut values = vec![("last_failure_kind", kind.map(Value::from).unwrap_or(Value::Null))];
+    if notify && shared && exit == Exit::Recoverable {
+        stamp_funds_low(c, &bot, now, false)?;
+    } else if notify && shared {
+        c.execute("UPDATE bots SET last_end_of_funds_notification = ?1 WHERE id = ?2", params![format_time(now), bot_id])?;
+    } else if notify {
+        let mut budget = budget;
+        budget.insert(key.to_string(), json!(now.format("%Y-%m-%dT%H:%M:%SZ").to_string()));
+        values.push(("failure_notifications", Value::Object(budget)));
+    }
+    if notify && (exit == Exit::Exhausted || (exit == Exit::Recoverable && !shared)) {
+        values.push((notice::ERROR, notice::error_marker(bot.transient.get(notice::ERROR), key, error, now)));
+    }
+    model::merge_transient_compact(c, bot_id, &values)
 }
 
 pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts) -> Result<TickOutcome, EngineError> {
@@ -206,8 +284,8 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
             let interval_seconds = match bot.interval().map(|i| i.as_str()) { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
             let buffer = BigDec::from_f64(bot.quote_amount().unwrap_or_default() / interval_seconds * THREE_DAYS).map_err(|e| EngineError::Data(format!("{e:?}")))?;
             if free < buffer && !notified_in_last_day(c, &bot, clock)? {
-                let now = format_time(clock.now());
-                c.execute("UPDATE bots SET last_end_of_funds_notification = ?1, updated_at = ?1 WHERE id = ?2", params![now, bot_id])?;
+                // `update!(last_end_of_funds_notification:)` then notify_end_of_funds.
+                stamp_funds_low(c, &bot, clock.now(), true)?;
             }
         }
         // Clients::Alpaca raises a transport failure out of Bot::Fundable's balance read. Bot::ActionJob then refuses to
@@ -252,8 +330,11 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
             if attempts.rate < MAX_ATTEMPTS { return Ok(TickOutcome::RetryAfter(retry_wait(attempts.rate, true))); }
             *attempts = Attempts::default();
             let kind = rules.failure_kind(std::slice::from_ref(&m));
-            record_failure(c, bot_id, kind)?;
-            model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({ "error": m, "kind": kind, "rate_limited_exhausted": true }), now)?;
+            // One transaction: the budget, the mail it owes and the log line, or none of them.
+            let tx = model::immediate(c)?;
+            record_notified_failure(&tx, bot_id, kind, &m, Exit::Exhausted, clock)?;
+            model::log_activity(&tx, bot_id, "execution_failed", Level::Error, json!({ "error": m, "kind": kind, "rate_limited_exhausted": true }), now)?;
+            tx.commit()?;
             Ok(TickOutcome::Rescheduled)
         }
         Fail::PlacementSafe(m) => {
@@ -276,25 +357,22 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
         Fail::General { message, errors, failed_row } => {
             *attempts = Attempts::default();
             let kind = rules.failure_kind(if errors.is_empty() { std::slice::from_ref(&message) } else { &errors });
-            let previous = model::load_bot(c, bot_id)?.last_failure_kind();
+            // One transaction: the budget, the stop where there is one, the mail owed and the log lines, or none of them.
+            // A failure in the middle leaves the bot as the tick found it: nothing spent, nothing owed, not stopped.
+            let tx = model::immediate(c)?;
+            let previous = model::load_bot(&tx, bot_id)?.last_failure_kind();
             let blocking = kind.is_some_and(|k| BLOCKING_KINDS.contains(&k) && previous.as_deref() == Some(k));
-            // Bot::Failable#record_failure!(kind, notified:): a buy-side insufficient-funds failure shares Bot::Fundable's daily
-            // budget (#notified_in_last_day?, per user and quote asset); when it notifies, it stamps last_end_of_funds_notification
-            // with update_column, so updated_at does not move.
-            if kind == Some("insufficient_funds") {
-                let bot = model::load_bot(c, bot_id)?;
-                if !notified_in_last_day(c, &bot, clock)? {
-                    c.execute("UPDATE bots SET last_end_of_funds_notification = ?1 WHERE id = ?2", params![format_time(now), bot_id])?;
-                }
-            }
-            record_failure(c, bot_id, kind)?;
+            record_notified_failure(&tx, bot_id, kind, &message, if blocking { Exit::Blocking } else { Exit::Recoverable }, clock)?;
             if !failed_row {
-                model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({ "error": message, "kind": kind }), now)?;
+                model::log_activity(&tx, bot_id, "execution_failed", Level::Error, json!({ "error": message, "kind": kind }), now)?;
             }
-            if blocking {
-                stop(c, bot_id, &format!("bot.status.stopped_by_error.{}", kind.unwrap()), now)?;
+            if let (true, Some(kind)) = (blocking, kind) {
+                // stop_for_blocking_failure: Bot::StopJob, then notify_stopped_by_error.
+                stop_owing_mail(&tx, bot_id, &format!("bot.status.stopped_by_error.{kind}"), Some((notice::STOPPED, notice::stopped_marker(&message, now))), now)?;
+                tx.commit()?;
                 return Ok(TickOutcome::Stopped);
             }
+            tx.commit()?;
             Ok(TickOutcome::Rescheduled)
         }
     }
