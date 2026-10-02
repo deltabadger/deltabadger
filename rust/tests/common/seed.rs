@@ -73,7 +73,7 @@ pub fn insert_tx(c: &Connection, s: &Seeded, bot_id: i64, t: &TxSpec) -> i64 {
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
          error_messages, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?15, ?6, ?7, ?8, ?9, ?10, ?11, 'BTC', (SELECT symbol FROM assets WHERE id = ?13), ?12, ?13, 'week', 60, 'REGULAR', '[]', ?14, ?14)",
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?9, ?10, ?11, 'BTC', (SELECT symbol FROM assets WHERE id = ?13), ?12, ?13, 'week', 60, 'REGULAR', '[]', ?14, ?14)",
         params![bot_id, s.exchange_id, t.external_id, t.status, t.external_status, t.order_type, t.amount, t.quote_amount, t.price,
                 t.amount_exec, t.quote_amount_exec, s.btc, s.quote, t.created_at]).unwrap();
     c.last_insert_rowid()
