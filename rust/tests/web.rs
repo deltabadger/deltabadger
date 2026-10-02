@@ -99,3 +99,21 @@ mod locales {
         }
     }
 }
+
+mod time_zones {
+    use super::common::web::at;
+    use deltabadger::web::timezone;
+
+    #[test]
+    fn every_rails_time_zone_name_maps_to_a_zone_chrono_tz_knows() {
+        let table: serde_json::Map<String, serde_json::Value> = serde_json::from_str(include_str!("../src/web/time_zones.json")).unwrap();
+        assert!(table.len() >= 150, "{} names", table.len());
+        for (name, iana) in &table {
+            assert_eq!(timezone::zone(name).map(|z| z.name()), iana.as_str(), "{name}");
+        }
+        assert_eq!(timezone::zone("Europe/Warsaw"), None, "the column holds Rails names, not IANA ids");
+        assert_eq!(timezone::local(at("2026-07-01T12:00:00Z"), "Warsaw").to_rfc3339(), "2026-07-01T14:00:00+02:00");
+        assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Eastern Time (US & Canada)").to_rfc3339(), "2026-01-01T07:00:00-05:00");
+        assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Nowhere").to_rfc3339(), "2026-01-01T12:00:00+00:00");
+    }
+}
