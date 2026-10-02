@@ -273,11 +273,16 @@ module Reference
     indices = [
       { 'external_id' => 'nasdaq-100', 'source' => 'deltabadger', 'name' => 'Nasdaq 100', 'description' => 'The 100 largest',
         'top_coins' => %w[AAPL.US MSFT.US], 'top_coins_by_exchange' => nil, 'available_exchanges' => { 'Exchanges::Alpaca' => 100 },
-        'market_cap' => 2.5e13, 'weight' => 0, 'weights' => { 'AAPL.US' => 0.0812, 'MSFT.US' => 0.0799 } },
+        'market_cap' => 2.5e13, 'weight' => 0, 'weights' => { 'AAPL.US' => 0.0812, 'MSFT.US' => 0.0799, 'T&<>.US' => 0.01 } },
       { 'external_id' => 'layer-1', 'source' => 'coingecko', 'name' => 'Layer 1', 'description' => 'L1s', 'top_coins' => nil, 'market_cap' => '123.5' },
       { 'external_id' => 'meme-token', 'source' => 'coingecko', 'name' => 'Meme', 'weight' => nil, 'market_cap' => 42 },
       { 'external_id' => 'other', 'source' => 'coingecko', 'name' => 'Other', 'market_cap' => nil }
     ]
+    # String#to_d reads a string's leading numeric prefix and nothing else.
+    { 'prefix' => '1.5abc', 'garbage' => 'abc', 'blank' => '', 'exponent' => '1e5x', 'spaced' => ' 2', 'underscored' => '1_000.2_5x',
+      'dot' => '1.e2', 'signs' => '--1', 'bare-dot' => '.e2', 'lead-dot' => '-.5e1_0' }.each do |id, cap|
+      indices << { 'external_id' => "cap-#{id}", 'source' => 'coingecko', 'name' => id, 'market_cap' => cap }
+    end
     add.('indices-import', job, { 'GET /api/v2/indices' => [ok('data' => indices)] }, &seed)
     add.('indices-empty', job, { 'GET /api/v2/indices' => [ok('data' => [])] }, &seed)
     add.('indices-server-error', job, { 'GET /api/v2/indices' => [error(500, { 'error' => 'boom' })] }, &seed)

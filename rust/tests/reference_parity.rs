@@ -60,5 +60,18 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
         }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
+    // Listed divergence: a JSON column's text. ActiveSupport escapes <, > and & (as \u003c and so on) and serde does not;
+    // both snapshots compare the parsed JSON, which is equal.
+    let weights = |root: &Path| -> String {
+        rusqlite::Connection::open(root.join("indices-import/production.sqlite3")).unwrap()
+            .query_row("SELECT weights FROM indices WHERE external_id = 'nasdaq-100'", [], |r| r.get(0)).unwrap()
+    };
+    let (rails_text, rust_text) = (weights(rails_root.path()), weights(rust_root.path()));
+    if rails_text == rust_text || !rails_text.contains("\\u0026") {
+        failures.push(format!("indices-import: Rails no longer escapes JSON text ({rails_text}): drop the listed divergence"));
+    }
+    if serde_json::from_str::<Value>(&rails_text).unwrap() != serde_json::from_str::<Value>(&rust_text).unwrap() {
+        failures.push(format!("indices-import: the weights JSON differs\n  rails: {rails_text}\n  rust:  {rust_text}"));
+    }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }

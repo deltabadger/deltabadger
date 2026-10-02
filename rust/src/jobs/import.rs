@@ -134,15 +134,47 @@ fn integer(v: &Value) -> Option<i64> {
     }
 }
 
+/// String#to_d's reading: after leading whitespace, the longest prefix of sign, digits, `.` digits and an exponent
+/// (e, E, d or D), an underscore counting only between two digits; "0" when no digit leads. ponytail: "Infinity" and
+/// "NaN", which Ruby reads as such, read as 0 here; data-api sends neither.
+fn numeric_prefix(s: &str) -> String {
+    let b = s.trim_start_matches([' ', '\t', '\n', '\x0b', '\x0c', '\r']).as_bytes();
+    let mut i = 0;
+    let digits = |i: &mut usize, out: &mut String| {
+        let start = out.len();
+        while *i < b.len() {
+            if b[*i].is_ascii_digit() { out.push(b[*i] as char); *i += 1; }
+            else if b[*i] == b'_' && out.len() > start && b.get(*i + 1).is_some_and(u8::is_ascii_digit) { *i += 1; }
+            else { break; }
+        }
+        out.len() - start
+    };
+    let mut out = String::new();
+    if let Some(&sign @ (b'+' | b'-')) = b.first() { out.push(sign as char); i = 1; }
+    let mut n = digits(&mut i, &mut out);
+    if b.get(i) == Some(&b'.') {
+        let (mut j, mut frac) = (i + 1, String::new());
+        let f = digits(&mut j, &mut frac);
+        if n + f > 0 { if n == 0 { out.push('0'); } out.push('.'); out.push_str(&frac); if f == 0 { out.push('0'); } n += f; i = j; }
+    }
+    if n == 0 { return "0".into(); }
+    if matches!(b.get(i), Some(b'e' | b'E' | b'd' | b'D')) {
+        let (mut j, mut exp) = (i + 1, String::from("e"));
+        if let Some(&sign @ (b'+' | b'-')) = b.get(j) { exp.push(sign as char); j += 1; }
+        if digits(&mut j, &mut exp) > 0 { out.push_str(&exp); }
+    }
+    out
+}
+
 /// ActiveModel::Type::Decimal#cast with no precision: a Float by to_d (its shortest digits, 16 significant), an Integer exactly, a String by String#to_d
-/// (garbage reads as 0).
+/// (its leading numeric prefix; garbage reads as 0).
 fn decimal(v: &Value) -> R<Option<String>> {
     Ok(match v {
         Value::Null => None,
         Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),
         Value::Number(n) => Some(BigDec::from_f64(n.as_f64().unwrap_or(0.0)).map_err(|e| format!("{e:?}"))?.to_s_f()),
         Value::String(s) if s.trim().is_empty() => None,
-        Value::String(s) => Some(BigDec::parse(s.trim()).map(|d| d.to_s_f()).unwrap_or_else(|_| "0".into())),
+        Value::String(s) => Some(BigDec::parse(&numeric_prefix(s)).map(|d| d.to_s_f()).unwrap_or_else(|_| "0".into())),
         other => return Err(format!("{other} is not a decimal")),
     })
 }
@@ -566,6 +598,10 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
                                          r.base_decimals, r.quote_decimals, r.price_decimals, r.trading_enabled, t2, id]).map_err(sql)?;
                 }
                 TickerWrite::Upsert { existing: None, id, record: r } => {
+                    // `id` was planned from the table as it stood at plan time. If another writer inserted a ticker since,
+                    // this INSERT can meet its id and fail on the primary key. That is refused, not overwritten: the unit
+                    // rolls back whole, the job fails before the sweep, the units before it hold whole rows, and the next
+                    // run plans again from the table as it then stands. Nothing else inserts tickers on an install the engine runs.
                     c.prepare_cached("INSERT INTO tickers (id, exchange_id, base, quote, ticker, base_asset_id, quote_asset_id, minimum_base_size, \
                                minimum_quote_size, maximum_base_size, maximum_quote_size, base_decimals, quote_decimals, price_decimals, available, \
                                trading_enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 1, ?15, ?16, ?16)").map_err(sql)?

@@ -83,12 +83,15 @@ async fn floating_sizes_are_stored_as_rubys_bigdecimal_of_the_float() {
     row["minimum_base_size"] = json!(1.0000000000000002);   // Ruby: BigDecimal(1.0000000000000002) => 1.0
     row["minimum_quote_size"] = json!(0.30000000000000004); // 0.1 + 0.2; Ruby: BigDecimal(0.30000000000000004) => 0.3
     row["maximum_quote_size"] = json!(1000000);             // an Integer: exact
+    row["maximum_base_size"] = json!(0.12345678901234568);  // 17th digit 8; Ruby truncates: BigDecimal => 0.1234567890123456
     import_tickers(&Db::new(c, common::seed::cipher()), kraken, vec![row], "2026-10-02T10:15:00Z").await.unwrap();
     let c = reopen(&d);
     assert_eq!(one::<f64>(&c, "SELECT minimum_base_size FROM tickers"), 1.0);
     assert_eq!(one::<i64>(&c, "SELECT minimum_quote_size <= 0.3 FROM tickers"), 1,
                "an order of 0.30 EUR meets the minimum, as in Rails; the float's own digits (0.30000000000000004) would refuse it");
     assert_eq!(one::<i64>(&c, "SELECT maximum_quote_size FROM tickers"), 1_000_000);
+    assert_eq!(one::<f64>(&c, "SELECT maximum_base_size FROM tickers"), 0.1234567890123456,
+               "Float#to_d truncates to 16 digits; rounding would give 0.1234567890123457");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -236,11 +239,15 @@ async fn a_rename_group_is_only_its_colliding_rows_and_the_bound_is_enforced() {
     let names: Vec<String> = reopen(&d).prepare("SELECT ticker FROM tickers ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert_eq!((names[0].clone(), names[n - 1].clone()), (format!("OLD{}EUR", n - 1), "OLD0EUR".to_string()));
     // A rotation through CHUNK + 1 pairs is one group larger than a unit: the plan fails before any write.
+    // Through the tickers job, as data-api would send it: the refusal comes before the exchange-assets phase.
     let rotation = swap(n, deltabadger::jobs::CHUNK + 1);
-    let before = tickers(&reopen(&d));
-    let err = db.run(move |c, _| import::plan_tickers(c, kraken, &rotation, None)).await.err().expect("refused");
-    assert!(err.contains("larger than one write unit"), "{err}");
-    assert_eq!(tickers(&reopen(&d)), before, "nothing written");
+    let (before, assets_before) = (tickers(&reopen(&d)), one::<String>(&reopen(&d), "SELECT group_concat(updated_at) FROM exchange_assets"));
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/tickers/kraken", 200, json!({ "data": rotation }));
+    let out = run(reference::TICKERS, scripted(&t), reopen(&d), "2026-10-02T11:15:00Z").await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("larger than one write unit")), "{out:?}");
+    assert_eq!(tickers(&reopen(&d)), before, "no ticker written");
+    assert_eq!(one::<String>(&reopen(&d), "SELECT group_concat(updated_at) FROM exchange_assets"), assets_before, "no exchange asset touched");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -282,6 +289,9 @@ async fn a_unit_that_rolls_back_still_keeps_the_gap_before_the_next_phase() {
     asset(&c, "EUR.FOREX", "EUR", "Currency");
     // The tickers unit fails and rolls back; the assets import that follows is another phase on the same file.
     c.execute_batch("CREATE TRIGGER failing_unit BEFORE INSERT ON tickers BEGIN SELECT RAISE(ABORT, 'unit failed'); END;").unwrap();
+    // When the assets unit wrote, by the wall clock (a rolled-back unit cannot leave a mark of its own).
+    c.execute_batch("CREATE TABLE unit_marks (at TEXT); CREATE TRIGGER mark_unit AFTER INSERT ON assets \
+                     BEGIN INSERT INTO unit_marks VALUES (strftime('%Y-%m-%d %H:%M:%f', 'now')); END;").unwrap();
     let (stop, longest) = (std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)), std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)));
     let probe = {
         let (stop, longest, path) = (stop.clone(), longest.clone(), d.path().join("production.sqlite3"));
@@ -298,11 +308,18 @@ async fn a_unit_that_rolls_back_still_keeps_the_gap_before_the_next_phase() {
     };
     let db = Db::new(c, common::seed::cipher());
     assert!(import_tickers(&db, kraken, vec![pair("bitcoin", "XBTEUR", "XBT")], "2026-10-02T10:15:00Z").await.unwrap_err().contains("unit failed"));
+    let rolled_back = Utc::now(); // the failed unit has released the lock by now
     let rows = vec![json!({ "external_id": "ethereum", "symbol": "ETH", "name": "ETH", "category": "Cryptocurrency" })];
     import::import_assets(&db, import::plan_assets(&rows, "https://data.example").unwrap(), at("2026-10-02T10:20:00Z")).await.unwrap();
     stop.store(true, std::sync::atomic::Ordering::SeqCst);
     probe.join().unwrap();
     assert!(import::holds(&file).contains_key("tickers"), "the rolled-back unit was released and recorded: {:?}", import::holds(&file));
+    // The gap itself: the assets unit waited CHUNK_GAP from the rollback's release (a few µs before `rolled_back`), not from
+    // the exchange-assets unit before it, which ended more than CHUNK_GAP earlier. Half the gap tells the two apart.
+    let wrote: String = one(&reopen(&d), "SELECT min(at) FROM unit_marks");
+    let wrote = chrono::NaiveDateTime::parse_from_str(&wrote, "%Y-%m-%d %H:%M:%S%.f").unwrap().and_utc();
+    let after = (wrote - rolled_back).to_std().unwrap_or_default();
+    assert!(after >= import::CHUNK_GAP / 2, "the assets unit wrote {after:?} after the rolled-back unit: its release was not recorded");
     let gap = import::shortest_gap(&file).expect("several units");
     assert!(gap >= import::CHUNK_GAP, "a unit started {gap:?} after the previous one released the lock");
     let wait = std::time::Duration::from_micros(longest.load(std::sync::atomic::Ordering::SeqCst));
