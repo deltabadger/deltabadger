@@ -368,6 +368,36 @@ async fn a_planted_cookie_of_our_name_does_not_hide_the_real_session() {
     assert_eq!(bots(format!("{NAME}_x={ours}; {NAME}=junk")).await, 302);
 }
 
+/// Where an unauthenticated GET was heading is kept in the session, and the session is the cookie.
+/// A browser drops a cookie of more than 4096 bytes, and the CSRF token with it, so the sign-in that
+/// follows would be refused. A path over 2,048 bytes is therefore not kept: the request is sent to
+/// the login page all the same, and the sign-in lands on the root.
+#[tokio::test(flavor = "current_thread")]
+async fn a_return_path_too_long_for_the_cookie_is_not_kept() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    for (length, kept) in [(2048, true), (2049, false), (3000, false)] {
+        let path = format!("/bots?x={}", "a".repeat(length - "/bots?x=".len()));
+        assert_eq!(path.len(), length);
+        let mut browser = Browser::default();
+        let bounced = browser.get(&app, &path).await;
+        assert_eq!((bounced.status, bounced.header("location")), (302, Some("/login")), "{length}: sent to the login page either way");
+        let cookie = bounced.header("set-cookie").expect("the flash is new");
+        assert!(cookie.len() <= 4096, "{length}: a Set-Cookie of {} bytes is one a browser drops", cookie.len());
+        browser.get(&app, "/login").await;
+        let signed_in = browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await;
+        assert_eq!((signed_in.status, signed_in.header("location")), (303, Some(if kept { path.as_str() } else { "/" })), "{length}");
+    }
+    // A long path does not leave an earlier one in place either: the sign-in goes to the root.
+    let mut browser = Browser::default();
+    browser.get(&app, "/bots?filter=active").await;
+    browser.get(&app, &format!("/bots?x={}", "a".repeat(3000))).await;
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.header("location"), Some("/"));
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.

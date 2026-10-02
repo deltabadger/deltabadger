@@ -21,6 +21,10 @@ use subtle::ConstantTimeEq;
 pub const MAXIMUM_ATTEMPTS: i64 = 5;
 pub const UNLOCK_IN_SECONDS: i64 = 15 * 60;
 pub const PENDING_TTL_SECONDS: i64 = 5 * 60;
+/// The longest path kept as `return_to`. The session is the cookie, and a browser drops a cookie
+/// over 4096 bytes, the CSRF token in it included: the sign-in that follows would then be refused.
+/// A path of this length makes a cookie of about 3 KB. (Rails raises CookieOverflow there.)
+pub const MAX_RETURN_TO_BYTES: usize = 2048;
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -174,9 +178,10 @@ fn login_path(ctx: &Ctx) -> String {
 }
 
 /// Devise's failure app: remember where a GET was going, say why, and send the browser to the login page.
+/// A path too long to keep is forgotten, and the sign-in then lands on the root.
 fn failure(ctx: &Ctx, message: &str) -> Response {
     if ctx.method == Method::GET {
-        ctx.session.lock().return_to = Some(ctx.params.fullpath.clone());
+        ctx.session.lock().return_to = Some(ctx.params.fullpath.clone()).filter(|path| path.len() <= MAX_RETURN_TO_BYTES);
     }
     flash::set(&ctx.session, flash::ALERT, i18n::text(ctx.locale, &format!("devise.failure.{message}"), &[]));
     let mut response = layout::early_redirect(StatusCode::FOUND, &login_path(ctx));
