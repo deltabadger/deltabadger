@@ -1022,3 +1022,68 @@ async fn a_run_by_hand_is_held_to_the_jobs_deadline() {
     assert_eq!(jobs::run_within_deadline(&job, cx(&db, &clock), vec![Wake::Manual(None)]).await, Outcome::Failed("dropped past its 3600s deadline".into()));
     assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 0);
 }
+// ---- the hand-run command ----
+
+fn cli(dir: &Path, args: &[&str]) -> Command {
+    let mut c = Command::new(env!("CARGO_BIN_EXE_deltabadger"));
+    c.args(args).env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", "engine-test-secret")
+        .env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT");
+    c
+}
+fn stderr(out: &std::process::Output) -> String { String::from_utf8_lossy(&out.stderr).to_string() }
+
+#[test]
+fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds_it() {
+    let (dir, o, s) = common::install_alpaca();
+    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
+    drop(o);
+    for bad in [vec!["sync"], vec!["sync", "everything"], vec!["sync", "ledger", "one"], vec!["sync", "ledger", "1", "2"]] {
+        let out = cli(dir.path(), &bad).output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{bad:?}");
+        assert!(stderr(&out).contains("usage: deltabadger sync ledger|balances [<api_key_id>]"), "{bad:?}: {}", stderr(&out));
+    }
+    let out = cli(dir.path(), &["sync", "ledger"]).env_remove("SECRET_KEY_BASE").output().unwrap();
+    assert!(out.status.code() == Some(1) && stderr(&out).contains("SECRET_KEY_BASE"), "{}", stderr(&out));
+
+    // What every Rails process holds for its lifetime (config/initializers/00_engine_lock.rb): shared. A `run` or `serve`
+    // holds it exclusive. Either way the sync refuses before it opens a database.
+    let rails = std::fs::OpenOptions::new().write(true).create(true).truncate(false).open(dir.path().join(".engine.lock")).unwrap();
+    rails.try_lock_shared().unwrap();
+    for kind in ["ledger", "balances"] {
+        let out = cli(dir.path(), &["sync", kind]).output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{kind}");
+        assert!(stderr(&out).contains("another Deltabadger engine is running on this data"), "{kind}: {}", stderr(&out));
+    }
+    drop(rails);
+
+    // With the lock free it runs. This install's only key is live, so nothing is sent and the key says why (exit 2).
+    for kind in ["ledger", "balances"] {
+        let out = cli(dir.path(), &["sync", kind]).output().unwrap();
+        assert_eq!(out.status.code(), Some(2), "{kind}: {}", stderr(&out));
+        let job = if kind == "ledger" { "ledger_sync:1" } else { "balance_sync:1" };
+        assert!(stderr(&out).contains(&format!("{job} failed: {LIVE_REFUSED}")), "{kind}: {}", stderr(&out));
+    }
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(c.query_row("SELECT last_sync_error FROM api_keys", [], |r| r.get::<_, String>(0)).unwrap(), LIVE_REFUSED);
+    assert!(deltabadger::lease::read(&c, &seed::cipher()).unwrap().is_none(), "a hand-run sync claims nothing");
+
+    // No key to read (the live one marked incorrect): nothing to do, exit 0. Named, a key is synced whatever its status.
+    c.execute("UPDATE api_keys SET status = 2", []).unwrap();
+    drop(c);
+    let out = cli(dir.path(), &["sync", "balances"]).output().unwrap();
+    assert_eq!((out.status.code(), String::from_utf8_lossy(&out.stdout).trim().to_string()), (Some(0), "no Alpaca key to sync".to_string()), "{}", stderr(&out));
+    let out = cli(dir.path(), &["sync", "ledger", "1"]).output().unwrap();
+    assert!(out.status.code() == Some(2) && stderr(&out).contains(&format!("ledger_sync:1 failed: {LIVE_REFUSED}")), "{}", stderr(&out));
+
+    // On an install the engine refuses (here a working bot with restated prices), the command still writes what is
+    // not the engine's business: the guard is asked only by a unit that moves a bot's counter.
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("UPDATE bots SET restatement_generation = 1", []).unwrap();
+    c.execute("UPDATE api_keys SET last_sync_error = NULL", []).unwrap();
+    drop(c);
+    let out = cli(dir.path(), &["sync", "ledger", "1"]).output().unwrap();
+    assert!(out.status.code() == Some(2) && stderr(&out).contains(&format!("ledger_sync:1 failed: {LIVE_REFUSED}")) && !stderr(&out).contains(GUARD_REFUSED), "{}", stderr(&out));
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(c.query_row("SELECT last_sync_error FROM api_keys", [], |r| r.get::<_, String>(0)).unwrap(), LIVE_REFUSED, "written, on an install the guard would refuse");
+}
