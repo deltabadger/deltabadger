@@ -1,6 +1,7 @@
 //! The web UI (spec §4): server-rendered pages that match the Rails app's, for the compiled
 //! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
 //! both and compares.
+pub mod assets;
 pub mod layout;
 pub mod server;
 
@@ -29,9 +30,9 @@ impl From<EngineError> for WebError { fn from(e: EngineError) -> Self { Self::En
 impl From<rusqlite::Error> for WebError { fn from(e: rusqlite::Error) -> Self { Self::Engine(EngineError::Sqlite(e)) } }
 impl From<askama::Error> for WebError { fn from(e: askama::Error) -> Self { Self::Template(e) } }
 
-/// The body of a 500 response.
+/// The body of a 500 response: public/500.html, as Rails answers an exception in production.
 fn error_page() -> &'static [u8] {
-    b"Internal Server Error"
+    assets::find("/500.html").map_or(&b"Internal Server Error"[..], |file| file.body)
 }
 
 impl IntoResponse for WebError {
