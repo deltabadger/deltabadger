@@ -145,4 +145,65 @@ class Bots::DcaMultiAssetDayOrderFillTest < ActiveSupport::TestCase
     already = spent('0.1') + @alpaca.quote(second[:id])
     assert_in_delta (2 * Q) - already, @alpaca.quotes.drop(2).sum, 0.02
   end
+
+  # == The deploy: a carry the old polling already drew down for a cancelled fill ==
+  # Before this change a poll took a cancelled order's fill off the carry. That stored carry is not
+  # rebuilt, and the fill now also counts through its row: the next tick buys the drawn-down part of
+  # the carry less, once (never more than the carry), and the tick after buys normally.
+
+  test 'deploy: a carry already drawn down for a cancelled fill is under-bought once, by that amount' do
+    bot = build_bot([stock('AAPL')], carry: 30)
+    tick(bot, at: @t0 + 1.minute)
+    assert_in_delta Q + 30, @alpaca.quote('ord-1'), 0.01
+
+    travel_to @t0 + 23.hours
+    @alpaca.settle('ord-1', filled_qty: '0.2', status: 'expired')
+    with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.perform_now(Bot.find(bot.id), update_missed_quote_amount: true) }
+    bot = Bot.find(bot.id)
+    bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 0)) # max(0, 30 - 39.96)
+
+    bot = tick(bot, at: @t0 + 1.day + 1.minute)
+    assert_in_delta (2 * Q) - spent('0.2'), @alpaca.quote('ord-2'), 0.01, '160.04: the drawn-down 30 is not bought'
+    assert_in_delta 30, ((2 * Q) + 30 - spent('0.2')) - @alpaca.quote('ord-2'), 0.01
+
+    @alpaca.settle('ord-2', filled_qty: @alpaca.placed.last[:qty], status: 'filled')
+    tick(bot, at: @t0 + 2.days + 1.minute)
+    assert_in_delta Q, @alpaca.quote('ord-3'), 0.01, 'once: the next tick buys one contribution'
+  end
+
+  # == One read ==
+  # Every row pending_quote_amount counts is read in one statement. A row that moves between states
+  # while it is being read is counted in the state before or the state after, never in both or neither.
+
+  [[:cancelled, 40, 160], [:closed, 100, 100]].each do |state, exec, after|
+    test "a row that turns #{state} while pending_quote_amount reads is counted once" do
+      bot = build_bot([stock('AAPL')])
+      order = old_row(bot, status: :open, quote: Q, exec: nil, at: @t0 + 1.minute)
+      travel_to @t0 + 1.day + 1.minute # two contributions owed, 100 reserved: 100 before, `after` afterwards
+
+      (1..3).each do |nth|
+        order.update_columns(external_status: :open, quote_amount_exec: nil)
+        seen = 0
+        moved = false
+        callback = lambda do |*, payload|
+          next if moved || !payload[:sql].match?(/\ASELECT\b.*\bFROM "transactions"/m)
+
+          seen += 1
+          next unless seen == nth
+
+          moved = true
+          order.update_columns(external_status: state, quote_amount_exec: exec)
+        end
+        pending = ActiveSupport::Notifications.subscribed(callback, 'sql.active_record') { Bot.find(bot.id).pending_quote_amount }
+        assert_includes [100, after], pending.to_d.round(2), "moved after read #{nth}"
+      end
+    end
+  end
+
+  def old_row(bot, status:, quote:, exec:, at:)
+    create(:transaction, bot:, exchange: @exchange, external_id: "old-#{SecureRandom.hex(3)}", side: :buy,
+                         external_status: status, transaction_type: 'REGULAR', order_type: :limit_order,
+                         base: 'AAPL', quote: 'USD', price: LIMIT, amount: quote / LIMIT, quote_amount: quote,
+                         amount_exec: exec && (exec / LIMIT), quote_amount_exec: exec, created_at: at, updated_at: at)
+  end
 end

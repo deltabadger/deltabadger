@@ -32,28 +32,13 @@ module Bot::Accountable
     # The carry counts BUY investment only — a sell is divestment, not invested quote. Scope to buys
     # so a sell inside the window (e.g. just after a flip back to buying) can't be mistaken for quote
     # already invested and shrink the next buy. No-op for buy-only bot types (they never sell).
-    closed_quote_amount = transactions.submitted.buy.regular
-                                      .where('created_at >= ?', calc_since)
-                                      .closed
-                                      .pluck(:quote_amount_exec)
-                                      .sum
-
-    open_quote_amount = transactions.buy.regular
-                                    .where('created_at >= ?', calc_since)
-                                    .waiting
-                                    .pluck(:quote_amount, :amount, :price)
-                                    .map { |quote_amount, amount, price| quote_amount || (amount * price) }
-                                    .sum
-
-    # A cancelled or abandoned order counts what it filled before it stopped: an Alpaca stock day order
-    # expires part-filled at the close, and the filled part is spent. Executed amount only, so what never
-    # filled is owed again. Same rule as the spend cap (Bot::QuoteAmountLimitable).
-    stopped_quote_amount = transactions.submitted.buy.regular.cancelled_or_abandoned
-                                       .where('created_at >= ?', calc_since)
-                                       .pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))
-                                       .sum
-
-    total_quote_amount_invested = closed_quote_amount + open_quote_amount + stopped_quote_amount
+    # ONE statement: a row that moves between states while it is read (an order a concurrent poll
+    # cancels or fills) is seen in one state, never in two or in none.
+    total_quote_amount_invested = transactions.submitted.buy.regular
+                                              .where(external_status: %i[open unknown closed cancelled abandoned])
+                                              .where('created_at >= ?', calc_since)
+                                              .pluck(:external_status, :quote_amount, :amount, :price, :quote_amount_exec)
+                                              .sum { |row| invested_quote(*row) }
 
     # Round to 6 decimal places to avoid floating point precision issues!
     intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / effective_interval_duration).floor + 1
@@ -114,6 +99,18 @@ module Bot::Accountable
   end
 
   private
+
+  def invested_quote(status, quote_amount, amount, price, quote_amount_exec)
+    case status
+    when 'closed' then quote_amount_exec
+    # Waiting: reserved at what it ordered, so the money it holds is not spent twice.
+    when 'open', 'unknown' then quote_amount || (amount * price)
+    # A cancelled or abandoned order counts what it filled before it stopped: an Alpaca stock day order
+    # expires part-filled at the close, and the filled part is spent. What never filled is owed again.
+    # Same rule as the spend cap (Bot::QuoteAmountLimitable).
+    else quote_amount_exec || 0
+    end
+  end
 
   def check_missed_quote_amount_was_set
     captured = @carry_capture_pending
