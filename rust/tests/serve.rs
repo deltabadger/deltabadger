@@ -144,6 +144,31 @@ async fn a_form_post_can_carry_another_method() {
     assert_eq!(get.status, 200, "the query string cannot change the method");
     let huge = "x".repeat(1024 * 1024);
     assert_eq!(browser.send(&app, "POST", "/up", Some(&[("field", &huge)]), web::Csrf::None, &[]).await.status, 413);
+    let report = browser.send(&app, "POST", "/csp-report", Some(&[("field", &huge)]), web::Csrf::None, &[("content-type", "application/csp-report")]).await;
+    assert_eq!(report.status, 204, "not a form: its body is not read at all, whatever its size");
+}
+
+/// A form is read before any route, session or limit sees the request, so its size is bounded
+/// first: 64 KiB and 1,000 fields. The largest form of the pages served so far is the login form,
+/// under 1 KiB.
+#[tokio::test(flavor = "current_thread")]
+async fn a_form_is_bounded_in_bytes_and_in_fields_before_it_is_routed() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    let mut status_of_bytes = async |bytes: usize| {
+        let value = "x".repeat(bytes - "field=".len());
+        browser.send(&app, "POST", "/up", Some(&[("field", &value)]), web::Csrf::None, &[]).await.status
+    };
+    assert_eq!(status_of_bytes(64 * 1024).await, 501, "64 KiB is read and routed (POST /up is not served)");
+    assert_eq!(status_of_bytes(64 * 1024 + 1).await, 413, "one byte more is not");
+    let mut status_of_fields = async |fields: usize| {
+        let form: Vec<(&str, &str)> = vec![("a", "1"); fields];
+        browser.send(&app, "POST", "/up", Some(&form), web::Csrf::None, &[]).await.status
+    };
+    assert_eq!(status_of_fields(1000).await, 501);
+    assert_eq!(status_of_fields(1001).await, 400);
 }
 
 #[tokio::test(flavor = "current_thread")]

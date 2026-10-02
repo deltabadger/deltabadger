@@ -455,8 +455,12 @@ struct Entry {
     routes: Router,
 }
 
-/// The largest form body `entry` reads.
-const FORM_LIMIT: usize = 1024 * 1024;
+/// The largest form body `entry` reads, and the most fields it may hold. A form is read before any
+/// route, session or rate limit sees the request, so the bound comes first. The largest form of the
+/// pages served so far is the login form: a token of 86 characters, an email, a password of at
+/// most 128 and three short fields, under 1 KiB. (`/csp-report` is not a form and its body is never read.)
+pub const FORM_LIMIT: usize = 64 * 1024;
+pub const FORM_FIELDS: usize = 1000;
 
 /// Everything that has to happen before a route is chosen:
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
@@ -476,6 +480,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let form_post = parts.method == Method::POST && header_text(&parts.headers, "content-type").is_some_and(|t| t.starts_with("application/x-www-form-urlencoded"));
     let (form, body) = if form_post {
         match axum::body::to_bytes(body, FORM_LIMIT).await {
+            Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Ok(bytes) => (pairs(&bytes), Body::empty()),
             Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
         }
