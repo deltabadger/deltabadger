@@ -174,7 +174,7 @@ async fn a_web_stop_during_an_in_flight_tick_wins_and_nothing_more_is_placed() {
     let gate = Rc::new(Notify::new());
     let v = priced().hold_add(gate.clone());
     let r = rig(v.clone(), BotSpec::weekly(60.0, &ago(1))).await;
-    let (stop, app, bot) = (r.engine.stop_handle(), r.app.clone(), r.bot);
+    let (stop, app, bot, db) = (r.engine.stop_handle(), r.app.clone(), r.bot, r.db.clone());
     let driver = async {
         until("the tick to send its order", || !v.sent().is_empty()).await;
         // Lifecycle#stop as the web writes it (interface I-6).
@@ -185,13 +185,22 @@ async fn a_web_stop_during_an_in_flight_tick_wins_and_nothing_more_is_placed() {
         }).await.unwrap();
         app.wake_engine();
         gate.notify_one();
+        until("the tick in hand to record its order", || outstanding(&db, "OFAKE-1") == 1).await;
+        // Due again, and owing: anchored eight days back with no last action. Only the stop keeps it from buying now.
+        let anchor = codec::format_time(chrono::Utc::now() - chrono::Duration::days(8));
+        app.db(move |c| {
+            c.execute("UPDATE bots SET started_at = ?1, transient_data = json_remove(transient_data, '$.last_action_job_at') WHERE id = ?2",
+                      rusqlite::params![anchor, bot])?;
+            Ok(())
+        }).await.unwrap();
+        app.wake_engine();
         tokio::time::sleep(Duration::from_millis(300)).await; // the woken pass runs
         stop.request();
     };
     let (ended, ()) = tokio::join!(supervisor::serve(r.engine, Some((r.app, r.listener)), &SystemClock, vec![]), driver);
     assert!(matches!(ended, Ended::Stopped), "{ended:?}");
     assert_eq!(status(&r.db, r.bot), BotStatus::Stopped as i64, "no write of the tick undid the stop");
-    assert_eq!(v.sent().len(), 1, "the order already sent stands; nothing more is placed");
+    assert_eq!(v.sent().len(), 1, "the order already sent stands; the bot, due again, places nothing more");
     assert_eq!(outstanding(&r.db, "OFAKE-1"), 1, "recorded and still owed its poll");
 }
 
@@ -226,6 +235,7 @@ async fn a_web_start_or_settings_write_followed_by_wake_engine_ticks_without_wai
         let (ended, ()) = tokio::join!(supervisor::serve(r.engine, Some((r.app, r.listener)), &SystemClock, vec![]), driver);
         assert!(matches!(ended, Ended::Stopped), "{case}: {ended:?}");
         assert!(t0.elapsed() < Duration::from_secs(30), "{case}: well inside the idle cap: {:?}", t0.elapsed());
+        assert_eq!(v.sent().len(), usize::from(case == "start"), "{case}: the start buys; the settings write owes nothing");
     }
 }
 
@@ -412,7 +422,7 @@ async fn a_web_write_holding_the_database_delays_the_engine_but_never_fails_it()
     assert_eq!(outstanding(&r.db, "OFAKE-1"), 1);
 }
 
-/// R2(c), ruled: a web start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it
+/// A web start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it
 /// (`bot_already_running`, 409), not restarted as Rails' web controller does (a listed divergence). The start write
 /// moves only a created or stopped bot, so it changes nothing; the handler then commits nothing, queues no tick, sends
 /// no wake and re-renders with `engine.already_running`. Had it restarted the bot (a new anchor, no last action), this
@@ -434,7 +444,7 @@ async fn a_web_start_on_a_working_bot_is_refused_and_changes_nothing() {
     assert_eq!(bot_row(&r.db, r.bot), before, "and the pass left the row as it was");
 }
 
-/// Codex round 1 (P2): the stop never resurrects a terminal bot. Rails' `Lifecycle#stop` returns early for an archived or
+/// The stop never resurrects a terminal bot. Rails' `Lifecycle#stop` returns early for an archived or
 /// a deleted bot (`lifecycle.rb:91-98`), so a stale tab's stop changes no column of either.
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_stop_leaves_an_archived_or_deleted_bot_as_it_is() {
@@ -457,7 +467,7 @@ fn draining(stop: run::Shutdown, gate: Rc<Notify>) -> Service<'static> {
     }) }
 }
 
-/// Codex round 1 (P1): the engine returns first and drops its own lock handle, but the install stays locked until every
+/// The engine returns first and drops its own lock handle, but the install stays locked until every
 /// service has drained (and, in `main.rs`, through the runtime's shutdown): no other process takes it over meanwhile.
 #[tokio::test(flavor = "current_thread")]
 async fn the_lock_is_held_until_every_service_has_drained() {
@@ -484,7 +494,7 @@ async fn the_lock_is_held_until_every_service_has_drained() {
     assert!(lease::lock(&p, chrono::Utc::now()).is_ok(), "released once serve returned");
 }
 
-/// Codex rounds 1–2 (P1): once the engine has returned, no request reaches the app, even while a service still drains: a
+/// Once the engine has returned, no request reaches the app, even while a service still drains: a
 /// socket the server accepted before then and that sends its first request now is answered 503 or closed, never by the
 /// app. Deterministic: the server accepts in order, so once B (connected after A) is answered, A has been accepted; the
 /// engine has returned once a fresh connection is refused.
@@ -514,7 +524,7 @@ async fn a_socket_accepted_before_the_engine_returned_gets_no_answer_from_the_ap
     assert!(late.as_deref().is_none_or(|x| x.starts_with("HTTP/1.1 503")), "the app answered after the engine returned: {late:?}");
 }
 
-/// Codex round 1 (P2): a service that fails while a requested stop drains still decides how the process ends (exit 2),
+/// A service that fails while a requested stop drains still decides how the process ends (exit 2),
 /// whether it fails while the engine finishes its tick in hand or after the engine has returned.
 #[tokio::test(flavor = "current_thread")]
 async fn a_service_failing_during_a_requested_stop_still_ends_the_process_non_zero() {
@@ -554,7 +564,7 @@ async fn a_service_failing_during_a_requested_stop_still_ends_the_process_non_ze
     assert!(matches!(&ended, Ended::Service { name: "mail", error } if error == "outbox unwritable"), "after the engine returned: {ended:?}");
 }
 
-/// Codex round 2 (P2): the first failure decides. The engine fails first; a service that then fails while it drains is
+/// The first failure decides. The engine fails first; a service that then fails while it drains is
 /// logged, and `Ended` stays the engine's.
 #[tokio::test(flavor = "current_thread")]
 async fn an_engine_failure_stays_the_first_failure_when_a_service_then_fails_while_draining() {
@@ -574,7 +584,7 @@ async fn an_engine_failure_stays_the_first_failure_when_a_service_then_fails_whi
     assert!(matches!(ended, Ended::Engine(EngineError::Sqlite(_))), "{ended:?}");
 }
 
-/// Codex round 1 (P2): a service that returns `Ok(())` before any stop was requested ends the process too.
+/// A service that returns `Ok(())` before any stop was requested ends the process too.
 #[tokio::test(flavor = "current_thread")]
 async fn a_service_returning_unasked_ends_the_process() {
     let r = rig(priced(), BotSpec::weekly(60.0, "2099-01-01 00:00:00")).await;
@@ -589,7 +599,7 @@ async fn a_service_returning_unasked_ends_the_process() {
     assert!(up(port).await.is_none(), "the web stopped with it");
 }
 
-/// Codex round 1 (P2): the meter catches a hold at the very end of what it measures, with nothing awaited after it; so
+/// The meter catches a hold at the very end of what it measures, with nothing awaited after it; so
 /// a pass whose last synchronous stretch exceeds the bound fails `a_full_tick_never_holds_the_runtime_thread_longer_than_the_bound`.
 #[tokio::test(flavor = "current_thread")]
 async fn the_meter_catches_a_hold_at_the_very_end_of_what_it_measures() {

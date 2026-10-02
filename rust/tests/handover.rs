@@ -219,7 +219,7 @@ async fn the_cli_handback_trusts_no_absence_before_a_full_margin_after_its_own_s
     assert!(intent.is_none(), "settled as not placed by the second, trustworthy lookup");
 }
 
-/// Codex round 1 (P1): while a bot's order is unresolved, a write that changes what its intent matches on (here the
+/// While a bot's order is unresolved, a write that changes what its intent matches on (here the
 /// asset, so the ticker) is refused by the guard, although `check_install` alone would accept it; so the handback can
 /// still find the order and settle it.
 #[tokio::test(flavor = "current_thread")]

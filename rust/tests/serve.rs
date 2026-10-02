@@ -965,7 +965,8 @@ async fn bind_refuses_an_install_with_no_admin_user_before_it_listens() {
     let listener = deltabadger::web::server::bind(&app, 0).await.unwrap();
     assert_ne!(listener.local_addr().unwrap().port(), 0, "bound, not yet serving");
 }
-/// Codex rounds 1–2 (P1): once `serve_on` is dropped (in `serve`: the engine returned), no request reaches the app. A
+
+/// Once `serve_on` is dropped (in `serve`: the engine returned), no request reaches the app. A
 /// second request already on an open keep-alive connection when the server is dropped is answered 503, or the
 /// connection is closed; never by the app. Deterministic: the request is written and the server dropped on this thread
 /// with no await in between, so the connection task runs only after both.

@@ -260,7 +260,8 @@ fn a_report_refuses_problems_first_then_unreadable_rows_in_checks_words() {
     let r = eligibility::Report { eligible: vec![1, 2], problems: vec![], unreadable: vec![] };
     assert_eq!(r.refusal().unwrap(), vec![1, 2]);
 }
-/// Codex round 1 (P1): the guard refuses what this build cannot trade, in `preflight`'s words, inside the write: the
+
+/// The guard refuses what this build cannot trade, in `preflight`'s words, inside the write: the
 /// start of an idle Kraken bot, and starts on Alpaca with a live key or with no key. Each start rolls back.
 #[test]
 fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() {

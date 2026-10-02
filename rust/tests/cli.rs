@@ -241,7 +241,7 @@ fn serve_refusals_come_before_the_claim() {
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
 
-/// R1 addition: `serve`'s eligibility refusal names the bot and the reason in the words `check` uses.
+/// `serve`'s eligibility refusal names the bot and the reason in the words `check` uses.
 #[test]
 fn serve_refuses_an_ineligible_install_in_the_words_check_uses() {
     let (dir, o, s) = common::install_alpaca(); // seeds an admin user

@@ -68,7 +68,7 @@ fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {
     }
 }
 
-/// R2(c), ruled: a web start on a bot that is already working is refused, as Rails' API refuses it (409
+/// A web start on a bot that is already working is refused, as Rails' API refuses it (409
 /// `bot_already_running`); the page re-renders with this flash. Listed divergence: Rails' web controller restarts the bot.
 #[test]
 fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
