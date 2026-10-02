@@ -196,7 +196,7 @@ fn locked<T>(c: &Connection, f: impl FnOnce(&Connection) -> Result<T, EngineErro
 }
 
 /// `json_set(transient_data, '$."k1"', json(?n), …)` for `pairs`, with its arguments numbered from `?first`. Only the
-/// named keys change; every other key keeps its exact text (R5: no whole-object rewrite, so a key another writer set
+/// named keys change; every other key keeps its exact text (no whole-object rewrite, so a key another writer set
 /// between the engine's read and this write is never lost).
 fn set_keys(pairs: &[(&str, Value)], first: usize) -> (String, Vec<rusqlite::types::Value>) {
     let mut expr = String::from("json_set(transient_data");

@@ -1,4 +1,4 @@
-//! `home#index` and the part of `bots#index` this plan serves: the page of an account with no bots.
+//! `home#index` and the part of `bots#index` this build serves: the page of an account with no bots.
 use super::auth::{self, app_config};
 use super::layout::{self, Ctx, Page};
 use super::shell::{self, Shell};
@@ -51,7 +51,7 @@ struct EmptyView<'a> {
 struct Facts {
     /// Bots that are not deleted (status 3), archived ones included.
     bots: i64,
-    /// Whether the navbar's tracker icon would be a ring of holdings, which this plan does not draw.
+    /// Whether the navbar's tracker icon would be a ring of holdings, which this build does not draw.
     tracker_ring: bool,
     syncing: bool,
     stocks_active: bool,
@@ -86,7 +86,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     // (which hides the navbar and the main content until the modal closes) and a `src` on the modal
     // frame. There is no wizard in this build, and hidden chrome with nothing to close would leave an
     // empty page. So the flag is consumed, as in Rails, and the page is the one of any later visit.
-    // The plan that ports the wizard restores both and removes `without_wizard` from tests/pages.rs.
+    // Porting the wizard restores both and removes `without_wizard` from tests/pages.rs.
     ctx.session.lock().auto_open_bot_wizard = false;
     let csrf = ctx.csrf_token();
     let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));

@@ -144,11 +144,11 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
-        // `serve`'s supervisor without the web: one "ended" rule for both commands (plan I-10).
+        // `serve`'s supervisor without the web: one "ended" rule for both commands.
         match supervisor::serve(engine, None, &SystemClock, vec![]).await {
             Ended::Stopped => { log("stopped on request"); 0 }
             Ended::Engine(e) => { log(&format!("engine stopped: {e:?}")); EXIT_ENGINE_ERROR }
-            other => { log(&format!("engine stopped: {other:?}")); EXIT_ENGINE_ERROR } // a service (Plan 2f); never the web here
+            other => { log(&format!("engine stopped: {other:?}")); EXIT_ENGINE_ERROR } // a service; never the web here
         }
     });
     // As `serve`: a blocking unit a service left running gets up to 5 s; it never holds the exit longer.
@@ -156,7 +156,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     code
 }
 
-/// `deltabadger serve`: `run` and the web UI in one process (spec §3 Supervision). Every refusal, the web side's
+/// `deltabadger serve`: `run` and the web UI in one process. Every refusal, the web side's
 /// included (assets, config, no admin user, the port), comes before the claim, so a `serve` that cannot serve leaves
 /// the install Rails'. Exit codes as `run`: 0 stopped as asked, 1 refused before claiming, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
@@ -166,7 +166,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let (lock, o, cipher) = open_install(env);
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns.
     let _held = lock.clone();
-    // In `check`'s words (R1), and before anything else prints: each line names the bot and the reason. Venue and key
+    // In `check`'s words, and before anything else prints: each line names the bot and the reason. Venue and key
     // problems stay `preflight`'s (`claim_install`, below).
     if let Err(refusal) = check_install(&o.primary).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
         fail(&refusal.message());
@@ -185,8 +185,8 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let code = rt.block_on(async move {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
-        // Background services (plan I-10): each built here with a clone of `engine.stop_handle()`. Plan 2f adds its
-        // scheduler as one element; nothing else changes.
+        // Background services: each built here with a clone of `engine.stop_handle()`. A scheduler would be one
+        // more element; nothing else changes.
         let services: Vec<supervisor::Service> = vec![];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));

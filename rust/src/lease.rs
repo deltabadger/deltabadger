@@ -101,7 +101,7 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
     Ok(from)
 }
 
-/// Plan 2 calls this inside the same transaction that leaves every working bot `scheduled`.
+/// The engine calls this inside the same transaction that leaves every working bot `scheduled`.
 pub fn hand_back(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), LeaseError> {
     write(primary, cipher, &json!({ "engine": "none", "released_by": "rust", "handed_back": true, "at": now.to_rfc3339() }), now)
 }

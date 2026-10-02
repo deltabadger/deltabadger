@@ -196,7 +196,7 @@ fn the_alpaca_crypto_slice_is_eligible_with_its_two_options() {
 
 #[test]
 fn alpaca_stocks_etfs_baskets_index_bots_amount_limits_and_other_quotes_are_refused() {
-    // The owner's production instance is exactly the first six (spec amendment): it is not the canary.
+    // The owner's production instance is exactly the first six: it is not the canary.
     let cases: Vec<(&str, Make)> = vec![
         ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
@@ -233,12 +233,12 @@ fn the_guard_refuses_a_write_that_makes_the_install_ineligible_and_names_the_bot
     // A write the engine can run: the guard says commit.
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 70) WHERE id = ?1", [id]).unwrap();
-    assert!(eligibility::guard(&tx, &seed::cipher()).is_ok());
+    assert!(eligibility::guard(&tx, &seed::cipher(), id).is_ok());
     tx.commit().unwrap();
     // One it cannot: refused in check's words, naming the bot. The caller rolls back.
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true')) WHERE id = ?1", [id]).unwrap();
-    let refused = eligibility::guard(&tx, &seed::cipher()).unwrap_err();
+    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
     let line = format!("bot {id} (scheduled): quote_amount_limited");
     assert!(matches!(&refused, eligibility::Refusal::Ineligible(p) if p == &vec![line.clone()]), "{refused:?}");
     assert_eq!(refused.reason(), line);
@@ -270,7 +270,7 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     let start = |c: &rusqlite::Connection, id: i64| -> Result<(), eligibility::Refusal> {
         let tx = model::immediate(c).unwrap();
         tx.execute("UPDATE bots SET status = 1 WHERE id = ?1 AND status IN (0, 2)", [id]).unwrap();
-        eligibility::guard(&tx, &seed::cipher())?; // Err: `tx` is dropped, rolled back
+        eligibility::guard(&tx, &seed::cipher(), id)?; // Err: `tx` is dropped, rolled back
         tx.commit().unwrap();
         Ok(())
     };
@@ -280,7 +280,7 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     // A stopped Kraken bot is not traded, so the install is fine until the start.
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
-    assert!(eligibility::guard(&o.primary, &seed::cipher()).is_ok(), "an idle Kraken bot is not traded");
+    assert!(eligibility::guard(&o.primary, &seed::cipher(), id).is_ok(), "an idle Kraken bot is not traded");
     let refused = start(&o.primary, id).unwrap_err();
     assert!(untradable(&refused, &format!("bot {id}: Exchanges::Kraken is not connected in this build (Alpaca paper only)")), "{refused:?}");
     assert_eq!(status(&o.primary, id), 2, "rolled back");
@@ -296,4 +296,19 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     let refused = start(&o.primary, id).unwrap_err();
     assert!(untradable(&refused, &format!("bot {id}: no Alpaca API key")), "{refused:?}");
     assert_eq!(status(&o.primary, id), 2, "rolled back");
+}
+
+/// When the check itself fails, the 422's reason is generic: the internal error is logged, never shown.
+#[test]
+fn a_guard_that_fails_itself_keeps_its_internal_error_out_of_the_reason() {
+    use deltabadger::engine::model;
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("ALTER TABLE bots RENAME TO bots_gone", []).unwrap(); // the check cannot read its table
+    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    assert!(matches!(refused, eligibility::Refusal::Failed(_)), "{refused:?}");
+    assert_eq!(refused.reason(), "the check could not be completed");
+    let reason = refused.reason();
+    assert!(!reason.contains("bots") && !reason.contains("Sqlite"), "{reason}");
 }

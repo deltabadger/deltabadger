@@ -1,4 +1,4 @@
-//! The web UI (spec §4): server-rendered pages that match the Rails app's, for the compiled
+//! The web UI: server-rendered pages that match the Rails app's, for the compiled
 //! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
 //! both and compares.
 //!

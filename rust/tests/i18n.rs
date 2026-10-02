@@ -56,7 +56,7 @@ fn the_embedded_table_is_exactly_what_rails_loads_from_config_locales() {
             "only in Rails: {only_rails:?}\nonly in Rust: {only_rust:?}\ndifferent text: {different:?}");
 }
 
-/// Listed divergence (R2(b)): Rails commits a write the engine cannot run; Rust answers 422 with this copy.
+/// Listed divergence: Rails commits a write the engine cannot run; Rust answers 422 with this copy.
 /// One key, English only; every other locale falls back to it, as Rails' fallbacks do.
 #[test]
 fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {

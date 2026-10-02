@@ -1,5 +1,5 @@
 //! The session: one encrypted cookie, `_deltabadger_rust_session`. It is deliberately not Rails'
-//! `_deltabadger_session`: switching engines costs one sign-in (spec §1). AES-256-GCM under a key
+//! `_deltabadger_session`: switching engines costs one sign-in. AES-256-GCM under a key
 //! derived from `secret_key_base` for this purpose only; the cookie name is the associated data.
 //! Attributes as config/application.rb sets them for Rails: 30 days, HttpOnly, SameSite=Lax, and
 //! Secure exactly when Rails' cookie would be.

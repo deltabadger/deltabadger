@@ -239,7 +239,7 @@ async fn a_bot_made_due_and_notified_is_ticked_without_waiting_for_the_idle_cap(
         tokio::time::sleep(std::time::Duration::from_millis(300)).await; // the loop is asleep on its 60 s idle cap by now
         let started = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(1));
         rusqlite::Connection::open(&db).unwrap().execute("UPDATE bots SET started_at = ?1 WHERE id = ?2", rusqlite::params![started, id]).unwrap();
-        wake.notify_one(); // what Plan 3's UI does after starting a bot
+        wake.notify_one(); // what the web UI does after starting a bot
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         while v.sent().is_empty() && std::time::Instant::now() < deadline { tokio::time::sleep(std::time::Duration::from_millis(20)).await; }
         stop.request();

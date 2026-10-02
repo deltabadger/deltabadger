@@ -1,4 +1,4 @@
-//! Plan 2e: the engine and the web UI in one process (`supervisor::serve`), on one runtime, under one lock.
+//! The engine and the web UI in one process (`supervisor::serve`), on one runtime, under one lock.
 mod common;
 use common::seed::{self, BotSpec, TxSpec};
 use common::web::{self as w, TestClock};
@@ -24,7 +24,7 @@ fn ago(seconds: i64) -> String { codec::format_time(chrono::Utc::now() - chrono:
 
 struct Rig { _dir: tempfile::TempDir, engine: Engine<FakeFactory>, app: App, listener: tokio::net::TcpListener, port: u16, bot: i64, db: PathBuf, s: seed::Seeded }
 
-/// I-1: the longest any stretch of a full pass may hold the runtime thread (a debug build). /cable pings every 3 s and
+/// The longest any stretch of a full pass may hold the runtime thread (a debug build). /cable pings every 3 s and
 /// a client calls the connection stale after 6 s; a page request waits for the thread too.
 const RUNTIME_THREAD_BOUND: Duration = Duration::from_millis(250);
 
@@ -126,12 +126,12 @@ fn outstanding(db: &Path, external_id: &str) -> i64 {
         .query_row("SELECT count(*) FROM transactions WHERE external_id = ?1 AND status = 0 AND external_status IN (0, 1)", [external_id], |r| r.get(0)).unwrap()
 }
 
-/// The web's start (`Lifecycle#start` with start_fresh=true) as Plan 3's handler writes it (I-6): scheduled, a new
+/// The web's start (`Lifecycle#start` with start_fresh=true) as the web handler writes it: scheduled, a new
 /// anchor, no last action, and only from created or stopped. `?1` now, `?2` the bot.
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, started_at = ?1, \
     transient_data = json_remove(transient_data, '$.last_action_job_at') WHERE id = ?2 AND status IN (0, 2)";
 
-/// The web's stop (`Lifecycle#stop`) as Plan 3's handler writes it (I-6): unconditional but for a terminal bot, as
+/// The web's stop (`Lifecycle#stop`) as the web handler writes it: unconditional but for a terminal bot, as
 /// Rails returns early for an archived or deleted one (`lifecycle.rb:91-98`). `?1` now, `?2` the bot.
 const WEB_STOP: &str = "UPDATE bots SET status = 2, stopped_at = ?1, stop_message_key = NULL, updated_at = ?1 WHERE id = ?2 AND status NOT IN (3, 7)";
 
@@ -177,7 +177,7 @@ async fn a_web_stop_during_an_in_flight_tick_wins_and_nothing_more_is_placed() {
     let (stop, app, bot, db) = (r.engine.stop_handle(), r.app.clone(), r.bot, r.db.clone());
     let driver = async {
         until("the tick to send its order", || !v.sent().is_empty()).await;
-        // Lifecycle#stop as the web writes it (interface I-6).
+        // Lifecycle#stop as the web writes it.
         let now = codec::format_time(chrono::Utc::now());
         app.db(move |c| {
             c.execute(WEB_STOP, rusqlite::params![now, bot])?;
@@ -257,7 +257,7 @@ async fn an_engine_failure_ends_the_web_with_it() {
     assert!(up(port).await.is_none(), "no half-alive process: the web stopped with the engine");
 }
 
-/// R2(a): in one process every writer of `bots` runs `eligibility::guard`; a write that skips it is caught by the
+/// In one process every writer of `bots` runs `eligibility::guard`; a write that skips it is caught by the
 /// engine's next pass, naming the bot. (Release builds end the process instead: Ineligible, exit 2.)
 #[cfg(debug_assertions)]
 #[tokio::test(flavor = "current_thread")]
@@ -281,7 +281,7 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
     assert!(message.contains("skipped eligibility::guard") && message.contains(&format!("bot {bot} (scheduled): quote_amount_limited")), "{message}");
 }
 
-/// R2(a), the guard's second refusal: a write that skips it and moves a bot with an unresolved order onto another asset
+/// The guard's second refusal: a write that skips it and moves a bot with an unresolved order onto another asset
 /// strands that order (the install stays eligible). The engine's next pass names the bot all the same.
 #[cfg(debug_assertions)]
 #[tokio::test(flavor = "current_thread")]
@@ -324,7 +324,7 @@ async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_
     assert!(message.contains("skipped eligibility::guard") && message.contains(&format!("bot {bot}: stranded")), "{message}");
 }
 
-/// I-1, measured: with a venue that answers slowly (each call awaits 50 ms of timer, so the thread is free meanwhile)
+/// Measured: with a venue that answers slowly (each call awaits 50 ms of timer, so the thread is free meanwhile)
 /// and an install of ordinary size, a full pass with a full tick never holds the runtime thread longer than the bound.
 #[tokio::test(flavor = "current_thread")]
 async fn a_full_tick_never_holds_the_runtime_thread_longer_than_the_bound() {
@@ -338,7 +338,7 @@ async fn a_full_tick_never_holds_the_runtime_thread_longer_than_the_bound() {
     run::step(&mut r.engine, &SystemClock).await.unwrap();
     let took = t0.elapsed();
     let held = meter.stop().await; // after one more sample: the pass's last stretch is measured too
-    println!("I-1 measurement: full pass {took:?}; longest hold of the runtime thread {held:?}");
+    println!("measurement: full pass {took:?}; longest hold of the runtime thread {held:?}");
     assert_eq!(v.sent().len(), 1, "a full tick: price, AddOrder, balance");
     assert!(took >= Duration::from_millis(150), "the venue's three awaits yielded the thread: {took:?}");
     assert!(held < RUNTIME_THREAD_BOUND, "held the runtime thread {held:?}");
@@ -416,7 +416,7 @@ async fn a_web_write_holding_the_database_delays_the_engine_but_never_fails_it()
     let longest = meter.stop().await;
     assert!(matches!(ended, Ended::Stopped), "{ended:?}");
     assert!(t0.elapsed() >= Duration::from_millis(1200), "the engine waited for the web's write: {:?}", t0.elapsed());
-    // I-1: the busy wait runs on the runtime thread; it is the one way past the bound.
+    // The busy wait runs on the runtime thread; it is the one way past the bound.
     assert!(longest > RUNTIME_THREAD_BOUND, "the engine's busy wait held the thread {longest:?}");
     assert_eq!(status(&r.db, r.bot), BotStatus::Scheduled as i64, "and then ticked normally");
     assert_eq!(outstanding(&r.db, "OFAKE-1"), 1);

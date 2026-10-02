@@ -1,5 +1,5 @@
-//! The engine, the web UI and the background services in one process, on one runtime, under one lock (spec §3
-//! Supervision; amendment 2026-10-02). `deltabadger serve` passes the web; `deltabadger run` passes none, so both
+//! The engine, the web UI and the background services in one process, on one runtime, under one lock.
+//! `deltabadger serve` passes the web; `deltabadger run` passes none, so both
 //! commands go through this one supervisor and its one rule. Nothing here is spawned: the engine future is not `Send`,
 //! and the services need not be. One stop signal, the engine's `Shutdown`. One "ended" rule: the first part to end for
 //! any reason other than a requested stop decides `Ended` and requests the stop; the web stops serving when the engine
@@ -28,7 +28,7 @@ pub enum Ended {
     Service { name: &'static str, error: String },
 }
 
-/// A background service of `serve`: Plan 2f's scheduler, the ledger and balance sync, the mail sender. Built in
+/// A background service of `serve`: a scheduler, the ledger and balance sync, the mail sender. Built in
 /// `main.rs` after the claim, with the one stop signal (`engine.stop_handle()`); once a stop is requested it returns
 /// `Ok(())` promptly. `Err`, or `Ok` before a stop was requested, ends the process. Polled on the runtime thread, never
 /// spawned, on its own connection; no stretch between two awaits may hold the thread longer than the engine may.
@@ -43,7 +43,7 @@ pub async fn serve<'a, F: VenueFactory>(mut engine: Engine<F>, web: Option<(App,
     // The install stays locked until every part has finished: the engine drops its own handle when it returns, before
     // the services drain (`main.rs` holds one more through the runtime's shutdown).
     let _lock = engine.lock.clone();
-    // W5: armed whenever anything beside the engine may write in this process. Bare `run` (no web, no service) keeps
+    // Armed whenever anything beside the engine may write in this process. Bare `run` (no web, no service) keeps
     // the merged path: an ineligible pass is `Err(Ineligible)`.
     engine.writers_guarded = web.is_some() || !services.is_empty();
     if let Some((app, _)) = &web { app.attach_engine(engine.wake_handle()); }

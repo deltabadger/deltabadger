@@ -84,7 +84,7 @@ const MIGRATIONS_TABLE: &[TableContract] = &[TableContract {
     columns: &[("version", "varchar", true)],
     unique_indexes: &[],
 }];
-// Every table and column the engine reads or writes (Plan 2). Extend whenever Rust touches more.
+// Every table and column the engine reads or writes. Extend whenever Rust touches more.
 const PRIMARY: &[TableContract] = &[
     TableContract { name: "app_configs", columns: &[("key", "varchar", true), ("value", "text", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true)], unique_indexes: &[&["key"]] },
     TableContract { name: "bots", columns: &[

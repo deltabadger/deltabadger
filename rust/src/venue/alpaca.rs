@@ -202,7 +202,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     }
 }
 
-/// Before 3.0 the engine trades Alpaca paper only (the amendment's rollout rule).
+/// Before 3.0 the engine trades Alpaca paper only.
 pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build (paper only before 3.0)";
 
 /// The real venues by exchange type. This build connects Alpaca paper only; anything else gets a venue that sends nothing

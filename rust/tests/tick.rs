@@ -234,12 +234,12 @@ async fn a_transient_kraken_answer_to_addorder_is_ambiguous_not_a_rejection() {
     }
 }
 
-/// R5: the tick reads the row at its start and writes transient_data after AddOrder (here: clearing last_failure_kind).
+/// The tick reads the row at its start and writes transient_data after AddOrder (here: clearing last_failure_kind).
 /// A web json_set landing in between must survive, and the tick's own write must land too.
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_json_set_landing_while_addorder_awaits_survives_the_ticks_own_transient_writes() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_failure_kind", json!("transient")));
-    let db = o.primary.path().unwrap().to_string(); // the web UI, writing key by key from its own connection (I-7)
+    let db = o.primary.path().unwrap().to_string(); // the web UI, writing key by key from its own connection
     let v = priced().next_add(AddOutcome::Accept("OTX-W".into())).on_add(move || {
         rusqlite::Connection::open(&db).unwrap()
             .execute("UPDATE bots SET transient_data = json_set(transient_data, '$.web_key', 'from the web') WHERE id = ?1", [id]).unwrap();

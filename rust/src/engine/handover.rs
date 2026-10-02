@@ -1,4 +1,4 @@
-//! Spec §3 handover. Takeover: refuse an ineligible install, claim it, drop Rails' jobs for the bots
+//! Handover. Takeover: refuse an ineligible install, claim it, drop Rails' jobs for the bots
 //! this engine now runs, unstick `executing`. Handback: every order accounted for, then — in ONE
 //! SQLite transaction — every working bot `scheduled` and the handover row set to handed back.
 use super::{eligibility, model, placement, Clock, EngineError};

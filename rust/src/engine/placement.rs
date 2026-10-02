@@ -1,4 +1,4 @@
-//! Spec §3 placement protocol. The intent is committed (with a deadline read from the clock at that
+//! Placement protocol. The intent is committed (with a deadline read from the clock at that
 //! moment) before AddOrder, which is sent at most once. A lost reply is resolved by cl_ord_id, and a
 //! found order is recorded, filled and cleared in one transaction. "Not placed" is concluded only from a
 //! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the

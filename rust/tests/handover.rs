@@ -252,7 +252,7 @@ async fn a_settings_write_cannot_strand_an_unresolved_order_and_handback_settles
     tx.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json(?1)) WHERE id = ?2",
                rusqlite::params![json!({ eth.to_string(): 1.0 }).to_string(), b]).unwrap();
     assert!(eligibility::check_install(&tx).unwrap().problems.is_empty(), "eligible, as far as check_install sees");
-    let refused = eligibility::guard(&tx, &seed::cipher()).unwrap_err();
+    let refused = eligibility::guard(&tx, &seed::cipher(), b).unwrap_err();
     let line = format!("bot {b}: an order is still being reconciled; its asset, exchange and quote cannot change until it settles");
     assert!(matches!(&refused, Refusal::Reconciling(lines) if lines == &vec![line.clone()]), "{refused:?}");
     assert_eq!(refused.reason(), line, "what the 422 carries");
