@@ -190,6 +190,26 @@ mod sessions {
         for junk in ["", "abc", "!!!", &cookie[..30]] { assert_eq!(session::open(&key, junk, now), None, "{junk:?}"); }
     }
 
+    /// The cookie's name is the associated data of the seal: a value sealed under this key for another
+    /// purpose, or for none, is not a session. (Built here by hand, so the test does not depend on `seal`.)
+    #[test]
+    fn a_value_sealed_for_another_name_is_not_a_session() {
+        use aes_gcm::aead::{Aead, KeyInit, Payload};
+        use base64::Engine;
+        let (key, now) = ([3u8; 32], at("2026-09-10T12:00:30Z"));
+        let plain = serde_json::json!({ "exp": now.timestamp() + 60, "data": { "csrf": "c3Jm" } }).to_string();
+        let sealed_for = |name: &str| {
+            let nonce = [9u8; 12];
+            let sealed = aes_gcm::Aes256Gcm::new(&key.into()).encrypt(aes_gcm::Nonce::from_slice(&nonce), Payload { msg: plain.as_bytes(), aad: name.as_bytes() }).unwrap();
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([nonce.as_slice(), sealed.as_slice()].concat())
+        };
+        assert_eq!(session::COOKIE, "_deltabadger_rust_session");
+        assert_eq!(session::open(&key, &sealed_for("_deltabadger_rust_session"), now).and_then(|data| data.csrf).as_deref(), Some("c3Jm"), "sealed for the cookie's name");
+        assert_eq!(session::open(&key, &sealed_for(""), now), None, "sealed for no name");
+        assert_eq!(session::open(&key, &sealed_for("_deltabadger_session"), now), None, "sealed for another cookie's name");
+        assert_eq!(session::open(&key, &sealed_for("deltabadger rust turbo streams v1"), now), None);
+    }
+
     #[test]
     fn a_session_expires_thirty_days_after_it_was_last_written() {
         let (key, now) = ([3u8; 32], at("2026-09-10T12:00:30Z"));

@@ -128,6 +128,12 @@ async fn a_form_post_can_carry_another_method() {
         let answer = browser.send(&app, "POST", "/up", Some(&[("a", "1"), ("_method", given)]), web::Csrf::None, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{routed} /up")), "_method={given}: {}", answer.body);
     }
+    // Only a POST: Rack::MethodOverride reads `_method` from no other request, whatever its body says.
+    for (method, field) in [("PUT", "delete"), ("PATCH", "delete"), ("DELETE", "put")] {
+        let answer = browser.send(&app, method, "/up", Some(&[("_method", field)]), web::Csrf::None, &[]).await;
+        assert!(answer.status == 501 && answer.body.contains(&format!("{method} /up")), "{method} with _method={field}: {}", answer.body);
+    }
+    assert_eq!(browser.send(&app, "GET", "/up", Some(&[("_method", "delete")]), web::Csrf::None, &[]).await.status, 200, "a GET with a form body is a GET");
     let plain = browser.send(&app, "POST", "/up", None, web::Csrf::None, &[("content-type", "application/json")]).await;
     assert!(plain.body.contains("POST /up"), "only a form body is read: {}", plain.body);
     let get = browser.send(&app, "GET", "/up?_method=delete", None, web::Csrf::None, &[]).await;
@@ -336,6 +342,25 @@ async fn a_form_is_accepted_behind_a_tls_terminating_proxy_without_app_root_url(
     assert_eq!(submit(&[("origin", "http://localhost:3000"), ("x-forwarded-proto", "https")]).await, 302, "the scheme is part of an origin");
     assert_eq!(submit(&[("origin", "https://evil.example"), ("x-forwarded-proto", "https")]).await, 302);
     assert_eq!(submit(&[("origin", "https://localhost:3000"), ("x-forwarded-proto", "https"), ("x-forwarded-host", "bot.example")]).await, 302, "not the host the proxy named");
+}
+
+/// One secret, two keys: the session cookie's and the stream names'. Each is HMAC-SHA256 of
+/// secret_key_base over its own label, so a value made with one is nothing to the other, and the
+/// labels are fixed: changing one signs every browser out or breaks every open page's streams.
+#[tokio::test(flavor = "current_thread")]
+async fn the_session_key_and_the_stream_key_are_derived_under_their_own_labels() {
+    use hmac::Mac;
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let derived = |label: &str| -> [u8; 32] {
+        let mut mac = <hmac::Hmac<sha2::Sha256> as Mac>::new_from_slice(web::SECRET.as_bytes()).unwrap();
+        mac.update(label.as_bytes());
+        mac.finalize().into_bytes().into()
+    };
+    assert_ne!(app.keys.session, app.keys.streams, "the two keys differ");
+    assert_eq!(app.keys.session, derived("deltabadger rust session v1"));
+    assert_eq!(app.keys.streams, derived("deltabadger rust turbo streams v1"));
 }
 
 /// The session is the cookie: nothing is kept on the server, so there is nothing to revoke
