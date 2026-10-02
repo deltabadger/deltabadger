@@ -686,3 +686,36 @@ pub async fn register(State(app): State<App>, Extension(params): Extension<Arc<P
         "token_endpoint_auth_method": "none", "grant_types": ["authorization_code"], "response_types": ["code"], "scope": scope,
     })))
 }
+
+/// A row of `oauth_applications`: a client.
+#[derive(Clone, Debug)]
+pub struct Application {
+    pub id: i64,
+    pub uid: String,
+    pub name: String,
+    pub secret: Option<String>,
+    /// The registered redirect URIs, whitespace-separated.
+    pub redirect_uri: String,
+    pub scopes: String,
+    pub confidential: bool,
+    /// The per-user REST token's application: refused every grant flow (doorkeeper.rb).
+    pub personal: bool,
+}
+
+impl Application {
+    fn read(c: &Connection, condition: &str, value: &dyn rusqlite::ToSql) -> Result<Option<Self>, WebError> {
+        Ok(c.query_row(&format!("SELECT id, uid, name, secret, redirect_uri, scopes, confidential, personal_access_token FROM oauth_applications WHERE {condition} = ?1"), [value], |r| {
+            Ok(Self { id: r.get(0)?, uid: r.get(1)?, name: r.get(2)?, secret: r.get(3)?, redirect_uri: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                      scopes: r.get(5)?, confidential: r.get(6)?, personal: r.get(7)? })
+        }).optional()?)
+    }
+
+    pub fn by_uid(c: &Connection, uid: &str) -> Result<Option<Self>, WebError> { Self::read(c, "uid", &uid) }
+    pub fn by_id(c: &Connection, id: i64) -> Result<Option<Self>, WebError> { Self::read(c, "id", &id) }
+
+    /// The scopes a request may ask this client for: its own, or the server's when it has none.
+    pub fn allowed_scopes(&self) -> Vec<&str> {
+        let own = scopes(&self.scopes);
+        if own.is_empty() { SCOPES.to_vec() } else { own }
+    }
+}

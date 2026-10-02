@@ -9,6 +9,7 @@ pub mod auth;
 pub mod bearer;
 pub mod bots;
 pub mod cable;
+pub mod consent;
 pub mod csrf;
 pub mod flash;
 pub mod headers;
@@ -478,6 +479,7 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
