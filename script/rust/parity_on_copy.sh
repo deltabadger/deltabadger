@@ -36,7 +36,7 @@ bin="$root/rust/target/release/deltabadger"
 (cd "$root/rust" && cargo build -q --release --bin deltabadger)
 "$bin" decide plan "$src" "$tickers" "$rails_root" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cp -a "$rails_root/." "$rust_root/"
-(cd "$root" && env -u DATABASE_URL PROXY_KRAKEN=http://127.0.0.1:9 SKIP_TEST_DATABASE=true \
+(cd "$root" && env -u DATABASE_URL PROXY_KRAKEN=http://127.0.0.1:9 SKIP_TEST_DATABASE=true APP_ROOT_URL="${APP_ROOT_URL:-http://localhost:3000}" \
   PRIMARY_DATABASE_URL="sqlite3:$scratch/p.sqlite3" QUEUE_DATABASE_URL="sqlite3:$scratch/q.sqlite3" \
   CACHE_DATABASE_URL="sqlite3:$scratch/c.sqlite3" CABLE_DATABASE_URL="sqlite3:$scratch/w.sqlite3" \
   sh -c "bin/rails db:schema:load && bin/rails runner script/rust/decisions.rb record '$rails_root'") &

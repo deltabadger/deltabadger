@@ -118,7 +118,7 @@ fn rails_boot(dir: &std::path::Path) -> (bool, String) {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
     let out = Command::new(root.join("bin/rails")).current_dir(root).args(["runner", "puts :booted"])
-        .env("RAILS_ENV", "development").env_remove("DATABASE_URL")
+        .env("RAILS_ENV", "development").env_remove("DATABASE_URL").env("APP_ROOT_URL", "http://localhost:3000")
         .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}", dir.join("production.sqlite3").display()))
         .env("QUEUE_DATABASE_URL", format!("sqlite3:{}", dir.join("production_queue.sqlite3").display()))
         .env("CACHE_DATABASE_URL", format!("sqlite3:{}/cache.sqlite3", scratch.path().display()))
