@@ -222,14 +222,17 @@ pub fn stream_source(key: &[u8; 32], name: &str) -> String {
     format!("<turbo-cable-stream-source channel=\"{CHANNEL}\" signed-stream-name=\"{}\"></turbo-cable-stream-source>", escape(&signed_stream_name(key, name)))
 }
 
-/// Action Cable's allow_request_origin?: the whole origin (scheme, host, port) must be the
-/// deployment's own (APP_ROOT_URL) or the one the request came to: the scheme as Rails reads it
-/// (Rack's `ssl?`, so what a proxy forwarded counts) and the `Host` header, which is all Action
-/// Cable looks at; a forwarded host is not consulted here. A missing header is refused.
+/// Action Cable's allow_request_origin?, with one difference. The whole origin (scheme, host,
+/// port) must be the deployment's own: APP_ROOT_URL's when that is set, and then no other, exactly
+/// as the CSRF check of a form (Rails would also accept the origin of the request's own Host
+/// there, which is whatever the client wrote). Without APP_ROOT_URL it is the one the request came
+/// to: the scheme as Rails reads it (Rack's `ssl?`, so what a proxy forwarded counts) and the
+/// `Host` header, which is all Action Cable looks at; a forwarded host is not consulted here.
+/// A missing header is refused.
 fn origin_allowed(config: &Config, headers: &HeaderMap) -> bool {
     let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else { return false };
-    let came_to = header_text(headers, "host").map(|host| canonical_origin(if matches!(config.request_scheme(headers), "https" | "wss") { "https" } else { "http" }, host));
-    [config.own_origin.clone(), came_to].iter().flatten().any(|allowed| allowed == origin)
+    let came_to = || header_text(headers, "host").map(|host| canonical_origin(if matches!(config.request_scheme(headers), "https" | "wss") { "https" } else { "http" }, host));
+    config.own_origin.clone().or_else(came_to).is_some_and(|allowed| allowed == origin)
 }
 
 fn plain(status: StatusCode, body: &'static str) -> Response {

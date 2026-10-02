@@ -182,23 +182,44 @@ async fn a_reconnecting_client_is_welcomed_and_confirmed_again() {
     }
 }
 
+/// With APP_ROOT_URL the deployment has named its origin, and that is the only one a page may
+/// connect from, as for a form (Rails also accepts the origin of the request's own Host there).
 #[tokio::test(flavor = "current_thread")]
-async fn only_this_sites_pages_may_connect() {
+async fn with_app_root_url_only_its_origin_may_connect() {
     let (_dir, _app, address) = served().await;
-    assert_eq!(open(address, "http://evil.example").await.err(), Some(404));
     assert!(open(address, "http://localhost:3000").await.is_ok(), "APP_ROOT_URL's origin");
-    assert!(open(address, &format!("http://{address}")).await.is_ok(), "the host the request came to is allowed, as allow_same_origin_as_host");
-    assert_eq!(open(address, &format!("https://{address}")).await.err(), Some(404), "the scheme is part of an origin");
-    // Behind a proxy that terminated TLS the page's origin is https, as Action Cable reads it (Rack's `ssl?`).
+    assert_eq!(open(address, "http://evil.example").await.err(), Some(404));
+    assert_eq!(open(address, &format!("http://{address}")).await.err(), Some(404), "the host the request came to is not the deployment's origin");
+    assert_eq!(open(address, "https://localhost:3000").await.err(), Some(404), "the scheme is part of an origin");
+    assert_eq!(open(address, "http://localhost:3000.evil.example").await.err(), Some(404));
+    assert_eq!(open(address, "http://localhost:30001").await.err(), Some(404));
     let cookie = OWNER_COOKIE.get().map(String::as_str);
+    assert_eq!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.err(), Some(404), "nor does a forwarded scheme make it one");
+    let no_origin = {
+        let mut request = format!("ws://{address}/cable").into_client_request().unwrap();
+        request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={}", cookie.unwrap()).parse().unwrap());
+        tokio_tungstenite::connect_async(request).await
+    };
+    assert!(matches!(no_origin, Err(tokio_tungstenite::tungstenite::Error::Http(response)) if response.status() == 404), "no Origin header at all");
+}
+
+/// Without APP_ROOT_URL the origin is the one the request came to, as Action Cable's
+/// allow_same_origin_as_host reads it: the scheme by Rack's `ssl?`, and the Host header.
+#[tokio::test(flavor = "current_thread")]
+async fn without_app_root_url_the_origin_of_the_requests_own_host_may_connect() {
+    let (_dir, _app, address, _clock) = served_under(Duration::from_millis(100), server::Limits::default(), None).await;
+    let cookie = OWNER_COOKIE.get().map(String::as_str);
+    assert!(open(address, &format!("http://{address}")).await.is_ok(), "the host the request came to");
+    assert_eq!(open(address, "http://localhost:3000").await.err(), Some(404), "no origin is configured, and this is not the request's");
+    assert_eq!(open(address, "http://evil.example").await.err(), Some(404));
+    assert_eq!(open(address, &format!("https://{address}")).await.err(), Some(404), "the scheme is part of an origin");
+    // Behind a proxy that terminated TLS the page's origin is https.
     assert!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.is_ok());
     assert_eq!(open_with(address, &format!("http://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.err(), Some(404));
     assert!(open_with(address, &format!("http://{address}"), cookie, &[("x-forwarded-proto", "ws")]).await.is_ok(), "`ssl?` is https or wss; anything else is http");
     assert!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "wss")]).await.is_ok());
     // The host is the Host header's, as in Action Cable: a forwarded host is not consulted here.
     assert_eq!(open_with(address, "http://bot.example", cookie, &[("x-forwarded-host", "bot.example")]).await.err(), Some(404));
-    assert_eq!(open(address, "http://localhost:3000.evil.example").await.err(), Some(404));
-    assert_eq!(open(address, "http://localhost:30001").await.err(), Some(404));
 }
 
 /// Rails lets anyone who holds a signed stream name subscribe to it. Here a stream that belongs to
