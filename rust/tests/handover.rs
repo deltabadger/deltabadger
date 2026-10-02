@@ -176,7 +176,7 @@ async fn handback_after_lookups(lookups: serde_json::Value) -> (Result<usize, En
 
 #[tokio::test(flavor = "current_thread")]
 async fn an_unresolved_handback_waits_once_then_settles_or_exits_3() {
-    let not_found = serde_json::json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } });
+    let not_found = serde_json::json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" } });
     let failing = serde_json::json!({ "status": 500, "body": { "message": "internal server error" } });
     let (r, lookups) = handback_after_lookups(serde_json::json!([failing, not_found])).await;
     assert!(matches!(r, Ok(1)), "{r:?}");
@@ -207,7 +207,7 @@ async fn the_cli_handback_trusts_no_absence_before_a_full_margin_after_its_own_s
     let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
     // The intent is far older than the margin: only this process's own (fresh) start can hold the absence back.
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now() - chrono::Duration::seconds(2000))).unwrap();
-    let not_found = json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } });
+    let not_found = json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" } });
     let t = deltabadger::venue::http::ScriptedTransport::from_script(&json!({ "GET /v2/orders:by_client_order_id": [not_found] }));
     let factory = ScriptedAlpaca(deltabadger::venue::alpaca::AlpacaVenue::new(t.clone(), deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper"))));
     let clock = TokioClock { base: now(), start: tokio::time::Instant::now() };
