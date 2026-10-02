@@ -106,7 +106,9 @@ pub async fn serve_on(listener: TcpListener, app: App, limits: Limits) -> Result
         };
         let router = router.clone();
         // Admission: a request dispatched once the server is closed (`closing` dropped: the engine returned) is
-        // answered 503 without reaching the app; a request dispatched before finishes normally.
+        // answered 503 without reaching the app; a request dispatched before finishes normally. An upgraded /cable
+        // WebSocket has left the hyper connection, so neither this gate nor the close below reaches it: it lives until
+        // the runtime's 5 s shutdown (`main.rs`), and only pushes to the page meanwhile.
         let gate = closing.subscribe();
         let mut closed = gate.clone();
         let service = service_fn(move |mut request: hyper::Request<Incoming>| {

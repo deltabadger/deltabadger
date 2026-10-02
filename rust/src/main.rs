@@ -1,17 +1,20 @@
 //! `deltabadger check | run | handback | serve | resolve-placement | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
-//! - handback: settle every unresolved order, then return the install to Rails.
-//! - serve: take the engine lock, check the install, and serve the web UI until stopped. It runs no engine.
+//! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
+//! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
+//!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before Rails starts again.
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. Rails creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
-use deltabadger::engine::run::{self, Engine};
+use deltabadger::engine::eligibility::{check_install, Refusal};
+use deltabadger::engine::run::Engine;
 use deltabadger::engine::{handover, log, EngineError, SystemClock};
 use deltabadger::lease::{self, EngineLock, LeaseError};
 use deltabadger::store::{self, Paths, StoreError};
+use deltabadger::supervisor::{self, Ended};
 use deltabadger::venue::alpaca::{self, LiveFactory};
 
 const EXIT_REFUSED: i32 = 1;
@@ -28,7 +31,6 @@ fn main() {
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
             // The words `serve` refuses with too (Refusal::message).
-            use deltabadger::engine::eligibility::{check_install, Refusal};
             match check_install(&c).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
                 Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
                 Err(refusal) => fail(&refusal.message()),
@@ -36,28 +38,7 @@ fn main() {
         }
         Some("run") => std::process::exit(run_engine(&env)),
         Some("handback") => std::process::exit(hand_back(&env)),
-        Some("serve") => {
-            if !deltabadger::web::assets::BUILT {
-                fail(deltabadger::web::assets::MISSING);
-            }
-            refuse_url_overrides(&env);
-            let paths = paths(&env);
-            // Held until the process exits: neither Rails nor `run` can use this install while the web UI serves it.
-            let _lock = take_lock(&paths);
-            let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
-            let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
-                Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
-                None => 3000,
-            };
-            let config = deltabadger::web::Config::from_env(&env).unwrap_or_else(|e| fail(&web_problem(e)));
-            let app = deltabadger::web::App::new(config, &env, opened.primary, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
-            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-            rt.block_on(async {
-                let listener = deltabadger::web::server::bind(&app, port).await?;
-                eprintln!("deltabadger: serving on port {port}");
-                deltabadger::web::server::serve_on(listener, app, deltabadger::web::server::Limits::default()).await
-            }).unwrap_or_else(|e| fail(&web_problem(e)));
-        }
+        Some("serve") => std::process::exit(serve(&env)),
         Some("resolve-placement") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
             let bot_id: i64 = args.first().and_then(|a| a.parse().ok()).unwrap_or_else(|| fail("usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed"));
@@ -123,8 +104,8 @@ fn explain(e: StoreError) -> String {
     }
 }
 
-/// The shared start of `run` and `handback`: no URL overrides, the instance's SECRET_KEY_BASE, the exclusive lock, and an
-/// install this build accepts. Refusals here exit 1 before any file is created or changed.
+/// The shared start of `run`, `serve` and `handback`: no URL overrides, the instance's SECRET_KEY_BASE, the exclusive
+/// lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed.
 fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
@@ -135,30 +116,90 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Ope
     (lock, opened, Cipher::new(&keys))
 }
 
-fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
-    let (lock, o, cipher) = open_install(env);
-    if let Err(problems) = alpaca::preflight(&o.primary, &cipher) {
+/// The takeover `run` and `serve` share. Refusals exit 1 before anything is claimed; a takeover that fails after the
+/// claim exits 2.
+fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), i32> {
+    if let Err(problems) = alpaca::preflight(&o.primary, cipher) {
         eprintln!("deltabadger: refusing to take this install over:\n{}", problems.join("\n"));
-        return EXIT_REFUSED;
+        return Err(EXIT_REFUSED);
     }
-    let t = match handover::take_over(&lock, &o, &cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
+    let t = match handover::take_over(lock, o, cipher, env!("CARGO_PKG_VERSION"), chrono::Utc::now()) {
         Ok(t) => t,
-        Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: this install uses things only the full app runs:\n{}", p.join("\n")); return EXIT_REFUSED; }
-        Err(e) => { eprintln!("deltabadger: takeover failed: {e:?}"); return EXIT_ENGINE_ERROR; }
+        Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: this install uses things only the full app runs:\n{}", p.join("\n")); return Err(EXIT_REFUSED); }
+        Err(e) => { eprintln!("deltabadger: takeover failed: {e:?}"); return Err(EXIT_ENGINE_ERROR); }
     };
     log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.normalised));
+    Ok(())
+}
+
+fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    let (lock, o, cipher) = open_install(env);
+    // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns,
+    // and a service may still be draining then.
+    let _held = lock.clone();
+    if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-    rt.block_on(async move {
+    let code = rt.block_on(async move {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
-        match run::run(engine, &SystemClock).await {
-            Err(EngineError::Stopped) => { log("stopped on request"); 0 }
-            Err(e) => { log(&format!("engine stopped: {e:?}")); EXIT_ENGINE_ERROR }
-            Ok(never) => match never {},
+        // `serve`'s supervisor without the web: one "ended" rule for both commands (plan I-10).
+        match supervisor::serve(engine, None, &SystemClock, vec![]).await {
+            Ended::Stopped => { log("stopped on request"); 0 }
+            Ended::Engine(e) => { log(&format!("engine stopped: {e:?}")); EXIT_ENGINE_ERROR }
+            other => { log(&format!("engine stopped: {other:?}")); EXIT_ENGINE_ERROR } // a service (Plan 2f); never the web here
         }
-    })
+    });
+    // As `serve`: a blocking unit a service left running gets up to 5 s; it never holds the exit longer.
+    rt.shutdown_timeout(std::time::Duration::from_secs(5));
+    code
+}
+
+/// `deltabadger serve`: `run` and the web UI in one process (spec §3 Supervision). Every refusal, the web side's
+/// included (assets, config, no admin user, the port), comes before the claim, so a `serve` that cannot serve leaves
+/// the install Rails'. Exit codes as `run`: 0 stopped as asked, 1 refused before claiming, 2 ended otherwise.
+fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    if !deltabadger::web::assets::BUILT {
+        fail(deltabadger::web::assets::MISSING);
+    }
+    let (lock, o, cipher) = open_install(env);
+    // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns.
+    let _held = lock.clone();
+    // In `check`'s words (R1), and before anything else prints: each line names the bot and the reason. Venue and key
+    // problems stay `preflight`'s (`claim_install`, below).
+    if let Err(refusal) = check_install(&o.primary).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
+        fail(&refusal.message());
+    }
+    let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
+        Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
+        None => 3000,
+    };
+    let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));
+    // The web side's own connection; the engine keeps `o.primary`. The install passed the check a moment ago, under this lock.
+    let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;
+    let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
+    let listener = rt.block_on(deltabadger::web::server::bind(&app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
+    if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
+    let code = rt.block_on(async move {
+        let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
+        engine.stop_handle().on_signals();
+        // Background services (plan I-10): each built here with a clone of `engine.stop_handle()`. Plan 2f adds its
+        // scheduler as one element; nothing else changes.
+        let services: Vec<supervisor::Service> = vec![];
+        log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
+                      then run `deltabadger handback` before starting Rails"));
+        match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
+            Ended::Stopped => { log("stopped on request"); 0 }
+            Ended::Engine(e) => { log(&format!("engine stopped: {e:?}; the web UI stopped with it")); EXIT_ENGINE_ERROR }
+            Ended::Web(e) => { log(&format!("the web UI stopped: {e:?}; the engine finished its tick and stopped with it")); EXIT_ENGINE_ERROR }
+            Ended::Service { name, error } => { log(&format!("{name} stopped: {error}; the engine and the web UI stopped with it")); EXIT_ENGINE_ERROR }
+        }
+    });
+    // Requests still in flight get up to 5 s for their database work; the engine has already returned.
+    rt.shutdown_timeout(std::time::Duration::from_secs(5));
+    code
 }
 
 fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {

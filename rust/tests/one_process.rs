@@ -601,3 +601,86 @@ async fn the_meter_catches_a_hold_at_the_very_end_of_what_it_measures() {
     assert!(held >= stall, "an injected {stall:?} final stall measured as {held:?}");
     assert!(held >= RUNTIME_THREAD_BOUND, "so the bound test fails on it");
 }
+
+/// What `run` and `serve` do once the supervisor returns (`main.rs`): `rt.shutdown_timeout(5 s)`. A blocking unit still
+/// running then (a service's database call abandoned at the stop, a request's) delays the exit by at most those 5 s;
+/// an ordinary drop of the runtime would wait for it to finish.
+#[test]
+fn a_blocking_unit_left_running_cannot_hold_the_process_past_the_runtime_shutdown() {
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let r = rt.block_on(rig(priced(), BotSpec::weekly(60.0, "2099-01-01 00:00:00")));
+    let stop = r.engine.stop_handle();
+    let s = stop.clone();
+    let service = Service { name: "sync", run: Box::pin(async move {
+        let unit = tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_secs(30)));
+        tokio::select! { _ = unit => {}, _ = s.requested() => {} } // abandoned at the stop; its thread runs on
+        Ok(())
+    }) };
+    let driver = async {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        stop.request();
+    };
+    let (ended, ()) = rt.block_on(async { tokio::join!(supervisor::serve(r.engine, None, &SystemClock, vec![service]), driver) });
+    assert!(matches!(ended, Ended::Stopped), "{ended:?}");
+    let t0 = Instant::now();
+    rt.shutdown_timeout(Duration::from_secs(5));
+    assert!(t0.elapsed() < Duration::from_secs(7), "the 30 s unit held the exit {:?}", t0.elapsed());
+}
+
+/// An upgraded /cable WebSocket has left its hyper connection, so the server's close does not reach it. Once the engine
+/// has returned, `main.rs` no longer drives the runtime: the socket hears nothing more (not even a ping), and the
+/// runtime's shutdown drops it at once, without waiting out the 5 s.
+#[test]
+fn a_websocket_hears_nothing_once_the_engine_has_returned_and_is_dropped_at_the_runtime_shutdown() {
+    use futures_util::StreamExt;
+    use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message};
+    const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let Rig { _dir: _keep, engine, app, listener, port, db, s, .. } = rt.block_on(rig(priced(), BotSpec::weekly(60.0, "2099-01-01 00:00:00")));
+    rusqlite::Connection::open(&db).unwrap()
+        .execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", rusqlite::params![HASH, s.user_id]).unwrap();
+    let app = app.with_cable_timing(Duration::from_millis(50), Duration::from_secs(60)).unwrap(); // a ping every 50 ms
+    let session = deltabadger::web::session::SessionData { user: Some((s.user_id, HASH[..29].to_string())), ..Default::default() };
+    let cookie = deltabadger::web::session::seal(&app.keys.session, &session, app.now());
+    let (live_tx, live) = tokio::sync::oneshot::channel();
+    let browser = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async move {
+            let mut request = format!("ws://127.0.0.1:{port}/cable").into_client_request().unwrap();
+            request.headers_mut().insert("sec-websocket-protocol", "actioncable-v1-json".parse().unwrap());
+            request.headers_mut().insert("origin", format!("http://127.0.0.1:{port}").parse().unwrap());
+            request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={cookie}").parse().unwrap());
+            let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+            for _ in 0..2 { socket.next().await.unwrap().unwrap(); } // the welcome and a ping: live
+            live_tx.send(()).unwrap();
+            let mut heard = Vec::new();
+            let listening = async {
+                loop {
+                    match socket.next().await {
+                        Some(Ok(Message::Text(_))) => heard.push(Instant::now()),
+                        Some(Ok(_)) => {}
+                        Some(Err(_)) | None => return Instant::now(),
+                    }
+                }
+            };
+            let gone = tokio::time::timeout(Duration::from_secs(20), listening).await.expect("the socket ended within 20 s");
+            (heard, gone)
+        })
+    });
+    let stop = engine.stop_handle();
+    let driver = async {
+        live.await.unwrap();
+        stop.request(); // what the SIGTERM handler does; this future ends here, so block_on returns with the engine
+    };
+    let (ended, ()) = rt.block_on(async { tokio::join!(supervisor::serve(engine, Some((app, listener)), &SystemClock, vec![]), driver) });
+    let returned = Instant::now();
+    assert!(matches!(ended, Ended::Stopped), "{ended:?}");
+    std::thread::sleep(Duration::from_millis(500)); // ten pings' time with nothing driving the runtime
+    let shutdown = Instant::now();
+    rt.shutdown_timeout(Duration::from_secs(5));
+    let (heard, gone) = browser.join().unwrap();
+    let late: Vec<_> = heard.iter().filter(|t| **t > returned + Duration::from_millis(100)).collect();
+    assert!(late.is_empty(), "{} message(s) after the engine returned", late.len());
+    assert!(gone >= shutdown, "open until the runtime's shutdown");
+    assert!(gone < shutdown + Duration::from_secs(1), "dropped at the shutdown, not lingering: {:?}", gone - shutdown);
+}

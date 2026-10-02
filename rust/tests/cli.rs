@@ -140,3 +140,117 @@ fn check_names_each_ineligible_bot_and_its_reason() {
     assert_eq!(out.status.code(), Some(1));
     assert_eq!(stderr(&out), format!("deltabadger: this install uses things only the full app runs:\nbot {id} (scheduled): quote_amount_limited\n"));
 }
+
+fn free_port() -> u16 { std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port() }
+
+/// GET /up; `None` when nothing listens.
+fn http_up(port: u16) -> Option<String> {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).ok()?;
+    stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok()?;
+    write!(stream, "GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").ok()?;
+    let mut answer = String::new();
+    stream.read_to_string(&mut answer).ok()?;
+    Some(answer)
+}
+
+/// A child process killed when the test ends, passed or failed: a failing assertion must not leave a server running.
+struct Running(std::process::Child);
+impl Drop for Running {
+    fn drop(&mut self) { let _ = self.0.kill(); let _ = self.0.wait(); }
+}
+
+/// Runs `cmd` to its end. One still running after 20 s is killed and fails the test: it should have refused.
+fn finished(cmd: &mut Command) -> std::process::Output {
+    use std::io::Read;
+    let mut child = Running(cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while child.0.try_wait().unwrap().is_none() {
+        assert!(std::time::Instant::now() < deadline, "still running after 20 s: it should have refused");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let mut out = std::process::Output { status: child.0.wait().unwrap(), stdout: vec![], stderr: vec![] };
+    child.0.stderr.take().unwrap().read_to_end(&mut out.stderr).unwrap();
+    out
+}
+
+#[test]
+fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then_handback_returns_it() {
+    let (dir, o, s) = common::install_alpaca(); // seeds an admin user
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00")); // never due: no call to Alpaca
+    drop(o);
+    let port = free_port();
+    let mut child = Running(cli(dir.path(), &["serve"]).env("PORT", port.to_string()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let stdout = child.0.stdout.take().unwrap();
+    std::thread::spawn(move || for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) { let _ = tx.send(line); });
+    let next = || rx.recv_timeout(std::time::Duration::from_secs(20)).expect("a log line within 20 s");
+    let took = next();
+    assert!(took.contains("took over"), "{took}");
+    let running = next();
+    assert!(running.contains("running") && running.contains(&format!("port {port}")), "{running}"); // signal handlers are registered before this line
+    assert!(http_up(port).is_some_and(|a| a.starts_with("HTTP/1.1 200")), "the web answers in the same process");
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust", "serve claimed the install, as run does");
+    for cmd in ["check", "run", "handback", "serve"] {
+        let out = cli(dir.path(), &[cmd]).env("PORT", free_port().to_string()).output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{cmd}");
+        assert!(stderr(&out).contains("another Deltabadger engine is running"), "{cmd}: {}", stderr(&out));
+    }
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust", "a refused handback wrote nothing");
+
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let status = loop {
+        if let Some(s) = child.0.try_wait().unwrap() { break s; }
+        assert!(std::time::Instant::now() < deadline, "serve did not exit on SIGTERM");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
+    assert_eq!(status.code(), Some(0));
+    assert!(http_up(port).is_none(), "the web stopped with the engine");
+    assert_eq!(lease_of(dir.path()).unwrap()["engine"], "rust", "stopping serve is not a handback");
+    let out = cli(dir.path(), &["handback"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let row = lease_of(dir.path()).unwrap();
+    assert_eq!((row["engine"].as_str(), row["handed_back"].as_bool()), (Some("none"), Some(true)));
+}
+
+#[test]
+fn serve_refusals_come_before_the_claim() {
+    // What the engine refuses: a Kraken bot in this build.
+    let (dir, o, s) = common::install();
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    drop(o);
+    let out = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr(&out).contains("Exchanges::Kraken is not connected in this build"), "{}", stderr(&out));
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+
+    // What the web refuses: a port already taken, and an install with no admin user.
+    let (dir, o, _) = common::install_alpaca();
+    drop(o);
+    let taken = std::net::TcpListener::bind("0.0.0.0:0").unwrap();
+    let out = finished(cli(dir.path(), &["serve"]).env("PORT", taken.local_addr().unwrap().port().to_string()));
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr(&out).contains("cannot listen on port"), "{}", stderr(&out));
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+
+    let dir = common::rails_install();
+    let out = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr(&out).contains("no admin user"), "{}", stderr(&out));
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+}
+
+/// R1 addition: `serve`'s eligibility refusal names the bot and the reason in the words `check` uses.
+#[test]
+fn serve_refuses_an_ineligible_install_in_the_words_check_uses() {
+    let (dir, o, s) = common::install_alpaca(); // seeds an admin user
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", serde_json::json!(true)));
+    drop(o);
+    let checked = cli(dir.path(), &["check"]).output().unwrap();
+    let served = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
+    assert_eq!((checked.status.code(), served.status.code()), (Some(1), Some(1)));
+    assert!(stderr(&served).contains(&format!("bot {id} (scheduled): quote_amount_limited")), "{}", stderr(&served));
+    assert_eq!(stderr(&served), stderr(&checked), "the same words, byte for byte");
+    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
+}
