@@ -251,8 +251,9 @@ pub struct Params {
 }
 
 impl Params {
+    /// The last value of a repeated key, as Rack reads a query string.
     pub fn query(&self, name: &str) -> Option<&str> {
-        self.query.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
+        self.query.iter().rfind(|(k, _)| k == name).map(|(_, v)| v.as_str())
     }
 
     pub fn form(&self, name: &str) -> Option<&str> {

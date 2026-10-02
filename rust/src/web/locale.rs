@@ -63,11 +63,14 @@ fn cgi_escape(text: &str) -> String {
 }
 
 /// locale_switch_path: the current page under another locale. The locale is always in the path here,
-/// English included, and the query keeps its other keys, sorted, as `to_query` writes them.
+/// English included, and the query keeps its other keys, sorted, as `to_query` writes them. A
+/// repeated key keeps its last value, as Rack parsed it, unless it is a list (`a[]`), which keeps all.
+/// ponytail: Rack's nesting beyond that (`a[][b]`, `a` beside `a[b]`) is not modelled; no link of this app writes such a query.
 pub fn switch_path(target: &str, route_path: &str, query: &[(String, String)]) -> String {
-    let mut kept: Vec<String> = query.iter()
-        .filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key)))
-        .map(|(key, value)| format!("{}={}", cgi_escape(key), cgi_escape(value)))
+    let mut kept: Vec<String> = query.iter().enumerate()
+        .filter(|(_, (key, _))| !RESERVED.contains(&key.split('[').next().unwrap_or(key)))
+        .filter(|(at, (key, _))| key.ends_with("[]") || !query.iter().skip(at + 1).any(|(later, _)| later == key))
+        .map(|(_, (key, value))| format!("{}={}", cgi_escape(key), cgi_escape(value)))
         .collect();
     kept.sort();
     let base = if route_path == "/" { format!("/{target}") } else { format!("/{target}{route_path}") };

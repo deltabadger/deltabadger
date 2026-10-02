@@ -90,6 +90,9 @@ mod locales {
         // Recorded from Rails by the login_page_query scenario of tests/pages.rs.
         let given = query(&[("x", "1"), ("host", "evil.example"), ("locale", "de"), ("b", "two words"), ("a[]", "1")]);
         assert_eq!(locale::switch_path("nl", "/login", &given), "/nl/login?a%5B%5D=1&b=two+words&x=1");
+        // Recorded by the login_page_repeated_query_keys scenario: the last value of a repeated key, every value of a list.
+        let repeated = query(&[("x", "1"), ("user[email]", "first"), ("x", "2"), ("user[email]", "last"), ("a[]", "1"), ("a[]", "2")]);
+        assert_eq!(locale::switch_path("en", "/login", &repeated), "/en/login?a%5B%5D=1&a%5B%5D=2&user%5Bemail%5D=last&x=2");
     }
 
     #[test]
@@ -117,6 +120,18 @@ mod form_fields {
         assert_eq!(params.form("user[remember_me]"), Some("1"));
         assert_eq!(params.form("a"), Some("1"));
         assert_eq!(params.form("b"), None);
+    }
+
+    /// The query string too: `/login?locale=de&locale=pl` is Polish (Rails' answer is the
+    /// login_page_repeated_query_keys scenario of tests/pages.rs).
+    #[test]
+    fn a_repeated_query_key_reads_its_last_value_as_rack_does() {
+        let query = fields(&[("locale", "de"), ("x", "1"), ("locale", "pl")]);
+        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query, form: Vec::new() };
+        assert_eq!(params.query("locale"), Some("pl"));
+        assert_eq!(params.locale(), Some("pl"));
+        assert_eq!(params.query("x"), Some("1"));
+        assert_eq!(params.query("y"), None);
     }
 
     #[test]
