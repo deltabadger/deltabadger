@@ -15,6 +15,7 @@
 //! A job may be registered once per scope (`Spec::scope`, e.g. a ledger sync per API key): each scope has its own due
 //! time, wakes and record (`rust_job.<name>:<scope>`).
 pub mod data_api;
+pub mod import;
 pub mod schedule;
 pub mod state;
 

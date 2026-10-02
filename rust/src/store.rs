@@ -108,10 +108,28 @@ const PRIMARY: &[TableContract] = &[
         ("quote", "varchar", true), ("base_asset_id", "bigint", true), ("quote_asset_id", "bigint", true),
         ("base_decimals", "integer", true), ("quote_decimals", "integer", true), ("price_decimals", "integer", true),
         ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
+        ("maximum_base_size", "decimal", false), ("maximum_quote_size", "decimal", false),
         ("trading_enabled", "boolean", true), ("available", "boolean", false),
-    ], unique_indexes: &[] },
-    TableContract { name: "assets", columns: &[("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false)], unique_indexes: &[] },
-    TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false)], unique_indexes: &[] },
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["exchange_id", "base_asset_id", "quote_asset_id"], &["exchange_id", "ticker"], &["exchange_id", "base", "quote"]] },
+    TableContract { name: "assets", columns: &[
+        ("id", "integer", true), ("external_id", "varchar", true), ("symbol", "varchar", false), ("name", "varchar", false),
+        ("category", "varchar", false), ("instrument_type", "varchar", false), ("image_url", "varchar", false), ("color", "varchar", false),
+        ("market_cap_rank", "integer", false), ("market_cap", "bigint", false), ("circulating_supply", "decimal(30,8)", false),
+        ("url", "varchar", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["external_id"]] },
+    TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false), ("available", "boolean", false)], unique_indexes: &[] },
+    // The reference-data jobs (rust/src/jobs/import.rs).
+    TableContract { name: "exchange_assets", columns: &[
+        ("asset_id", "bigint", true), ("exchange_id", "bigint", true), ("available", "boolean", false),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["asset_id", "exchange_id"]] },
+    TableContract { name: "indices", columns: &[
+        ("id", "integer", true), ("external_id", "varchar", false), ("source", "varchar", false), ("name", "varchar", false),
+        ("description", "text", false), ("top_coins", "json", false), ("top_coins_by_exchange", "json", false), ("market_cap", "decimal", false),
+        ("available_exchanges", "json", false), ("weights", "json", false), ("weight", "integer", true),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["external_id", "source"]] },
     TableContract { name: "api_keys", columns: &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
         ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),

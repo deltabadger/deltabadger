@@ -73,6 +73,10 @@ impl BigDec {
     pub fn floor(&self, places: i64) -> Self { self.scaled(places, RoundingMode::Floor) }
     pub fn ceil(&self, places: i64) -> Self { self.scaled(places, RoundingMode::Ceiling) }
     pub fn round(&self, places: i64) -> Self { self.scaled(places, RoundingMode::HalfUp) }
+    /// `BigDecimal(x, digits)`: rounded half up to `digits` significant digits.
+    pub fn round_sig(&self, digits: u64) -> Self {
+        Self(self.0.with_precision_round(std::num::NonZeroU64::new(digits).expect("digits > 0"), RoundingMode::HalfUp).normalized())
+    }
 
     /// BigDecimal#to_s('F'): plain notation, at least one fractional digit.
     pub fn to_s_f(&self) -> String {
