@@ -61,6 +61,7 @@ fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
         amount_exec: dec(&o["vol_exec"]).unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"]).unwrap_or_else(BigDec::zero), limit,
         sell: o["descr"]["type"] == "sell",
+        pair: o["descr"]["pair"].as_str().map(str::to_string),
     })
 }
 
@@ -210,6 +211,7 @@ impl Venue for FakeVenue {
             None => OrderState {
                 txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
                 amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
+                pair: Some(order.pair.clone()),
             },
         }))
     }
@@ -236,8 +238,9 @@ impl Venue for FakeVenue {
                 None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell")),
             }
         }
+        // No pair: the aggregation names the trade pair (XXBTZEUR), which is no ticker's `ticker`, so Rails backfills nothing.
         Ok(by.into_iter().map(|(txid, vol, cost, limit, sell)| OrderState {
-            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell,
+            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair: None,
         }).collect())
     }
 

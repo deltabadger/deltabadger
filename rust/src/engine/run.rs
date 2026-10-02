@@ -188,7 +188,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
 }
 
 /// Every bot a write that skipped `eligibility::guard` left behind, as the guard would have refused it: outside the
-/// slice, unreadable, or with an unresolved order its row no longer matches (stranded). Release builds skip the last two
+/// slice, unreadable, or changed under an unresolved order (stranded). Release builds skip the last two
 /// as before (unreadable rows are logged and skipped; a stranded intent waits for `resolve-placement`).
 #[cfg(debug_assertions)]
 fn assert_guarded(c: &Connection, report: &eligibility::Report) {
@@ -196,7 +196,7 @@ fn assert_guarded(c: &Connection, report: &eligibility::Report) {
     named.extend(report.unreadable.iter().map(|(id, err)| format!("bot {id}: unreadable ({err})")));
     // An error here (a row it cannot load) is an unreadable bot, named above.
     let stranded = placement::stranded(c).unwrap_or_default();
-    named.extend(stranded.iter().map(|id| format!("bot {id}: stranded: its unresolved order no longer matches its asset, exchange or quote")));
+    named.extend(stranded.iter().map(|id| format!("bot {id}: stranded: its composition, asset, exchange or quote changed while its order is unresolved")));
     assert!(named.is_empty(), "a write to bots skipped eligibility::guard: {}", named.join("; "));
 }
 

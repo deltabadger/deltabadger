@@ -75,8 +75,10 @@ pub struct OrderPlan {
 #[derive(Debug)]
 pub enum Sizing { Nothing, Ignored(OrderPlan), BelowMinimum(OrderPlan), Place(OrderPlan), ZeroPrice { decimals: i64 } }
 
-/// Bot::OrderSetter#order_price for a buy (Ticker#adjusted_price): a limit buy goes below the last trade, floored to the
-/// pair's price decimals; a market buy is the ask itself. The split values holdings at this price too.
+/// Bot::OrderSetter#order_price for a buy: a limit buy goes below the last trade, floored to the pair's price decimals; a
+/// market buy is the ask itself. The split values holdings at this price too. Only `Ticker#adjusted_price`'s default rule
+/// (floor to price_decimals) is ported: a venue that overrides adjusted_price (Hyperliquid: 5 significant figures) is not
+/// covered.
 pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec) -> BigDec {
     match bot.limit_distance() {
         Some(d) => (reference * &(&BigDec::one() - &d)).floor(ticker.price_decimals),

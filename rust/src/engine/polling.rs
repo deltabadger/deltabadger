@@ -51,7 +51,9 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update
     };
     let row = load(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
-    let ticker = model::ticker_for(c, &bot)?;
+    // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
+    // order's pair (Exchanges::*#parse_order_data `tickers.find_by(ticker:)`), never the bot's first member.
+    let ticker = match &s.pair { Some(pair) => model::ticker_for_pair(c, bot.exchange_id, pair)?, None => None };
 
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
     let mut sets: Vec<(&str, Sql)> = vec![];

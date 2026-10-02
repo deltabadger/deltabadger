@@ -28,6 +28,7 @@ impl Intent {
     fn to_json(&self) -> Value {
         let p = &self.plan;
         json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
+                "base_asset_id": p.ticker.base_asset_id,
                 "limit": p.limit, "price": p.price.to_s_f(), "amount": p.amount.to_s_f(), "quote_amount": p.quote_amount.to_s_f(),
                 "quote_type": p.quote_type, "volume": p.volume.to_s_f() })
     }
@@ -36,27 +37,54 @@ impl Intent {
         let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);
         let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);
         let b = |k: &str| v[k].as_bool().ok_or_else(bad);
-        let ticker = model::ticker_for(c, bot)?.filter(|t| Some(t.id) == v["ticker_id"].as_i64()).ok_or_else(bad)?;
+        // The intent names its own ticker: a basket's leg k is not the bot's first member. base_asset_id is for the logs; an
+        // intent written by an earlier build has none.
+        let ticker = model::ticker_by_id(c, bot.exchange_id, v["ticker_id"].as_i64().ok_or_else(bad)?)?.ok_or_else(bad)?;
         Ok(Self { cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
 }
 
-/// Bots whose unresolved order (`rust_placement`) no longer matches them as the row stands now: `Intent::from_json`
-/// fails (the ticker their asset, exchange and quote select is not the intent's). Recovery, `handback` and
-/// `resolve-placement` could not settle such an order, so `eligibility::guard` refuses the write that would leave one.
+/// Bots whose unresolved order (`rust_placement`) was sent under another composition, asset, exchange or quote than the
+/// row holds now. `eligibility::guard` refuses ANY such change while the order is unresolved. Recovery would cope, since
+/// `Intent::from_json` finds the order's ticker by its id whatever the bot's settings, but Rails freezes a working bot's
+/// composition too, and one rule is simpler and safe. The intent records what it was sent under (`exchange_id`,
+/// `quote_asset_id`, `allocations`, written by `begin`; one written by an earlier build gets them at takeover,
+/// `backfill_snapshots`). An intent without them counts as changed: fail closed.
 pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     let mut out = vec![];
     for id in ids {
         let bot = model::load_bot(c, id)?;
-        if let Some(v) = bot.rust_placement() {
-            if Intent::from_json(c, &bot, &v).is_err() { out.push(id); }
-        }
+        let Some(v) = bot.rust_placement() else { continue };
+        let changed = match v.get("allocations") {
+            Some(sent) => v["exchange_id"].as_i64() != Some(bot.exchange_id) || v["quote_asset_id"].as_i64() != bot.quote_asset_id()
+                || bot.settings.get("allocations") != Some(sent),
+            None => true,
+        };
+        if changed { out.push(id); }
     }
     Ok(out)
+}
+
+/// Gives every unresolved intent written by an earlier build the snapshot `begin` now records, from the bot's row. Exact:
+/// such intents come only from the earlier engine, which had no web UI and let nothing else write, so the row is what the
+/// order was sent under. `handover::take_over` calls it before the engine ticks or the web serves a request. Each write is
+/// one key-scoped statement. Returns how many it filled.
+pub fn backfill_snapshots(c: &Connection) -> Result<usize, EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL \
+                           AND json_type(transient_data, '$.rust_placement.allocations') IS NULL ORDER BY id")?;
+    let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    for id in &ids {
+        let bot = model::load_bot(c, *id)?;
+        let allocations = bot.settings.get("allocations").cloned().unwrap_or(Value::Null);
+        c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement.exchange_id', ?1, \
+                   '$.rust_placement.quote_asset_id', ?2, '$.rust_placement.allocations', json(?3)) WHERE id = ?4",
+                  params![bot.exchange_id, bot.quote_asset_id(), allocations.to_string(), id])?;
+    }
+    Ok(ids.len())
 }
 
 /// Re-read under the write lock: is the intent with this cl_ord_id still the bot's unresolved one?
@@ -76,12 +104,18 @@ fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), Engi
 
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
-    if model::load_bot(&tx, bot.id)?.rust_placement().is_some() {
+    let current = model::load_bot(&tx, bot.id)?;
+    if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
     let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now + Duration::seconds(DEADLINE_SECONDS), at: now, plan: plan.clone() };
-    set_intent(&tx, bot.id, Some(&intent.to_json()))?;
+    // What the order is sent under: `stranded` refuses any change to it until the order settles.
+    let mut v = intent.to_json();
+    v["exchange_id"] = json!(current.exchange_id);
+    v["quote_asset_id"] = json!(current.quote_asset_id());
+    v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
+    set_intent(&tx, bot.id, Some(&v))?;
     tx.commit()?; // durable before the send
     Ok(intent)
 }

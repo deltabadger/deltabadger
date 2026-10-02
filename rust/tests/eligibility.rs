@@ -504,3 +504,49 @@ fn refusals_and_notes_name_no_internal_plan() {
     }
     assert!(lines.iter().all(|l| !l.contains("Plan ")), "{lines:?}");
 }
+
+/// An intent written by an earlier engine build, before intents recorded what they were sent under, gets that snapshot at
+/// takeover, from the bot's row: that build had no web UI and let nothing else write, so the row is what the order was
+/// sent under. From then on the stranded rule holds for that bot like any other, stopped or not.
+#[test]
+fn a_pre_2c_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen() {
+    use deltabadger::engine::{amount, handover, model, placement, FixedClock};
+    use deltabadger::ruby::BigDec;
+    let now: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
+    let (d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000),
+        deltabadger::engine::venue_rules::ALPACA.minimum_logic) else { panic!("sized") };
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(now)).unwrap();
+    // As the earlier build wrote it: no exchange, quote or allocations recorded.
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.exchange_id', \
+                       '$.rust_placement.quote_asset_id', '$.rust_placement.allocations') WHERE id = ?1", [id]).unwrap();
+    let l = deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_| None, d.path()), now).unwrap();
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now).unwrap();
+    let v = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap();
+    assert_eq!((v["exchange_id"].as_i64(), v["quote_asset_id"].as_i64()), (Some(bot.exchange_id), bot.quote_asset_id()), "backfilled from the row");
+    assert_eq!(Some(&v["allocations"]), bot.settings.get("allocations"));
+    let reconciling = format!("bot {id}: an order is still being reconciled; its composition, asset, exchange and quote cannot change until it settles");
+    let reweigh = |tx: &rusqlite::Transaction| tx.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json(?1)) WHERE id = ?2",
+        rusqlite::params![json!({ s.btc.to_string(): 0.9995 }).to_string(), id]).unwrap();
+    // A stop and the weight change in one write: refused.
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap(); // Lifecycle#stop, as the web writes it
+    reweigh(&tx);
+    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    assert!(matches!(&refused, eligibility::Refusal::Reconciling(_)), "{refused:?}");
+    assert_eq!(refused.reason(), reconciling, "what the 422 carries");
+    drop(tx); // rolled back
+    // A plain stop: goes through.
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    assert!(eligibility::guard(&tx, &seed::cipher(), id).is_ok(), "a stop goes through");
+    tx.commit().unwrap();
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, deltabadger::enums::BotStatus::Stopped);
+    // The weight change on the stopped bot: still refused while the order is unresolved.
+    let tx = model::immediate(&o.primary).unwrap();
+    reweigh(&tx);
+    assert_eq!(eligibility::guard(&tx, &seed::cipher(), id).unwrap_err().reason(), reconciling);
+}

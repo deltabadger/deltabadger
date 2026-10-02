@@ -26,9 +26,14 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    // Claim first and on its own: once committed, Rails refuses, and a failure below is repaired by the next
-    // start, which repeats the deletes and the normalisation idempotently.
-    let claim = lease::claim(lock, &o.primary, cipher, version, now)?;
+    // Claim first, with the snapshot backfill and nothing else: once committed, Rails refuses, and a failure below is
+    // repaired by the next start, which repeats the deletes and the normalisation idempotently.
+    let tx = model::immediate(&o.primary)?;
+    let claim = lease::claim(lock, &tx, cipher, version, now)?;
+    // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
+    // carries what it was sent under (placement::backfill_snapshots).
+    placement::backfill_snapshots(&tx)?;
+    tx.commit()?;
 
     let mut gids: Vec<String> = report.eligible.iter().map(|id| format!("gid://deltabadger/Bots::DcaMultiAsset/{id}")).collect();
     for id in &report.eligible {

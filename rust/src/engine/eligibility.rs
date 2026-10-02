@@ -234,8 +234,7 @@ pub enum Refusal {
     Ineligible(Vec<String>),
     /// Bot rows this build cannot read. Takeover refuses them, so no write may leave one behind.
     Unreadable(Vec<(i64, String)>),
-    /// Bots whose unresolved order would no longer match them: recovery, `handback` and `resolve-placement` read the
-    /// intent against the bot's current asset, exchange and quote (`placement::stranded`).
+    /// Bots with an unresolved order whose composition, asset, exchange or quote a write would change (`placement::stranded`).
     Reconciling(Vec<String>),
     /// What this build cannot trade, in `alpaca::preflight`'s words: a venue other than Alpaca, a live key, no key.
     Untradable(Vec<String>),
@@ -288,7 +287,7 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: i64) -> Result<(), Refusa
     let stranded = placement::stranded(tx).map_err(failed)?;
     if !stranded.is_empty() {
         return Err(Refusal::Reconciling(stranded.iter().map(|id| {
-            format!("bot {id}: an order is still being reconciled; its asset, exchange and quote cannot change until it settles")
+            format!("bot {id}: an order is still being reconciled; its composition, asset, exchange and quote cannot change until it settles")
         }).collect()));
     }
     crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)
