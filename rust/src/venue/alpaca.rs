@@ -42,7 +42,8 @@ pub fn error_message(r: &HttpRequest, resp: &HttpResponse) -> String {
     if body.trim().is_empty() { return format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()); }
     let lower = body.to_ascii_lowercase();
     if lower.match_indices('<').any(|(i, _)| lower[i + 1..].trim_start().starts_with("html")) { return format!("HTTP {}", resp.status); }
-    match serde_json::from_str::<Value>(body).ok().as_ref().and_then(|v| v.get("message")) {
+    // Through the venue decode like every body: one with an out-of-range number is quoted raw, never parsed into a message.
+    match http::decode_json(body).ok().as_ref().and_then(|v| v.get("message")) {
         Some(Value::String(s)) if !s.trim().is_empty() => s.clone(),
         Some(v) if !v.is_null() && !v.is_string() => v.to_string(),
         _ => body.to_string(),
@@ -59,7 +60,8 @@ fn unreadable(e: DecodeError, r: &HttpRequest, resp: &HttpResponse) -> String {
 /// HTML, the right code with another message) proves nothing and stays Pending, so the intent stays (fail closed). The live check (Task 11) asserts this envelope against the real paper API;
 /// if Alpaca's real envelope differs, this matcher follows the recording, and until then every lookup stays Pending.
 pub fn alpaca_not_found(body: &str) -> bool {
-    serde_json::from_str::<Value>(body).is_ok_and(|v| v["code"] == 40_410_000 && v["message"].as_str().is_some_and(|m| m.starts_with("order not found")))
+    // An envelope with an out-of-range number anywhere is unreadable (http::decode_json), so it never proves absence.
+    http::decode_json(body).is_ok_and(|v| v["code"] == 40_410_000 && v["message"].as_str().is_some_and(|m| m.starts_with("order not found")))
 }
 
 /// Exchanges::Alpaca#parse_order_status.

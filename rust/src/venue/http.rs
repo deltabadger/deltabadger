@@ -88,17 +88,20 @@ pub fn decode_json(body: &str) -> Result<Value, DecodeError> {
     serde_json::from_str(body).map_err(|_| DecodeError::NotJson)
 }
 
+/// Over borrowed slices only: a hostile token of any length costs no allocation, and its diagnostic quotes a short prefix.
 fn number_in_caps(token: &str) -> Result<(), DecodeError> {
-    use crate::ruby::{raw, VENUE_MAX_DIGITS, VENUE_MAX_EXPONENT};
-    let bad = || DecodeError::OutOfRange(format!("unreadable number {} in the venue's answer", raw(&Value::String(token.into()))));
+    use crate::ruby::{VENUE_MAX_DIGITS, VENUE_MAX_EXPONENT};
+    // The scanner only takes ASCII bytes into a token, so any byte index is a char boundary.
+    let bad = || DecodeError::OutOfRange(format!("unreadable number {}{} ({} characters) in the venue's answer",
+        &token[..token.len().min(32)], if token.len() > 32 { "…" } else { "" }, token.len()));
     let t = token.strip_prefix('-').unwrap_or(token);
     let (mantissa, exp) = t.split_once(['e', 'E']).unwrap_or((t, "0"));
     let exp = i128::from(exp.parse::<i64>().map_err(|_| bad())?);
     let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
-    let digits = format!("{int}{frac}");
-    if int.is_empty() || !digits.bytes().all(|d| d.is_ascii_digit()) { return Err(bad()); }
-    let Some(first) = digits.bytes().position(|d| d != b'0') else { return Ok(()) }; // a true zero
-    let last = digits.bytes().rposition(|d| d != b'0').unwrap_or(first);
+    let digits = || int.bytes().chain(frac.bytes());
+    if int.is_empty() || !digits().all(|d| d.is_ascii_digit()) { return Err(bad()); }
+    let Some(first) = digits().position(|d| d != b'0') else { return Ok(()) }; // a true zero
+    let last = int.len() + frac.len() - 1 - digits().rev().position(|d| d != b'0').unwrap_or(0);
     let exponent = int.len() as i128 - 1 - first as i128 + exp; // the most significant digit's power of ten
     if (last - first + 1) as i64 > VENUE_MAX_DIGITS || exponent.abs() > i128::from(VENUE_MAX_EXPONENT) { return Err(bad()); }
     Ok(())

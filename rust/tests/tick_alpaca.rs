@@ -573,3 +573,15 @@ async fn a_raw_poll_or_lookup_with_an_out_of_range_fill_records_no_zero_fill() {
         assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{bad}: no zero fill recorded");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_not_found_answer_with_an_out_of_range_number_proves_nothing() {
+    let (_d, o, id, _) = setup(weekly());
+    let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }],
+        "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": r#"{"code":40410000,"message":"order not found","x":1e-350}"# }] }));
+    let v = venue(&t);
+    tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(1300))).await.unwrap();
+    assert!(matches!(recovered, Recovery::Pending), "{recovered:?}");
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "the intent stays");
+}
