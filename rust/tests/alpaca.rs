@@ -139,7 +139,7 @@ async fn permanent_transport_failures_are_failures_as_client_network_failure_ret
 #[tokio::test(flavor = "current_thread")]
 async fn orders_are_fetched_one_by_one_and_the_first_failure_is_the_answer() {
     let (t, v) = venue(json!({
-        "GET /v2/orders/A": ok(json!({ "id": "A", "status": "filled", "type": "market", "side": "buy", "notional": "60", "filled_qty": "0.000932719", "filled_avg_price": "64328.1" })),
+        "GET /v2/orders/A": ok(json!({ "id": "A", "status": "filled", "type": "market", "side": "buy", "notional": "60", "qty": null, "filled_qty": "0.000932719", "filled_avg_price": "64328.1", "limit_price": null })),
         "GET /v2/orders/B": status(500, json!({ "message": "internal server error" })),
         "GET /v2/orders/C": ok(json!({ "id": "C", "status": "new" })) }));
     assert_eq!(v.orders(&["A".into(), "B".into(), "C".into()]).await, Err(VenueError::Rejected(vec!["internal server error".into()])));
@@ -150,13 +150,13 @@ async fn orders_are_fetched_one_by_one_and_the_first_failure_is_the_answer() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn only_alpacas_own_404_proves_absence() {
-    let found = json!({ "id": "OTX-9", "client_order_id": "c-1", "status": "filled", "type": "market", "side": "buy", "notional": "60", "filled_qty": "0.001", "filled_avg_price": "60000" });
+    let found = json!({ "id": "OTX-9", "client_order_id": "c-1", "status": "filled", "type": "market", "side": "buy", "notional": "60", "qty": null, "filled_qty": "0.001", "filled_avg_price": "60000", "limit_price": null });
     let since = "2026-09-01T09:00:00Z".parse().unwrap();
     let (t, v) = venue(json!({ "GET /v2/orders:by_client_order_id": ok(found) }));
     assert_eq!(v.order_by_client_id("c-1", since).await.unwrap().map(|o| o.txid), Some("OTX-9".into()));
     assert_eq!(t.requests()[0].query, vec![("client_order_id", "c-1".to_string())]);
     assert!(v.order_by_client_id("c-2", since).await.is_err(), "an answer about another client order id proves nothing");
-    let (_, v) = venue(json!({ "GET /v2/orders:by_client_order_id": status(404, json!({ "code": 40410000, "message": "order not found" })) }));
+    let (_, v) = venue(json!({ "GET /v2/orders:by_client_order_id": status(404, json!({ "code": 40410000, "message": "order not found for c-1" })) }));
     assert_eq!(v.order_by_client_id("c-1", since).await, Ok(None));
     for reply in [status(404, json!("<html>Not Found</html>")), status(404, json!({})), status(404, json!({ "message": "route not found" })),
                   status(404, json!({ "code": 40410000, "message": "route not found" })), status(500, json!({ "message": "internal server error" })),

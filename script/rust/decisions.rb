@@ -275,6 +275,8 @@ module Decisions
   def trades(last) = ok('trades' => { 'BTC/USD' => { 'p' => last, 's' => 0.01, 't' => '2026-09-01T10:00:00Z', 'i' => 1, 'tks' => 'B' } })
   def account(cash, non_marginable = cash) = ok('id' => 'paper-account', 'status' => 'ACTIVE', 'currency' => 'USD', 'cash' => cash,
                                                 'buying_power' => (cash.to_d * 2).to_s('F'), 'non_marginable_buying_power' => non_marginable)
+  # Crypto positions come back compact ("BTCUSD"); #get_balances reads symbol and qty.
+  def position(symbol, qty) = { 'symbol' => symbol, 'asset_class' => 'crypto', 'qty' => qty, 'qty_available' => qty, 'side' => 'long' }
   def clock(open) = ok('timestamp' => '2026-09-01T06:00:00-04:00', 'is_open' => open, 'next_open' => '2026-09-08T09:30:00-04:00',
                        'next_close' => '2026-09-01T16:00:00-04:00')
 
@@ -282,11 +284,12 @@ module Decisions
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' }
     http = {
-      'GET /v1beta3/crypto/us/latest/quotes' => [quotes(64_321.5)],
+      # Alpaca's own ask carries more decimals than the pair's price_decimals.
+      'GET /v1beta3/crypto/us/latest/quotes' => [quotes(64_321.479)],
       'GET /v1beta3/crypto/us/latest/trades' => [trades(64_310.75)],
       'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'pending_new'))],
       'GET /v2/account' => [account('100000')],
-      'GET /v2/positions' => [ok([])]
+      'GET /v2/positions' => [ok([position('BTCUSD', '0.0015')])]
     }
     modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 },
               'smart' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 } }
@@ -321,7 +324,7 @@ module Decisions
         'add_network_after_send' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [POST_SEND] } },
         # The price changes between reads; the POST fails before sending, and the retry 3 s later must reuse the cached price.
         'retry_reuses_cached_price' => { 'at' => after.(1),
-          'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(64_321.5), quotes(70_000)],
+          'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(64_321.479), quotes(70_000)],
                       'GET /v1beta3/crypto/us/latest/trades' => [trades(64_310.75), trades(70_000)],
                       'POST /v2/orders' => [PRE_SEND, ok(alpaca_order('OTX-1', 'pending_new'))] } },
         'zero_price' => { 'at' => after.(1), 'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(0)],

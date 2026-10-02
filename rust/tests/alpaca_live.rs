@@ -104,36 +104,64 @@ async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     assert!(deltabadger::venue::alpaca::alpaca_not_found(&not_found.body), "the real envelope must match the matcher: {}", not_found.body);
     let order = NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: "10.00".into(), quote_volume: true, cl_ord_id: cl.clone(), deadline: Utc::now() };
     let id = v.add_order(&order).await.unwrap();
-    let mut state = v.order_by_client_id(&cl, Utc::now()).await.unwrap().expect("found by client_order_id");
-    assert_eq!(state.txid, id);
+    let found = v.order_by_client_id(&cl, Utc::now()).await.unwrap().expect("found by client_order_id");
+    assert_eq!(found.txid, id);
+    // The engine's follow-up poll reads GET /v2/orders/{id} (Venue::orders): always ask it at least once, so its body is
+    // recorded even when the client-order-id lookup already saw the fill.
+    let mut state = v.orders(std::slice::from_ref(&id)).await.unwrap().remove(0);
     for _ in 0..30 {
         if state.status == OrderStatus::Closed { break; }
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         state = v.orders(std::slice::from_ref(&id)).await.unwrap().remove(0);
     }
     assert_eq!(state.status, OrderStatus::Closed, "{state:?}");
+    if found.status == OrderStatus::Closed { assert_eq!(found, state, "both reads of one filled order parse the same"); }
     assert!(state.amount_exec.is_positive() && state.quote_amount_exec.is_positive(), "{state:?}");
     assert_eq!(state.quote_amount, Some(BigDec::parse("10").unwrap()));
+}
+
+/// The JSON type a read sees: Alpaca's trading API sends decimals as strings, its market data API sends numbers.
+fn json_type(v: Option<&Value>) -> &'static str {
+    match v {
+        None => "absent", Some(Value::Null) => "null", Some(Value::String(_)) => "string", Some(Value::Number(_)) => "number",
+        Some(Value::Bool(_)) => "bool", Some(Value::Array(_)) => "array", Some(Value::Object(_)) => "object",
+    }
 }
 
 #[test]
 #[ignore = "reads bodies recorded from the owner's paper account; run by hand with --ignored"]
 fn recorded_bodies_carry_every_field_the_grid_scripts() {
     let Ok(dir) = std::env::var("ALPACA_RECORD_DIR") else { eprintln!("skipped: ALPACA_RECORD_DIR is not set"); return };
-    // Every field the Rails parse and the Rust port read, per endpoint, as JSON pointers ("/" in BTC/USD is "~1").
-    let need: [(&str, &[&str]); 6] = [
-        ("GET /v1beta3/crypto/us/latest/quotes", &["/quotes/BTC~1USD/ap", "/quotes/BTC~1USD/bp"]),
-        ("GET /v1beta3/crypto/us/latest/trades", &["/trades/BTC~1USD/p"]),
-        ("POST /v2/orders", &["/id", "/client_order_id", "/status", "/symbol", "/type", "/side", "/notional"]),
-        ("GET /v2/orders:by_client_order_id", &["/id", "/client_order_id", "/status", "/filled_qty"]),
-        ("GET /v2/orders/", &["/id", "/status", "/symbol", "/type", "/side", "/filled_qty", "/filled_avg_price", "/notional"]),
-        ("GET /v2/account", &["/cash", "/non_marginable_buying_power", "/buying_power"]),
+    // Every field the Rails parse and the Rust port read, per endpoint and status, as JSON pointers ("/" in BTC/USD is
+    // "~1") with the JSON types allowed. An array body (positions) is checked element by element.
+    const S: &str = "string";
+    const SN: &str = "string|null";
+    type Fields<'a> = &'a [(&'a str, &'a str)];
+    let order: Fields = &[("/id", S), ("/client_order_id", S), ("/status", S), ("/symbol", S), ("/type", S), ("/side", S),
+                                   ("/filled_qty", S), ("/filled_avg_price", SN), ("/notional", SN), ("/qty", SN), ("/limit_price", SN)];
+    let need: [(&str, u64, Fields); 8] = [
+        ("GET /v1beta3/crypto/us/latest/quotes", 200, &[("/quotes/BTC~1USD/ap", "number"), ("/quotes/BTC~1USD/bp", "number")]),
+        ("GET /v1beta3/crypto/us/latest/trades", 200, &[("/trades/BTC~1USD/p", "number")]),
+        ("POST /v2/orders", 200, order),
+        ("GET /v2/orders:by_client_order_id", 200, order),
+        ("GET /v2/orders:by_client_order_id", 404, &[("/code", "number"), ("/message", S)]),
+        ("GET /v2/orders/", 200, order),
+        ("GET /v2/account", 200, &[("/cash", S), ("/non_marginable_buying_power", S), ("/buying_power", S)]),
+        ("GET /v2/positions", 200, &[("/symbol", S), ("/qty", S)]),
     ];
     let files: Vec<Value> = std::fs::read_dir(&dir).unwrap()
         .map(|e| serde_json::from_str(&std::fs::read_to_string(e.unwrap().path()).unwrap()).unwrap()).collect();
-    for (prefix, pointers) in need {
-        let matching: Vec<&Value> = files.iter().filter(|f| f["key"].as_str().is_some_and(|k| k.starts_with(prefix)) && f["status"] == 200).collect();
-        assert!(!matching.is_empty(), "no recorded 200 for {prefix}");
-        for f in matching { for p in pointers { assert!(f["body"].pointer(p).is_some(), "{prefix}: {p} missing in {}", f["body"]); } }
+    for (prefix, status, fields) in need {
+        let matching: Vec<&Value> = files.iter().filter(|f| f["key"].as_str().is_some_and(|k| k.starts_with(prefix)) && f["status"] == status).collect();
+        assert!(!matching.is_empty(), "no recorded {status} for {prefix}");
+        for f in matching {
+            let bodies: Vec<&Value> = match &f["body"] { Value::Array(a) => a.iter().collect(), b => vec![b] };
+            for body in bodies {
+                for (p, allowed) in fields {
+                    let got = json_type(body.pointer(p));
+                    assert!(allowed.split('|').any(|t| t == got), "{prefix} {status}: {p} is {got}, the grid scripts {allowed}: {body}");
+                }
+            }
+        }
     }
 }

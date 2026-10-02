@@ -115,7 +115,7 @@ async fn the_sweep_ignores_a_rejected_order_and_the_tick_goes_on() {
     let (_d, o, id, s) = setup(weekly());
     seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(0), external_id: Some("OREJ".into()), order_type: 0, amount: None,
         quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-08-25 10:00:01".into() });
-    let t = script(json!({ "GET /v2/orders/OREJ": ok(json!({ "id": "OREJ", "status": "rejected", "symbol": "BTC/USD", "type": "market", "side": "buy", "notional": "60", "filled_qty": "0" })) }));
+    let t = script(json!({ "GET /v2/orders/OREJ": ok(json!({ "id": "OREJ", "status": "rejected", "symbol": "BTC/USD", "type": "market", "side": "buy", "notional": "60", "qty": null, "filled_qty": "0", "filled_avg_price": null, "limit_price": null })) }));
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
     assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OREJ'"), 0, "still unknown: Rails' polls have no branch for :failed");
@@ -127,7 +127,7 @@ async fn a_partially_filled_order_fails_every_tick_before_placement() {
     seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OPART".into()), order_type: 1, amount: Some("0.000935"),
         quote_amount: None, price: Some("64150"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-08-25 10:00:01".into() });
     let t = script(json!({ "GET /v2/orders/OPART": ok(json!({ "id": "OPART", "status": "partially_filled", "symbol": "BTC/USD", "type": "limit", "side": "buy",
-        "qty": "0.000935", "filled_qty": "0.0004", "filled_avg_price": "64150", "limit_price": "64150" })) }));
+        "notional": null, "qty": "0.000935", "filled_qty": "0.0004", "filled_avg_price": "64150", "limit_price": "64150" })) }));
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
     assert!(t.posted_orders().is_empty(), "the sweep raises before anything is placed");
@@ -155,7 +155,7 @@ async fn a_lost_reply_is_absent_only_after_20_minutes_and_never_sent_twice() {
     let v = venue(&t);
     let t0 = at(T0);
     assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
-    t.reply("GET /v2/orders:by_client_order_id", 404, json!({ "code": 40410000, "message": "order not found for client order id" })); // Alpaca's own envelope
+    t.reply("GET /v2/orders:by_client_order_id", 404, json!({ "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" })); // Alpaca's own envelope
     let bot = || model::load_bot(&o.primary, id).unwrap();
     assert!(matches!(placement::recover(&o.primary, &v, &bot(), &FixedClock(t0 + Duration::seconds(1199))).await.unwrap(), Recovery::Pending),
             "inside the 20-minute margin (Linux tcp_retries2 gives a still-owned socket ~924 s)");
@@ -265,7 +265,7 @@ async fn a_send_resumed_past_its_bound_never_reaches_alpaca() {
 async fn a_restarted_process_trusts_an_alpaca_absence_only_a_full_window_after_it_started() {
     let (_d, o, id, _) = setup(weekly());
     let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }],
-                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } }] }));
+                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" } }] }));
     let v = venue(&t);
     let t0 = at(T0);
     tick::tick(&o.primary, &v, id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(); // the intent stays
@@ -282,7 +282,7 @@ async fn a_five_minute_smart_bot_waits_on_its_unresolved_intent_and_never_places
     // Hourly 60 in smart chunks of 5: a checkpoint every 5 minutes, each one blocked by the ambiguous first send.
     let (_d, o, id, _) = setup(weekly().with("interval", json!("hour")).with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(5.0)));
     let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }, { "status": 200, "body": { "id": "OTX-2", "status": "pending_new" } }],
-                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } }] }));
+                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" } }] }));
     let v = venue(&t);
     let t0 = at(T0);
     assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
@@ -305,7 +305,7 @@ async fn the_follow_up_poll_raises_as_rails_job_does() {
     let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OPOLL".into()), order_type: 1, amount: Some("0.000935"),
         quote_amount: None, price: Some("64150"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-09-01 10:00:01".into() });
     let partial = script(json!({ "GET /v2/orders/OPOLL": ok(json!({ "id": "OPOLL", "status": "partially_filled", "symbol": "BTC/USD", "type": "limit", "side": "buy",
-        "qty": "0.000935", "filled_qty": "0.0004", "filled_avg_price": "64150", "limit_price": "64150" })) }));
+        "notional": null, "qty": "0.000935", "filled_qty": "0.0004", "filled_avg_price": "64150", "limit_price": "64150" })) }));
     let now = at("2026-09-01T10:00:06Z");
     assert_eq!(polling::follow_up(&o.primary, &venue(&partial), id, tx, now).await, Err(PollFailure::General("Order OPOLL status is unknown.".into())));
     assert_eq!(one::<f64>(&o, "SELECT amount_exec FROM transactions WHERE external_id = 'OPOLL'"), 0.0, "the row is not updated");
@@ -330,7 +330,7 @@ async fn a_restarted_engine_keeps_an_old_intent(status: Option<i64>) {
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
     let id = seed::insert_bot(&o.primary, &s, &weekly());
     let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }],
-                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } }] }));
+                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" } }] }));
     let t0 = at(T0);
     tick::tick(&o.primary, &venue(&t), id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(); // the ambiguous send leaves the intent
     if let Some(st) = status { o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", rusqlite::params![st, id]).unwrap(); }
