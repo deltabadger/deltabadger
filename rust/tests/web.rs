@@ -371,3 +371,32 @@ mod turbo_streams {
         assert_eq!(turbo::frame(&HeaderMap::new()), None);
     }
 }
+
+mod going_back {
+    use super::common::web::header_map;
+    use deltabadger::web::{layout, Config};
+
+    #[test]
+    fn a_referer_is_followed_only_within_this_deployments_origin_and_never_to_another_host() {
+        let config = |root: Option<&'static str>| {
+            Config::from_env(&move |name| match name { "SECRET_KEY_BASE" => Some("s".into()), "APP_ROOT_URL" => root.map(String::from), _ => None }).unwrap()
+        };
+        let back = |config: &Config, referer: &str| layout::back(config, &header_map(&[("host", "bot.example"), ("referer", referer)]));
+        let https = config(Some("https://bot.example"));
+        assert_eq!(back(&https, "https://bot.example/login?x=1").as_deref(), Some("/login?x=1"));
+        assert_eq!(back(&https, "https://bot.example").as_deref(), Some("/"));
+        assert_eq!(back(&https, "https://bot.example/login?next=//x").as_deref(), Some("/login?next=//x"), "a query is not a path");
+        assert_eq!(back(&https, "https://bot.example//evil.test/path").as_deref(), Some("/evil.test/path"), "never `//evil.test/path`, which names another host");
+        assert_eq!(back(&https, "https://bot.example///evil.test").as_deref(), Some("/evil.test"));
+        for foreign in [
+            "http://bot.example/login", "https://bot.example.evil.test/", "https://bot.example@evil.test/", "https://bot.example:8443/",
+            "https://evil.test/https://bot.example/", "https://bot.example/\\evil.test", "//bot.example/login", "/login", "", "javascript:alert(1)",
+        ] {
+            assert_eq!(back(&https, foreign), None, "{foreign}");
+        }
+        // Without APP_ROOT_URL the origin is the request's own: its Host, and http unless SSL is forced.
+        let plain = config(None);
+        assert_eq!(back(&plain, "http://bot.example/bots").as_deref(), Some("/bots"));
+        assert_eq!(back(&plain, "https://bot.example/bots"), None);
+    }
+}

@@ -1,0 +1,48 @@
+<form data-controller="form--html5-validations form--label-animations" action="{{ v.path("/login") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+  <h1>{{ v.t("devise.sessions.new.title")|safe }}</h1>
+
+  <div class="form__row">
+    <input autofocus="autofocus" autocomplete="email" class="form__input form__input--large" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("devise.registrations.new.email_invalid")|safe }}" type="email" value="{{ email }}" name="user[email]" id="user_email" />
+    <label class="form__label" for="user_email">{{ v.t("helpers.label.user.email")|safe }}</label>
+  </div>
+
+  <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+    <input autocomplete="current-password" class="form__input form__input--has-icon form__input--large" data-form--password-unmask-target="input" type="password" name="user[password]" id="user_password" />
+    <label class="form__label" for="user_password">{{ v.t("helpers.label.user.password")|safe }}</label>
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+      {% include "svg/_mi_visibility.html" %}
+      {% include "svg/_mi_visibility_off.html" %}
+    </div>
+
+      <div class="form__info form__info--right">
+        <a href="{{ v.path("/password/new") }}">{{ v.t("devise.sessions.new.forgot_password")|safe }}</a>
+      </div>
+</div>
+    <div class="toggle">
+      <input name="user[remember_me]" type="hidden" value="0" /><input type="checkbox" value="1" name="user[remember_me]" id="user_remember_me" />
+      <div class="toggle__style"></div>
+      <label class="label" for="user_remember_me">{{ v.t("helpers.label.user.remember_me")|safe }}</label>
+      
+    </div>
+
+  <div class="form__row form__row--final-button">
+    <input type="submit" name="commit" value="{{ v.t("devise.sessions.new.submit")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("devise.sessions.new.submit")|safe }}" />
+  </div>
+
+  <div class="devise__links">
+
+{% if registration_open %}
+    <a class="button button--link" href="{{ v.path("/signup") }}">{{ v.t("links.sign_up")|safe }}</a>
+    <span class="db-middot">●</span>
+{% endif %}
+
+    <a class="button button--link" href="{{ v.path("/confirmation/new") }}">{{ v.t("links.resend_link")|safe }}</a>
+    <span class="db-middot">●</span>
+
+
+  {% include "layouts/_language_dropdown.html" %}
+</div>
+</form>

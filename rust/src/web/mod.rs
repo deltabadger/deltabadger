@@ -1,7 +1,11 @@
 //! The web UI (spec §4): server-rendered pages that match the Rails app's, for the compiled
 //! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
 //! both and compares.
+//!
+//! A request passes through `entry` (static files, form parsing, method override, locale prefix),
+//! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
 pub mod assets;
+pub mod auth;
 pub mod csrf;
 pub mod flash;
 pub mod headers;
@@ -18,6 +22,7 @@ use crate::engine::{Clock, EngineError};
 use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, MethodRouter};
 use axum::Router;
@@ -194,7 +199,10 @@ fn only(route: MethodRouter<App>) -> MethodRouter<App> {
 
 fn routes(app: App) -> Router {
     Router::new()
+        .route("/login", only(get(auth::new)))
         .fallback(layout::not_ported)
+        .layer(middleware::from_fn_with_state(app.clone(), pipeline))
+        // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
         .route("/up", only(get(up)))
         .route("/csp-report", only(post(csp_report)))
         .with_state(app)
@@ -312,4 +320,47 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
 /// The whole web application as one service. `serve` binds it; tests call it with `oneshot`.
 pub fn router(app: App) -> Router {
     Router::new().fallback(entry).with_state(Entry { routes: routes(app) })
+}
+
+/// What goes onto every response of the app: the session cookie when it has to be written, the
+/// policy headers, and the controller's default headers unless the response was produced below the
+/// controllers. The cookie is written when the request changed the session (`before` is what the
+/// request arrived with), and at no other time. Rails writes it on every response; see web::session
+/// for why this crate does not.
+fn finish(app: &App, session: &session::Session, before: &session::SessionData, nonce: &str, now: DateTime<Utc>, signed_in: bool, mut response: Response) -> Response {
+    let data = session.snapshot();
+    if data != *before {
+        response.headers_mut().append(header::SET_COOKIE, session::set_cookie(&session::seal(&app.keys.session, &data, now), now, app.config.force_ssl));
+    }
+    headers::policy(response.headers_mut(), nonce, app.config.force_ssl);
+    let status = response.status();
+    if response.extensions().get::<headers::BelowControllers>().is_some() {
+        headers::cache_control(response.headers_mut(), status, false);
+    } else {
+        headers::controller_defaults(response.headers_mut(), status, signed_in);
+    }
+    response
+}
+
+/// What ApplicationController and the middleware below it do around every action, in Rails' order.
+async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> Response {
+    let now = app.now();
+    let nonce = headers::new_nonce();
+    let Some(params) = request.extensions().get::<Arc<Params>>().cloned() else {
+        return WebError::Config("a request reached the routes without passing web::router's entry".into()).into_response();
+    };
+    let before = session::cookie_value(request.headers()).and_then(|value| session::open(&app.keys.session, &value, now)).unwrap_or_default();
+    let session = session::Session::new(before.clone());
+
+    let current = auth::Current::SignedOut;
+    let signed_in = matches!(current, auth::Current::SignedIn(_));
+    let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
+
+    let response = if !matches!(*request.method(), Method::GET | Method::HEAD) && !context.csrf_verified(request.headers()) {
+        layout::unverified_request(&context, request.headers())
+    } else {
+        request.extensions_mut().insert(context);
+        next.run(request).await
+    };
+    finish(&app, &session, &before, &nonce, now, signed_in, response)
 }
