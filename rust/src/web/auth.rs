@@ -306,6 +306,9 @@ fn continue_sign_in(ctx: &Ctx, user: &User, new_csrf_token: bool) -> Response {
     let mut session = ctx.session.lock();
     session.user = Some((user.id, user.salt().to_string()));
     session.auto_open_bot_wizard = true;
+    // A second-factor step left open in this browser, for whichever account, ends with any sign-in:
+    // it must not be usable afterwards to turn this session into that account's. (Rails keeps it.)
+    session.pending = None;
     if new_csrf_token {
         session.csrf = None; // Devise's clean_up_csrf_token_on_authentication
     }

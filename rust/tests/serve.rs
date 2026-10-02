@@ -712,6 +712,54 @@ async fn connections_beyond_the_cap_wait_for_a_place() {
     assert!(served.starts_with("HTTP/1.1 200"), "{served}");
 }
 
+/// An install with two confirmed accounts that share the password "Correct-horse-9": the owner
+/// (o@example.com), with two-factor on when `owner_two_factor`, and second@example.com without.
+/// Returns the ids of both.
+fn two_accounts(owner_two_factor: bool) -> (tempfile::TempDir, rusqlite::Connection, deltabadger::web::App, i64, i64) {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (&hash, seeded.user_id)).unwrap();
+    if owner_two_factor {
+        opened.primary.execute("UPDATE users SET otp_module = 1, otp_secret_key = ?1 WHERE id = ?2", (OTP_SEED, seeded.user_id)).unwrap();
+    }
+    opened.primary.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) \
+                            VALUES ('second@example.com', ?1, 'Second', 0, ?2, ?2, ?2)", (&hash, "2026-01-01 00:00:00")).unwrap();
+    let second = opened.primary.last_insert_rowid();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    (dir, opened.primary, app, seeded.user_id, second)
+}
+
+const OTP_SEED: &str = "JBSWY3DPEHPK3PXP";
+
+/// The session a browser holds, opened with the app's own key.
+fn session_of(app: &deltabadger::web::App, browser: &Browser) -> deltabadger::web::session::SessionData {
+    deltabadger::web::session::open(&app.keys.session, browser.cookie.as_deref().unwrap(), web::at(NOW)).unwrap()
+}
+
+/// A second-factor step that was left open belongs to the sign-in that started it. A full password
+/// sign-in in the same browser, as anyone, ends it: the open step cannot afterwards turn the
+/// session into the first account's. (Rails keeps the pending step there.)
+#[tokio::test(flavor = "current_thread")]
+async fn a_password_sign_in_ends_a_second_factor_step_left_open() {
+    let (_dir, _db, app, owner, second) = two_accounts(true);
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    let first = browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await;
+    assert_eq!((first.status, first.header("location")), (302, Some("/verify_two_factor")));
+    assert_eq!(browser.get(&app, "/verify_two_factor").await.status, 200, "the code is owed");
+    assert_eq!(session_of(&app, &browser).pending.map(|pending| pending.user_id), Some(owner));
+
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "second@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    assert_eq!(session_of(&app, &browser).pending, None, "the step left open is gone");
+    assert_eq!(browser.get(&app, "/verify_two_factor").await.status, 302, "there is nothing to verify any more");
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
+    let code = deltabadger::crypto::totp_at(OTP_SEED, web::at(NOW).timestamp() as u64).unwrap();
+    let late = browser.send(&app, "POST", "/verify_two_factor", Some(&[("user[otp_code_token]", &code)]), web::Csrf::Header, &[]).await;
+    assert_eq!(late.status, 302, "the owner's code, valid as it is, opens nothing");
+    assert_eq!(session_of(&app, &browser).user.map(|(id, _)| id), Some(second), "still the account that signed in");
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.
