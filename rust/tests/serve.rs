@@ -684,7 +684,7 @@ async fn served_under(limits: deltabadger::web::server::Limits) -> (tempfile::Te
 #[tokio::test(flavor = "current_thread")]
 async fn a_connection_that_does_not_finish_its_request_head_is_closed() {
     use deltabadger::web::server::Limits;
-    assert_eq!((Limits::default().header_read_timeout, Limits::default().max_connections), (Duration::from_secs(10), 1024));
+    assert_eq!((Limits::default().header_read_timeout, Limits::default().body_read_timeout, Limits::default().max_connections), (Duration::from_secs(10), Duration::from_secs(10), 1024));
     let (_dir, _app, address) = served_under(Limits { header_read_timeout: Duration::from_millis(300), ..Limits::default() }).await;
     let started = Instant::now();
     let half = web::until_closed(address, b"GET /up HT", Duration::from_secs(5)).await;
@@ -696,12 +696,49 @@ async fn a_connection_that_does_not_finish_its_request_head_is_closed() {
     assert!(whole.starts_with("HTTP/1.1 200") && whole.contains("background-color: green"), "{whole}");
 }
 
+/// A client that sends a request's head, declares a body and then stops must not keep its
+/// connection: 1,024 of those would be every place the server has, before any rate limit counts.
+/// A form's body has ten seconds in all (a 408, and the connection is closed); a body no handler
+/// reads is not waited for at all: the answer goes out and the connection is closed.
+#[tokio::test(flavor = "current_thread")]
+async fn a_request_body_that_never_arrives_does_not_keep_its_connection() {
+    use deltabadger::web::server::Limits;
+    // One place: each request below is served only once the one before it has given its place back.
+    let limits = Limits { body_read_timeout: Duration::from_millis(300), max_connections: 1, ..Limits::default() };
+    let (_dir, _app, address) = served_under(limits).await;
+    let patience = Duration::from_secs(5); // well under the header timeout, which is not what closes these
+    for stalled in [
+        &b"POST /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\na=1"[..],
+        b"POST /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nTransfer-Encoding: chunked\r\n\r\n3\r\na=1\r\n",
+        b"POST /csp-report HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\n",
+    ] {
+        let started = Instant::now();
+        let answer = web::until_closed(address, stalled, patience).await;
+        let answer = answer.unwrap_or_else(|e| panic!("a form whose body stalls, and the connection is still open after 5 s: {e}"));
+        assert!(answer.starts_with("HTTP/1.1 408") && answer.to_lowercase().contains("connection: close"), "{answer}");
+        assert!(started.elapsed() >= Duration::from_millis(250), "at the deadline, not before: {:?}", started.elapsed());
+    }
+    for (unread, status) in [
+        (&b"POST /csp-report HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/csp-report\r\nContent-Length: 100000\r\n\r\n{"[..], "204"),
+        (b"POST /nothing-here HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: 500\r\n\r\n", "302"), // no CSRF token: refused before any route
+        (b"GET /up HTTP/1.1\r\nHost: localhost\r\nContent-Length: 500\r\n\r\n", "200"),
+        (b"PUT /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 500\r\n\r\n", "302"),
+        (b"POST /cable HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n", "501"),
+    ] {
+        let answer = web::until_closed(address, unread, patience).await;
+        let answer = answer.unwrap_or_else(|e| panic!("a body nobody reads kept its connection open: {e}\n{}", String::from_utf8_lossy(unread)));
+        assert!(answer.starts_with(&format!("HTTP/1.1 {status}")), "{answer}");
+    }
+    let whole = web::until_closed(address, b"POST /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\nConnection: close\r\n\r\na=1", patience).await.unwrap();
+    assert!(whole.starts_with("HTTP/1.1 302"), "a form that arrives is read as before: {whole}");
+}
+
 /// At most `max_connections` connections are open at once (1,024 outside tests). One more waits to
 /// be accepted until a place is free; it is not served on the side.
 #[tokio::test(flavor = "current_thread")]
 async fn connections_beyond_the_cap_wait_for_a_place() {
     use deltabadger::web::server::Limits;
-    let (_dir, _app, address) = served_under(Limits { header_read_timeout: Duration::from_secs(60), max_connections: 2 }).await;
+    let (_dir, _app, address) = served_under(Limits { header_read_timeout: Duration::from_secs(60), max_connections: 2, ..Limits::default() }).await;
     let idle: Vec<std::net::TcpStream> = (0..2).map(|_| std::net::TcpStream::connect(address).unwrap()).collect();
     tokio::time::sleep(Duration::from_millis(200)).await; // both are accepted and hold their places
     let request = b"GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";

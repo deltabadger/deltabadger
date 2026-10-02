@@ -1,5 +1,5 @@
 //! `deltabadger serve`: the web server on its own. The engine loop joins this process in a later plan.
-use super::{router, App, WebError};
+use super::{router_with, App, WebError};
 use axum::body::Body;
 use axum::extract::ConnectInfo;
 use hyper::body::Incoming;
@@ -22,13 +22,15 @@ use tower::ServiceExt;
 pub struct Limits {
     /// How long a client may take to send a request's head.
     pub header_read_timeout: Duration,
+    /// How long a client may take to send a form's body, once its head is in.
+    pub body_read_timeout: Duration,
     /// Connections open at once, WebSockets included.
     pub max_connections: usize,
 }
 
 impl Default for Limits {
     fn default() -> Self {
-        Self { header_read_timeout: Duration::from_secs(10), max_connections: 1024 }
+        Self { header_read_timeout: Duration::from_secs(10), body_read_timeout: super::BODY_READ_TIMEOUT, max_connections: 1024 }
     }
 }
 
@@ -86,7 +88,7 @@ impl AsyncWrite for Counted {
 ///
 /// Every request carries its peer's address (`ConnectInfo`), which the rate limiter keys on.
 pub async fn serve_on(listener: TcpListener, app: App, limits: Limits) -> Result<(), WebError> {
-    let router = router(app);
+    let router = router_with(app, limits.body_read_timeout);
     let places = Arc::new(Semaphore::new(limits.max_connections));
     loop {
         let place = places.clone().acquire_owned().await.map_err(|e| WebError::Config(format!("the server stopped: {e}")))?;

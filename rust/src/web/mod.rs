@@ -453,6 +453,7 @@ pub fn method_override(form: &[(String, String)]) -> Option<Method> {
 #[derive(Clone)]
 struct Entry {
     routes: Router,
+    body_read_timeout: Duration,
 }
 
 /// The largest form body `entry` reads, and the most fields it may hold. A form is read before any
@@ -461,6 +462,8 @@ struct Entry {
 /// most 128 and three short fields, under 1 KiB. (`/csp-report` is not a form and its body is never read.)
 pub const FORM_LIMIT: usize = 64 * 1024;
 pub const FORM_FIELDS: usize = 1000;
+/// How long the whole of a form's body may take to arrive.
+pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Everything that has to happen before a route is chosen:
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
@@ -479,7 +482,15 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
     let form_post = parts.method == Method::POST && header_text(&parts.headers, "content-type").is_some_and(|t| t.starts_with("application/x-www-form-urlencoded"));
     let (form, body) = if form_post {
-        match axum::body::to_bytes(body, FORM_LIMIT).await {
+        // The one place a request body is read. It has a deadline for the whole of it: a client that
+        // declares a body and stops sending gets a 408, and `connection: close` makes hyper drop the
+        // connection, so it does not keep its place. (A body no handler reads is not waited for: hyper
+        // closes the connection after the response.)
+        let read = match tokio::time::timeout(entry.body_read_timeout, axum::body::to_bytes(body, FORM_LIMIT)).await {
+            Ok(read) => read,
+            Err(_) => return (StatusCode::REQUEST_TIMEOUT, [(header::CONNECTION, "close")], "The form did not arrive in time\n").into_response(),
+        };
+        match read {
             Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Ok(bytes) => (pairs(&bytes), Body::empty()),
             Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
@@ -505,7 +516,12 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
 
 /// The whole web application as one service. `serve` binds it; tests call it with `oneshot`.
 pub fn router(app: App) -> Router {
-    Router::new().fallback(entry).with_state(Entry { routes: routes(app) })
+    router_with(app, BODY_READ_TIMEOUT)
+}
+
+/// `router`, with another deadline for a form's body (`server::Limits`).
+pub(crate) fn router_with(app: App, body_read_timeout: Duration) -> Router {
+    Router::new().fallback(entry).with_state(Entry { routes: routes(app), body_read_timeout })
 }
 
 /// What goes onto every response of the app: the session cookie when it has to be written, the
