@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"ZKYKxVMjxzR/+u7zICzwkXs=\",\"h\":{\"iv\":\"UDy+wpi/c98LOtOR\",\"at\":\"Nv5Pjc7aWRJfhsJ6aHuXfA==\"}}"
+      "cipher": "{\"p\":\"W7S52OJfU5xErhrrMMSuxd8=\",\"h\":{\"iv\":\"0nvG9/j2a79OvrDy\",\"at\":\"i/iggU43MYNkivqZQd7xBw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"I7ZNc9x5Q/6lF3TqPvlL\",\"h\":{\"iv\":\"wHRg8DEodH5krnjK\",\"at\":\"TBIR8d10VhMU+cgEL7SBFQ==\"}}"
+      "cipher": "{\"p\":\"HMVcI8jv8VTue0kAgtaq\",\"h\":{\"iv\":\"dxYc5Lt1YZyaXMiW\",\"at\":\"8p6wb3mZNC+tiAbX0+DSkg==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"ImvOtkG1yoHQO3b+avfxsSXv7Pz7EmCxoYNsiBcTSF6PlRCnlpAlVWK9Vprk4cjtAwJyanVdAbvauTjCXpsQREH5lUs04VvR5ID0U4Q=\",\"h\":{\"iv\":\"R/WWtEgEyMipCLtP\",\"at\":\"m4wBcOoM6TBzJfWLPY3QTQ==\",\"c\":true}}"
+      "cipher": "{\"p\":\"SimnQ2u5i4mCcQv2UsykOEssBEv/rt3ZNjQ4KzBfF0N7YGqyj8mfwp3IvrHyKPhydbhEK5M3XgrKiG71OzG320Qk46tL2KcrRF+ar7U=\",\"h\":{\"iv\":\"V+eFlnqsT0C/anEs\",\"at\":\"x8vdd512Fi+vi8HbkFWTrg==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "6SJSMOT5O5LDN7RXUYUWISP6U54VJW52",
-      "cipher": "{\"p\":\"8+biwBkYn4eTbXNgpNirw+LHjgkFHYU6RISf/whtoA0=\",\"h\":{\"iv\":\"Bs3UCFrSGgvy8iOj\",\"at\":\"vv7gNqOgMWU5JBye/X9/qw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "6EK5JBRF5WPZFCKZN77SIGYZ7NPFSIRC",
+      "cipher": "{\"p\":\"VgRC1Xe/8Dk4bu60mVpGIn3GGELO5ZJLfIwzygEN8oI=\",\"h\":{\"iv\":\"EEl7jIMqeJTJp0TT\",\"at\":\"ESLAbd6bA9MKCaZPYUClOg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"QDg9o2dmjbqVsJ6smtsQzfc=\",\"h\":{\"iv\":\"HK8RNESbbACl5oGX\",\"at\":\"sOxoxs7n2R5GPk5DEXfSCw==\"}}"
+      "cipher": "{\"p\":\"c1SRJSKqtMJx7uGT5+CNaGk=\",\"h\":{\"iv\":\"er42cT4eA8t7++QA\",\"at\":\"l7YBKV+sOtq7p/KLn4IVvw==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$5zwr6AzaV5fnAtlmNq3RRO9/SokgT66i8bZi34TL65GtSDL5VuWlO"
+      "hash": "$2a$11$RccxKFRvCRQw13gPIqSCEeSAdnuI.PeMNyXMxzoFUV4p2YTeUo9TG"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$QGGlnx6IKgT.jWUzg1VfAuDVmuH6PXpRq/1lHYRSTdMHGx7CozJnS"
+      "hash": "$2a$11$DUhwvXnaKai5eZRKYCBn6eky67a9YKDsgvpsuhzdUN7b6xjmSTMiC"
     }
   ],
   "totp": {
@@ -53046,6 +53046,1582 @@
         "content_type": "text/plain",
         "body": "passed",
         "other_headers": []
+      }
+    ]
+  },
+  "oauth_uri": {
+    "parse": [
+      {
+        "uri": "https://client.example/callback",
+        "parts": {
+          "scheme": "https",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/callback",
+          "query": null,
+          "to_s": "https://client.example/callback"
+        }
+      },
+      {
+        "uri": "HTTPS://Client.Example:0443/Callback?x=1",
+        "parts": {
+          "scheme": "https",
+          "userinfo": null,
+          "host": "Client.Example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/Callback",
+          "query": "x=1",
+          "to_s": "https://Client.Example/Callback?x=1"
+        }
+      },
+      {
+        "uri": "http://client.example:80/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://client.example/cb"
+        }
+      },
+      {
+        "uri": "http://client.example:080/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://client.example/cb"
+        }
+      },
+      {
+        "uri": "http://client.example:/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://client.example/cb"
+        }
+      },
+      {
+        "uri": "http://client.example:8080/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://client.example:8080/cb"
+        }
+      },
+      {
+        "uri": "https://client.example:80/cb",
+        "parts": {
+          "scheme": "https",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "https://client.example:80/cb"
+        }
+      },
+      {
+        "uri": "http://client.example",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "client.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "",
+          "query": null,
+          "to_s": "http://client.example"
+        }
+      },
+      {
+        "uri": "http://u:p@localhost:3000/cb?x=1#f",
+        "parts": {
+          "scheme": "http",
+          "userinfo": "u:p",
+          "host": "localhost",
+          "opaque": false,
+          "fragment": "f",
+          "path": "/cb",
+          "query": "x=1",
+          "to_s": "http://u:p@localhost:3000/cb?x=1#f"
+        }
+      },
+      {
+        "uri": "http://[::1]:9/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "[::1]",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://[::1]:9/cb"
+        }
+      },
+      {
+        "uri": "http://[::1]/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "[::1]",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://[::1]/cb"
+        }
+      },
+      {
+        "uri": "http://LOCALHOST/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "LOCALHOST",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://LOCALHOST/cb"
+        }
+      },
+      {
+        "uri": "https://c.example/cb?x=hello world",
+        "parts": {
+          "scheme": "https",
+          "userinfo": null,
+          "host": "c.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=hello%20world",
+          "to_s": "https://c.example/cb?x=hello%20world"
+        }
+      },
+      {
+        "uri": "https://c.example/cb?x=a\tb\r\nc",
+        "parts": {
+          "scheme": "https",
+          "userinfo": null,
+          "host": "c.example",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=abc",
+          "to_s": "https://c.example/cb?x=abc"
+        }
+      },
+      {
+        "uri": "http://127.0.0.1/cb?a[]=1&b={}|^`\"<>\\",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "127.0.0.1",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "a[]=1&b={}|^%60%22%3C%3E\\",
+          "to_s": "http://127.0.0.1/cb?a[]=1&b={}|^%60%22%3C%3E\\"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?\u0000",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "%00",
+          "to_s": "http://localhost/cb?%00"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?x=\u0001",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=%7F%01",
+          "to_s": "http://localhost/cb?x=%7F%01"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?x=a?b/c:d@e'f(g)h*i+j,k;l=m!n$o&p",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=a?b/c:d@e%27f(g)h*i+j,k;l=m!n$o&p",
+          "to_s": "http://localhost/cb?x=a?b/c:d@e%27f(g)h*i+j,k;l=m!n$o&p"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?x=%7e~",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=%7e~",
+          "to_s": "http://localhost/cb?x=%7e~"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?x=%zz",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost/cb?x=%z\tz",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost/cb?x=%z",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=%z",
+          "to_s": "http://localhost/cb?x=%z"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?x=%",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=%",
+          "to_s": "http://localhost/cb?x=%"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?x=%a",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "x=%a",
+          "to_s": "http://localhost/cb?x=%a"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?%zzz",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost/cb?",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": "",
+          "to_s": "http://localhost/cb?"
+        }
+      },
+      {
+        "uri": "http://localhost/cb?#",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": "",
+          "path": "/cb",
+          "query": "",
+          "to_s": "http://localhost/cb?#"
+        }
+      },
+      {
+        "uri": "http://localhost/cb#",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": "",
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://localhost/cb#"
+        }
+      },
+      {
+        "uri": "http://127.0.0.1/c b",
+        "parts": null
+      },
+      {
+        "uri": "http://127.0.0.1/cb#a b",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost\t/cb",
+        "parts": null
+      },
+      {
+        "uri": "\thttp://localhost/cb",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost/cb\n",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost/cb?x=é",
+        "parts": null
+      },
+      {
+        "uri": "http://localhost:99999999999999999999/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://localhost:99999999999999999999/cb"
+        }
+      },
+      {
+        "uri": "http://localhost:0/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://localhost:0/cb"
+        }
+      },
+      {
+        "uri": "http://localhost:00/cb",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "localhost",
+          "opaque": false,
+          "fragment": null,
+          "path": "/cb",
+          "query": null,
+          "to_s": "http://localhost:0/cb"
+        }
+      },
+      {
+        "uri": "myapp://callback",
+        "parts": {
+          "scheme": "myapp",
+          "userinfo": null,
+          "host": "callback",
+          "opaque": false,
+          "fragment": null,
+          "path": "",
+          "query": null,
+          "to_s": "myapp://callback"
+        }
+      },
+      {
+        "uri": "myapp://callback:9/x",
+        "parts": {
+          "scheme": "myapp",
+          "userinfo": null,
+          "host": "callback",
+          "opaque": false,
+          "fragment": null,
+          "path": "/x",
+          "query": null,
+          "to_s": "myapp://callback:9/x"
+        }
+      },
+      {
+        "uri": "myapp://callback:80",
+        "parts": {
+          "scheme": "myapp",
+          "userinfo": null,
+          "host": "callback",
+          "opaque": false,
+          "fragment": null,
+          "path": "",
+          "query": null,
+          "to_s": "myapp://callback:80"
+        }
+      },
+      {
+        "uri": "ws://h:80/x",
+        "parts": {
+          "scheme": "ws",
+          "userinfo": null,
+          "host": "h",
+          "opaque": false,
+          "fragment": null,
+          "path": "/x",
+          "query": null,
+          "to_s": "ws://h/x"
+        }
+      },
+      {
+        "uri": "wss://h:443/x",
+        "parts": {
+          "scheme": "wss",
+          "userinfo": null,
+          "host": "h",
+          "opaque": false,
+          "fragment": null,
+          "path": "/x",
+          "query": null,
+          "to_s": "wss://h/x"
+        }
+      },
+      {
+        "uri": "ws://h:443/x",
+        "parts": {
+          "scheme": "ws",
+          "userinfo": null,
+          "host": "h",
+          "opaque": false,
+          "fragment": null,
+          "path": "/x",
+          "query": null,
+          "to_s": "ws://h:443/x"
+        }
+      },
+      {
+        "uri": "//host/p",
+        "parts": {
+          "scheme": null,
+          "userinfo": null,
+          "host": "host",
+          "opaque": false,
+          "fragment": null,
+          "path": "/p",
+          "query": null,
+          "to_s": "//host/p"
+        }
+      },
+      {
+        "uri": "//host:8/p?q",
+        "parts": {
+          "scheme": null,
+          "userinfo": null,
+          "host": "host",
+          "opaque": false,
+          "fragment": null,
+          "path": "/p",
+          "query": "q",
+          "to_s": "//host:8/p?q"
+        }
+      },
+      {
+        "uri": "/callback",
+        "parts": {
+          "scheme": null,
+          "userinfo": null,
+          "host": null,
+          "opaque": false,
+          "fragment": null,
+          "path": "/callback",
+          "query": null,
+          "to_s": "/callback"
+        }
+      },
+      {
+        "uri": "callback",
+        "parts": {
+          "scheme": null,
+          "userinfo": null,
+          "host": null,
+          "opaque": false,
+          "fragment": null,
+          "path": "callback",
+          "query": null,
+          "to_s": "callback"
+        }
+      },
+      {
+        "uri": "",
+        "parts": {
+          "scheme": null,
+          "userinfo": null,
+          "host": null,
+          "opaque": false,
+          "fragment": null,
+          "path": "",
+          "query": null,
+          "to_s": ""
+        }
+      },
+      {
+        "uri": "world",
+        "parts": {
+          "scheme": null,
+          "userinfo": null,
+          "host": null,
+          "opaque": false,
+          "fragment": null,
+          "path": "world",
+          "query": null,
+          "to_s": "world"
+        }
+      },
+      {
+        "uri": "urn:ietf:wg:oauth:2.0:oob",
+        "parts": {
+          "scheme": "urn",
+          "userinfo": null,
+          "host": null,
+          "opaque": true,
+          "fragment": null
+        }
+      },
+      {
+        "uri": "javascript:alert(1)",
+        "parts": {
+          "scheme": "javascript",
+          "userinfo": null,
+          "host": null,
+          "opaque": true,
+          "fragment": null
+        }
+      },
+      {
+        "uri": "localhost:3000/cb",
+        "parts": {
+          "scheme": "localhost",
+          "userinfo": null,
+          "host": null,
+          "opaque": true,
+          "fragment": null
+        }
+      },
+      {
+        "uri": "mailto:a@b",
+        "parts": {
+          "scheme": "mailto",
+          "userinfo": null,
+          "host": null,
+          "opaque": true,
+          "fragment": null
+        }
+      },
+      {
+        "uri": "https:///callback",
+        "parts": {
+          "scheme": "https",
+          "userinfo": null,
+          "host": "",
+          "opaque": false,
+          "fragment": null,
+          "path": "/callback",
+          "query": null,
+          "to_s": "https:///callback"
+        }
+      },
+      {
+        "uri": "http://",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "",
+          "opaque": false,
+          "fragment": null,
+          "path": "",
+          "query": null,
+          "to_s": "http://"
+        }
+      },
+      {
+        "uri": "http://@h/x",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "h",
+          "opaque": false,
+          "fragment": null,
+          "path": "/x",
+          "query": null,
+          "to_s": "http://h/x"
+        }
+      },
+      {
+        "uri": "http://u@/x",
+        "parts": {
+          "scheme": "http",
+          "userinfo": "u",
+          "host": "",
+          "opaque": false,
+          "fragment": null,
+          "path": "/x",
+          "query": null,
+          "to_s": "http://u@/x"
+        }
+      },
+      {
+        "uri": "http://h/%zz",
+        "parts": null
+      },
+      {
+        "uri": "http://h/a%20b",
+        "parts": {
+          "scheme": "http",
+          "userinfo": null,
+          "host": "h",
+          "opaque": false,
+          "fragment": null,
+          "path": "/a%20b",
+          "query": null,
+          "to_s": "http://h/a%20b"
+        }
+      },
+      {
+        "uri": "a:b",
+        "parts": {
+          "scheme": "a",
+          "userinfo": null,
+          "host": null,
+          "opaque": true,
+          "fragment": null
+        }
+      },
+      {
+        "uri": "a:/b",
+        "parts": {
+          "scheme": "a",
+          "userinfo": null,
+          "host": null,
+          "opaque": false,
+          "fragment": null,
+          "path": "/b",
+          "query": null,
+          "to_s": "a:/b"
+        }
+      }
+    ],
+    "errors": [
+      {
+        "redirect_uri": "https://client.example/callback",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb#a\nhttps://c.example/cb#b",
+        "errors": [
+          "Redirect URI cannot contain a fragment."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb#",
+        "errors": [
+          "Redirect URI cannot contain a fragment."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=hello world",
+        "errors": [
+          "Redirect URI must be an absolute URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=a\tb",
+        "errors": [
+          "Redirect URI must be an absolute URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=a\u000bb",
+        "errors": [
+          "Redirect URI must be an absolute URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=a\fb",
+        "errors": [
+          "Redirect URI must be an absolute URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=a\rb",
+        "errors": [
+          "Redirect URI must be an absolute URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 https://b.example/cb",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 javascript:alert(1)",
+        "errors": [
+          "Redirect URI is forbidden by the server.",
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 VBScript:x",
+        "errors": [
+          "Redirect URI is forbidden by the server.",
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 data:text/html,x",
+        "errors": [
+          "Redirect URI is forbidden by the server.",
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 urn:x",
+        "errors": [
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 localhost:3000/cb",
+        "errors": [
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 localhost://h/cb",
+        "errors": [
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 http:///nohost",
+        "errors": [
+          "Redirect URI must be a valid URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 https://",
+        "errors": [
+          "Redirect URI must be a valid URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 %zz",
+        "errors": [
+          "Redirect URI must be a valid URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 a#f %zz /c",
+        "errors": [
+          "Redirect URI cannot contain a fragment.",
+          "Redirect URI must be an absolute URI.",
+          "Redirect URI must be a valid URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 a#f b#g /c",
+        "errors": [
+          "Redirect URI cannot contain a fragment.",
+          "Redirect URI must be an absolute URI."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 /c a#f",
+        "errors": [
+          "Redirect URI must be an absolute URI.",
+          "Redirect URI cannot contain a fragment."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 urn:ietf:wg:oauth:2.0:oob",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 urn:ietf:wg:oauth:2.0:oob:auto",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 //host/p",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 mailto:a@b",
+        "errors": [
+          "Redirect URI must specify a scheme."
+        ]
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 HTTP://UP.example/cb",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 myapp://cb",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb\nhttp://localhost/cb",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1  ",
+        "errors": []
+      },
+      {
+        "redirect_uri": "https://c.example/cb?x=1 javascript:alert(1)#f",
+        "errors": [
+          "Redirect URI is forbidden by the server.",
+          "Redirect URI cannot contain a fragment.",
+          "Redirect URI must specify a scheme."
+        ]
+      }
+    ],
+    "allowed": [
+      {
+        "url": "https://client.example/callback",
+        "registered": "https://client.example/callback",
+        "allowed": true
+      },
+      {
+        "url": "https://client.example/callback",
+        "registered": "http://localhost/cb\nhttps://client.example/callback",
+        "allowed": true
+      },
+      {
+        "url": "HTTPS://client.example/callback",
+        "registered": "https://client.example/callback",
+        "allowed": false
+      },
+      {
+        "url": "https://client.example:443/callback",
+        "registered": "https://client.example/callback",
+        "allowed": false
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=hello world",
+        "registered": "http://127.0.0.1/cb?x=hello%20world",
+        "allowed": true
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=hello%20world",
+        "registered": "http://127.0.0.1/cb?x=hello%20world",
+        "allowed": true
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=hello+world",
+        "registered": "http://127.0.0.1/cb?x=hello%20world",
+        "allowed": false
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=a\tb",
+        "registered": "http://127.0.0.1/cb?x=ab",
+        "allowed": true
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=a\r\nb",
+        "registered": "http://127.0.0.1/cb?x=ab",
+        "allowed": true
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=hello world",
+        "registered": "http://127.0.0.1:9/cb?x=hello world",
+        "allowed": false
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=hello",
+        "registered": "http://127.0.0.1/cb?x=hello world",
+        "allowed": true
+      },
+      {
+        "url": "http://127.0.0.1:9/world",
+        "registered": "http://127.0.0.1/cb?x=hello http://127.0.0.1/world",
+        "allowed": true
+      },
+      {
+        "url": "http://LOCALHOST:9/cb",
+        "registered": "http://localhost/cb",
+        "allowed": false
+      },
+      {
+        "url": "HTTP://localhost:9/cb",
+        "registered": "http://localhost/cb",
+        "allowed": true
+      },
+      {
+        "url": "http://localhost:9/cb?x=%7e",
+        "registered": "http://localhost/cb?x=~",
+        "allowed": false
+      },
+      {
+        "url": "http://localhost:9/cb?x=%7E",
+        "registered": "http://localhost/cb?x=%7e",
+        "allowed": false
+      },
+      {
+        "url": "http://localhost:09/cb",
+        "registered": "http://localhost:9/cb",
+        "allowed": true
+      },
+      {
+        "url": "http://localhost:/cb",
+        "registered": "http://localhost:9/cb",
+        "allowed": true
+      },
+      {
+        "url": "http://localhost:9/cb?x=\"",
+        "registered": "http://localhost/cb?x=%22",
+        "allowed": true
+      },
+      {
+        "url": "http://localhost:9/cb?x='",
+        "registered": "http://localhost/cb?x=%27",
+        "allowed": true
+      },
+      {
+        "url": "http://localhost:9/cb?",
+        "registered": "http://localhost/cb",
+        "allowed": false
+      },
+      {
+        "url": "http://localhost:9/cb",
+        "registered": "http://localhost/cb?",
+        "allowed": false
+      },
+      {
+        "url": "http://localhost:9",
+        "registered": "http://localhost/",
+        "allowed": false
+      },
+      {
+        "url": "http://user@127.0.0.1:9/cb",
+        "registered": "http://127.0.0.1/cb",
+        "allowed": false
+      },
+      {
+        "url": "http://[::1]:9/cb",
+        "registered": "http://[::1]/cb",
+        "allowed": true
+      },
+      {
+        "url": "http://[::1]:9/cb",
+        "registered": "http://127.0.0.1/cb",
+        "allowed": false
+      },
+      {
+        "url": "http://127.0.0.1:9/cb?x=%zz",
+        "registered": "http://127.0.0.1/cb?x=%zz",
+        "allowed": false
+      },
+      {
+        "url": "//host/p",
+        "registered": "//host/p",
+        "allowed": false
+      },
+      {
+        "url": "myapp://callback",
+        "registered": "myapp://callback",
+        "allowed": true
+      },
+      {
+        "url": "https://client.example/callback",
+        "registered": "",
+        "allowed": false
+      },
+      {
+        "url": "https://client.example/callback",
+        "registered": "  \n",
+        "allowed": false
+      }
+    ],
+    "answers": [
+      {
+        "url": "https://client.example/callback",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ],
+          [
+            "state",
+            "st"
+          ]
+        ],
+        "query": "https://client.example/callback?code=c0de&state=st",
+        "fragment": "https://client.example/callback#code=c0de&state=st"
+      },
+      {
+        "url": "HTTPS://Client.Example:0443/Callback?x=1",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ],
+          [
+            "state",
+            ""
+          ]
+        ],
+        "query": "https://Client.Example/Callback?x=1&code=c0de",
+        "fragment": "https://Client.Example/Callback?x=1#code=c0de"
+      },
+      {
+        "url": "http://127.0.0.1:53211/cb?x=hello world",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ],
+          [
+            "state",
+            "a b&c=\"d\"<e>+é"
+          ]
+        ],
+        "query": "http://127.0.0.1:53211/cb?x=hello+world&code=c0de&state=a+b%26c%3D%22d%22%3Ce%3E%2B%C3%A9",
+        "fragment": "http://127.0.0.1:53211/cb?x=hello%20world#code=c0de&state=a+b%26c%3D%22d%22%3Ce%3E%2B%C3%A9"
+      },
+      {
+        "url": "https://client.example/callback?keep=1&state=theirs",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ],
+          [
+            "state",
+            ""
+          ]
+        ],
+        "query": "https://client.example/callback?keep=1&state=theirs&code=c0de",
+        "fragment": "https://client.example/callback?keep=1&state=theirs#code=c0de"
+      },
+      {
+        "url": "https://client.example/callback?keep=1&state=theirs",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ],
+          [
+            "state",
+            "ours"
+          ]
+        ],
+        "query": "https://client.example/callback?keep=1&state=ours&code=c0de",
+        "fragment": "https://client.example/callback?keep=1&state=theirs#code=c0de&state=ours"
+      },
+      {
+        "url": "https://client.example/cb?a=1&a=2&b&c=&d=%20&e=x",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "https://client.example/cb?a=1&a=2&e=x&code=c0de",
+        "fragment": "https://client.example/cb?a=1&a=2&b&c=&d=%20&e=x#code=c0de"
+      },
+      {
+        "url": "https://client.example/cb?a&a=1",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "https://client.example/cb?a=1&code=c0de",
+        "fragment": "https://client.example/cb?a&a=1#code=c0de"
+      },
+      {
+        "url": "https://client.example/cb?a=1&a",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "https://client.example/cb?a=1&a&code=c0de",
+        "fragment": "https://client.example/cb?a=1&a#code=c0de"
+      },
+      {
+        "url": "https://client.example/cb?a=&a=1&&=v&x=y=z",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "https://client.example/cb?a=&a=1&=v&x=y%3Dz&code=c0de",
+        "fragment": "https://client.example/cb?a=&a=1&&=v&x=y=z#code=c0de"
+      },
+      {
+        "url": "https://client.example/cb?code=theirs&a+b=c%2Fd&e=%FF",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": null,
+        "fragment": "https://client.example/cb?code=theirs&a+b=c%2Fd&e=%FF#code=c0de"
+      },
+      {
+        "url": "https://client.example/cb?",
+        "parameters": [
+          [
+            "error",
+            "access_denied"
+          ],
+          [
+            "error_description",
+            "The resource owner said no."
+          ],
+          [
+            "state",
+            " "
+          ]
+        ],
+        "query": "https://client.example/cb?error=access_denied&error_description=The+resource+owner+said+no.",
+        "fragment": "https://client.example/cb?#error=access_denied&error_description=The+resource+owner+said+no."
+      },
+      {
+        "url": "https://client.example/cb",
+        "parameters": [],
+        "query": "https://client.example/cb?",
+        "fragment": "https://client.example/cb#"
+      },
+      {
+        "url": "http://localhost:080/cb",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "http://localhost/cb?code=c0de",
+        "fragment": "http://localhost/cb#code=c0de"
+      },
+      {
+        "url": "myapp://callback:9/x?y=1",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "myapp://callback:9/x?y=1&code=c0de",
+        "fragment": "myapp://callback:9/x?y=1#code=c0de"
+      },
+      {
+        "url": "http://u:p@localhost/cb",
+        "parameters": [
+          [
+            "code",
+            "c0de"
+          ]
+        ],
+        "query": "http://u:p@localhost/cb?code=c0de",
+        "fragment": "http://u:p@localhost/cb#code=c0de"
+      }
+    ]
+  },
+  "oauth_basic": {
+    "decode64": [
+      {
+        "text": "YWJjOnM=",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "YW JjOnM=",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "YWJjOnM",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "YW\nJj\tOnM=",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "YWJj=OnM=",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "=YWJjOnM=",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "YWJjOnM===",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "Y",
+        "bytes": []
+      },
+      {
+        "text": "YQ",
+        "bytes": [
+          97
+        ]
+      },
+      {
+        "text": "YQ=",
+        "bytes": [
+          97
+        ]
+      },
+      {
+        "text": "YQ==",
+        "bytes": [
+          97
+        ]
+      },
+      {
+        "text": "YWI",
+        "bytes": [
+          97,
+          98
+        ]
+      },
+      {
+        "text": "YWI=",
+        "bytes": [
+          97,
+          98
+        ]
+      },
+      {
+        "text": "YWJj",
+        "bytes": [
+          97,
+          98,
+          99
+        ]
+      },
+      {
+        "text": "YW-Jj_OnM",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "YWJjOnM=YWJj",
+        "bytes": [
+          97,
+          98,
+          99,
+          58,
+          115
+        ]
+      },
+      {
+        "text": "!!!!",
+        "bytes": []
+      },
+      {
+        "text": "",
+        "bytes": []
+      },
+      {
+        "text": "Basic",
+        "bytes": [
+          5,
+          171,
+          34
+        ]
+      },
+      {
+        "text": "YQ==YQ==",
+        "bytes": [
+          97
+        ]
+      },
+      {
+        "text": "YWJ=jOnM",
+        "bytes": [
+          97,
+          98
+        ]
+      },
+      {
+        "text": "Y=WJj",
+        "bytes": [
+          97,
+          98,
+          99
+        ]
+      },
+      {
+        "text": "/+/+",
+        "bytes": [
+          255,
+          239,
+          254
+        ]
+      },
+      {
+        "text": "////",
+        "bytes": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "text": "AAAA",
+        "bytes": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "text": "é",
+        "bytes": []
+      },
+      {
+        "text": "YWJjZGVmZ2hpamtsbW5vcA==",
+        "bytes": [
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112
+        ]
+      },
+      {
+        "text": "Y Q = =",
+        "bytes": [
+          97
+        ]
+      }
+    ],
+    "credentials": [
+      {
+        "authorization": "Basic YWJjOnM=",
+        "credentials": [
+          "abc",
+          "s"
+        ]
+      },
+      {
+        "authorization": "Basic YW JjOnM=",
+        "credentials": [
+          "abc",
+          "s"
+        ]
+      },
+      {
+        "authorization": "Basic  YWJjOnM=",
+        "credentials": [
+          "abc",
+          "s"
+        ]
+      },
+      {
+        "authorization": "basic\tYWJjOnM=",
+        "credentials": null
+      },
+      {
+        "authorization": "BASIC YWJjOnM=",
+        "credentials": [
+          "abc",
+          "s"
+        ]
+      },
+      {
+        "authorization": "bAsIc YWJjOnM=",
+        "credentials": [
+          "abc",
+          "s"
+        ]
+      },
+      {
+        "authorization": "Basic ",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic  ",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic OnM=",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic IDpz",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic IAk6cw==",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic YWJj",
+        "credentials": [
+          "abc",
+          null
+        ]
+      },
+      {
+        "authorization": "Basic YWJjOg==",
+        "credentials": [
+          "abc",
+          ""
+        ]
+      },
+      {
+        "authorization": "Basic YWJjOnM6dA==",
+        "credentials": [
+          "abc",
+          "s:t"
+        ]
+      },
+      {
+        "authorization": "Basic\u000bYQ==",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic \tYQ==",
+        "credentials": [
+          "a",
+          null
+        ]
+      },
+      {
+        "authorization": "Basic YQ==YQ==",
+        "credentials": [
+          "a",
+          null
+        ]
+      },
+      {
+        "authorization": "Basic !!!!",
+        "credentials": null
+      },
+      {
+        "authorization": "Bearer YWJjOnM=",
+        "credentials": null
+      },
+      {
+        "authorization": " Basic YWJjOnM=",
+        "credentials": null
+      },
+      {
+        "authorization": "",
+        "credentials": null
+      },
+      {
+        "authorization": "Basic YWJjOnM= trailing",
+        "credentials": [
+          "abc",
+          "s"
+        ]
+      },
+      {
+        "authorization": "Basic YTpiIGM=",
+        "credentials": [
+          "a",
+          "b c"
+        ]
       }
     ]
   }

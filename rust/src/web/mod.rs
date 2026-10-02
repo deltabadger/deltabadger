@@ -14,6 +14,7 @@ pub mod headers;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
+pub mod oauth;
 pub mod rate_limit;
 pub mod server;
 pub mod session;
@@ -485,6 +486,8 @@ pub struct Params {
     pub query: Vec<(String, String)>,
     /// The fields of an `application/x-www-form-urlencoded` POST body, by their literal names (`user[email]`).
     pub form: Vec<(String, String)>,
+    /// The object in an `application/json` POST body, on the three paths that take one (`JSON_PATHS`).
+    pub json: Option<serde_json::Value>,
 }
 
 impl Params {
@@ -563,6 +566,9 @@ pub const FORM_FIELDS: usize = 1000;
 /// kept as `return_to` is 2 KiB) and as many fields as a form.
 pub const QUERY_LIMIT: usize = 8 * 1024;
 pub const QUERY_FIELDS: usize = FORM_FIELDS;
+/// The paths whose POST may carry `application/json` instead of a form: what an OAuth client sends
+/// on its own (web::oauth). The body is read under the form's limit and deadline.
+pub const JSON_PATHS: [&str; 3] = ["/oauth/register", "/oauth/token", "/oauth/revoke"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -593,8 +599,12 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         }
     }
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
-    let form_post = parts.method == Method::POST && header_text(&parts.headers, "content-type").is_some_and(|t| t.starts_with("application/x-www-form-urlencoded"));
-    let (form, body) = if form_post {
+    let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
+    let form_post = parts.method == Method::POST && content_type.starts_with("application/x-www-form-urlencoded");
+    let json_post = parts.method == Method::POST && JSON_PATHS.contains(&full_path.as_str())
+        && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
+    let mut json = None;
+    let (form, body) = if form_post || json_post {
         // The one place a request body is read. It has a deadline for the whole of it: a client that
         // declares a body and stops sending gets a 408, and `connection: close` makes hyper drop the
         // connection, so it does not keep its place. (A body no handler reads is not waited for: hyper
@@ -604,6 +614,13 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             Err(_) => return (StatusCode::REQUEST_TIMEOUT, [(header::CONNECTION, "close")], "The form did not arrive in time\n").into_response(),
         };
         match read {
+            // A JSON body that is not JSON is Rails' 400, answered before any controller. One that is not
+            // an object names no parameter, and neither does an empty one.
+            Ok(bytes) if json_post => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(value) => { json = value.is_object().then_some(value); (Vec::new(), Body::empty()) }
+                Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => (Vec::new(), Body::empty()),
+                Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
+            },
             Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Ok(bytes) => (pairs(&bytes), Body::empty()),
             Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
@@ -620,7 +637,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let route_path = route_path.to_string();
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
-    parts.extensions.insert(Arc::new(Params { full_path, fullpath, route_path, path_locale, query, form }));
+    parts.extensions.insert(Arc::new(Params { full_path, fullpath, route_path, path_locale, query, form, json }));
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
         Err(never) => match never {},

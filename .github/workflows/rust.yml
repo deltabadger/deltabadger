@@ -27,6 +27,10 @@ on:
       - 'app/models/exchanges/kraken.rb'
       # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
       - 'config/environments/production.rb'
+      # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
+      - 'app/models/app_config.rb'
+      - 'config/initializers/doorkeeper.rb'
+      - 'config/initializers/rack_attack.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -53,6 +57,10 @@ on:
       - 'app/models/exchanges/kraken.rb'
       # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
       - 'config/environments/production.rb'
+      # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
+      - 'app/models/app_config.rb'
+      - 'config/initializers/doorkeeper.rb'
+      - 'config/initializers/rack_attack.rb'
 
 permissions:
   contents: read

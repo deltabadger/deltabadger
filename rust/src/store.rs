@@ -123,8 +123,29 @@ const PRIMARY: &[TableContract] = &[
         ("display_currency", "varchar", true), ("hide_balances", "boolean", true), ("confirmed_at", "datetime", false),
         ("failed_attempts", "integer", true), ("locked_at", "datetime(6)", false), ("otp_module", "integer", false),
         ("otp_secret_key", "varchar", false), ("last_otp_at", "datetime", false), ("remember_created_at", "datetime", false),
-        ("updated_at", "datetime", true), ("tracker_settings", "json", false),
+        ("updated_at", "datetime", true), ("tracker_settings", "json", false), ("mcp_settings", "json", false), ("rest_settings", "json", false),
     ], unique_indexes: &[&["email"]] },
+    // Doorkeeper's tables and the per-client grant (src/web/oauth.rs, consent.rs, bearer.rs): written as Doorkeeper writes them.
+    TableContract { name: "oauth_applications", columns: &[
+        ("id", "integer", true), ("uid", "varchar", true), ("name", "varchar", true), ("secret", "varchar", false), ("redirect_uri", "text", false),
+        ("scopes", "varchar", true), ("confidential", "boolean", true), ("personal_access_token", "boolean", true),
+        ("registration_access_token", "varchar", false), ("token_endpoint_auth_method", "varchar", false), ("grant_types", "varchar", false),
+        ("response_types", "varchar", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["uid"]] },
+    TableContract { name: "oauth_access_grants", columns: &[
+        ("id", "integer", true), ("application_id", "integer", true), ("resource_owner_id", "integer", true), ("token", "varchar", true),
+        ("expires_in", "integer", true), ("redirect_uri", "text", true), ("scopes", "varchar", true), ("code_challenge", "varchar", false),
+        ("code_challenge_method", "varchar", false), ("created_at", "datetime(6)", true), ("revoked_at", "datetime(6)", false),
+    ], unique_indexes: &[&["token"]] },
+    TableContract { name: "oauth_access_tokens", columns: &[
+        ("id", "integer", true), ("application_id", "integer", true), ("resource_owner_id", "integer", false), ("token", "varchar", true),
+        ("refresh_token", "varchar", false), ("previous_refresh_token", "varchar", true), ("scopes", "varchar", true), ("expires_in", "integer", false),
+        ("created_at", "datetime(6)", true), ("revoked_at", "datetime(6)", false),
+    ], unique_indexes: &[&["token"], &["refresh_token"]] },
+    TableContract { name: "connected_clients", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("oauth_application_id", "integer", true), ("mcp_tools", "json", true),
+        ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
     TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
     // The bots page refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[
