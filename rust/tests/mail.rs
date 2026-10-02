@@ -130,3 +130,54 @@ fn markers_are_read_back_as_the_notices_they_were_written_for() {
     let odd = json!({ notice::FUNDS: "yes", notice::STOPPED: { "stamped_at": "2026-09-10T12:00:30.000Z" }, notice::ERROR: { "a.b": { "error": "x", "stamped_at": "y" } }, notice::LIMIT: {} });
     assert_eq!(notice::pending_in(7, odd.as_object().unwrap()), []);
 }
+
+// ---- Where mail goes (mail::smtp) ----
+use deltabadger::mail::smtp;
+
+fn env_of(case: &Value) -> impl Fn(&str) -> Option<String> + '_ {
+    move |name: &str| case["env"].get(name).and_then(Value::as_str).map(str::to_string)
+}
+
+#[test]
+fn smtp_settings_and_the_sender_resolve_as_rails_resolves_them() {
+    let v = vectors();
+    let defaults = &v["smtp_defaults"];
+    assert_eq!((defaults["open_timeout"].as_u64(), defaults["read_timeout"].as_u64()), (Some(5), Some(5)));
+    let cases = v["smtp"].as_array().unwrap();
+    assert_eq!(cases.len(), 20);
+    let (mut configured, mut refused) = (0, 0);
+    for c in cases {
+        let env = smtp::Env::read(&env_of(c));
+        let config = |key: &str| c["app_config"].get(key).and_then(Value::as_str).map(str::to_string);
+        assert_eq!(smtp::notifications_sender(&env, &config), c["sender"].as_str().unwrap(), "sender of {c}");
+        // What Mail::SMTP ends up with: SmtpSettings.current over the mail gem's defaults.
+        let rails = |key: &str| c["settings"].get(key).filter(|v| !v.is_null()).unwrap_or(&defaults[key]).clone();
+        let text = |v: Value| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string());
+        let ours = match smtp::Settings::current(&env, &config) {
+            Ok(ours) => ours,
+            // Rails' nil is "deliver to localhost:25"; here it is "mail is not configured" (a listed divergence).
+            Err(why) if c["settings"].is_null() => { assert_eq!(why, "no SMTP_ADDRESS, and no SMTP settings saved", "{c}"); continue }
+            // The one recorded configuration Rails accepts and this crate does not: an empty SMTP_DOMAIN, which Rails
+            // would send as `EHLO ` (a listed divergence).
+            Err(why) => { assert_eq!((why.as_str(), text(rails("domain")).as_str()), ("SMTP_DOMAIN is not a host name or an address literal", ""), "{c}"); refused += 1; continue }
+        };
+        assert!(!c["settings"].is_null(), "not configured in Rails, configured here: {c}");
+        assert_eq!(ours.address, text(rails("address")), "address of {c}");
+        assert_eq!(ours.port, text(rails("port")), "port of {c}");
+        assert_eq!(ours.domain, text(rails("domain")), "domain of {c}");
+        assert_eq!(ours.credentials, (text(rails("user_name")), text(rails("password"))), "credentials of {c}");
+        assert_eq!((ours.open_timeout.as_secs(), ours.read_timeout.as_secs()), (5, 5));
+        // STARTTLS is required exactly when there is a user name or a password to protect.
+        assert_eq!(ours.has_secret(), !ours.credentials.0.is_empty() || !ours.credentials.1.is_empty());
+        configured += 1;
+    }
+    assert_eq!((configured, refused), (13, 1), "of the 20 recorded configurations; the other six are \"not configured\" in Rails too");
+}
+
+#[test]
+fn settings_never_print_their_password() {
+    let env = smtp::Env::read(&|name| match name { "SMTP_ADDRESS" => Some("mail.example.com".into()), "SMTP_USER_NAME" => Some("alice".into()), "SMTP_PASSWORD" => Some("s3cret-pw".into()), _ => None });
+    let printed = format!("{:?}", smtp::Settings::current(&env, &|_| None).unwrap());
+    assert!(!printed.contains("s3cret-pw") && !printed.contains("alice"), "{printed}");
+    // smtp::Env holds the password too and cannot be printed at all: it has no Debug.
+}
