@@ -1,0 +1,59 @@
+name: Rust engine
+
+on:
+  push:
+    paths: ['rust/**', '.github/workflows/rust.yml']
+  pull_request:
+    paths: ['rust/**', '.github/workflows/rust.yml']
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    # Blockers on Windows (not patched here): tests/parity.rs:121 uses std::os::unix, so
+    # `clippy --all-targets` fails to compile there. The release build compiles.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64, os: ubuntu-24.04, experimental: false }
+          - { name: linux-arm64, os: ubuntu-24.04-arm, experimental: false }
+          - { name: macos-arm64, os: macos-15, experimental: false }
+          - { name: macos-x86_64, os: macos-15-intel, experimental: false }
+          - { name: windows-x86_64, os: windows-2025, experimental: true }
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust 1.94.0
+        shell: bash
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal --component clippy
+          rustup default 1.94.0
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          key: ${{ matrix.name }}
+
+      - run: cargo build --release --locked
+
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+      # Rails-free tests. Rule: test files that build a Rails install (via common::install,
+      # common::rails_install, bin/rails or script/rust/prepare_install.rb) are excluded;
+      # add new Rails-free test files here.
+      - name: Test
+        run: >
+          cargo test --locked --lib --bins
+          --test cli --test codec --test crypto --test enums
+          --test ruby --test schedule --test venue_fake
