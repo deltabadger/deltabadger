@@ -92,6 +92,10 @@ async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
     let framed = browser.send(&app, "GET", "/bots/new", None, web::Csrf::None, &[("turbo-frame", "modal")]).await;
     assert!(framed.status == 501 && framed.body.contains("<turbo-frame id=\"modal\">"), "Turbo shows the message in the frame it asked for: {}", framed.body);
     assert_eq!(browser.send(&app, "PUT", "/up", None, web::Csrf::None, &[]).await.status, 501, "a method a route does not take");
+    for method in ["POST", "PUT", "DELETE"] {
+        let cable = browser.send(&app, method, "/cable", None, web::Csrf::None, &[]).await;
+        assert!(cable.status == 501 && cable.body.contains(&format!("{method} /cable")), "{method} /cable: {} {}", cable.status, cable.body);
+    }
     let escaped = browser.get(&app, "/search?a=1&b=%3Cscript%3E").await;
     assert!(escaped.body.contains("GET /search?a=1&#38;b=%3Cscript%3E"), "the path is text, never markup: {}", escaped.body);
 }

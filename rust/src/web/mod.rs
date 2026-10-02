@@ -319,7 +319,7 @@ fn routes(app: App) -> Router {
         // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
         .route("/up", only(get(up)))
         .route("/csp-report", only(post(csp_report)))
-        .route("/cable", get(cable::connect))
+        .route("/cable", only(get(cable::connect)))
         .with_state(app)
 }
 
