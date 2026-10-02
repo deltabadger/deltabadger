@@ -514,6 +514,41 @@ mod rate_limits {
         assert_eq!(limiter.hit(&Method::POST, "/verify_two_factor", "1.1.1.1", now), Some(30));
     }
 
+    /// What a request costs the limiter must not grow with the number of addresses it is counting:
+    /// the counts of an earlier minute are dropped once, when the minute changes.
+    #[test]
+    fn old_windows_are_dropped_when_the_minute_changes_and_not_on_every_request() {
+        let limiter = rate_limit::Limiter::default();
+        let now = at("2026-09-10T12:00:30Z");
+        let started = std::time::Instant::now();
+        for n in 0..30_000 { assert_eq!(limiter.hit(&Method::POST, "/login", &format!("address {n}"), now), None); }
+        let took = started.elapsed();
+        assert_eq!(limiter.tracked(), 30_000);
+        assert!(took < std::time::Duration::from_secs(1), "30,000 first requests took {took:?}: each one walked every count");
+        assert_eq!(limiter.hit(&Method::POST, "/login", "address 7", at("2026-09-10T12:00:59Z")), None, "the second in its minute");
+        assert_eq!(limiter.tracked(), 30_000, "nothing is dropped within the minute");
+        assert_eq!(limiter.hit(&Method::POST, "/login", "address 7", at("2026-09-10T12:01:00Z")), None);
+        assert_eq!(limiter.tracked(), 1, "the next minute starts with nothing");
+        assert_eq!(limiter.hit(&Method::GET, "/login", "address 8", at("2026-09-10T12:02:00Z")), None);
+        assert_eq!(limiter.tracked(), 1, "a request no rule counts does not touch the counts");
+    }
+
+    /// The counts are bounded. At the bound an address that is not being counted yet is refused,
+    /// never served uncounted; the addresses already counted go on as before, and the next minute is empty.
+    #[test]
+    fn at_the_bound_a_new_address_is_refused_rather_than_let_through_uncounted() {
+        let limiter = rate_limit::Limiter::default();
+        let now = at("2026-09-10T12:00:30Z");
+        for n in 0..rate_limit::MAX_TRACKED { assert_eq!(limiter.hit(&Method::POST, "/login", &format!("address {n}"), now), None, "{n}"); }
+        assert_eq!(rate_limit::MAX_TRACKED, 100_000);
+        assert_eq!(limiter.hit(&Method::POST, "/login", "one more", now), Some(30), "its first request, and refused");
+        assert_eq!(limiter.hit(&Method::POST, "/verify_two_factor", "address 7", now), Some(30), "the other rule's counts share the bound");
+        assert_eq!(limiter.tracked(), rate_limit::MAX_TRACKED, "and nothing was added for them");
+        for _ in 0..9 { assert_eq!(limiter.hit(&Method::POST, "/login", "address 7", now), None, "an address already counted has its ten"); }
+        assert_eq!(limiter.hit(&Method::POST, "/login", "address 7", now), Some(30), "and no more");
+        assert_eq!(limiter.hit(&Method::POST, "/login", "one more", at("2026-09-10T12:01:00Z")), None, "the next minute");
+    }
+
     #[test]
     fn headers_name_the_client_only_behind_a_declared_proxy_and_only_when_a_proxy_sent_them() {
         // Behind a trusted proxy the answer is Rails', except for these X-Forwarded-For values, where

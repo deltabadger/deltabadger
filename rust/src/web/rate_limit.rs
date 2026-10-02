@@ -13,8 +13,17 @@ const PERIOD: i64 = 60;
 /// (rule name, route path, requests allowed per window). POST only, as in rack_attack.rb.
 pub const RULES: [(&str, &str, u32); 2] = [("users/login", "/login", 10), ("users/verify_two_factor", "/verify_two_factor", 5)];
 
-/// (rule, address) -> (window number, requests seen in it).
-type Windows = HashMap<(&'static str, String), (i64, u32)>;
+/// The addresses counted at once. An address costs about a hundred bytes, so this is some ten
+/// megabytes at most. When it is reached, an address not yet counted is refused until the minute
+/// ends, instead of being let through uncounted: a flood of addresses buys no free attempts.
+pub const MAX_TRACKED: usize = 100_000;
+
+/// The clock minute being counted, and (rule, address) -> requests seen in it.
+#[derive(Default)]
+struct Windows {
+    window: i64,
+    seen: HashMap<(&'static str, String), u32>,
+}
 
 #[derive(Default)]
 pub struct Limiter {
@@ -28,11 +37,25 @@ impl Limiter {
         let (rule, _, limit) = *RULES.iter().find(|(_, path, _)| method == Method::POST && *path == route_path)?;
         let epoch = now.timestamp();
         let window = epoch.div_euclid(PERIOD);
+        let retry_after = PERIOD - epoch.rem_euclid(PERIOD);
         let mut windows = self.windows.lock().unwrap_or_else(PoisonError::into_inner);
-        windows.retain(|_, (seen, _)| *seen == window); // older windows can never count again
-        let entry = windows.entry((rule, address.to_string())).or_insert((window, 0));
-        entry.1 += 1;
-        (entry.1 > limit).then(|| PERIOD - epoch.rem_euclid(PERIOD))
+        if windows.window != window {
+            // Once a minute, not on every request: an earlier minute's counts can never count again.
+            windows.seen.clear();
+            windows.window = window;
+        }
+        let key = (rule, address.to_string());
+        if windows.seen.len() >= MAX_TRACKED && !windows.seen.contains_key(&key) {
+            return Some(retry_after);
+        }
+        let seen = windows.seen.entry(key).or_insert(0);
+        *seen = seen.saturating_add(1);
+        (*seen > limit).then_some(retry_after)
+    }
+
+    /// How many (rule, address) pairs are being counted.
+    pub fn tracked(&self) -> usize {
+        self.windows.lock().unwrap_or_else(PoisonError::into_inner).seen.len()
     }
 }
 
