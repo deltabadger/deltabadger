@@ -169,3 +169,48 @@ fn printf_is_not_ruby_on_unfloored_input_so_callers_must_floor() {
 #[cfg(debug_assertions)]
 #[should_panic(expected = "already floored")]
 fn printf_refuses_unfloored_input_in_debug() { amount::printf(&bd("0.00265"), 4); }
+
+#[test]
+fn a_cancelled_or_abandoned_buy_counts_what_it_filled_and_the_rest_is_owed_again() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("missed_quote_amount", json!("30")));
+    seed::insert_tx(&o.primary, &s, id, &tx(0, 3, "2026-09-01 10:00:01", Some("90"), Some("39.96"), None, None)); // expired part-filled
+    seed::insert_tx(&o.primary, &s, id, &tx(0, 4, "2026-09-01 10:00:02", Some("60"), None, None, None));           // abandoned, never filled
+    seed::insert_tx(&o.primary, &s, id, &tx(0, 3, "2026-08-31 10:00:00", Some("60"), Some("60"), None, None));     // before the window
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    // Rails (#448): two weeks owed (120) + the carry (30) − the 39.96 that filled. The unfilled 50.04 is owed again, and no
+    // fill ever consumed the carry. The old arithmetic said 150 here.
+    assert_eq!(amount::pending_quote_amount(&o.primary, &bot, us("2026-09-08T10:00:00.5Z")).unwrap(), bd("110.04"));
+}
+
+/// One recorded carry row, bound as Rails binds it: decimals as the Float BigDecimal#to_f gives, absent keys NULL.
+fn insert_carry_row(c: &rusqlite::Connection, s: &seed::Seeded, bot_id: i64, row: &serde_json::Value) {
+    let text = |k: &str| row.get(k).and_then(serde_json::Value::as_str).map(str::to_string);
+    let real = |k: &str| row.get(k).and_then(serde_json::Value::as_str).map(|v| v.parse::<f64>().unwrap_or_else(|_| panic!("{k} {v}")));
+    let int = |k: &str| row.get(k).and_then(serde_json::Value::as_i64);
+    c.execute(
+        "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
+         amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
+         error_messages, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'BTC', 'USD', ?13, ?14, 'day', 60, ?15, '[]', ?16, ?16)",
+        rusqlite::params![bot_id, s.exchange_id, text("external_id"), int("status"), int("external_status"), int("side"), int("order_type"),
+                          real("amount"), real("quote_amount"), real("price"), real("amount_exec"), real("quote_amount_exec"), s.btc, s.quote,
+                          text("transaction_type"), text("created_at")]).unwrap();
+}
+
+#[test]
+fn every_recorded_rails_carry_is_reproduced() {
+    let cases = common::vectors()["carry"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 36);
+    for (i, c) in cases.iter().enumerate() {
+        let (_d, o, s) = common::install_alpaca();
+        let spec = BotSpec { status: 1, started_at: Some(c["started_at"].as_str().unwrap().into()),
+                             settings_changed_at: c["settings_changed_at"].as_str().map(str::to_string),
+                             settings: c["settings"].clone(), transient: json!({ "missed_quote_amount": c["carry"] }) };
+        let id = seed::insert_bot(&o.primary, &s, &spec);
+        for r in c["rows"].as_array().unwrap() { insert_carry_row(&o.primary, &s, id, r); }
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let got = amount::pending_quote_amount(&o.primary, &bot, us(c["now"].as_str().unwrap())).unwrap();
+        assert_eq!(got, bd(c["pending"].as_str().unwrap()), "case {i}: {c}");
+    }
+}
