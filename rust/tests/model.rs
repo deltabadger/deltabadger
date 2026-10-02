@@ -1,5 +1,5 @@
 mod common;
-use common::install;
+use common::{install, install_alpaca};
 use common::seed::{self, BotSpec};
 use deltabadger::engine::model::{self, Level};
 use deltabadger::enums::BotStatus;
@@ -124,4 +124,29 @@ fn a_blank_limit_distance_is_rails_default_and_garbage_is_unreadable() {
         assert_eq!(read(garbage.clone()), None, "{garbage}: not a distance");
     }
     assert_eq!(read(json!(0)).as_deref(), Some("0.0"), "a real 0 stays 0");
+}
+
+#[test]
+fn an_alpaca_key_carries_its_mode_and_a_ticker_its_venue_code() {
+    let (_d, o, s) = install_alpaca();
+    let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let c = model::credentials_for(&o.primary, &seed::cipher(), &bot).unwrap().unwrap();
+    assert_eq!((c.key.as_str(), c.secret.as_str(), c.passphrase.as_deref()), ("PKTEST", "paper-secret", Some("paper")));
+    let t = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    assert_eq!((t.ticker.as_str(), t.base_code.as_str(), t.base_symbol.as_str(), t.quote_symbol.as_str()), ("BTC/USD", "BTC", "BTC", "USD"));
+
+    let (_d2, o2, s2) = install();
+    let kraken_bot = model::load_bot(&o2.primary, seed::insert_bot(&o2.primary, &s2, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    assert_eq!(model::credentials_for(&o2.primary, &seed::cipher(), &kraken_bot).unwrap().unwrap().passphrase, None, "a Kraken key has none");
+    assert_eq!(model::ticker_for(&o2.primary, &kraken_bot).unwrap().unwrap().base_code, "XBT");
+}
+
+#[test]
+fn a_kraken_key_with_an_unreadable_unused_passphrase_still_loads() {
+    let (_d, o, s) = install();
+    let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let foreign = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-install").unwrap());
+    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [foreign.encrypt("whatever")]).unwrap(); // decrypts under no key we hold
+    let c = model::credentials_for(&o.primary, &seed::cipher(), &bot).unwrap().unwrap();
+    assert_eq!((c.key.as_str(), c.passphrase), ("test-key", None), "Kraken never decrypts the passphrase, as merged");
 }

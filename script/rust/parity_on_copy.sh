@@ -3,6 +3,7 @@
 # would run: one Rails tick and one Rust tick at that bot's next checkpoint, each on its own copy, with the
 # same Kraken prices and a scripted, never-sent AddOrder. Any difference is a failure.
 #   script/rust/parity_on_copy.sh <copy_of_storage_dir> <tickers.json>
+#   tickers.json maps each pair to the venue's recorded price body: Kraken "XBTEUR": <Ticker body>; Alpaca "BTC/USD": {"quotes": <latest quotes body>, "trades": <latest trades body>}.
 # Both engines WRITE to the copies they are given: never point this at a live install's directory.
 set -euo pipefail
 src=$(cd "$1" && pwd); tickers=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")

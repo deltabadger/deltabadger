@@ -190,5 +190,76 @@ sizing_tickers = [
   end
 end
 vectors['sizing'] = sizing
+# Exchange#failure_kind / #transient_error? / #throttled_error? per venue (rust/src/engine/venue_rules.rs).
+failure_messages = ['insufficient buying power', 'unauthorized.', 'HTTP 401', 'HTTP 403', 'forbidden.', 'rate limit exceeded',
+                    'Faraday::ConnectionFailed: Connection refused - connect(2) for "paper-api.alpaca.markets" port 443',
+                    'Faraday::TimeoutError: Net::ReadTimeout', 'internal server error', 'Connection reset by peer',
+                    'EOrder:Insufficient funds', 'EAPI:Invalid key', 'EAPI:Rate limit exceeded', 'EService:Unavailable',
+                    'EAPI:Invalid nonce', 'qty must be >= 0.000027', 'EAPI:Invalid signature', 'EGeneral:Permission denied',
+                    'EAccount:Invalid permissions:USDT trading restricted for AT.', 'EGeneral:Internal error', 'EService:Busy',
+                    'EService:Deadline elapsed']
+vectors['failure_kinds'] = { 'Exchanges::Alpaca' => Exchanges::Alpaca.new, 'Exchanges::Kraken' => Exchanges::Kraken.new }.flat_map do |type, ex|
+  failure_messages.map { |m| [type, m, ex.failure_kind([m])&.to_s, ex.transient_error?([m]), ex.throttled_error?([m])] }
+end
+# The Ruby the Alpaca port mirrors; rust/tests/venue_rules.rs fails when any of it changes, until re-recorded and re-checked.
+vectors['ported_sources'] = %w[app/models/clients/alpaca.rb app/models/exchanges/alpaca.rb app/models/client.rb app/models/exchange.rb
+                                 app/models/exchanges/kraken.rb]
+                              .to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }
+# Exchanges::Alpaca sizing and the exact strings #set_market_order / #set_limit_order send (rust/src/engine/amount.rs).
+alpaca = Exchanges::Alpaca.new
+captured = nil
+alpaca.instance_variable_set(:@client, Object.new.tap do |c|
+  c.define_singleton_method(:create_order) { |**kw| captured = kw; Result::Success.new('id' => 'X') }
+end)
+crypto = Asset.new(symbol: 'BTC', category: 'Cryptocurrency') # crypto_ticker? reads the base asset's category
+alpaca_sizing = []
+alpaca_tickers = [
+  { minimum_base_size: '0.000027', minimum_quote_size: '1', base_decimals: 9, quote_decimals: 2, price_decimals: 0 },
+  { minimum_base_size: '0.0001', minimum_quote_size: '1', base_decimals: 4, quote_decimals: 2, price_decimals: 2 },
+  { minimum_base_size: '1', minimum_quote_size: '10', base_decimals: 0, quote_decimals: 2, price_decimals: 5 },
+  # >17 significant digits after flooring (qty ~8.1e8 at 9 decimals): the only ticker where Float formatting changes a string
+  { minimum_base_size: '0.000000001', minimum_quote_size: '1', base_decimals: 9, quote_decimals: 2, price_decimals: 8 }
+]
+%w[64321.5 0.00123456 1.5 123456789012.12345].each do |price_s|
+  %w[60 0.99 1 5.005 123.456789 1000000].each do |x_s|
+    alpaca_tickers.each do |t|
+      %i[market_order limit_order].each do |order_type|
+        ticker = Ticker.new(exchange: alpaca, ticker: 'BTC/USD', base: 'BTC', quote: 'USD', base_asset: crypto,
+                            **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
+        bot = Bots::DcaMultiAsset.new(exchange: alpaca)
+        price = order_type == :limit_order ? ticker.adjusted_price(price: BigDecimal(price_s) * (1.to_d - 0.0025.to_d)) : BigDecimal(price_s)
+        next if price.zero? # both refuse before sizing ("limit price rounds to zero")
+        x = BigDecimal(x_s)
+        info = bot.send(:calculate_best_amount_info, { ticker:, price:, amount: x / price, quote_amount: x, side: :buy, order_type: })
+        captured = nil
+        if order_type == :limit_order
+          alpaca.limit_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type], price:)
+        else
+          alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
+        end
+        alpaca_sizing << { 'ticker' => t.transform_values(&:to_s), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
+                           'price' => price.to_s('F'), 'amount' => (x / price).to_s('F'), 'amount_type' => info[:amount_type].to_s,
+                           'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s) }
+      end
+    end
+  end
+end
+vectors['alpaca_sizing'] = alpaca_sizing
+# Exchanges::Alpaca#parse_order_data over documented order shapes and every status it maps (rust/src/venue/alpaca.rs).
+alpaca_parser = Exchanges::Alpaca.new
+order_shapes = [
+  { 'type' => 'market', 'side' => 'buy', 'notional' => '60', 'qty' => nil, 'filled_qty' => '0', 'filled_avg_price' => nil, 'limit_price' => nil },
+  { 'type' => 'market', 'side' => 'buy', 'notional' => '60', 'qty' => nil, 'filled_qty' => '0.000932719', 'filled_avg_price' => '64328.1', 'limit_price' => nil },
+  { 'type' => 'limit', 'side' => 'buy', 'notional' => nil, 'qty' => '0.00093525', 'filled_qty' => '0.0004', 'filled_avg_price' => '64149.97', 'limit_price' => '64149.97' }
+]
+order_statuses = %w[new accepted pending_new filled canceled expired replaced rejected partially_filled done_for_day pending_cancel held mystery]
+dec_s = ->(d) { d.nil? ? nil : d.to_d.to_s('F') }
+vectors['alpaca_orders'] = order_statuses.product(order_shapes).map do |status, shape|
+  body = shape.merge('id' => 'O1', 'symbol' => 'BTC/USD', 'status' => status)
+  parsed = alpaca_parser.send(:parse_order_data, body)
+  [body, { 'status' => parsed[:status].to_s, 'price' => dec_s.(parsed[:price]), 'amount' => dec_s.(parsed[:amount]),
+           'quote_amount' => dec_s.(parsed[:quote_amount]), 'amount_exec' => dec_s.(parsed[:amount_exec]),
+           'quote_amount_exec' => dec_s.(parsed[:quote_amount_exec]), 'order_type' => parsed[:order_type].to_s, 'side' => parsed[:side].to_s }]
+end
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(vectors)}\n")
 puts "wrote #{ARGV.fetch(0)}"

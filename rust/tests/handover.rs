@@ -84,7 +84,7 @@ async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let px = deltabadger::ruby::BigDec::from_i64(50_000);
     let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
-        &deltabadger::venue::Prices { bid: px.clone(), ask: px.clone(), last: px }) else { panic!() };
+        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
     let factory = FakeFactory(FakeVenue::new().lookup_fails(1));
     assert!(matches!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await, Err(EngineError::Unresolved(ref v)) if v == &vec![b]));
@@ -126,4 +126,95 @@ fn rails_boot(dir: &std::path::Path) -> (bool, String) {
         .env("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", keys.primary_key).env("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", keys.key_derivation_salt)
         .output().expect("bin/rails runs");
     (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn wrong_secret_handback_writes_nothing() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let row = || -> String { o.primary.query_row("SELECT value || updated_at FROM app_configs WHERE key = 'engine_lease'", [], |r| r.get(0)).unwrap() };
+    let bots = || -> String { o.primary.query_row("SELECT group_concat(status || updated_at) FROM bots", [], |r| r.get(0)).unwrap() };
+    let (row_before, bots_before) = (row(), bots());
+    let wrong = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-instance").unwrap());
+    let r = handover::hand_back(&l, &o, &FakeFactory(FakeVenue::new()), &wrong, &deltabadger::engine::FixedClock(now())).await;
+    assert!(matches!(r, Err(EngineError::Lease(lease::LeaseError::Unreadable))), "{r:?}");
+    assert_eq!((row(), bots()), (row_before, bots_before), "no intents, a wrong secret: nothing written");
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
+}
+
+#[derive(Clone)]
+struct ScriptedAlpaca(deltabadger::venue::alpaca::AlpacaVenue<deltabadger::venue::http::ScriptedTransport>);
+impl deltabadger::venue::VenueFactory for ScriptedAlpaca {
+    type V = deltabadger::venue::alpaca::AlpacaVenue<deltabadger::venue::http::ScriptedTransport>;
+    fn for_bot(&self, _exchange_type: &str, _credentials: Option<deltabadger::crypto::Credentials>) -> Self::V { self.0.clone() }
+}
+
+async fn handback_after_lookups(lookups: serde_json::Value) -> (Result<usize, EngineError>, usize) {
+    use deltabadger::engine::{amount, venue_rules::ALPACA};
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
+    placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
+    let t = deltabadger::venue::http::ScriptedTransport::from_script(&serde_json::json!({ "GET /v2/orders:by_client_order_id": lookups }));
+    let factory = ScriptedAlpaca(deltabadger::venue::alpaca::AlpacaVenue::new(t.clone(), deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper"))));
+    let later = deltabadger::engine::FixedClock(now() + chrono::Duration::seconds(1300)); // the process started at `now()`: a full 1200 s window ago
+    let r = handover::hand_back_retrying(&l, &o, &factory, &seed::cipher(), &later, now(), std::time::Duration::from_millis(10)).await;
+    (r, t.requests().len())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unresolved_handback_waits_once_then_settles_or_exits_3() {
+    let not_found = serde_json::json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } });
+    let failing = serde_json::json!({ "status": 500, "body": { "message": "internal server error" } });
+    let (r, lookups) = handback_after_lookups(serde_json::json!([failing, not_found])).await;
+    assert!(matches!(r, Ok(1)), "{r:?}");
+    assert_eq!((lookups, handover::handback_exit_code(&r)), (2, 0), "unresolved, waited, retried, resolved");
+    let (r, lookups) = handback_after_lookups(serde_json::json!([failing])).await;
+    assert!(matches!(r, Err(EngineError::Unresolved(_))), "{r:?}");
+    assert_eq!((lookups, handover::handback_exit_code(&r)), (2, 3), "still unaccounted for after one retry: exit 3, nothing written");
+}
+
+/// Wall time that follows tokio's (paused) clock, so a test can watch what the CLI's handback does across its wait.
+struct TokioClock { base: DateTime<Utc>, start: tokio::time::Instant }
+impl deltabadger::engine::Clock for TokioClock {
+    fn now(&self) -> DateTime<Utc> { self.base + chrono::Duration::from_std(self.start.elapsed()).unwrap() }
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_cli_handback_trusts_no_absence_before_a_full_margin_after_its_own_start_and_waits_exactly_that() {
+    use deltabadger::engine::{amount, venue_rules::ALPACA};
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
+    // The intent is far older than the margin: only this process's own (fresh) start can hold the absence back.
+    placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now() - chrono::Duration::seconds(2000))).unwrap();
+    let not_found = json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } });
+    let t = deltabadger::venue::http::ScriptedTransport::from_script(&json!({ "GET /v2/orders:by_client_order_id": [not_found] }));
+    let factory = ScriptedAlpaca(deltabadger::venue::alpaca::AlpacaVenue::new(t.clone(), deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper"))));
+    let clock = TokioClock { base: now(), start: tokio::time::Instant::now() };
+    let r = handover::hand_back_cli(&l, &o, &factory, &seed::cipher(), &clock).await;
+    assert!(matches!(r, Ok(1)), "{r:?}");
+    assert_eq!(t.requests().len(), 2, "the first not-found came from a process started < 1200 s ago and settled nothing");
+    assert_eq!(clock.start.elapsed(), std::time::Duration::from_secs(ALPACA.absence_margin_secs as u64 + 1), "waited exactly the margin + 1 s");
+    let intent: Option<String> = o.primary.query_row("SELECT json_extract(transient_data, '$.rust_placement') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert!(intent.is_none(), "settled as not placed by the second, trustworthy lookup");
 }

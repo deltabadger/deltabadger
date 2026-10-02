@@ -1,10 +1,14 @@
 //! The Rust half of the decision-parity harness (script/rust/decisions.rb is the Rails half): the same
 //! ticks, with retries, on a marked scratch copy, reported in the canonical shape Rails reports.
 use crate::engine::polling;
-use crate::engine::tick::{self, Attempts, TickOutcome};
+use crate::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use crate::engine::{EngineError, FixedClock};
 use crate::lease;
 use crate::store::{self, Paths};
+use crate::store::Opened;
+use crate::venue::alpaca::{AlpacaVenue, Urls};
+use crate::venue::http::ScriptedTransport;
+use crate::venue::Venue;
 use crate::venue::fake::FakeVenue;
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
@@ -87,12 +91,34 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     // copy's last Rails heartbeat must not read as alive against it.
     let _lock = lease::lock(&paths, chrono::Utc::now())?;
     let o = store::open(&paths)?;
-    let venue = FakeVenue::from_script(&scenario["script"]);
     let before = snapshot(&o.primary)?;
+    if scenario["venue"] == "alpaca" {
+        // Rust's real Alpaca client over the recorded bodies Rails' harness serves beneath Clients::Alpaca.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["alpaca"]);
+        let poll = play(&o, &AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper"))), &scenario, bot_id, start).await?;
+        // A raised follow-up is reported like Rails' job raise; a throttle or transient failure is a retry Rails enqueues.
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        return Ok(json!({ "sent": transport.posted_orders(), "changes": diff(&before, &snapshot(&o.primary)?),
+                          "funds_notified": funds_notified, "poll_error": poll_error }));
+    }
+    let venue = FakeVenue::from_script(&scenario["script"]);
+    if let Some(e) = play(&o, &venue, &scenario, bot_id, start).await? {
+        return Err(EngineError::Data(format!("follow-up poll of {}: {e:?}", scenario["poll"])));
+    }
+    let sent: Vec<Value> = venue.sent().iter().map(wire).collect();
+    Ok(json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?) }))
+}
+
+/// The scenario's tick (with Rails' retries) and the follow-up poll Rails enqueues for one order; returns how that poll failed.
+async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>) -> Result<Option<polling::PollFailure>, EngineError> {
     if scenario["tick"] != false {
+        // One price cache across the retries, as Rails' 5 s cache spans its retried jobs (Task 8).
         let (mut at, mut attempts) = (start, Attempts::default());
+        let prices = PriceCache::default();
+        let cx = TickContext { prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
         for _ in 0..MAX_ATTEMPTS {
-            match tick::tick(&o.primary, &venue, bot_id, &FixedClock(at), &mut attempts).await? {
+            match tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(at), &mut attempts, &mut None, &cx).await? {
                 TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
                 _ => break,
             }
@@ -102,11 +128,9 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     // are not replayed (ponytail: no grid scenario fails a poll, add the retry loop when one does).
     if let Some(ext) = scenario["poll"].as_str() {
         let tx: i64 = o.primary.query_row("SELECT id FROM transactions WHERE bot_id = ?1 AND external_id = ?2", rusqlite::params![bot_id, ext], |r| r.get(0))?;
-        polling::follow_up(&o.primary, &venue, bot_id, tx, start + chrono::Duration::seconds(5)).await
-            .map_err(|e| EngineError::Data(format!("follow-up poll of {ext}: {e:?}")))?;
+        return Ok(polling::follow_up(&o.primary, venue, bot_id, tx, start + chrono::Duration::seconds(5)).await.err());
     }
-    let after = snapshot(&o.primary)?;
-    Ok(json!({ "sent": venue.sent().iter().map(wire).collect::<Vec<_>>(), "changes": diff(&before, &after) }))
+    Ok(None)
 }
 
 /// For every bot this engine would run on the copy at `src`: its own scenario, ticking 1 s after its next
@@ -131,14 +155,42 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
                 .execute("VACUUM INTO ?1", [target.to_string_lossy()])?;
         }
         let pair = model::ticker_for(&c, &bot)?.map(|t| t.ticker).unwrap_or_default();
-        let ticker_body = tickers.get(&pair).cloned().ok_or_else(|| EngineError::Data(format!("no recorded Ticker body for {pair}")))?;
-        let scenario = json!({ "parity_scratch": true, "bot_id": id, "at": at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true), "script": { "http": {
-            "/0/public/Ticker": [ticker_body],
+        let recorded = tickers.get(&pair).cloned().ok_or_else(|| EngineError::Data(format!("no recorded Ticker body for {pair}")))?;
+        let alpaca = model::exchange_type(&c, &bot)? == "Exchanges::Alpaca";
+        let script = if alpaca { alpaca_copy_script(&c, &bot, &pair, &recorded, *id)? } else { json!({ "http": {
+            "/0/public/Ticker": [recorded],
             "/0/private/AddOrder": [{ "error": [], "result": { "txid": [format!("OPARITY-{id}")] } }],
             "/0/private/BalanceEx": [{ "error": [], "result": { "ZEUR": { "balance": "1000000000", "hold_trade": "0" }, "ZUSD": { "balance": "1000000000", "hold_trade": "0" } } }],
             "/0/private/QueryOrders": [{ "error": [], "result": {} }],
-            "/0/private/TradesHistory": [{ "error": [], "result": { "trades": {}, "count": 0 } }] } } });
+            "/0/private/TradesHistory": [{ "error": [], "result": { "trades": {}, "count": 0 } }] } }) };
+        let scenario = json!({ "parity_scratch": true, "bot_id": id, "at": at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true),
+                               "venue": if alpaca { "alpaca" } else { "kraken" }, "script": script });
         std::fs::write(dir.join("scenario.json"), serde_json::to_string_pretty(&scenario).unwrap()).map_err(|e| EngineError::Data(e.to_string()))?;
     }
     Ok(report.eligible.len())
+}
+
+/// An Alpaca copy's script: the recorded quote and trade bodies, an accepted order, a funded account, an open clock, and
+/// every order the bot still waits on answered as resting and unfilled. Both engines read the same bodies, so that answer
+/// is neutral.
+fn alpaca_copy_script(c: &Connection, bot: &crate::engine::model::Bot, pair: &str, recorded: &Value, id: i64) -> Result<Value, EngineError> {
+    let ok = |body: Value| json!([{ "status": 200, "body": body }]);
+    let mut a = json!({
+        "GET /v1beta3/crypto/us/latest/quotes": ok(recorded["quotes"].clone()),
+        "GET /v1beta3/crypto/us/latest/trades": ok(recorded["trades"].clone()),
+        "POST /v2/orders": ok(json!({ "id": format!("OPARITY-{id}"), "status": "pending_new" })),
+        "GET /v2/account": ok(json!({ "cash": "1000000000", "buying_power": "1000000000", "non_marginable_buying_power": "1000000000" })),
+        "GET /v2/positions": ok(json!([])),
+        "GET /v2/clock": ok(json!({ "is_open": true, "next_open": "2026-01-05T09:30:00-05:00", "next_close": "2026-01-05T16:00:00-05:00" })),
+    });
+    let mut s = c.prepare("SELECT external_id, order_type FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 \
+                           AND external_status IN (0, 1) AND external_id IS NOT NULL")?;
+    let waiting = s.query_map(rusqlite::params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    for (ext, order_type) in waiting {
+        let kind = if order_type == Some(1) { "limit" } else { "market" };
+        a[format!("GET /v2/orders/{ext}")] = ok(json!({ "id": ext, "status": "accepted", "symbol": pair, "type": kind, "side": "buy",
+            "filled_qty": "0", "filled_avg_price": null, "qty": null, "notional": null, "limit_price": null }));
+    }
+    Ok(json!({ "alpaca": a }))
 }

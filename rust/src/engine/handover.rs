@@ -54,13 +54,22 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
 }
 
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
+    hand_back_since(lock, o, factory, cipher, clock, DateTime::<Utc>::MIN_UTC).await
+}
+
+/// `hand_back` by a process that started at `process_start` (placement::recover_since).
+pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
+    // The row Rails will read back must open with this secret before anything is written. With a wrong SECRET_KEY_BASE the
+    // handback would otherwise overwrite it with a row Rails cannot decrypt and report success. An absent row (never taken
+    // over by Rust) holds nothing to protect.
+    lease::read(&o.primary, cipher)?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     for id in pending {
         let bot = model::load_bot(&o.primary, id)?;
-        let venue = factory.for_key(model::credentials_for(&o.primary, cipher, &bot)?);
-        if let placement::Recovery::Pending = placement::recover(&o.primary, &venue, &bot, clock).await? { unresolved.push(id); }
+        let venue = factory.for_bot(&model::exchange_type(&o.primary, &bot)?, model::credentials_for(&o.primary, cipher, &bot)?);
+        if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
 
@@ -72,4 +81,30 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
     lease::hand_back(lock, &tx, cipher, now)?;
     tx.commit()?;
     Ok(scheduled)
+}
+
+/// `deltabadger handback`: one pass; when it leaves an order unaccounted for, wait (a full window, so a fresh process may
+/// trust Alpaca's "not found") and pass once more.
+pub async fn hand_back_retrying<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock,
+                                                 process_start: DateTime<Utc>, wait: std::time::Duration) -> Result<usize, EngineError> {
+    match hand_back_since(lock, o, factory, cipher, clock, process_start).await {
+        Err(EngineError::Unresolved(_)) => {
+            super::log(&format!("an order is not accounted for yet; waiting {} s before looking again", wait.as_secs()));
+            tokio::time::sleep(wait).await;
+            hand_back_since(lock, o, factory, cipher, clock, process_start).await
+        }
+        other => other,
+    }
+}
+
+/// What `deltabadger handback` runs: this process starts now, so an Alpaca "not found" is trusted only a full margin after
+/// `clock.now()` (placement::recover_since); when the first pass leaves an order unaccounted for, it waits that margin + 1 s once.
+pub async fn hand_back_cli<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
+    let wait = std::time::Duration::from_secs(super::venue_rules::ALPACA.absence_margin_secs as u64 + 1);
+    hand_back_retrying(lock, o, factory, cipher, clock, clock.now(), wait).await
+}
+
+/// 0 handed back, 3 an order still unaccounted for (use resolve-placement), 1 anything else.
+pub fn handback_exit_code(r: &Result<usize, EngineError>) -> i32 {
+    match r { Ok(_) => 0, Err(EngineError::Unresolved(_)) => 3, Err(_) => 1 }
 }

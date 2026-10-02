@@ -1,10 +1,11 @@
 //! Spec §3 placement protocol. The intent is committed (with a deadline read from the clock at that
 //! moment) before AddOrder, which is sent at most once. A lost reply is resolved by cl_ord_id, and a
 //! found order is recorded, filled and cleared in one transaction. "Not placed" is concluded only from a
-//! complete lookup that STARTED after the deadline + 60 s.
+//! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
+//! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
-use super::{kraken_errors, polling, Clock, EngineError};
+use super::{polling, Clock, EngineError};
 use crate::ruby::BigDec;
 use crate::venue::{Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
@@ -12,6 +13,10 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 
 pub const DEADLINE_SECONDS: i64 = 10;
+/// How long after `at` an intent may still be sent. Never later: absence is measured from `at`, so a send delayed by a slow
+/// commit or a suspended process must not land after "not placed" became provable. Equal to Kraken's deadline, which
+/// Kraken enforces server-side anyway.
+pub const SEND_WINDOW_SECONDS: i64 = DEADLINE_SECONDS;
 pub const ABSENCE_AFTER_SECONDS: i64 = 60;
 /// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections.
 pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
@@ -68,10 +73,14 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
 
-pub async fn send<V: Venue>(venue: &V, intent: &Intent) -> Sent {
-    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline)).await {
+pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
+    if clock.now() > intent.at + Duration::seconds(SEND_WINDOW_SECONDS) {
+        return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
+    }
+    let rules = venue.rules();
+    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire)).await {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e)) if kraken_errors::add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Rejected(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),
@@ -97,15 +106,27 @@ pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[Str
     Ok(!safe)
 }
 
-/// Nothing reached the venue (VenueError::Transient).
+/// Nothing reached the venue (VenueError::Transient, or the send window refused the send).
 pub fn drop_intent(c: &Connection, bot_id: i64) -> Result<(), EngineError> { set_intent(c, bot_id, None) }
 
 #[derive(Debug)]
 pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
 
 pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Recovery, EngineError> {
+    recover_since(c, venue, bot, clock, DateTime::<Utc>::MIN_UTC).await
+}
+
+/// `recover` by a process that started at `process_start`.
+pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<Recovery, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(Recovery::NoIntent) };
     let intent = Intent::from_json(c, bot, &raw)?;
+    let rules = venue.rules();
+    // Kraken drops an order after the deadline it was sent with, so absence is provable from deadline + 60 s whatever the
+    // process start. A venue without one (VenueRules::absence_margin_secs): the lookup must start a full margin after the
+    // intent AND after this process started, because a process suspended (or killed and restarted) after its send cannot
+    // vouch for when that send left.
+    let absent_from = if rules.deadline_sent { intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) }
+                      else { intent.at.max(process_start) + Duration::seconds(rules.absence_margin_secs) };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
     match venue.order_by_client_id(&intent.cl_ord_id, intent.at - Duration::hours(1)).await {
         Ok(Some(state)) => {
@@ -118,12 +139,12 @@ pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
-        Ok(None) if started >= intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) => {
+        Ok(None) if started >= absent_from => {
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
-                json!({ "error": "the order never reached Kraken", "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
+                json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
             Ok(Recovery::NotPlaced)
         }
@@ -134,7 +155,7 @@ pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn
 #[derive(Debug)]
 pub enum OperatorResolution { Placed(String), NotPlaced }
 
-/// `deltabadger resolve-placement`: a human checked Kraken's own site because Kraken's API could not answer.
+/// `deltabadger resolve-placement`: a human checked the venue (Kraken's or Alpaca's own site) because its API could not answer.
 pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorResolution, now: DateTime<Utc>) -> Result<(), EngineError> {
     if let OperatorResolution::Placed(t) = &resolution {
         if t.trim().is_empty() { return Err(EngineError::Data("an order id is required".into())); }

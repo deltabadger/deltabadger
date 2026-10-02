@@ -1,4 +1,4 @@
-//! The bot engine (spec §3): one-asset Kraken DCA baskets, decided exactly as Rails decides them.
+//! The bot engine (spec §3): one-asset DCA baskets (Kraken, Alpaca paper), decided exactly as Rails decides them.
 use chrono::{DateTime, Utc};
 
 pub trait Clock {
@@ -24,14 +24,19 @@ impl Clock for SteppingClock {
     fn now(&self) -> DateTime<Utc> { let t = self.now.get(); self.now.set(t + self.step); t }
 }
 
+/// One line to stdout, UTC-timestamped: `docker logs` is the engine's console.
+pub fn log(line: &str) { println!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ")); }
+
 #[derive(Debug)]
 pub enum EngineError {
     Sqlite(rusqlite::Error),
     /// A stored value this build cannot read the way Rails wrote it.
     Data(String),
     Ineligible(Vec<String>),
-    /// Bots whose order Kraken could not yet account for (handback refuses while any exist).
+    /// Bots whose order the venue could not yet account for (handback refuses while any exist).
     Unresolved(Vec<i64>),
+    /// A requested stop (SIGTERM/SIGINT): the tick in hand finished and nothing new started.
+    Stopped,
     Lease(crate::lease::LeaseError),
     Store(crate::store::StoreError),
 }
@@ -44,7 +49,7 @@ pub mod eligibility;
 pub mod amount;
 pub mod placement;
 pub mod polling;
-pub mod kraken_errors;
+pub mod venue_rules;
 pub mod tick;
 pub mod handover;
 pub mod run;

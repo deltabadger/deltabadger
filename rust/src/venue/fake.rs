@@ -1,6 +1,7 @@
 //! A scripted Kraken: raw response bodies per path (the same script the Rails harness replays), plus a book
 //! of placed orders so recovery by cl_ord_id behaves like the real venue.
 use super::*;
+use crate::engine::venue_rules::KRAKEN;
 use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -21,6 +22,7 @@ struct State {
     lookup_failures: u32,
     on_add: Option<Rc<dyn Fn()>>,   // runs while AddOrder "awaits its reply": a test's concurrent writer
     on_query: Option<Rc<dyn Fn()>>, // the same, while QueryOrders does (the pre-tick sweep)
+    on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
 }
 
 #[derive(Clone, Default)]
@@ -83,6 +85,7 @@ impl FakeVenue {
     pub fn lookup_fails(self, n: u32) -> Self { self.s.borrow_mut().lookup_failures = n; self }
     pub fn on_add(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_add = Some(Rc::new(f)); self }
     pub fn on_query(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_query = Some(Rc::new(f)); self }
+    pub fn on_lookup(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_lookup = Some(Rc::new(f)); self }
     pub fn sent(&self) -> Vec<NewOrder> { self.s.borrow().sent.clone() }
     pub fn calls(&self, path: &str) -> usize { self.s.borrow().calls.get(path).copied().unwrap_or(0) }
 
@@ -107,12 +110,17 @@ fn check(body: &Value) -> Result<(), VenueError> {
 fn unreadable() -> VenueError { VenueError::Ambiguous("Kraken: unreadable response".into()) }
 
 impl Venue for FakeVenue {
-    async fn prices(&self, _pair: &str) -> Result<Prices, VenueError> {
+    fn rules(&self) -> &'static VenueRules { &KRAKEN }
+
+    async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
         let body = self.body("/0/public/Ticker").ok_or_else(|| VenueError::Transient("no scripted Ticker".into()))?;
         check(&body)?;
         let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;
-        let p = |k: &str| dec(&t[k][0]).unwrap_or_else(BigDec::zero);
-        Ok(Prices { bid: p("b"), ask: p("a"), last: p("c") })
+        let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Last => ("c", "last") };
+        let p = dec(&t[key][0]).unwrap_or_else(BigDec::zero);
+        // Exchanges::Kraken#get_ask_price / #get_last_price raise on a zero book, naming the pair (kraken.rb:225, :255).
+        if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
+        Ok(p)
     }
 
     async fn add_order(&self, order: &NewOrder) -> Result<String, VenueError> {
@@ -163,6 +171,8 @@ impl Venue for FakeVenue {
 
     /// `since` is unused: the fake's scripted bodies and book are not time-windowed. Never touches QueryOrders.
     async fn order_by_client_id(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        let hook = self.s.borrow().on_lookup.clone();
+        if let Some(f) = hook { f(); }
         {
             let mut s = self.s.borrow_mut();
             if s.lookup_failures > 0 { s.lookup_failures -= 1; return Err(VenueError::Transient("ClosedOrders page failed".into())); }
@@ -233,5 +243,5 @@ impl Venue for FakeVenue {
 pub struct FakeFactory(pub FakeVenue);
 impl VenueFactory for FakeFactory {
     type V = FakeVenue;
-    fn for_key(&self, _credentials: Option<Credentials>) -> FakeVenue { self.0.clone() }
+    fn for_bot(&self, _exchange_type: &str, _credentials: Option<Credentials>) -> FakeVenue { self.0.clone() }
 }

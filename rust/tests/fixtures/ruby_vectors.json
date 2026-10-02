@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"NA3bOtCeBnvik0/GdcZZ0m4=\",\"h\":{\"iv\":\"w3W+dXetcsTjeWuX\",\"at\":\"/N50EYRN35Z7oKkEr21fpg==\"}}"
+      "cipher": "{\"p\":\"doTKxwzea4mA83oaW5vfZs8=\",\"h\":{\"iv\":\"+RHXpbotCsMkFBwh\",\"at\":\"v39pz5tw6a+kcFs5UTmggw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"5OnyiRtJvrtkwS3a4/2s\",\"h\":{\"iv\":\"4YckxNU2RRF7R45w\",\"at\":\"iqa+/DqFWEJTcIITp2ArRA==\"}}"
+      "cipher": "{\"p\":\"1Uspf48rQ8JxAI2Y75mk\",\"h\":{\"iv\":\"xw25E+m73Rng1LX1\",\"at\":\"ZkYpL00UUNbxUFN1wYnpcw==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"zEYHJ8iHrPi6vJtMR5/yDpVqvMV8oIcHYnZjkITmoVMaZkjzHVHAL3cmUtyxbCTUs1RsHgPI0E7afJ8WYucEHqTH2WLMXLazvKKhk+s=\",\"h\":{\"iv\":\"6iltldGZ5FVS6Fc+\",\"at\":\"kj3AijyXuEaafLFlEyMQIg==\",\"c\":true}}"
+      "cipher": "{\"p\":\"sE5Iai3oBZLDqfH+p4nsbEDUv0pUDO1f/bnczP72x4LDj6jocRdPCjgDB5lirsBCuOUsomV1p8eNN2oGfcvXLwL/nnRhLtSbTnhY8X8=\",\"h\":{\"iv\":\"ywxkohxuittc/2sW\",\"at\":\"1a5VGzk7uYIKkJg99vv2eQ==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "2WF3FBYSOX6JQMFRA26QMWSC3EH7HTTR",
-      "cipher": "{\"p\":\"GbD2Rpe0ZHzLOPb8ktlBak0f+3apJmTVvSyVkQLODww=\",\"h\":{\"iv\":\"2NV03sUsW7AeVj+I\",\"at\":\"YcEqQaOGysuDsfaL1ISZpw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "ZBCQKSTTJKFR7U6O2A623I3XGXNR7HNZ",
+      "cipher": "{\"p\":\"Fnz29EAiW6fdsOtS+BTuQpXrXiutOsM80qw4TcQhV8Q=\",\"h\":{\"iv\":\"kYOsYVYxByFyZOyC\",\"at\":\"GK7lsZgLm0lAKDtYNMCnaQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"W90f0zfDmAhZqasUDQup1k4=\",\"h\":{\"iv\":\"RFlnBdeQh636cRmx\",\"at\":\"oWYC6DeFoKHHGuVv8jPQ3A==\"}}"
+      "cipher": "{\"p\":\"5GAtva1/XepbU2/h6JGcCWE=\",\"h\":{\"iv\":\"i8xR2CVgz4ZvMhi4\",\"at\":\"tjrDsNJo1NeshGTaTmIthw==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$iPxxfAqO.MP8Vg2aP2Xh0eWWzJY8MUdfFlvTkkQ5VFvM0Sk1FwBkK"
+      "hash": "$2a$11$dp9WErFysM/H2vmcbjEQoOhswZObNwke8IlUYUkWamQwuZLXXgxLe"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$6ESHEfc8tX6vFsw6YYLNIuCn7y/IV0CMDRj2VwhBoSUipszInCdmy"
+      "hash": "$2a$11$PQFncZUJSPXCMV.c87VZFuursrM2LDygmaw9hepGnPcAGNS9idli."
     }
   ],
   "totp": {
@@ -40853,5 +40853,5486 @@
       "below_minimum": true,
       "volume": "0.0"
     }
+  ],
+  "failure_kinds": [
+    [
+      "Exchanges::Alpaca",
+      "insufficient buying power",
+      "insufficient_funds",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "unauthorized.",
+      "invalid_key",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "HTTP 401",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "HTTP 403",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "forbidden.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "rate limit exceeded",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "Faraday::ConnectionFailed: Connection refused - connect(2) for \"paper-api.alpaca.markets\" port 443",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "Faraday::TimeoutError: Net::ReadTimeout",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "internal server error",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "Connection reset by peer",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EOrder:Insufficient funds",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Invalid key",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Rate limit exceeded",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EService:Unavailable",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Invalid nonce",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "qty must be >= 0.000027",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Invalid signature",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EGeneral:Permission denied",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAccount:Invalid permissions:USDT trading restricted for AT.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EGeneral:Internal error",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EService:Busy",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EService:Deadline elapsed",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "insufficient buying power",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "unauthorized.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "HTTP 401",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "HTTP 403",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "forbidden.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "rate limit exceeded",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "Faraday::ConnectionFailed: Connection refused - connect(2) for \"paper-api.alpaca.markets\" port 443",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "Faraday::TimeoutError: Net::ReadTimeout",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "internal server error",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "Connection reset by peer",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EOrder:Insufficient funds",
+      "insufficient_funds",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Invalid key",
+      "invalid_key",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Rate limit exceeded",
+      "throttle",
+      false,
+      true
+    ],
+    [
+      "Exchanges::Kraken",
+      "EService:Unavailable",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Invalid nonce",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "qty must be >= 0.000027",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Invalid signature",
+      "invalid_key",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EGeneral:Permission denied",
+      "permission_denied",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAccount:Invalid permissions:USDT trading restricted for AT.",
+      "restricted",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EGeneral:Internal error",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EService:Busy",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EService:Deadline elapsed",
+      "transient",
+      true,
+      false
+    ]
+  ],
+  "ported_sources": {
+    "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
+    "app/models/exchanges/alpaca.rb": "29a2fa34f228a49c43f779631bfe36dbda413208cf09f8d7cc8924d972caf33a",
+    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
+    "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
+    "app/models/exchanges/kraken.rb": "59c8298dbc7cc8078ce65f65ed3e0d907c8e77abf151c4ba515fe16bb908f096"
+  },
+  "alpaca_sizing": [
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.00093281406683612788880856323313356",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "64160.0",
+      "amount": "0.00093516209476309226932668329177057",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000935162",
+        "limit_price": "64160"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.00093281406683612788880856323313356",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "64160.69",
+      "amount": "0.00093515203779759849839520117380284",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0009",
+        "limit_price": "64160.69"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.00093281406683612788880856323313356",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.00093515194670288510156246940665018",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "64160.69625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.00093281406683612788880856323313356",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.00093515194670288510156246940665018",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000935151",
+        "limit_price": "64160.69625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015391432102796110165341293346704",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "64160.0",
+      "amount": "0.000015430174563591022443890274314214",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000015430",
+        "limit_price": "64160"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015391432102796110165341293346704",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "64160.69",
+      "amount": "0.000015430008623660375223520819367747",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "64160.69"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015391432102796110165341293346704",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.000015430007120597604175780745209728",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "64160.69625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015391432102796110165341293346704",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.000015430007120597604175780745209728",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000015430",
+        "limit_price": "64160.69625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "64160.0",
+      "amount": "0.000015586034912718204488778054862843",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000015586",
+        "limit_price": "64160"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "64160.69",
+      "amount": "0.000015585867296626641639920019563381",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "64160.69"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.000015585865778381418359374490110836",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "64160.69625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000015546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.000015585865778381418359374490110836",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000015585",
+        "limit_price": "64160.69625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000077812240075247001391447649697224",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "64160.0",
+      "amount": "0.000078008104738154613466334164588529",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000077930",
+        "limit_price": "64160"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000077812240075247001391447649697224",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "64160.69",
+      "amount": "0.00007800726581961634140779969791472",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "64160.69"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000077812240075247001391447649697224",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.000078007258220798998888669323004736",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "64160.69625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.000077812240075247001391447649697224",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.000078007258220798998888669323004736",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000077929",
+        "limit_price": "64160.69625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.0019193704904269956390942375411021",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "64160.0",
+      "amount": "0.0019242018235660847880299251870324",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.001924096",
+        "limit_price": "64160"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.0019193704904269956390942375411021",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "64160.69",
+      "amount": "0.0019241811302216357087182198321122",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0019",
+        "limit_price": "64160.69"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.0019193704904269956390942375411021",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.0019241809427839555279140225975961",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "64160.69625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "0.0019193704904269956390942375411021",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "0.0019241809427839555279140225975961",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.001924075",
+        "limit_price": "64160.69625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "15.546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "64160.0",
+      "amount": "15.586034912718204488778054862843",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "15.586034912",
+        "limit_price": "64160"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "15.546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "64160.69",
+      "amount": "15.585867296626641639920019563381",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "15.5858",
+        "limit_price": "64160.69"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "15.546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "15.585865778381418359374490110836",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "15",
+        "limit_price": "64160.69625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "64321.5",
+      "amount": "15.546901113935464813476053885559",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "64321.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "64160.69625",
+      "amount": "15.585865778381418359374490110836",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "15.585865778",
+        "limit_price": "64160.69625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "0.00123",
+      "amount": "48780.487804878048780487804878049",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "48780",
+        "limit_price": "0.00123"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "0.00123147",
+      "amount": "48722.258763916295159443591804916",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "48722.258763916",
+        "limit_price": "0.00123147"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "801.90513219284603421461897356143",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "801.90513219284603421461897356143",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "801.90513219284603421461897356143",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "0.00123",
+      "amount": "804.8780487804878048780487804878",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "804",
+        "limit_price": "0.00123"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "801.90513219284603421461897356143",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "0.00123147",
+      "amount": "803.91726960461887013081926478112",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "803.917269604",
+        "limit_price": "0.00123147"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810.00518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810.00518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810.00518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "0.00123",
+      "amount": "813.00813008130081300813008130081",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "813",
+        "limit_price": "0.00123"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810.00518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "0.00123147",
+      "amount": "812.03764606527158599072653008193",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "812.037646065",
+        "limit_price": "0.00123147"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4054.0759460860549507516848107828",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4054.0759460860549507516848107828",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4054.0759460860549507516848107828",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "0.00123",
+      "amount": "4069.1056910569105691056910569106",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "4065",
+        "limit_price": "0.00123"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4054.0759460860549507516848107828",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "0.00123147",
+      "amount": "4064.2484185566842878835862830601",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "4060.188230326",
+        "limit_price": "0.00123147"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "0.00123",
+      "amount": "100371.37317073170731707317073171",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "100365",
+        "limit_price": "0.00123"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "0.00123147",
+      "amount": "100251.56033033691441935248118103",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "100246.047406757",
+        "limit_price": "0.00123147"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810005184.03317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810005184.03317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810005184.03317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "0.00123",
+      "amount": "813008130.08130081300813008130081",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "813008130",
+        "limit_price": "0.00123"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "810005184.03317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "0.00123147",
+      "amount": "812037646.06527158599072653008193",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "812037646.065271616",
+        "limit_price": "0.00123147"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "40.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1.0",
+      "amount": "60.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "60.000000000",
+        "limit_price": "1"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "40.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1.49",
+      "amount": "40.268456375838926174496644295302",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "40.2684",
+        "limit_price": "1.49"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "40.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "40.100250626566416040100250626566",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "40",
+        "limit_price": "1.49625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "40.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "40.100250626566416040100250626566",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "40.100250626",
+        "limit_price": "1.49625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "1.0",
+      "amount": "0.99",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.990000000",
+        "limit_price": "1"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "1.49",
+      "amount": "0.66442953020134228187919463087248",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.6644",
+        "limit_price": "1.49"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "0.66165413533834586466165413533835",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "1.49625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "0.66165413533834586466165413533835",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.661654135",
+        "limit_price": "1.49625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66666666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "1.0",
+      "amount": "1.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "1.000000000",
+        "limit_price": "1"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66666666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "1.49",
+      "amount": "0.67114093959731543624161073825503",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.6711",
+        "limit_price": "1.49"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66666666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "0.66833751044277360066833751044277",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "1.49625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "0.66666666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "0.66833751044277360066833751044277",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.668337510",
+        "limit_price": "1.49625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "3.3366666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "1.0",
+      "amount": "5.005",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "5.000000000",
+        "limit_price": "1"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "3.3366666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "1.49",
+      "amount": "3.3590604026845637583892617449664",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "3.3557",
+        "limit_price": "1.49"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "3.3366666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "3.3450292397660818713450292397661",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "3",
+        "limit_price": "1.49625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "3.3366666666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "3.3450292397660818713450292397661",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "3.341687552",
+        "limit_price": "1.49625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "82.304526",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1.0",
+      "amount": "123.456789",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "123.450000000",
+        "limit_price": "1"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "82.304526",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1.49",
+      "amount": "82.856905369127516778523489932886",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "82.8523",
+        "limit_price": "1.49"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "82.304526",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "82.510803007518796992481203007519",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "82",
+        "limit_price": "1.49625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "82.304526",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "82.510803007518796992481203007519",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "82.506265664",
+        "limit_price": "1.49625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "666666.66666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "1.0",
+      "amount": "1000000.0",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "1000000.000000000",
+        "limit_price": "1"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "666666.66666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "1.49",
+      "amount": "671140.93959731543624161073825503",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "671140.9395",
+        "limit_price": "1.49"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "666666.66666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "668337.51044277360066833751044277",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "668337",
+        "limit_price": "1.49625"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "1.5",
+      "amount": "666666.66666666666666666666666667",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "1.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "1.49625",
+      "amount": "668337.51044277360066833751044277",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "668337.510442773",
+        "limit_price": "1.49625000"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000486000004374874866111748810382858",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "123148147039.0",
+      "amount": "0.00000000048721804950096809876856891844281",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000486000004374874866111748810382858",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "123148147039.59",
+      "amount": "0.00000000048721804949863384806227807841245",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "123148147039.59"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000486000004374874866111748810382858",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "123148147039.59314",
+      "amount": "0.000000000487218049498621425100892115810568",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "123148147039.59314"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000486000004374874866111748810382858",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "60.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "123148147039.59314137",
+      "amount": "0.000000000487218049498621419680682848686895985",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039.59313965"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000801900007218543529084385537131716",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "123148147039.0",
+      "amount": "0.0000000000080390978167659736296813871543063",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000801900007218543529084385537131716",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "123148147039.59",
+      "amount": "0.0000000000080390978167274584930275882938055",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "123148147039.59"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000801900007218543529084385537131716",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "123148147039.59314",
+      "amount": "0.00000000000803909781672725351416471991087437",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "123148147039.59314"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000801900007218543529084385537131716",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "0.99"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "123148147039.59314137",
+      "amount": "0.00000000000803909781672725342473126700333378375",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039.59313965"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "123148147039.0",
+      "amount": "0.0000000000081203008250161349794761486407135",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "123148147039.59",
+      "amount": "0.0000000000081203008249772308010379679735409",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "123148147039.59"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "123148147039.59314",
+      "amount": "0.00000000000812030082497702375168153526350947",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "123148147039.59314"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000000000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "123148147039.59314137",
+      "amount": "0.00000000000812030082497702366134471414478159975",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039.59313965"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.0000000000405405003649374784148217132661034",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "123148147039.0",
+      "amount": "0.000000000040642105629205755572278123946771",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.0000000000405405003649374784148217132661034",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "123148147039.59",
+      "amount": "0.000000000040642105629011040159195029707572",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "123148147039.59"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.0000000000405405003649374784148217132661034",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "123148147039.59314",
+      "amount": "0.0000000000406421056290100038771660839938649",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "123148147039.59314"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.0000000000405405003649374784148217132661034",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "5.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "123148147039.59314137",
+      "amount": "0.0000000000406421056290100034250302942946319067",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000000",
+        "limit_price": "123148147039.59313965"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000999999999901800054116023721740625",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "123148147039.0",
+      "amount": "0.0000000010025062655705428977567062132692",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000001",
+        "limit_price": "123148147039"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000999999999901800054116023721740625",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "123148147039.59",
+      "amount": "0.0000000010025062655657399128080453930982",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "123148147039.59"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000999999999901800054116023721740625",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "123148147039.59314",
+      "amount": "0.00000000100250626556571435115933569422315",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "123148147039.59314"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.000000000999999999901800054116023721740625",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "123.45"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "123148147039.59314137",
+      "amount": "0.00000000100250626556571434000664183043761741",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000000001",
+        "limit_price": "123148147039.59313965"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000027",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "123148147039.0",
+      "amount": "0.0000081203008250161349794761486407135",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000008120",
+        "limit_price": "123148147039"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "1",
+        "base_decimals": "4",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "123148147039.59",
+      "amount": "0.0000081203008249772308010379679735409",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.0000",
+        "limit_price": "123148147039.59"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "10",
+        "base_decimals": "0",
+        "quote_decimals": "2",
+        "price_decimals": "5"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "123148147039.59314",
+      "amount": "0.00000812030082497702375168153526350947",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0",
+        "limit_price": "123148147039.59314"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "123456789012.12345",
+      "amount": "0.00000810000007291458110186248017304763",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "gtc",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.000000001",
+        "minimum_quote_size": "1",
+        "base_decimals": "9",
+        "quote_decimals": "2",
+        "price_decimals": "8"
+      },
+      "last_or_ask": "123456789012.12345",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "123148147039.59314137",
+      "amount": "0.00000812030082497702366134471414478159975",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "gtc",
+        "qty": "0.000008120",
+        "limit_price": "123148147039.59313965"
+      }
+    }
+  ],
+  "alpaca_orders": [
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "new"
+      },
+      {
+        "status": "open",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "new"
+      },
+      {
+        "status": "open",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "new"
+      },
+      {
+        "status": "open",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "accepted"
+      },
+      {
+        "status": "open",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "accepted"
+      },
+      {
+        "status": "open",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "accepted"
+      },
+      {
+        "status": "open",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_new"
+      },
+      {
+        "status": "open",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_new"
+      },
+      {
+        "status": "open",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_new"
+      },
+      {
+        "status": "open",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      {
+        "status": "closed",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      {
+        "status": "closed",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      {
+        "status": "closed",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "canceled"
+      },
+      {
+        "status": "cancelled",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "canceled"
+      },
+      {
+        "status": "cancelled",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "canceled"
+      },
+      {
+        "status": "cancelled",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "expired"
+      },
+      {
+        "status": "cancelled",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "expired"
+      },
+      {
+        "status": "cancelled",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "expired"
+      },
+      {
+        "status": "cancelled",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "replaced"
+      },
+      {
+        "status": "cancelled",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "replaced"
+      },
+      {
+        "status": "cancelled",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "replaced"
+      },
+      {
+        "status": "cancelled",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "rejected"
+      },
+      {
+        "status": "failed",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "rejected"
+      },
+      {
+        "status": "failed",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "rejected"
+      },
+      {
+        "status": "failed",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "partially_filled"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "partially_filled"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "partially_filled"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "done_for_day"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "done_for_day"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "done_for_day"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_cancel"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_cancel"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_cancel"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "held"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "held"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "held"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "mystery"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "mystery"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "mystery"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ]
   ]
 }

@@ -1,8 +1,14 @@
+use deltabadger::engine::model::Ticker;
 use deltabadger::ruby::BigDec;
 use deltabadger::venue::fake::{kraken_order, AddOutcome, FakeVenue};
 use deltabadger::venue::*;
 use serde_json::json;
 
+fn xbteur() -> Ticker {
+    Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
+             base_asset_id: 1, quote_asset_id: 2, base_decimals: 8, quote_decimals: 5, price_decimals: 1,
+             minimum_base_size: BigDec::parse("0.00005").unwrap(), minimum_quote_size: BigDec::parse("0.5").unwrap(), trading_enabled: true, available: true }
+}
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 fn order(cl: &str) -> NewOrder {
     NewOrder { pair: "XBTEUR".into(), kind: OrderKind::Market, volume: "0.0012".into(), quote_volume: false,
@@ -19,7 +25,8 @@ async fn raw_kraken_bodies_are_parsed_as_rails_parses_them() {
             "cost": "60.0", "oflags": "fciq,viqc", "descr": { "pair": "XBTEUR", "type": "buy", "ordertype": "market", "price": "0" } } } }],
         "/0/private/BalanceEx": [{ "error": [], "result": { "ZEUR": { "balance": "1000.5", "hold_trade": "0.5" } } }]
     }}));
-    assert_eq!(v.prices("XBTEUR").await.unwrap(), Prices { bid: bd("49990.1"), ask: bd("50000.2"), last: bd("49995.3") });
+    assert_eq!(v.price(&xbteur(), PriceSide::Ask).await.unwrap(), bd("50000.2"));
+    assert_eq!(v.price(&xbteur(), PriceSide::Last).await.unwrap(), bd("49995.3"));
     assert_eq!(v.add_order(&order("c-1")).await, Ok("OTX-1".into()));
     assert_eq!(v.add_order(&order("c-2")).await, Err(VenueError::Rejected(vec!["EOrder:Insufficient funds".into()])));
     let o = &v.orders(&["OTX-1".into()]).await.unwrap()[0];
@@ -88,7 +95,7 @@ async fn an_unknown_status_or_order_type_is_an_error_not_a_guess() {
 async fn a_body_without_error_or_result_is_unreadable() {
     let v = FakeVenue::from_script(&json!({ "http": { "/0/public/Ticker": [{ "result": {} }], "/0/private/BalanceEx": [{ "error": [] }] } }));
     let unreadable = VenueError::Ambiguous("Kraken: unreadable response".into());
-    assert_eq!(v.prices("XBTEUR").await, Err(unreadable.clone()));
+    assert_eq!(v.price(&xbteur(), PriceSide::Ask).await, Err(unreadable.clone()));
     assert_eq!(v.balance("EUR").await, Err(unreadable));
 }
 

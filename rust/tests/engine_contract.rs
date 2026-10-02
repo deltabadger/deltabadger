@@ -29,3 +29,14 @@ fn the_seed_helpers_write_rows_rails_can_read() {
     let ty: String = o.primary.query_row("SELECT type FROM bots WHERE id = ?1", [bot], |r| r.get(0)).unwrap();
     assert_eq!(ty, "Bots::DcaMultiAsset");
 }
+
+#[test]
+fn the_api_key_passphrase_is_part_of_the_contract() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    rusqlite::Connection::open(&p.primary).unwrap().execute_batch("ALTER TABLE api_keys DROP COLUMN passphrase").unwrap();
+    match store::check(&p) {
+        Err(StoreError::Incompatible { problems }) => assert!(problems.iter().any(|m| m.contains("api_keys.passphrase")), "{problems:?}"),
+        other => panic!("expected Incompatible, got {other:?}"),
+    }
+}

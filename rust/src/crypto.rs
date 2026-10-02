@@ -149,6 +149,6 @@ fn base32_decode(s: &str) -> Option<Vec<u8>> {
     }
     Some(out)
 }
-/// A venue API key, decrypted.
+/// A venue API key, decrypted. `passphrase` is Alpaca's mode ("paper"/"live"; nil reads as paper); Kraken has none.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Credentials { pub key: String, pub secret: String }
+pub struct Credentials { pub key: String, pub secret: String, pub passphrase: Option<String> }
