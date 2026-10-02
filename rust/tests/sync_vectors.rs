@@ -349,3 +349,34 @@ async fn a_response_body_over_the_limit_is_refused_while_it_is_read() {
     assert_eq!(transport.send_limited(&request, body.len()).await.map(|r| r.body.len()), Ok(body.len()), "a body of exactly the limit is read");
     assert_eq!(transport.send(&request).await.map(|r| r.body.len()), Ok(body.len()), "every other caller has the generous default");
 }
+// ---- the ledger's pure parts (Task 4) ----
+
+#[test]
+fn the_after_parameter_and_the_ledgers_constants_are_rails() {
+    use deltabadger::sync::ledger;
+    for c in list(&vectors()["times"]["after"]) {
+        assert_eq!(json!(ledger::after(deltabadger::codec::parse_time(c[0].as_str().unwrap()).unwrap())), c[1], "{c}");
+    }
+    let c = &vectors()["constants"];
+    assert_eq!(json!(ledger::CRYPTO_COINGECKO_IDS.iter().map(|(k, v)| (k.to_string(), json!(v))).collect::<serde_json::Map<_, _>>()), c["crypto_coingecko_ids"]);
+    assert_eq!(json!(ledger::CRYPTO_QUOTES), c["crypto_quotes"]);
+    assert_eq!(json!(ledger::FIAT_CURRENCIES), c["fiat_currencies"]);
+    assert_eq!((c["asset_catch_up_days"].as_i64(), c["feed_retention_days"].as_i64(), c["transfer_window_hours"].as_i64()),
+               (Some(ledger::ASSET_CATCH_UP_DAYS), Some(ledger::FEED_RETENTION_DAYS), Some(ledger::TRANSFER_WINDOW_HOURS)));
+    assert_eq!((&c["transfer_tolerance"], &c["tombstone_prefix"]), (&json!("0.02"), &json!("__stale_")));
+    assert_eq!((ledger::MAX_PAGE_BYTES, ledger::MAX_PAGES, ledger::MAX_ACTIVITIES, ledger::BATCH), (262_144, 500, 50_000, 100), "the limits the plan states");
+    assert_eq!((ledger::MAX_PAGE_NODES, ledger::MAX_RUN_NODES, ledger::Limits::RUN.pages, wire::MAX_NESTING), (20_000, 3_000_000, 500, 100));
+}
+
+/// The harness compares JSON without rounding an integer (`parity::exact`): one no 64-bit type holds becomes a marker.
+#[test]
+fn the_harness_reads_json_without_losing_an_integer() {
+    use deltabadger::sync::parity::exact;
+    let read = exact(r#"{"a":[18446744073709551617, 18446744073709551615, -9223372036854775809, -9223372036854775808, 1.5, 1e400, "18446744073709551617 \" 99999999999999999999"],"b":123456789012345678901234567890}"#);
+    assert!(read.is_err(), "1e400 is no JSON number serde reads");
+    let read = exact(r#"{"a":[18446744073709551617, 18446744073709551615, -9223372036854775809, -9223372036854775808, 1.5, "18446744073709551617 \" 99999999999999999999"],"b":123456789012345678901234567890}"#).unwrap();
+    assert_eq!(read, json!({ "a": ["<integer 18446744073709551617>", 18446744073709551615u64, "<integer -9223372036854775809>", i64::MIN, 1.5, "18446744073709551617 \" 99999999999999999999"],
+                             "b": "<integer 123456789012345678901234567890>" }));
+    assert_ne!(exact("[18446744073709551617]").unwrap(), exact("[18446744073709551616]").unwrap(), "which plain parsing reads as the same double");
+    assert_eq!(serde_json::from_str::<Value>("[18446744073709551617]").unwrap(), serde_json::from_str::<Value>("[18446744073709551616]").unwrap());
+}
