@@ -382,6 +382,13 @@ ledger_row = lambda do |rng, sym, kind|
   when 'abandoned' then row.merge('external_status' => 4, 'quote_amount' => q.to_s('F'))
   when 'failed' then row.merge('status' => 1, 'external_id' => nil, 'quote_amount' => q.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
   when 'skipped' then row.merge('status' => 2, 'external_id' => nil, 'quote_amount' => q.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  when 'cancelled_limit_partial' then row.merge('external_status' => 3, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => (a / 2).round(9).to_s('F'),
+                                                'quote_amount_exec' => ((a / 2).round(9) * p).to_s('F'))
+  when 'abandoned_limit' then row.merge('external_status' => 4, 'order_type' => 1, 'amount' => a.to_s('F'))
+  when 'failed_resting' then row.merge('status' => 1, 'external_status' => 1, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => (a / 3).round(9).to_s('F'),
+                                       'quote_amount_exec' => ((a / 3).round(9) * p).to_s('F'))
+  when 'skipped_closed' then row.merge('status' => 2, 'external_status' => 2, 'quote_amount' => q.to_s('F'), 'amount' => a.to_s('F'), 'amount_exec' => a.to_s('F'),
+                                       'quote_amount_exec' => (a * p).to_s('F'))
   end
 end
 pairs_of = ->(weights) { BASKET_PAIRS.slice(*weights.keys) }
@@ -393,6 +400,14 @@ ledger_cases = Array.new(40) do
   rows = members.flat_map { |sym| Array.new(ledger_rng.rand(0..4)) { ledger_row.(ledger_rng, sym, LEDGER_KINDS.sample(random: ledger_rng)) } }
   { weights:, rows: }
 end
+# Rows the random cases never hold, each one decisive for a filter: a cancelled or abandoned limit buy whose amount is
+# set (a resting remainder only the external-status filter keeps out), and a failed or skipped row carrying amounts (kept
+# out only by the submitted filter). Drawn after the random cases so those stay as they were.
+filter_rng = Random.new(2_202_611)
+FILTER_KINDS = %w[cancelled_limit_partial abandoned_limit failed_resting skipped_closed].freeze
+ledger_cases += FILTER_KINDS.map { |kind| { weights: { 'VBTC' => 1.0 }, rows: [ledger_row.(filter_rng, 'VBTC', 'open_partial'), ledger_row.(filter_rng, 'VBTC', kind)] } }
+ledger_cases << { weights: Bots::DcaMultiAsset.new.send(:normalize_allocations, { 'VBTC' => 1.0, 'VETH' => 1.0 }),
+                  rows: FILTER_KINDS.flat_map { |kind| %w[VBTC VETH].map { |sym| ledger_row.(filter_rng, sym, kind) } } }
 vectors['basket_ledgers'] = ledger_cases.map do |c|
   with_basket(c[:weights], rows: c[:rows]) do |bot, assets, _alpaca|
     m = bot.metrics(force: true)

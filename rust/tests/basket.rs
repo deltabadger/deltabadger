@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 /// A recorded case's bot as script/rust/record_vectors.rb's `with_basket` builds it: its V-prefixed members on Alpaca with the
-/// recorded precision, allocations in the recorded order, a limit bot when the case says so, and the recorded rows.
+/// recorded precision, allocations in the recorded order, and the recorded rows.
 fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, HashMap<String, i64>) {
     let (d, o, s) = common::install_alpaca();
     let mut ids = HashMap::new();
@@ -14,8 +14,7 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, H
         ids.insert(sym.clone(), seed::add_alpaca_crypto(&o.primary, &s, sym, &case["pairs"][sym]).0);
     }
     let allocations: serde_json::Map<String, Value> = case["weights"].as_object().unwrap().iter().map(|(sym, w)| (ids[sym].to_string(), w.clone())).collect();
-    let mut spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("interval", json!("day")).with("allocations", Value::Object(allocations));
-    if case["limit"] == true { spec = spec.with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)); }
+    let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("interval", json!("day")).with("allocations", Value::Object(allocations));
     let id = seed::insert_bot(&o.primary, &s, &spec);
     for row in case["rows"].as_array().into_iter().flatten() { seed::insert_row(&o.primary, &s, id, ids[row["asset"].as_str().unwrap()], row); }
     (d, o, id, ids)
@@ -28,7 +27,7 @@ fn by_symbol(ids: &HashMap<String, i64>, m: HashMap<i64, BigDec>) -> Value {
 #[test]
 fn every_recorded_rails_ledger_is_reproduced() {
     let cases = common::vectors()["basket_ledgers"].as_array().unwrap().clone();
-    assert_eq!(cases.len(), 40);
+    assert_eq!(cases.len(), 45);
     for (i, case) in cases.iter().enumerate() {
         let (_d, o, id, ids) = build(case);
         let bot = model::load_bot(&o.primary, id).unwrap();
@@ -93,4 +92,31 @@ fn an_unchanged_composition_writes_nothing() {
     let before = snapshot();
     basket::refresh_composition(&o.primary, &bot, at("2026-09-02T10:00:00Z")).unwrap().unwrap();
     assert_eq!(snapshot(), before, "ActiveRecord saves nothing unchanged, so updated_at stays");
+}
+
+/// Another bot's rows and this bot's resting sell count for neither reading; a former member's fills still count as held.
+#[test]
+fn only_this_bots_buys_are_read_and_a_former_members_fills_stay_held() {
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let mine = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let other = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let closed = |amount: &str| json!({ "external_id": format!("C{amount}"), "external_status": 2, "price": "64000", "amount_exec": amount, "quote_amount_exec": "64", "created_at": "2026-09-01 10:00:00" });
+    let resting = |amount: &str| json!({ "external_id": format!("R{amount}"), "external_status": 1, "order_type": 1, "price": "64000", "amount": amount, "amount_exec": "0", "created_at": "2026-09-01 10:00:00" });
+    seed::insert_row(&o.primary, &s, mine, s.btc, &closed("0.001"));
+    seed::insert_row(&o.primary, &s, mine, eth, &closed("0.5")); // ETH is not in the bot's allocations: an exited member
+    seed::insert_row(&o.primary, &s, mine, s.btc, &resting("0.002"));
+    seed::insert_row(&o.primary, &s, other, s.btc, &closed("7"));
+    seed::insert_row(&o.primary, &s, other, s.btc, &resting("9"));
+    let bot = model::load_bot(&o.primary, mine).unwrap();
+    let held = |m: HashMap<i64, BigDec>| { let mut v: Vec<(i64, String)> = m.into_iter().map(|(k, v)| (k, v.to_s_f())).collect(); v.sort(); v };
+    let mut want = vec![(s.btc, "0.001".to_string()), (eth, "0.5".to_string())];
+    want.sort();
+    assert_eq!(held(basket::holdings(&o.primary, &bot).unwrap()), want);
+    assert_eq!(held(basket::reserved(&o.primary, &bot).unwrap()), vec![(s.btc, "0.002".to_string())]);
+
+    let mut sell = resting("0.003");
+    sell["side"] = json!(1);
+    seed::insert_row(&o.primary, &s, mine, s.btc, &sell);
+    assert_eq!(held(basket::reserved(&o.primary, &bot).unwrap()), vec![(s.btc, "0.002".to_string())], "a resting sell reserves nothing to buy");
 }
