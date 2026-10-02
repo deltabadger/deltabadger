@@ -19,6 +19,7 @@
 pub mod activities;
 pub mod balances;
 pub mod job_api;
+pub mod jobs;
 pub mod ledger;
 pub mod parity;
 pub mod number;
