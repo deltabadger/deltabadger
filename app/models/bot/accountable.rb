@@ -34,6 +34,10 @@ module Bot::Accountable
     # already invested and shrink the next buy. No-op for buy-only bot types (they never sell).
     # ONE statement: a row that moves between states while it is read (an order a concurrent poll
     # cancels or fills) is seen in one state, never in two or in none.
+    # Inclusive bound for every state. Each mark is its own Time.current, taken after anything a capture
+    # read (the capture runs before the save stamps settings_changed_at), and merge and split move rows
+    # without touching created_at. So a row stamped at the mark itself is a new row of the window, never
+    # one the carry or a merged history already holds.
     total_quote_amount_invested = transactions.submitted.buy.regular
                                               .where(external_status: %i[open unknown closed cancelled abandoned])
                                               .where('created_at >= ?', calc_since)

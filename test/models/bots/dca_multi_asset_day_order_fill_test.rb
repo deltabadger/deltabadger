@@ -200,6 +200,21 @@ class Bots::DcaMultiAssetDayOrderFillTest < ActiveSupport::TestCase
     end
   end
 
+  # == The window's first instant ==
+  # An order placed at the very instant the window starts is the window's own: its fill counts.
+
+  test 'an order stamped at the window start that expires part-filled counts its fill once' do
+    bot = build_bot([stock('AAPL')], carry: 40)
+    assert_equal @t0, bot.started_at
+    tick(bot, at: @t0)
+    assert_equal @t0, bot.transactions.find_by(external_id: 'ord-1').created_at
+    assert_in_delta 40, @alpaca.quote('ord-1'), 0.01, 'the start instant owes the carry'
+
+    @alpaca.settle('ord-1', filled_qty: '0.2', status: 'expired')
+    tick(bot, at: @t0 + 1.day)
+    assert_in_delta Q + 40 - spent('0.2'), @alpaca.quote('ord-2'), 0.01, '100.04: the contribution and the carry, less the fill'
+  end
+
   def old_row(bot, status:, quote:, exec:, at:)
     create(:transaction, bot:, exchange: @exchange, external_id: "old-#{SecureRandom.hex(3)}", side: :buy,
                          external_status: status, transaction_type: 'REGULAR', order_type: :limit_order,
