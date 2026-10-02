@@ -54,7 +54,7 @@ pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict,
     let (true, Some(text)) = (synced, newest) else {
         return Ok(Verdict::Unknown(Stale { source: s.name, message: format!(
             "reference data unknown: {} has no sync stamp on this install (no app_configs {ALPACA_CRYPTO_SYNCED_KEY}, or no {} row); \
-             not refused; after the takeover only the engine's own job record (Plan 2f) can show it fresh", s.name, s.column) }));
+             not refused; once the engine owns the install, nothing refreshes it until the engine runs this sync itself", s.name, s.column) }));
     };
     let at = parse_time(&text).map_err(|e| EngineError::Data(format!("{}: {e:?}", s.column)))?;
     let age = (now - at).num_seconds();

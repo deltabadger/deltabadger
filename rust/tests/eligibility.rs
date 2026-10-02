@@ -344,6 +344,7 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
         ("1 REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REBALANCE", Some(s.btc), "OREB"); id })),
         ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
+        ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
         ("merged history", Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).transient("merged_history_until_id", json!(41))))),
         ("1 split(s) recorded for its assets", Box::new(move |c, s, eth| {
             c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
@@ -355,6 +356,8 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
         let (_d, o, s) = common::install_alpaca();
         let (eth, _) = seed::add_eth_sol(&o.primary, &s);
         let id = make(&o.primary, &s, eth);
+        let reason = reason.replace("{btc}", &s.btc.to_string());
+        let reason = reason.as_str();
         let r = eligibility::check_install(&o.primary).unwrap();
         assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(reason)), "{reason}: {:?}", r.problems);
         assert!(r.eligible.is_empty(), "{reason}");
@@ -448,12 +451,56 @@ fn an_install_with_no_catalog_stamp_is_noted_not_refused() {
     let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
     assert_eq!(r.eligible, vec![id]);
     assert!(r.problems.is_empty(), "{:?}", r.problems);
-    assert!(r.notes.iter().any(|n| n.contains(&format!("bot {id}")) && n.contains("reference data unknown") && n.contains("Plan 2f")), "{:?}", r.notes);
+    assert!(r.notes.iter().any(|n| n.contains(&format!("bot {id}")) && n.contains("reference data unknown") && n.contains("not refused")), "{:?}", r.notes);
+    assert!(r.notes.iter().all(|n| !n.contains("Plan ")), "{:?}", r.notes);
 }
 
 #[test]
-fn kraken_has_no_staleness_bound_in_2c() {
+fn kraken_has_no_staleness_bound() {
     let (_d, o, s) = install(); // Kraken tickers stamped 2026-01-01, eight months before `now`
     let id = seed::insert_bot(&o.primary, &s, &plain());
-    assert_eq!(eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap().eligible, vec![id]);
+    let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
+    assert_eq!(r.eligible, vec![id]);
+    assert!(r.notes.is_empty(), "Kraken is not measured at all, not measured as unknown: {:?}", r.notes);
+}
+
+/// The bound is inclusive: a catalog exactly 49 h old is fresh, one second more is stale.
+#[test]
+fn the_49_hour_bound_is_inclusive() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let now: chrono::DateTime<chrono::Utc> = "2026-09-01T10:00:00Z".parse().unwrap();
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 09:00:00'", []).unwrap(); // exactly 49 h
+    assert_eq!(eligibility::check_install_at(&o.primary, now).unwrap().eligible, vec![id]);
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 08:59:59'", []).unwrap(); // 49 h 0 m 1 s
+    let r = eligibility::check_install_at(&o.primary, now).unwrap();
+    assert!(r.eligible.is_empty() && r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("49h 0m old")), "{:?}", r.problems);
+}
+
+/// What `check`, `serve` and the takeover print names what is not supported, never an internal plan.
+#[test]
+fn refusals_and_notes_name_no_internal_plan() {
+    let mut lines = vec![];
+    let kraken: Vec<Make> = vec![
+        Box::new(|c, s| seed::insert_bot(c, s, &plain().with("quote_amount_limited", json!(true)))),
+        Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 })))),
+    ];
+    for make in kraken {
+        let (_d, o, s) = install();
+        make(&o.primary, &s);
+        lines.extend(eligibility::check_install(&o.primary).unwrap().problems);
+    }
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]).with("weighting", json!("market_cap")));
+    o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
+                       VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\"}', '2026-09-01', '2026-09-01', '2026-09-01')", rusqlite::params![s.user_id, s.exchange_id]).unwrap();
+    o.primary.execute("DELETE FROM app_configs WHERE key = 'alpaca_crypto_listings_last_good_count'", []).unwrap();
+    let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
+    lines.extend(r.problems);
+    lines.extend(r.notes);
+    for needle in ["quote_amount_limited", "allocations: 2 assets", "weighting", "split(s)"] {
+        assert!(lines.iter().any(|l| l.contains(needle)), "{needle}: {lines:?}");
+    }
+    assert!(lines.iter().all(|l| !l.contains("Plan ")), "{lines:?}");
 }

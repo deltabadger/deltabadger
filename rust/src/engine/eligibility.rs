@@ -78,7 +78,7 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
     if bot.quote_amount_limited() {
-        if kraken { r.push("quote_amount_limited (Kraken: not before Plan 2k)".into()); }
+        if kraken { r.push("quote_amount_limited (Kraken: amount limits are not supported by this engine yet)".into()); }
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
@@ -91,21 +91,26 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
 /// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;
 /// Kraken keeps one member). Returns the member asset ids in settings order.
 fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64> {
-    if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights: Plan 2d)", bot.weighting())); }
+    if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights are not supported by this engine yet)", bot.weighting())); }
     let Some(a) = bot.allocations() else {
         r.push("allocations: an asset id or a weight this build does not read".into());
         return vec![];
     };
     if a.is_empty() { r.push("allocations: none".into()); }
     if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
-    if kraken && a.len() > 1 { r.push(format!("allocations: {} assets (Kraken: one until Plan 2k)", a.len())); }
+    if kraken && a.len() > 1 { r.push(format!("allocations: {} assets (Kraken: only one-asset bots are supported by this engine yet)", a.len())); }
     // Bots::DcaMultiAsset::Allocatable#allocations_balanced?. The tolerance dwarfs the difference between this plain sum and
     // Ruby's compensated one.
     let total: f64 = a.iter().map(|(_, w)| w).sum();
     if a.iter().any(|(_, w)| *w < 0.0) || (total - 1.0).abs() > ALLOCATION_TOLERANCE {
         r.push(format!("allocations: weights sum to {total}, not 1"));
     }
-    a.into_iter().map(|(id, _)| id).collect()
+    // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
+    let ids: Vec<i64> = a.into_iter().map(|(id, _)| id).collect();
+    for (i, id) in ids.iter().enumerate() {
+        if ids[..i].contains(id) && !ids[i + 1..].contains(id) { r.push(format!("allocations: asset {id} listed more than once")); }
+    }
+    ids
 }
 
 /// The ledger walk this build ports (basket::holdings) holds REGULAR buys recorded with their asset, and nothing a
@@ -130,7 +135,7 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], r: &mut Vec<Strin
               OR a.base_currency IN (SELECT symbol FROM assets WHERE id IN (SELECT value FROM json_each(?3))) \
               OR a.base_currency IN (SELECT base FROM tickers WHERE exchange_id = ?2 AND base_asset_id IN (SELECT value FROM json_each(?3))))",
         params![bot.user_id, bot.exchange_id, ids], |r| r.get(0))?;
-    if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (Plan 2d)")); }
+    if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)")); }
     Ok(())
 }
 

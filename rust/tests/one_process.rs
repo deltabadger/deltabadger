@@ -268,7 +268,7 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
     let supervised = local.spawn_local(async move { supervisor::serve(engine, Some((app, listener)), &SystemClock, vec![]).await });
     local.run_until(async {
         tokio::time::sleep(Duration::from_millis(300)).await;
-        // What the guard refuses (Task 2a), committed without it.
+        // What the guard refuses, committed without it.
         web.db(move |c| {
             c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = ?1", [bot])?;
             Ok(())

@@ -11,7 +11,7 @@ pub struct Seeded { pub user_id: i64, pub exchange_id: i64, pub btc: i64, pub qu
 
 const T: &str = "2026-01-01 00:00:00";
 /// When the seeded Alpaca tickers were last synced: after every test clock, so no test but staleness's own reads them as
-/// stale (a negative age is fresh). Kraken has no staleness bound in 2c and keeps T.
+/// stale (a negative age is fresh). Kraken has no staleness bound and keeps T.
 pub const SYNCED: &str = "2099-01-01 00:00:00";
 
 pub fn seed_kraken(c: &Connection, cipher: &Cipher) -> Seeded {
