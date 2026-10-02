@@ -509,7 +509,7 @@ fn refusals_and_notes_name_no_internal_plan() {
 /// takeover, from the bot's row: that build had no web UI and let nothing else write, so the row is what the order was
 /// sent under. From then on the stranded rule holds for that bot like any other, stopped or not.
 #[test]
-fn a_pre_2c_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen() {
+fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen() {
     use deltabadger::engine::{amount, handover, model, placement, FixedClock};
     use deltabadger::ruby::BigDec;
     let now: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();

@@ -67,6 +67,7 @@ async fn trades_history_pages_until_its_count() {
     let v = FakeVenue::from_script(&json!({ "http": { "/0/private/TradesHistory": [page(&[("T1", "30")], 2), page(&[("T2", "30.5")], 2)] } }));
     let fills = v.fills_from_trades(&["OTX-9".into()], at()).await.unwrap();
     assert_eq!(fills[0].quote_amount_exec.to_s_f(), "60.5", "both pages");
+    assert_eq!(fills[0].pair, None, "trades without a pair name none");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -77,6 +78,9 @@ async fn trades_history_recovers_fills_per_order() {
     let fills = v.fills_from_trades(&["OTX-5".into()], at()).await.unwrap();
     assert_eq!((fills[0].status, fills[0].amount_exec.to_s_f(), fills[0].quote_amount_exec.to_s_f()), (OrderStatus::Closed, "0.0012".into(), "60.012".into()));
     assert_eq!(fills[0].price, BigDec::parse("60.012").unwrap().div(&bd("0.0012")));
+    // The aggregate names its first trade's pair (honeymaker's aggregate_trades); Rails looks it up as a ticker, so a pair
+    // spelled like the ticker (SOLEUR) resolves and Kraken's own spelling (XXBTZEUR) does not.
+    assert_eq!(fills[0].pair.as_deref(), Some("XXBTZEUR"));
 }
 
 fn raw(status: &str, ordertype: &str) -> serde_json::Value {

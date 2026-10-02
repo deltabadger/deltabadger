@@ -91,6 +91,8 @@ async fn an_operator_decision_resolves_an_intent_kraken_cannot_answer_for() {
     placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::Placed("OTX-HUMAN".into()), t0()).unwrap();
     assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 1);
     assert!(reload(&o, &bot).rust_placement().is_none());
+    let next: DateTime<Utc> = "2026-10-06T10:00:00Z".parse().unwrap();
+    assert_eq!(reload(&o, &bot).rust_defer_until_us().unwrap(), Some(next.timestamp_micros()), "nothing is placed before the next checkpoint");
     assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()).is_err(), "nothing left to resolve");
 }
 
@@ -180,7 +182,7 @@ async fn a_basket_legs_intent_names_its_own_ticker_and_is_recorded_on_it() {
 }
 
 #[test]
-fn an_intent_written_before_2c_without_base_asset_id_still_resolves() {
+fn a_legacy_intent_without_base_asset_id_still_resolves() {
     let (_d, o, bot, plan) = setup();
     placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
     o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.base_asset_id') WHERE id = ?1", [bot.id]).unwrap();

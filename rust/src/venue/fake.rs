@@ -229,18 +229,19 @@ impl Venue for FakeVenue {
             for (id, t) in page { if seen.insert(id) { trades.push(t); } }
             if seen.len() as u64 >= body["result"]["count"].as_u64().unwrap_or(0) { break; }
         }
-        let mut by: Vec<(String, BigDec, BigDec, bool, bool)> = vec![];
+        let mut by: Vec<(String, BigDec, BigDec, bool, bool, Option<String>)> = vec![];
         for trade in trades.iter() {
             let Some(o) = trade["ordertxid"].as_str().filter(|o| txids.iter().any(|t| t == o)) else { continue };
             let (vol, cost) = (dec(&trade["vol"]).unwrap_or_else(BigDec::zero), dec(&trade["cost"]).unwrap_or_else(BigDec::zero));
             match by.iter_mut().find(|(t, ..)| t == o) {
                 Some(e) => { e.1 = &e.1 + &vol; e.2 = &e.2 + &cost; }
-                None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell")),
+                None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell", trade["pair"].as_str().map(str::to_string))),
             }
         }
-        // No pair: the aggregation names the trade pair (XXBTZEUR), which is no ticker's `ticker`, so Rails backfills nothing.
-        Ok(by.into_iter().map(|(txid, vol, cost, limit, sell)| OrderState {
-            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair: None,
+        // The aggregate names its first trade's pair (honeymaker's aggregate_trades), which Rails looks up as a ticker
+        // (kraken.rb:833): a pair spelled like the ticker (SOLEUR) resolves, Kraken's own spelling (XXBTZEUR) does not.
+        Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
+            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair,
         }).collect())
     }
 
