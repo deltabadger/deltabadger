@@ -25,6 +25,8 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
+      - 'config/environments/production.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -49,6 +51,8 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
+      - 'config/environments/production.rb'
 
 permissions:
   contents: read

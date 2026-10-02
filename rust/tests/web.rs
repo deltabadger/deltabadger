@@ -666,3 +666,86 @@ mod navbar_numbers {
         assert!(bots::tracker_ring(&[None], false), "an asset without a symbol is not cash");
     }
 }
+
+mod host_authorization {
+    use super::common;
+    use axum::http::{HeaderMap, HeaderName};
+    use deltabadger::web::{self, Config};
+
+    /// ALLOWED_HOSTS becomes `config.hosts` as config/environments/production.rb's own lines make it
+    /// (script/rust/record_vectors.rb runs them).
+    #[test]
+    fn allowed_hosts_is_read_as_production_rb_reads_it() {
+        let recorded = common::vectors()["host_authorization"]["hosts"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 10, "{} vectors", recorded.len());
+        for case in &recorded {
+            let hosts: Vec<&str> = case["hosts"].as_array().unwrap().iter().map(|host| host.as_str().unwrap()).collect();
+            assert_eq!(web::allowed_hosts(case["allowed_hosts"].as_str()), hosts, "{case}");
+        }
+        assert!(recorded.iter().any(|case| case["hosts"].as_array().unwrap().is_empty()) && recorded.iter().any(|case| case["hosts"].as_array().unwrap().iter().any(|host| host == "")));
+    }
+
+    /// Each entry against each host, as Action Pack's own matcher (HostAuthorization::Permissions) answers.
+    #[test]
+    fn a_host_is_allowed_as_action_packs_matcher_allows_it() {
+        let recorded = common::vectors()["host_authorization"]["allows"].as_array().unwrap().clone();
+        let allowed = recorded.iter().filter(|case| case["allowed"] == true).count();
+        assert!(recorded.len() >= 400 && allowed >= 25 && allowed < recorded.len() / 4, "{} vectors, {allowed} allowed", recorded.len());
+        for case in &recorded {
+            assert_eq!(web::host_allowed(case["entry"].as_str().unwrap(), case["host"].as_str().unwrap()), case["allowed"], "{case}");
+        }
+        // No host of any length or shape is a reason to stop the process.
+        for host in ["é.apps.example", "é", ".", ":", "::", "a:", ":1", &"a".repeat(100_000), &format!("{}.apps.example", "é".repeat(10))] {
+            for entry in [".apps.example", "apps.example", ".", "", "é", ".é", "a:1"] {
+                let _ = web::host_allowed(entry, host);
+            }
+        }
+    }
+
+    /// Whole requests, answered by ActionDispatch::HostAuthorization behind Puma: which pass, and what a
+    /// refusal is. The one difference: a forwarded header that names no host, where Rails fails (500).
+    #[test]
+    fn a_request_is_refused_as_host_authorization_refuses_it() {
+        let recorded = common::vectors()["host_authorization"]["requests"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 20 && recorded.iter().filter(|case| case["status"] == 500).count() == 1, "{} vectors", recorded.len());
+        for case in &recorded {
+            let allowed_hosts = case["allowed_hosts"].as_str().map(str::to_string);
+            let config = Config::from_env(&move |name| match name {
+                "SECRET_KEY_BASE" => Some("s".to_string()),
+                "ALLOWED_HOSTS" => allowed_hosts.clone(),
+                _ => None,
+            }).unwrap();
+            let mut headers = HeaderMap::new();
+            headers.insert("host", case["host"].as_str().unwrap().parse().unwrap());
+            for line in case["headers"].as_array().unwrap() {
+                let (name, value) = line.as_str().unwrap().split_once(':').unwrap();
+                headers.append(HeaderName::from_bytes(name.as_bytes()).unwrap(), value.trim().parse().unwrap());
+            }
+            if case["xhr"] == true { headers.insert("x-requested-with", "XMLHttpRequest".parse().unwrap()); }
+            let blocked = config.blocked_hosts(&headers);
+            assert_eq!(blocked.is_empty(), case["status"] == 200, "{case}: {blocked:?}");
+            if case["status"] == 403 {
+                let response = web::blocked_host(&headers, &blocked);
+                assert_eq!((response.status().as_u16(), response.headers()["content-type"].to_str().unwrap()), (403, case["content_type"].as_str().unwrap()), "{case}");
+                assert_eq!((case["body"].as_str(), case["other_headers"].as_array().map(Vec::len), response.headers().len()), (Some(""), Some(0), 1), "{case}: an empty answer with one header");
+            }
+        }
+        // No Host header at all is no allowed host; without a list nothing is looked at.
+        let listed = Config::from_env(&|name| Some(if name == "ALLOWED_HOSTS" { "app.example" } else { "s" }.to_string())).unwrap();
+        assert_eq!(listed.blocked_hosts(&HeaderMap::new()), [String::new()]);
+        let open = Config::from_env(&|name| (name == "SECRET_KEY_BASE").then(|| "s".to_string())).unwrap();
+        assert!(open.allowed_hosts.is_empty() && open.blocked_hosts(&HeaderMap::new()).is_empty());
+    }
+
+    /// The recorder runs production.rb's own lines, and CI cannot run the recorder: the lines are
+    /// held here as text, so that a change to them fails where it is seen.
+    #[test]
+    fn production_rb_builds_config_hosts_as_it_did_when_the_vectors_were_recorded() {
+        let ruby = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("config/environments/production.rb")).unwrap();
+        // The statements, without their comments and indentation.
+        let statements: Vec<&str> = ruby.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#')).collect();
+        let recorded = ["if ENV['ALLOWED_HOSTS'].present?", "ENV['ALLOWED_HOSTS'].split(',').each do |host|", "config.hosts << host.strip", "end", "config.hosts << \"localhost\"", "config.hosts << \"127.0.0.1\"", "else", "config.hosts.clear", "end"];
+        assert!(statements.windows(recorded.len()).any(|window| window == recorded), "config/environments/production.rb no longer builds config.hosts with these statements: {recorded:?}");
+        assert!(!ruby.contains("host_authorization"), "production.rb now sets config.host_authorization (an exclusion or another response)");
+    }
+}

@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"kqEsI/j8UMLTgcq2c+VpQcA=\",\"h\":{\"iv\":\"+7WZXjKTiGFm3C8f\",\"at\":\"S0YvCaLdIWpIPxHk4FyCFA==\"}}"
+      "cipher": "{\"p\":\"ZKYKxVMjxzR/+u7zICzwkXs=\",\"h\":{\"iv\":\"UDy+wpi/c98LOtOR\",\"at\":\"Nv5Pjc7aWRJfhsJ6aHuXfA==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"QZnxT9rz34U6q0gXdJ/U\",\"h\":{\"iv\":\"SUzEFrCaJPS0g4N6\",\"at\":\"q719anWr+Gop8zc25BaKug==\"}}"
+      "cipher": "{\"p\":\"I7ZNc9x5Q/6lF3TqPvlL\",\"h\":{\"iv\":\"wHRg8DEodH5krnjK\",\"at\":\"TBIR8d10VhMU+cgEL7SBFQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"GcfVv+admpvDFExqSCD6KhUAiPDlMCaAJnn/9BoUCH8FEInNyWfg+X1jAUFg57AwwcjH+mC7W5cKZTppi35E1YlVkmnoJQ8iEErrZtE=\",\"h\":{\"iv\":\"SM+dqypmsOENBUcz\",\"at\":\"l6Jljb30Led7SRxOj0+D/A==\",\"c\":true}}"
+      "cipher": "{\"p\":\"ImvOtkG1yoHQO3b+avfxsSXv7Pz7EmCxoYNsiBcTSF6PlRCnlpAlVWK9Vprk4cjtAwJyanVdAbvauTjCXpsQREH5lUs04VvR5ID0U4Q=\",\"h\":{\"iv\":\"R/WWtEgEyMipCLtP\",\"at\":\"m4wBcOoM6TBzJfWLPY3QTQ==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "CJXFYXPYTFLFUX33XGUCI6HYHPY2XQSI",
-      "cipher": "{\"p\":\"TzYRZUxP78/Ri0IkzZRVbdep4St+J6mGhi7H4QRBowY=\",\"h\":{\"iv\":\"WnptEjrcmMBQHunk\",\"at\":\"lCoT7ytMYEvEXr/njRWiFA==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "6SJSMOT5O5LDN7RXUYUWISP6U54VJW52",
+      "cipher": "{\"p\":\"8+biwBkYn4eTbXNgpNirw+LHjgkFHYU6RISf/whtoA0=\",\"h\":{\"iv\":\"Bs3UCFrSGgvy8iOj\",\"at\":\"vv7gNqOgMWU5JBye/X9/qw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"lePLLituRHhmvLYrAklOaiU=\",\"h\":{\"iv\":\"r3srUUP0SfF5tuyj\",\"at\":\"UH5MaJdM1mcpdBKDjID0vQ==\"}}"
+      "cipher": "{\"p\":\"QDg9o2dmjbqVsJ6smtsQzfc=\",\"h\":{\"iv\":\"HK8RNESbbACl5oGX\",\"at\":\"sOxoxs7n2R5GPk5DEXfSCw==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$/obs2uztIouZkN1wKTbiT.q9aZTJXkMuYDyl3ty6iG79Eqmj6uHaS"
+      "hash": "$2a$11$5zwr6AzaV5fnAtlmNq3RRO9/SokgT66i8bZi34TL65GtSDL5VuWlO"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$r2OPquYIOfncljMLbagITOV7Am3zVC2Fjxpjcb0g4iqxxl/0hY2Su"
+      "hash": "$2a$11$QGGlnx6IKgT.jWUzg1VfAuDVmuH6PXpRq/1lHYRSTdMHGx7CozJnS"
     }
   ],
   "totp": {
@@ -48839,7 +48839,7 @@
     "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
     "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
     "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
-    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--114a17e6cbabfec44d9afa0057a6bc67ba3a1e31f233955d70da06b2f3821669\"></turbo-cable-stream-source>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--12a26ab46063e5d871e3bf3f16377451f96a222d37a4b8cafbdd1a90cc868b88\"></turbo-cable-stream-source>",
     "stream_name": "user_7:bot_updates",
     "content_type": "text/vnd.turbo-stream.html"
   },
@@ -50368,5 +50368,2685 @@
       "client_ip": "198.51.100.8",
       "ip": "198.51.100.7"
     }
-  ]
+  ],
+  "host_authorization": {
+    "hosts": [
+      {
+        "allowed_hosts": null,
+        "hosts": []
+      },
+      {
+        "allowed_hosts": "",
+        "hosts": []
+      },
+      {
+        "allowed_hosts": " ",
+        "hosts": []
+      },
+      {
+        "allowed_hosts": ",",
+        "hosts": [
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": "app.example",
+        "hosts": [
+          "app.example",
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": " app.example , .apps.example ",
+        "hosts": [
+          "app.example",
+          ".apps.example",
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": "a.example,,b.example",
+        "hosts": [
+          "a.example",
+          "",
+          "b.example",
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": "a.example, ",
+        "hosts": [
+          "a.example",
+          "",
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": "a.example,",
+        "hosts": [
+          "a.example",
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": ",a.example",
+        "hosts": [
+          "",
+          "a.example",
+          "localhost",
+          "127.0.0.1"
+        ]
+      },
+      {
+        "allowed_hosts": "a.example\t,\nb.example:8443",
+        "hosts": [
+          "a.example",
+          "b.example:8443",
+          "localhost",
+          "127.0.0.1"
+        ]
+      }
+    ],
+    "allows": [
+      {
+        "entry": "app.example",
+        "host": "app.example",
+        "allowed": true
+      },
+      {
+        "entry": "app.example",
+        "host": "APP.EXAMPLE",
+        "allowed": true
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example:80",
+        "allowed": true
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example:8443",
+        "allowed": true
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "app.example",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "apps.example",
+        "allowed": true
+      },
+      {
+        "entry": ".apps.example",
+        "host": "bot.apps.example",
+        "allowed": true
+      },
+      {
+        "entry": ".apps.example",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": true
+      },
+      {
+        "entry": ".apps.example",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "bot-1.apps.example",
+        "allowed": true
+      },
+      {
+        "entry": ".apps.example",
+        "host": "bot.apps.example:8443",
+        "allowed": true
+      },
+      {
+        "entry": ".apps.example",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example:8443",
+        "allowed": true
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "app.example:8443",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "bot.apps.example:8443",
+        "allowed": true
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": ".apps.example:8443",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "127.0.0.1",
+        "allowed": true
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "127.0.0.1:3000",
+        "allowed": true
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "127.0.0.1",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "localhost",
+        "allowed": true
+      },
+      {
+        "entry": "localhost",
+        "host": "localhost:3000",
+        "allowed": true
+      },
+      {
+        "entry": "localhost",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "localhost",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "[::1]",
+        "allowed": true
+      },
+      {
+        "entry": "[::1]",
+        "host": "[::1]:3000",
+        "allowed": true
+      },
+      {
+        "entry": "[::1]",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "[::1]",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "::1",
+        "allowed": true
+      },
+      {
+        "entry": "::1",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "::1",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "",
+        "allowed": true
+      },
+      {
+        "entry": "",
+        "host": ":80",
+        "allowed": true
+      },
+      {
+        "entry": "",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "",
+        "allowed": true
+      },
+      {
+        "entry": ".",
+        "host": ":80",
+        "allowed": true
+      },
+      {
+        "entry": ".",
+        "host": "x.",
+        "allowed": true
+      },
+      {
+        "entry": ".",
+        "host": "x.:80",
+        "allowed": true
+      },
+      {
+        "entry": ".",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": ".",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "APP.EXAMPLE",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example:80",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "a+b.example",
+        "allowed": true
+      },
+      {
+        "entry": "a+b.example",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "a+b.example",
+        "host": " app.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example",
+        "allowed": true
+      },
+      {
+        "entry": "App.Example",
+        "host": "APP.EXAMPLE",
+        "allowed": true
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example:80",
+        "allowed": true
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example:8443",
+        "allowed": true
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example:",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example:80:90",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example:8443:1",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example.",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "xapp.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.examplex",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app-example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "bot.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "BOT.Apps.Example:3000",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "a.b.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": ".apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "bot_x.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "bot-1.apps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "bot.apps.example:8443",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "evilapps.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "127.0.0.1",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "127.0.0.1:3000",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "127.0.0.2",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "localhost",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "localhost:3000",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "localhost.evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "[::1]",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "[::1]:3000",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "::1",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": ":80",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "x.",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "x.:80",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "a+b.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "aab.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example, evil.example",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": "app.example\t",
+        "allowed": false
+      },
+      {
+        "entry": "App.Example",
+        "host": " app.example",
+        "allowed": false
+      }
+    ],
+    "requests": [
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "evil.example",
+        "headers": [],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "evil.example",
+        "headers": [],
+        "xhr": true,
+        "status": 403,
+        "content_type": "text/plain; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: evil.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: bot.apps.example"
+        ],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: evil.example, app.example"
+        ],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: app.example, evil.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: app.example",
+          "X-Forwarded-Host: evil.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: evil.example",
+          "X-Forwarded-Host: app.example"
+        ],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: evil.example,"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: app.example,  evil.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host:  "
+        ],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Forwarded-Host: ,"
+        ],
+        "xhr": false,
+        "status": 500,
+        "content_type": null,
+        "body": "Puma caught this error: undefined method 'sub' for nil (NoMethodError)\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/actionpack-8.1.4/lib/action_dispatch/http/url.rb:325:in 'ActionDispatch::Http::URL#host'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/actionpack-8.1.4/lib/action_dispatch/middleware/host_authorization.rb:169:in 'ActionDispatch::HostAuthorization#mark_as_authorized'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/actionpack-8.1.4/lib/action_dispatch/middleware/host_authorization.rb:143:in 'ActionDispatch::HostAuthorization#call'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/response.rb:79:in 'block in Puma::Response#handle_request'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/thread_pool.rb:434:in 'Puma::ThreadPool#with_force_shutdown'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/response.rb:78:in 'Puma::Response#handle_request'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/server.rb:508:in 'Puma::Server#process_client'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/server.rb:263:in 'block in Puma::Server#run'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/thread_pool.rb:246:in 'block in Puma::ThreadPool#spawn_thread'",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "evil.example",
+        "headers": [
+          "X-Forwarded-Host: app.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "evil.example",
+        "headers": [
+          "X-Forwarded-Host: other.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "localhost:3000",
+        "headers": [],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "127.0.0.1",
+        "headers": [],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": "app.example, .apps.example",
+        "host": "app.example",
+        "headers": [
+          "X-Requested-With: xmlhttprequest",
+          "X-Forwarded-Host: evil.example"
+        ],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/plain; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": null,
+        "host": "evil.example",
+        "headers": [
+          "X-Forwarded-Host: other.example"
+        ],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": " ",
+        "host": "evil.example",
+        "headers": [],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": ",",
+        "host": "evil.example",
+        "headers": [],
+        "xhr": false,
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
+        "other_headers": []
+      },
+      {
+        "allowed_hosts": ",",
+        "host": "localhost",
+        "headers": [],
+        "xhr": false,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": "passed",
+        "other_headers": []
+      }
+    ]
+  }
 }

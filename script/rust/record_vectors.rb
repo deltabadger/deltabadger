@@ -486,6 +486,70 @@ vectors['remote_ip_lines'] = [
   ['X-Forwarded-For: 1.1.1.1', 'Client-Ip: 198.51.100.8', 'X-Forwarded-For: 198.51.100.7']
 ].map { |headers| { 'headers' => headers }.merge(JSON.parse(ask_puma.(remote_ip_server.last, 'bot.example.com', headers))) }
 remote_ip_server.first.stop(true)
+# ActionDispatch::HostAuthorization as production runs it when ALLOWED_HOSTS is set (rust/src/web/mod.rs:
+# `allowed_hosts`, `host_allowed`, `Config::blocked_hosts`, `blocked_host`). `config.hosts` is built by
+# production.rb's own lines, run here on a stand-in for `config`; what a host is allowed is asked of
+# Action Pack's matcher; and the answers come from the middleware behind Puma, as the base_url vectors do.
+production_rb = Rails.root.join('config/environments/production.rb').read
+hosts_lines = production_rb[/^  if ENV\['ALLOWED_HOSTS'\]\.present\?\n.*?^  end\n/m] or
+  raise 'production.rb no longer builds config.hosts from ALLOWED_HOSTS, which the host vectors assume'
+raise 'production.rb sets config.host_authorization, which the host vectors assume it does not' if production_rb.include?('host_authorization')
+config_hosts = lambda do |value|
+  config = Struct.new(:hosts).new([]) # Rails' own default outside development
+  kept = ENV.fetch('ALLOWED_HOSTS', nil)
+  ENV['ALLOWED_HOSTS'] = value
+  begin
+    binding.eval(hosts_lines) # rubocop:disable Security/Eval
+    config.hosts
+  ensure
+    ENV['ALLOWED_HOSTS'] = kept
+  end
+end
+host_entries = ['app.example', '.apps.example', 'app.example:8443', '.apps.example:8443', '127.0.0.1', 'localhost', '[::1]', '::1', '', '.', 'a+b.example', 'App.Example']
+host_values = ['app.example', 'APP.EXAMPLE', 'app.example:80', 'app.example:8443', 'app.example:', 'app.example:80:90', 'app.example:8443:1', 'app.example.', 'xapp.example',
+               'app.examplex', 'app-example', 'apps.example', 'bot.apps.example', 'BOT.Apps.Example:3000', 'a.b.apps.example', '.apps.example', 'bot_x.apps.example', 'bot-1.apps.example',
+               'bot.apps.example:8443', 'evil.example', 'evilapps.example', '127.0.0.1', '127.0.0.1:3000', '127.0.0.2', 'localhost', 'localhost:3000', 'localhost.evil.example',
+               '[::1]', '[::1]:3000', '::1', '', ':80', 'x.', 'x.:80', 'a+b.example', 'aab.example', 'app.example, evil.example', "app.example\t", ' app.example']
+host_requests = [
+  ['app.example, .apps.example', 'app.example', [], false], ['app.example, .apps.example', 'evil.example', [], false], ['app.example, .apps.example', 'evil.example', [], true],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example'], false], ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: bot.apps.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example, app.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: app.example, evil.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: app.example', 'X-Forwarded-Host: evil.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example', 'X-Forwarded-Host: app.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example,'], false], ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: app.example,  evil.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host:  '], false], ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: ,'], false],
+  ['app.example, .apps.example', 'evil.example', ['X-Forwarded-Host: app.example'], false], ['app.example, .apps.example', 'evil.example', ['X-Forwarded-Host: other.example'], false],
+  ['app.example, .apps.example', 'localhost:3000', [], false], ['app.example, .apps.example', '127.0.0.1', [], false],
+  ['app.example, .apps.example', 'app.example', ['X-Requested-With: xmlhttprequest', 'X-Forwarded-Host: evil.example'], false],
+  [nil, 'evil.example', ['X-Forwarded-Host: other.example'], false], [' ', 'evil.example', [], false], [',', 'evil.example', [], false], [',', 'localhost', [], false]
+]
+host_ask = lambda do |port, host, headers, xhr|
+  lines = headers + (xhr ? ['X-Requested-With: XMLHttpRequest'] : [])
+  answer = TCPSocket.open('127.0.0.1', port) do |socket|
+    socket.write("GET / HTTP/1.1\r\nHost: #{host}\r\n#{lines.map { |line| "#{line}\r\n" }.join}Connection: close\r\n\r\n")
+    socket.read
+  end
+  head, body = answer.split("\r\n\r\n", 2)
+  { 'status' => head[%r{\AHTTP/1.1 (\d+)}, 1].to_i, 'content_type' => head[/^content-type: (.*?)\r?$/i, 1], 'body' => body,
+    'other_headers' => head.lines.drop(1).map { |line| line[/\A[^:]+/].downcase }.reject { |name| %w[content-type content-length connection].include?(name) } }
+end
+host_servers = Hash.new do |servers, hosts|
+  inner = ->(_env) { [200, { 'content-type' => 'text/plain' }, ['passed']] }
+  # Rails leaves the middleware out when config.hosts is empty (DefaultMiddlewareStack).
+  servers[hosts] = over_puma.(hosts.empty? ? inner : ActionDispatch::HostAuthorization.new(inner, hosts))
+end
+vectors['host_authorization'] = {
+  'hosts' => [nil, '', ' ', ',', 'app.example', ' app.example , .apps.example ', 'a.example,,b.example', 'a.example, ', 'a.example,', ',a.example', "a.example\t,\nb.example:8443"]
+    .map { |value| { 'allowed_hosts' => value, 'hosts' => config_hosts.(value) } },
+  'allows' => host_entries.product(host_values).map do |entry, host|
+    { 'entry' => entry, 'host' => host, 'allowed' => ActionDispatch::HostAuthorization::Permissions.new([entry]).allows?(host) }
+  end,
+  'requests' => host_requests.map do |allowed, host, headers, xhr|
+    { 'allowed_hosts' => allowed, 'host' => host, 'headers' => headers, 'xhr' => xhr }.merge(host_ask.(host_servers[config_hosts.(allowed)].last, host, headers, xhr))
+  end
+}
+host_servers.each_value { |server, _| server.stop(true) }
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
 File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")
