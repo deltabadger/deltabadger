@@ -36,9 +36,11 @@ pub enum Claim {
     AfterCrash,
 }
 
-/// Proof that this process holds the exclusive engine lock; dropping it releases the lock.
+/// Proof that this process holds the exclusive engine lock. A clone is the same lock: `serve` keeps one until the
+/// process exits, after the engine that owned the first has returned. The lock is released when the last clone drops.
+#[derive(Clone)]
 pub struct EngineLock {
-    _file: File,
+    _file: std::sync::Arc<File>,
 }
 
 pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError> {
@@ -67,7 +69,7 @@ pub fn lock(paths: &Paths, now: DateTime<Utc>) -> Result<EngineLock, LeaseError>
             }
         }
     }
-    Ok(EngineLock { _file: file })
+    Ok(EngineLock { _file: std::sync::Arc::new(file) })
 }
 
 pub fn read(primary: &Connection, cipher: &Cipher) -> Result<Option<Value>, LeaseError> {
@@ -99,7 +101,7 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
     Ok(from)
 }
 
-/// Plan 2 calls this inside the same transaction that leaves every working bot `scheduled`.
+/// The engine calls this inside the same transaction that leaves every working bot `scheduled`.
 pub fn hand_back(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), LeaseError> {
     write(primary, cipher, &json!({ "engine": "none", "released_by": "rust", "handed_back": true, "at": now.to_rfc3339() }), now)
 }

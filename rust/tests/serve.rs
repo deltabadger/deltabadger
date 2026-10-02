@@ -938,3 +938,61 @@ fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() {
     let check = check.expect("bun runs the browser check");
     assert!(check.status.success(), "{}\n{}", String::from_utf8_lossy(&check.stdout), String::from_utf8_lossy(&check.stderr));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn wake_engine_leaves_one_permit_for_the_attached_engine_and_does_nothing_without_one() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    app.wake_engine(); // no engine attached (every router test): nothing happens, nothing fails
+    let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+    app.attach_engine(wake.clone());
+    app.wake_engine();
+    app.wake_engine(); // two writes before the engine looks: one more pass, not two
+    assert!(tokio::time::timeout(Duration::from_millis(50), wake.notified()).await.is_ok(), "the permit is stored for an engine mid-pass");
+    assert!(tokio::time::timeout(Duration::from_millis(50), wake.notified()).await.is_err(), "wakes coalesce");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn bind_refuses_an_install_with_no_admin_user_before_it_listens() {
+    let dir = common::rails_install();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let refused = deltabadger::web::server::bind(&app, 0).await;
+    assert!(matches!(&refused, Err(deltabadger::web::WebError::Config(m)) if m.contains("no admin user")), "{refused:?}");
+    let (dir, opened, _) = common::install(); // seeds an admin user
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let listener = deltabadger::web::server::bind(&app, 0).await.unwrap();
+    assert_ne!(listener.local_addr().unwrap().port(), 0, "bound, not yet serving");
+}
+
+/// Once `serve_on` is dropped (in `serve`: the engine returned), no request reaches the app. A
+/// second request already on an open keep-alive connection when the server is dropped is answered 503, or the
+/// connection is closed; never by the app. Deterministic: the request is written and the server dropped on this thread
+/// with no await in between, so the connection task runs only after both.
+#[tokio::test(flavor = "current_thread")]
+async fn a_request_ready_on_a_keep_alive_connection_when_the_server_is_dropped_never_reaches_the_app() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let mut server = Box::pin(deltabadger::web::server::serve_on(listener, app, deltabadger::web::server::Limits::default()));
+    let first = async {
+        tokio::task::spawn_blocking(move || {
+            let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let first = web::keep_alive_get(&mut stream, "/up");
+            (stream, first)
+        }).await.unwrap()
+    };
+    let (mut stream, first) = tokio::select! {
+        r = &mut server => panic!("the server stopped: {r:?}"),
+        done = first => done,
+    };
+    assert!(first.as_deref().is_some_and(|a| a.starts_with("HTTP/1.1 200")), "{first:?}");
+    assert!(web::send_get(&mut stream, "/up"), "the second request is on the wire");
+    drop(server); // the engine returned
+    let second = tokio::task::spawn_blocking(move || { let mut stream = stream; web::read_answer(&mut stream) }).await.unwrap();
+    assert!(second.as_deref().is_none_or(|a| a.starts_with("HTTP/1.1 503")), "the app answered after the server was dropped: {second:?}");
+}

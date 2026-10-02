@@ -59,6 +59,8 @@ pub struct Cipher {
 
 impl Cipher {
     /// ActiveSupport::KeyGenerator.new(primary_key, hash_digest_class: SHA256).generate_key(salt, 32).
+    /// 65,536 PBKDF2 rounds: call it at startup only, before a runtime runs, never on the runtime thread (`serve` runs
+    /// the engine and the web on one thread). Its callers: `main.rs`'s `open_install` and `web::App::new`.
     pub fn new(keys: &EncryptionKeys) -> Self {
         let mut key = [0u8; 32];
         pbkdf2::pbkdf2_hmac::<Sha256>(keys.primary_key.as_bytes(), keys.key_derivation_salt.as_bytes(), 65_536, &mut key);

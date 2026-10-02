@@ -90,5 +90,5 @@ async fn a_kraken_insufficient_funds_rejection_stamps_the_budget_too() {
         .next_add(deltabadger::venue::fake::AddOutcome::Reject(vec!["EOrder:Insufficient funds".into()]));
     deltabadger::engine::tick::tick(&o.primary, &v, id, &FixedClock("2026-09-01T10:00:00.5Z".parse().unwrap()), &mut Default::default()).await.unwrap();
     let stamped: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
-    assert!(stamped, "Bot::Failable#record_failure! (Plan 2 left it unported)");
+    assert!(stamped, "Bot::Failable#record_failure! (not ported yet)");
 }

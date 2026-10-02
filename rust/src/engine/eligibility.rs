@@ -1,7 +1,9 @@
-//! What the engine may run (spec §3 Eligibility). Anything outside the slice is refused and named.
+//! What the engine may run Anything outside the slice is refused and named.
 //! Refusal reads flags by Ruby TRUTHINESS (anything set), not by the `== true` the supported readers
 //! use: a flag Rails might treat as on must never be quietly ignored.
 use super::model::{self, Bot};
+use super::placement;
+use crate::crypto::Cipher;
 use super::EngineError;
 use crate::enums::{BotStatus, BOT_WORKING};
 use rusqlite::{Connection, OptionalExtension};
@@ -123,4 +125,71 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
         }
     }
     Ok(report)
+}
+
+/// Why `check` and `serve` refuse an install, or why a write to `bots` must not commit (`guard`).
+#[derive(Debug)]
+pub enum Refusal {
+    /// `check`'s problem lines, each naming the bot and the reason: "bot 7 (scheduled): quote_amount_limited".
+    Ineligible(Vec<String>),
+    /// Bot rows this build cannot read. Takeover refuses them, so no write may leave one behind.
+    Unreadable(Vec<(i64, String)>),
+    /// Bots whose unresolved order would no longer match them: recovery, `handback` and `resolve-placement` read the
+    /// intent against the bot's current asset, exchange and quote (`placement::stranded`).
+    Reconciling(Vec<String>),
+    /// What this build cannot trade, in `alpaca::preflight`'s words: a venue other than Alpaca, a live key, no key.
+    Untradable(Vec<String>),
+    /// The check itself could not run.
+    Failed(EngineError),
+}
+
+impl Refusal {
+    /// `check`'s words, exactly: what `check` and `serve` print after "deltabadger: ".
+    pub fn message(&self) -> String {
+        match self {
+            Self::Ineligible(problems) => format!("this install uses things only the full app runs:\n{}", problems.join("\n")),
+            Self::Unreadable(rows) => format!("unreadable bot rows: {rows:?}"),
+            Self::Reconciling(lines) => format!("an order is still being reconciled:\n{}", lines.join("\n")),
+            Self::Untradable(problems) => format!("refusing to take this install over:\n{}", problems.join("\n")),
+            Self::Failed(e) => format!("{e:?}"),
+        }
+    }
+
+    /// The same lines on one line: the reason a refused write carries (the web's 422, `engine.write_refused`).
+    pub fn reason(&self) -> String {
+        match self {
+            Self::Ineligible(lines) | Self::Reconciling(lines) | Self::Untradable(lines) => lines.join("; "),
+            Self::Unreadable(rows) => rows.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")).collect::<Vec<_>>().join("; "),
+            Self::Failed(_) => "the check could not be completed".into(), // the error itself is logged by `guard`
+        }
+    }
+}
+
+impl Report {
+    /// The eligible bots, or why the install is refused: problems first, then unreadable rows, as `check` reports them.
+    pub fn refusal(self) -> Result<Vec<i64>, Refusal> {
+        if !self.problems.is_empty() { return Err(Refusal::Ineligible(self.problems)); }
+        if !self.unreadable.is_empty() { return Err(Refusal::Unreadable(self.unreadable)); }
+        Ok(self.eligible)
+    }
+}
+
+/// THE guard. Every writer of `bots` outside the engine (the web UI now; MCP and REST
+/// later) calls it inside its own `BEGIN IMMEDIATE` transaction (`model::immediate`), after its statements and before
+/// `commit`, with the instance's `Cipher` (the web: `app.cipher`). `Ok`: commit. `Err`: roll back, and answer in the
+/// caller's own shape (the web: 422 with `engine.write_refused` carrying `reason()`). It refuses, in this order: what
+/// the engine does not run (`check`'s words); a write that would strand an unresolved order; what this build cannot
+/// trade (`preflight`'s words: Alpaca paper only, a key present and readable). A write that skips it and makes the
+/// install ineligible is caught by the engine's pass in one process (`run::step`'s debug assertion). When the check
+/// itself fails, the real error is logged with `bot_id` and `reason()` stays generic.
+pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: i64) -> Result<(), Refusal> {
+    let failed = |e: EngineError| { crate::engine::log(&format!("guard failed for bot {bot_id}: {e:?}")); Refusal::Failed(e) };
+    check_install(tx).map_err(failed)?.refusal()?;
+    let stranded = placement::stranded(tx).map_err(failed)?;
+    if !stranded.is_empty() {
+        return Err(Refusal::Reconciling(stranded.iter().map(|id| {
+            format!("bot {id}: an order is still being reconciled; its asset, exchange and quote cannot change until it settles")
+        }).collect()));
+    }
+    crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)
 }

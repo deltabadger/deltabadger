@@ -233,3 +233,20 @@ async fn a_transient_kraken_answer_to_addorder_is_ambiguous_not_a_rejection() {
         assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-2");
     }
 }
+
+/// The tick reads the row at its start and writes transient_data after AddOrder (here: clearing last_failure_kind).
+/// A web json_set landing in between must survive, and the tick's own write must land too.
+#[tokio::test(flavor = "current_thread")]
+async fn a_web_json_set_landing_while_addorder_awaits_survives_the_ticks_own_transient_writes() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_failure_kind", json!("transient")));
+    let db = o.primary.path().unwrap().to_string(); // the web UI, writing key by key from its own connection
+    let v = priced().next_add(AddOutcome::Accept("OTX-W".into())).on_add(move || {
+        rusqlite::Connection::open(&db).unwrap()
+            .execute("UPDATE bots SET transient_data = json_set(transient_data, '$.web_key', 'from the web') WHERE id = ?1", [id]).unwrap();
+    });
+    run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    let t = bot(&o, id).transient;
+    assert_eq!(t["web_key"], "from the web", "the web's key survives the engine's writes after it");
+    assert!(t.get("last_failure_kind").is_none(), "the engine's own write landed too (cleared, then compacted away)");
+    assert!(t.get("last_action_job_at").is_some());
+}

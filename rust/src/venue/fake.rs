@@ -23,6 +23,8 @@ struct State {
     on_add: Option<Rc<dyn Fn()>>,   // runs while AddOrder "awaits its reply": a test's concurrent writer
     on_query: Option<Rc<dyn Fn()>>, // the same, while QueryOrders does (the pre-tick sweep)
     on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
+    hold_add: Option<Rc<tokio::sync::Notify>>, // AddOrder's reply waits for it: a tick held in hand while a test acts
+    latency: Option<std::time::Duration>,      // every call first awaits this much timer: a slow venue whose await yields
 }
 
 #[derive(Clone, Default)]
@@ -86,6 +88,15 @@ impl FakeVenue {
     pub fn on_add(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_add = Some(Rc::new(f)); self }
     pub fn on_query(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_query = Some(Rc::new(f)); self }
     pub fn on_lookup(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_lookup = Some(Rc::new(f)); self }
+    /// AddOrder records the order and runs `on_add`, then waits for `gate.notify_one()` before it answers: a tick held
+    /// in hand at an await point while a test stops the process or writes as the web does.
+    pub fn hold_add(self, gate: Rc<tokio::sync::Notify>) -> Self { self.s.borrow_mut().hold_add = Some(gate); self }
+    /// Every venue call first awaits `d` of timer, as a slow venue's reply does: the runtime thread is free meanwhile.
+    pub fn latency(self, d: std::time::Duration) -> Self { self.s.borrow_mut().latency = Some(d); self }
+    async fn wait(&self) {
+        let d = self.s.borrow().latency; // copied out: no borrow is held across the await
+        if let Some(d) = d { tokio::time::sleep(d).await; }
+    }
     pub fn sent(&self) -> Vec<NewOrder> { self.s.borrow().sent.clone() }
     pub fn calls(&self, path: &str) -> usize { self.s.borrow().calls.get(path).copied().unwrap_or(0) }
 
@@ -113,6 +124,7 @@ impl Venue for FakeVenue {
     fn rules(&self) -> &'static VenueRules { &KRAKEN }
 
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
+        self.wait().await;
         let body = self.body("/0/public/Ticker").ok_or_else(|| VenueError::Transient("no scripted Ticker".into()))?;
         check(&body)?;
         let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;
@@ -124,12 +136,15 @@ impl Venue for FakeVenue {
     }
 
     async fn add_order(&self, order: &NewOrder) -> Result<String, VenueError> {
+        self.wait().await;
         if self.s.borrow().book.iter().any(|(c, _, _)| c == &order.cl_ord_id) {
             return Err(VenueError::Rejected(vec!["EOrder:Duplicate order".into()])); // Kraken refuses a repeated client order id
         }
         self.s.borrow_mut().sent.push(order.clone());
         let hook = self.s.borrow().on_add.clone();
         if let Some(f) = hook { f(); }
+        let gate = self.s.borrow().hold_add.clone(); // cloned first: no borrow is held across the await
+        if let Some(g) = gate { g.notified().await; }
         let scripted = self.s.borrow_mut().adds.pop_front();
         let outcome = match scripted {
             Some(o) => o,
@@ -154,6 +169,7 @@ impl Venue for FakeVenue {
     }
 
     async fn orders(&self, txids: &[String]) -> Result<Vec<OrderState>, VenueError> {
+        self.wait().await;
         let hook = self.s.borrow().on_query.clone();
         if let Some(f) = hook { f(); }
         let mut out = vec![];
@@ -171,6 +187,7 @@ impl Venue for FakeVenue {
 
     /// `since` is unused: the fake's scripted bodies and book are not time-windowed. Never touches QueryOrders.
     async fn order_by_client_id(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        self.wait().await;
         let hook = self.s.borrow().on_lookup.clone();
         if let Some(f) = hook { f(); }
         {
@@ -198,6 +215,7 @@ impl Venue for FakeVenue {
     }
 
     async fn fills_from_trades(&self, txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> {
+        self.wait().await;
         // Honeymaker::Clients::Kraken#closed_orders_from_trades: page by ofs until count (max 20 pages), then aggregate.
         let mut trades: Vec<Value> = vec![];
         let mut seen = std::collections::HashSet::new();
@@ -224,6 +242,7 @@ impl Venue for FakeVenue {
     }
 
     async fn balance(&self, asset_symbol: &str) -> Result<BigDec, VenueError> {
+        self.wait().await;
         let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
         check(&body)?;
         // Rails assigns per row, so with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins.

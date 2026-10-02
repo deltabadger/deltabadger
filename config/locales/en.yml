@@ -31,3 +31,8 @@
 
 en:
   hello: "Hello world"
+  engine:
+    # Rust only: a write the Rust engine cannot run is refused (422). Other locales fall back to English.
+    write_refused: "This app can't run that yet: %{reason}"
+    # Rust only: a start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it (409).
+    already_running: "This bot is already running."

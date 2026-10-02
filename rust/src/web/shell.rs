@@ -67,7 +67,7 @@ pub fn application(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page
     let flash = flash::render(&flash::take(&ctx.session, &page.flash_now))?;
     let size = bot_count_font_size(shell.bot_count);
     let navbar = Navbar { v: ctx, csrf, user, shell, currencies: &CURRENCIES, bot_count_font_size: size, bot_count_baseline: bot_count_baseline(size) }.render()?;
-    // Rails also has `hide-chrome` here, on the page that opens the new-bot wizard. Not in this plan: see bots::index.
+    // Rails also has `hide-chrome` here, on the page that opens the new-bot wizard. Not served yet: see bots::index.
     let body_class = if user.hide_balances { "hide-balances" } else { "" };
     let layout = ApplicationLayout { v: ctx, csrf, body_class, flash: &flash, shell, navbar: &navbar, body: &page.body };
     Ok(html(page.status, layout.render()?))

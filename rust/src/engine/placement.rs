@@ -1,4 +1,4 @@
-//! Spec §3 placement protocol. The intent is committed (with a deadline read from the clock at that
+//! Placement protocol. The intent is committed (with a deadline read from the clock at that
 //! moment) before AddOrder, which is sent at most once. A lost reply is resolved by cl_ord_id, and a
 //! found order is recorded, filled and cleared in one transaction. "Not placed" is concluded only from a
 //! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
@@ -41,6 +41,22 @@ impl Intent {
                   plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
+}
+
+/// Bots whose unresolved order (`rust_placement`) no longer matches them as the row stands now: `Intent::from_json`
+/// fails (the ticker their asset, exchange and quote select is not the intent's). Recovery, `handback` and
+/// `resolve-placement` could not settle such an order, so `eligibility::guard` refuses the write that would leave one.
+pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
+    let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let mut out = vec![];
+    for id in ids {
+        let bot = model::load_bot(c, id)?;
+        if let Some(v) = bot.rust_placement() {
+            if Intent::from_json(c, &bot, &v).is_err() { out.push(id); }
+        }
+    }
+    Ok(out)
 }
 
 /// Re-read under the write lock: is the intent with this cl_ord_id still the bot's unresolved one?

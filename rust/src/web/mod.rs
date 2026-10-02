@@ -1,4 +1,4 @@
-//! The web UI (spec §4): server-rendered pages that match the Rails app's, for the compiled
+//! The web UI: server-rendered pages that match the Rails app's, for the compiled
 //! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
 //! both and compares.
 //!
@@ -250,6 +250,9 @@ pub struct Inner {
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
+    /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
+    /// alone (every router test).
+    engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
 }
 
 pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
@@ -279,6 +282,7 @@ impl App {
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
             db: Mutex::new(primary),
+            engine: std::sync::OnceLock::new(),
         })))
     }
 
@@ -290,6 +294,21 @@ impl App {
     }
 
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
+
+    /// Called once, by `supervisor::serve`, before the first request is served. A second call is ignored.
+    pub fn attach_engine(&self, wake: Arc<tokio::sync::Notify>) {
+        let _ = self.engine.set(wake);
+    }
+
+    /// After a committed write the engine must act on (a bot started, stopped, deleted or archived, or its settings
+    /// saved): the engine re-reads its bots now instead of within a minute. Call it after `db` returned `Ok`, never
+    /// inside the closure. One permit is stored, so a call while the engine is mid-pass makes it pass again right after;
+    /// wakes coalesce. With no engine attached it does nothing.
+    pub fn wake_engine(&self) {
+        if let Some(wake) = self.engine.get() {
+            wake.notify_one();
+        }
+    }
 
     /// For tests: the same app with a hook before each bcrypt computation. Only before the app is shared.
     pub fn with_password_hook(self, hook: PasswordHook) -> Result<Self, WebError> {

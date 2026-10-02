@@ -1,6 +1,6 @@
 //! Rendering: the per-request context handlers and templates read (`Ctx`), the devise layout and
 //! turbo-rails' frame layout, redirects, and the answer for pages this build does not serve.
-//! Templates live in rust/templates and were written from Rails' rendered output (Background, fact 8).
+//! Templates live in rust/templates and were written from Rails' rendered output.
 use super::auth::{Current, User};
 use super::session::Session;
 use super::{assets, csrf, flash, header_text, i18n, locale, normalize_path, turbo, App, Params, WebError};

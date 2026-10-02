@@ -8,5 +8,6 @@ pub mod lease;
 pub mod parity;
 pub mod ruby;
 pub mod store;
+pub mod supervisor;
 pub mod venue;
 pub mod web;

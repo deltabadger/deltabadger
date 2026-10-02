@@ -196,7 +196,7 @@ fn the_alpaca_crypto_slice_is_eligible_with_its_two_options() {
 
 #[test]
 fn alpaca_stocks_etfs_baskets_index_bots_amount_limits_and_other_quotes_are_refused() {
-    // The owner's production instance is exactly the first six (spec amendment): it is not the canary.
+    // The owner's production instance is exactly the first six: it is not the canary.
     let cases: Vec<(&str, Make)> = vec![
         ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
@@ -223,4 +223,92 @@ fn any_other_exchange_is_refused() {
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let r = eligibility::check_install(&o.primary).unwrap();
     assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("exchange Exchanges::Binance (only Kraken and Alpaca)")), "{:?}", r.problems);
+}
+
+#[test]
+fn the_guard_refuses_a_write_that_makes_the_install_ineligible_and_names_the_bot() {
+    use deltabadger::engine::model;
+    let (_d, o, s) = common::install_alpaca(); // this build trades Alpaca paper only: the guard checks that too
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    // A write the engine can run: the guard says commit.
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 70) WHERE id = ?1", [id]).unwrap();
+    assert!(eligibility::guard(&tx, &seed::cipher(), id).is_ok());
+    tx.commit().unwrap();
+    // One it cannot: refused in check's words, naming the bot. The caller rolls back.
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true')) WHERE id = ?1", [id]).unwrap();
+    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    let line = format!("bot {id} (scheduled): quote_amount_limited");
+    assert!(matches!(&refused, eligibility::Refusal::Ineligible(p) if p == &vec![line.clone()]), "{refused:?}");
+    assert_eq!(refused.reason(), line);
+    assert_eq!(refused.message(), format!("this install uses things only the full app runs:\n{line}"));
+    drop(tx); // rolled back
+    let limited: Option<i64> = o.primary.query_row("SELECT json_extract(settings, '$.quote_amount_limited') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(limited, None, "nothing of the refused write remains");
+}
+
+#[test]
+fn a_report_refuses_problems_first_then_unreadable_rows_in_checks_words() {
+    let unreadable = vec![(7, "Data(\"x\")".to_string())];
+    let r = eligibility::Report { eligible: vec![1], problems: vec![], unreadable: unreadable.clone() };
+    let refused = r.refusal().unwrap_err();
+    assert_eq!(refused.message(), format!("unreadable bot rows: {unreadable:?}"), "check's own format");
+    assert_eq!(refused.reason(), "bot 7: unreadable (Data(\"x\"))");
+    let r = eligibility::Report { eligible: vec![], problems: vec!["bot 3 (stopped): x".into()], unreadable };
+    assert!(matches!(r.refusal(), Err(eligibility::Refusal::Ineligible(_))), "problems come first, as check reports them");
+    let r = eligibility::Report { eligible: vec![1, 2], problems: vec![], unreadable: vec![] };
+    assert_eq!(r.refusal().unwrap(), vec![1, 2]);
+}
+
+/// The guard refuses what this build cannot trade, in `preflight`'s words, inside the write: the
+/// start of an idle Kraken bot, and starts on Alpaca with a live key or with no key. Each start rolls back.
+#[test]
+fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() {
+    use deltabadger::engine::model;
+    // Lifecycle#start as the web writes it (only from created or stopped), guarded before commit.
+    let start = |c: &rusqlite::Connection, id: i64| -> Result<(), eligibility::Refusal> {
+        let tx = model::immediate(c).unwrap();
+        tx.execute("UPDATE bots SET status = 1 WHERE id = ?1 AND status IN (0, 2)", [id]).unwrap();
+        eligibility::guard(&tx, &seed::cipher(), id)?; // Err: `tx` is dropped, rolled back
+        tx.commit().unwrap();
+        Ok(())
+    };
+    let status = |c: &rusqlite::Connection, id: i64| -> i64 { c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
+    let untradable = |r: &eligibility::Refusal, line: &str| matches!(r, eligibility::Refusal::Untradable(p) if p == &vec![line.to_string()]);
+
+    // A stopped Kraken bot is not traded, so the install is fine until the start.
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
+    assert!(eligibility::guard(&o.primary, &seed::cipher(), id).is_ok(), "an idle Kraken bot is not traded");
+    let refused = start(&o.primary, id).unwrap_err();
+    assert!(untradable(&refused, &format!("bot {id}: Exchanges::Kraken is not connected in this build (Alpaca paper only)")), "{refused:?}");
+    assert_eq!(status(&o.primary, id), 2, "rolled back");
+
+    // Alpaca with a live key, then with no key.
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
+    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
+    let refused = start(&o.primary, id).unwrap_err();
+    assert!(untradable(&refused, &format!("bot {id}: {}", deltabadger::venue::alpaca::LIVE_REFUSED)), "{refused:?}");
+    assert_eq!(status(&o.primary, id), 2, "rolled back");
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
+    let refused = start(&o.primary, id).unwrap_err();
+    assert!(untradable(&refused, &format!("bot {id}: no Alpaca API key")), "{refused:?}");
+    assert_eq!(status(&o.primary, id), 2, "rolled back");
+}
+
+/// When the check itself fails, the 422's reason is generic: the internal error is logged, never shown.
+#[test]
+fn a_guard_that_fails_itself_keeps_its_internal_error_out_of_the_reason() {
+    use deltabadger::engine::model;
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("ALTER TABLE bots RENAME TO bots_gone", []).unwrap(); // the check cannot read its table
+    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    assert!(matches!(refused, eligibility::Refusal::Failed(_)), "{refused:?}");
+    assert_eq!(refused.reason(), "the check could not be completed");
+    let reason = refused.reason();
+    assert!(!reason.contains("bots") && !reason.contains("Sqlite"), "{reason}");
 }

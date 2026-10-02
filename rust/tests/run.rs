@@ -239,7 +239,7 @@ async fn a_bot_made_due_and_notified_is_ticked_without_waiting_for_the_idle_cap(
         tokio::time::sleep(std::time::Duration::from_millis(300)).await; // the loop is asleep on its 60 s idle cap by now
         let started = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(1));
         rusqlite::Connection::open(&db).unwrap().execute("UPDATE bots SET started_at = ?1 WHERE id = ?2", rusqlite::params![started, id]).unwrap();
-        wake.notify_one(); // what Plan 3's UI does after starting a bot
+        wake.notify_one(); // what the web UI does after starting a bot
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         while v.sent().is_empty() && std::time::Instant::now() < deadline { tokio::time::sleep(std::time::Duration::from_millis(20)).await; }
         stop.request();
@@ -249,4 +249,19 @@ async fn a_bot_made_due_and_notified_is_ticked_without_waiting_for_the_idle_cap(
     assert!(matches!(r, Err(EngineError::Stopped)), "{r:?}");
     assert_eq!(v.sent().len(), 1, "ticked on the notify");
     assert!(t0.elapsed() < std::time::Duration::from_secs(30), "well inside the 60 s idle cap: {:?}", t0.elapsed());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_bot_stopped_while_retrying_and_started_again_retries_from_its_first_attempt() {
+    let v = FakeVenue::new(); // no Ticker scripted: every price read fails transiently
+    let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v);
+    assert!(run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.unwrap() <= us("2026-09-01T10:00:04Z"), "first failure: 3 s");
+    assert!(run::step(&mut e, &at("2026-09-01T10:00:04Z")).await.unwrap() <= us("2026-09-01T10:00:22Z"), "second: 18 s");
+    // The web stops it (Lifecycle#stop) and wakes the engine, which passes once; then the web starts it fresh.
+    e.primary.execute("UPDATE bots SET status = 2, stopped_at = '2026-09-01 10:00:05', stop_message_key = NULL WHERE id = ?1", [id]).unwrap();
+    run::step(&mut e, &at("2026-09-01T10:00:05Z")).await.unwrap();
+    e.primary.execute("UPDATE bots SET status = 1, transient_data = json_remove(transient_data, '$.last_action_job_at') WHERE id = ?1", [id]).unwrap();
+    let wake = run::step(&mut e, &at("2026-09-01T10:00:06Z")).await.unwrap();
+    assert_eq!(model::load_bot(&e.primary, id).unwrap().status, deltabadger::enums::BotStatus::Retrying);
+    assert!(wake <= us("2026-09-01T10:00:09Z"), "a fresh job: its first failure waits 3 s, not the third attempt's 83 s");
 }

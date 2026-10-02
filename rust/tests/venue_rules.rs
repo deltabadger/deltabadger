@@ -12,7 +12,7 @@ fn every_recorded_rails_classification_is_reproduced() {
         assert_eq!(rules.failure_kind(&m), c[2].as_str(), "failure_kind {c}");
         assert_eq!(rules.is_throttle(&m), c[4].as_bool().unwrap(), "throttled_error? {c}");
         // Known gap, kept as merged: Kraken's poll rule omits Client::NETWORK_TRANSIENT_PATTERNS, which Rails'
-        // transient_error? adds for every venue. Plan 2c decides it with the real Kraken client.
+        // transient_error? adds for every venue. Not decided until the real Kraken client exists.
         if std::ptr::eq(rules, &KRAKEN) && NETWORK_TRANSIENT_PATTERNS.iter().any(|p| m[0].contains(p)) { continue; }
         assert_eq!(rules.is_transient(&m), c[3].as_bool().unwrap(), "transient_error? {c}");
     }

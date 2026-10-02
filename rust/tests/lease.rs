@@ -89,3 +89,15 @@ fn an_unreadable_row_is_refused_not_overwritten() {
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()), Err(LeaseError::Unreadable)));
     assert!(lease::read(&o.primary, &foreign).unwrap().is_some(), "left as it was");
 }
+
+#[test]
+fn a_clone_of_the_lock_keeps_the_install_locked_until_the_last_one_drops() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    let first = lease::lock(&p, t0()).unwrap();
+    let held = first.clone(); // what `serve` keeps after the engine has taken (and dropped) the first
+    drop(first);
+    assert!(matches!(lease::lock(&p, t0()), Err(LeaseError::Locked)), "the clone still holds it");
+    drop(held);
+    assert!(lease::lock(&p, t0()).is_ok(), "released with the last clone");
+}

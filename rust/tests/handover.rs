@@ -218,3 +218,50 @@ async fn the_cli_handback_trusts_no_absence_before_a_full_margin_after_its_own_s
     let intent: Option<String> = o.primary.query_row("SELECT json_extract(transient_data, '$.rust_placement') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
     assert!(intent.is_none(), "settled as not placed by the second, trustworthy lookup");
 }
+
+/// While a bot's order is unresolved, a write that changes what its intent matches on (here the
+/// asset, so the ticker) is refused by the guard, although `check_install` alone would accept it; so the handback can
+/// still find the order and settle it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_settings_write_cannot_strand_an_unresolved_order_and_handback_settles_it() {
+    use deltabadger::engine::eligibility::{self, Refusal};
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let px = deltabadger::ruby::BigDec::from_i64(50_000);
+    let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
+        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
+    let intent = placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap(); // sent; its reply lost
+    // Another plain cryptocurrency on the same venue.
+    o.primary.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) \
+                       VALUES ('ethereum', 'ETH', 'Ethereum', 'Cryptocurrency', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
+    let eth = o.primary.last_insert_rowid();
+    o.primary.execute(
+        "INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+         minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+         VALUES (?1, 'ETHEUR', 'ETH', 'EUR', ?2, ?3, 8, 5, 2, '0.002', '0.5', 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+        rusqlite::params![s.exchange_id, eth, s.quote]).unwrap();
+    // The web saves the bot onto ETH while its BTC order is unresolved.
+    let tx = model::immediate(&o.primary).unwrap();
+    tx.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json(?1)) WHERE id = ?2",
+               rusqlite::params![json!({ eth.to_string(): 1.0 }).to_string(), b]).unwrap();
+    assert!(eligibility::check_install(&tx).unwrap().problems.is_empty(), "eligible, as far as check_install sees");
+    let refused = eligibility::guard(&tx, &seed::cipher(), b).unwrap_err();
+    let line = format!("bot {b}: an order is still being reconciled; its asset, exchange and quote cannot change until it settles");
+    assert!(matches!(&refused, Refusal::Reconciling(lines) if lines == &vec![line.clone()]), "{refused:?}");
+    assert_eq!(refused.reason(), line, "what the 422 carries");
+    drop(tx); // rolled back
+    // The venue has the order under the intent's client order id: the handback finds it, records it and settles.
+    let closed = json!({ "error": [], "result": { "closed": { "OTX-H": { "cl_ord_id": intent.cl_ord_id, "status": "closed", "price": "50000",
+        "vol": "60", "vol_exec": "0.0012", "cost": "60", "oflags": "viqc", "descr": { "type": "buy", "ordertype": "market", "price": "0" } } } } });
+    let factory = FakeFactory(FakeVenue::from_script(&json!({ "http": { "/0/private/ClosedOrders": [closed] } })));
+    assert_eq!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
+    assert!(model::load_bot(&o.primary, b).unwrap().rust_placement().is_none(), "the order is settled");
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM transactions WHERE external_id = 'OTX-H'"), 1, "and recorded");
+}
