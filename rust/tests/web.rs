@@ -991,3 +991,43 @@ mod oauth_sources {
         }
     }
 }
+
+mod bearer_header {
+    use deltabadger::web::bearer;
+
+    #[test]
+    fn a_bearer_header_is_read_as_the_resolver_reads_it() {
+        for (header, token) in [
+            (Some("Bearer abc"), Some("abc")), (Some("bearer abc"), Some("abc")), (Some("BEARER   abc  "), Some("abc")), (Some("Bearer\tabc"), Some("abc")),
+            (Some("Bearer a b"), Some("a b")), (None, None), (Some(""), None), (Some("Bearer"), None), (Some("Bearer "), None), (Some(" Bearer abc"), None),
+            (Some("Bearerabc"), None), (Some("Basic abc"), None), (Some("abc"), None), (Some("Bearer abc\ndef"), None), (Some("Bearé abc"), None),
+        ] {
+            assert_eq!(bearer::bearer_token(header), token, "{header:?}");
+        }
+    }
+
+    /// `expires_in` is a number from the database. One that no date can hold is not a reason to stop
+    /// the process (the release profile aborts on a panic): it never expires, or always when negative.
+    #[test]
+    fn a_lifetime_no_date_can_hold_is_an_answer_not_a_panic() {
+        let created_at = chrono::DateTime::parse_from_rfc3339("2026-09-10T12:00:00Z").unwrap().with_timezone(&chrono::Utc);
+        let token = |expires_in| deltabadger::web::oauth::AccessToken { id: 1, application_id: 1, resource_owner_id: Some(1), scopes: "mcp".into(), expires_in,
+                                                                         created_at, revoked_at: None, refresh_token: None, previous_refresh_token: String::new() };
+        let later = created_at + chrono::Duration::seconds(3601);
+        for (expires_in, expired) in [(Some(3600), true), (Some(3601), false), (None, false), (Some(i64::MAX), false), (Some(i64::MAX / 1000), false), (Some(i64::MIN), true), (Some(-1), true)] {
+            assert_eq!(token(expires_in).expired(later), expired, "{expires_in:?}");
+        }
+    }
+
+    /// Rails' pattern, `/\ABearer\s+(.+)\z/i`, is the one CodeQL flags: on a run of spaces it can try
+    /// every split between `\s+` and `.+`. Here a megabyte of spaces is read once: trying every split
+    /// would be half a million million steps, not the few seconds allowed.
+    #[test]
+    fn a_header_of_nothing_but_spaces_costs_one_pass() {
+        let header = format!("Bearer{}", " ".repeat(1_000_000));
+        let started = std::time::Instant::now();
+        assert_eq!(bearer::bearer_token(Some(&header)), None);
+        assert_eq!(bearer::bearer_token(Some(&format!("{header}x"))), Some("x"));
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "a megabyte of spaces took {:?}", started.elapsed());
+    }
+}

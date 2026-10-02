@@ -11,10 +11,14 @@
 //! Codes, tokens, refresh tokens and client ids are stored as they are issued, in plain text
 //! (Doorkeeper's default, which the app does not change). Nothing here logs one or puts one in an
 //! error body.
-use super::{header_text, Params};
+use super::{header_text, Params, WebError};
+use crate::codec::{format_time, parse_time};
+use crate::engine::{Clock, EngineError};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as B64URL, Engine};
+use chrono::{DateTime, Duration, Utc};
+use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 /// config/initializers/doorkeeper.rb: `default_scopes :mcp`, `optional_scopes :api`.
@@ -462,3 +466,75 @@ pub const TOOL_GROUPS: [(&str, &[&str]); 4] = [
     ("tax", &["list_tax_jurisdictions", "generate_tax_report", "get_tax_report_status", "download_tax_report", "export_transactions_csv",
               "list_account_transactions"]),
 ];
+
+fn data_error(what: &str, error: impl std::fmt::Debug) -> WebError {
+    WebError::Engine(EngineError::Data(format!("{what}: {error:?}")))
+}
+
+pub(crate) fn time(column: &str, text: Option<String>) -> Result<Option<DateTime<Utc>>, WebError> {
+    text.map(|t| parse_time(&t).map_err(|e| data_error(column, e))).transpose()
+}
+
+/// Whether `now` is after `from + seconds`. Rails writes lifetimes of 600 and 3600; a number no date
+/// can hold (a row written by hand) must not stop the process: such a lifetime is never over, or
+/// always when it is negative, as in Ruby's arithmetic.
+pub(crate) fn past(from: DateTime<Utc>, seconds: i64, now: DateTime<Utc>) -> bool {
+    match Duration::try_seconds(seconds).and_then(|life| from.checked_add_signed(life)) {
+        Some(until) => now > until,
+        None => seconds < 0,
+    }
+}
+
+/// A row of `oauth_access_tokens`.
+#[derive(Clone, Debug)]
+pub struct AccessToken {
+    pub id: i64,
+    pub application_id: i64,
+    pub resource_owner_id: Option<i64>,
+    pub scopes: String,
+    pub expires_in: Option<i64>,
+    pub created_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub refresh_token: Option<String>,
+    pub previous_refresh_token: String,
+}
+
+impl AccessToken {
+    /// `column` is `token` or `refresh_token`: the lookup is by the stored, plain value.
+    pub fn find(c: &Connection, column: &str, value: &str) -> Result<Option<Self>, WebError> {
+        let row = c.query_row(&format!("SELECT id, application_id, resource_owner_id, scopes, expires_in, created_at, revoked_at, refresh_token, previous_refresh_token \
+                                        FROM oauth_access_tokens WHERE {column} = ?1"), [value], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get::<_, String>(5)?, r.get::<_, Option<String>>(6)?, r.get(7)?, r.get(8)?))
+        }).optional()?;
+        let Some((id, application_id, resource_owner_id, scopes, expires_in, created_at, revoked_at, refresh_token, previous_refresh_token)) = row else { return Ok(None) };
+        let created_at = parse_time(&created_at).map_err(|e| data_error("oauth_access_tokens.created_at", e))?;
+        Ok(Some(Self { id, application_id, resource_owner_id, scopes, expires_in, created_at, revoked_at: time("oauth_access_tokens.revoked_at", revoked_at)?,
+                       refresh_token, previous_refresh_token }))
+    }
+
+    /// Revocable#revoked?
+    pub fn revoked(&self, now: DateTime<Utc>) -> bool { self.revoked_at.is_some_and(|at| at <= now) }
+
+    /// Expirable#expired?: strictly after `created_at + expires_in`; no `expires_in`, no expiry.
+    pub fn expired(&self, now: DateTime<Utc>) -> bool { self.expires_in.is_some_and(|seconds| past(self.created_at, seconds, now)) }
+
+    /// Revocable#revoke, as one conditional write: a row that is not revoked is revoked now, and a
+    /// row that is revoked keeps the time it has, whatever this request's clock says. `true` when
+    /// this call revoked it.
+    pub fn revoke(&self, c: &Connection, now: DateTime<Utc>) -> Result<bool, WebError> {
+        Ok(c.execute("UPDATE oauth_access_tokens SET revoked_at = ?1 WHERE id = ?2 AND revoked_at IS NULL", (format_time(now), self.id))? == 1)
+    }
+}
+
+/// Runs `work` as one write transaction, at one moment. It takes the write lock at once (BEGIN
+/// IMMEDIATE), so what `work` reads cannot change before it writes, and the moment is read from
+/// the clock after the lock is held: requests are served in the order they get the lock, which is
+/// not the order they arrived in, and a time taken on arrival would let a later request look
+/// earlier than what an earlier one already wrote.
+pub(crate) fn transaction<T>(c: &Connection, clock: &dyn Clock, work: impl FnOnce(&Connection, DateTime<Utc>) -> Result<T, WebError>) -> Result<T, WebError> {
+    c.execute_batch("BEGIN IMMEDIATE")?;
+    match work(c, clock.now()) {
+        Ok(value) => { c.execute_batch("COMMIT")?; Ok(value) }
+        Err(error) => { let _ = c.execute_batch("ROLLBACK"); Err(error) }
+    }
+}

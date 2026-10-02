@@ -6,6 +6,7 @@
 //! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
 pub mod assets;
 pub mod auth;
+pub mod bearer;
 pub mod bots;
 pub mod cable;
 pub mod csrf;
