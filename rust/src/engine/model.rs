@@ -7,7 +7,7 @@ use crate::enums::{BotStatus, BOT_WORKING};
 use crate::ruby::{from_sql, BigDec};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub struct Bot {
@@ -195,28 +195,51 @@ fn locked<T>(c: &Connection, f: impl FnOnce(&Connection) -> Result<T, EngineErro
     Ok(out)
 }
 
-fn read_transient(c: &Connection, bot_id: i64) -> Result<Map<String, Value>, EngineError> {
-    let raw: String = c.query_row("SELECT transient_data FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
-    match json_col(raw)? { Value::Object(m) => Ok(m), other => Err(EngineError::Data(format!("transient_data {other}"))) }
+/// `json_set(transient_data, '$."k1"', json(?n), …)` for `pairs`, with its arguments numbered from `?first`. Only the
+/// named keys change; every other key keeps its exact text (R5: no whole-object rewrite, so a key another writer set
+/// between the engine's read and this write is never lost).
+fn set_keys(pairs: &[(&str, Value)], first: usize) -> (String, Vec<rusqlite::types::Value>) {
+    let mut expr = String::from("json_set(transient_data");
+    let mut args = vec![];
+    for (i, (k, v)) in pairs.iter().enumerate() {
+        expr.push_str(&format!(", ?{}, json(?{})", first + 2 * i, first + 2 * i + 1));
+        args.push(rusqlite::types::Value::Text(format!("$.\"{k}\"")));
+        args.push(rusqlite::types::Value::Text(v.to_string()));
+    }
+    expr.push(')');
+    (expr, args)
 }
 
-/// `update!(key: value, …)` through store_accessor: nulls are stored, updated_at moves.
+fn not_an_object(bot_id: i64) -> EngineError { EngineError::Data(format!("bot {bot_id}: no such bot, or transient_data is not a JSON object")) }
+
+/// `update!(key: value, …)` through store_accessor: nulls are stored, updated_at moves. One statement, own keys only.
 pub fn update_transient(c: &Connection, bot_id: i64, pairs: &[(&str, Value)], now: DateTime<Utc>) -> Result<(), EngineError> {
-    locked(c, |c| {
-        let mut m = read_transient(c, bot_id)?;
-        for (k, v) in pairs { m.insert((*k).to_string(), v.clone()); }
-        c.execute("UPDATE bots SET transient_data = ?1, updated_at = ?2 WHERE id = ?3", params![Value::Object(m).to_string(), format_time(now), bot_id])?;
-        Ok(())
-    })
+    let (expr, keys) = set_keys(pairs, 3);
+    let mut args = vec![rusqlite::types::Value::Integer(bot_id), rusqlite::types::Value::Text(format_time(now))];
+    args.extend(keys);
+    let n = c.execute(&format!("UPDATE bots SET transient_data = {expr}, updated_at = ?2 WHERE id = ?1 AND json_type(transient_data) = 'object'"),
+                      rusqlite::params_from_iter(args))?;
+    if n == 0 { return Err(not_an_object(bot_id)); }
+    Ok(())
 }
 
-/// Bot#merge_transient_data!: `transient_data.merge(values).compact` through update_columns.
+/// Bot#merge_transient_data!: `transient_data.merge(values).compact` through update_columns (updated_at stays). Its own
+/// keys in one statement; then `.compact`, one conditional statement per key that is null, so a key another writer set
+/// meanwhile is never removed.
 pub fn merge_transient_compact(c: &Connection, bot_id: i64, pairs: &[(&str, Value)]) -> Result<(), EngineError> {
     locked(c, |c| {
-        let mut m = read_transient(c, bot_id)?;
-        for (k, v) in pairs { m.insert((*k).to_string(), v.clone()); }
-        m.retain(|_, v| !v.is_null());
-        c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", params![Value::Object(m).to_string(), bot_id])?;
+        let (expr, keys) = set_keys(pairs, 2);
+        let mut args = vec![rusqlite::types::Value::Integer(bot_id)];
+        args.extend(keys);
+        let n = c.execute(&format!("UPDATE bots SET transient_data = {expr} WHERE id = ?1 AND json_type(transient_data) = 'object'"),
+                          rusqlite::params_from_iter(args))?;
+        if n == 0 { return Err(not_an_object(bot_id)); }
+        let mut s = c.prepare("SELECT e.fullkey FROM bots, json_each(bots.transient_data) AS e WHERE bots.id = ?1 AND e.type = 'null'")?;
+        let nulls = s.query_map([bot_id], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+        for path in nulls {
+            c.execute("UPDATE bots SET transient_data = json_remove(transient_data, ?2) WHERE id = ?1 AND json_type(transient_data, ?2) = 'null'",
+                      params![bot_id, path])?;
+        }
         Ok(())
     })
 }

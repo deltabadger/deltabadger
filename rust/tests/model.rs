@@ -150,3 +150,18 @@ fn a_kraken_key_with_an_unreadable_unused_passphrase_still_loads() {
     let c = model::credentials_for(&o.primary, &seed::cipher(), &bot).unwrap().unwrap();
     assert_eq!((c.key.as_str(), c.passphrase), ("test-key", None), "Kraken never decrypts the passphrase, as merged");
 }
+
+#[test]
+fn transient_writes_touch_only_their_own_keys() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    // Another writer's keys, in its order and its exact text (a number serde_json would re-render, a null).
+    o.primary.execute(r#"UPDATE bots SET transient_data = '{"zeta":1.50,"big":12345678901234567890123,"alpha":null,"web":"x"}' WHERE id = ?1"#, [id]).unwrap();
+    let raw = |o: &deltabadger::store::Opened| -> String { o.primary.query_row("SELECT transient_data FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
+    model::update_transient(&o.primary, id, &[("last_action_job_at", json!("2026-09-30T12:00:00.123Z")), ("waiting_for_market_open", json!(null))], now()).unwrap();
+    assert_eq!(raw(&o), r#"{"zeta":1.50,"big":12345678901234567890123,"alpha":null,"web":"x","last_action_job_at":"2026-09-30T12:00:00.123Z","waiting_for_market_open":null}"#,
+               "store_accessor stores the null; every other key is untouched, byte for byte");
+    model::merge_transient_compact(&o.primary, id, &[("last_failure_kind", json!("transient"))]).unwrap();
+    assert_eq!(raw(&o), r#"{"zeta":1.50,"big":12345678901234567890123,"web":"x","last_action_job_at":"2026-09-30T12:00:00.123Z","last_failure_kind":"transient"}"#,
+               ".compact drops every null key, and nothing else changes");
+}
