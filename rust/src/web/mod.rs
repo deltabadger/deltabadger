@@ -3,12 +3,15 @@
 //! both and compares.
 pub mod assets;
 pub mod csrf;
+pub mod flash;
+pub mod headers;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
 pub mod server;
 pub mod session;
 pub mod timezone;
+pub mod turbo;
 
 use crate::crypto::{Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
@@ -16,7 +19,7 @@ use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, MethodRouter};
+use axum::routing::{get, post, MethodRouter};
 use axum::Router;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -168,10 +171,20 @@ pub fn header_text<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers.get(name).and_then(|v| v.to_str().ok())
 }
 
-/// Rails' `rails/health#show`.
-async fn up() -> Response {
-    (StatusCode::OK, [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-     "<!DOCTYPE html><html><body style=\"background-color: green\"></body></html>").into_response()
+/// Rails' `rails/health#show`, with the headers the middleware around it adds.
+async fn up(State(app): State<App>) -> Response {
+    let mut response = (StatusCode::OK, [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+                        "<!DOCTYPE html><html><body style=\"background-color: green\"></body></html>").into_response();
+    headers::policy(response.headers_mut(), &headers::new_nonce(), app.config.force_ssl);
+    headers::controller_defaults(response.headers_mut(), StatusCode::OK, false);
+    response
+}
+
+/// CspReportsController: a browser posts policy violations here on its own, with no CSRF token.
+/// Accepted and dropped.
+/// ponytail: Rails logs nine sanitised fields of each report; port that when the policy is enforced.
+async fn csp_report() -> StatusCode {
+    StatusCode::NO_CONTENT
 }
 
 /// A route that exists for these methods only; any other method is a page this build does not serve.
@@ -183,6 +196,7 @@ fn routes(app: App) -> Router {
     Router::new()
         .fallback(layout::not_ported)
         .route("/up", only(get(up)))
+        .route("/csp-report", only(post(csp_report)))
         .with_state(app)
 }
 

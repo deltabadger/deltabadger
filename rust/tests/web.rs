@@ -266,3 +266,80 @@ mod csrf_tokens {
         assert!(csrf::same_origin(&from_the_browser, configured.origin(&from_the_browser).as_deref()));
     }
 }
+
+mod flash_messages {
+    use deltabadger::web::{flash, session};
+
+    #[test]
+    fn a_flash_is_shown_once_and_flash_now_joins_it() {
+        let session = session::Session::default();
+        flash::set(&session, flash::NOTICE, "first".into());
+        flash::set(&session, flash::ALERT, "second <b>".into());
+        assert_eq!(session.lock().flash, vec![("alert".to_string(), "second <b>".to_string())], "a new flash replaces what was waiting");
+        let shown = flash::take(&session, &[("alert", "now".into()), ("success", "done".into())]);
+        assert_eq!(shown.iter().map(|m| (m.style, m.text.as_str())).collect::<Vec<_>>(), vec![("danger", "now"), ("success", "done")]);
+        assert!(session.lock().flash.is_empty() && flash::take(&session, &[]).is_empty());
+        let markup = flash::render(&[flash::Message { style: "primary", text: "a <b> & c".into() }]).unwrap();
+        assert!(markup.contains("salert--primary") && markup.contains("a &#60;b&#62; &#38; c"), "{markup}");
+    }
+}
+
+mod response_headers {
+    use super::common::web::header_map;
+    use axum::http::{HeaderMap, StatusCode};
+    use deltabadger::web::headers;
+
+    #[test]
+    fn the_policy_is_the_one_rails_test_pins() {
+        // test/integration/content_security_policy_test.rb `expected_policy`.
+        assert_eq!(headers::content_security_policy("N0nce=="),
+                   "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; \
+                    script-src 'self' 'nonce-N0nce=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report");
+        let (a, b) = (headers::new_nonce(), headers::new_nonce());
+        assert!(a != b && a.len() == 24, "16 random bytes in base64: {a}");
+    }
+
+    #[test]
+    fn cache_control_follows_rails_and_never_overrides_a_handler() {
+        let value = |status, signed_in| { let mut h = HeaderMap::new(); headers::controller_defaults(&mut h, status, signed_in); h["cache-control"].to_str().unwrap().to_string() };
+        assert_eq!(value(StatusCode::OK, false), "max-age=0, private, must-revalidate");
+        assert_eq!(value(StatusCode::FOUND, false), "no-cache");
+        assert_eq!(value(StatusCode::UNPROCESSABLE_ENTITY, false), "no-cache");
+        assert_eq!(value(StatusCode::OK, true), "no-store");
+        assert_eq!(value(StatusCode::SEE_OTHER, true), "no-store");
+        let mut set = header_map(&[("cache-control", "no-cache")]);
+        headers::controller_defaults(&mut set, StatusCode::FOUND, true);
+        assert_eq!(set["cache-control"], "no-cache");
+        assert_eq!(set["x-frame-options"], "SAMEORIGIN");
+        assert_eq!(set["referrer-policy"], "strict-origin-when-cross-origin");
+        let mut policy = HeaderMap::new();
+        headers::policy(&mut policy, "n", true);
+        assert_eq!(policy["strict-transport-security"], "max-age=63072000; includeSubDomains");
+        headers::policy(&mut HeaderMap::new(), "n", false);
+    }
+}
+
+mod turbo_streams {
+    use super::common;
+    use super::common::web::header_map;
+    use axum::http::HeaderMap;
+    use deltabadger::web::turbo;
+
+    #[test]
+    fn stream_elements_are_turbo_rails_markup() {
+        let recorded = &common::vectors()["turbo"];
+        let want = |name: &str| recorded[name].as_str().unwrap().to_string();
+        assert_eq!(turbo::stream("replace", "bot_1", "<p>a &amp; b</p>"), want("replace"));
+        assert_eq!(turbo::stream("update", "bot_1", "<p>x</p>"), want("update"));
+        assert_eq!(turbo::stream("append", "orders", "<tr></tr>"), want("append"));
+        assert_eq!(turbo::prepend_flash("<div>hi</div>"), want("prepend"));
+        assert_eq!(turbo::remove("bot_1"), want("remove"));
+        assert_eq!(turbo::refresh(), want("refresh"));
+        assert_eq!(turbo::redirect("/de/bots?a=1&b=2"), want("redirect"));
+        assert_eq!(turbo::add_class("columns_bot_1", "bot-locked"), want("add_class"));
+        assert_eq!(turbo::remove_class("columns_bot_1", "bot-locked"), want("remove_class"));
+        assert_eq!(turbo::CONTENT_TYPE, format!("{}; charset=utf-8", want("content_type")));
+        assert_eq!(turbo::frame(&header_map(&[("turbo-frame", "modal")])), Some("modal"));
+        assert_eq!(turbo::frame(&HeaderMap::new()), None);
+    }
+}

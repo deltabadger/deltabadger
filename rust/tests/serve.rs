@@ -135,3 +135,24 @@ async fn a_form_post_can_carry_another_method() {
     let huge = "x".repeat(1024 * 1024);
     assert_eq!(browser.send(&app, "POST", "/up", Some(&[("field", &huge)]), web::Csrf::None, &[]).await.status, 413);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn up_carries_the_headers_rails_middleware_adds() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let answer = Browser::default().get(&app, "/up").await;
+    assert!(answer.header("content-security-policy-report-only").unwrap().contains("script-src 'self' 'nonce-"));
+    assert_eq!(answer.header("x-frame-options"), Some("SAMEORIGIN"));
+    assert_eq!(answer.header("cache-control"), Some("max-age=0, private, must-revalidate"));
+    assert_eq!(answer.header("content-security-policy"), None, "nothing is enforced yet: report-only, as in Rails");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_csp_report_is_accepted_without_a_session_or_a_token() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let answer = Browser::default().send(&app, "POST", "/csp-report", None, web::Csrf::None, &[("content-type", "application/csp-report")]).await;
+    assert_eq!((answer.status, answer.header("set-cookie"), answer.header("location")), (204, None, None));
+}

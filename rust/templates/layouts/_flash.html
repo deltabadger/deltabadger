@@ -1,0 +1,7 @@
+{% for message in messages %}
+  <div class="flash__message salert salert--{{ message.style }}" data-controller="removals" role="alert">
+    <button name="button" type="submit" class="modal__close" data-action="removals#remove">
+      {% include "svg/_24x24_close.html" %}
+</button>    {{ message.text }}
+</div>
+{% endfor %}
