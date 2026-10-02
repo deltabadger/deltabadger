@@ -1,0 +1,102 @@
+//! What rust/src/mail and engine::notice port from Ruby, against values Ruby produced (script/rust/mail_vectors.rb):
+//! the mail gem's message encoding, Float#to_s, Exchange#humanize_error, SmtpSettings.current and the sender address,
+//! production.rb's root URL. Rails-free.
+use chrono::{TimeZone, Utc};
+use deltabadger::mail::{mailbox, Message};
+use deltabadger::ruby::{float_to_s, to_i};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+
+fn vectors() -> Value { serde_json::from_str(include_str!("fixtures/mail_vectors.json")).expect("mail_vectors.json parses") }
+
+#[test]
+fn every_recorded_message_is_encoded_as_the_mail_gem_encodes_it() {
+    let date = Utc.with_ymd_and_hms(2026, 9, 10, 12, 0, 30).unwrap();
+    let cases = vectors()["messages"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 36, "{} messages", cases.len());
+    let mut failures = vec![];
+    for c in &cases {
+        let text = |k: &str| c[k].as_str().unwrap().to_string();
+        let message = Message { from: text("from"), reply_to: c["reply_to"].as_str().map(str::to_string), to: text("to"), subject: text("subject"), html: text("html") };
+        let ours = message.encode(date, "<vector@deltabadger.test>").unwrap_or_else(|why| panic!("{:?}: {why}", c["subject"]));
+        if ours != text("encoded") { failures.push(format!("subject {:?}, from {:?}, body {:.40?}\n  ruby: {:?}\n  rust: {ours:?}", c["subject"], c["from"], c["html"], c["encoded"])); }
+        assert!(ours.is_ascii(), "a message on the wire is ASCII");
+        assert_eq!(mailbox(&message.from).map(|m| m.address), c["envelope_from"].as_str().map(str::to_string), "envelope sender of {:?}", c["from"]);
+        assert_eq!(json!([message.to.trim()]), c["envelope_to"], "envelope recipient");
+    }
+    assert!(failures.is_empty(), "{} of {} differ:\n{}", failures.len(), cases.len(), failures.join("\n"));
+}
+
+#[test]
+fn a_display_name_outside_ascii_is_dropped() {
+    // The listed divergence: the gem would write `=?UTF-8?B?…?= <a@b.c>`.
+    let date = Utc.with_ymd_and_hms(2026, 9, 10, 12, 0, 30).unwrap();
+    let message = Message { from: "Zażółć <a@b.c>".into(), reply_to: None, to: "o@example.com".into(), subject: "s".into(), html: "x".into() };
+    assert!(message.encode(date, "<i@d>").unwrap().contains("\r\nFrom: a@b.c\r\n"));
+    assert_eq!(mailbox("Zażółć <a@b.c>").unwrap().address, "a@b.c");
+}
+
+/// Nothing that becomes a header may bring a line of its own: not a display name, an address, a subject (a bot's label
+/// is in it) or the message id. Such a mail is refused whole; the mail gem would send it (it writes `=0A` into a
+/// subject, and a line break in a display name as it is).
+#[test]
+fn a_value_with_a_control_character_never_reaches_a_header() {
+    let date = Utc.with_ymd_and_hms(2026, 9, 10, 12, 0, 30).unwrap();
+    let good = Message { from: "My Bots <bots@example.com>".into(), reply_to: Some("bots@example.com".into()), to: "owner@example.com".into(),
+                         subject: "Weekly BTC has been stopped".into(), html: "<p>x</p>\n".into() };
+    assert!(good.encode(date, "<1@bots.example.com>").is_ok());
+    let refused = |change: &dyn Fn(&mut Message), id: &str| { let mut m = good.clone(); change(&mut m); m.encode(date, id) };
+    for from in ["Ops\r\nBcc: evil@example.com <bots@example.com>", "Ops\nX-Injected: yes <bots@example.com>", "\"Ops\r\n\" <bots@example.com>",
+                 "bots@example.com\r\nBcc: evil@example.com", "Ops\u{0} <bots@example.com>", "  ", "not an address", "Ops <bots@example.com\r\n>"] {
+        assert!(refused(&|m| m.from = from.into(), "<1@x.test>").is_err(), "sender {from:?}");
+        assert!(refused(&|m| m.reply_to = Some(from.into()), "<1@x.test>").is_err(), "reply-to {from:?}");
+    }
+    for to in ["owner@example.com\r\nBcc: evil@example.com", "owner@example.com\nSubject: forged", "Owner <owner@example.com>", "owner@exa\tmple.com", "żółw@example.com", ""] {
+        assert!(refused(&|m| m.to = to.into(), "<1@x.test>").is_err(), "recipient {to:?}");
+    }
+    for subject in ["Weekly\r\nBcc: evil@example.com has been stopped", "Weekly\nBTC", "Weekly\rBTC", "Weekly\tBTC", "Weekly\u{0}BTC", "Weekly\u{7f}BTC", "Zażółć\u{85}BTC"] {
+        assert_eq!(refused(&|m| m.subject = subject.into(), "<1@x.test>"), Err("the subject holds a control character"), "{subject:?}");
+    }
+    for id in ["<1@x.test>\r\nBcc: evil@example.com", "<1@x .test>", "<1@x.test>\n"] { assert!(refused(&|_| {}, id).is_err(), "message id {id:?}"); }
+    // The body is another matter: it is encoded, and what it says stays below the blank line.
+    let body = "<p>error: unauthorized.\r\nBcc: evil@example.com\r\n\r\nDate: now</p>\n";
+    let wire = refused(&|m| m.html = body.into(), "<1@x.test>").unwrap();
+    let (headers, _) = wire.split_once("\r\n\r\n").unwrap();
+    assert!(!headers.contains("Bcc") && headers.lines().count() == 10, "{headers}");
+}
+
+#[test]
+fn floats_print_as_ruby_prints_them() {
+    for pair in vectors()["floats"].as_array().unwrap() {
+        let Some(bits) = pair[0]["f"].as_str() else { continue }; // an Integer: Rust's own to_string
+        let f = f64::from_bits(u64::from_str_radix(bits, 16).unwrap());
+        assert_eq!(float_to_s(f), pair[1].as_str().unwrap(), "{f:e}");
+    }
+}
+
+#[test]
+fn text_is_read_as_a_number_as_ruby_reads_it() {
+    let cases = vectors()["ints"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 19);
+    for pair in &cases { assert_eq!(to_i(pair[0].as_str().unwrap()), pair[1].as_i64().unwrap(), "{:?}.to_i", pair[0]); }
+}
+
+#[test]
+fn the_ruby_gems_the_vectors_came_from_are_the_ones_in_the_lockfile() {
+    let lock = include_str!("../../Gemfile.lock");
+    for (gem, version) in vectors()["gems"].as_object().unwrap() {
+        let line = format!("    {gem} ({})", version.as_str().unwrap());
+        assert!(lock.contains(&line), "{gem} moved: re-run script/rust/mail_vectors.rb and the mail parity grid (expected `{line}`)");
+    }
+}
+
+#[test]
+fn the_ported_ruby_is_the_ruby_that_was_recorded() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let sources = vectors()["ported_sources"].as_object().unwrap().clone();
+    assert_eq!(sources.len(), 19);
+    for (file, recorded) in &sources {
+        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
+        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-check rust/src/mail against it, re-run script/rust/mail_vectors.rb and the mail parity grid");
+    }
+}
