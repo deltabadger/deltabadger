@@ -365,14 +365,16 @@ unless Rails.root.join('config/environments/production.rb').read.match?(/config\
   raise 'production.rb no longer sets assume_ssl and force_ssl from the one flag, which the base_url vectors assume'
 end
 base_url_app = ->(env) { [200, { 'content-type' => 'text/plain' }, [ActionDispatch::Request.new(env).base_url]] }
-base_url_servers = { false => base_url_app, true => ActionDispatch::AssumeSSL.new(base_url_app) }.transform_values do |app|
+# [server, port] of `app` behind Puma on a local port.
+over_puma = lambda do |app|
   server = Puma::Server.new(app, nil, log_writer: Puma::LogWriter.null)
   port = server.add_tcp_listener('127.0.0.1', 0).addr[1]
   server.run
   [server, port]
 end
-base_url = lambda do |ssl, host, headers|
-  answer = TCPSocket.open('127.0.0.1', base_url_servers.fetch(ssl).last) do |socket|
+# The body of the answer to one GET with exactly these header lines.
+ask_puma = lambda do |port, host, headers|
+  answer = TCPSocket.open('127.0.0.1', port) do |socket|
     socket.write("GET / HTTP/1.1\r\nHost: #{host}\r\n#{headers.map { |line| "#{line}\r\n" }.join}Connection: close\r\n\r\n")
     socket.read
   end
@@ -381,6 +383,8 @@ base_url = lambda do |ssl, host, headers|
 
   body
 end
+base_url_servers = { false => base_url_app, true => ActionDispatch::AssumeSSL.new(base_url_app) }.transform_values(&over_puma)
+base_url = ->(ssl, host, headers) { ask_puma.(base_url_servers.fetch(ssl).last, host, headers) }
 forwarded_headers = [
   [], ['X-Forwarded-Proto: https'], ['X-Forwarded-Proto: http'], ['X-Forwarded-Proto: https,http'], ['X-Forwarded-Proto: http,https'],
   ['X-Forwarded-Proto: https, http'], ['X-Forwarded-Proto: http https'], ['X-Forwarded-Proto: https', 'X-Forwarded-Proto: http'],
@@ -399,7 +403,11 @@ forwarded_headers = [
   ['X-Forwarded-Host: public.example.org:8443', 'X-Forwarded-Proto: https'], ['X-Forwarded-Host: public.example.org:443', 'X-Forwarded-Proto: https'],
   ['X-Forwarded-Host: first.example, public.example.org'], ['X-Forwarded-Host: first.example,public.example.org:81'],
   ['X-Forwarded-Host: public.example.org,'], ['X-Forwarded-Host:'],
-  ['X-Forwarded-Port: 8443', 'X-Forwarded-Proto: https'], ['Forwarded: host=public.example.org;proto=https']
+  ['X-Forwarded-Port: 8443', 'X-Forwarded-Proto: https'], ['Forwarded: host=public.example.org;proto=https'],
+  # a header sent as several lines: Puma hands Rack one value
+  ['X-Forwarded-Proto: http', 'X-Forwarded-Proto: https'], ['X-Forwarded-Scheme: https', 'X-Forwarded-Scheme: http'],
+  ['X-Forwarded-Ssl: on', 'X-Forwarded-Ssl: on'], ['X-Forwarded-Host: first.example', 'X-Forwarded-Host: public.example.org'],
+  ['X-Forwarded-Host: public.example.org', 'X-Forwarded-Proto: https', 'X-Forwarded-Host: last.example:8443']
 ]
 base_url_cases = forwarded_headers.map { |headers| ['bot.example.com:8080', headers] } +
                  ['bot.example.com', 'bot.example.com:443', 'bot.example.com:80', '[::1]:3000', '[::1]'].product([[], ['X-Forwarded-Proto: https']])
@@ -407,6 +415,23 @@ vectors['base_url'] = [false, true].product(base_url_cases).map do |ssl, (host, 
   { 'ssl' => ssl, 'host' => host, 'headers' => headers, 'base_url' => base_url.(ssl, host, headers) }
 end
 base_url_servers.each_value { |server, _| server.stop(true) }
+# The client address when a forwarding header arrives as several lines (a proxy that appends its
+# own line after whatever the caller sent): what Puma makes of the lines, and the address Rails
+# then takes. The peer is 127.0.0.1, a trusted proxy.
+remote_ip_server = over_puma.(lambda do |env|
+  ip = ActionDispatch::RemoteIp::GetIp.new(ActionDispatch::Request.new(env), false, ActionDispatch::RemoteIp::TRUSTED_PROXIES).to_s
+  [200, { 'content-type' => 'application/json' }, [{ 'remote_addr' => env['REMOTE_ADDR'], 'forwarded_for' => env['HTTP_X_FORWARDED_FOR'],
+                                                     'client_ip' => env['HTTP_CLIENT_IP'], 'ip' => ip }.to_json]]
+end)
+vectors['remote_ip_lines'] = [
+  ['X-Forwarded-For: 198.51.100.7'], ['X-Forwarded-For: 1.1.1.1', 'X-Forwarded-For: 198.51.100.7'],
+  ['X-Forwarded-For: 1.1.1.1, 2.2.2.2', 'X-Forwarded-For: 198.51.100.7, 10.0.0.9'],
+  ['X-Forwarded-For: 198.51.100.7', 'X-Forwarded-For: 10.0.0.9', 'X-Forwarded-For: 192.168.1.4'],
+  ['X-Forwarded-For: 198.51.100.7', 'X-Forwarded-For: 1.1.1.1'],
+  ['Client-Ip: 1.1.1.1', 'Client-Ip: 198.51.100.8'],
+  ['X-Forwarded-For: 1.1.1.1', 'Client-Ip: 198.51.100.8', 'X-Forwarded-For: 198.51.100.7']
+].map { |headers| { 'headers' => headers }.merge(JSON.parse(ask_puma.(remote_ip_server.last, 'bot.example.com', headers))) }
+remote_ip_server.first.stop(true)
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
 File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")

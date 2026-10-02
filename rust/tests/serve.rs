@@ -692,9 +692,16 @@ async fn every_sign_in_attempt_costs_exactly_one_bcrypt() {
 
 /// The app on a local port under `limits`, served by the same loop `deltabadger serve` runs.
 async fn served_under(limits: deltabadger::web::server::Limits) -> (tempfile::TempDir, deltabadger::web::App, std::net::SocketAddr) {
+    served_with(limits, &[]).await
+}
+
+/// As `served_under`, with more of the environment than the secret (`BEHIND_PROXY`, …).
+async fn served_with(limits: deltabadger::web::server::Limits, env: &'static [(&'static str, &'static str)]) -> (tempfile::TempDir, deltabadger::web::App, std::net::SocketAddr) {
     let (dir, opened, _) = common::install();
     drop(opened);
-    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let env = move |name: &str| env.iter().find(|(key, _)| *key == name).map(|(_, value)| value.to_string()).or((name == "SECRET_KEY_BASE").then(|| web::SECRET.to_string()));
+    let own = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap().primary;
+    let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, own, TestClock::at(NOW)).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     tokio::spawn(deltabadger::web::server::serve_on(listener, app.clone(), limits));
@@ -883,6 +890,28 @@ async fn the_peer_address_reaches_the_rate_limit_through_the_server() {
     let post_method = axum::http::Method::POST;
     assert_eq!(app.limiter.hit(&post_method, "/login", "unattributed", web::at(NOW)), None, "nothing was counted under the name for an unknown peer");
     assert_eq!(app.limiter.hit(&post_method, "/login", "127.0.0.1", web::at(NOW)), Some(30), "the peer's own address is over its limit");
+}
+
+/// Behind a declared proxy the address is the one the proxy wrote. A proxy that appends its own
+/// X-Forwarded-For line leaves the caller's line first, so the lines are read as one list: a caller
+/// that sends a different first line with every request is still one address to the limit.
+#[tokio::test(flavor = "current_thread")]
+async fn a_forwarding_header_sent_as_several_lines_is_one_list() {
+    let (_dir, app, address) = served_with(deltabadger::web::server::Limits::default(), &[("BEHIND_PROXY", "1")]).await;
+    let post = |n: usize| {
+        let request = format!("POST /login HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-For: 203.0.113.{n}\r\nX-Forwarded-For: 198.51.100.7\r\n\
+                               Content-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\nConnection: close\r\n\r\na=1");
+        web::until_closed(address, Box::leak(request.into_bytes().into_boxed_slice()), Duration::from_secs(5))
+    };
+    for n in 1..=10 {
+        let answer = post(n).await.unwrap();
+        assert!(answer.starts_with("HTTP/1.1 302"), "request {n}: {answer}");
+    }
+    let eleventh = post(11).await.unwrap();
+    assert!(eleventh.starts_with("HTTP/1.1 429"), "the caller's own first line named another address each time, and it was believed: {eleventh}");
+    let method = axum::http::Method::POST;
+    assert_eq!(app.limiter.hit(&method, "/login", "198.51.100.7", web::at(NOW)), Some(30), "the address the proxy appended is the one counted");
+    assert_eq!(app.limiter.hit(&method, "/login", "203.0.113.1", web::at(NOW)), None);
 }
 
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled

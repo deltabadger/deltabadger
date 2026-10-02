@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"1JxKm7Xu3CAhN8dreJsS528=\",\"h\":{\"iv\":\"iNg/2Art2wesj3pL\",\"at\":\"zSg3rKWPcab6uYd1uoVx1Q==\"}}"
+      "cipher": "{\"p\":\"BQU1Okwwkzu1zseyW/57FAI=\",\"h\":{\"iv\":\"mjMpT9OEc1A34z7q\",\"at\":\"VxCEONk6Su5HAw/vAh/Jnw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"vimZI74gYkjMVmiK0joo\",\"h\":{\"iv\":\"JjlSP50rOlyvkIX5\",\"at\":\"PEcPuNKPCCI+M8H9bXnupg==\"}}"
+      "cipher": "{\"p\":\"744Gt7ABCuNCL3I0+kRV\",\"h\":{\"iv\":\"pm5Gu9/cTBBXIbdT\",\"at\":\"izo8Ai235mJYHMKCJnjeSw==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"Go3ylTmtlgdRR0A0yCEnd9oA4cjvab42VeuISGkNCoi03wgOVkzFuvYrNLNLcPC9CKHkjlcA1rvhZ/Wlrp4w3CL9+WGVu8jBrgfXbq0=\",\"h\":{\"iv\":\"oQWJJdTuOXytPO8Z\",\"at\":\"RIV7mETOJSuJSa5SyZxBnA==\",\"c\":true}}"
+      "cipher": "{\"p\":\"gwbuF/+2IB4PSPTp2VoYvJgKHUgtD3ns9wMdVQTxBpz+v7zQnUmK8kAWxsbK/4mo0ezakGLAatelvzT6GOAOd/dNa5R+WklY93QIg1k=\",\"h\":{\"iv\":\"BBRM4Gyw/XvgU+hc\",\"at\":\"d8vNaUZaEQ/+ydh+yQUo4A==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "H56XFURCWA7R6B6XVKR6DWALYVTJUE7Y",
-      "cipher": "{\"p\":\"kxX1KTV0WazlBYqiIo6AwrO/+1hbuHH/Wpq324ZFs7g=\",\"h\":{\"iv\":\"nwSzneWkmhoeEBAR\",\"at\":\"9+KRHHmzyeayukWZhKTSbg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "NTXFNVJMBYLG6RY3MPSJGXB2SMPBC36G",
+      "cipher": "{\"p\":\"1TGLEpgk/akXX08KQYCyo5UZN2E94MkXuldWfpMFs2s=\",\"h\":{\"iv\":\"WG8hw2k1lqZuJst4\",\"at\":\"nDJwsNH8ci8CEOj7AqXdfg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"wC7JPg+7l4foBWwveQJB4xA=\",\"h\":{\"iv\":\"PrC2iei98Cq/zmN+\",\"at\":\"6PxQG4k+M2umObn5JG2XkQ==\"}}"
+      "cipher": "{\"p\":\"bQz43CrkAk/jkP0NBZTrskM=\",\"h\":{\"iv\":\"384Q8ovYkdgtDK/8\",\"at\":\"e6sRoOoID2Nl7NE86ooaLQ==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$O3E3hIRyoZrogxFXn0AY4eudZclkaH2WlYzkUPJHIvS89RLGBIMZ2"
+      "hash": "$2a$11$SYUZmA7J9.7vTxawBZDcH.Om4kjyeVMeNioMYeSh5KZevDUsTpUqS"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$.g0weJ5EO27LbMI7FF9nb.iNtTmq61YdQD8XFLxHdRYSDg/Geq.WS"
+      "hash": "$2a$11$R.mVJGH0lQt568cpcIorVORvyDpw9Qkux6vYVOBtRFXtf9SQ9XKBW"
     }
   ],
   "totp": {
@@ -48030,6 +48030,52 @@
     },
     {
       "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Scheme: https",
+        "X-Forwarded-Scheme: http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: on",
+        "X-Forwarded-Ssl: on"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: first.example",
+        "X-Forwarded-Host: public.example.org"
+      ],
+      "base_url": "http://public.example.org"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org",
+        "X-Forwarded-Proto: https",
+        "X-Forwarded-Host: last.example:8443"
+      ],
+      "base_url": "https://last.example:8443"
+    },
+    {
+      "ssl": false,
       "host": "bot.example.com",
       "headers": [],
       "base_url": "http://bot.example.com"
@@ -48498,6 +48544,52 @@
     },
     {
       "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Scheme: https",
+        "X-Forwarded-Scheme: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: on",
+        "X-Forwarded-Ssl: on"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: first.example",
+        "X-Forwarded-Host: public.example.org"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org",
+        "X-Forwarded-Proto: https",
+        "X-Forwarded-Host: last.example:8443"
+      ],
+      "base_url": "https://last.example:8443"
+    },
+    {
+      "ssl": true,
       "host": "bot.example.com",
       "headers": [],
       "base_url": "https://bot.example.com"
@@ -48565,6 +48657,79 @@
         "X-Forwarded-Proto: https"
       ],
       "base_url": "https://[::1]"
+    }
+  ],
+  "remote_ip_lines": [
+    {
+      "headers": [
+        "X-Forwarded-For: 198.51.100.7"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "198.51.100.7",
+      "client_ip": null,
+      "ip": "198.51.100.7"
+    },
+    {
+      "headers": [
+        "X-Forwarded-For: 1.1.1.1",
+        "X-Forwarded-For: 198.51.100.7"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "1.1.1.1, 198.51.100.7",
+      "client_ip": null,
+      "ip": "198.51.100.7"
+    },
+    {
+      "headers": [
+        "X-Forwarded-For: 1.1.1.1, 2.2.2.2",
+        "X-Forwarded-For: 198.51.100.7, 10.0.0.9"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "1.1.1.1, 2.2.2.2, 198.51.100.7, 10.0.0.9",
+      "client_ip": null,
+      "ip": "198.51.100.7"
+    },
+    {
+      "headers": [
+        "X-Forwarded-For: 198.51.100.7",
+        "X-Forwarded-For: 10.0.0.9",
+        "X-Forwarded-For: 192.168.1.4"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "198.51.100.7, 10.0.0.9, 192.168.1.4",
+      "client_ip": null,
+      "ip": "198.51.100.7"
+    },
+    {
+      "headers": [
+        "X-Forwarded-For: 198.51.100.7",
+        "X-Forwarded-For: 1.1.1.1"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "198.51.100.7, 1.1.1.1",
+      "client_ip": null,
+      "ip": "1.1.1.1"
+    },
+    {
+      "headers": [
+        "Client-Ip: 1.1.1.1",
+        "Client-Ip: 198.51.100.8"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": null,
+      "client_ip": "1.1.1.1, 198.51.100.8",
+      "ip": "198.51.100.8"
+    },
+    {
+      "headers": [
+        "X-Forwarded-For: 1.1.1.1",
+        "Client-Ip: 198.51.100.8",
+        "X-Forwarded-For: 198.51.100.7"
+      ],
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "1.1.1.1, 198.51.100.7",
+      "client_ip": "198.51.100.8",
+      "ip": "198.51.100.7"
     }
   ]
 }

@@ -613,6 +613,20 @@ mod rate_limits {
         assert_eq!(rate_limit::client_key(&config("true"), &forwarded, Some("203.0.113.9".parse().unwrap())), "203.0.113.9", "a direct public peer cannot rename itself");
         assert_eq!(rate_limit::client_key(&config("true"), &forwarded, Some("::ffff:10.0.0.5".parse().unwrap())), "198.51.100.7", "a private IPv4 proxy on a dual-stack socket");
         assert_eq!(rate_limit::client_key(&config("false"), &forwarded, None), "unattributed", "never an empty key");
+
+        // A forwarding header may arrive as several lines: a proxy that adds its own line leaves the
+        // caller's line first. All of them are one list, in the order sent, as Puma hands it to Rack.
+        let recorded = common::vectors()["remote_ip_lines"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 7);
+        for case in &recorded {
+            let mut headers = axum::http::HeaderMap::new();
+            for line in case["headers"].as_array().unwrap() {
+                let (name, value) = line.as_str().unwrap().split_once(':').unwrap();
+                headers.append(axum::http::HeaderName::from_bytes(name.as_bytes()).unwrap(), value.trim().parse().unwrap());
+            }
+            let peer = case["remote_addr"].as_str().unwrap().parse().ok();
+            assert_eq!(rate_limit::client_key(&config("true"), &headers, peer), case["ip"].as_str().unwrap(), "{case}");
+        }
     }
 }
 

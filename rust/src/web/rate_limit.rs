@@ -136,8 +136,10 @@ pub fn remote_ip(peer: Option<IpAddr>, forwarded_for: Option<&str>, client_ip: O
 /// forwarded-for header (BEHIND_PROXY, else the same signal as FORCE_SSL), and then `remote_ip`. Never empty: a throttle
 /// with no key would not count at all.
 pub fn client_key(config: &Config, headers: &HeaderMap, peer: Option<IpAddr>) -> String {
-    let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    // Every line of a header, in the order sent, as one list (what Puma hands Rack). A proxy that
+    // appends a line of its own leaves the caller's first: the first line alone is the caller's word.
+    let (forwarded_for, client_ip) = (super::joined(headers, "x-forwarded-for"), super::joined(headers, "client-ip"));
     let peer = peer.map(|ip| ip.to_canonical()); // an IPv4 peer on a dual-stack socket arrives as ::ffff:a.b.c.d
-    let ip = if config.behind_proxy { remote_ip(peer, header("x-forwarded-for"), header("client-ip")) } else { peer };
+    let ip = if config.behind_proxy { remote_ip(peer, forwarded_for.as_deref(), client_ip.as_deref()) } else { peer };
     ip.map_or_else(|| "unattributed".to_string(), |ip| ip.to_string())
 }

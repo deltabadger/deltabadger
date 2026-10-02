@@ -85,7 +85,7 @@ pub(crate) fn canonical_origin(scheme: &str, authority: &str) -> String {
 }
 
 /// A request header as Rack's env holds it: repeated lines are one value, joined by Puma.
-fn joined(headers: &HeaderMap, name: &str) -> Option<String> {
+pub(crate) fn joined(headers: &HeaderMap, name: &str) -> Option<String> {
     let lines: Vec<&str> = headers.get_all(name).iter().filter_map(|v| v.to_str().ok()).collect();
     (!lines.is_empty()).then(|| lines.join(", "))
 }
