@@ -22,8 +22,10 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD as B64URL, Engine};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 
 /// config/initializers/doorkeeper.rb: `default_scopes :mcp`, `optional_scopes :api`.
 pub const SCOPES: [&str; 2] = ["mcp", "api"];
@@ -718,4 +720,211 @@ impl Application {
         let own = scopes(&self.scopes);
         if own.is_empty() { SCOPES.to_vec() } else { own }
     }
+}
+
+/// Application.by_uid_and_secret: a public client needs no secret and must not send one; any other
+/// must send its own. The comparison takes the same time whatever the secret sent.
+pub fn client(c: &Connection, credentials: &Credentials) -> Result<Option<Application>, WebError> {
+    let Credentials::Given(uid, secret) = credentials else { return Ok(None) };
+    let Some(application) = Application::by_uid(c, uid)? else { return Ok(None) };
+    let sent = secret.as_deref().filter(|secret| !secret.trim().is_empty());
+    let known = match (sent, application.secret.as_deref()) {
+        (None, _) => !application.confidential,
+        (Some(sent), Some(stored)) => bool::from(Sha256::digest(sent).ct_eq(&Sha256::digest(stored))),
+        (Some(_), None) => false,
+    };
+    Ok(known.then_some(application))
+}
+
+/// What the token endpoint answers on success (Doorkeeper's TokenResponse).
+struct Issued {
+    access_token: String,
+    refresh_token: String,
+    scopes: String,
+    expires_in: Option<i64>,
+    created_at: DateTime<Utc>,
+}
+
+/// AccessToken.create_for with `use_refresh_token`: a new row with a fresh token and refresh token.
+/// `from` is the row whose refresh token is being redeemed: the new row is written only while that
+/// row is not revoked, in the one statement, so a refresh token that was retired a moment ago
+/// issues nothing whatever this request read before. `None` when nothing was written.
+#[allow(clippy::too_many_arguments)]
+fn issue(c: &Connection, application_id: i64, resource_owner_id: Option<i64>, scopes: &str, expires_in: Option<i64>, previous_refresh_token: &str, from: Option<i64>,
+         now: DateTime<Utc>) -> Result<Option<Issued>, WebError> {
+    let issued = Issued { access_token: new_token(), refresh_token: new_token(), scopes: scopes.to_string(), expires_in, created_at: now };
+    let written = c.execute("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, refresh_token, scopes, expires_in, previous_refresh_token, created_at) \
+                             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 WHERE ?9 IS NULL OR EXISTS (SELECT 1 FROM oauth_access_tokens WHERE id = ?9 AND revoked_at IS NULL)",
+                            (application_id, resource_owner_id, &issued.access_token, &issued.refresh_token, scopes, expires_in, previous_refresh_token, format_time(now), from))?;
+    Ok((written == 1).then_some(issued))
+}
+
+enum Refused {
+    /// (error, description): a 400, or a 401 for `invalid_client`.
+    Error(&'static str, String),
+}
+
+fn refuse<T>(error: &'static str, description: &str) -> Result<T, Refused> {
+    Err(Refused::Error(error, description.to_string()))
+}
+
+/// A grant as the token endpoint needs it: a row of `oauth_access_grants`.
+struct Grant {
+    id: i64,
+    application_id: i64,
+    resource_owner_id: i64,
+    redirect_uri: String,
+    scopes: String,
+    expires_in: i64,
+    created_at: DateTime<Utc>,
+    revoked_at: Option<DateTime<Utc>>,
+    code_challenge: Option<String>,
+    code_challenge_method: Option<String>,
+}
+
+fn grant(c: &Connection, code: &str) -> Result<Option<Grant>, WebError> {
+    let row = c.query_row("SELECT id, application_id, resource_owner_id, redirect_uri, scopes, expires_in, created_at, revoked_at, code_challenge, code_challenge_method \
+                           FROM oauth_access_grants WHERE token = ?1", [code], |r| {
+        Ok((Grant { id: r.get(0)?, application_id: r.get(1)?, resource_owner_id: r.get(2)?, redirect_uri: r.get(3)?, scopes: r.get(4)?, expires_in: r.get(5)?,
+                    created_at: DateTime::<Utc>::MIN_UTC, revoked_at: None, code_challenge: r.get(8)?, code_challenge_method: r.get(9)? },
+            r.get::<_, String>(6)?, r.get::<_, Option<String>>(7)?))
+    }).optional()?;
+    let Some((grant, created_at, revoked_at)) = row else { return Ok(None) };
+    Ok(Some(Grant { created_at: parse_time(&created_at).map_err(|e| data_error("oauth_access_grants.created_at", e))?,
+                    revoked_at: time("oauth_access_grants.revoked_at", revoked_at)?, ..grant }))
+}
+
+/// PKCE (RFC 7636): the verifier against the challenge the grant was issued for, in constant time.
+/// `plain` is no longer issued (web::consent) but a grant Rails issued with it is still honoured.
+fn verifier_matches(grant: &Grant, verifier: &str) -> bool {
+    let challenge = grant.code_challenge.as_deref().unwrap_or("");
+    let expected = match grant.code_challenge_method.as_deref() {
+        Some("S256") => B64URL.encode(Sha256::digest(verifier.as_bytes())),
+        Some("plain") => verifier.to_string(),
+        _ => return false,
+    };
+    bool::from(Sha256::digest(expected.as_bytes()).ct_eq(&Sha256::digest(challenge.as_bytes())))
+}
+
+/// `grant_type=authorization_code` (Doorkeeper's AuthorizationCodeRequest, checks in its order).
+/// The code is single-use, and what makes it so is one write: `revoked_at` is set where it is not
+/// set, and the token is issued only if that changed the row. No comparison of times decides it: a
+/// code that has a `revoked_at`, earlier or later than this request's clock, is spent. A request
+/// that fails any check leaves the code as it was.
+fn exchange_code(c: &Connection, credentials: &Credentials, code: &str, redirect_uri: Option<&str>, verifier: Option<&str>, now: DateTime<Utc>) -> Result<Result<Issued, Refused>, WebError> {
+    let (grant, client) = (grant(c, code)?, client(c, credentials)?);
+    if verifier.is_none() && (client.is_some() || grant.as_ref().is_some_and(|grant| present(grant.code_challenge.as_deref()).is_some())) {
+        return Ok(refuse("invalid_request", &text::missing("code_verifier")));
+    }
+    let Some(redirect_uri) = redirect_uri else { return Ok(refuse("invalid_request", &text::missing("redirect_uri"))) };
+    let Some(client) = client else { return Ok(refuse("invalid_client", text::INVALID_CLIENT)) };
+    let Some(grant) = grant.filter(|grant| grant.application_id == client.id) else { return Ok(refuse("invalid_grant", text::INVALID_GRANT)) };
+    let live = grant.revoked_at.is_none() && !past(grant.created_at, grant.expires_in, now);
+    if !redirect_uri_allowed(redirect_uri, &grant.redirect_uri) || !verifier.is_some_and(|verifier| verifier_matches(&grant, verifier)) || !live {
+        return Ok(refuse("invalid_grant", text::INVALID_GRANT));
+    }
+    if c.execute("UPDATE oauth_access_grants SET revoked_at = ?1 WHERE id = ?2 AND revoked_at IS NULL", (format_time(now), grant.id))? != 1 {
+        return Ok(refuse("invalid_grant", text::INVALID_GRANT));
+    }
+    Ok(issue(c, grant.application_id, Some(grant.resource_owner_id), &grant.scopes, Some(ACCESS_TOKEN_SECONDS), "", None, now)?.ok_or_else(|| Refused::Error("invalid_grant", text::INVALID_GRANT.to_string())))
+}
+
+/// `grant_type=refresh_token` (Doorkeeper's RefreshTokenRequest). A new row is inserted and names
+/// the refresh token it came from in `previous_refresh_token`; the old row is not touched here.
+/// It is revoked when the new access token is first used: see web::bearer::authenticate. A refresh
+/// token is good while its row has no `revoked_at`, of any time, and the new row is written on that
+/// condition (`issue`).
+fn refresh(c: &Connection, credentials: &Credentials, refresh_token: &str, scope: Option<&str>, now: DateTime<Utc>) -> Result<Result<Issued, Refused>, WebError> {
+    let Some(old) = AccessToken::find(c, "refresh_token", refresh_token)?.filter(|old| old.revoked_at.is_none()) else { return Ok(refuse("invalid_grant", text::INVALID_GRANT)) };
+    let client = client(c, credentials)?;
+    if !matches!(credentials, Credentials::None) && client.is_none() {
+        return Ok(refuse("invalid_client", text::INVALID_CLIENT));
+    }
+    let Some(client) = client.filter(|client| client.id == old.application_id) else { return Ok(refuse("invalid_grant", text::INVALID_GRANT)) };
+    let granted = scopes(&old.scopes);
+    let new_scopes = match scope {
+        Some(requested) if !scopes_valid(requested, &granted) => return Ok(refuse("invalid_scope", text::INVALID_SCOPE)),
+        Some(requested) => scopes(requested).join(" "),
+        // The token's scopes, as far as the client still has them.
+        None => { let allowed = client.allowed_scopes(); granted.iter().filter(|scope| allowed.contains(scope)).copied().collect::<Vec<_>>().join(" ") }
+    };
+    Ok(issue(c, old.application_id, old.resource_owner_id, &new_scopes, old.expires_in, refresh_token, Some(old.id), now)?.ok_or_else(|| Refused::Error("invalid_grant", text::INVALID_GRANT.to_string())))
+}
+
+/// POST /oauth/token.
+pub async fn token(State(app): State<App>, Extension(params): Extension<Arc<Params>>, headers: HeaderMap) -> Result<Response, WebError> {
+    let sent = Sent { params: &params };
+    let inner = app.clone();
+    let credentials = credentials(&headers, &sent);
+    let outcome = match sent.present("grant_type").as_deref() {
+        None => refuse("invalid_request", &text::missing("grant_type")),
+        Some("authorization_code") => match sent.present("code") {
+            None => refuse("invalid_request", &text::missing("code")),
+            Some(_) if matches!(credentials, Credentials::Multiple) => refuse("invalid_request", text::MULTIPLE_CLIENT_AUTH),
+            Some(code) => {
+                let (redirect_uri, verifier) = (sent.present("redirect_uri"), sent.present("code_verifier"));
+                app.db(move |c| transaction(c, &*inner.clock, |c, now| exchange_code(c, &credentials, &code, redirect_uri.as_deref(), verifier.as_deref(), now))).await?
+            }
+        },
+        Some("refresh_token") if matches!(credentials, Credentials::Multiple) => refuse("invalid_request", text::MULTIPLE_CLIENT_AUTH),
+        Some("refresh_token") => match sent.present("refresh_token") {
+            None => refuse("invalid_request", &text::missing("refresh_token")),
+            Some(refresh_token) => {
+                // Doorkeeper reads `scope`, and `scopes` when there is no `scope` at all.
+                let scope = sent.get("scope").or_else(|| sent.get("scopes")).filter(|scope| !scope.trim().is_empty());
+                app.db(move |c| transaction(c, &*inner.clock, |c, now| refresh(c, &credentials, &refresh_token, scope.as_deref(), now))).await?
+            }
+        },
+        Some(_) => refuse("unsupported_grant_type", text::UNSUPPORTED_GRANT_TYPE),
+    };
+    Ok(match outcome {
+        Err(Refused::Error(error, description)) => token_error(error, &description),
+        Ok(issued) => {
+            let mut body = json!({ "access_token": issued.access_token, "token_type": "Bearer" });
+            if let Some(seconds) = issued.expires_in { body["expires_in"] = json!(seconds); }
+            body["refresh_token"] = json!(issued.refresh_token);
+            if !issued.scopes.is_empty() { body["scope"] = json!(issued.scopes); }
+            body["created_at"] = json!(issued.created_at.timestamp());
+            let mut response = json_response(StatusCode::OK, &body);
+            response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+            response.headers_mut().insert(header::PRAGMA, HeaderValue::from_static("no-cache"));
+            response
+        }
+    })
+}
+
+/// POST /oauth/revoke (RFC 7009), as Doorkeeper's TokensController#revoke: the request must name
+/// its client; a token that is unknown, or already dead, is answered as a success; a token of
+/// another client is refused.
+pub async fn revoke(State(app): State<App>, Extension(params): Extension<Arc<Params>>, headers: HeaderMap) -> Result<Response, WebError> {
+    let sent = Sent { params: &params };
+    let inner = app.clone();
+    let credentials = credentials(&headers, &sent);
+    if matches!(credentials, Credentials::Multiple) {
+        return Ok(token_error("invalid_request", text::MULTIPLE_CLIENT_AUTH));
+    }
+    let (token, refresh_first) = (sent.get("token").unwrap_or_default(), sent.get("token_type_hint").as_deref() == Some("refresh_token"));
+    let allowed = app.db(move |c| transaction(c, &*inner.clock, |c, now| {
+        let Some(client) = client(c, &credentials)? else { return Ok(false) };
+        // The hint only says where to look first.
+        let by_token = |as_refresh: bool| AccessToken::find(c, if as_refresh { "refresh_token" } else { "token" }, &token).map(|found| found.map(|row| (row, as_refresh)));
+        let found = match by_token(refresh_first)? {
+            Some(found) => Some(found),
+            None => by_token(!refresh_first)?,
+        };
+        let Some((row, as_refresh)) = found else { return Ok(true) };
+        if row.application_id != client.id {
+            return Ok(false);
+        }
+        // An access token is revoked while it is live; a refresh token until it is revoked.
+        if as_refresh || !row.expired(now) {
+            row.revoke(c, now)?;
+        }
+        Ok(true)
+    })).await?;
+    Ok(if allowed {
+        json_response(StatusCode::OK, &json!({}))
+    } else {
+        json_response(StatusCode::FORBIDDEN, &json!({ "error": "unauthorized_client", "error_description": text::REVOKE_UNAUTHORIZED }))
+    })
 }

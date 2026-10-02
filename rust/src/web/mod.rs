@@ -469,6 +469,11 @@ fn oauth_api(app: App) -> Router<App> {
         .route("/.well-known/oauth-protected-resource", only(get(oauth::protected_resource)))
         .route("/.well-known/{*document}", any(oauth::absent))
         .route("/oauth/register", only(post(oauth::register)))
+        .route("/oauth/token", only(post(oauth::token)))
+        .route("/oauth/revoke", only(post(oauth::revoke)))
+        // Doorkeeper also routes these two. The metadata does not advertise them and no client is told of them: not served.
+        .route("/oauth/introspect", any(layout::not_ported))
+        .route("/oauth/token/info", any(layout::not_ported))
         .layer(middleware::from_fn_with_state(app, oauth::api))
 }
 
