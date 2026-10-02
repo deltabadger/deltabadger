@@ -519,3 +519,57 @@ async fn a_tick_whose_order_would_not_read_back_places_nothing() {
     let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
     assert!(details.contains("read back"), "{details}");
 }
+
+// A bare JSON number serde would turn into 0.0 (1e-350), ±Inf or an error (1e400), or a 70-digit float: the whole raw
+// body is unreadable before it is parsed, so none of them is ever a zero price, fill or balance.
+const RAW_BAD: [&str; 3] = ["1e-350", "1e400", "1234567890123456789012345678901234567890123456789012345678901234567890"];
+fn raw(body: String) -> Value { json!([{ "status": 200, "body": body }]) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_raw_price_body_with_an_out_of_range_number_places_nothing() {
+    for bad in RAW_BAD {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "GET /v1beta3/crypto/us/latest/quotes": raw(format!(r#"{{"quotes":{{"BTC/USD":{{"ap":{bad},"bp":64300.25}}}}}}"#)) }));
+        assert!(matches!(tick_until_settled(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled), "{bad}");
+        assert!(t.posted_orders().is_empty(), "{bad}");
+        let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_retrying'");
+        assert!(details.contains("unreadable"), "{bad}: {details}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_raw_placement_answer_with_an_out_of_range_fill_is_ambiguous() {
+    for bad in RAW_BAD {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "POST /v2/orders": raw(format!(r#"{{"id":"OTX-1","status":"filled","filled_qty":{bad},"filled_avg_price":"64328.1"}}"#)) }));
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::AwaitingReconciliation), "{bad}: {out:?}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{bad}: no row, no zero fill");
+        assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "{bad}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_raw_poll_or_lookup_with_an_out_of_range_fill_records_no_zero_fill() {
+    use deltabadger::engine::polling;
+    for bad in RAW_BAD {
+        let (_d, o, id, s) = setup(weekly());
+        let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(0), external_id: Some("OFILL".into()), order_type: 0, amount: None,
+            quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:01".into() });
+        let t = script(json!({ "GET /v2/orders/OFILL": raw(format!(r#"{{"id":"OFILL","status":"filled","type":"market","side":"buy","notional":"60","filled_qty":{bad},"filled_avg_price":"64328.1"}}"#)) }));
+        assert!(polling::follow_up(&o.primary, &venue(&t), id, tx, at("2026-09-01T10:00:06Z")).await.is_err(), "{bad}");
+        let (ext, exec): (i64, Option<f64>) = o.primary.query_row("SELECT external_status, amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((ext, exec), (0, None), "{bad}: the row is untouched");
+    }
+    for bad in RAW_BAD {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+        let v = venue(&t);
+        tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+        t.reply("GET /v2/orders:by_client_order_id", 200, json!(format!(r#"{{"id":"OTX-9","client_order_id":"{cl}","status":"filled","type":"market","side":"buy","notional":"60","filled_qty":{bad},"filled_avg_price":"64328.1"}}"#)));
+        let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(1300))).await.unwrap();
+        assert!(matches!(recovered, Recovery::Pending), "{bad}: {recovered:?}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{bad}: no zero fill recorded");
+    }
+}

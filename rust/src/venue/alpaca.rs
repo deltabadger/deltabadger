@@ -1,6 +1,6 @@
 //! Exchanges::Alpaca + Clients::Alpaca for one-asset crypto buys, over a Transport. Rails is the oracle; each method
 //! names the Ruby it ports. Market data uses the bot's own key, as Rails' market_data_client does.
-use super::http::{self, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
+use super::http::{self, DecodeError, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
 use super::VenueFactory;
 use crate::crypto::{Cipher, Credentials};
 use crate::engine::{eligibility, model, EngineError};
@@ -47,6 +47,11 @@ pub fn error_message(r: &HttpRequest, resp: &HttpResponse) -> String {
         Some(v) if !v.is_null() && !v.is_string() => v.to_string(),
         _ => body.to_string(),
     }
+}
+
+/// What an unreadable 2xx answer reports: the out-of-range number, or Rails' message for a body that is not JSON.
+fn unreadable(e: DecodeError, r: &HttpRequest, resp: &HttpResponse) -> String {
+    match e { DecodeError::OutOfRange(m) => m, DecodeError::NotJson => error_message(r, resp) }
 }
 
 /// Alpaca's own "order not found" answer: code 40410000 and a message starting "order not found".
@@ -106,7 +111,7 @@ impl<T: Transport> AlpacaVenue<T> {
         match self.transport.send(&r).await {
             Err(TransportError::Permanent(m)) => Err(VenueError::Rejected(vec![m])),
             Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
-            Ok(resp) if (200..300).contains(&resp.status) => serde_json::from_str(&resp.body).map_err(|_| VenueError::Rejected(vec![error_message(&r, &resp)])),
+            Ok(resp) if (200..300).contains(&resp.status) => http::decode_json(&resp.body).map_err(|e| VenueError::Rejected(vec![unreadable(e, &r, &resp)])),
             Ok(resp) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
         }
     }
@@ -149,7 +154,10 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
             Err(TransportError::NotSent(m)) => Err(VenueError::Transient(m)),
             Err(TransportError::MaybeSent(m)) => Err(VenueError::Ambiguous(m)),
             Ok(resp) if (200..300).contains(&resp.status) => {
-                let v = serde_json::from_str::<Value>(&resp.body).unwrap_or(Value::Null);
+                let v = match http::decode_json(&resp.body) {
+                    Err(DecodeError::OutOfRange(m)) => return Err(VenueError::Ambiguous(format!("Alpaca accepted the order with an unreadable answer: {m}"))),
+                    v => v.unwrap_or(Value::Null),
+                };
                 let id = v["id"].as_str().filter(|s| !s.is_empty()).map(str::to_string)
                     .ok_or_else(|| VenueError::Ambiguous(format!("Alpaca accepted the order without a readable id: {}", error_message(&r, &resp))))?;
                 // A number in the answer it cannot read (a fill of "NaN") makes the whole answer unreadable: the order is
@@ -182,7 +190,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
             // the order absent; every other 404 falls through to the last arm and stays Pending.
             Ok(resp) if resp.status == 404 && alpaca_not_found(&resp.body) => Ok(None),
             Ok(resp) if (200..300).contains(&resp.status) => {
-                let v: Value = serde_json::from_str(&resp.body).map_err(|_| VenueError::Rejected(vec![error_message(&r, &resp)]))?;
+                let v: Value = http::decode_json(&resp.body).map_err(|e| VenueError::Rejected(vec![unreadable(e, &r, &resp)]))?;
                 match (v["id"].as_str(), v["client_order_id"].as_str()) {
                     (Some(id), Some(cl)) if cl == cl_ord_id => parse_order(id, &v).map(Some).map_err(|e| VenueError::Rejected(vec![e])),
                     _ => Err(VenueError::Rejected(vec![format!("Alpaca answered for client order id {cl_ord_id} with {}", resp.body)])),

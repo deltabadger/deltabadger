@@ -55,6 +55,55 @@ pub trait Transport {
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
 }
 
+#[derive(Debug, PartialEq)]
+pub enum DecodeError {
+    /// A bare number outside the venue caps: serde would turn it into 0.0 (1e-350), ±Inf or an error (1e400), or round it.
+    OutOfRange(String),
+    /// Not JSON at all.
+    NotJson,
+}
+
+/// Every venue response body is decoded here, never with serde_json directly. serde_json reads a bare JSON number as an
+/// f64, so `1e-350` would arrive as 0.0 before any cap could see it. The raw text is scanned first: every bare number
+/// (string contents skipped, escapes honoured) must be within the venue caps (ruby::VENUE_MAX_EXPONENT for the effective
+/// exponent, mantissa included; ruby::VENUE_MAX_DIGITS significant digits), or the whole answer is unreadable.
+pub fn decode_json(body: &str) -> Result<Value, DecodeError> {
+    let b = body.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'"' => {
+                i += 1;
+                while i < b.len() && b[i] != b'"' { i += if b[i] == b'\\' { 2 } else { 1 }; }
+                i += 1;
+            }
+            b'-' | b'0'..=b'9' => {
+                let start = i;
+                while i < b.len() && matches!(b[i], b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E') { i += 1; }
+                number_in_caps(&body[start..i])?;
+            }
+            _ => i += 1,
+        }
+    }
+    serde_json::from_str(body).map_err(|_| DecodeError::NotJson)
+}
+
+fn number_in_caps(token: &str) -> Result<(), DecodeError> {
+    use crate::ruby::{raw, VENUE_MAX_DIGITS, VENUE_MAX_EXPONENT};
+    let bad = || DecodeError::OutOfRange(format!("unreadable number {} in the venue's answer", raw(&Value::String(token.into()))));
+    let t = token.strip_prefix('-').unwrap_or(token);
+    let (mantissa, exp) = t.split_once(['e', 'E']).unwrap_or((t, "0"));
+    let exp = i128::from(exp.parse::<i64>().map_err(|_| bad())?);
+    let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let digits = format!("{int}{frac}");
+    if int.is_empty() || !digits.bytes().all(|d| d.is_ascii_digit()) { return Err(bad()); }
+    let Some(first) = digits.bytes().position(|d| d != b'0') else { return Ok(()) }; // a true zero
+    let last = digits.bytes().rposition(|d| d != b'0').unwrap_or(first);
+    let exponent = int.len() as i128 - 1 - first as i128 + exp; // the most significant digit's power of ten
+    if (last - first + 1) as i64 > VENUE_MAX_DIGITS || exponent.abs() > i128::from(VENUE_MAX_EXPONENT) { return Err(bad()); }
+    Ok(())
+}
+
 pub fn client() -> reqwest::Client { client_with(CONNECT_TIMEOUT, READ_TIMEOUT, TOTAL_TIMEOUT) }
 
 pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwest::Client {
