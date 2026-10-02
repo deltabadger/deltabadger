@@ -313,3 +313,39 @@ async fn the_follow_up_poll_raises_as_rails_job_does() {
     assert_eq!(polling::follow_up(&o.primary, &venue(&failing), id, tx, now).await,
                Err(PollFailure::General(format!("Failed to fetch order {tx}. Result: [\"internal server error\"]"))), "Rails names the transaction id");
 }
+
+// The engine's own process_start wiring (run.rs, step_bot and reconcile_idle): a restarted `run` must not trust an
+// Alpaca 404 until a full margin after ITS start, even when the intent is far older than the margin.
+struct ScriptedFactory(ScriptedTransport);
+impl deltabadger::venue::VenueFactory for ScriptedFactory {
+    type V = AlpacaVenue<ScriptedTransport>;
+    fn for_bot(&self, _t: &str, _c: Option<deltabadger::crypto::Credentials>) -> Self::V { venue(&self.0) }
+}
+
+async fn a_restarted_engine_keeps_an_old_intent(status: Option<i64>) {
+    let dir = common::rails_install();
+    let paths = store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
+    let o = store::open(&paths).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &weekly());
+    let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }],
+                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } }] }));
+    let t0 = at(T0);
+    tick::tick(&o.primary, &venue(&t), id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(); // the ambiguous send leaves the intent
+    if let Some(st) = status { o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", rusqlite::params![st, id]).unwrap(); }
+    assert_eq!(t.posted_orders().len(), 1);
+
+    // A new process, 30 min after the intent: its own first step is its start.
+    let mut e = deltabadger::engine::run::Engine::new(o.primary, ScriptedFactory(t.clone()), seed::cipher(), lock);
+    deltabadger::engine::run::step(&mut e, &FixedClock(t0 + Duration::minutes(30))).await.unwrap();
+    assert!(t.requests().iter().any(|r| r.path.contains("by_client_order_id")), "the lookup must have run");
+    assert!(model::load_bot(&e.primary, id).unwrap().rust_placement().is_some(), "20 min have not passed since this process started");
+    assert_eq!(t.posted_orders().len(), 1, "no second POST");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_restarted_engine_keeps_a_running_bots_old_intent_until_a_margin_after_its_own_start() { a_restarted_engine_keeps_an_old_intent(None).await }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_restarted_engine_keeps_a_stopped_bots_old_intent_until_a_margin_after_its_own_start() { a_restarted_engine_keeps_an_old_intent(Some(2)).await }

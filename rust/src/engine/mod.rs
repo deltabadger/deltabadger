@@ -1,4 +1,4 @@
-//! The bot engine (spec §3): one-asset Kraken DCA baskets, decided exactly as Rails decides them.
+//! The bot engine (spec §3): one-asset DCA baskets (Kraken, Alpaca paper), decided exactly as Rails decides them.
 use chrono::{DateTime, Utc};
 
 pub trait Clock {
@@ -33,7 +33,7 @@ pub enum EngineError {
     /// A stored value this build cannot read the way Rails wrote it.
     Data(String),
     Ineligible(Vec<String>),
-    /// Bots whose order Kraken could not yet account for (handback refuses while any exist).
+    /// Bots whose order the venue could not yet account for (handback refuses while any exist).
     Unresolved(Vec<i64>),
     /// A requested stop (SIGTERM/SIGINT): the tick in hand finished and nothing new started.
     Stopped,

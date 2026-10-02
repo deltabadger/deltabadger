@@ -106,7 +106,7 @@ pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[Str
     Ok(!safe)
 }
 
-/// Nothing reached the venue (VenueError::Transient).
+/// Nothing reached the venue (VenueError::Transient, or the send window refused the send).
 pub fn drop_intent(c: &Connection, bot_id: i64) -> Result<(), EngineError> { set_intent(c, bot_id, None) }
 
 #[derive(Debug)]
@@ -155,7 +155,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
 #[derive(Debug)]
 pub enum OperatorResolution { Placed(String), NotPlaced }
 
-/// `deltabadger resolve-placement`: a human checked Kraken's own site because Kraken's API could not answer.
+/// `deltabadger resolve-placement`: a human checked the venue (Kraken's or Alpaca's own site) because its API could not answer.
 pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorResolution, now: DateTime<Utc>) -> Result<(), EngineError> {
     if let OperatorResolution::Placed(t) = &resolution {
         if t.trim().is_empty() { return Err(EngineError::Data("an order id is required".into())); }
