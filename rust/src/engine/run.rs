@@ -40,13 +40,15 @@ pub struct Engine<F: VenueFactory> {
     /// Set by `supervisor::serve`: every other writer of `bots` in this process runs `eligibility::guard` before it
     /// commits, so a pass that finds the install ineligible means one skipped it.
     pub(crate) writers_guarded: bool,
+    /// Bots whose tick was refused for stale reference data, by the source named: logged once, not on every pass.
+    stale_logged: HashMap<i64, &'static str>,
 }
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
-               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false }
+               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new() }
     }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
@@ -238,8 +240,12 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
     let eff = effective(interval, quote, bot.smart_quote_amount());
     let cps = checkpoints(anchor, now_us, eff);
+    // After a settled intent nothing runs before the next checkpoint, across a restart too.
+    let deferred = bot.rust_defer_until_us()?.filter(|&t| t > now_us);
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
+    } else if deferred.is_some() {
+        false
     } else if bot.status == crate::enums::BotStatus::Retrying {
         e.retry_at.get(&id).is_none_or(|&t| t <= now_us) // no in-memory state (a restart): due at once
     } else {
@@ -257,7 +263,12 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let stopping = move || stop.load(Ordering::SeqCst);
         let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
         let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await?;
-        super::log(&format!("bot {id}: {outcome:?}"));
+        let repeat = matches!(&outcome, TickOutcome::Stale { source, .. } if e.stale_logged.get(&id) == Some(source));
+        if !repeat { super::log(&format!("bot {id}: {outcome:?}")); }
+        match &outcome {
+            TickOutcome::Stale { source, .. } => { e.stale_logged.insert(id, *source); }
+            _ => { e.stale_logged.remove(&id); }
+        }
         // An order accepted this tick gets one follow-up poll shortly after (a deliberate small delay; Rails enqueues
         // FetchAndUpdateOrderJob at placement), whatever the tick's final outcome.
         let mut s = e.primary.prepare(
@@ -271,6 +282,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             TickOutcome::Done { .. } => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); }
             // Rescheduled: `retrying` until the next checkpoint, as Rails' reschedule leaves it.
             TickOutcome::Rescheduled => { e.retry_at.insert(id, cps.next_us + AFTER_CHECKPOINT_US); e.reconcile_at.remove(&id); }
+            TickOutcome::Stale { .. } => {} // the bot stays due; its next pass checks again
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
         }
     }
@@ -278,6 +290,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
     for at in [e.retry_at.get(&id), e.reconcile_at.get(&id)].into_iter().flatten() { *wake = (*wake).min(*at); }
+    if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
     let next = checkpoints(anchor, clock.now().timestamp_micros(), eff).next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
     Ok(())

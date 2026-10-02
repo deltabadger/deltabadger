@@ -5,6 +5,7 @@
 //! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
+use super::schedule::{checkpoints, effective};
 use super::{polling, Clock, EngineError};
 use crate::ruby::BigDec;
 use crate::venue::{Venue, VenueError};
@@ -102,6 +103,18 @@ fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), Engi
     Ok(())
 }
 
+/// After an intent is settled (placed or not), nothing is placed before the bot's next checkpoint, as Bot::ActionJob's next
+/// run of a failed run is at next_interval_checkpoint_at (action_job.rb:325-328). Written with `json_set` in the transaction
+/// that settles the intent, so a restart honours it (run::step_bot); the deferred tick removes it (tick::tick_recovering). A
+/// Rust-only key, outside the parity snapshots, like `rust_placement`.
+fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
+    let next = checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())).next_us;
+    let until = DateTime::from_timestamp_micros(next).expect("time in range").to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', ?1) WHERE id = ?2", params![until, bot.id])?;
+    Ok(())
+}
+
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
@@ -186,6 +199,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
             polling::apply_in(&tx, bot.id, id, &state, true, now)?; // as FetchAndUpdateOrderJob would, after placement
             set_intent(&tx, bot.id, None)?;
+            defer_to_next_checkpoint(&tx, bot, now)?;
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -193,6 +207,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
+            defer_to_next_checkpoint(&tx, bot, started)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -223,6 +238,7 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         OperatorResolution::NotPlaced => ("not_placed", None),
     };
     set_intent(&tx, bot_id, None)?;
+    defer_to_next_checkpoint(&tx, &bot, now)?;
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;

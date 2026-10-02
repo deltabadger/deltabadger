@@ -44,7 +44,7 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
                 if name == "last_end_of_funds_notification" { continue; }
                 let mut v = raw(r.get_ref(i)?);
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
-                if name == "transient_data" { if let Value::Object(m) = &mut v { m.remove("failure_notifications"); m.remove("rust_placement"); } }
+                if name == "transient_data" { if let Value::Object(m) = &mut v { m.remove("failure_notifications"); m.remove("rust_placement"); m.remove("rust_defer_until"); m.remove("rust_amount_limit_stops_pending"); } }
                 row.insert(name.clone(), v);
             }
             rows.insert(row["id"].to_string(), Value::Object(row));

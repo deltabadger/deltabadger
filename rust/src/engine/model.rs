@@ -127,6 +127,14 @@ impl Bot {
             Some(other) => Err(EngineError::Data(format!("missed_quote_amount {other}"))),
         }
     }
+    /// transient_data.rust_defer_until (placement::defer_to_next_checkpoint): no tick before it, in µs.
+    pub fn rust_defer_until_us(&self) -> Result<Option<i64>, EngineError> {
+        match self.transient.get("rust_defer_until") {
+            None | Some(Value::Null) => Ok(None),
+            Some(v) => v.as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| Some(t.with_timezone(&Utc).timestamp_micros()))
+                .ok_or_else(|| EngineError::Data(format!("bot {}: rust_defer_until {v}", self.id))),
+        }
+    }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }
     pub fn last_action_job_at_us(&self) -> Result<Option<i64>, EngineError> {

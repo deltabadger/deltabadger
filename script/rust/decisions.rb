@@ -89,7 +89,7 @@ module Decisions
     ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a.to_h do |r|
       r = r.except('last_end_of_funds_notification').transform_values { |v| raw(v) }
       JSON_COLUMNS.each { |c| r[c] = JSON.parse(r[c]) if r[c].is_a?(String) }
-      r['transient_data'] = r['transient_data'].except('failure_notifications', 'rust_placement') if r['transient_data'].is_a?(Hash)
+      r['transient_data'] = r['transient_data'].except('failure_notifications', 'rust_placement', 'rust_defer_until', 'rust_amount_limit_stops_pending') if r['transient_data'].is_a?(Hash)
       [r['id'], r]
     end
   end

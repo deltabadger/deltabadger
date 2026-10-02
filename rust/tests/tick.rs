@@ -108,7 +108,7 @@ async fn a_lost_reply_pauses_the_bot_until_reconciled_and_never_sends_twice() {
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::AwaitingReconciliation));
     assert_eq!(bot(&o, id).status, BotStatus::Retrying);
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:31Z").await, TickOutcome::AwaitingReconciliation), "first lookup incomplete");
-    assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:01Z").await, TickOutcome::Done { placed: false }), "found: nothing left to buy");
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:01Z").await, TickOutcome::Rescheduled), "found and recorded: the tick ends there");
     assert_eq!((v.sent().len(), one::<i64>(&o, "SELECT count(*) FROM transactions")), (1, 1));
 }
 
@@ -229,7 +229,9 @@ async fn a_transient_kraken_answer_to_addorder_is_ambiguous_not_a_rejection() {
         assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{err}: no failed row");
         assert_eq!(one::<String>(&o, "SELECT event FROM bot_activity_logs ORDER BY id DESC LIMIT 1"), "placement_ambiguous");
         assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:41Z").await, TickOutcome::AwaitingReconciliation), "{err}: absent before deadline + 60 s proves nothing");
-        assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:12Z").await, TickOutcome::Done { placed: true }), "{err}: absent after it: not placed, buy now");
+        assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:12Z").await, TickOutcome::Rescheduled), "{err}: absent after it: settled as not placed, the tick ends");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{err}: nothing placed before the next checkpoint");
+        assert!(matches!(run(&o, &v, id, "2026-09-08T10:00:01Z").await, TickOutcome::Done { placed: true }), "{err}: the next checkpoint buys");
         assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-2");
     }
 }

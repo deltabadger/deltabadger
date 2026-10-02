@@ -5,7 +5,8 @@ use super::venue_rules::VenueRules;
 use super::model::{self, Level};
 use super::placement::{self, Recovery, Sent};
 use super::polling::{self, PollFailure};
-use super::{Clock, EngineError};
+use super::{basket, staleness, Clock, EngineError};
+use chrono::{DateTime, Utc};
 use crate::codec::format_time;
 use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, to_sentence, BigDec};
@@ -23,7 +24,12 @@ const THREE_DAYS: f64 = 259_200.0;
 pub struct Attempts { pub transient: u32, pub rate: u32 }
 
 #[derive(Debug)]
-pub enum TickOutcome { Skipped, Done { placed: bool }, RetryAfter(Duration), Rescheduled, Stopped, AwaitingReconciliation }
+pub enum TickOutcome {
+    Skipped, Done { placed: bool }, RetryAfter(Duration), Rescheduled, Stopped, AwaitingReconciliation,
+    /// Reference data only a Rails job refreshes is past its bound (staleness.rs): nothing was read from the venue, nothing
+    /// written, and the bot stays due.
+    Stale { source: &'static str, message: String },
+}
 
 /// `:polynomially_longer` with retry_jitter 0 (executions**4 + 2 s), or BotJob::RATE_LIMIT_WAIT (15 s × executions).
 pub fn retry_wait(executions: u32, rate_limited: bool) -> Duration {
@@ -88,16 +94,29 @@ pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn 
 pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
-    match placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
+    let settled = match placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
         Recovery::Pending => return Ok(TickOutcome::AwaitingReconciliation),
-        Recovery::Recorded(tx) => *recovered = Some(tx),
-        Recovery::NoIntent | Recovery::NotPlaced => {}
-    }
+        Recovery::Recorded(tx) => { *recovered = Some(tx); true }
+        Recovery::NotPlaced => true,
+        Recovery::NoIntent => false,
+    };
     // A stop requested while the venue answered the lookup: the intent is settled; nothing new starts.
     if (cx.stopping)() { return Ok(TickOutcome::Skipped); }
     let bot = model::load_bot(c, bot_id)?;
     if !matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) { return Ok(TickOutcome::Skipped); }
+    // The settled intent was a failed run's order, and Bot::ActionJob runs the next order of a failed run at
+    // next_interval_checkpoint_at (action_job.rb:193, :272, :325-328). So the tick ends here, for Placed and NotPlaced alike,
+    // one asset or a basket's leg k: what was not bought is owed again at the next checkpoint, as in Rails.
+    if settled {
+        *attempts = Attempts::default();
+        return Ok(TickOutcome::Rescheduled);
+    }
+    // Decide nothing from reference data past its bound.
+    if let Some(s) = staleness::stale(c, &bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
 
+    // The checkpoint a settled intent deferred to (placement::defer_to_next_checkpoint) has come: this is that tick.
+    c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
+               WHERE id = ?1 AND json_extract(transient_data, '$.rust_defer_until') IS NOT NULL", [bot_id])?;
     let now = clock.now();
     // Rails' store_accessor writes a key only when the value changes, so `waiting_for_market_open: nil` touches the
     // key only where it holds something non-null; an absent key stays absent.
@@ -141,61 +160,21 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
     let ticker_row = model::ticker_for(c, &bot)?;
     let mut placed = false;
     if working {
-        // Bots::DcaMultiAsset#refresh_composition → derive_composition: only an available, trading-enabled ticker
-        // counts. It runs before anything is sized, so an untradable pair fails the tick with no order row.
-        let ticker = match &ticker_row {
-            Some(t) if t.available && t.trading_enabled => t,
-            _ => {
-                let m = format!("None of the portfolio's weighted assets trade on {}", model::exchange_name(c, &bot)?);
-                return Ok(Err(Fail::General { message: m, errors: vec![], failed_row: false }));
-            }
-        };
+        // Bots::DcaMultiAsset#refresh_composition: the members are re-derived and written before anything is sized; with no
+        // tradable weighted member the tick fails with no order row.
+        if let Err(m) = basket::refresh_composition(c, &bot, clock.now())? {
+            return Ok(Err(Fail::General { message: m, errors: vec![], failed_row: false }));
+        }
         let x = amount::pending_quote_amount(c, &bot, clock.now().timestamp_micros())?;
         if !x.is_zero() {
-            // Bot::OrderSetter#reference_price: the last trade for a limit buy, the ask for a market buy. A zero book is the
-            // venue's own "Wrong … price" error, which Rails' composition rescues into "No price for …".
-            let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
-            let key = (bot.exchange_id, ticker.id, side);
-            let fetched = match cx.prices.get(key, clock.now()) {
-                Some(hit) => Ok(hit),
-                // Only a usable price is stored (the venue returns a zero book as an error).
-                None => venue.price(ticker, side).await.inspect(|p| cx.prices.put(key, clock.now(), p.clone())),
-            };
-            let reference = match fetched {
-                Ok(p) => p,
-                Err(VenueError::Rejected(e)) => return Ok(Err(Fail::Transient(format!("No price for {}: {}", ticker.base_symbol, to_sentence(&e))))),
-                // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises
-                // it unwrapped, so it reaches retry_on with its own message.
-                Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(Fail::Transient(m))),
-                Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", ticker.base_symbol)))),
-            };
-            match amount::size(&bot, ticker, &x, &reference, venue.rules().minimum_logic) {
-                Sizing::Nothing => {}
-                Sizing::Ignored(plan) => model::log_activity(c, bot_id, "order_ignored", Level::Info, plan.log_details(), clock.now())?,
-                Sizing::BelowMinimum(plan) => {
-                    model::log_activity(c, bot_id, "order_skipped", Level::Warning, plan.log_details(), clock.now())?;
-                    amount::write_order_row(c, &bot, &plan, RowKind::Skipped, clock.now())?;
-                }
-                Sizing::ZeroPrice { decimals } => {
-                    let m = format!("limit price rounds to zero at {decimals} decimals");
-                    return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
-                }
-                Sizing::Place(plan) => {
-                    let intent = placement::begin(c, &bot, &plan, clock)?;
-                    match placement::send(venue, &intent, clock).await {
-                        Sent::Accepted(txid) => { placement::record_accepted(c, &bot, &intent, &txid)?; placed = true; }
-                        Sent::Rejected(errs) => {
-                            let row = placement::record_rejected(c, &bot, &intent, &errs)?;
-                            let m = to_sentence(&errs);
-                            return Ok(Err(if row { Fail::General { message: m, errors: errs, failed_row: true } } else { Fail::PlacementSafe(m) }));
-                        }
-                        Sent::Ambiguous(m) => return Ok(Err(Fail::Ambiguous(m))), // the intent stays
-                        Sent::NotSent(m) => { placement::drop_intent(c, bot_id)?; return Ok(Err(Fail::Transient(m))); }
-                    }
-                }
-            }
+            let mut legs = Legs::default();
+            let bought = buy(c, venue, &bot, &x, clock, cx, &mut legs).await;
+            // set_orders' `ensure record_skipped_orders!`: on every way out of the loop, a raise included.
+            record_skipped(c, &bot, &legs.skipped, legs.placed, clock.now())?;
+            placed = legs.placed;
+            if let Err(f) = bought? { return Ok(Err(f)); }
         }
-        // A stop that landed while AddOrder awaited its reply stays; the order already sent stands and is still polled.
+        // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
         model::transition_working(c, bot_id, BotStatus::Waiting, clock.now())?;
     }
     let Some(ticker) = ticker_row else { return Ok(Ok(placed)) }; // stopped, and no pair to read a balance for
@@ -221,6 +200,98 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
     Ok(Ok(placed))
+}
+
+/// What a basket buy did before it returned, for the skipped-leg report that runs on every way out.
+#[derive(Default)]
+struct Legs { placed: bool, skipped: Vec<amount::OrderPlan> }
+
+/// Bot::Composition::OrderSetter#set_orders(side: :buy) over get_orders_data: holdings, every member's price before any
+/// order (Step 1), the split, then the legs in member order. Each leg is settled (row written, intent cleared) before the next
+/// is sent, and the first leg that is not accepted ends the loop (order_setter.rb:80); legs never sent stay owed through
+/// pending_quote_amount. A price failure can only come before the first leg.
+async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs) -> Result<Result<(), Fail>, EngineError> {
+    let members = basket::members(c, bot)?;
+    if members.is_empty() {
+        let m = "No assets in composition".to_string();
+        return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+    }
+    let holdings = basket::holdings(c, bot)?;
+    let reserved = basket::reserved(c, bot)?;
+    // Bot::OrderSetter#reference_price: the last trade for a limit buy, the ask for a market buy.
+    let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
+    let mut priced = vec![];
+    for member in members {
+        let key = (bot.exchange_id, member.ticker.id, side);
+        let fetched = match cx.prices.get(key, clock.now()) {
+            Some(hit) => Ok(hit),
+            // Only a usable price is stored (the venue returns a zero book as an error).
+            None => venue.price(&member.ticker, side).await.inspect(|p| cx.prices.put(key, clock.now(), p.clone())),
+        };
+        let reference = match fetched {
+            Ok(p) => p,
+            // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
+            Err(VenueError::Rejected(e)) => return Ok(Err(Fail::Transient(format!("No price for {}: {}", member.ticker.base_symbol, to_sentence(&e))))),
+            // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
+            // unwrapped, so it reaches retry_on with its own message.
+            Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(Fail::Transient(m))),
+            Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", member.ticker.base_symbol)))),
+        };
+        let price = amount::order_price(bot, &member.ticker, &reference);
+        priced.push(basket::Priced { member, reference, price });
+    }
+    let split = match basket::split(&priced, &holdings, &reserved, x) {
+        Ok(split) => split,
+        Err(decimals) => {
+            let m = format!("limit price rounds to zero at {decimals} decimals");
+            return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+        }
+    };
+    for leg in split {
+        match amount::size(bot, &leg.ticker, &leg.quote, &leg.reference, venue.rules().minimum_logic) {
+            Sizing::Nothing => {}
+            Sizing::Ignored(plan) => model::log_activity(c, bot.id, "order_ignored", Level::Info, plan.log_details(), clock.now())?,
+            Sizing::BelowMinimum(plan) => legs.skipped.push(plan), // reported once, at the end (record_skipped)
+            Sizing::ZeroPrice { decimals } => {
+                let m = format!("limit price rounds to zero at {decimals} decimals");
+                return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+            }
+            Sizing::Place(plan) => {
+                let intent = placement::begin(c, bot, &plan, clock)?;
+                match placement::send(venue, &intent, clock).await {
+                    Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }
+                    Sent::Rejected(errs) => {
+                        let row = placement::record_rejected(c, bot, &intent, &errs)?;
+                        let m = to_sentence(&errs);
+                        return Ok(Err(if row { Fail::General { message: m, errors: errs, failed_row: true } } else { Fail::PlacementSafe(m) }));
+                    }
+                    Sent::Ambiguous(m) => return Ok(Err(Fail::Ambiguous(m))), // the intent stays; later legs wait for the next checkpoint
+                    // Nothing reached the venue. After a placed leg, Bot::ActionJob's already-placed guard refuses the replay
+                    // (action_job.rb:223-235); before one, retry_on replays the whole tick.
+                    Sent::NotSent(m) => {
+                        placement::drop_intent(c, bot.id)?;
+                        return Ok(Err(if legs.placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }));
+                    }
+                }
+            }
+        }
+    }
+    Ok(Ok(()))
+}
+
+/// Bot::Composition::OrderSetter#record_skipped_orders!: legs under the venue minimum are reported once. If anything was
+/// placed, one `orders_below_minimum` line. Otherwise each gets an `order_skipped` warning and a `skipped` row.
+fn record_skipped(c: &Connection, bot: &model::Bot, skipped: &[amount::OrderPlan], placed_any: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
+    if skipped.is_empty() { return Ok(()); }
+    if placed_any {
+        let bases: Vec<&str> = skipped.iter().map(|p| p.ticker.base_code.as_str()).collect();
+        return model::log_activity(c, bot.id, "orders_below_minimum", Level::Info, json!({ "count": skipped.len(), "bases": bases.join(", ") }), now);
+    }
+    for plan in skipped {
+        model::log_activity(c, bot.id, "order_skipped", Level::Warning, plan.log_details(), now)?;
+        amount::write_order_row(c, bot, plan, RowKind::Skipped, now)?;
+    }
+    Ok(())
 }
 
 /// Bot::Fundable#notified_in_last_day?
