@@ -410,5 +410,6 @@ mod sign_in_limits {
         let recorded = &common::vectors()["devise"];
         assert_eq!(auth::MAXIMUM_ATTEMPTS, recorded["maximum_attempts"].as_i64().unwrap());
         assert_eq!(auth::UNLOCK_IN_SECONDS, recorded["unlock_in"].as_i64().unwrap());
+        assert_eq!(auth::PENDING_TTL_SECONDS, recorded["pending_ttl"].as_i64().unwrap());
     }
 }

@@ -3,9 +3,10 @@
 //! There is no remember-me here: the checkbox is rendered and ignored. Rails' cookie is always
 //! `Secure`, so it never worked on a plain-http install, and a session lasts 30 days anyway.
 use super::layout::{self, Ctx, Page};
+use super::session::{Pending, SessionData};
 use super::{flash, i18n, i18n::Arg, locale, App, WebError};
 use crate::codec::{format_time, parse_time};
-use crate::crypto::{hash_password, verify_password, Cipher};
+use crate::crypto::{hash_password, totp_at, verify_password, Cipher};
 use crate::engine::EngineError;
 use askama::Template;
 use axum::extract::{Extension, State};
@@ -14,10 +15,12 @@ use axum::response::Response;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 
-/// Devise.maximum_attempts and Devise.unlock_in (pinned by tests/web.rs).
+/// Devise.maximum_attempts, Devise.unlock_in, and Users::SessionsController::PENDING_TTL (pinned by tests/web.rs).
 pub const MAXIMUM_ATTEMPTS: i64 = 5;
 pub const UNLOCK_IN_SECONDS: i64 = 15 * 60;
+pub const PENDING_TTL_SECONDS: i64 = 5 * 60;
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -246,16 +249,24 @@ enum PasswordStage {
     Invalid,
     Unconfirmed,
     SignedIn(User),
+    /// The password is right and the account has two-factor on: the code is still owed.
+    SecondFactor(User),
+    /// The same, but the account is locked: no second-factor prompt at all.
+    SecondFactorLocked,
 }
 
 /// Exactly one bcrypt computation per request, on every path: a hash for an unknown email, one
-/// verification for a known one. How long the answer takes then says nothing about the account.
+/// verification for a known one. How long the answer takes then says nothing about the account,
+/// including whether it has two-factor on (Rails verifies a two-factor account's wrong password twice).
 fn password_stage(c: &Connection, email: &str, password: &str, now: DateTime<Utc>) -> Result<PasswordStage, WebError> {
     let Some(mut user) = User::find_by_email(c, email)? else {
         let _ = hash_password(password);
         return Ok(PasswordStage::Invalid);
     };
     let correct = verify_password(password, &user.encrypted_password);
+    if user.otp_enabled && correct {
+        return Ok(if user.locked(now) { PasswordStage::SecondFactorLocked } else { PasswordStage::SecondFactor(user) });
+    }
     // Devise's database_authenticatable strategy: a blank password never reaches a row.
     if password.trim().is_empty() {
         return Ok(PasswordStage::Invalid);
@@ -295,6 +306,17 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let stage = { let email = email.clone(); app.db(move |c| password_stage(c, &email, &password, now)).await? };
     match stage {
         PasswordStage::SignedIn(user) => Ok(continue_sign_in(&ctx, &user, true)),
+        PasswordStage::SecondFactor(user) => {
+            // sign_out clears the whole session; only the pending sign-in survives.
+            *ctx.session.lock() = SessionData { pending: Some(Pending { user_id: user.id, started_at: now.timestamp() }), ..SessionData::default() };
+            // pending_sign_in_locale: the request's locale, else the account's; a prefix only for a routable, non-default one.
+            let wanted = ctx.params.locale().or(user.locale.as_deref()).and_then(locale::known).unwrap_or(locale::DEFAULT);
+            Ok(layout::redirect(StatusCode::FOUND, &locale::path(wanted, "/verify_two_factor")))
+        }
+        PasswordStage::SecondFactorLocked => {
+            flash::set(&ctx.session, flash::ALERT, i18n::text(ctx.locale, "devise.failure.locked", &[]));
+            Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/login")))
+        }
         PasswordStage::Unconfirmed => Ok(failure(&ctx, "unconfirmed")),
         PasswordStage::Invalid => {
             // Devise names the authentication keys in the message: the attribute's name, downcased.
@@ -305,3 +327,103 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     }
 }
 
+
+#[derive(Template)]
+#[template(path = "sessions/two_factor.html")]
+struct TwoFactorView<'a> {
+    v: &'a Ctx,
+    csrf: &'a str,
+}
+
+
+/// abandon_pending_sign_in: back to the login page, with the same message a wrong code gets.
+fn abandon(ctx: &Ctx) -> Response {
+    ctx.session.lock().pending = None;
+    flash::set(&ctx.session, flash::ALERT, i18n::text(ctx.locale, "errors.messages.bad_2fa_code", &[]));
+    layout::redirect(StatusCode::FOUND, &ctx.path("/login"))
+}
+
+/// Users::VerifyOtp: TOTP (SHA1, 6 digits, 30 s) for the previous, current and next step, but only
+/// steps later than the last one spent. The last match wins and is recorded.
+fn verify_otp(c: &Connection, cipher: &Cipher, user: &User, code: &str, now: DateTime<Utc>) -> Result<bool, WebError> {
+    let Some(stored) = user.otp_secret_key.as_deref().filter(|s| !s.trim().is_empty()) else { return Ok(false) };
+    let seed = cipher.decrypt(stored).map_err(|e| WebError::Engine(EngineError::Data(format!("users.otp_secret_key: {e:?}"))))?;
+    let spent = user.last_otp_at.map(|at| at.timestamp().div_euclid(30));
+    // The latest matching step is the one recorded, as ROTP's verify returns it.
+    let matched = ((now.timestamp() - 30).div_euclid(30)..=(now.timestamp() + 30).div_euclid(30)).rev()
+        .filter(|step| *step >= 0 && spent.is_none_or(|s| *step > s))
+        .find(|step| totp_at(&seed, (*step * 30) as u64).is_some_and(|expected| bool::from(expected.as_bytes().ct_eq(code.as_bytes()))));
+    let Some(step) = matched else { return Ok(false) };
+    let spent_at = DateTime::from_timestamp(step * 30, 0).unwrap_or(now);
+    c.execute("UPDATE users SET last_otp_at = ?1, updated_at = ?2 WHERE id = ?3", (format_time(spent_at), format_time(now), user.id))?;
+    Ok(true)
+}
+
+enum CodeStage {
+    /// No user, or the account is locked.
+    Abandon,
+    /// Nothing to verify: show the form.
+    Form,
+    Wrong,
+    /// The wrong code that reached the limit: the account is locked now.
+    WrongAndLocked,
+    /// The code was right and is spent, but the account is not confirmed: Devise's activatable hook
+    /// refuses the sign-in itself, not the request after it.
+    Unconfirmed,
+    SignedIn(User),
+}
+
+fn code_stage(c: &Connection, cipher: &Cipher, user_id: i64, code: Option<String>, now: DateTime<Utc>) -> Result<CodeStage, WebError> {
+    let Some(mut user) = User::find(c, user_id)? else { return Ok(CodeStage::Abandon) };
+    if user.lock_expired(now) {
+        user.unlock(c, now)?; // unlock_access_if_lock_expired!
+    }
+    if user.locked(now) {
+        return Ok(CodeStage::Abandon);
+    }
+    let Some(code) = code else { return Ok(CodeStage::Form) };
+    if verify_otp(c, cipher, &user, &code, now)? {
+        user.reset_failed_attempts(c, now)?;
+        return Ok(if user.confirmed { CodeStage::SignedIn(user) } else { CodeStage::Unconfirmed });
+    }
+    // register_failed_otp_attempt: the same counter as password failures.
+    user.increment_failed_attempts(c)?;
+    if user.failed_attempts >= MAXIMUM_ATTEMPTS {
+        user.lock(c, now)?;
+        return Ok(CodeStage::WrongAndLocked);
+    }
+    Ok(CodeStage::Wrong)
+}
+
+fn two_factor_page(ctx: &Ctx, status: StatusCode, flash_now: Vec<(&str, String)>) -> Result<Response, WebError> {
+    let csrf = ctx.csrf_token();
+    let body = TwoFactorView { v: ctx, csrf: &csrf }.render()?;
+    layout::devise(ctx, &csrf, Page { status, body, flash_now })
+}
+
+/// GET and POST /verify_two_factor. Only a POST with a code spends an attempt.
+pub async fn two_factor(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    let now = ctx.now;
+    let pending = ctx.session.lock().pending.clone();
+    let Some(pending) = pending.filter(|p| p.started_at > 0 && now.timestamp() - p.started_at < PENDING_TTL_SECONDS) else {
+        return Ok(abandon(&ctx));
+    };
+    let code = ctx.params.form("user[otp_code_token]").filter(|code| ctx.method == Method::POST && !code.trim().is_empty()).map(str::to_string);
+    let inner = app.clone();
+    match app.db(move |c| code_stage(c, &inner.cipher, pending.user_id, code, now)).await? {
+        CodeStage::Abandon | CodeStage::WrongAndLocked => Ok(abandon(&ctx)),
+        CodeStage::Form => two_factor_page(&ctx, StatusCode::OK, Vec::new()),
+        CodeStage::Wrong => {
+            let message = i18n::text(ctx.locale, "errors.messages.bad_2fa_code", &[]);
+            two_factor_page(&ctx, StatusCode::UNPROCESSABLE_ENTITY, vec![(flash::ALERT, message)])
+        }
+        CodeStage::Unconfirmed => {
+            ctx.session.lock().pending = None;
+            Ok(failure(&ctx, "unconfirmed"))
+        }
+        CodeStage::SignedIn(user) => {
+            ctx.session.lock().pending = None;
+            Ok(continue_sign_in(&ctx, &user, false))
+        }
+    }
+}

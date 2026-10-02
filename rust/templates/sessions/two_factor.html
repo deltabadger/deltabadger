@@ -1,0 +1,15 @@
+<form data-controller="form--html5-validations form--label-animations" action="{{ v.path("/verify_two_factor") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+  <h1>{{ v.t("devise.sessions.two_factor.title")|safe }}</h1>
+
+  <div class="form__row">
+    <input autofocus="autofocus" autocomplete="off" class="form__input form__input--large" required="required" pattern="\d{6}" data-html5-error-message="{{ v.t("devise.sessions.two_factor.invalid_code")|safe }}" type="text" name="user[otp_code_token]" id="user_otp_code_token" />
+    <label class="form__label" for="user_otp_code_token">2FA code</label>
+  </div>
+
+  <div class="form__row form__row--final-button">
+    <input type="submit" name="commit" value="{{ v.t("devise.sessions.two_factor.submit")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("devise.sessions.two_factor.submit")|safe }}" />
+  </div>
+</form>

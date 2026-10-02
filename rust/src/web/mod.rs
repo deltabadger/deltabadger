@@ -202,6 +202,7 @@ fn routes(app: App) -> Router {
     Router::new()
         .route("/", only(get(bots::home)))
         .route("/login", only(get(auth::new).post(auth::create)))
+        .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
