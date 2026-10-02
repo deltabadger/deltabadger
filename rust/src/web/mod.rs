@@ -13,6 +13,7 @@ pub mod headers;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
+pub mod rate_limit;
 pub mod server;
 pub mod session;
 pub mod timezone;
@@ -21,7 +22,7 @@ pub mod turbo;
 use crate::crypto::{Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
 use axum::body::Body;
-use axum::extract::{Request, State};
+use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -31,6 +32,7 @@ use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use rusqlite::Connection;
 use sha2::Sha256;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, PoisonError};
 use tower::ServiceExt;
 
@@ -139,6 +141,7 @@ pub struct Inner {
     pub keys: Keys,
     pub cipher: Cipher,
     pub clock: Arc<dyn Clock + Send + Sync>,
+    pub limiter: rate_limit::Limiter,
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
@@ -157,7 +160,7 @@ impl App {
     pub fn new(config: Config, env: &dyn Fn(&str) -> Option<String>, primary: Connection, clock: Arc<dyn Clock + Send + Sync>) -> Result<Self, WebError> {
         let encryption = EncryptionKeys::resolve(env, &config.secret_key_base).map_err(|e| WebError::Config(format!("{e:?}")))?;
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
-        Ok(Self(Arc::new(Inner { config, keys, cipher: Cipher::new(&encryption), clock, db: Mutex::new(primary) })))
+        Ok(Self(Arc::new(Inner { config, keys, cipher: Cipher::new(&encryption), clock, limiter: rate_limit::Limiter::default(), db: Mutex::new(primary) })))
     }
 
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
@@ -355,6 +358,13 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     };
     let before = session::cookie_value(request.headers()).and_then(|value| session::open(&app.keys.session, &value, now)).unwrap_or_default();
     let session = session::Session::new(before.clone());
+
+    // rack-attack: after the session middleware, before everything else.
+    let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
+    let address = rate_limit::client_key(&app.config, request.headers(), peer);
+    if let Some(retry_after) = app.limiter.hit(request.method(), &params.route_path, &address, now) {
+        return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
+    }
 
     let current = match auth::current_user(&app, &session, now).await {
         Ok(current) => current,

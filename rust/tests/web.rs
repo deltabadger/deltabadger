@@ -413,3 +413,82 @@ mod sign_in_limits {
         assert_eq!(auth::PENDING_TTL_SECONDS, recorded["pending_ttl"].as_i64().unwrap());
     }
 }
+
+mod rate_limits {
+    use super::common;
+    use super::common::web::{at, header_map};
+    use axum::http::{Method, StatusCode};
+    use deltabadger::web::{rate_limit, Config};
+
+    #[test]
+    fn the_limits_are_rack_attacks() {
+        let recorded = &common::vectors()["rack_attack"];
+        for (rule, _, limit) in rate_limit::RULES {
+            assert_eq!(recorded["throttles"][rule], serde_json::json!({ "limit": limit, "period": 60 }), "{rule}");
+        }
+        let response = rate_limit::throttled(17);
+        assert_eq!((response.status(), response.headers()["retry-after"].to_str().unwrap(), response.headers()["content-type"].to_str().unwrap()),
+                   (StatusCode::TOO_MANY_REQUESTS, "17", "text/plain; charset=utf-8"));
+    }
+
+    #[test]
+    fn a_window_is_a_clock_minute_per_address_and_rule() {
+        let limiter = rate_limit::Limiter::default();
+        let now = at("2026-09-10T12:00:30Z");
+        for _ in 0..10 { assert_eq!(limiter.hit(&Method::POST, "/login", "1.1.1.1", now), None); }
+        assert_eq!(limiter.hit(&Method::POST, "/login", "1.1.1.1", now), Some(30), "the 11th in the window; the window ends in 30 s");
+        assert_eq!(limiter.hit(&Method::POST, "/login", "1.1.1.1", at("2026-09-10T12:00:59Z")), Some(1), "refused requests count too");
+        assert_eq!(limiter.hit(&Method::POST, "/login", "2.2.2.2", now), None, "another address");
+        assert_eq!(limiter.hit(&Method::GET, "/login", "1.1.1.1", now), None, "only POST is limited");
+        assert_eq!(limiter.hit(&Method::DELETE, "/login", "3.3.3.3", now), None, "a form POST that _method made a DELETE is not a POST to rack-attack");
+        assert_eq!(limiter.hit(&Method::POST, "/bots", "1.1.1.1", now), None, "no rule");
+        assert_eq!(limiter.hit(&Method::POST, "/login", "1.1.1.1", at("2026-09-10T12:01:00Z")), None, "the next clock minute starts at zero");
+        for _ in 0..5 { assert_eq!(limiter.hit(&Method::POST, "/verify_two_factor", "1.1.1.1", now), None); }
+        assert_eq!(limiter.hit(&Method::POST, "/verify_two_factor", "1.1.1.1", now), Some(30));
+    }
+
+    #[test]
+    fn headers_name_the_client_only_behind_a_declared_proxy_and_only_when_a_proxy_sent_them() {
+        // Behind a trusted proxy the answer is Rails', except for these X-Forwarded-For values, where
+        // Rails can be told an address and this crate cannot: (the header, this crate's answer).
+        // - an entry nobody can read: Rails skips it and believes the entry before it, which only the
+        //   caller wrote; here the walk ends at the last trusted hop (10.0.0.9, or the peer 10.0.0.5);
+        // - an IPv4-mapped address: Rails' trusted ranges do not cover it and it prints it as IPv6;
+        //   here it is the IPv4 address it carries.
+        const STRICTER: [(&str, &str); 7] = [
+            ("198.51.100.7, unknown, , 10.0.0.9", "10.0.0.9"),
+            ("198.51.100.99, garbage, 10.0.0.9", "10.0.0.9"),
+            ("198.51.100.99, 203.0.113.7:notaport", "10.0.0.5"),
+            ("198.51.100.99, 203.0.113.7/32", "10.0.0.5"),
+            ("198.51.100.99, ::ffff:10.0.0.9", "198.51.100.99"),
+            ("198.51.100.99, ::ffff:203.0.113.7", "203.0.113.7"),
+            ("198.51.100.99, [::ffff:203.0.113.7]:443", "203.0.113.7"),
+        ];
+        let (mut rails_believed_a_forged_header, mut stricter) = (0, 0);
+        for case in common::vectors()["remote_ip"].as_array().unwrap() {
+            let peer = case["remote_addr"].as_str().unwrap();
+            let got = rate_limit::remote_ip(peer.parse().ok(), case["forwarded_for"].as_str(), case["client_ip"].as_str()).map(|ip| ip.to_string());
+            let listed = STRICTER.iter().find(|(header, _)| case["forwarded_for"] == *header);
+            if case["peer_trusted"] != true {
+                assert_eq!(got.as_deref(), Some(peer), "a peer that is no trusted proxy is the client, whatever it sends: {case}");
+                rails_believed_a_forged_header += usize::from(case["ip"] != peer);
+            } else if let Some((_, ours)) = listed {
+                assert_eq!(got.as_deref(), Some(*ours), "{case}");
+                assert_ne!(case["ip"], *ours, "Rails answers the same now: take this one off the list. {case}");
+                stricter += 1;
+            } else {
+                assert_eq!(got.as_deref(), case["ip"].as_str(), "behind a trusted proxy the answer is Rails': {case}");
+            }
+        }
+        assert_eq!(rails_believed_a_forged_header, 4, "the vectors where Rails takes the caller's own header for its address");
+        assert_eq!(stricter, STRICTER.len(), "every listed difference has its vector");
+        let config = |behind: &'static str| Config::from_env(&move |name| match name { "SECRET_KEY_BASE" => Some("s".into()), "BEHIND_PROXY" => Some(behind.into()), _ => None }).unwrap();
+        let forwarded = header_map(&[("x-forwarded-for", "198.51.100.7")]);
+        let peer = Some("10.0.0.5".parse().unwrap());
+        assert_eq!(rate_limit::client_key(&config("false"), &forwarded, peer), "10.0.0.5", "the header is only what the caller typed");
+        assert_eq!(rate_limit::client_key(&config("true"), &forwarded, peer), "198.51.100.7");
+        assert_eq!(rate_limit::client_key(&config("true"), &forwarded, Some("203.0.113.9".parse().unwrap())), "203.0.113.9", "a direct public peer cannot rename itself");
+        assert_eq!(rate_limit::client_key(&config("true"), &forwarded, Some("::ffff:10.0.0.5".parse().unwrap())), "198.51.100.7", "a private IPv4 proxy on a dual-stack socket");
+        assert_eq!(rate_limit::client_key(&config("false"), &forwarded, None), "unattributed", "never an empty key");
+    }
+}

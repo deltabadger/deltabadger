@@ -154,6 +154,12 @@ module Pages
       'two_factor_confirmation_revoked' => { 'user' => two_factor_user,
                                              'steps' => [get('/login'), login, get('/verify_two_factor'),
                                                          otp(code_at(AT)).merge('before' => 'unconfirm', 'expect' => 302), get('/login')] },
+      'throttle_login' => { 'steps' => [get('/login')] + Array.new(11) { login('wrong') } },
+      'throttle_login_locale_prefix' => { 'steps' => [get('/login')] + Array.new(10) { login('wrong') } + [login('wrong', path: '/de/login/', csrf: 'header')] },
+      'throttle_two_factor' => { 'user' => two_factor_user,
+                                 'steps' => [get('/login'), login, get('/verify_two_factor')] + Array.new(6) { otp('000000') } },
+      'unrouted_delete_login_is_not_throttled' => { 'steps' => [get('/login')] + Array.new(10) { login('wrong') } +
+        [post('/login', { '_method' => 'delete' })] },
       'up' => { 'steps' => [get('/up')] }
     }
   end
