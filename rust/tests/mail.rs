@@ -229,3 +229,18 @@ fn every_text_a_mail_uses_exists_in_every_locale() {
     let missing: Vec<String> = locale::LOCALES.iter().flat_map(|l| keys.iter().map(move |k| format!("{l}.{k}"))).filter(|k| !table.contains(k.as_str())).collect();
     assert!(missing.is_empty(), "a mail in these locales would fall back to English, which the parity grid does not cover: {missing:?}");
 }
+
+// ---- The sender's waits (mail::sender) ----
+use deltabadger::mail::sender;
+
+#[test]
+fn the_first_retries_wait_as_long_as_the_delivery_job_does() {
+    let ruby: Vec<u64> = vectors()["retry_waits"].as_array().unwrap().iter().map(|w| w.as_u64().unwrap()).collect();
+    let dir = tempfile::tempdir().unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("x.sqlite3")).unwrap();
+    let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "mail-test-secret").unwrap());
+    let s = sender::Sender::new(db, cipher, &|_| None, deltabadger::engine::SystemClock);
+    let ours: Vec<u64> = s.waits.iter().map(|w| w.as_secs()).collect();
+    assert_eq!(ours[..4], ruby[..], "ApplicationMailDeliveryJob: polynomially_longer, attempts 2 to 5");
+    assert_eq!(ours[4..], [3600], "then hourly, until the marker is a day old");
+}
