@@ -469,6 +469,69 @@ vectors['basket_compositions'] = composition_cases.map do |weights, untradable, 
   end
 end
 
+# Bot::Composition::OrderSetter#get_orders_data over recorded holdings and prices: every order it returns (base, price,
+# base amount, quote amount) or its failure. Prices are read from the book below, not from the venue.
+module VectorPrices
+  mattr_accessor :book
+  def get_ask_price(force: false) = Result::Success.new(VectorPrices.book.fetch([id, :ask]))
+  def get_last_price(force: false) = Result::Success.new(VectorPrices.book.fetch([id, :last]))
+end
+Ticker.prepend(VectorPrices)
+closed_row = lambda do |sym, value, price|
+  vector_row_id += 1
+  qty = (value.to_d / price.to_d).round(9)
+  { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "rust-vector-#{vector_row_id}", 'order_type' => 0,
+    'price' => price.to_s, 'quote_amount' => value.to_s, 'amount_exec' => qty.to_s('F'), 'quote_amount_exec' => (qty * price.to_d).to_s('F'),
+    'created_at' => '2026-08-20 10:00:00' }
+end
+split_rng = Random.new(2_202_650)
+base_prices = { 'VBTC' => 64_000.0, 'VETH' => 2500.0, 'VSOL' => 150.0 }
+usual = { 'VBTC' => { 'ask' => '64000', 'last' => '63990' }, 'VETH' => { 'ask' => '2500', 'last' => '2499.5' }, 'VSOL' => { 'ask' => '150', 'last' => '149.9' } }
+split_cases = Array.new(48) do
+  members = %w[VBTC VETH VSOL].first(split_rng.rand(1..3))
+  weights = members.size == 1 ? { members[0] => 1.0 } : Bots::DcaMultiAsset.new.send(:normalize_allocations, members.to_h { |m| [m, split_rng.rand(1..9).to_f] })
+  rows = members.flat_map { |sym| Array.new(split_rng.rand(0..3)) { ledger_row.(split_rng, sym, LEDGER_KINDS.sample(random: split_rng)) } }
+  prices = members.to_h { |m| p = base_prices[m] * (0.8 + (split_rng.rand(40) / 100.0)); [m, { 'ask' => format('%.3f', p), 'last' => format('%.3f', p * 0.999) }] }
+  { weights:, rows:, prices:, limit: split_rng.rand < 0.5, x: %w[0.5 3 60 120 123.45 1000].sample(random: split_rng) }
+end
+split_cases += [
+  # A limit price under the pair's precision: Rails fails before any order ("limit price rounds to zero at 3 decimals").
+  { weights: { 'VBTC' => 0.5, 'VSOL' => 0.5 }, rows: [], prices: { 'VBTC' => usual['VBTC'], 'VSOL' => { 'ask' => '0.0004', 'last' => '0.0004' } }, limit: true, x: '60' },
+  # At balance: each member holds its weight of 600 at the ask, so the contribution is spent by weight.
+  { weights: { 'VBTC' => 0.334, 'VETH' => 0.333, 'VSOL' => 0.333 },
+    rows: [closed_row.('VBTC', 200.4, 64_000), closed_row.('VETH', 199.8, 2500), closed_row.('VSOL', 199.8, 150)], prices: usual, limit: false, x: '60' },
+  # Drifted past its share even after the contribution: that member's offset is zero, the other takes everything.
+  { weights: { 'VBTC' => 0.5, 'VETH' => 0.5 }, rows: [closed_row.('VBTC', 1000, 64_000)], prices: usual.slice('VBTC', 'VETH'), limit: false, x: '60' },
+  # One member: the offsets reduce to the contribution.
+  { weights: { 'VBTC' => 1.0 }, rows: [closed_row.('VBTC', 300, 64_000)], prices: usual.slice('VBTC'), limit: true, x: '123.45' },
+  # True thirds, stored as 0.333333 each and re-weighted in BigDecimal, valued at limit prices.
+  { weights: { 'VBTC' => 1.0 / 3, 'VETH' => 1.0 / 3, 'VSOL' => 1.0 / 3 }, rows: [closed_row.('VBTC', 100, 64_000)], prices: usual, limit: true, x: '60' },
+  # A resting limit buy counts as held: VETH's unfilled 0.08 at 2500 balances VBTC's 200, so the contribution splits by
+  # weight instead of all going to VETH.
+  { weights: { 'VBTC' => 0.5, 'VETH' => 0.5 },
+    rows: [closed_row.('VBTC', 200, 64_000),
+           { 'asset' => 'VETH', 'status' => 0, 'external_status' => 0, 'external_id' => "rust-vector-#{vector_row_id += 1}", 'order_type' => 1,
+             'price' => '2500.0', 'amount' => '0.08', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-08-20 10:00:00' }],
+    prices: usual.slice('VBTC', 'VETH'), limit: false, x: '60' },
+  # 7:7:1 from nothing, stored as 0.466667, 0.466667 and 0.066667 and re-weighted: the offsets sum past the contribution,
+  # and the last leg is capped by what is left rather than by its own share.
+  { weights: { 'VBTC' => 7.0 / 15, 'VETH' => 7.0 / 15, 'VSOL' => 1.0 / 15 }, rows: [], prices: usual, limit: false, x: '60' }
+]
+vectors['basket_splits'] = split_cases.map do |c|
+  settings = c[:limit] ? { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } : {}
+  with_basket(c[:weights], settings:, rows: c[:rows]) do |bot, assets, alpaca|
+    VectorPrices.book = c[:prices].each_with_object({}) do |(sym, p), book|
+      t = Ticker.find_by!(exchange: alpaca, base_asset: assets.fetch(sym))
+      book[[t.id, :ask]] = BigDecimal(p['ask'])
+      book[[t.id, :last]] = BigDecimal(p['last'])
+    end
+    r = bot.send(:get_orders_data, BigDecimal(c[:x]))
+    { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows], 'prices' => c[:prices], 'limit' => c[:limit], 'x' => c[:x],
+      'orders' => r.success? ? r.data.map { |o| [o[:ticker].base, o[:price].to_d.to_s('F'), o[:amount].to_d.to_s('F'), o[:quote_amount].to_d.to_s('F')] } : nil,
+      'failure' => r.failure? ? r.errors.to_sentence : nil }
+  end
+end
+
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe

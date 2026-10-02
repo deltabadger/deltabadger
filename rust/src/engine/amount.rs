@@ -1,6 +1,5 @@
-//! Bot::Accountable#pending_quote_amount and the one-asset path of Bot::Composition::OrderSetter, with
-//! Kraken's minimum logic (Exchanges::Kraken#minimum_amount_logic) and Bot::OrderCreator's rows.
-//! One asset at 100 %: the offset arithmetic of get_orders_data reduces exactly to the pending amount.
+//! Bot::Accountable#pending_quote_amount, the per-leg minimum logic of Bot::OrderSetter#calculate_best_amount_info (Kraken's
+//! and Alpaca's) and Bot::OrderCreator's rows. The basket split that decides each leg's quote is engine::basket::split.
 use super::model::{Bot, Ticker};
 use super::schedule::{checkpoints, effective, interval_count};
 use super::EngineError;
@@ -76,14 +75,19 @@ pub struct OrderPlan {
 #[derive(Debug)]
 pub enum Sizing { Nothing, Ignored(OrderPlan), BelowMinimum(OrderPlan), Place(OrderPlan), ZeroPrice { decimals: i64 } }
 
+/// Bot::OrderSetter#order_price for a buy (Ticker#adjusted_price): a limit buy goes below the last trade, floored to the
+/// pair's price decimals; a market buy is the ask itself. The split values holdings at this price too.
+pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec) -> BigDec {
+    match bot.limit_distance() {
+        Some(d) => (reference * &(&BigDec::one() - &d)).floor(ticker.price_decimals),
+        None => reference.clone(),
+    }
+}
+
 pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: MinimumLogic) -> Sizing {
     if x.is_zero() { return Sizing::Nothing; }
     let distance = bot.limit_distance();
-    // Bot::OrderSetter#order_price: a limit buy goes below the last trade, floored; a market buy sizes at the ask.
-    let price = match &distance {
-        Some(d) => (reference * &(&BigDec::one() - d)).floor(ticker.price_decimals),
-        None => reference.clone(),
-    };
+    let price = order_price(bot, ticker, reference);
     let Some(amount) = x.div(&price) else { return Sizing::ZeroPrice { decimals: ticker.price_decimals } };
     let (quote_type, below) = match logic {
         // Exchanges::Alpaca: :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size;

@@ -14,7 +14,9 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, H
         ids.insert(sym.clone(), seed::add_alpaca_crypto(&o.primary, &s, sym, &case["pairs"][sym]).0);
     }
     let allocations: serde_json::Map<String, Value> = case["weights"].as_object().unwrap().iter().map(|(sym, w)| (ids[sym].to_string(), w.clone())).collect();
-    let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("interval", json!("day")).with("allocations", Value::Object(allocations));
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("interval", json!("day")).with("allocations", Value::Object(allocations));
+    // The recorder's limit settings: `with_basket(…, settings: { limit_ordered: true, limit_order_pcnt_distance: 0.0025 })`.
+    if case["limit"] == true { spec = spec.with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)); }
     let id = seed::insert_bot(&o.primary, &s, &spec);
     for row in case["rows"].as_array().into_iter().flatten() { seed::insert_row(&o.primary, &s, id, ids[row["asset"].as_str().unwrap()], row); }
     (d, o, id, ids)
@@ -133,4 +135,37 @@ fn only_this_bots_buys_are_read_and_a_former_members_fills_stay_held() {
     sell["side"] = json!(1);
     seed::insert_row(&o.primary, &s, mine, s.btc, &sell);
     assert_eq!(held(basket::reserved(&o.primary, &bot).unwrap()), vec![(s.btc, "0.002".to_string())], "a resting sell reserves nothing to buy");
+}
+
+fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
+
+#[test]
+fn every_recorded_rails_split_is_reproduced() {
+    use deltabadger::engine::amount;
+    let cases = common::vectors()["basket_splits"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 55);
+    for (i, case) in cases.iter().enumerate() {
+        let (_d, o, id, _ids) = build(case);
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        basket::refresh_composition(&o.primary, &bot, at("2026-09-01T10:00:00Z")).unwrap().expect("the save derives");
+        let side = if case["limit"] == true { "last" } else { "ask" };
+        let priced: Vec<basket::Priced> = basket::members(&o.primary, &bot).unwrap().into_iter().map(|m| {
+            let reference = bd(case["prices"][&m.ticker.base_code][side].as_str().unwrap());
+            let price = amount::order_price(&bot, &m.ticker, &reference);
+            basket::Priced { member: m, reference, price }
+        }).collect();
+        let got = basket::split(&priced, &basket::holdings(&o.primary, &bot).unwrap(), &basket::reserved(&o.primary, &bot).unwrap(), &bd(case["x"].as_str().unwrap()));
+        match (got, &case["orders"]) {
+            (Ok(legs), Value::Array(want)) => {
+                let price_of = |id: i64| priced.iter().find(|p| p.member.ticker.id == id).unwrap().price.clone();
+                let got: Vec<Value> = legs.iter().map(|l| {
+                    let p = price_of(l.ticker.id);
+                    json!([l.ticker.base_code, p.to_s_f(), l.quote.div(&p).unwrap().to_s_f(), l.quote.to_s_f()])
+                }).collect();
+                assert_eq!(&got, want, "case {i}: {case}");
+            }
+            (Err(decimals), Value::Null) => assert_eq!(case["failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
+            (got, want) => panic!("case {i}: Rust {:?}, Rails {want}", got.map(|legs| legs.len())),
+        }
+    }
 }

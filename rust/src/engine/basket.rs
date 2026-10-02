@@ -167,3 +167,52 @@ pub fn member_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineErro
     }
     Ok(out)
 }
+
+/// A member with the price its leg would be sent at: `reference` is what the venue answered (the ask for a market buy, the
+/// last trade for a limit buy), `price` is amount::order_price of it.
+#[derive(Clone, Debug)]
+pub struct Priced { pub member: Member, pub reference: BigDec, pub price: BigDec }
+
+/// One order of the split: its member's ticker, the reference price it was sized from, and its quote amount.
+#[derive(Clone, Debug)]
+pub struct Leg { pub ticker: Ticker, pub reference: BigDec, pub quote: BigDec }
+
+/// `[a, b, c].min`: the first of equal minima, as Array#min keeps.
+fn min3(a: BigDec, b: BigDec, c: BigDec) -> BigDec {
+    let m = if b < a { b } else { a };
+    if c < m { c } else { m }
+}
+
+/// get_orders_data, Steps 2-5 (composition/order_setter.rb:410-482), over members already priced in member order:
+/// - current value = (holding + reserved) × price, at the order price (a limit price for a limit bot);
+/// - target = (Σ current + x) × weight (BigDecimal × Float, the Float as Float#to_d);
+/// - offset = max(0, target − current);
+/// - in member order, skipping a zero offset: order = min(offset, x × (offset / Σ offset), what is left). An order that is
+///   not positive is skipped; a positive one on a zero price is Err(price decimals) before anything is placed.
+pub fn split(priced: &[Priced], holdings: &HashMap<i64, BigDec>, reserved: &HashMap<i64, BigDec>, x: &BigDec) -> Result<Vec<Leg>, i64> {
+    let zero = BigDec::zero();
+    let current: Vec<BigDec> = priced.iter().map(|p| {
+        let held = holdings.get(&p.member.asset_id).unwrap_or(&zero) + reserved.get(&p.member.asset_id).unwrap_or(&zero);
+        &held * &p.price
+    }).collect();
+    let portfolio = &current.iter().fold(BigDec::zero(), |acc, v| &acc + v) + x;
+    let offsets: Vec<BigDec> = priced.iter().zip(&current).map(|(p, cur)| {
+        let weight = BigDec::from_f64(p.member.weight).expect("a weight is finite");
+        (&(&portfolio * &weight) - cur).max(BigDec::zero())
+    }).collect();
+    let total_offset = offsets.iter().fold(BigDec::zero(), |acc, o| &acc + o);
+    let mut remaining = x.clone();
+    let mut legs = vec![];
+    for (p, offset) in priced.iter().zip(offsets) {
+        if offset.is_zero() { continue; }
+        // Rails divides first (a BigDecimal division with its own precision), then multiplies by x.
+        let share = x * &offset.div(&total_offset).expect("a positive offset makes the total positive");
+        let order = min3(offset, share, remaining.clone());
+        if !order.is_positive() { continue; }
+        // A limit price under the pair's precision floors to zero, and Rails' division would send a volume of Infinity.
+        if p.price.is_zero() { return Err(p.member.ticker.price_decimals); }
+        remaining = &remaining - &order;
+        legs.push(Leg { ticker: p.member.ticker.clone(), reference: p.reference.clone(), quote: order });
+    }
+    Ok(legs)
+}
