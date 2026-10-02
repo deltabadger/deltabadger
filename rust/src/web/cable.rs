@@ -15,6 +15,12 @@
 //! what a signed-in user can hold is bounded: `MAX_MESSAGE_BYTES`, `MAX_SUBSCRIPTIONS`,
 //! `MAX_CONNECTIONS_PER_USER`, `MAX_CONNECTIONS`. A signed stream name is still needed to subscribe.
 //!
+//! Which streams: in Rails whoever holds a signed name may subscribe to it. Here a stream that
+//! belongs to one user (`user_<id>` or `user_<id>:…`, the names the pages sign for
+//! `turbo_stream_from "user_<id>", …`) is confirmed only on that user's own connections
+//! (`stream_is_for`); for anyone else it is rejected like a name that does not verify. Other
+//! stream names are as in Rails.
+//!
 //! A connection lives longer than the request that opened it, so what authenticated it is kept with
 //! it (the user, the password salt of the session, the end of the session's cookie) and asked again:
 //! every `cable_recheck` by the connection itself, and at once when a new connection of the same
@@ -204,6 +210,13 @@ pub fn verified_stream_name(key: &[u8; 32], signed: &str) -> Option<String> {
     serde_json::from_slice::<Value>(&B64.decode(data).ok()?).ok()?.as_str().map(str::to_string)
 }
 
+/// Whether a connection of `user_id` may subscribe to `stream`. A name that begins `user_<digits>`,
+/// alone or followed by `:`, is that user's and nobody else's; any other name is not tied to a user.
+pub fn stream_is_for(stream: &str, user_id: i64) -> bool {
+    let owner = stream.strip_prefix("user_").and_then(|rest| rest.split(':').next()).filter(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()));
+    owner.is_none_or(|id| id == user_id.to_string())
+}
+
 /// `turbo_stream_from`: the element the page subscribes with.
 pub fn stream_source(key: &[u8; 32], name: &str) -> String {
     format!("<turbo-cable-stream-source channel=\"{CHANNEL}\" signed-stream-name=\"{}\"></turbo-cable-stream-source>", escape(&signed_stream_name(key, name)))
@@ -270,7 +283,7 @@ async fn send(socket: &mut WebSocket, message: Value) -> Result<(), axum::Error>
 /// closed without waiting for the peer. The place is given back when this function returns.
 async fn serve(place: Place, socket: WebSocket) {
     tokio::select! {
-        _ = talk(&place.app, socket) => {}
+        _ = talk(&place.app, place.user_id, socket) => {}
         _ = revoked(&place) => {}
     }
 }
@@ -292,7 +305,7 @@ async fn revoked(place: &Place) {
 /// Reading, writing and pinging, until either side ends the connection. The server ends it on a
 /// message over `MAX_MESSAGE_BYTES` (the read fails), on a subscription over `MAX_SUBSCRIPTIONS`,
 /// on a write that misses its deadline, and when the connection cannot keep up with the hub.
-async fn talk(app: &App, mut socket: WebSocket) {
+async fn talk(app: &App, user_id: i64, mut socket: WebSocket) {
     let mut feed = app.hub.sender.subscribe();
     let mut subscriptions: Vec<(String, String)> = Vec::new(); // (identifier as the client sent it, stream)
     if send(&mut socket, json!({ "type": "welcome" })).await.is_err() {
@@ -303,7 +316,7 @@ async fn talk(app: &App, mut socket: WebSocket) {
     loop {
         let sent = tokio::select! {
             incoming = socket.recv() => match incoming {
-                Some(Ok(Message::Text(text))) => command(app, &mut socket, &mut subscriptions, text.as_str()).await,
+                Some(Ok(Message::Text(text))) => command(app, user_id, &mut socket, &mut subscriptions, text.as_str()).await,
                 Some(Ok(Message::Close(_))) | Some(Err(_)) | None => return,
                 Some(Ok(_)) => Ok(()),
             },
@@ -331,7 +344,7 @@ async fn deliver(socket: &mut WebSocket, subscriptions: &[(String, String)], str
     Ok(())
 }
 
-async fn command(app: &App, socket: &mut WebSocket, subscriptions: &mut Vec<(String, String)>, text: &str) -> Result<(), axum::Error> {
+async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions: &mut Vec<(String, String)>, text: &str) -> Result<(), axum::Error> {
     let Ok(message) = serde_json::from_str::<Value>(text) else { return Ok(()) };
     let Some(identifier) = message["identifier"].as_str() else { return Ok(()) };
     match message["command"].as_str() {
@@ -343,7 +356,9 @@ async fn command(app: &App, socket: &mut WebSocket, subscriptions: &mut Vec<(Str
             if options["channel"] != CHANNEL {
                 return Ok(()); // Rails logs "Subscription class not found" and sends nothing
             }
-            match options["signed_stream_name"].as_str().and_then(|signed| verified_stream_name(&app.keys.streams, signed)) {
+            // A name that verifies, and that is not another user's own stream.
+            let stream = options["signed_stream_name"].as_str().and_then(|signed| verified_stream_name(&app.keys.streams, signed));
+            match stream.filter(|stream| stream_is_for(stream, user_id)) {
                 Some(_) if subscriptions.len() >= MAX_SUBSCRIPTIONS => Err(axum::Error::new("too many subscriptions")),
                 Some(stream) => {
                     subscriptions.push((identifier.to_string(), stream));

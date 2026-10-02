@@ -124,12 +124,12 @@ async fn the_handshake_is_action_cables() {
     assert_eq!(protocol.as_deref(), Some("actioncable-v1-json"), "the client disconnects for good on any other protocol");
     assert_eq!(next(&mut socket).await, json!({ "type": "welcome" }));
 
-    let id = identifier(&app, "user_7:bot_updates");
+    let id = identifier(&app, "user_1:bot_updates");
     command(&mut socket, "subscribe", &id).await;
     assert_eq!(next_event(&mut socket).await, json!({ "identifier": id, "type": "confirm_subscription" }), "this is what sets the element's `connected` attribute");
 
-    app.hub.broadcast("user_7:bot_updates", "<turbo-stream action=\"remove\" target=\"bot_1\"></turbo-stream>");
-    app.hub.broadcast("user_8:bot_updates", "<turbo-stream action=\"remove\" target=\"other\"></turbo-stream>");
+    app.hub.broadcast("user_1:bot_updates", "<turbo-stream action=\"remove\" target=\"bot_1\"></turbo-stream>");
+    app.hub.broadcast("user_2:bot_updates", "<turbo-stream action=\"remove\" target=\"other\"></turbo-stream>");
     assert_eq!(next_event(&mut socket).await, json!({ "identifier": id, "message": "<turbo-stream action=\"remove\" target=\"bot_1\"></turbo-stream>" }));
 
     let ping = next(&mut socket).await; // only another stream's broadcast was pending: the next message is a ping
@@ -172,7 +172,7 @@ async fn a_repeated_subscribe_is_confirmed_once_and_unsubscribe_stops_delivery()
 #[tokio::test(flavor = "current_thread")]
 async fn a_reconnecting_client_is_welcomed_and_confirmed_again() {
     let (_dir, app, address) = served().await;
-    let id = identifier(&app, "user_7:bot_updates");
+    let id = identifier(&app, "user_1:bot_updates");
     for _ in 0..2 {
         let (mut socket, _) = open(address, "http://localhost:3000").await.unwrap();
         assert_eq!(next(&mut socket).await["type"], "welcome");
@@ -199,6 +199,37 @@ async fn only_this_sites_pages_may_connect() {
     assert_eq!(open_with(address, "http://bot.example", cookie, &[("x-forwarded-host", "bot.example")]).await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:3000.evil.example").await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:30001").await.err(), Some(404));
+}
+
+/// Rails lets anyone who holds a signed stream name subscribe to it. Here a stream that belongs to
+/// one user (`user_<id>`, `user_<id>:…`) is for that user's connections only, so a name that leaked
+/// from one account's page is no use to another account.
+#[tokio::test(flavor = "current_thread")]
+async fn a_users_streams_are_for_that_users_connections_only() {
+    let (_dir, app, address) = served().await;
+    let origin = "http://localhost:3000";
+    let (mut owner, _) = open(address, origin).await.unwrap();
+    let (mut second, _) = open_as(address, origin, Some(&signed_in(&app, SECOND))).await.unwrap();
+    next(&mut owner).await;
+    next(&mut second).await;
+    for owners in ["user_1:bot_updates", "user_1:preferences", "user_1", "user_01:bot_updates", "user_99999999999999999999:bot_updates"] {
+        command(&mut second, "subscribe", &identifier(&app, owners)).await;
+        assert_eq!(next_event(&mut second).await["type"], "reject_subscription", "{owners} is not the second user's");
+    }
+    for own in ["user_2:bot_updates", "user_2"] {
+        command(&mut second, "subscribe", &identifier(&app, own)).await;
+        assert_eq!(next_event(&mut second).await["type"], "confirm_subscription", "{own}");
+    }
+    for anyones in ["settings_sync", "user_1x:bot_updates", "users_1:bot_updates", "user_:x", "bot_7"] {
+        command(&mut second, "subscribe", &identifier(&app, anyones)).await;
+        assert_eq!(next_event(&mut second).await["type"], "confirm_subscription", "{anyones} names no user: unchanged");
+    }
+    command(&mut owner, "subscribe", &identifier(&app, "user_1:bot_updates")).await;
+    assert_eq!(next_event(&mut owner).await["type"], "confirm_subscription", "the owner's own");
+    app.hub.broadcast("user_1:bot_updates", "for the owner");
+    app.hub.broadcast("user_2:bot_updates", "for the second user");
+    assert_eq!(next_event(&mut owner).await["message"], "for the owner");
+    assert_eq!(next_event(&mut second).await["message"], "for the second user", "the owner's broadcast never reached it");
 }
 
 /// A WebSocket is a connection for as long as it is open: the upgrade does not give its place back.
@@ -240,7 +271,7 @@ async fn a_message_larger_than_any_command_ends_the_connection() {
     // One byte over the limit is over; a real command is some 200 bytes and goes through.
     let (mut socket, _) = open(address, "http://localhost:3000").await.unwrap();
     next(&mut socket).await;
-    let id = identifier(&app, "user_7:bot_updates");
+    let id = identifier(&app, "user_1:bot_updates");
     assert!(json!({ "command": "subscribe", "identifier": id }).to_string().len() < cable::MAX_MESSAGE_BYTES / 8);
     command(&mut socket, "subscribe", &id).await;
     assert_eq!(next_event(&mut socket).await["type"], "confirm_subscription");
