@@ -76,10 +76,67 @@ fn env_boolean(value: Option<String>) -> Option<bool> {
 
 /// An origin as a browser writes one in an `Origin` header: scheme and host in lower case, and no
 /// port when it is the scheme's default. `https://Bot.Example:443` is `https://bot.example`.
-fn canonical_origin(scheme: &str, authority: &str) -> String {
+pub(crate) fn canonical_origin(scheme: &str, authority: &str) -> String {
     let (scheme, authority) = (scheme.to_ascii_lowercase(), authority.to_ascii_lowercase());
-    let default_port = if scheme == "https" { ":443" } else { ":80" };
+    let default_port = if matches!(scheme.as_str(), "https" | "wss") { ":443" } else { ":80" };
     format!("{scheme}://{}", authority.strip_suffix(default_port).unwrap_or(&authority))
+}
+
+/// A request header as Rack's env holds it: repeated lines are one value, joined by Puma.
+fn joined(headers: &HeaderMap, name: &str) -> Option<String> {
+    let lines: Vec<&str> = headers.get_all(name).iter().filter_map(|v| v.to_str().ok()).collect();
+    (!lines.is_empty()).then(|| lines.join(", "))
+}
+
+/// Rack::Request::ALLOWED_SCHEMES: what a forwarded header may name. Anything else is not read.
+fn allowed_scheme(scheme: &str) -> Option<&'static str> {
+    ["https", "http", "wss", "ws"].into_iter().find(|allowed| *allowed == scheme)
+}
+
+/// Rack::Utils.forwarded_values for `proto`: every `proto` of a `Forwarded` header, in order. `None`
+/// when Rack reads nothing from the header: a parameter that is not by, for, host or proto.
+fn forwarded_protos(header: &str) -> Option<Vec<String>> {
+    let skip = |text: &str| text.trim_start_matches([' ', '\t', ';', ',']).to_string();
+    let (mut rest, mut protos, mut parameters, mut escapes) = (skip(header), Vec::new(), 0, 0);
+    while let Some((name, after)) = rest.split_once('=') {
+        let name = name.trim().to_ascii_lowercase();
+        parameters += 1;
+        if parameters > 1024 || !["by", "for", "host", "proto"].contains(&name.as_str()) {
+            return None;
+        }
+        let (value, after) = match after.strip_prefix('"') {
+            // Quoted: up to the closing quote, a backslash taking the character after it as it is.
+            Some(mut quoted) => {
+                let mut value = String::new();
+                while let Some((before, tail)) = quoted.split_once(['"', '\\']) {
+                    value.push_str(before);
+                    let closing = quoted.as_bytes().get(before.len()) == Some(&b'"');
+                    quoted = tail;
+                    if closing {
+                        break;
+                    }
+                    escapes += 1;
+                    if escapes > 1024 {
+                        return None;
+                    }
+                    let mut characters = quoted.chars();
+                    value.extend(characters.next());
+                    quoted = characters.as_str();
+                }
+                (value, quoted)
+            }
+            // Unquoted: up to the next `;` or `,`, the separator left for `skip`.
+            None => match after.find([';', ',']).and_then(|at| after.split_at_checked(at)) {
+                Some((value, after)) => (value.trim().to_string(), after),
+                None => (after.trim().to_string(), ""),
+            },
+        };
+        if name == "proto" {
+            protos.push(value);
+        }
+        rest = skip(after);
+    }
+    Some(protos)
 }
 
 pub struct Config {
@@ -114,10 +171,40 @@ impl Config {
         })
     }
 
-    /// The origin a request was made to, as Rails' `request.base_url` derives it: the `Host` header,
-    /// under https when SSL is forced. A scheme a proxy forwarded is not consulted.
+    /// The scheme of a request as the Rails app sees it in production (pinned by the `base_url`
+    /// vectors of tests/web.rs), from first to last:
+    /// - https when SSL is forced: ActionDispatch::AssumeSSL, which production.rb turns on with force_ssl;
+    /// - Rack::Request#scheme: `X-Forwarded-Ssl: on`, then the last `proto` of `Forwarded`, then the
+    ///   last entry of `X-Forwarded-Proto`, then of `X-Forwarded-Scheme`, that names an allowed scheme;
+    /// - Puma's `rack.url_scheme`: https when `X-Forwarded-Proto` begins with it or
+    ///   `X-Forwarded-Scheme` is it, else http.
+    ///
+    /// Rails believes these headers from any peer, and so does this: they decide which `Origin` a
+    /// form may come from, and a page on another site can set neither them nor its own `Origin`.
+    pub fn request_scheme(&self, headers: &HeaderMap) -> &'static str {
+        if self.force_ssl || joined(headers, "x-forwarded-ssl").as_deref() == Some("on") {
+            return "https";
+        }
+        let last_allowed = |name: &str| joined(headers, name).and_then(|value| value.split([',', ' ', '\t']).rev().find_map(allowed_scheme));
+        let (proto, scheme) = (joined(headers, "x-forwarded-proto"), joined(headers, "x-forwarded-scheme"));
+        joined(headers, "forwarded").and_then(|header| forwarded_protos(&header)).and_then(|protos| allowed_scheme(protos.last()?))
+            .or_else(|| last_allowed("x-forwarded-proto"))
+            .or_else(|| last_allowed("x-forwarded-scheme"))
+            .unwrap_or(if proto.is_some_and(|value| value.starts_with("https")) || scheme.as_deref() == Some("https") { "https" } else { "http" })
+    }
+
+    /// The origin a request was made to: Rails' `request.base_url`. The scheme is `request_scheme`;
+    /// the host is the last entry of `X-Forwarded-Host` when a proxy sent one, else the `Host` header
+    /// (ActionDispatch::Http::URL#raw_host_with_port).
     pub fn request_origin(&self, headers: &HeaderMap) -> Option<String> {
-        header_text(headers, "host").map(|host| canonical_origin(if self.force_ssl { "https" } else { "http" }, host))
+        let forwarded = joined(headers, "x-forwarded-host").filter(|hosts| !hosts.trim().is_empty());
+        // Ruby's `split(/,\s?/).last`: one space after a comma belongs to the comma, and empty entries at the end are dropped.
+        let forwarded = forwarded.as_deref().map(|hosts| hosts.split(',').map(|host| host.strip_prefix([' ', '\t']).unwrap_or(host)).rfind(|host| !host.is_empty()));
+        let host = match forwarded {
+            Some(host) => host?,
+            None => header_text(headers, "host")?,
+        };
+        Some(canonical_origin(self.request_scheme(headers), host))
     }
 
     /// The origin this deployment's pages have: APP_ROOT_URL's when it is set, else the request's.

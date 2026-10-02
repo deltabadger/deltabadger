@@ -30,7 +30,7 @@
 //! less: a connection told to close still holds its place until it is gone.
 use super::auth::{self, Current};
 use super::session::{self, Session, SessionData};
-use super::{i18n::escape, App, Config};
+use super::{canonical_origin, header_text, i18n::escape, App, Config};
 use axum::extract::ws::{rejection::WebSocketUpgradeRejection, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::http::{header, HeaderMap, StatusCode};
@@ -210,10 +210,13 @@ pub fn stream_source(key: &[u8; 32], name: &str) -> String {
 }
 
 /// Action Cable's allow_request_origin?: the whole origin (scheme, host, port) must be the
-/// deployment's own (APP_ROOT_URL) or the one the request came to. A missing header is refused.
+/// deployment's own (APP_ROOT_URL) or the one the request came to: the scheme as Rails reads it
+/// (Rack's `ssl?`, so what a proxy forwarded counts) and the `Host` header, which is all Action
+/// Cable looks at; a forwarded host is not consulted here. A missing header is refused.
 fn origin_allowed(config: &Config, headers: &HeaderMap) -> bool {
     let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else { return false };
-    [config.own_origin.clone(), config.request_origin(headers)].iter().flatten().any(|allowed| allowed == origin)
+    let came_to = header_text(headers, "host").map(|host| canonical_origin(if matches!(config.request_scheme(headers), "https" | "wss") { "https" } else { "http" }, host));
+    [config.own_origin.clone(), came_to].iter().flatten().any(|allowed| allowed == origin)
 }
 
 fn plain(status: StatusCode, body: &'static str) -> Response {

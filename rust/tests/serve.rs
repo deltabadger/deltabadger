@@ -311,6 +311,33 @@ async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spe
     }
 }
 
+/// The same proxy in front of an install that has no APP_ROOT_URL. The origin is then the request's
+/// own, read as Rails reads it: the scheme and the host the proxy says it was asked for.
+#[tokio::test(flavor = "current_thread")]
+async fn a_form_is_accepted_behind_a_tls_terminating_proxy_without_app_root_url() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let form: [(&str, &str); 2] = [("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")];
+    let submit = |headers: &'static [(&'static str, &'static str)]| {
+        let app = app.clone();
+        async move {
+            let mut browser = Browser::default();
+            browser.get(&app, "/login").await;
+            browser.send(&app, "POST", "/login", Some(&form), web::Csrf::Form, headers).await.status
+        }
+    };
+    // The request's Host is localhost:3000 (web::HOST), and it arrives over plain http.
+    assert_eq!(submit(&[("origin", "https://localhost:3000"), ("x-forwarded-proto", "https")]).await, 303, "the proxy terminated TLS and says so");
+    assert_eq!(submit(&[("origin", "https://bot.example"), ("x-forwarded-proto", "https"), ("x-forwarded-host", "bot.example")]).await, 303, "and names the host it was asked for");
+    assert_eq!(submit(&[("origin", "http://localhost:3000")]).await, 303, "no proxy: plain http");
+    assert_eq!(submit(&[("origin", "https://localhost:3000")]).await, 302, "nothing says the page was served over https");
+    assert_eq!(submit(&[("origin", "http://localhost:3000"), ("x-forwarded-proto", "https")]).await, 302, "the scheme is part of an origin");
+    assert_eq!(submit(&[("origin", "https://evil.example"), ("x-forwarded-proto", "https")]).await, 302);
+    assert_eq!(submit(&[("origin", "https://localhost:3000"), ("x-forwarded-proto", "https"), ("x-forwarded-host", "bot.example")]).await, 302, "not the host the proxy named");
+}
+
 /// The session is the cookie: nothing is kept on the server, so there is nothing to revoke
 /// (Rails' CookieStore is the same). Signing out replaces the browser's cookie and no more.
 #[tokio::test(flavor = "current_thread")]

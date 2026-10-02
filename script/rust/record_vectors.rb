@@ -70,7 +70,7 @@ vectors = {
     'transaction_order_type' => Transaction.order_types, 'transaction_external_status' => Transaction.external_statuses,
     'api_key_status' => ApiKey.statuses, 'api_key_key_type' => ApiKey.key_types, 'user_otp_module' => User.otp_modules
   },
-  'gems' => %w[activerecord bcrypt bigdecimal rotp actionpack actionview activesupport devise i18n rack-attack turbo-rails].to_h { |g| [g, Gem.loaded_specs.fetch(g).version.to_s] }
+  'gems' => %w[activerecord bcrypt bigdecimal rotp actionpack actionview activesupport devise i18n rack-attack turbo-rails rack puma].to_h { |g| [g, Gem.loaded_specs.fetch(g).version.to_s] }
 }
 # Ruby BigDecimal, as Rails computes with it (rust/src/ruby.rs BigDec). Seeded, so the file is stable.
 bd_rng = Random.new(11)
@@ -353,6 +353,60 @@ vectors['rack_attack'] = {
 }
 vectors['devise'] = { 'maximum_attempts' => Devise.maximum_attempts, 'unlock_in' => Devise.unlock_in.to_i,
                       'pending_ttl' => Users::SessionsController::PENDING_TTL.to_i, 'session_expire_after' => Rails.application.config.session_options[:expire_after].to_i }
+# request.base_url, which the Origin header of a form POST must equal (valid_request_origin?), from the
+# stack production runs: Puma builds the env (it derives rack.url_scheme from the forwarded headers),
+# ActionDispatch::AssumeSSL sits in front of the app when config/environments/production.rb turns SSL
+# on ('ssl' below: it sets assume_ssl and force_ssl from the one flag), and Rack and Action Dispatch
+# read the result. Each request goes over a raw socket, so header lines arrive as written, repeats included.
+require 'puma'
+require 'puma/server'
+require 'socket'
+unless Rails.root.join('config/environments/production.rb').read.match?(/config\.assume_ssl = ssl_enabled\n\s*config\.force_ssl = ssl_enabled\n/)
+  raise 'production.rb no longer sets assume_ssl and force_ssl from the one flag, which the base_url vectors assume'
+end
+base_url_app = ->(env) { [200, { 'content-type' => 'text/plain' }, [ActionDispatch::Request.new(env).base_url]] }
+base_url_servers = { false => base_url_app, true => ActionDispatch::AssumeSSL.new(base_url_app) }.transform_values do |app|
+  server = Puma::Server.new(app, nil, log_writer: Puma::LogWriter.null)
+  port = server.add_tcp_listener('127.0.0.1', 0).addr[1]
+  server.run
+  [server, port]
+end
+base_url = lambda do |ssl, host, headers|
+  answer = TCPSocket.open('127.0.0.1', base_url_servers.fetch(ssl).last) do |socket|
+    socket.write("GET / HTTP/1.1\r\nHost: #{host}\r\n#{headers.map { |line| "#{line}\r\n" }.join}Connection: close\r\n\r\n")
+    socket.read
+  end
+  head, body = answer.split("\r\n\r\n", 2)
+  raise "#{host} #{headers}: #{head}" unless head.start_with?('HTTP/1.1 200')
+
+  body
+end
+forwarded_headers = [
+  [], ['X-Forwarded-Proto: https'], ['X-Forwarded-Proto: http'], ['X-Forwarded-Proto: https,http'], ['X-Forwarded-Proto: http,https'],
+  ['X-Forwarded-Proto: https, http'], ['X-Forwarded-Proto: http https'], ['X-Forwarded-Proto: https', 'X-Forwarded-Proto: http'],
+  ['X-Forwarded-Proto: HTTPS'], ['X-Forwarded-Proto: ftp'], ['X-Forwarded-Proto: https,ftp'], ['X-Forwarded-Proto: httpsx'],
+  ['X-Forwarded-Proto: wss'], ['X-Forwarded-Proto: ws'],
+  ['X-Forwarded-Ssl: on'], ['X-Forwarded-Ssl: off'], ['X-Forwarded-Ssl: On'], ['X-Forwarded-Ssl: on', 'X-Forwarded-Proto: http'],
+  ['X-Forwarded-Scheme: https'], ['X-Forwarded-Scheme: http'], ['X-Forwarded-Proto: http', 'X-Forwarded-Scheme: https'],
+  ['X-Forwarded-Proto: ftp', 'X-Forwarded-Scheme: https'], ['X-Forwarded-Proto: https', 'X-Forwarded-Scheme: http'],
+  ['X-Forwarded-Proto: ftp', 'X-Forwarded-Scheme: HTTPS'],
+  ['Forwarded: proto=https'], ['Forwarded: proto=http', 'X-Forwarded-Proto: https'], ['Forwarded: proto=https', 'X-Forwarded-Proto: http'],
+  ['Forwarded: for=192.0.2.1;proto=https, for=198.51.100.2;proto=http'], ['Forwarded: for=192.0.2.1;proto=http, for=198.51.100.2;proto=https'],
+  ['Forwarded: Proto = "https"'], ['Forwarded: for="[2001:db8::1]:4711";proto=https;by=203.0.113.43'], ['Forwarded: proto="ht\\tps" ; for=x'],
+  ['Forwarded: proto=https;secret=1'], ['Forwarded: proto=ftp', 'X-Forwarded-Proto: https'], ['Forwarded: for=192.0.2.1', 'X-Forwarded-Proto: https'],
+  ['Forwarded: proto=http', 'X-Forwarded-Ssl: on'], ['Forwarded: proto="https'], ['Forwarded: proto=https', 'Forwarded: proto=http'],
+  ['X-Forwarded-Host: public.example.org'], ['X-Forwarded-Host: public.example.org', 'X-Forwarded-Proto: https'],
+  ['X-Forwarded-Host: public.example.org:8443', 'X-Forwarded-Proto: https'], ['X-Forwarded-Host: public.example.org:443', 'X-Forwarded-Proto: https'],
+  ['X-Forwarded-Host: first.example, public.example.org'], ['X-Forwarded-Host: first.example,public.example.org:81'],
+  ['X-Forwarded-Host: public.example.org,'], ['X-Forwarded-Host:'],
+  ['X-Forwarded-Port: 8443', 'X-Forwarded-Proto: https'], ['Forwarded: host=public.example.org;proto=https']
+]
+base_url_cases = forwarded_headers.map { |headers| ['bot.example.com:8080', headers] } +
+                 ['bot.example.com', 'bot.example.com:443', 'bot.example.com:80', '[::1]:3000', '[::1]'].product([[], ['X-Forwarded-Proto: https']])
+vectors['base_url'] = [false, true].product(base_url_cases).map do |ssl, (host, headers)|
+  { 'ssl' => ssl, 'host' => host, 'headers' => headers, 'base_url' => base_url.(ssl, host, headers) }
+end
+base_url_servers.each_value { |server, _| server.stop(true) }
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
 File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")

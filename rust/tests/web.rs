@@ -237,8 +237,9 @@ mod sessions {
 }
 
 mod csrf_tokens {
+    use super::common;
     use super::common::web::header_map;
-    use axum::http::HeaderMap;
+    use axum::http::{HeaderMap, HeaderName};
     use deltabadger::web::{csrf, Config};
 
     #[test]
@@ -309,6 +310,35 @@ mod csrf_tokens {
         let configured = config(&[("APP_ROOT_URL", "https://Bot.Example.com:443/")]);
         let from_the_browser = header_map(&[("host", "10.0.0.7:3000"), ("origin", "https://bot.example.com")]);
         assert!(csrf::same_origin(&from_the_browser, configured.origin(&from_the_browser).as_deref()));
+    }
+
+    /// Without APP_ROOT_URL the deployment's origin is the request's own, and that is Rails'
+    /// `request.base_url` as production computes it: Puma's env, AssumeSSL when SSL is on, then Rack
+    /// and Action Dispatch, which follow the headers a proxy in front writes (the scheme it
+    /// terminated, the host it was asked for). Recorded by script/rust/record_vectors.rb.
+    #[test]
+    fn without_app_root_url_the_origin_is_rails_base_url_with_what_a_proxy_forwarded() {
+        let config = |pairs: &'static [(&'static str, &'static str)]| {
+            Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
+        };
+        let recorded = common::vectors()["base_url"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 100 && recorded.iter().any(|case| case["ssl"] == true) && recorded.iter().any(|case| case["ssl"] == false), "{} vectors", recorded.len());
+        let request = |case: &serde_json::Value| {
+            let mut headers = header_map(&[("host", case["host"].as_str().unwrap())]);
+            for line in case["headers"].as_array().unwrap() {
+                let (name, value) = line.as_str().unwrap().split_once(':').unwrap();
+                headers.append(HeaderName::from_bytes(name.as_bytes()).unwrap(), value.trim().parse().unwrap());
+            }
+            headers
+        };
+        let (plain, forced) = (config(&[]), config(&[("FORCE_SSL", "true")]));
+        let configured = config(&[("APP_ROOT_URL", "http://my.example.org")]);
+        for case in &recorded {
+            let headers = request(case);
+            let ours = if case["ssl"] == true { &forced } else { &plain };
+            assert_eq!(ours.origin(&headers).as_deref(), case["base_url"].as_str(), "{case}");
+            assert_eq!(configured.origin(&headers).as_deref(), Some("http://my.example.org"), "APP_ROOT_URL wins over anything forwarded: {case}");
+        }
     }
 }
 
@@ -411,7 +441,7 @@ mod going_back {
         ] {
             assert_eq!(back(&https, foreign), None, "{foreign}");
         }
-        // Without APP_ROOT_URL the origin is the request's own: its Host, and http unless SSL is forced.
+        // Without APP_ROOT_URL the origin is the request's own: its Host, and http unless SSL is forced or a proxy forwarded another scheme.
         let plain = config(None);
         assert_eq!(back(&plain, "http://bot.example/bots").as_deref(), Some("/bots"));
         assert_eq!(back(&plain, "https://bot.example/bots"), None);

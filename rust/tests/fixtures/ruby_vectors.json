@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"tmhRS/Yo7+M/trh/ZJWpo/I=\",\"h\":{\"iv\":\"CZEC8Uy0BZtdde5O\",\"at\":\"KXT+urpPZA5uODRiJXsoTw==\"}}"
+      "cipher": "{\"p\":\"1JxKm7Xu3CAhN8dreJsS528=\",\"h\":{\"iv\":\"iNg/2Art2wesj3pL\",\"at\":\"zSg3rKWPcab6uYd1uoVx1Q==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"4TV5VURpermWoLvOUq6g\",\"h\":{\"iv\":\"adUFhSI/r+k1LzzB\",\"at\":\"BiLMP1Ph1JmTCvuMHfGeqw==\"}}"
+      "cipher": "{\"p\":\"vimZI74gYkjMVmiK0joo\",\"h\":{\"iv\":\"JjlSP50rOlyvkIX5\",\"at\":\"PEcPuNKPCCI+M8H9bXnupg==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"MZ7QQ4STy1UUdc1J+BHoBm3F5R0II5wP1LsXZhctoAmlEA5ZuRix2/dZt20Vx448j+rMWcBBa0EYXRI5x2j6T1i/ZE2mIbj6wbWA0BM=\",\"h\":{\"iv\":\"OoddWGmvw7Q/nnjB\",\"at\":\"Los5DbG5XxenSf5By0pikg==\",\"c\":true}}"
+      "cipher": "{\"p\":\"Go3ylTmtlgdRR0A0yCEnd9oA4cjvab42VeuISGkNCoi03wgOVkzFuvYrNLNLcPC9CKHkjlcA1rvhZ/Wlrp4w3CL9+WGVu8jBrgfXbq0=\",\"h\":{\"iv\":\"oQWJJdTuOXytPO8Z\",\"at\":\"RIV7mETOJSuJSa5SyZxBnA==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "X6Z57Y2JKIIRKBZHASI2MVHUQPRJ5TZ6",
-      "cipher": "{\"p\":\"CiL6ok31FXKEKoJ8EqXvmlFj1aSdwIAXLah8qMQK/2E=\",\"h\":{\"iv\":\"0iorx3h1/+cISNQh\",\"at\":\"6G+a+Ri5tYIGp6rT7/PFcA==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "H56XFURCWA7R6B6XVKR6DWALYVTJUE7Y",
+      "cipher": "{\"p\":\"kxX1KTV0WazlBYqiIo6AwrO/+1hbuHH/Wpq324ZFs7g=\",\"h\":{\"iv\":\"nwSzneWkmhoeEBAR\",\"at\":\"9+KRHHmzyeayukWZhKTSbg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"9h2I42pbnFQ0uH4ipDRIgN8=\",\"h\":{\"iv\":\"ILVsPNW3Gg4tzcMn\",\"at\":\"c867Yg5/NAI0DN/ODQpJ8Q==\"}}"
+      "cipher": "{\"p\":\"wC7JPg+7l4foBWwveQJB4xA=\",\"h\":{\"iv\":\"PrC2iei98Cq/zmN+\",\"at\":\"6PxQG4k+M2umObn5JG2XkQ==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$wEC0sZ4gdKB6hUkuq1hxC.dYcVdbCxNPkFMOExlsjdFqZTukLhM3O"
+      "hash": "$2a$11$O3E3hIRyoZrogxFXn0AY4eudZclkaH2WlYzkUPJHIvS89RLGBIMZ2"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$yTinn9ygVPBTlj3diUNXQeI5G6S6o8QNDDPUVrBnBsuWZwk6utmHm"
+      "hash": "$2a$11$.g0weJ5EO27LbMI7FF9nb.iNtTmq61YdQD8XFLxHdRYSDg/Geq.WS"
     }
   ],
   "totp": {
@@ -1417,7 +1417,9 @@
     "devise": "5.0.4",
     "i18n": "1.15.2",
     "rack-attack": "6.8.0",
-    "turbo-rails": "2.0.23"
+    "turbo-rails": "2.0.23",
+    "rack": "3.2.7",
+    "puma": "8.0.2"
   },
   "bigdec": [
     [
@@ -47626,5 +47628,943 @@
     "unlock_in": 900,
     "pending_ttl": 300,
     "session_expire_after": 2592000
-  }
+  },
+  "base_url": [
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https,http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http,https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https, http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https",
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: HTTPS"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ftp"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https,ftp"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: httpsx"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: wss"
+      ],
+      "base_url": "wss://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ws"
+      ],
+      "base_url": "ws://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: on"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: off"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: On"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: on",
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Scheme: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Scheme: http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http",
+        "X-Forwarded-Scheme: https"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ftp",
+        "X-Forwarded-Scheme: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https",
+        "X-Forwarded-Scheme: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ftp",
+        "X-Forwarded-Scheme: HTTPS"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=http",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https",
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=192.0.2.1;proto=https, for=198.51.100.2;proto=http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=192.0.2.1;proto=http, for=198.51.100.2;proto=https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: Proto = \"https\""
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=\"[2001:db8::1]:4711\";proto=https;by=203.0.113.43"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=\"ht\\tps\" ; for=x"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https;secret=1"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=ftp",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=192.0.2.1",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=http",
+        "X-Forwarded-Ssl: on"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=\"https"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https",
+        "Forwarded: proto=http"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org"
+      ],
+      "base_url": "http://public.example.org"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org:8443",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://public.example.org:8443"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org:443",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: first.example, public.example.org"
+      ],
+      "base_url": "http://public.example.org"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: first.example,public.example.org:81"
+      ],
+      "base_url": "http://public.example.org:81"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org,"
+      ],
+      "base_url": "http://public.example.org"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host:"
+      ],
+      "base_url": "http://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Port: 8443",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: host=public.example.org;proto=https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com",
+      "headers": [],
+      "base_url": "http://bot.example.com"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:443",
+      "headers": [],
+      "base_url": "http://bot.example.com:443"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:443",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:80",
+      "headers": [],
+      "base_url": "http://bot.example.com"
+    },
+    {
+      "ssl": false,
+      "host": "bot.example.com:80",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:80"
+    },
+    {
+      "ssl": false,
+      "host": "[::1]:3000",
+      "headers": [],
+      "base_url": "http://[::1]:3000"
+    },
+    {
+      "ssl": false,
+      "host": "[::1]:3000",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://[::1]:3000"
+    },
+    {
+      "ssl": false,
+      "host": "[::1]",
+      "headers": [],
+      "base_url": "http://[::1]"
+    },
+    {
+      "ssl": false,
+      "host": "[::1]",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://[::1]"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https,http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http,https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https, http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https",
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: HTTPS"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ftp"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https,ftp"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: httpsx"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: wss"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ws"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: on"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: off"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: On"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Ssl: on",
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Scheme: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Scheme: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: http",
+        "X-Forwarded-Scheme: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ftp",
+        "X-Forwarded-Scheme: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: https",
+        "X-Forwarded-Scheme: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Proto: ftp",
+        "X-Forwarded-Scheme: HTTPS"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=http",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https",
+        "X-Forwarded-Proto: http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=192.0.2.1;proto=https, for=198.51.100.2;proto=http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=192.0.2.1;proto=http, for=198.51.100.2;proto=https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: Proto = \"https\""
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=\"[2001:db8::1]:4711\";proto=https;by=203.0.113.43"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=\"ht\\tps\" ; for=x"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https;secret=1"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=ftp",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: for=192.0.2.1",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=http",
+        "X-Forwarded-Ssl: on"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=\"https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: proto=https",
+        "Forwarded: proto=http"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org:8443",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://public.example.org:8443"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org:443",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: first.example, public.example.org"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: first.example,public.example.org:81"
+      ],
+      "base_url": "https://public.example.org:81"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host: public.example.org,"
+      ],
+      "base_url": "https://public.example.org"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Host:"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "X-Forwarded-Port: 8443",
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:8080",
+      "headers": [
+        "Forwarded: host=public.example.org;proto=https"
+      ],
+      "base_url": "https://bot.example.com:8080"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com",
+      "headers": [],
+      "base_url": "https://bot.example.com"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:443",
+      "headers": [],
+      "base_url": "https://bot.example.com"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:443",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:80",
+      "headers": [],
+      "base_url": "https://bot.example.com:80"
+    },
+    {
+      "ssl": true,
+      "host": "bot.example.com:80",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://bot.example.com:80"
+    },
+    {
+      "ssl": true,
+      "host": "[::1]:3000",
+      "headers": [],
+      "base_url": "https://[::1]:3000"
+    },
+    {
+      "ssl": true,
+      "host": "[::1]:3000",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://[::1]:3000"
+    },
+    {
+      "ssl": true,
+      "host": "[::1]",
+      "headers": [],
+      "base_url": "https://[::1]"
+    },
+    {
+      "ssl": true,
+      "host": "[::1]",
+      "headers": [
+        "X-Forwarded-Proto: https"
+      ],
+      "base_url": "https://[::1]"
+    }
+  ]
 }

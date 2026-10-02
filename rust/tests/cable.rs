@@ -65,7 +65,13 @@ async fn served_with(recheck: Duration) -> (tempfile::TempDir, App, SocketAddr, 
 /// As the browser's consumer opens it: both protocols on offer, the page's origin, and the
 /// browser's session cookie, if it has one.
 async fn open_as(address: SocketAddr, origin: &str, cookie: Option<&str>) -> Result<(Socket, Option<String>), u16> {
+    open_with(address, origin, cookie, &[]).await
+}
+
+/// As `open_as`, with the headers a proxy in front adds.
+async fn open_with(address: SocketAddr, origin: &str, cookie: Option<&str>, forwarded: &[(&'static str, &str)]) -> Result<(Socket, Option<String>), u16> {
     let mut request = format!("ws://{address}/cable").into_client_request().unwrap();
+    for (name, value) in forwarded { request.headers_mut().insert(*name, value.parse().unwrap()); }
     request.headers_mut().insert("sec-websocket-protocol", "actioncable-v1-json, actioncable-unsupported".parse().unwrap());
     request.headers_mut().insert("origin", origin.parse().unwrap());
     if let Some(cookie) = cookie {
@@ -179,6 +185,14 @@ async fn only_this_sites_pages_may_connect() {
     assert!(open(address, "http://localhost:3000").await.is_ok(), "APP_ROOT_URL's origin");
     assert!(open(address, &format!("http://{address}")).await.is_ok(), "the host the request came to is allowed, as allow_same_origin_as_host");
     assert_eq!(open(address, &format!("https://{address}")).await.err(), Some(404), "the scheme is part of an origin");
+    // Behind a proxy that terminated TLS the page's origin is https, as Action Cable reads it (Rack's `ssl?`).
+    let cookie = OWNER_COOKIE.get().map(String::as_str);
+    assert!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.is_ok());
+    assert_eq!(open_with(address, &format!("http://{address}"), cookie, &[("x-forwarded-proto", "https")]).await.err(), Some(404));
+    assert!(open_with(address, &format!("http://{address}"), cookie, &[("x-forwarded-proto", "ws")]).await.is_ok(), "`ssl?` is https or wss; anything else is http");
+    assert!(open_with(address, &format!("https://{address}"), cookie, &[("x-forwarded-proto", "wss")]).await.is_ok());
+    // The host is the Host header's, as in Action Cable: a forwarded host is not consulted here.
+    assert_eq!(open_with(address, "http://bot.example", cookie, &[("x-forwarded-host", "bot.example")]).await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:3000.evil.example").await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:30001").await.err(), Some(404));
 }
