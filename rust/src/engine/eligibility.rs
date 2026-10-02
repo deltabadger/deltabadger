@@ -78,6 +78,8 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     match model::ticker_for(c, bot)? {
         None => r.push("no ticker for the asset on this venue".into()),
         Some(t) => {
+            // An unbounded integer column used as a rounding scale: refused here, before anything is sized with it.
+            if let Err(e) = t.scales() { r.push(e); }
             // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer); wrappers such as tokenized
             // stocks carry an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice.
             let (category, instrument): (Option<String>, Option<String>) = c.query_row(

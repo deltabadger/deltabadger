@@ -156,3 +156,16 @@ async fn an_unreadable_created_at_fails_the_sweep_and_abandons_nothing() {
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     assert_eq!(ext, 0);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_kraken_fill_fails_the_sweep_and_records_no_zero_fill() {
+    for bad in ["NaN", "Infinity", "garbage"] {
+        let (_d, o, s, b) = setup(json!({ "missed_quote_amount": "100.0" }));
+        let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-NAN"));
+        let v = FakeVenue::new().order("OTX-NAN", closed_raw("50010.5", bad, "60.0"));
+        assert!(polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.is_err(), "{bad}");
+        let (ext, exec): (i64, Option<f64>) = o.primary.query_row("SELECT external_status, amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((ext, exec), (0, None), "{bad}: the row is untouched");
+        assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "{bad}: the carry is untouched");
+    }
+}

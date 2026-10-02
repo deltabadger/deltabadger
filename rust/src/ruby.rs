@@ -6,16 +6,53 @@ use bigdecimal::num_bigint::{BigInt, Sign};
 use bigdecimal::{BigDecimal, RoundingMode};
 use chrono::{DateTime, Utc};
 use rusqlite::types::ValueRef;
+use serde_json::Value;
 use std::str::FromStr;
 
+/// The longest text `parse` reads. Real decimals are under 50 characters (a venue's price or fill, a value rounded to 18
+/// places, a 32-to-50-digit quotient written into a placement intent); 256 leaves room and bounds the parse itself.
+pub const MAX_INPUT_LEN: usize = 256;
+/// The most significant digit must lie within 10^-400 ..= 10^400. Money needs 10^-18 ..= 10^15; every finite f64
+/// (4.9e-324 ..= 1.8e308), so Float#to_d of any REAL column, fits with room.
+pub const MAX_EXPONENT: i64 = 400;
+/// At most 512 digits written out in full (BigDecimal#precision: a pure fraction's leading zeros count). The widest f64
+/// needs 339 (16 digits at 10^-324); a value this wide costs a few hundred bytes to write out, compare or divide.
+pub const MAX_DIGITS: i64 = 512;
+/// The places a ticker's precision may round to (base, quote and price decimals). Venues use 0 ..= 18 (18 for wei);
+/// 40 is headroom. Eligibility refuses a ticker outside it, and `scale` is the only way an engine precision becomes one.
+pub const MAX_SCALE: i64 = 40;
+
+/// Every BigDec holds at most MAX_DIGITS digits within 10^±MAX_EXPONENT when it is built from outside data (`parse`,
+/// `from_f64`, `from_sql`, `json_to_d`); `from_i64` always fits. The bigdecimal crate stores a value as digits × 10^-scale,
+/// so "1e-1000000000" is two small numbers until something writes it out, aligns it or divides by it: the bounds are
+/// checked at construction, where refusing costs nothing.
+///
+/// The operations are not re-checked; each is bounded by its operands (n = digits written out):
+/// `+` and `−`: n ≤ max(nₐ, n_b) + 1. `×`: n ≤ nₐ + n_b. `div`: at most max(precision) + 17 significant digits, and
+/// its working integer is at most ~2·MAX_DIGITS + 20 digits. `floor`/`ceil`/`round`: n ≤ nₐ + 1 — a value already
+/// within `places` is returned as it is, so `places` (a u8) never pads. Comparison aligns at most the operands' scales.
+/// The engine evaluates fixed expressions of depth ≤ 4 over bounded inputs, so nothing it computes exceeds a few
+/// thousand digits; none of these operations can run away, and none returns an error.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BigDec(BigDecimal);
 
 fn digit_count(i: &BigInt) -> i64 { if i.sign() == Sign::NoSign { 1 } else { i.magnitude().to_string().len() as i64 } }
 
 impl BigDec {
+    /// A decimal string within the bounds above; anything longer, wider or outside the exponent range is an error.
     pub fn parse(s: &str) -> Result<Self, CodecError> {
-        BigDecimal::from_str(s.trim()).map(|d| Self(d.normalized())).map_err(|e| CodecError::Decimal(format!("{s:?}: {e}")))
+        if s.len() > MAX_INPUT_LEN { return Err(CodecError::Decimal(format!("a {}-character decimal (at most {MAX_INPUT_LEN})", s.len()))); }
+        let d = BigDecimal::from_str(s.trim()).map_err(|e| CodecError::Decimal(format!("{s:?}: {e}")))?;
+        Self::bounded(d).map_err(|e| CodecError::Decimal(format!("{s:?}: {e}")))
+    }
+    fn bounded(d: BigDecimal) -> Result<Self, String> {
+        let v = Self(d.normalized());
+        if v.is_zero() { return Ok(Self::zero()); }
+        let (int, scale) = v.0.as_bigint_and_exponent();
+        let exponent = digit_count(&int) - 1 - scale;
+        if exponent.abs() > MAX_EXPONENT { return Err(format!("exponent {exponent} is outside ±{MAX_EXPONENT}")); }
+        if v.precision() > MAX_DIGITS { return Err(format!("{} digits (at most {MAX_DIGITS})", v.precision())); }
+        Ok(v)
     }
     pub fn from_i64(i: i64) -> Self { Self(BigDecimal::from(i)) }
     /// Float#to_d: the shortest round-trip digits, truncated (not rounded) to 16 significant digits.
@@ -29,7 +66,7 @@ impl BigDec {
         let digits: String = mantissa.chars().filter(char::is_ascii_digit).take(16).collect();
         let int: BigInt = digits.parse().map_err(|_| err())?;
         let int = if mantissa.starts_with('-') { -int } else { int };
-        Ok(Self(BigDecimal::new(int, digits.len() as i64 - 1 - exp).normalized()))
+        Self::bounded(BigDecimal::new(int, digits.len() as i64 - 1 - exp)).map_err(|e| CodecError::Decimal(format!("{f:e}: {e}")))
     }
     pub fn zero() -> Self { Self::from_i64(0) }
     pub fn one() -> Self { Self::from_i64(1) }
@@ -69,10 +106,16 @@ impl BigDec {
         Some(Self(BigDecimal::new(if negative { -q } else { q }, exponent).normalized()))
     }
 
-    fn scaled(&self, places: i64, mode: RoundingMode) -> Self { Self(self.0.with_scale_round(places, mode).normalized()) }
-    pub fn floor(&self, places: i64) -> Self { self.scaled(places, RoundingMode::Floor) }
-    pub fn ceil(&self, places: i64) -> Self { self.scaled(places, RoundingMode::Ceiling) }
-    pub fn round(&self, places: i64) -> Self { self.scaled(places, RoundingMode::HalfUp) }
+    /// A value with at most `places` fractional digits is already floored, ceiled and rounded (Ruby returns it unchanged), so
+    /// it is returned as it is: with_scale_round would first pad it with zeros, `places` of them. `places` is a u8; an engine
+    /// precision reaches it only through `scale`.
+    fn scaled(&self, places: u8, mode: RoundingMode) -> Self {
+        if self.0.fractional_digit_count() <= i64::from(places) { return self.clone(); }
+        Self(self.0.with_scale_round(i64::from(places), mode).normalized())
+    }
+    pub fn floor(&self, places: u8) -> Self { self.scaled(places, RoundingMode::Floor) }
+    pub fn ceil(&self, places: u8) -> Self { self.scaled(places, RoundingMode::Ceiling) }
+    pub fn round(&self, places: u8) -> Self { self.scaled(places, RoundingMode::HalfUp) }
 
     /// BigDecimal#to_s('F'): plain notation, at least one fractional digit.
     pub fn to_s_f(&self) -> String {
@@ -88,6 +131,38 @@ impl BigDec {
 impl std::ops::Add for &BigDec { type Output = BigDec; fn add(self, o: &BigDec) -> BigDec { BigDec((&self.0 + &o.0).normalized()) } }
 impl std::ops::Sub for &BigDec { type Output = BigDec; fn sub(self, o: &BigDec) -> BigDec { BigDec((&self.0 - &o.0).normalized()) } }
 impl std::ops::Mul for &BigDec { type Output = BigDec; fn mul(self, o: &BigDec) -> BigDec { BigDec((&self.0 * &o.0).normalized()) } }
+
+/// A precision from the database (tickers.base_decimals, quote_decimals, price_decimals: unbounded integers) as a rounding
+/// scale: an error outside 0..=MAX_SCALE.
+pub fn scale(places: i64) -> Result<u8, CodecError> {
+    match u8::try_from(places) {
+        Ok(p) if i64::from(p) <= MAX_SCALE => Ok(p),
+        _ => Err(CodecError::Decimal(format!("{places} is outside 0..={MAX_SCALE}"))),
+    }
+}
+
+/// A number in a venue's JSON as Ruby's `value.to_d` reads it: null is None (nil), an Integer exact, a Float by Float#to_d,
+/// a String as a decimal. DIVERGES from Ruby on purpose: String#to_d reads "garbage" as 0 ("12abc" as 12) and "NaN" or
+/// "Infinity" as non-finite BigDecimals, and either would flow on as an ordinary price, quantity or fill. Here a string
+/// that is not a finite decimal within the bounds above, and any other JSON type, is an error, never zero.
+pub fn json_to_d(v: &Value) -> Result<Option<BigDec>, CodecError> {
+    match v {
+        Value::Null => Ok(None),
+        Value::Number(n) => match (n.as_i64(), n.as_f64()) {
+            (Some(i), _) => Ok(Some(BigDec::from_i64(i))),
+            (None, Some(f)) => BigDec::from_f64(f).map(Some),
+            (None, None) => Err(CodecError::Decimal(format!("{n} is not a readable number"))),
+        },
+        Value::String(s) => BigDec::parse(s).map(Some),
+        other => Err(CodecError::Decimal(format!("{} is not a number", raw(other)))),
+    }
+}
+
+/// A venue value as an error message quotes it: a string bare, anything else as JSON, cut to 64 characters.
+pub fn raw(v: &Value) -> String {
+    let s = v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string());
+    if s.chars().count() > 64 { format!("{}…", s.chars().take(64).collect::<String>()) } else { s }
+}
 
 /// How ActiveRecord reads a decimal column from SQLite (NUMERIC affinity: INTEGER, REAL or TEXT).
 pub fn from_sql(v: ValueRef<'_>) -> Result<Option<BigDec>, CodecError> {

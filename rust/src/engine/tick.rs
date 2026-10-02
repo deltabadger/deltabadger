@@ -169,7 +169,7 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
                 Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(Fail::Transient(m))),
                 Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", ticker.base_symbol)))),
             };
-            match amount::size(&bot, ticker, &x, &reference, venue.rules().minimum_logic) {
+            match amount::size(&bot, ticker, &x, &reference, venue.rules().minimum_logic)? {
                 Sizing::Nothing => {}
                 Sizing::Ignored(plan) => model::log_activity(c, bot_id, "order_ignored", Level::Info, plan.log_details(), clock.now())?,
                 Sizing::BelowMinimum(plan) => {

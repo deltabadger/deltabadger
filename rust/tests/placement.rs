@@ -17,7 +17,7 @@ fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) 
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let p = BigDec::from_i64(50_000);
-    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
     (dir, o, bot, plan)
 }
 fn count(o: &store::Opened, sql: &str) -> i64 { o.primary.query_row(sql, [], |r| r.get(0)).unwrap() }

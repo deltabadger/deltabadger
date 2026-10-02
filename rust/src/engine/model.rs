@@ -103,6 +103,14 @@ pub struct Ticker {
     pub minimum_base_size: BigDec, pub minimum_quote_size: BigDec, pub trading_enabled: bool, pub available: bool,
 }
 
+impl Ticker {
+    /// Base, quote and price decimals as rounding scales (`ruby::scale`). Out of range is a data problem eligibility refuses.
+    pub fn scales(&self) -> Result<(u8, u8, u8), String> {
+        let one = |name: &str, v: i64| crate::ruby::scale(v).map_err(|_| format!("ticker {name} {v} (only 0..={})", crate::ruby::MAX_SCALE));
+        Ok((one("base_decimals", self.base_decimals)?, one("quote_decimals", self.quote_decimals)?, one("price_decimals", self.price_decimals)?))
+    }
+}
+
 /// The member's ticker: this venue, the member asset, the bot's quote asset (Bots::DcaMultiAsset#set_tickers).
 pub fn ticker_for(c: &Connection, bot: &Bot) -> Result<Option<Ticker>, EngineError> {
     let (Some(&base), Some(quote)) = (bot.asset_ids().first(), bot.quote_asset_id()) else { return Ok(None) };

@@ -293,7 +293,7 @@ async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_
     let c = rusqlite::Connection::open(&db).unwrap();
     let b = model::load_bot(&c, bot).unwrap();
     let ticker = model::ticker_for(&c, &b).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&b, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), venue_rules::KRAKEN.minimum_logic)
+    let amount::Sizing::Place(plan) = amount::size(&b, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), venue_rules::KRAKEN.minimum_logic).unwrap()
         else { panic!("sized") };
     placement::begin(&c, &b, &plan, &FixedClock(chrono::Utc::now())).unwrap();
     // Another plain cryptocurrency on the same venue.

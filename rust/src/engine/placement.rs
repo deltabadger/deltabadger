@@ -94,7 +94,11 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Se
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
     }
     let rules = venue.rules();
-    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire)).await {
+    let order = match intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire) {
+        Ok(o) => o,
+        Err(e) => return Sent::NotSent(format!("{e}; not sent")),
+    };
+    match venue.add_order(&order).await {
         Ok(txid) => Sent::Accepted(txid),
         Err(VenueError::Rejected(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),

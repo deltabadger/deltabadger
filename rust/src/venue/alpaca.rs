@@ -26,18 +26,14 @@ impl Urls {
     }
 }
 
-/// `value.to_d` on a JSON-parsed Ruby value: nil → 0, Integer exact, Float#to_d, String#to_d.
-/// ponytail: String#to_d reads the numeric prefix of garbage ("12abc" → 12); this reads garbage as 0. Alpaca sends clean decimals.
-pub fn ruby_to_d(v: &Value) -> BigDec {
-    match v {
-        Value::Number(n) => n.as_i64().map(BigDec::from_i64).or_else(|| n.as_f64().and_then(|f| BigDec::from_f64(f).ok())).unwrap_or_else(BigDec::zero),
-        Value::String(s) => BigDec::parse(s).unwrap_or_else(|_| BigDec::zero()),
-        _ => BigDec::zero(),
-    }
-}
+/// `value.to_d` on a JSON-parsed Ruby value: nil → 0, Integer exact, Float#to_d, a decimal String.
+/// DIVERGES from Ruby on purpose (ruby::json_to_d): "garbage".to_d is 0 and "NaN".to_d is NaN in Ruby; here anything
+/// that is not a finite decimal within BigDec's bounds is `Err` with the raw value quoted, so it can never become a zero
+/// price, quantity, fill or balance. Each caller turns it into that call's unreadable-answer error.
+pub fn ruby_to_d(v: &Value) -> Result<BigDec, String> { ruby_opt_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)) }
 
 /// `value&.to_d`: nil stays nil.
-pub fn ruby_opt_to_d(v: &Value) -> Option<BigDec> { (!v.is_null()).then(|| ruby_to_d(v)) }
+pub fn ruby_opt_to_d(v: &Value) -> Result<Option<BigDec>, String> { crate::ruby::json_to_d(v).map_err(|_| crate::ruby::raw(v)) }
 
 /// Clients::Alpaca#with_rescue's message for a failed request: "HTTP <status>" for an HTML body, else the JSON body's
 /// `message`, else the raw body, else Faraday's own "the server responded with status …" (raise_error, empty body).
@@ -73,21 +69,23 @@ fn status(s: Option<&str>) -> OrderStatus {
 }
 
 /// Exchanges::Alpaca#parse_order_data. `id` is the id asked for (#get_orders keys its answer by it). Fills are gross.
-pub fn parse_order(id: &str, o: &Value) -> OrderState {
-    let filled_qty = ruby_to_d(&o["filled_qty"]);
-    let filled_avg_price = ruby_opt_to_d(&o["filled_avg_price"]);
+/// `Err` names the first number it cannot read: the answer is unreadable, never a zero fill.
+pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
+    let d = |field: &str| ruby_opt_to_d(&o[field]).map_err(|raw| format!("Alpaca order {id}: unreadable {field} {raw}"));
+    let filled_qty = d("filled_qty")?.unwrap_or_else(BigDec::zero);
+    let filled_avg_price = d("filled_avg_price")?;
     // `filled_avg_price.positive? ? it : (limit_price || 0)`: an unfilled market order reports price 0, and
     // Transaction#update_with_order_data writes it (0 is not nil, so `.compact` keeps it).
     let price = match &filled_avg_price {
         Some(p) if p.is_positive() => p.clone(),
-        _ => ruby_opt_to_d(&o["limit_price"]).unwrap_or_else(BigDec::zero),
+        _ => d("limit_price")?.unwrap_or_else(BigDec::zero),
     };
-    OrderState {
+    Ok(OrderState {
         txid: id.to_string(), status: status(o["status"].as_str()), price: Some(price),
-        amount: ruby_opt_to_d(&o["qty"]), quote_amount: ruby_opt_to_d(&o["notional"]),
+        amount: d("qty")?, quote_amount: d("notional")?,
         quote_amount_exec: &filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero), amount_exec: filled_qty,
         limit: o["type"] == "limit", sell: o["side"] == "sell",
-    }
+    })
 }
 
 #[derive(Clone)]
@@ -124,7 +122,9 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
             PriceSide::Last => ("/v1beta3/crypto/us/latest/trades", "trades", "p", "last"),
         };
         let body = self.get(self.request("GET", true, path.into(), vec![("symbols", ticker.ticker.clone())], None)).await?;
-        let price = ruby_to_d(&body[key][ticker.ticker.as_str()][field]);
+        // An unreadable price is an unreadable answer (Rejected, as `get` reads one): the tick retries and places nothing.
+        let price = ruby_to_d(&body[key][ticker.ticker.as_str()][field])
+            .map_err(|raw| VenueError::Rejected(vec![format!("unreadable {label} price for {}: {raw}", ticker.base_code)]))?;
         if price.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.base_code, price.to_s_f())])); }
         Ok(price)
     }
@@ -149,8 +149,12 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
             Err(TransportError::NotSent(m)) => Err(VenueError::Transient(m)),
             Err(TransportError::MaybeSent(m)) => Err(VenueError::Ambiguous(m)),
             Ok(resp) if (200..300).contains(&resp.status) => {
-                let id = serde_json::from_str::<Value>(&resp.body).ok().and_then(|v| v["id"].as_str().filter(|s| !s.is_empty()).map(str::to_string));
-                id.ok_or_else(|| VenueError::Ambiguous(format!("Alpaca accepted the order without a readable id: {}", error_message(&r, &resp))))
+                let v = serde_json::from_str::<Value>(&resp.body).unwrap_or(Value::Null);
+                let id = v["id"].as_str().filter(|s| !s.is_empty()).map(str::to_string)
+                    .ok_or_else(|| VenueError::Ambiguous(format!("Alpaca accepted the order without a readable id: {}", error_message(&r, &resp))))?;
+                // A number in the answer it cannot read (a fill of "NaN") makes the whole answer unreadable: the order is
+                // resolved by its client order id, never recorded from an answer that may carry a wrong fill.
+                parse_order(&id, &v).map(|_| id).map_err(|e| VenueError::Ambiguous(format!("Alpaca accepted the order with an unreadable answer: {e}")))
             }
             Ok(resp) if (400..500).contains(&resp.status) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
             Ok(resp) => Err(VenueError::Ambiguous(error_message(&r, &resp))),
@@ -162,7 +166,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         let mut out = Vec::with_capacity(ids.len());
         for id in ids {
             let body = self.get(self.request("GET", false, format!("/v2/orders/{id}"), vec![], None)).await?;
-            out.push(parse_order(id, &body));
+            out.push(parse_order(id, &body).map_err(|e| VenueError::Rejected(vec![e]))?);
         }
         Ok(out)
     }
@@ -180,7 +184,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
             Ok(resp) if (200..300).contains(&resp.status) => {
                 let v: Value = serde_json::from_str(&resp.body).map_err(|_| VenueError::Rejected(vec![error_message(&r, &resp)]))?;
                 match (v["id"].as_str(), v["client_order_id"].as_str()) {
-                    (Some(id), Some(cl)) if cl == cl_ord_id => Ok(Some(parse_order(id, &v))),
+                    (Some(id), Some(cl)) if cl == cl_ord_id => parse_order(id, &v).map(Some).map_err(|e| VenueError::Rejected(vec![e])),
                     _ => Err(VenueError::Rejected(vec![format!("Alpaca answered for client order id {cl_ord_id} with {}", resp.body)])),
                 }
             }
@@ -198,7 +202,14 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         self.get(self.request("GET", false, "/v2/positions".into(), vec![], None)).await?;
         // ponytail: eligibility admits only USD-quoted Alpaca bots; another quote would be a position lookup ("BTCUSD").
         if asset_symbol != "USD" { return Ok(BigDec::zero()); }
-        Ok(ruby_opt_to_d(&account["non_marginable_buying_power"]).unwrap_or_else(|| ruby_to_d(&account["cash"])))
+        // An unreadable balance is never a zero (which would read as low funds). Clients::Alpaca would raise on it, so it is
+        // Transient: retried when nothing was placed, rescheduled without a replay when something was (Bot::ActionJob).
+        let free = match ruby_opt_to_d(&account["non_marginable_buying_power"]) {
+            Ok(Some(d)) => Ok(d),
+            Ok(None) => ruby_to_d(&account["cash"]),
+            Err(raw) => Err(raw),
+        };
+        free.map_err(|raw| VenueError::Transient(format!("Alpaca account: unreadable balance {raw}")))
     }
 }
 
