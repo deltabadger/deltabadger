@@ -62,3 +62,28 @@ fn a_venue_number_that_is_not_a_finite_decimal_is_an_error_not_zero() {
     assert_eq!(json_to_d(&json!(64321.5)).unwrap(), Some(BigDec::parse("64321.5").unwrap()));
     assert_eq!(json_to_d(&json!(7)).unwrap(), Some(BigDec::from_i64(7)));
 }
+
+#[test]
+fn extreme_exponent_strings_are_errors_never_a_wrap() {
+    // Debug builds panic on any integer overflow, so passing here means no overflowing step runs; release cannot wrap either.
+    for s in ["1e9223372036854775807", "1e9223372036854775808", "1e-9223372036854775808", "1e-9223372036854775809", "1E+9223372036854775807",
+              "1.5e-9223372036854775807", "1.5e9223372036854775807", "9e18446744073709551616", "0e9223372036854775808", "1e10001", "-1e-10001"] {
+        assert!(BigDec::parse(s).is_err(), "{s} must be refused");
+    }
+}
+
+#[test]
+fn venue_numbers_have_their_own_tighter_caps() {
+    use deltabadger::ruby::json_to_d;
+    use serde_json::json;
+    for ok in ["1e40", "1e-40", "0.000000000000000001", "123456789012345.123456789", &format!("1.{}", "1".repeat(63))] {
+        assert!(json_to_d(&json!(ok)).is_ok(), "{ok}");
+    }
+    for bad in ["1e41", "1e-41", "1e300", "1e-300", &format!("1.{}", "1".repeat(64)), &format!("0.{}1", "0".repeat(41))] {
+        assert!(json_to_d(&json!(bad)).is_err(), "{bad}");
+    }
+    assert!(json_to_d(&json!(1e300)).is_err(), "a JSON float out of range too");
+    assert!(json_to_d(&json!(1e-300)).is_err());
+    // The database keeps the wide caps: Float#to_d of any f64 still reads.
+    assert!(BigDec::parse("1e300").is_ok());
+}

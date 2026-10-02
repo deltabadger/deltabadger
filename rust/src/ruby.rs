@@ -18,6 +18,14 @@ pub const MAX_EXPONENT: i64 = 400;
 /// At most 512 digits written out in full (BigDecimal#precision: a pure fraction's leading zeros count). The widest f64
 /// needs 339 (16 digits at 10^-324); a value this wide costs a few hundred bytes to write out, compare or divide.
 pub const MAX_DIGITS: i64 = 512;
+/// Venue numbers (`json_to_d`: every price, quantity, fill and balance taken from a venue response) are held tighter:
+/// the most significant digit within 10^±40 and at most 64 significant digits. Real values are far inside: Alpaca crypto
+/// prices run ~1e-8 (SHIB-class) to ~1e6 with 9-decimal quantities and notionals to ~1e7; Kraken prices run ~1e-10
+/// (BTC-quoted pairs) to ~1e6 with 8-10 decimal volumes and meme-coin balances to ~1e12; none has more than ~25
+/// significant digits. Inside these caps every product or quotient of two venue numbers stays inside f64 (no ±Inf is
+/// ever stored) and writes out in well under MAX_INPUT_LEN characters.
+pub const VENUE_MAX_EXPONENT: i64 = 40;
+pub const VENUE_MAX_DIGITS: i64 = 64;
 /// The places a ticker's precision may round to (base, quote and price decimals). Venues use 0 ..= 18 (18 for wei);
 /// 40 is headroom. Eligibility refuses a ticker outside it, and `scale` is the only way an engine precision becomes one.
 pub const MAX_SCALE: i64 = 40;
@@ -41,18 +49,48 @@ fn digit_count(i: &BigInt) -> i64 { if i.sign() == Sign::NoSign { 1 } else { i.m
 impl BigDec {
     /// A decimal string within the bounds above; anything longer, wider or outside the exponent range is an error.
     pub fn parse(s: &str) -> Result<Self, CodecError> {
+        let err = |e: String| CodecError::Decimal(format!("{s:?}: {e}"));
         if s.len() > MAX_INPUT_LEN { return Err(CodecError::Decimal(format!("a {}-character decimal (at most {MAX_INPUT_LEN})", s.len()))); }
-        let d = BigDecimal::from_str(s.trim()).map_err(|e| CodecError::Decimal(format!("{s:?}: {e}")))?;
-        Self::bounded(d).map_err(|e| CodecError::Decimal(format!("{s:?}: {e}")))
+        let t = s.trim();
+        // The written exponent is read first, as a checked i64, so no exponent near i64's range reaches the parser's own
+        // scale arithmetic (it computes digits − exponent in i64). Anything past ±(MAX_EXPONENT + MAX_INPUT_LEN) cannot pass
+        // the check below anyway.
+        if let Some(i) = t.find(['e', 'E']) {
+            let limit = MAX_EXPONENT + MAX_INPUT_LEN as i64;
+            if !t[i + 1..].parse::<i64>().is_ok_and(|e| (-limit..=limit).contains(&e)) { return Err(err("exponent out of range".into())); }
+        }
+        let d = BigDecimal::from_str(t).map_err(|e| err(e.to_string()))?;
+        Self::bounded(d).map_err(err)
     }
+    /// Checked before normalizing, in i128: whatever scale the parser produced, nothing here overflows or wraps.
     fn bounded(d: BigDecimal) -> Result<Self, String> {
+        let (int, scale) = d.as_bigint_and_exponent();
+        if int.sign() == Sign::NoSign { return Ok(Self::zero()); }
+        let exponent = i128::from(digit_count(&int)) - 1 - i128::from(scale); // the most significant digit's power of ten
+        if exponent.abs() > i128::from(MAX_EXPONENT) { return Err(format!("exponent {exponent} is outside ±{MAX_EXPONENT}")); }
+        // Here |scale| ≤ digits + MAX_EXPONENT, so normalizing and `precision` are plain small-integer arithmetic.
         let v = Self(d.normalized());
-        if v.is_zero() { return Ok(Self::zero()); }
-        let (int, scale) = v.0.as_bigint_and_exponent();
-        let exponent = digit_count(&int) - 1 - scale;
-        if exponent.abs() > MAX_EXPONENT { return Err(format!("exponent {exponent} is outside ±{MAX_EXPONENT}")); }
         if v.precision() > MAX_DIGITS { return Err(format!("{} digits (at most {MAX_DIGITS})", v.precision())); }
         Ok(v)
+    }
+    /// The venue-number caps (VENUE_MAX_EXPONENT, VENUE_MAX_DIGITS) on a value already within BigDec's own.
+    fn venue_bounded(self) -> Result<Self, CodecError> {
+        if self.is_zero() { return Ok(self); }
+        let (int, scale) = self.0.as_bigint_and_exponent();
+        let (digits, exponent) = (digit_count(&int), digit_count(&int) - 1 - scale);
+        if exponent.abs() > VENUE_MAX_EXPONENT || digits > VENUE_MAX_DIGITS {
+            return Err(CodecError::Decimal(format!("{} is outside a venue number's range (10^±{VENUE_MAX_EXPONENT}, {VENUE_MAX_DIGITS} digits)", self.to_s_f())));
+        }
+        Ok(self)
+    }
+    /// `to_s_f`, only if it reads back through `parse` to this same value: what the engine may persist as a decimal
+    /// string (a placement intent, the carry). Anything else is refused before it is written.
+    pub fn to_persisted(&self) -> Result<String, CodecError> {
+        let s = self.to_s_f();
+        match Self::parse(&s) {
+            Ok(back) if back == *self => Ok(s),
+            _ => Err(CodecError::Decimal(format!("{}… ({} characters) would not read back", s.chars().take(24).collect::<String>(), s.len()))),
+        }
     }
     pub fn from_i64(i: i64) -> Self { Self(BigDecimal::from(i)) }
     /// Float#to_d: the shortest round-trip digits, truncated (not rounded) to 16 significant digits.
@@ -142,18 +180,18 @@ pub fn scale(places: i64) -> Result<u8, CodecError> {
 }
 
 /// A number in a venue's JSON as Ruby's `value.to_d` reads it: null is None (nil), an Integer exact, a Float by Float#to_d,
-/// a String as a decimal. DIVERGES from Ruby on purpose: String#to_d reads "garbage" as 0 ("12abc" as 12) and "NaN" or
+/// a String as a decimal, each within the venue caps (VENUE_MAX_*). DIVERGES from Ruby on purpose: String#to_d reads "garbage" as 0 ("12abc" as 12) and "NaN" or
 /// "Infinity" as non-finite BigDecimals, and either would flow on as an ordinary price, quantity or fill. Here a string
 /// that is not a finite decimal within the bounds above, and any other JSON type, is an error, never zero.
 pub fn json_to_d(v: &Value) -> Result<Option<BigDec>, CodecError> {
     match v {
         Value::Null => Ok(None),
         Value::Number(n) => match (n.as_i64(), n.as_f64()) {
-            (Some(i), _) => Ok(Some(BigDec::from_i64(i))),
-            (None, Some(f)) => BigDec::from_f64(f).map(Some),
+            (Some(i), _) => BigDec::from_i64(i).venue_bounded().map(Some),
+            (None, Some(f)) => BigDec::from_f64(f).and_then(BigDec::venue_bounded).map(Some),
             (None, None) => Err(CodecError::Decimal(format!("{n} is not a readable number"))),
         },
-        Value::String(s) => BigDec::parse(s).map(Some),
+        Value::String(s) => BigDec::parse(s).and_then(BigDec::venue_bounded).map(Some),
         other => Err(CodecError::Decimal(format!("{} is not a number", raw(other)))),
     }
 }
