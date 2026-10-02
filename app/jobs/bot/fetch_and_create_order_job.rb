@@ -18,13 +18,7 @@ class Bot::FetchAndCreateOrderJob < BotJob
     order_data = result.data
     case order_data[:status]
     when :open, :closed
-      ActiveRecord::Base.transaction do
-        bot.create_submitted_order!(order_data)
-        if update_missed_quote_amount
-          missed_quote_amount = [0, bot.missed_quote_amount - order_data[:quote_amount_exec]].max
-          bot.update!(missed_quote_amount: missed_quote_amount)
-        end
-      end
+      bot.create_submitted_order!(order_data)
     when :unknown
       raise "Order #{order_id} status is unknown."
     end

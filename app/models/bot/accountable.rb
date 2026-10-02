@@ -45,7 +45,15 @@ module Bot::Accountable
                                     .map { |quote_amount, amount, price| quote_amount || (amount * price) }
                                     .sum
 
-    total_quote_amount_invested = closed_quote_amount + open_quote_amount
+    # A cancelled or abandoned order counts what it filled before it stopped: an Alpaca stock day order
+    # expires part-filled at the close, and the filled part is spent. Executed amount only, so what never
+    # filled is owed again. Same rule as the spend cap (Bot::QuoteAmountLimitable).
+    stopped_quote_amount = transactions.submitted.buy.regular.cancelled_or_abandoned
+                                       .where('created_at >= ?', calc_since)
+                                       .pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))
+                                       .sum
+
+    total_quote_amount_invested = closed_quote_amount + open_quote_amount + stopped_quote_amount
 
     # Round to 6 decimal places to avoid floating point precision issues!
     intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / effective_interval_duration).floor + 1
