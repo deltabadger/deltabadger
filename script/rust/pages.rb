@@ -183,6 +183,14 @@ module Pages
       'logout_de' => { 'steps' => [get('/de/login'), login(path: '/de/login'), get('/de/bots'), logout('/de/logout').merge('expect' => 303),
                                    get('/de')] },
       'bots_empty_cash_only' => { 'balances' => { 'USD' => 120, 'USDC' => 80 }, 'steps' => [get('/login'), login, get('/bots'), get('/bots')] },
+      'unrouted_put_login' => { 'steps' => [get('/login'), post('/login', { '_method' => 'put' })] },
+      'unrouted_get_logout' => { 'steps' => [get('/login'), login, get('/logout')] },
+      'unrouted_unknown_locale_prefix' => { 'steps' => [get('/zz/login')] },
+      'unrouted_locale_before_up' => { 'steps' => [get('/de/up')] },
+      'not_ported_tracker' => { 'steps' => [get('/login'), login, get('/tracker')] },
+      'not_ported_bots_with_holdings' => { 'balances' => { 'BTC' => 5000, 'USD' => 120 }, 'steps' => [get('/login'), login, get('/bots')] },
+      'not_ported_bots_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
+                                        'steps' => [get('/login'), login, get('/bots')] },
       'up' => { 'steps' => [get('/up')] }
     }
   end

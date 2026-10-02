@@ -340,3 +340,28 @@ async fn signing_out_empties_this_browsers_session_and_cannot_revoke_a_copy_of_i
     password("Another-horse-7");
     assert_eq!(copy().get(&app, "/bots").await.status, 302, "or until the password changes, which ends every session");
 }
+
+/// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
+/// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
+/// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.
+#[test]
+#[ignore = "needs Chrome and bun: cargo test --test serve -- --ignored"]
+fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    drop(opened);
+    let port = free_port();
+    let mut server = serve_command(dir.path(), port).spawn().unwrap();
+    let started = Instant::now();
+    while http_get(port, "/up").is_none() {
+        assert!(started.elapsed() < Duration::from_secs(10) && server.try_wait().unwrap().is_none(), "serve did not come up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let check = Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
+        .env("BASE_URL", format!("http://127.0.0.1:{port}")).env("EMAIL", "o@example.com").env("PASSWORD", "Correct-horse-9").output();
+    server.kill().unwrap();
+    server.wait().unwrap();
+    let check = check.expect("bun runs the browser check");
+    assert!(check.status.success(), "{}\n{}", String::from_utf8_lossy(&check.stdout), String::from_utf8_lossy(&check.stderr));
+}
