@@ -1,5 +1,6 @@
 //! The `(:locale)` route scope: config/routes.rb, ApplicationController#switch_locale and
 //! #default_url_options, and LocaleHelper#locale_switch_path.
+use std::collections::HashSet;
 
 /// config.i18n.available_locales, in Rails' order (pinned by tests/locale.rs).
 pub const LOCALES: [&str; 15] = ["en", "pl", "es", "de", "nl", "fr", "pt", "ru", "it", "bg", "el", "sv", "da", "cs", "sk"];
@@ -62,17 +63,25 @@ fn cgi_escape(text: &str) -> String {
     out
 }
 
-/// locale_switch_path: the current page under another locale. The locale is always in the path here,
-/// English included, and the query keeps its other keys, sorted, as `to_query` writes them. A
-/// repeated key keeps its last value, as Rack parsed it, unless it is a list (`a[]`), which keeps all.
+/// The query locale_switch_path gives every language link: the page's own, without the reserved
+/// keys, sorted, as `to_query` writes it. A repeated key keeps its last value, as Rack parsed it,
+/// unless it is a list (`a[]`), which keeps all. One pass over the query, made once per page
+/// (`Ctx::languages`), whatever the number of links.
 /// ponytail: Rack's nesting beyond that (`a[][b]`, `a` beside `a[b]`) is not modelled; no link of this app writes such a query.
-pub fn switch_path(target: &str, route_path: &str, query: &[(String, String)]) -> String {
-    let mut kept: Vec<String> = query.iter().enumerate()
-        .filter(|(_, (key, _))| !RESERVED.contains(&key.split('[').next().unwrap_or(key)))
-        .filter(|(at, (key, _))| key.ends_with("[]") || !query.iter().skip(at + 1).any(|(later, _)| later == key))
-        .map(|(_, (key, value))| format!("{}={}", cgi_escape(key), cgi_escape(value)))
+pub fn switch_query(query: &[(String, String)]) -> String {
+    let mut later = HashSet::new();
+    let mut kept: Vec<String> = query.iter().rev()
+        .filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key)))
+        .filter(|(key, _)| key.ends_with("[]") || later.insert(key.as_str()))
+        .map(|(key, value)| format!("{}={}", cgi_escape(key), cgi_escape(value)))
         .collect();
     kept.sort();
+    kept.join("&")
+}
+
+/// locale_switch_path: the current page under another locale, with the query `switch_query` made
+/// of the page's. The locale is always in the path here, English included.
+pub fn switch_path(target: &str, route_path: &str, query: &str) -> String {
     let base = if route_path == "/" { format!("/{target}") } else { format!("/{target}{route_path}") };
-    if kept.is_empty() { base } else { format!("{base}?{}", kept.join("&")) }
+    if query.is_empty() { base } else { format!("{base}?{query}") }
 }

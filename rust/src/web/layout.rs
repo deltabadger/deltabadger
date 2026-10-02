@@ -86,9 +86,10 @@ impl Ctx {
     /// the locale in effect: without the parameter English is hidden, whatever the page is in.
     pub fn languages(&self) -> Vec<Language> {
         let param = self.params.locale();
+        let query = locale::switch_query(&self.params.query);
         LANGUAGES.iter()
             .filter(|(code, _)| if *code == "en" { param.is_some_and(|p| p != "en") } else { param != Some(code) })
-            .map(|(code, label)| Language { href: locale::switch_path(code, &self.params.route_path, &self.params.query), label })
+            .map(|(code, label)| Language { href: locale::switch_path(code, &self.params.route_path, &query), label })
             .collect()
     }
 }

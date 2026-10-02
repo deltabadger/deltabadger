@@ -171,6 +171,28 @@ async fn a_form_is_bounded_in_bytes_and_in_fields_before_it_is_routed() {
     assert_eq!(status_of_fields(1001).await, 400);
 }
 
+/// The query string is bounded like a form, and as early: 8 KiB and 1,000 fields, whatever the path.
+#[tokio::test(flavor = "current_thread")]
+async fn a_query_string_is_bounded_in_bytes_and_in_fields_before_it_is_routed() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    let fields = |count: usize| (0..count).map(|n| format!("k{n}=1")).collect::<Vec<_>>().join("&");
+    let started = Instant::now();
+    let page = browser.get(&app, &format!("/login?{}", fields(1000))).await;
+    assert!(page.status == 200 && page.body.contains("href=\"/de/login?k0=1&#38;k100=1&#38;k101=1&#38;"), "1,000 fields are read, and the language links carry them: {} {:.300}", page.status, page.body.split("dropdown__item").nth(1).unwrap_or(""));
+    assert!(started.elapsed() < Duration::from_secs(1), "{:?}", started.elapsed());
+    assert_eq!(browser.get(&app, &format!("/login?{}", fields(1001))).await.status, 400);
+    let bytes = |count: usize| format!("x={}", "a".repeat(count - 2));
+    assert_eq!(browser.get(&app, &format!("/login?{}", bytes(8 * 1024))).await.status, 200, "8 KiB");
+    assert_eq!(browser.get(&app, &format!("/login?{}", bytes(8 * 1024 + 1))).await.status, 414, "one byte more");
+    for path in ["/robots.txt", "/up", "/nothing-here", "/cable"] {
+        assert_eq!(browser.get(&app, &format!("{path}?{}", bytes(8 * 1024 + 1))).await.status, 414, "{path}: before any route, static files included");
+        assert_eq!(browser.get(&app, &format!("{path}?{}", fields(1001))).await.status, 400, "{path}");
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn up_carries_the_headers_rails_middleware_adds() {
     let (dir, opened, _) = common::install();

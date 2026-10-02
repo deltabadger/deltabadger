@@ -462,6 +462,10 @@ struct Entry {
 /// most 128 and three short fields, under 1 KiB. (`/csp-report` is not a form and its body is never read.)
 pub const FORM_LIMIT: usize = 64 * 1024;
 pub const FORM_FIELDS: usize = 1000;
+/// The same bound for the query string, which is parsed for every request: 8 KiB (the longest path
+/// kept as `return_to` is 2 KiB) and as many fields as a form.
+pub const QUERY_LIMIT: usize = 8 * 1024;
+pub const QUERY_FIELDS: usize = FORM_FIELDS;
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -473,6 +477,13 @@ pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 ///   and `/de/login`.
 async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let (mut parts, body) = request.into_parts();
+    let raw_query = parts.uri.query().unwrap_or("");
+    if raw_query.len() > QUERY_LIMIT {
+        return (StatusCode::URI_TOO_LONG, "Query string too long\n").into_response();
+    }
+    if form_urlencoded::parse(raw_query.as_bytes()).nth(QUERY_FIELDS).is_some() {
+        return (StatusCode::BAD_REQUEST, "Too many query fields\n").into_response();
+    }
     let full_path = normalize_path(parts.uri.path());
     if matches!(parts.method, Method::GET | Method::HEAD) {
         if let Some(file) = assets::find(&full_path) {

@@ -84,15 +84,28 @@ mod locales {
     #[test]
     fn the_language_switch_keeps_the_page_and_its_query_without_reserved_keys() {
         let query = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
-        assert_eq!(locale::switch_path("de", "/login", &[]), "/de/login");
-        assert_eq!(locale::switch_path("en", "/login", &[]), "/en/login", "English is explicit here, unlike a generated path");
-        assert_eq!(locale::switch_path("de", "/", &[]), "/de");
+        assert_eq!(locale::switch_path("de", "/login", ""), "/de/login");
+        assert_eq!(locale::switch_path("en", "/login", ""), "/en/login", "English is explicit here, unlike a generated path");
+        assert_eq!(locale::switch_path("de", "/", ""), "/de");
         // Recorded from Rails by the login_page_query scenario of tests/pages.rs.
         let given = query(&[("x", "1"), ("host", "evil.example"), ("locale", "de"), ("b", "two words"), ("a[]", "1")]);
-        assert_eq!(locale::switch_path("nl", "/login", &given), "/nl/login?a%5B%5D=1&b=two+words&x=1");
+        assert_eq!(locale::switch_path("nl", "/login", &locale::switch_query(&given)), "/nl/login?a%5B%5D=1&b=two+words&x=1");
         // Recorded by the login_page_repeated_query_keys scenario: the last value of a repeated key, every value of a list.
         let repeated = query(&[("x", "1"), ("user[email]", "first"), ("x", "2"), ("user[email]", "last"), ("a[]", "1"), ("a[]", "2")]);
-        assert_eq!(locale::switch_path("en", "/login", &repeated), "/en/login?a%5B%5D=1&a%5B%5D=2&user%5Bemail%5D=last&x=2");
+        assert_eq!(locale::switch_path("en", "/login", &locale::switch_query(&repeated)), "/en/login?a%5B%5D=1&a%5B%5D=2&user%5Bemail%5D=last&x=2");
+    }
+
+    /// The language dropdown has a link per locale, each carrying the page's query. What that costs
+    /// must grow with the query, not with its square, and not once per link.
+    #[test]
+    fn the_language_links_cost_one_pass_over_the_query() {
+        let query: Vec<(String, String)> = (0..20_000).map(|n| (format!("k{n}"), "v".to_string())).chain([("k7".to_string(), "last".to_string())]).collect();
+        let started = std::time::Instant::now();
+        let kept = locale::switch_query(&query);
+        let links: Vec<String> = locale::LOCALES.iter().map(|code| locale::switch_path(code, "/login", &kept)).collect();
+        let took = started.elapsed();
+        assert!(links[1].starts_with("/pl/login?k0=v&k10000=v&k10001=v&") && links[1].contains("&k7=last&") && !links[1].contains("&k7=v&"), "{:.80}", links[1]);
+        assert!(took < std::time::Duration::from_secs(1), "fifteen links over 20,000 keys took {took:?}");
     }
 
     #[test]
