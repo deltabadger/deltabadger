@@ -18,7 +18,7 @@ pub const STALE_AFTER_DAYS: i64 = 14;
 pub enum PollFailure { RateLimited(String), Transient(String), General(String) }
 
 struct Row {
-    id: i64, created_at_us: i64, side: Option<i64>, transaction_type: String, external_status: Option<i64>,
+    id: i64, side: Option<i64>, external_status: Option<i64>,
     price: Option<BigDec>, amount: Option<BigDec>, quote_amount: Option<BigDec>, amount_exec: Option<BigDec>, quote_amount_exec: Option<BigDec>,
     order_type: Option<i64>, base: Option<String>, quote: Option<String>, base_asset_id: Option<i64>, quote_asset_id: Option<i64>,
 }
@@ -30,20 +30,21 @@ fn created_us(s: &str) -> Result<i64, EngineError> {
 
 fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
     let row = c.query_row(
-        "SELECT id, created_at, side, transaction_type, external_status, price, amount, quote_amount, amount_exec, quote_amount_exec, \
+        "SELECT id, side, external_status, price, amount, quote_amount, amount_exec, quote_amount_exec, \
          order_type, base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [id],
         |r| {
             let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
-            Ok(Row { id: r.get(0)?,
-                     created_at_us: created_us(&r.get::<_, String>(1)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")))?,
-                     side: r.get(2)?, transaction_type: r.get(3)?, external_status: r.get(4)?,
-                     price: dec(5)?, amount: dec(6)?, quote_amount: dec(7)?, amount_exec: dec(8)?, quote_amount_exec: dec(9)?,
-                     order_type: r.get(10)?, base: r.get(11)?, quote: r.get(12)?, base_asset_id: r.get(13)?, quote_asset_id: r.get(14)? })
+            Ok(Row { id: r.get(0)?, side: r.get(1)?, external_status: r.get(2)?,
+                     price: dec(3)?, amount: dec(4)?, quote_amount: dec(5)?, amount_exec: dec(6)?, quote_amount_exec: dec(7)?,
+                     order_type: r.get(8)?, base: r.get(9)?, quote: r.get(10)?, base_asset_id: r.get(11)?, quote_asset_id: r.get(12)? })
         })?;
     Ok(row)
 }
 
-pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, update_missed: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
+/// Transaction#update_with_order_data for one row. `_update_missed` is Rails' `update_missed_quote_amount:` keyword, inert
+/// since Rails' fill-credit fix (#448): a fill is credited once, by its own row (amount::pending_quote_amount), and a poll
+/// never moves the carry. Kept, as Rails keeps the keyword, until Rails removes it.
+pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
     let status = match s.status {
         OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
         OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(()),
@@ -51,7 +52,6 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, update_
     let row = load(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     let ticker = model::ticker_for(c, &bot)?;
-    let previous_quote_amount_exec = row.quote_amount_exec.clone().unwrap_or_else(BigDec::zero);
 
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
     let mut sets: Vec<(&str, Sql)> = vec![];
@@ -84,16 +84,6 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, update_
         c.execute(&sql, rusqlite::params_from_iter(values))?;
     }
 
-    let in_window = bot.calc_since_us().is_some_and(|since| row.created_at_us >= since);
-    if update_missed && row.transaction_type == "REGULAR" && side == 0 && in_window { // `order.buy?` after the update
-        let missed = &bot.missed_quote_amount()? - &(&s.quote_amount_exec - &previous_quote_amount_exec);
-        // [0, x].max: Ruby returns the Integer 0 unless x is strictly greater.
-        let value = if missed.is_positive() { json!(missed.to_s_f()) } else { json!(0) };
-        // Rails assigns a BigDecimal against the stored String, so it always writes; only Integer 0 over Integer 0 is a no-op.
-        if !(value == json!(0) && bot.transient.get("missed_quote_amount") == Some(&json!(0))) {
-            model::update_transient(c, bot_id, &[("missed_quote_amount", value)], now)?;
-        }
-    }
     Ok(())
 }
 

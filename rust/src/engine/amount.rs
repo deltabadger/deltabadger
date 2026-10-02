@@ -16,6 +16,12 @@ use serde_json::{json, Value};
 fn at(us: i64) -> DateTime<Utc> { DateTime::from_timestamp_micros(us).expect("time in range") }
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
 
+/// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
+/// window opened, minus every submitted REGULAR buy in the window, read in ONE statement, so a row that changes state
+/// between reads is counted once. Closed: its executed quote. Open or unknown: its submitted quote, or amount × price
+/// (#invested_quote). Cancelled or abandoned: what it executed before it stopped (NULL reads 0); the rest is owed again.
+/// Nothing in polling moves missed_quote_amount any more. The window is max(started_at, settings_changed_at), inclusive
+/// for every row.
 pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
     if bot.status == BotStatus::Deleted { return Ok(BigDec::zero()); }
     let Some(started) = bot.started_at_us else { return Ok(BigDec::zero()) };
@@ -24,24 +30,25 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     let since_text = format_time(at(since));
 
     let mut invested = BigDec::zero();
-    let mut closed = c.prepare(
-        "SELECT quote_amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND side = 0 AND transaction_type = 'REGULAR' \
-         AND created_at >= ?2 AND external_status = 2")?;
-    let mut rows = closed.query(params![bot.id, since_text])?;
+    let mut s = c.prepare(
+        "SELECT external_status, quote_amount, amount, price, quote_amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND side = 0 \
+         AND transaction_type = 'REGULAR' AND external_status IN (0, 1, 2, 3, 4) AND created_at >= ?2")?;
+    let mut rows = s.query(params![bot.id, since_text])?;
     while let Some(r) = rows.next()? {
-        invested = &invested + &from_sql(r.get_ref(0)?).map_err(data)?.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))?;
-    }
-    let mut waiting = c.prepare(
-        "SELECT quote_amount, amount, price FROM transactions WHERE bot_id = ?1 AND status = 0 AND side = 0 AND transaction_type = 'REGULAR' \
-         AND created_at >= ?2 AND external_status IN (0, 1)")?;
-    let mut rows = waiting.query(params![bot.id, since_text])?;
-    while let Some(r) = rows.next()? {
-        let (q, a, p) = (from_sql(r.get_ref(0)?).map_err(data)?, from_sql(r.get_ref(1)?).map_err(data)?, from_sql(r.get_ref(2)?).map_err(data)?);
-        invested = &invested + &match (q, a, p) {
-            (Some(q), _, _) => q,
-            (None, Some(a), Some(p)) => &a * &p,
-            _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
+        let dec = |i: usize| -> Result<Option<BigDec>, EngineError> { from_sql(r.get_ref(i)?).map_err(data) };
+        let status: i64 = r.get(0)?;
+        let row = if status == TxExternalStatus::Closed as i64 {
+            dec(4)?.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))?
+        } else if status == TxExternalStatus::Unknown as i64 || status == TxExternalStatus::Open as i64 {
+            match (dec(1)?, dec(2)?, dec(3)?) {
+                (Some(q), _, _) => q,
+                (None, Some(a), Some(p)) => &a * &p,
+                _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
+            }
+        } else {
+            dec(4)?.unwrap_or_else(BigDec::zero) // cancelled or abandoned: `quote_amount_exec || 0`
         };
+        invested = &invested + &row;
     }
 
     let interval = bot.interval().ok_or_else(|| EngineError::Data("interval".into()))?;

@@ -27,22 +27,14 @@ fn closed_raw(price: &str, vol_exec: &str, cost: &str) -> serde_json::Value {
 fn bot(o: &store::Opened, id: i64) -> model::Bot { model::load_bot(&o.primary, id).unwrap() }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_closed_fill_updates_the_row_and_reduces_the_carry_by_the_new_fill() {
+async fn a_closed_fill_updates_the_row_and_leaves_the_carry_alone() {
     let (_d, o, s, b) = setup(json!({ "missed_quote_amount": "100.0" }));
     let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-1"));
     let v = FakeVenue::new().order("OTX-1", closed_raw("50010.5", "0.00119975", "60.0"));
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
     let (ext, price, qexec): (i64, f64, f64) = o.primary.query_row("SELECT external_status, price, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!((ext, price, qexec), (2, 50010.5, 60.0));
-    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("40.0"));
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn a_carry_driven_to_zero_is_stored_as_integer_zero_like_ruby() {
-    let (_d, o, s, b) = setup(json!({ "missed_quote_amount": "10.0" }));
-    seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-2"));
-    polling::sweep(&o.primary, &FakeVenue::new().order("OTX-2", closed_raw("50000", "0.0012", "60")), &bot(&o, b), now()).await.unwrap();
-    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!(0));
+    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "Rails (#448): a fill is credited by its own row, never by the carry");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -143,16 +135,16 @@ async fn imported_rows_are_never_polled_and_a_follow_up_ignores_unknown() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_carry_is_rewritten_even_when_the_value_is_unchanged() {
+async fn a_poll_writes_nothing_to_the_bot() {
     let (_d, o, s, b) = setup(json!({ "missed_quote_amount": "100.0" }));
     seed::insert_tx(&o.primary, &s, b, &TxSpec { external_status: Some(1), order_type: 1, quote_amount: None, amount_exec: Some("0"),
         quote_amount_exec: Some("0"), ..open_market("2026-09-29 10:00:00", "OTX-C") });
     let v = FakeVenue::new().order("OTX-C", json!({ "status": "open", "price": "0", "vol": "0.0012", "vol_exec": "0", "cost": "0", "oflags": "",
                                                      "descr": { "type": "buy", "ordertype": "limit", "price": "50000" } }));
+    let before: String = o.primary.query_row("SELECT json_array(updated_at, transient_data) FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
     polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
-    let at: String = o.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
-    assert_eq!(at, deltabadger::codec::format_time(now()));
-    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"));
+    let after: String = o.primary.query_row("SELECT json_array(updated_at, transient_data) FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
+    assert_eq!(after, before, "Rails' polls (#448) no longer rewrite the carry, so the bot row is untouched");
 }
 
 #[tokio::test(flavor = "current_thread")]

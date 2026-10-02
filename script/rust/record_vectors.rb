@@ -201,9 +201,11 @@ failure_messages = ['insufficient buying power', 'unauthorized.', 'HTTP 401', 'H
 vectors['failure_kinds'] = { 'Exchanges::Alpaca' => Exchanges::Alpaca.new, 'Exchanges::Kraken' => Exchanges::Kraken.new }.flat_map do |type, ex|
   failure_messages.map { |m| [type, m, ex.failure_kind([m])&.to_s, ex.transient_error?([m]), ex.throttled_error?([m])] }
 end
-# The Ruby the Alpaca port mirrors; rust/tests/venue_rules.rs fails when any of it changes, until re-recorded and re-checked.
+# The Ruby the engine ports by hand (the Alpaca venue, the carry, and the two poll jobs that used to draw it down).
+# rust/tests/venue_rules.rs fails when any of it changes, until re-recorded and re-checked: a later change to Rails' carry trips it.
 vectors['ported_sources'] = %w[app/models/clients/alpaca.rb app/models/exchanges/alpaca.rb app/models/client.rb app/models/exchange.rb
-                                 app/models/exchanges/kraken.rb]
+                                 app/models/exchanges/kraken.rb app/models/bot/accountable.rb
+                                 app/jobs/bot/fetch_and_update_open_orders_job.rb app/jobs/bot/fetch_and_update_order_job.rb]
                               .to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }
 # Exchanges::Alpaca sizing and the exact strings #set_market_order / #set_limit_order send (rust/src/engine/amount.rs).
 alpaca = Exchanges::Alpaca.new
@@ -260,6 +262,58 @@ vectors['alpaca_orders'] = order_statuses.product(order_shapes).map do |status, 
   [body, { 'status' => parsed[:status].to_s, 'price' => dec_s.(parsed[:price]), 'amount' => dec_s.(parsed[:amount]),
            'quote_amount' => dec_s.(parsed[:quote_amount]), 'amount_exec' => dec_s.(parsed[:amount_exec]),
            'quote_amount_exec' => dec_s.(parsed[:quote_amount_exec]), 'order_type' => parsed[:order_type].to_s, 'side' => parsed[:side].to_s }]
+end
+# Bot::Accountable#pending_quote_amount with Rails' fill-credit fix: a cancelled or abandoned REGULAR
+# buy counts what it filled, nothing in polling moves the carry, and every counted row comes from one read. Generated rows on a
+# bot inserted directly, inside a transaction that is rolled back, so the development database keeps nothing.
+CARRY_KINDS = %w[closed open_limit unknown_market cancelled_partial cancelled_unfilled abandoned_nil abandoned_partial
+                 failed skipped sell rebalance before_window].freeze
+carry_row = lambda do |kind, n|
+  row = { 'status' => 0, 'side' => 0, 'transaction_type' => 'REGULAR', 'external_id' => "rust-carry-#{n}", 'order_type' => 0,
+          'price' => '64150', 'created_at' => "2026-09-0#{2 + (n % 5)} 10:00:00" }
+  case kind
+  when 'closed' then row.merge('external_status' => 2, 'quote_amount' => '60', 'quote_amount_exec' => '59.97', 'amount_exec' => '0.000935')
+  when 'open_limit' then row.merge('external_status' => 1, 'order_type' => 1, 'amount' => '0.000935', 'amount_exec' => '0.0003',
+                                   'quote_amount_exec' => '19.245')
+  when 'unknown_market' then row.merge('external_status' => 0, 'quote_amount' => '60')
+  when 'cancelled_partial' then row.merge('external_status' => 3, 'quote_amount' => '60', 'quote_amount_exec' => '39.96', 'amount_exec' => '0.000623')
+  when 'cancelled_unfilled' then row.merge('external_status' => 3, 'quote_amount' => '60', 'quote_amount_exec' => '0', 'amount_exec' => '0')
+  when 'abandoned_nil' then row.merge('external_status' => 4, 'quote_amount' => '60')
+  when 'abandoned_partial' then row.merge('external_status' => 4, 'quote_amount' => '60', 'quote_amount_exec' => '12.5', 'amount_exec' => '0.000195')
+  when 'failed' then row.merge('status' => 1, 'external_id' => nil, 'quote_amount' => '60', 'quote_amount_exec' => '0', 'amount_exec' => '0')
+  when 'skipped' then row.merge('status' => 2, 'external_id' => nil, 'quote_amount' => '0.4', 'quote_amount_exec' => '0', 'amount_exec' => '0')
+  when 'sell' then row.merge('side' => 1, 'external_status' => 2, 'quote_amount' => '60', 'quote_amount_exec' => '60', 'amount_exec' => '0.000935')
+  when 'rebalance' then row.merge('transaction_type' => 'REBALANCE', 'external_status' => 3, 'quote_amount' => '60', 'quote_amount_exec' => '30',
+                                  'amount_exec' => '0.00047')
+  when 'before_window' then row.merge('external_status' => 3, 'quote_amount' => '60', 'quote_amount_exec' => '40', 'amount_exec' => '0.000623',
+                                      'created_at' => '2026-08-31 10:00:00')
+  end
+end
+carry_rng = Random.new(2_202_615)
+vectors['carry'] = Array.new(36) do |i|
+  settings = { 'interval' => %w[day week].fetch(i % 2), 'quote_amount' => 60.0 }
+  settings.merge!('smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0) if i % 6 == 5
+  kinds = Array.new(carry_rng.rand(0..5)) { CARRY_KINDS.sample(random: carry_rng) }
+  kinds |= ['cancelled_partial'] if i.even? # half the cases exercise the cancelled fill's credit
+  c = { 'settings' => settings, 'started_at' => '2026-09-01 10:00:00', 'settings_changed_at' => (i % 4 == 3 ? '2026-09-03 12:00:00' : nil),
+        'carry' => %w[0 12.5 100.0].fetch(i % 3), 'rows' => kinds.each_with_index.map { |k, n| carry_row.(k, (i * 10) + n) },
+        'now' => (Time.utc(2026, 9, 1, 10) + ((i % 9) + 1).days + 1).iso8601(6) }
+  ActiveRecord::Base.transaction do
+    alpaca = Exchanges::Alpaca.first || Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    user = User.new(name: 'Carry', email: 'rust-carry@example.com', password: 'correct horse battery staple', confirmed_at: Time.current)
+    user.save!(validate: false)
+    stamp = Time.current
+    id = Bot.insert!({ 'type' => 'Bots::DcaMultiAsset', 'label' => 'Carry', 'user_id' => user.id, 'exchange_id' => alpaca.id, 'status' => Bot.statuses[:scheduled],
+                       'settings' => settings, 'transient_data' => { 'missed_quote_amount' => c['carry'] }, 'started_at' => c['started_at'],
+                       'settings_changed_at' => c['settings_changed_at'], 'created_at' => stamp, 'updated_at' => stamp }).rows.first.first
+    c['rows'].each do |r|
+      Transaction.insert!(r.merge('bot_id' => id, 'exchange_id' => alpaca.id, 'bot_interval' => settings['interval'], 'bot_quote_amount' => 60,
+                                  'error_messages' => [], 'updated_at' => r['created_at']))
+    end
+    c['pending'] = travel_to(Time.iso8601(c['now']), with_usec: true) { Bot.find(id).pending_quote_amount.to_d.to_s('F') }
+    raise ActiveRecord::Rollback
+  end
+  c
 end
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers

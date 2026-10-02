@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"BQU1Okwwkzu1zseyW/57FAI=\",\"h\":{\"iv\":\"mjMpT9OEc1A34z7q\",\"at\":\"VxCEONk6Su5HAw/vAh/Jnw==\"}}"
+      "cipher": "{\"p\":\"kqEsI/j8UMLTgcq2c+VpQcA=\",\"h\":{\"iv\":\"+7WZXjKTiGFm3C8f\",\"at\":\"S0YvCaLdIWpIPxHk4FyCFA==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"744Gt7ABCuNCL3I0+kRV\",\"h\":{\"iv\":\"pm5Gu9/cTBBXIbdT\",\"at\":\"izo8Ai235mJYHMKCJnjeSw==\"}}"
+      "cipher": "{\"p\":\"QZnxT9rz34U6q0gXdJ/U\",\"h\":{\"iv\":\"SUzEFrCaJPS0g4N6\",\"at\":\"q719anWr+Gop8zc25BaKug==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"gwbuF/+2IB4PSPTp2VoYvJgKHUgtD3ns9wMdVQTxBpz+v7zQnUmK8kAWxsbK/4mo0ezakGLAatelvzT6GOAOd/dNa5R+WklY93QIg1k=\",\"h\":{\"iv\":\"BBRM4Gyw/XvgU+hc\",\"at\":\"d8vNaUZaEQ/+ydh+yQUo4A==\",\"c\":true}}"
+      "cipher": "{\"p\":\"GcfVv+admpvDFExqSCD6KhUAiPDlMCaAJnn/9BoUCH8FEInNyWfg+X1jAUFg57AwwcjH+mC7W5cKZTppi35E1YlVkmnoJQ8iEErrZtE=\",\"h\":{\"iv\":\"SM+dqypmsOENBUcz\",\"at\":\"l6Jljb30Led7SRxOj0+D/A==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "NTXFNVJMBYLG6RY3MPSJGXB2SMPBC36G",
-      "cipher": "{\"p\":\"1TGLEpgk/akXX08KQYCyo5UZN2E94MkXuldWfpMFs2s=\",\"h\":{\"iv\":\"WG8hw2k1lqZuJst4\",\"at\":\"nDJwsNH8ci8CEOj7AqXdfg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "CJXFYXPYTFLFUX33XGUCI6HYHPY2XQSI",
+      "cipher": "{\"p\":\"TzYRZUxP78/Ri0IkzZRVbdep4St+J6mGhi7H4QRBowY=\",\"h\":{\"iv\":\"WnptEjrcmMBQHunk\",\"at\":\"lCoT7ytMYEvEXr/njRWiFA==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"bQz43CrkAk/jkP0NBZTrskM=\",\"h\":{\"iv\":\"384Q8ovYkdgtDK/8\",\"at\":\"e6sRoOoID2Nl7NE86ooaLQ==\"}}"
+      "cipher": "{\"p\":\"lePLLituRHhmvLYrAklOaiU=\",\"h\":{\"iv\":\"r3srUUP0SfF5tuyj\",\"at\":\"UH5MaJdM1mcpdBKDjID0vQ==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$SYUZmA7J9.7vTxawBZDcH.Om4kjyeVMeNioMYeSh5KZevDUsTpUqS"
+      "hash": "$2a$11$/obs2uztIouZkN1wKTbiT.q9aZTJXkMuYDyl3ty6iG79Eqmj6uHaS"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$R.mVJGH0lQt568cpcIorVORvyDpw9Qkux6vYVOBtRFXtf9SQ9XKBW"
+      "hash": "$2a$11$r2OPquYIOfncljMLbagITOV7Am3zVC2Fjxpjcb0g4iqxxl/0hY2Su"
     }
   ],
   "totp": {
@@ -41178,7 +41178,10 @@
     "app/models/exchanges/alpaca.rb": "29a2fa34f228a49c43f779631bfe36dbda413208cf09f8d7cc8924d972caf33a",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
-    "app/models/exchanges/kraken.rb": "59c8298dbc7cc8078ce65f65ed3e0d907c8e77abf151c4ba515fe16bb908f096"
+    "app/models/exchanges/kraken.rb": "59c8298dbc7cc8078ce65f65ed3e0d907c8e77abf151c4ba515fe16bb908f096",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/jobs/bot/fetch_and_update_open_orders_job.rb": "0594f4ce138af9283aac4980a27a01b5d791f8fa995379f3b34f948ea90b7609",
+    "app/jobs/bot/fetch_and_update_order_job.rb": "47f9d960ed232cfae34e4f96db4e0ccb8dc8b320b9eabd21a747e8539c3e35d2"
   },
   "alpaca_sizing": [
     {
@@ -46344,6 +46347,1640 @@
       }
     ]
   ],
+  "carry": [
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-0",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-02T10:00:01.000000Z",
+      "pending": "80.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-10",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "59.97",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-11",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 4,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-12",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-13",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-14",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-06 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        }
+      ],
+      "now": "2026-09-03T10:00:01.000000Z",
+      "pending": "0.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-20",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-04T10:00:01.000000Z",
+      "pending": "300.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-30",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-31",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 0,
+          "quote_amount": "60"
+        }
+      ],
+      "now": "2026-09-05T10:00:01.000000Z",
+      "pending": "0.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-40",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-06T10:00:01.000000Z",
+      "pending": "332.54"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [],
+      "now": "2026-09-07T10:00:01.000000Z",
+      "pending": "160.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-60",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 2,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": null,
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "quote_amount": "0.4",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-62",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "59.97",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REBALANCE",
+          "external_id": "rust-carry-63",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "30",
+          "amount_exec": "0.00047"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-64",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-06 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-08T10:00:01.000000Z",
+      "pending": "380.07"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-70",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-71",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        }
+      ],
+      "now": "2026-09-09T10:00:01.000000Z",
+      "pending": "72.5"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-80",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REBALANCE",
+          "external_id": "rust-carry-81",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "30",
+          "amount_exec": "0.00047"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-82",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 4,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-83",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-10T10:00:01.000000Z",
+      "pending": "660.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-90",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-91",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 1,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": null,
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-93",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 0,
+          "quote_amount": "60"
+        }
+      ],
+      "now": "2026-09-02T10:00:01.000000Z",
+      "pending": "0.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-100",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-101",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-102",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-03T10:00:01.000000Z",
+      "pending": "152.54"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "100.0",
+      "rows": [],
+      "now": "2026-09-04T10:00:01.000000Z",
+      "pending": "120.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-120",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 4,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-121",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-122",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-05T10:00:01.000000Z",
+      "pending": "260.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-130",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-131",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-132",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-133",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-134",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-06 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        }
+      ],
+      "now": "2026-09-06T10:00:01.000000Z",
+      "pending": "12.51975"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-140",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-07T10:00:01.000000Z",
+      "pending": "480.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "0",
+      "rows": [],
+      "now": "2026-09-08T10:00:01.000000Z",
+      "pending": "60.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-160",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REBALANCE",
+          "external_id": "rust-carry-161",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "30",
+          "amount_exec": "0.00047"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-162",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-09T10:00:01.000000Z",
+      "pending": "512.54"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-170",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-171",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-172",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 4,
+          "quote_amount": "60"
+        }
+      ],
+      "now": "2026-09-10T10:00:01.000000Z",
+      "pending": "120.01975"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-180",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 0,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-181",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-02T10:00:01.000000Z",
+      "pending": "20.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-190",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-191",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 0,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-192",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        }
+      ],
+      "now": "2026-09-03T10:00:01.000000Z",
+      "pending": "12.5"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-200",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-201",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-04T10:00:01.000000Z",
+      "pending": "240.05975"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [],
+      "now": "2026-09-05T10:00:01.000000Z",
+      "pending": "60.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-220",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-06T10:00:01.000000Z",
+      "pending": "332.54"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-230",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-231",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-07T10:00:01.000000Z",
+      "pending": "140.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-240",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-241",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "59.97",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-242",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-243",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-08T10:00:01.000000Z",
+      "pending": "320.08975"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-250",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-251",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-09T10:00:01.000000Z",
+      "pending": "72.51975"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-260",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 0,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REBALANCE",
+          "external_id": "rust-carry-261",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "30",
+          "amount_exec": "0.00047"
+        },
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-262",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-263",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "59.97",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-264",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-06 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-265",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-10T10:00:01.000000Z",
+      "pending": "540.07"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "0",
+      "rows": [
+        {
+          "status": 1,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": null,
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 1,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": null,
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-272",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 4,
+          "quote_amount": "60",
+          "quote_amount_exec": "12.5",
+          "amount_exec": "0.000195"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-273",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-02T10:00:01.000000Z",
+      "pending": "0.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 2,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": null,
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "quote_amount": "0.4",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-281",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "59.97",
+          "amount_exec": "0.000935"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-282",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-283",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-03T10:00:01.000000Z",
+      "pending": "92.57"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [],
+      "now": "2026-09-04T10:00:01.000000Z",
+      "pending": "140.0"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-300",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 0,
+          "quote_amount": "60"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-301",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-302",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-05T10:00:01.000000Z",
+      "pending": "200.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-310",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-311",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REBALANCE",
+          "external_id": "rust-carry-312",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "30",
+          "amount_exec": "0.00047"
+        },
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-313",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        }
+      ],
+      "now": "2026-09-06T10:00:01.000000Z",
+      "pending": "12.5"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 2,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": null,
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "quote_amount": "0.4",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-321",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-322",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "0",
+          "amount_exec": "0"
+        },
+        {
+          "status": 0,
+          "side": 1,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-323",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-05 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.000935"
+        }
+      ],
+      "now": "2026-09-07T10:00:01.000000Z",
+      "pending": "480.04"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-330",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-331",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-08T10:00:01.000000Z",
+      "pending": "80.04"
+    },
+    {
+      "settings": {
+        "interval": "day",
+        "quote_amount": 60.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": null,
+      "carry": "12.5",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-340",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-09T10:00:01.000000Z",
+      "pending": "512.54"
+    },
+    {
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "started_at": "2026-09-01 10:00:00",
+      "settings_changed_at": "2026-09-03 12:00:00",
+      "carry": "100.0",
+      "rows": [
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-350",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-02 10:00:00",
+          "external_status": 4,
+          "quote_amount": "60",
+          "quote_amount_exec": "12.5",
+          "amount_exec": "0.000195"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-351",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-09-03 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "39.96",
+          "amount_exec": "0.000623"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-352",
+          "order_type": 1,
+          "price": "64150",
+          "created_at": "2026-09-04 10:00:00",
+          "external_status": 1,
+          "amount": "0.000935",
+          "amount_exec": "0.0003",
+          "quote_amount_exec": "19.245"
+        },
+        {
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-carry-353",
+          "order_type": 0,
+          "price": "64150",
+          "created_at": "2026-08-31 10:00:00",
+          "external_status": 3,
+          "quote_amount": "60",
+          "quote_amount_exec": "40",
+          "amount_exec": "0.000623"
+        }
+      ],
+      "now": "2026-09-10T10:00:01.000000Z",
+      "pending": "100.01975"
+    }
+  ],
   "i18n": {
     "locales": [
       "en",
@@ -47202,7 +48839,7 @@
     "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
     "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
     "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
-    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--eae86931dddabcaf4e8afa5141be28bb162b45e836752461d892aa594350fb0c\"></turbo-cable-stream-source>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--114a17e6cbabfec44d9afa0057a6bc67ba3a1e31f233955d70da06b2f3821669\"></turbo-cable-stream-source>",
     "stream_name": "user_7:bot_updates",
     "content_type": "text/vnd.turbo-stream.html"
   },
