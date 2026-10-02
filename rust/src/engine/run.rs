@@ -127,6 +127,11 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     let report = eligibility::check_install(&e.primary)?;
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for (id, err) in &report.unreadable { super::log(&format!("[engine] bot {id} is unreadable and skipped: {err}")); }
+    // A bot that left the working set (stopped from the web UI) starts again as a fresh Rails job would: no retry
+    // counters and no retry time carried over. Polls (per order) and reconciliation (per intent) are not per job and stay.
+    // ponytail: a stop and a start that both land inside one pass keep the counters; key them by stopped_at if that matters.
+    e.attempts.retain(|id, _| report.eligible.contains(id));
+    e.retry_at.retain(|id, _| report.eligible.contains(id));
 
     if !e.started {
         // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
