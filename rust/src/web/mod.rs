@@ -30,7 +30,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post, MethodRouter};
+use axum::routing::{any, delete, get, post, MethodRouter};
 use axum::Router;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -459,6 +459,18 @@ fn only(route: MethodRouter<App>) -> MethodRouter<App> {
     route.fallback(layout::not_ported)
 }
 
+/// What an OAuth client calls on its own (web::oauth). These routes are outside the pipeline: they
+/// never read the session and take no CSRF token, because nothing in them acts for a signed-in
+/// browser. That holds for exactly these paths and methods; any other method on them is the 501.
+fn oauth_api(app: App) -> Router<App> {
+    Router::new()
+        .route("/.well-known/oauth-authorization-server", only(get(oauth::authorization_server)))
+        .route("/.well-known/oauth-protected-resource", only(get(oauth::protected_resource)))
+        .route("/.well-known/{*document}", any(oauth::absent))
+        .route("/oauth/register", only(post(oauth::register)))
+        .layer(middleware::from_fn_with_state(app, oauth::api))
+}
+
 fn routes(app: App) -> Router {
     Router::new()
         .route("/", only(get(bots::home)))
@@ -468,6 +480,7 @@ fn routes(app: App) -> Router {
         .route("/bots", only(get(bots::index)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
+        .merge(oauth_api(app.clone()))
         // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
         .route("/up", only(get(up)))
         .route("/csp-report", only(post(csp_report)))

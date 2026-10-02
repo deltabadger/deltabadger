@@ -11,15 +11,19 @@
 //! Codes, tokens, refresh tokens and client ids are stored as they are issued, in plain text
 //! (Doorkeeper's default, which the app does not change). Nothing here logs one or puts one in an
 //! error body.
-use super::{header_text, Params, WebError};
+use super::{header_text, headers, rate_limit, App, Params, WebError};
 use crate::codec::{format_time, parse_time};
 use crate::engine::{Clock, EngineError};
+use axum::extract::{ConnectInfo, Extension, Request, State};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
+use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as B64URL, Engine};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
+use std::net::SocketAddr;
+use std::sync::Arc;
 
 /// config/initializers/doorkeeper.rb: `default_scopes :mcp`, `optional_scopes :api`.
 pub const SCOPES: [&str; 2] = ["mcp", "api"];
@@ -537,4 +541,148 @@ pub(crate) fn transaction<T>(c: &Connection, clock: &dyn Clock, work: impl FnOnc
         Ok(value) => { c.execute_batch("COMMIT")?; Ok(value) }
         Err(error) => { let _ = c.execute_batch("ROLLBACK"); Err(error) }
     }
+}
+
+/// Around every route of this file: rack-attack's limit, then the handler, then the headers Rails'
+/// middleware and controllers add. No session is read and no cookie is written: these routes act
+/// for whoever holds the client id, the code or the token in the request, never for a browser's
+/// signed-in user, which is also why they need no CSRF token.
+pub async fn api(State(app): State<App>, request: Request, next: Next) -> Response {
+    let Some(params) = request.extensions().get::<Arc<Params>>().cloned() else {
+        return WebError::Config("a request reached the routes without passing web::router's entry".into()).into_response();
+    };
+    let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
+    let address = rate_limit::client_key(&app.config, request.headers(), peer);
+    let mut response = match app.limiter.hit(request.method(), &params.route_path, &address, app.now()) {
+        Some(retry_after) => rate_limit::throttled(retry_after),
+        None => next.run(request).await,
+    };
+    headers::policy(response.headers_mut(), &headers::new_nonce(), app.config.force_ssl);
+    let status = response.status();
+    if response.extensions().get::<headers::BelowControllers>().is_some() {
+        headers::cache_control(response.headers_mut(), status, false);
+    } else {
+        headers::controller_defaults(response.headers_mut(), status, false);
+    }
+    response
+}
+
+/// A `/.well-known/` path this server has no document for: 404, so that a client trying the
+/// path-suffixed or OpenID spellings first goes on to the one that exists.
+pub async fn absent() -> Response {
+    let mut response = (StatusCode::NOT_FOUND, [(header::CONTENT_TYPE, "text/plain; charset=utf-8")], "Not Found\n").into_response();
+    response.extensions_mut().insert(headers::BelowControllers);
+    response
+}
+
+/// `request.base_url`, from which both documents are built: the origin the request was made to.
+fn base_url(app: &App, headers: &HeaderMap) -> Result<String, WebError> {
+    app.config.request_origin(headers).ok_or_else(|| WebError::Config("a request without a Host header".into()))
+}
+
+/// GET /.well-known/oauth-authorization-server (RFC 8414).
+pub async fn authorization_server(State(app): State<App>, headers: HeaderMap) -> Result<Response, WebError> {
+    let base = base_url(&app, &headers)?;
+    Ok(json_response(StatusCode::OK, &json!({
+        "issuer": base,
+        "authorization_endpoint": format!("{base}/oauth/authorize"),
+        "token_endpoint": format!("{base}/oauth/token"),
+        "registration_endpoint": format!("{base}/oauth/register"),
+        "revocation_endpoint": format!("{base}/oauth/revoke"),
+        "scopes_supported": SCOPES,
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["none"],
+        "code_challenge_methods_supported": ["S256"],
+    })))
+}
+
+/// GET /.well-known/oauth-protected-resource (RFC 9728).
+pub async fn protected_resource(State(app): State<App>, headers: HeaderMap) -> Result<Response, WebError> {
+    let base = base_url(&app, &headers)?;
+    Ok(json_response(StatusCode::OK, &json!({ "resource": format!("{base}/mcp"), "authorization_servers": [base], "bearer_methods_supported": ["header"] })))
+}
+
+/// Ruby's `String#strip`.
+fn strip(text: &str) -> &str {
+    text.trim_matches([' ', '\t', '\n', '\x0B', '\x0C', '\r', '\0'])
+}
+
+const MAX_REDIRECT_URIS: usize = 5;
+const MAX_REDIRECT_URI_LENGTH: usize = 2000;
+const MAX_CLIENT_NAME_LENGTH: usize = 100;
+
+fn registration_error(error: &str, description: &str) -> Response {
+    json_response(StatusCode::BAD_REQUEST, &json!({ "error": error, "error_description": description }))
+}
+
+/// `Array(params[:redirect_uris])`, each as text. Rails' `params` is the query and the body, and
+/// the query wins: the query's `redirect_uris[]` fields or its one `redirect_uris`, else a JSON
+/// array or one JSON value, else the form's fields.
+fn redirect_uris(params: &Params) -> Vec<String> {
+    let as_text = |value: &Value| match value {
+        Value::String(text) => text.clone(),
+        Value::Null => String::new(),
+        other => other.to_string(),
+    };
+    let fields = |fields: &[(String, String)]| -> Option<Vec<String>> {
+        let listed: Vec<String> = fields.iter().filter(|(name, _)| name == "redirect_uris[]").map(|(_, value)| value.clone()).collect();
+        if listed.is_empty() { fields.iter().rfind(|(name, _)| name == "redirect_uris").map(|(_, one)| vec![one.clone()]) } else { Some(listed) }
+    };
+    fields(&params.query).unwrap_or_else(|| match params.json.as_ref().and_then(|json| json.get("redirect_uris")) {
+        Some(Value::Array(all)) => all.iter().map(as_text).collect(),
+        Some(Value::Null) => Vec::new(),
+        Some(one) => vec![as_text(one)],
+        None => fields(&params.form).unwrap_or_default(),
+    })
+}
+
+/// POST /oauth/register (RFC 7591), as Oauth::DynamicRegistrationController: anyone may register a
+/// public client; the consent screen is what stands between a registration and any access.
+pub async fn register(State(app): State<App>, Extension(params): Extension<Arc<Params>>) -> Result<Response, WebError> {
+    let sent = Sent { params: &params };
+    let uris = redirect_uris(&params);
+    if uris.is_empty() {
+        return Ok(registration_error("invalid_client_metadata", "redirect_uris is required"));
+    }
+    if uris.len() > MAX_REDIRECT_URIS {
+        return Ok(registration_error("invalid_client_metadata", &format!("at most {MAX_REDIRECT_URIS} redirect_uris")));
+    }
+    if uris.iter().any(|uri| uri.chars().count() > MAX_REDIRECT_URI_LENGTH) {
+        return Ok(registration_error("invalid_client_metadata", &format!("each redirect_uri must be at most {MAX_REDIRECT_URI_LENGTH} characters")));
+    }
+    if !uris.iter().all(|uri| Uri::parse(uri).is_some_and(|uri| uri.hypertext() && uri.has_host())) {
+        return Ok(registration_error("invalid_redirect_uri", "redirect_uris must be absolute http(s) URLs"));
+    }
+    // normalize_scopes: blank is the default; else every name must be known, and they are stored sorted.
+    let scope = match sent.get("scope").filter(|scope| !scope.trim().is_empty()) {
+        None => DEFAULT_SCOPE.to_string(),
+        Some(requested) => {
+            if !requested.split_whitespace().all(|name| SCOPES.contains(&name)) {
+                return Ok(registration_error("invalid_client_metadata", &format!("scope must be a subset of: {}", SCOPES.join(" "))));
+            }
+            let mut names = scopes(&requested);
+            names.sort_unstable();
+            names.join(" ")
+        }
+    };
+    // Doorkeeper's own validation of the row, on the text that is stored.
+    let errors = redirect_uri_errors(&uris.join("\n"));
+    if !errors.is_empty() {
+        return Ok(registration_error("invalid_redirect_uri", &errors.join(", ")));
+    }
+    let name = sent.get("client_name").filter(|name| !name.trim().is_empty()).map(|name| strip(&name).chars().take(MAX_CLIENT_NAME_LENGTH).collect::<String>())
+        .unwrap_or_else(|| "MCP Client".to_string());
+    let (uid, registration_token, inner) = (new_token(), hex::encode(rand::random::<[u8; 32]>()), app.clone());
+    let row = (name.clone(), uid.clone(), uris.join("\n"), scope.clone(), registration_token.clone());
+    app.db(move |c| {
+        let row = (row.0, row.1, row.2, row.3, row.4, format_time(inner.now()));
+        c.execute("INSERT INTO oauth_applications (name, uid, redirect_uri, scopes, confidential, registration_access_token, token_endpoint_auth_method, \
+                   grant_types, response_types, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, 'none', 'authorization_code', 'code', ?6, ?6)", row)?;
+        Ok(())
+    }).await?;
+    Ok(json_response(StatusCode::CREATED, &json!({
+        "client_id": uid, "client_name": name, "redirect_uris": uris, "registration_access_token": registration_token,
+        "token_endpoint_auth_method": "none", "grant_types": ["authorization_code"], "response_types": ["code"], "scope": scope,
+    })))
 }

@@ -7,7 +7,7 @@ pub const LOCALES: [&str; 15] = ["en", "pl", "es", "de", "nl", "fr", "pt", "ru",
 pub const DEFAULT: &str = "en";
 
 /// First path segments that are routed outside the locale scope: `/de/up` is not a route.
-const UNSCOPED: [&str; 2] = ["up", "cable"];
+const UNSCOPED: [&str; 4] = ["up", "cable", "oauth", ".well-known"];
 
 pub fn known(value: &str) -> Option<&'static str> {
     LOCALES.iter().copied().find(|l| *l == value)
