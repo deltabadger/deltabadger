@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"/rDnxRY83rAhxvX6GXZ4xEw=\",\"h\":{\"iv\":\"35VD0T49Zom06gtk\",\"at\":\"C/2qHb6GkBcIZOivY755Hg==\"}}"
+      "cipher": "{\"p\":\"zqwf8HxOz2aqTwVFpkcRTpE=\",\"h\":{\"iv\":\"eOzzcWrrM4JWRnfN\",\"at\":\"B/S7sk72rVDaulTPRnXmig==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"PNC8ovLcKNhl7Y+fOdpq\",\"h\":{\"iv\":\"U3BEu5iDPCs0KWBV\",\"at\":\"oLatCzod2RcJFGK/Chgx8g==\"}}"
+      "cipher": "{\"p\":\"dubNei6WmF5MOZ0iLR27\",\"h\":{\"iv\":\"h1N3fTOSgJ9ktFIP\",\"at\":\"1jZjtGzejniGpA1ptPwCsQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"8GZuND8XHCda8iVl/jlTAPuhad4uj5VabCCoG1fELG0OKiE8uQXDc7MYrmW98tk/15D3RfjE1oYnX4unMV/EItLZnRZ7iz8EJMnc17M=\",\"h\":{\"iv\":\"lYjSrxi2sO0+H3Cn\",\"at\":\"P+Z9z42WTKA4rBmGTnoQAg==\",\"c\":true}}"
+      "cipher": "{\"p\":\"D1ib5JP4jgfgCNKDB+83rovt4/Sx7zGCshYrXFomrcUQw91KQUBdRKljD5kfGJG/rVVm9eMsDWtWs487dIvLC7+WxRAEVD6JbzLIlnI=\",\"h\":{\"iv\":\"Ni5C4Jo17d8DLp/d\",\"at\":\"zi4LspfdAg0ZPb4+AgbKJA==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "WMH5LDHW7I7IPC74V46EXCWZNCMHBVOG",
-      "cipher": "{\"p\":\"t68CN0TqK8LkHDd7r9zTXrCu8kb+ylgMG5HiPcXv8+Q=\",\"h\":{\"iv\":\"ohkjy+1rQ4tzcL1V\",\"at\":\"F1Q+2yHnsrmDG8klGc5o6g==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "HDCS6OAXTLXXXO3PWDI4L2CZIHEZFB5L",
+      "cipher": "{\"p\":\"kZMbbSYg/tL+ZiF9lbd7dKxxlm9SLN0b2DJjS9TFaYY=\",\"h\":{\"iv\":\"Neh/OcgYxLaTLSBu\",\"at\":\"vlsU/yppB5wKOHFChzApjw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"NcMxn3VsrEn1DcguC7eNNXU=\",\"h\":{\"iv\":\"dm8U516LTaWhCxBi\",\"at\":\"8O0q+OWTuiMURksyGevLeQ==\"}}"
+      "cipher": "{\"p\":\"HvV6Sga42+MLuEMgovNU8nk=\",\"h\":{\"iv\":\"nmhXUBgA+98DITQF\",\"at\":\"sAvSl+brnsrWmy+WlG3xlg==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$HZbSlOtzzqyMuCReqJ/dPemKGNsEDFnKqLm1cJy6sSAMiovUzHYKC"
+      "hash": "$2a$11$.X57xhPkD50K0LLemrJoue6lbmcdzyn3xnPbPmGmC0eHwiNaXib4G"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$GFXkgl3ISeOr5PZrns3FZ.aAlBT53DhmFy59UTBZJEfX2M4phOJ0e"
+      "hash": "$2a$11$teDS5zQXth6vrkTUp7cOz.RDcZLslZJQ6XYc4K.mtvHy6phU5CwYy"
     }
   ],
   "totp": {
@@ -51746,7 +51746,15 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -51784,7 +51792,20 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -51833,7 +51854,20 @@
       "untradable": [
         "VETH"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -51879,7 +51913,20 @@
         "VBTC",
         "VETH"
       ],
+      "readd": [],
       "failure": "None of the portfolio's weighted assets trade on Alpaca",
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -51926,7 +51973,20 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -51975,7 +52035,20 @@
       "untradable": [
         "VBTC"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          false
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52026,7 +52099,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52092,7 +52183,25 @@
       "untradable": [
         "VSOL"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          false
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52152,7 +52261,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52218,7 +52345,25 @@
       "untradable": [
         "VETH"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52278,7 +52423,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52342,7 +52505,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52406,7 +52587,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52472,7 +52671,25 @@
       "untradable": [
         "VBTC"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          false
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52532,7 +52749,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52598,7 +52833,25 @@
       "untradable": [
         "VSOL"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          false
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52658,7 +52911,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52724,7 +52995,25 @@
       "untradable": [
         "VBTC"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          false
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52784,7 +53073,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52850,7 +53157,25 @@
       "untradable": [
         "VBTC"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          false
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52910,7 +53235,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -52976,7 +53319,25 @@
       "untradable": [
         "VETH"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53036,7 +53397,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53102,7 +53481,25 @@
       "untradable": [
         "VETH"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53162,7 +53559,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53228,7 +53643,25 @@
       "untradable": [
         "VSOL"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          false
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53288,7 +53721,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53354,7 +53805,25 @@
       "untradable": [
         "VBTC"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          false
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53414,7 +53883,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53480,7 +53967,25 @@
       "untradable": [
         "VBTC"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          false
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53540,7 +54045,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53606,7 +54129,25 @@
       "untradable": [
         "VETH"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53666,7 +54207,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53732,7 +54291,25 @@
       "untradable": [
         "VSOL"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          false
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53792,7 +54369,25 @@
       },
       "exchange": "Alpaca",
       "untradable": [],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53858,7 +54453,25 @@
       "untradable": [
         "VETH"
       ],
+      "readd": [],
       "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
       "index_rows": [
         [
           "VBTC",
@@ -53884,6 +54497,649 @@
         [
           "VSOL",
           "3fd4e3150dae3e6c"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.4,
+        "VETH": 0.3,
+        "VSOL": 0.2,
+        "VADA": 0.1
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        },
+        "VADA": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 4,
+          "minimum_base_size": "1",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VADA"
+      ],
+      "readd": [],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ],
+        [
+          "VADA",
+          true,
+          false
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.444444",
+          true
+        ],
+        [
+          "VETH",
+          "0.333333",
+          true
+        ],
+        [
+          "VSOL",
+          "0.222222",
+          true
+        ],
+        [
+          "VADA",
+          "0.1",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fdc71c71c71c71c"
+        ],
+        [
+          "VETH",
+          "3fd5555555555555"
+        ],
+        [
+          "VSOL",
+          "3fcc71c71c71c71c"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.4,
+        "VETH": 0.3,
+        "VSOL": 0.2,
+        "VADA": 0.1
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        },
+        "VADA": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 4,
+          "minimum_base_size": "1",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "readd": [],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          false
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ],
+        [
+          "VADA",
+          true,
+          true
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.571429",
+          true
+        ],
+        [
+          "VETH",
+          "0.3",
+          false
+        ],
+        [
+          "VSOL",
+          "0.285714",
+          true
+        ],
+        [
+          "VADA",
+          "0.142857",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe24925785f8d2e"
+        ],
+        [
+          "VSOL",
+          "3fd249235f809918"
+        ],
+        [
+          "VADA",
+          "3fc249235f809918"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.3333333333333333,
+        "VETH": 0.3333333333333333,
+        "VSOL": 0.3333333333333333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "readd": [],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.333333",
+          true
+        ],
+        [
+          "VETH",
+          "0.333333",
+          true
+        ],
+        [
+          "VSOL",
+          "0.333333",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fd5555555555555"
+        ],
+        [
+          "VETH",
+          "3fd5555555555555"
+        ],
+        [
+          "VSOL",
+          "3fd5555555555555"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.3333333333333333,
+        "VETH": 0.3333333333333333,
+        "VSOL": 0.3333333333333333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VSOL"
+      ],
+      "readd": [],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          false
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.5",
+          true
+        ],
+        [
+          "VETH",
+          "0.5",
+          true
+        ],
+        [
+          "VSOL",
+          "0.333333",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe0000000000000"
+        ],
+        [
+          "VETH",
+          "3fe0000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.3,
+        "VSOL": 0.2
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "readd": [
+        "VETH"
+      ],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.5",
+          true
+        ],
+        [
+          "VETH",
+          "0.3",
+          true
+        ],
+        [
+          "VSOL",
+          "0.2",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe0000000000000"
+        ],
+        [
+          "VETH",
+          "3fd3333333333333"
+        ],
+        [
+          "VSOL",
+          "3fc999999999999a"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.4,
+        "VETH": 0.3,
+        "VSOL": 0.2,
+        "VADA": 0.1
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        },
+        "VADA": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 4,
+          "minimum_base_size": "1",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VADA",
+        "VSOL"
+      ],
+      "readd": [
+        "VSOL"
+      ],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ],
+        [
+          "VADA",
+          true,
+          false
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.444444",
+          true
+        ],
+        [
+          "VETH",
+          "0.333333",
+          true
+        ],
+        [
+          "VSOL",
+          "0.222222",
+          true
+        ],
+        [
+          "VADA",
+          "0.1",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fdc71c71c71c71c"
+        ],
+        [
+          "VETH",
+          "3fd5555555555555"
+        ],
+        [
+          "VSOL",
+          "3fcc71c71c71c71c"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.3333333333333333,
+        "VETH": 0.3333333333333333,
+        "VSOL": 0.3333333333333333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "readd": [
+        "VBTC"
+      ],
+      "failure": null,
+      "stamps": [
+        [
+          "VBTC",
+          true,
+          true
+        ],
+        [
+          "VETH",
+          true,
+          true
+        ],
+        [
+          "VSOL",
+          true,
+          true
+        ]
+      ],
+      "index_rows": [
+        [
+          "VBTC",
+          "0.333333",
+          true
+        ],
+        [
+          "VETH",
+          "0.333333",
+          true
+        ],
+        [
+          "VSOL",
+          "0.333333",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fd5555555555555"
+        ],
+        [
+          "VETH",
+          "3fd5555555555555"
+        ],
+        [
+          "VSOL",
+          "3fd5555555555555"
         ]
       ]
     }

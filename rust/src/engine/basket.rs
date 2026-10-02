@@ -89,13 +89,15 @@ pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Res
     // `matched.sum { weight }` is Ruby's compensated Float sum; each weight is renormalised in Float (`weight / total`).
     let total = float_sum(&matched.iter().map(|(_, _, w)| *w).collect::<Vec<_>>());
     if total <= 0.0 { return Ok(Err(format!("None of the portfolio's weighted assets trade on {}", model::exchange_name(c, bot)?))); }
-    let tx = model::immediate(c)?;
     let kept: Vec<i64> = matched.iter().map(|(asset, _, _)| *asset).collect();
-    // A member that dropped out keeps its row as a holding: update_all, so updated_at stays.
-    tx.execute("UPDATE bot_index_assets SET in_index = 0, exited_at = ?1 WHERE bot_id = ?2 AND in_index = 1 AND asset_id NOT IN (SELECT value FROM json_each(?3))",
-               params![format_time(now), bot.id, serde_json::to_string(&kept).expect("ids serialise")])?;
-    for (asset_id, ticker_id, weight) in matched { save_member(&tx, bot.id, asset_id, ticker_id, weight / total, now)?; }
-    tx.commit()?;
+    // Rails' `transaction do`: nested in the caller's transaction if there is one.
+    model::locked(c, |tx| {
+        // A member that dropped out keeps its row as a holding: update_all, so updated_at stays.
+        tx.execute("UPDATE bot_index_assets SET in_index = 0, exited_at = ?1 WHERE bot_id = ?2 AND in_index = 1 AND asset_id NOT IN (SELECT value FROM json_each(?3))",
+                   params![format_time(now), bot.id, serde_json::to_string(&kept).expect("ids serialise")])?;
+        for (asset_id, ticker_id, weight) in matched { save_member(tx, bot.id, asset_id, ticker_id, weight / total, now)?; }
+        Ok(())
+    })?;
     Ok(Ok(()))
 }
 

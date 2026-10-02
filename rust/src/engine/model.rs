@@ -252,7 +252,7 @@ pub fn immediate(c: &Connection) -> Result<rusqlite::Transaction<'_>, EngineErro
 }
 
 /// Runs `f` under the write lock: inside the caller's transaction if there is one, else in its own.
-fn locked<T>(c: &Connection, f: impl FnOnce(&Connection) -> Result<T, EngineError>) -> Result<T, EngineError> {
+pub fn locked<T>(c: &Connection, f: impl FnOnce(&Connection) -> Result<T, EngineError>) -> Result<T, EngineError> {
     if !c.is_autocommit() { return f(c); }
     let tx = immediate(c)?;
     let out = f(&tx)?;

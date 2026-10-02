@@ -55,20 +55,34 @@ fn symbol_of(ids: &HashMap<String, i64>, asset: i64) -> String { ids.iter().find
 #[test]
 fn every_recorded_rails_composition_is_reproduced() {
     let cases = common::vectors()["basket_compositions"].as_array().unwrap().clone();
-    assert_eq!(cases.len(), 36);
+    assert_eq!(cases.len(), 43);
     for (i, case) in cases.iter().enumerate() {
         let (_d, o, id, ids) = build(case);
         o.primary.execute("UPDATE exchanges SET name = ?1", [case["exchange"].as_str().unwrap()]).unwrap();
         let bot = model::load_bot(&o.primary, id).unwrap();
         // bot.save!'s after_save refresh_composition, with every member tradable.
         basket::refresh_composition(&o.primary, &bot, at("2026-09-01T10:00:00Z")).unwrap().expect("the save derives");
+        let stamps = |sql: &str| -> Vec<(i64, Option<String>, Option<String>)> {
+            let mut s = o.primary.prepare(sql).unwrap();
+            s.query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+        };
+        let first: HashMap<i64, Option<String>> = stamps("SELECT asset_id, entered_at, exited_at FROM bot_index_assets WHERE bot_id = ?1")
+            .into_iter().map(|(a, e, _)| (a, e)).collect();
         let mut failure = Value::Null;
         let untradable: Vec<&str> = case["untradable"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
         if !untradable.is_empty() {
             for sym in &untradable { o.primary.execute("UPDATE tickers SET trading_enabled = 0 WHERE base_asset_id = ?1", [ids[*sym]]).unwrap(); }
             if let Err(m) = basket::refresh_composition(&o.primary, &bot, at("2026-09-01T11:00:00Z")).unwrap() { failure = json!(m); }
         }
+        let readd: Vec<&str> = case["readd"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        if !readd.is_empty() {
+            for sym in &readd { o.primary.execute("UPDATE tickers SET trading_enabled = 1 WHERE base_asset_id = ?1", [ids[*sym]]).unwrap(); }
+            basket::refresh_composition(&o.primary, &bot, at("2026-09-01T12:00:00Z")).unwrap().expect("a re-add derives");
+        }
         assert_eq!(failure, case["failure"], "case {i}");
+        let got: Vec<Value> = stamps("SELECT asset_id, entered_at, exited_at FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id").into_iter()
+            .map(|(a, e, x)| json!([symbol_of(&ids, a), first[&a] == e, x.is_none()])).collect();
+        assert_eq!(Value::Array(got), case["stamps"], "case {i} entered/exited: {case}");
         let mut s = o.primary.prepare("SELECT asset_id, target_allocation, in_index FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id").unwrap();
         let rows: Vec<Value> = s.query_map([id], |r| {
             let target = basket::target_from_sql(r.get_ref(1)?).unwrap();

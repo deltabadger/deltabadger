@@ -321,7 +321,8 @@ Rails.cache = ActiveSupport::Cache::NullStore.new # metrics(force: true) recompu
 BASKET_PAIRS = {
   'VBTC' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
   'VETH' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.0005', 'minimum_quote_size' => '1' },
-  'VSOL' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 3, 'minimum_base_size' => '0.01', 'minimum_quote_size' => '1' }
+  'VSOL' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 3, 'minimum_base_size' => '0.01', 'minimum_quote_size' => '1' },
+  'VADA' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 4, 'minimum_base_size' => '1', 'minimum_quote_size' => '1' }
 }.freeze
 # A basket over `weights` on the development database's Alpaca exchange, saved as BotApi::Bots::Create saves one (its
 # after_save refresh_composition writes bot_index_assets), with `rows` inserted as REGULAR buys. Yields it and its assets
@@ -437,15 +438,32 @@ composition_cases = [[weight_sets[0], []], [weight_sets[1], []], [weight_sets[1]
                      [weight_sets[2], []], [weight_sets[2], %w[VBTC]], [weight_sets[3], []], [weight_sets[3], %w[VSOL]],
                      [weight_sets[4], []], [weight_sets[4], %w[VETH]], [weight_sets[5], []], [weight_sets[6], []]] +
                     weight_sets.drop(7).flat_map { |w| [[w, []], [w, [w.keys.sample(random: composition_rng)]]] }
-vectors['basket_compositions'] = composition_cases.map do |weights, untradable|
+# Members left whose stored decimal(10,6) targets do not sum to 1, so buyable_allocations re-weights them in BigDecimal: a
+# four-asset basket with one member out (0.444444 + 0.333333 + 0.222222), and true thirds (0.333333 × 3). Then members that
+# exited and trade again: the third refresh re-adds them (`readd`).
+four = { 'VBTC' => 0.4, 'VETH' => 0.3, 'VSOL' => 0.2, 'VADA' => 0.1 }
+thirds = { 'VBTC' => 1.0 / 3, 'VETH' => 1.0 / 3, 'VSOL' => 1.0 / 3 }
+composition_cases = composition_cases.map { |w, u| [w, u, []] } +
+                    [[four, %w[VADA], []], [four, %w[VETH], []], [thirds, [], []], [thirds, %w[VSOL], []],
+                     [weight_sets[4], %w[VETH], %w[VETH]], [four, %w[VADA VSOL], %w[VSOL]], [thirds, %w[VBTC], %w[VBTC]]]
+vectors['basket_compositions'] = composition_cases.map do |weights, untradable, readd|
   with_basket(weights) do |bot, assets, alpaca|
     failure = nil
+    ticker_of = ->(sym) { Ticker.find_by!(exchange: alpaca, base_asset: assets.fetch(sym)) }
+    entered = bot.bot_index_assets.to_h { |b| [b.asset_id, b.entered_at] }
     if untradable.any?
-      untradable.each { |sym| Ticker.find_by!(exchange: alpaca, base_asset: assets.fetch(sym)).update_columns(trading_enabled: false) }
+      untradable.each { |sym| ticker_of.(sym).update_columns(trading_enabled: false) }
       result = bot.refresh_composition
       failure = result.errors.to_sentence if result.failure?
     end
-    { 'weights' => weights, 'pairs' => pairs_of.(weights), 'exchange' => alpaca.name, 'untradable' => untradable, 'failure' => failure,
+    if readd.any?
+      readd.each { |sym| ticker_of.(sym).update_columns(trading_enabled: true) }
+      bot.refresh_composition.then { |r| raise r.errors.to_sentence if r.failure? }
+    end
+    # Per row: entered_at as the first save wrote it, and exited_at blank.
+    stamps = bot.bot_index_assets.reload.order(:id).map { |b| [assets.key(b.asset), b.entered_at == entered[b.asset_id], b.exited_at.nil?] }
+    { 'weights' => weights, 'pairs' => pairs_of.(weights), 'exchange' => alpaca.name, 'untradable' => untradable, 'readd' => readd,
+      'failure' => failure, 'stamps' => stamps,
       'index_rows' => bot.bot_index_assets.order(:id).map { |b| [assets.key(b.asset), b.target_allocation&.to_s('F'), b.in_index] },
       'members' => bot.send(:buyable_allocations).map { |a| [assets.key(a[:asset]), bits.(a[:target_allocation].to_f)] } }
   end
