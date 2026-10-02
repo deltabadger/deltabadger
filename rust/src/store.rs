@@ -108,7 +108,7 @@ const PRIMARY: &[TableContract] = &[
         ("quote", "varchar", true), ("base_asset_id", "bigint", true), ("quote_asset_id", "bigint", true),
         ("base_decimals", "integer", true), ("quote_decimals", "integer", true), ("price_decimals", "integer", true),
         ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
-        ("trading_enabled", "boolean", true), ("available", "boolean", false),
+        ("trading_enabled", "boolean", true), ("available", "boolean", false), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[] },
     TableContract { name: "assets", columns: &[("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false)], unique_indexes: &[] },
     TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false)], unique_indexes: &[] },
@@ -125,7 +125,21 @@ const PRIMARY: &[TableContract] = &[
         ("otp_secret_key", "varchar", false), ("last_otp_at", "datetime", false), ("remember_created_at", "datetime", false),
         ("updated_at", "datetime", true), ("tracker_settings", "json", false),
     ], unique_indexes: &[&["email"]] },
-    TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
+    // The tick reads and writes a basket's members exactly as Bot::Composition::Allocatable does.
+    TableContract { name: "bot_index_assets", columns: &[
+        ("id", "integer", true), ("bot_id", "integer", true), ("asset_id", "integer", true), ("ticker_id", "integer", true),
+        ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false), ("entered_at", "datetime(6)", false),
+        ("exited_at", "datetime(6)", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["bot_id", "asset_id"]] },
+    // staleness::ALPACA_CRYPTO_TICKERS: the catalog sync's own stamp (MarketData.import_tickers!' ExchangeAsset upsert).
+    TableContract { name: "exchange_assets", columns: &[
+        ("exchange_id", "bigint", true), ("asset_id", "bigint", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[] },
+    // Eligibility refuses a member whose split Rails would apply inside the ledger walk (Bot::Restatable).
+    TableContract { name: "account_transactions", columns: &[
+        ("user_id", "integer", true), ("exchange_id", "integer", true), ("entry_type", "integer", true), ("base_currency", "varchar", true),
+        ("base_asset_id", "integer", false), ("raw_data", "json", false),
+    ], unique_indexes: &[] },
     // The bots page refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[
         ("user_id", "integer", true), ("asset_id", "integer", true), ("usd_value", "decimal(20,8)", false),

@@ -67,6 +67,53 @@ impl Bot {
         self.settings.get("allocations").and_then(Value::as_object).map(|m| m.keys().filter_map(|k| k.parse().ok()).collect()).unwrap_or_default()
     }
     pub fn quote_asset_id(&self) -> Option<i64> { self.settings.get("quote_asset_id")?.as_i64() }
+    /// settings.allocations as Bots::DcaMultiAsset#derive_composition reads it: (asset id, weight) in the stored order (the
+    /// JSON column keeps it). None when a key is not an id or a weight is not a JSON number (Rails' sliders store Floats):
+    /// eligibility refuses it.
+    pub fn allocations(&self) -> Option<Vec<(i64, f64)>> {
+        let m = self.settings.get("allocations")?.as_object()?;
+        m.iter().map(|(k, v)| Some((k.parse().ok()?, v.as_f64()?))).collect()
+    }
+    /// Bots::DcaMultiAsset#weighting: `super.presence || 'manual'`. A non-string is returned as its JSON, never "manual".
+    pub fn weighting(&self) -> String {
+        match self.settings.get("weighting") {
+            None | Some(Value::Null) => "manual".into(),
+            Some(Value::String(s)) if s.trim().is_empty() => "manual".into(),
+            Some(Value::String(s)) => s.clone(),
+            Some(other) => other.to_string(),
+        }
+    }
+    /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`.
+    pub fn quote_amount_limited(&self) -> bool { self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
+    /// The cap as #quote_amount_available_before_limit_reached reads it; None when the limit is off. A stored nil or false
+    /// reads as 1000 (after_initialize: `quote_amount_limit ||= 1000`). Err for anything else that is not a JSON number (a
+    /// blank string is Float::INFINITY in Rails, other strings raise there): eligibility refuses it.
+    pub fn quote_amount_limit(&self) -> Result<Option<BigDec>, String> {
+        if !self.quote_amount_limited() { return Ok(None); }
+        match self.settings.get("quote_amount_limit") {
+            None | Some(Value::Null) | Some(Value::Bool(false)) => Ok(Some(BigDec::from_i64(1000))),
+            Some(Value::Number(n)) => match n.as_i64() {
+                Some(i) => Ok(Some(BigDec::from_i64(i))),
+                None => n.as_f64().and_then(|f| BigDec::from_f64(f).ok()).map(Some).ok_or_else(|| format!("quote_amount_limit {n} is not a number")),
+            },
+            Some(other) => Err(format!("quote_amount_limit {other} is not a number")),
+        }
+    }
+    /// transient_data.quote_amount_limit_enabled_at (`Time.zone.parse` of what Time#as_json wrote), in µs. None when unset:
+    /// Rails' `created_at >= NULL` then counts nothing, and the whole cap is available.
+    pub fn quote_amount_limit_enabled_at_us(&self) -> Result<Option<i64>, String> {
+        match self.transient.get("quote_amount_limit_enabled_at") {
+            None | Some(Value::Null) => Ok(None),
+            Some(Value::String(s)) if s.trim().is_empty() => Ok(None),
+            Some(Value::String(s)) => {
+                if let Ok(t) = DateTime::parse_from_rfc3339(s) { return Ok(Some(t.with_timezone(&Utc).timestamp_micros())); }
+                parse_time(s).map(|t| Some(t.timestamp_micros())).map_err(|e| format!("quote_amount_limit_enabled_at {s:?}: {e:?}"))
+            }
+            Some(other) => Err(format!("quote_amount_limit_enabled_at {other}")),
+        }
+    }
+    /// Bot::Composition::OrderSetter::MERGED_HISTORY_KEY: a merge left inherited rows (Bot::Merge).
+    pub fn merged_history(&self) -> bool { self.transient.get("merged_history_until_id").is_some_and(|v| !v.is_null()) }
     /// Bot::Accountable#missed_quote_amount: `value.present? ? value.to_d : 0`.
     pub fn missed_quote_amount(&self) -> Result<BigDec, EngineError> {
         match self.transient.get("missed_quote_amount") {
@@ -103,28 +150,46 @@ pub struct Ticker {
     pub minimum_base_size: BigDec, pub minimum_quote_size: BigDec, pub trading_enabled: bool, pub available: bool,
 }
 
-/// The member's ticker: this venue, the member asset, the bot's quote asset (Bots::DcaMultiAsset#set_tickers).
+const TICKER_SELECT: &str = "SELECT t.id, t.ticker, b.symbol, q.symbol, e.name, t.base_asset_id, t.quote_asset_id, t.base_decimals, \
+    t.quote_decimals, t.price_decimals, t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base \
+    FROM tickers t JOIN assets b ON b.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id";
+
+fn ticker_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Ticker> {
+    let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
+    Ok(Ticker {
+        id: r.get(0)?, ticker: r.get(1)?, base_code: r.get(14)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+        quote_symbol: r.get::<_, Option<String>>(3)?.unwrap_or_default(), exchange_name: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+        base_asset_id: r.get(5)?, quote_asset_id: r.get(6)?, base_decimals: r.get(7)?, quote_decimals: r.get(8)?, price_decimals: r.get(9)?,
+        minimum_base_size: dec(10)?.unwrap_or_else(BigDec::zero), minimum_quote_size: dec(11)?.unwrap_or_else(BigDec::zero),
+        // Ticker#available? on a NULL column is false, exactly as the placement guard reads it.
+        trading_enabled: r.get::<_, Option<bool>>(12)?.unwrap_or(false), available: r.get::<_, Option<bool>>(13)?.unwrap_or(false),
+    })
+}
+
+fn one_ticker(c: &Connection, filter: &str, p: impl rusqlite::Params) -> Result<Option<Ticker>, EngineError> {
+    Ok(c.query_row(&format!("{TICKER_SELECT} WHERE {filter}"), p, ticker_row).optional()?)
+}
+
+/// The first allocation's ticker: this venue, that asset, the bot's quote asset (Bots::DcaMultiAsset#set_tickers).
 pub fn ticker_for(c: &Connection, bot: &Bot) -> Result<Option<Ticker>, EngineError> {
-    let (Some(&base), Some(quote)) = (bot.asset_ids().first(), bot.quote_asset_id()) else { return Ok(None) };
-    let row = c.query_row(
-        "SELECT t.id, t.ticker, b.symbol, q.symbol, e.name, t.base_asset_id, t.quote_asset_id, t.base_decimals, t.quote_decimals, t.price_decimals, \
-                t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base \
-         FROM tickers t JOIN assets b ON b.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id \
-         WHERE t.exchange_id = ?1 AND t.base_asset_id = ?2 AND t.quote_asset_id = ?3",
-        params![bot.exchange_id, base, quote],
-        |r| {
-            let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
-            Ok(Ticker {
-                id: r.get(0)?, ticker: r.get(1)?, base_code: r.get(14)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                quote_symbol: r.get::<_, Option<String>>(3)?.unwrap_or_default(), exchange_name: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                base_asset_id: r.get(5)?, quote_asset_id: r.get(6)?, base_decimals: r.get(7)?, quote_decimals: r.get(8)?, price_decimals: r.get(9)?,
-                minimum_base_size: dec(10)?.unwrap_or_else(BigDec::zero), minimum_quote_size: dec(11)?.unwrap_or_else(BigDec::zero),
-                // Ticker#available? on a NULL column is false, exactly as the placement guard reads it.
-                trading_enabled: r.get::<_, Option<bool>>(12)?.unwrap_or(false), available: r.get::<_, Option<bool>>(13)?.unwrap_or(false),
-            })
-        },
-    ).optional()?;
-    Ok(row)
+    let Some(&base) = bot.asset_ids().first() else { return Ok(None) };
+    ticker_for_asset(c, bot, base)
+}
+
+/// A member's ticker on the bot's venue at its quote asset, whatever its availability.
+pub fn ticker_for_asset(c: &Connection, bot: &Bot, asset_id: i64) -> Result<Option<Ticker>, EngineError> {
+    let Some(quote) = bot.quote_asset_id() else { return Ok(None) };
+    one_ticker(c, "t.exchange_id = ?1 AND t.base_asset_id = ?2 AND t.quote_asset_id = ?3", params![bot.exchange_id, asset_id, quote])
+}
+
+/// The ticker with this id, on this venue only (bot_index_assets.ticker_id, a placement intent's ticker_id).
+pub fn ticker_by_id(c: &Connection, exchange_id: i64, id: i64) -> Result<Option<Ticker>, EngineError> {
+    one_ticker(c, "t.id = ?1 AND t.exchange_id = ?2", params![id, exchange_id])
+}
+
+/// The venue's ticker for a pair as the venue names it (`tickers.find_by(ticker:)` in Exchanges::*#parse_order_data).
+pub fn ticker_for_pair(c: &Connection, exchange_id: i64, pair: &str) -> Result<Option<Ticker>, EngineError> {
+    one_ticker(c, "t.exchange_id = ?1 AND t.ticker = ?2", params![exchange_id, pair])
 }
 
 pub fn exchange_name(c: &Connection, bot: &Bot) -> Result<String, EngineError> {

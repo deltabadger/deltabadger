@@ -270,7 +270,7 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
         tokio::time::sleep(Duration::from_millis(300)).await;
         // What the guard refuses (Task 2a), committed without it.
         web.db(move |c| {
-            c.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true')) WHERE id = ?1", [bot])?;
+            c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = ?1", [bot])?;
             Ok(())
         }).await.unwrap();
         web.wake_engine();
@@ -278,7 +278,7 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
     let joined = tokio::time::timeout(Duration::from_secs(20), local.run_until(supervised)).await.expect("the woken pass ran");
     let panic = joined.expect_err("the pass must panic").into_panic();
     let message = panic.downcast_ref::<String>().cloned().unwrap_or_default();
-    assert!(message.contains("skipped eligibility::guard") && message.contains(&format!("bot {bot} (scheduled): quote_amount_limited")), "{message}");
+    assert!(message.contains("skipped eligibility::guard") && message.contains(&format!("bot {bot} (scheduled): price_limited")), "{message}");
 }
 
 /// The guard's second refusal: a write that skips it and moves a bot with an unresolved order onto another asset

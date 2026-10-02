@@ -1,4 +1,4 @@
-//! The bot engine: one-asset DCA baskets (Kraken, Alpaca paper), decided exactly as Rails decides them.
+//! The bot engine: DCA baskets of one or more assets (Kraken one-asset, Alpaca paper), decided exactly as Rails decides them.
 use chrono::{DateTime, Utc};
 
 pub trait Clock {
@@ -46,6 +46,7 @@ impl From<crate::store::StoreError> for EngineError { fn from(e: crate::store::S
 pub mod schedule;
 pub mod model;
 pub mod eligibility;
+pub mod staleness;
 pub mod amount;
 pub mod placement;
 pub mod polling;

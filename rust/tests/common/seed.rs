@@ -10,6 +10,9 @@ pub fn cipher() -> Cipher { Cipher::new(&EncryptionKeys::resolve(&|_| None, "eng
 pub struct Seeded { pub user_id: i64, pub exchange_id: i64, pub btc: i64, pub quote: i64, pub ticker_id: i64, pub api_key_id: i64 }
 
 const T: &str = "2026-01-01 00:00:00";
+/// When the seeded Alpaca tickers were last synced: after every test clock, so no test but staleness's own reads them as
+/// stale (a negative age is fresh). Kraken has no staleness bound in 2c and keeps T.
+pub const SYNCED: &str = "2099-01-01 00:00:00";
 
 pub fn seed_kraken(c: &Connection, cipher: &Cipher) -> Seeded {
     c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, ?1, ?1)", [T]).unwrap();
@@ -43,6 +46,11 @@ impl BotSpec {
     }
     pub fn with(mut self, key: &str, value: Value) -> Self { self.settings[key] = value; self }
     pub fn transient(mut self, key: &str, value: Value) -> Self { self.transient[key] = value; self }
+    /// settings.allocations over [(asset id, weight)] in this order (the JSON column keeps it, as Rails' does).
+    pub fn weights(self, weights: &[(i64, f64)]) -> Self {
+        let m: serde_json::Map<String, Value> = weights.iter().map(|(id, w)| (id.to_string(), json!(w))).collect();
+        self.with("allocations", Value::Object(m))
+    }
 }
 
 pub fn insert_bot(c: &Connection, s: &Seeded, b: &BotSpec) -> i64 {
@@ -85,12 +93,46 @@ pub fn seed_alpaca(c: &Connection, cipher: &Cipher) -> Seeded {
     c.execute(
         "INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
          minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
-         VALUES (?1, 'BTC/USD', 'BTC', 'USD', ?2, ?3, 9, 2, 2, '0.000027', '1', 1, 1, ?4, ?4)",
-        params![exchange_id, btc, quote, T]).unwrap();
+         VALUES (?1, 'BTC/USD', 'BTC', 'USD', ?2, ?3, 9, 2, 2, '0.000027', '1', 1, 1, ?4, ?5)",
+        params![exchange_id, btc, quote, T, SYNCED]).unwrap();
     let ticker_id = c.last_insert_rowid();
+    // The crypto catalog sync's stamp (staleness::ALPACA_CRYPTO_TICKERS): its ExchangeAsset rows and its last-good count.
+    for asset in [btc, quote] {
+        c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?4)",
+                  params![exchange_id, asset, T, SYNCED]).unwrap();
+    }
+    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('alpaca_crypto_listings_last_good_count', '1', ?1, ?2)",
+              params![T, SYNCED]).unwrap();
     c.execute(
         "INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?6)",
         params![user_id, exchange_id, cipher.encrypt("PKTEST"), cipher.encrypt("paper-secret"), cipher.encrypt("paper"), T]).unwrap();
     let api_key_id = c.last_insert_rowid();
     Seeded { user_id, exchange_id, btc, quote, ticker_id, api_key_id }
+}
+
+/// Another Alpaca crypto member beside seed_alpaca's BTC/USD: the asset (category Cryptocurrency) and SYMBOL/USD with this
+/// precision ({"base_decimals", "quote_decimals", "price_decimals"} as numbers, {"minimum_base_size", "minimum_quote_size"}
+/// as strings), synced at SYNCED. Returns (asset id, ticker id).
+pub fn add_alpaca_crypto(c: &Connection, s: &Seeded, symbol: &str, pair: &Value) -> (i64, i64) {
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, 'Cryptocurrency', ?3, ?3)",
+              params![format!("seed-{}", symbol.to_lowercase()), symbol, T]).unwrap();
+    let asset = c.last_insert_rowid();
+    let n = |k: &str| pair[k].as_i64().unwrap_or_else(|| panic!("{k} in {pair}"));
+    let t = |k: &str| pair[k].as_str().unwrap_or_else(|| panic!("{k} in {pair}")).to_string();
+    c.execute(
+        "INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+         minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, 'USD', ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, 1, ?11, ?12)",
+        params![s.exchange_id, format!("{symbol}/USD"), symbol, asset, s.quote, n("base_decimals"), n("quote_decimals"), n("price_decimals"),
+                t("minimum_base_size"), t("minimum_quote_size"), T, SYNCED]).unwrap();
+    let ticker = c.last_insert_rowid();
+    c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?4)",
+              params![s.exchange_id, asset, T, SYNCED]).unwrap();
+    (asset, ticker)
+}
+
+/// ETH/USD and SOL/USD beside BTC/USD, with its precision and 1 USD minimum: (eth asset, sol asset).
+pub fn add_eth_sol(c: &Connection, s: &Seeded) -> (i64, i64) {
+    let pair = json!({ "base_decimals": 9, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.000027", "minimum_quote_size": "1" });
+    (add_alpaca_crypto(c, s, "ETH", &pair).0, add_alpaca_crypto(c, s, "SOL", &pair).0)
 }

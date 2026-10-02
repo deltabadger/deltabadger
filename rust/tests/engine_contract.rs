@@ -40,3 +40,17 @@ fn the_api_key_passphrase_is_part_of_the_contract() {
         other => panic!("expected Incompatible, got {other:?}"),
     }
 }
+
+#[test]
+fn the_basket_and_staleness_columns_are_part_of_the_contract() {
+    for (table, column) in [("bot_index_assets", "target_allocation"), ("bot_index_assets", "in_index"), ("bot_index_assets", "exited_at"),
+                            ("tickers", "updated_at"), ("exchange_assets", "updated_at"), ("account_transactions", "raw_data")] {
+        let dir = common::rails_install();
+        let p = Paths::from_env(&|_| None, dir.path());
+        rusqlite::Connection::open(&p.primary).unwrap().execute_batch(&format!("ALTER TABLE {table} DROP COLUMN {column}")).unwrap();
+        match store::check(&p) {
+            Err(StoreError::Incompatible { problems }) => assert!(problems.iter().any(|m| m.contains(&format!("{table}.{column}"))), "{problems:?}"),
+            other => panic!("{table}.{column}: expected Incompatible, got {other:?}"),
+        }
+    }
+}

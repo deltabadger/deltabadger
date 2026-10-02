@@ -22,7 +22,7 @@ fn first_gid(arguments: &str) -> Option<String> {
 }
 
 pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Takeover, EngineError> {
-    let report = eligibility::check_install(&o.primary)?;
+    let report = eligibility::check_install_at(&o.primary, now)?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
