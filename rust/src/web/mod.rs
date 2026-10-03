@@ -12,6 +12,7 @@ pub mod cable;
 pub mod consent;
 pub mod csrf;
 pub mod flash;
+pub mod format;
 pub mod headers;
 pub mod i18n;
 pub mod layout;

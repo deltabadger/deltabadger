@@ -78,3 +78,15 @@ fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
         assert_eq!(i18n::text(locale, "engine.already_running", &[]), en, "{locale}");
     }
 }
+
+/// The dotiw gem's unit names are in the gem, not in config/locales, so the crate pins a copy
+/// (web::i18n FROM_GEMS). The recorder reads them from Rails; a gem update that rewords one fails here.
+#[test]
+fn the_pinned_unit_names_are_the_dotiw_gems() {
+    let recorded = common::vectors()["bot_pages"]["dotiw"].as_object().unwrap().clone();
+    assert!(recorded.len() > 100, "only {} unit names were recorded", recorded.len());
+    for (full_key, text) in &recorded {
+        let (locale, key) = full_key.split_once('.').unwrap();
+        assert_eq!(i18n::text(locale, key, &[]), text.as_str().unwrap(), "{full_key}");
+    }
+}
