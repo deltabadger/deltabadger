@@ -12,7 +12,7 @@ fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 fn btc_usd() -> Ticker {
     Ticker { id: 1, ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), base_symbol: "BTC".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
              base_asset_id: 1, quote_asset_id: 2, base_decimals: 9, quote_decimals: 2, price_decimals: 2,
-             minimum_base_size: bd("0.000027"), minimum_quote_size: bd("1"), trading_enabled: true, available: true }
+             minimum_base_size: bd("0.000027"), minimum_quote_size: bd("1"), trading_enabled: true, available: true, crypto: true, }
 }
 fn venue(script: Value) -> (ScriptedTransport, AlpacaVenue<ScriptedTransport>) {
     let t = ScriptedTransport::from_script(&script);
@@ -23,7 +23,7 @@ fn status(code: u16, body: Value) -> Value { json!([{ "status": code, "body": bo
 fn market(volume: &str) -> NewOrder {
     // A current deadline: the real transport refuses a POST past deadline + 45 s (its send bound).
     NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: volume.into(), quote_volume: true, cl_ord_id: "c-1".into(),
-               deadline: chrono::Utc::now() + chrono::Duration::seconds(10) }
+               deadline: chrono::Utc::now() + chrono::Duration::seconds(10), day: false, }
 }
 
 #[test]
@@ -131,7 +131,7 @@ async fn permanent_transport_failures_are_failures_as_client_network_failure_ret
     let (_, v) = venue(json!({ "POST /v2/orders": cert() }));
     assert_eq!(v.add_order(&market("60.00")).await, Err(VenueError::Rejected(vec!["Faraday::SSLError: certificate verify failed".into()])), "Rails writes a failed row");
     let (_, v) = venue(json!({ "GET /v2/account": cert() }));
-    assert_eq!(v.balance("USD").await, Err(VenueError::Rejected(vec!["Faraday::SSLError: certificate verify failed".into()])), "a Failure: Fundable reads it as not low");
+    assert_eq!(v.balance("USD", true).await, Err(VenueError::Rejected(vec!["Faraday::SSLError: certificate verify failed".into()])), "a Failure: Fundable reads it as not low");
     let (_, v) = venue(json!({ "GET /v2/orders/A": status(301, json!("")) }));
     assert!(matches!(v.orders(&["A".into()]).await, Err(VenueError::Rejected(_))), "a 3xx read is a definitive non-success");
 }
@@ -170,12 +170,12 @@ async fn only_alpacas_own_404_proves_absence() {
 async fn the_spendable_balance_is_non_marginable_buying_power_else_cash() {
     let positions = ok(json!([{ "symbol": "BTCUSD", "qty": "0.5" }]));
     let (t, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "100", "buying_power": "400", "non_marginable_buying_power": "80" })), "GET /v2/positions": positions.clone() }));
-    assert_eq!(v.balance("USD").await, Ok(bd("80")));
+    assert_eq!(v.balance("USD", true).await, Ok(bd("80")));
     assert_eq!(t.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), ["/v2/account", "/v2/positions"]);
     let (_, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "100", "buying_power": "400" })), "GET /v2/positions": positions }));
-    assert_eq!(v.balance("USD").await, Ok(bd("100")), "an absent field falls back to cash");
+    assert_eq!(v.balance("USD", true).await, Ok(bd("100")), "an absent field falls back to cash");
     let (_, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "100" })), "GET /v2/positions": status(500, json!({ "message": "internal server error" })) }));
-    assert_eq!(v.balance("USD").await, Err(VenueError::Rejected(vec!["internal server error".into()])), "#get_balances returns the positions failure");
+    assert_eq!(v.balance("USD", true).await, Err(VenueError::Rejected(vec!["internal server error".into()])), "#get_balances returns the positions failure");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -234,4 +234,49 @@ fn preflight_refuses_a_live_key_and_an_undecryptable_passphrase() {
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [other.encrypt("paper")]).unwrap();
     let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
     assert!(e.iter().any(|p| p.starts_with(&format!("bot {id}:")) && p.contains("api key unreadable")), "{e:?}");
+}
+
+fn aapl() -> Ticker {
+    Ticker { id: 3, ticker: "AAPL".into(), base_code: "AAPL".into(), base_symbol: "AAPL".into(), crypto: false, base_decimals: 9, quote_decimals: 2,
+             price_decimals: 2, minimum_base_size: bd("0.000000001"), minimum_quote_size: bd("1"), ..btc_usd() }
+}
+#[tokio::test(flavor = "current_thread")]
+async fn a_stock_is_priced_by_its_base_in_the_path_with_no_feed() {
+    let (t, v) = venue(json!({
+        "GET /v2/stocks/AAPL/quotes/latest": ok(json!({ "symbol": "AAPL", "quote": { "ap": 187.43, "bp": 187.4, "t": "2026-09-01T14:00:00Z" } })),
+        "GET /v2/stocks/AAPL/trades/latest": ok(json!({ "symbol": "AAPL", "trade": { "p": 187.41, "t": "2026-09-01T14:00:00Z" } })),
+    }));
+    assert_eq!(v.price(&aapl(), PriceSide::Ask).await.unwrap(), bd("187.43"));
+    assert_eq!(v.price(&aapl(), PriceSide::Last).await.unwrap(), bd("187.41"));
+    for r in t.requests() {
+        assert_eq!(r.base, DATA_URL, "the market data host");
+        assert!(r.query.is_empty(), "Rails sends no feed and no symbols parameter: {:?}", r.query);
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_zero_or_missing_stock_quote_is_rails_wrong_price_error() {
+    let (_t, v) = venue(json!({ "GET /v2/stocks/AAPL/quotes/latest": ok(json!({ "quote": { "ap": 0, "bp": 0 } })),
+                                "GET /v2/stocks/AAPL/trades/latest": ok(json!({ "trade": null })) }));
+    assert_eq!(v.price(&aapl(), PriceSide::Ask).await, Err(VenueError::Rejected(vec!["Wrong ask price for AAPL: 0.0".into()])));
+    assert_eq!(v.price(&aapl(), PriceSide::Last).await, Err(VenueError::Rejected(vec!["Wrong last price for AAPL: 0.0".into()])));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stock_buy_is_a_day_order_and_a_crypto_buy_stays_gtc() {
+    let (t, v) = venue(json!({ "POST /v2/orders": ok(json!({ "id": "O1", "status": "accepted" })) }));
+    v.add_order(&NewOrder { pair: "AAPL".into(), day: true, ..market("60.00") }).await.unwrap();
+    v.add_order(&market("60.00")).await.unwrap();
+    let tif: Vec<Value> = t.posted_orders().iter().map(|b| b["time_in_force"].clone()).collect();
+    assert_eq!(tif, vec![json!("day"), json!("gtc")]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stock_bot_spends_buying_power_and_a_crypto_bot_non_marginable_buying_power() {
+    let (_t, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "10", "buying_power": "200", "non_marginable_buying_power": "100" })),
+                                "GET /v2/positions": ok(json!([])) }));
+    assert_eq!(v.balance("USD", false).await.unwrap(), bd("200"));
+    assert_eq!(v.balance("USD", true).await.unwrap(), bd("100"));
+    let (_t, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "10" })), "GET /v2/positions": ok(json!([])) }));
+    assert_eq!(v.balance("USD", false).await.unwrap(), bd("10"), "an absent field falls back to cash (`balance[key] || balance[:free]`)");
 }

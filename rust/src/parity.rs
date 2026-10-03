@@ -349,7 +349,10 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let transport = ScriptedTransport::from_script(&scenario["script"]);
     let api = data_api::config(&env, &o.primary, &cipher).map_err(EngineError::Data)?
         .map(|c| DataApi::new(c, transport.clone(), transport.clone()));
-    let db = jobs::Db::new(store::open(&paths)?.primary, Cipher::new(&keys)); // the job's own connection, as in the process
+    // The job's own connection must read the same scenario environment as its client.
+    let job_primary = store::open(&paths)?.primary;
+    crate::engine::provider::bind(&job_primary, &cipher, &env)?;
+    let db = jobs::Db::new(job_primary, cipher.clone());
     let outcome = reference::run_once(job, api, jobs::Cx { db, clock: &FixedClock(at) }).await;
     let requests: Vec<String> = transport.requests().iter().map(request_key).collect();
     Ok(json!({ "requests": requests, "retry": matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),

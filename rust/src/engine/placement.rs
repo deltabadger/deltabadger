@@ -64,7 +64,8 @@ pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
         let Some(v) = bot.rust_placement() else { continue };
         let changed = match v.get("allocations") {
             Some(sent) => v["exchange_id"].as_i64() != Some(bot.exchange_id) || v["quote_asset_id"].as_i64() != bot.quote_asset_id()
-                || bot.settings.get("allocations") != Some(sent),
+                || bot.settings.get("allocations").unwrap_or(&Value::Null) != sent
+                || v.get("composition").is_some_and(|sent| composition_snapshot(c, &bot).map_or(true, |current| *sent != current)),
             None => true,
         };
         if changed { out.push(id); }
@@ -149,17 +150,17 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 ///
 /// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
-pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
-    begin_checked(c, sized_from, plan, clock, Some(tickers))
+pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
+    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)))
 }
 
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<&[&model::Ticker]>) -> Result<Option<Intent>, EngineError> {
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>) -> Result<Option<Intent>, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }
-    if let Some(tickers) = fence {
+    if let Some((tickers, composition, reconciled)) = fence {
         let mut ticker_changed = false;
         for ticker in tickers {
             if model::ticker_by_id(&tx, bot.exchange_id, ticker.id)?.as_ref() != Some(*ticker) {
@@ -170,7 +171,12 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         let reason = if !crate::enums::BOT_WORKING.contains(&current.status) { Some("it was stopped") }
             else if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
-            else if ticker_changed { Some("its ticker data changed") }
+            else if &composition_snapshot(&tx, &current)? != composition { Some("its member rows or index settings changed") }
+            else if current.restatement_generation != reconciled.generation { Some("its split rows changed") }
+            else if super::staleness::ledger_stale(&tx, &current, clock.now())?.is_some() { Some("its account ledger needs a complete refresh") }
+            else if ticker_changed || tickers.iter().any(|t| !t.available || !t.trading_enabled) { Some("its ticker data changed or is unavailable") }
+            else if !super::eligibility::bot_reasons(&tx, &current)?.is_empty() { Some("its members or provider are no longer eligible") }
+            else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
             else { None };
         if let Some(reason) = reason {
             super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));
@@ -189,6 +195,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     v["exchange_id"] = json!(current.exchange_id);
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
+    v["composition"] = composition_snapshot(&tx, &current)?;
     set_intent(&tx, bot.id, Some(&v))?;
     tx.commit()?; // durable before the send
     Ok(Some(intent))
@@ -314,4 +321,11 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;
     Ok(())
+}
+
+/// The rows and settings an order was sized from. Read again under the intent's write lock.
+pub fn composition_snapshot(c: &Connection, bot: &Bot) -> Result<Value, EngineError> {
+    let members: String = c.query_row("SELECT json_group_array(json_array(asset_id,ticker_id,target_allocation,in_index)) FROM (SELECT asset_id,ticker_id,target_allocation,in_index FROM bot_index_assets WHERE bot_id=?1 ORDER BY id)", [bot.id], |r| r.get(0))?;
+    let members: Value = serde_json::from_str(&members).map_err(|_| EngineError::Data("unreadable composition".into()))?;
+    Ok(json!({"type":bot.bot_type,"exchange":bot.exchange_id,"settings":bot.settings,"members":members}))
 }

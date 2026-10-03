@@ -32,6 +32,7 @@ pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<U
 }
 
 pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Takeover, EngineError> {
+    super::provider::bind_cipher(&o.primary,cipher)?;
     let report = startup_report(&o.primary, cipher, now)?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
@@ -48,7 +49,12 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     super::staleness::seed(&tx, now)?;
     tx.commit()?;
 
-    let mut gids: Vec<String> = report.eligible.iter().map(|id| format!("gid://deltabadger/Bots::DcaMultiAsset/{id}")).collect();
+    // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex.
+    let mut gids: Vec<String> = vec![];
+    for id in &report.eligible {
+        let ty: String = o.primary.query_row("SELECT type FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
+        gids.push(format!("gid://deltabadger/{ty}/{id}"));
+    }
     for id in &report.eligible {
         let mut s = o.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)")?;
         for t in s.query_map([id], |r| r.get::<_, i64>(0))? { gids.push(format!("gid://deltabadger/Transaction/{}", t?)); }

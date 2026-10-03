@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"53LwqzoJGt0FXaJKcvZ3tO8=\",\"h\":{\"iv\":\"TV1OnwJ5JAZ0RdQF\",\"at\":\"2aKfMMALJKCpZdcvU+Rw6w==\"}}"
+      "cipher": "{\"p\":\"Fv1O1dmT6kpF72/f31O+ur8=\",\"h\":{\"iv\":\"5NaVA+v5sJ4fl6mD\",\"at\":\"BLh13AdVdLgZUmiLYC6NgQ==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"53nzBqfbFy95CukzgWcU\",\"h\":{\"iv\":\"O+P0fTGcagbh07Xq\",\"at\":\"/ALcIWO+qi3lGNg0KYj/Xg==\"}}"
+      "cipher": "{\"p\":\"3flA4ik+TBw/lggx4ci1\",\"h\":{\"iv\":\"G+s6cpfwuckSTqIF\",\"at\":\"bLGbJI45HpTlIBtYw0EtYw==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"SzUa7Rq3imZzPV+GWFjj8UIoGbwuzwIVGr/OxvPMICFjRPgFYxFncm032tD0T5vrjZOHwubydJbUqgAsMzhuVIsrMFYnm9CFvYGQrbw=\",\"h\":{\"iv\":\"sKMtkZuIJzDqnyQZ\",\"at\":\"czPTqlHiw23uEn/aZfOPEw==\",\"c\":true}}"
+      "cipher": "{\"p\":\"iKfxw2/fQdsaBv/9yVeo/WcHWDd6S+De96vAv+iFxV9n8eq/UtQmtHJbmTuYcEbkroHZciJjFZPCiSUFIXpOWz9tLXnTRWaE0VfgaoM=\",\"h\":{\"iv\":\"ToHCKT+1HGJcjrQq\",\"at\":\"fQeCom1bv9k8wIuKRcbZhw==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "WQEH46KJI63MWAEIRT6WXI2VG6GKXANJ",
-      "cipher": "{\"p\":\"w911pK9pzYMZXOptDGosO4MAU56Y6yGThNiELJZOxps=\",\"h\":{\"iv\":\"9kQaZqIpsCuTGQuB\",\"at\":\"ttZaw8/ECRX9WUjB3aoAow==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "KBT6WL2B75BYAFYOUPCYN6NOGRF5Q6QW",
+      "cipher": "{\"p\":\"zPmBAuiJcBXqVqWQHYLpX5mLjo+/eO1BtcRuftZju4c=\",\"h\":{\"iv\":\"HzuC2JydUUP2LXGk\",\"at\":\"srafzl+nLWa2mEN7/Utm5g==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"GRtPaQncw5TnkV5boTZsuCA=\",\"h\":{\"iv\":\"xWbpfUA/Oh3tZeAy\",\"at\":\"UD5UI9PrFukNIdc/54gfSQ==\"}}"
+      "cipher": "{\"p\":\"W9R9fOi9ZqaV+gDrHM8T8QU=\",\"h\":{\"iv\":\"JLqurxsh2ROoGu9/\",\"at\":\"LbwZU+tKblKkxbscufvDrg==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$bUBsCeio/usa59ppU6KbYuA2XMZEqSIyOQcJ4JDimpY1MeUFX3Tmy"
+      "hash": "$2a$11$MoQDRfbMSIHf4S1iPTJrWORGAPdzYIcxO3RjmUBo75Xgj2BU/6HxC"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$Ci8gHSmvomYMW4UuHscD0O5NVB3IC.HHPUK678zKkihKfzqa7jx6C"
+      "hash": "$2a$11$NFenKcniiibdmRIULD59CekUstMxC5kBPhgwcATRUGJWiiC2yAs6C"
     }
   ],
   "totp": {
@@ -62569,7 +62569,7 @@
     "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
     "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
     "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
-    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--b9322cde186656783304db7fc842aa69bc083fcba6ddccf129b518d56876429e\"></turbo-cable-stream-source>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--a43117c787c74c41882c5cb891cdd6bb9f0bcf8a6b1b18fbeff8203aab750300\"></turbo-cable-stream-source>",
     "stream_name": "user_7:bot_updates",
     "content_type": "text/vnd.turbo-stream.html"
   },
@@ -89241,6 +89241,1476 @@
       }
     ]
   },
+  "alpaca_stock_sizing": [
+    {
+      "last_or_ask": "187.43",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "187.43",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "60.00"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "186.96",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.320924261",
+        "limit_price": "186.96"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "187.43",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "0.99"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "186.96",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.005295250",
+        "limit_price": "186.96"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "187.43",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "1.00"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "186.96",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.005348737",
+        "limit_price": "186.96"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "187.43",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "5.00"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "186.96",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.026743688",
+        "limit_price": "186.96"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "187.43",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "123.45"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "186.96",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.660301668",
+        "limit_price": "186.96"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "187.43",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "last_or_ask": "187.43",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "186.96",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "5348.737697903",
+        "limit_price": "186.96"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.5123",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "60.00"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "0.51",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "117.647058823",
+        "limit_price": "0.51"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "0.5123",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "0.99"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "0.51",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "1.941176470",
+        "limit_price": "0.51"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "0.5123",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "1.00"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "0.51",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "1.960784313",
+        "limit_price": "0.51"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "0.5123",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "5.00"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "0.51",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "9.803921568",
+        "limit_price": "0.51"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.5123",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "123.45"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "0.51",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "242.058823529",
+        "limit_price": "0.51"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "0.5123",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "last_or_ask": "0.5123",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "0.51",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "1960784.313725490",
+        "limit_price": "0.51"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1234.5",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "60.00"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1231.41",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.048724632",
+        "limit_price": "1231.41"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "0.99",
+      "order_type": "market_order",
+      "price": "1234.5",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "0.99"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "0.99",
+      "order_type": "limit_order",
+      "price": "1231.41",
+      "below_minimum": true,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.000803956",
+        "limit_price": "1231.41"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "1",
+      "order_type": "market_order",
+      "price": "1234.5",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "1.00"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "1",
+      "order_type": "limit_order",
+      "price": "1231.41",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.000812077",
+        "limit_price": "1231.41"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "5.005",
+      "order_type": "market_order",
+      "price": "1234.5",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "5.00"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "5.005",
+      "order_type": "limit_order",
+      "price": "1231.41",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.004060386",
+        "limit_price": "1231.41"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1234.5",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "123.45"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1231.41",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "0.100250931",
+        "limit_price": "1231.41"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "1000000",
+      "order_type": "market_order",
+      "price": "1234.5",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "market",
+        "time_in_force": "day",
+        "notional": "1000000.00"
+      }
+    },
+    {
+      "last_or_ask": "1234.5",
+      "x": "1000000",
+      "order_type": "limit_order",
+      "price": "1231.41",
+      "below_minimum": false,
+      "wire": {
+        "symbol": "AAPL",
+        "side": "buy",
+        "type": "limit",
+        "time_in_force": "day",
+        "qty": "812.077212301",
+        "limit_price": "1231.41"
+      }
+    }
+  ],
+  "time_as_json": {
+    "2026-09-08T09:30:00-04:00": "2026-09-08T09:30:00.000-04:00",
+    "2026-11-09T09:30:00-05:00": "2026-11-09T09:30:00.000-05:00",
+    "2026-09-08T13:30:00Z": "2026-09-08T13:30:00.000Z",
+    "2026-09-08T13:30:00+00:00": "2026-09-08T13:30:00.000+00:00",
+    "2026-09-08T09:30:00.123456-04:00": "2026-09-08T09:30:00.123-04:00",
+    "2026-09-08T09:30:00.9999-04:00": "2026-09-08T09:30:00.999-04:00"
+  },
+  "split_walks": [
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "no_split",
+      "splits": [],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "forward_merged",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "100.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "reverse_merged",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "1:10",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "1.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "lone_leg_then_merged",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": null,
+          "user": "self",
+          "venue": "alpaca"
+        },
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "100.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "disagreeing_sources",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        },
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 04:00:00",
+          "ratio": "5:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": true
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "lone_leg_no_ratio",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": null,
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": true
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "malformed_ratio",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:0",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": true
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "future_dated",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-15 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "before_first_buy",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-08-30 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ],
+        [
+          "WAAA",
+          "2026-09-08 14:00:01",
+          "5",
+          "100"
+        ]
+      ],
+      "name": "between_buys",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "105.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ],
+        [
+          "WAAA",
+          "2026-09-05 00:00:00",
+          "5",
+          "100"
+        ]
+      ],
+      "name": "same_instant_as_an_order",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "105.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "recent",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-09 12:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "100.0"
+        },
+        "restated_at": "2026-09-09T12:00:00.000000Z",
+        "untrusted": true
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "exactly_two_days",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-08 12:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "100.0"
+        },
+        "restated_at": "2026-09-08T12:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        },
+        {
+          "base": "WBBB",
+          "symbol": "WBBB"
+        }
+      ],
+      "allocations": [
+        "WAAA",
+        "WBBB"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ],
+        [
+          "WBBB",
+          "2026-09-01 14:00:02",
+          "7",
+          "100"
+        ]
+      ],
+      "name": "basket_one_member_splits",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "100.0",
+          "WBBB": "7.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WCC.X",
+          "symbol": "WCCC"
+        }
+      ],
+      "allocations": [
+        "WCC.X"
+      ],
+      "buys": [
+        [
+          "WCC.X",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "spelled_differently",
+      "splits": [
+        {
+          "name": "WCC.X",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WCC.X": "100.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WDUP",
+          "symbol": "WDUP"
+        },
+        {
+          "base": "WDUQ",
+          "symbol": "WDUP"
+        }
+      ],
+      "allocations": [
+        "WDUP"
+      ],
+      "buys": [
+        [
+          "WDUP",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "a_name_two_assets_share",
+      "splits": [
+        {
+          "name": "WDUP",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WDUP": "100.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "fractional",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "3:2",
+          "user": "self",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "15.0"
+        },
+        "restated_at": "2026-09-05T00:00:00.000000Z",
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "another_users_split",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "other",
+          "venue": "alpaca"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": false
+      }
+    },
+    {
+      "assets": [
+        {
+          "base": "WAAA",
+          "symbol": "WAAA"
+        }
+      ],
+      "allocations": [
+        "WAAA"
+      ],
+      "buys": [
+        [
+          "WAAA",
+          "2026-09-01 14:00:01",
+          "10",
+          "100"
+        ]
+      ],
+      "name": "a_venue_never_traded",
+      "splits": [
+        {
+          "name": "WAAA",
+          "at": "2026-09-05 00:00:00",
+          "ratio": "10:1",
+          "user": "self",
+          "venue": "kraken"
+        }
+      ],
+      "now": "2026-09-10T12:00:00Z",
+      "expected": {
+        "amounts": {
+          "WAAA": "10.0"
+        },
+        "restated_at": null,
+        "untrusted": false
+      }
+    }
+  ],
+  "index_blends": [
+    {
+      "caps": [
+        5000000000000.0,
+        3000000000000.0,
+        2000000000000.0
+      ],
+      "flattening": 0.0,
+      "weights": [
+        0.5,
+        0.3,
+        0.2
+      ]
+    },
+    {
+      "caps": [
+        5000000000000.0,
+        3000000000000.0,
+        2000000000000.0
+      ],
+      "flattening": 0.5,
+      "weights": [
+        0.4166666666666666,
+        0.3166666666666667,
+        0.2666666666666667
+      ]
+    },
+    {
+      "caps": [
+        5000000000000.0,
+        3000000000000.0,
+        2000000000000.0
+      ],
+      "flattening": 1.0,
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ]
+    },
+    {
+      "caps": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "flattening": 0.0,
+      "weights": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ]
+    },
+    {
+      "caps": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "flattening": 0.0,
+      "weights": [
+        0.1666666666666667,
+        0.3333333333333334,
+        0.5
+      ]
+    },
+    {
+      "caps": [
+        3400000000000.0,
+        3100000000000.0,
+        2900000000000.0,
+        2100000000000.0,
+        1900000000000.0,
+        1600000000000.0,
+        1200000000000.0,
+        1000000000000.0,
+        900000000000.0,
+        800000000000.0
+      ],
+      "flattening": 0.0,
+      "weights": [
+        0.1798941798941799,
+        0.164021164021164,
+        0.1534391534391534,
+        0.1111111111111111,
+        0.1005291005291005,
+        0.08465608465608465,
+        0.06349206349206349,
+        0.05291005291005291,
+        0.04761904761904762,
+        0.04232804232804233
+      ]
+    },
+    {
+      "caps": [
+        3400000000000.0,
+        3100000000000.0,
+        2900000000000.0,
+        2100000000000.0,
+        1900000000000.0,
+        1600000000000.0,
+        1200000000000.0,
+        1000000000000.0,
+        900000000000.0,
+        800000000000.0
+      ],
+      "flattening": 0.3,
+      "weights": [
+        0.1559259259259259,
+        0.1448148148148148,
+        0.1374074074074074,
+        0.1077777777777778,
+        0.1003703703703704,
+        0.08925925925925926,
+        0.07444444444444444,
+        0.06703703703703703,
+        0.06333333333333332,
+        0.05962962962962963
+      ]
+    },
+    {
+      "caps": [
+        0.0,
+        0.0
+      ],
+      "flattening": 0.0,
+      "weights": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "caps": [
+        0.0,
+        5.0
+      ],
+      "flattening": 0.25,
+      "weights": [
+        0.125,
+        0.875
+      ]
+    },
+    {
+      "caps": [
+        7.0
+      ],
+      "flattening": 0.0,
+      "weights": [
+        1.0
+      ]
+    },
+    {
+      "caps": [
+        1000000000000.0,
+        0.003
+      ],
+      "flattening": 0.9,
+      "weights": [
+        0.5499999999999997,
+        0.4500000000000003
+      ]
+    },
+    {
+      "caps": [
+        123456789.123,
+        987654321.987,
+        55555.5
+      ],
+      "flattening": 0.123,
+      "weights": [
+        0.1384395716811693,
+        0.8205165805550668,
+        0.04104384776376404
+      ]
+    }
+  ],
+  "index_duplicate_blend": [
+    {
+      "asset_id": 1,
+      "ticker_id": 1,
+      "weight": 0.704545,
+      "symbol": null,
+      "market_cap": 100
+    },
+    {
+      "asset_id": 1,
+      "ticker_id": 1,
+      "weight": 0.704545,
+      "symbol": null,
+      "market_cap": 100
+    },
+    {
+      "asset_id": 2,
+      "ticker_id": 2,
+      "weight": 0.295455,
+      "symbol": null,
+      "market_cap": 10
+    }
+  ],
   "bot_actions": {
     "now": "2026-09-10T12:00:30.123456Z",
     "rows": {
@@ -89250,12 +90720,12 @@
           "admin": 0,
           "advanced_bots_enabled": 0,
           "confirmation_sent_at": "2026-09-10 12:00:30.123456",
-          "confirmation_token": "38i6UwLwPi7pQdtUWQWk",
+          "confirmation_token": "NDhcdQXq5xsKxV_RGFdL",
           "confirmed_at": null,
           "created_at": "2026-09-10 12:00:30.123456",
           "display_currency": "USD",
           "email": "owner@example.com",
-          "encrypted_password": "$2a$04$8Y0BYUK3GOl.JEvRlunrEugdgFPDpz3bTm8Q/8EO/gn/yUKEQ.rCu",
+          "encrypted_password": "$2a$11$tWVemDpvv.lRQMeh60m1YO.V2jb.LZ7C0vGUNHH0jiCtL0b8nBtV2",
           "failed_attempts": 0,
           "hide_balances": 0,
           "last_otp_at": null,
@@ -89264,7 +90734,7 @@
           "mcp_settings": "{}",
           "name": "Fixture Owner",
           "otp_module": 0,
-          "otp_secret_key": "{\"p\":\"MUtLTX6eOIo/5+JctqWyY0vKjBtBT6Gqsz4zOc7BVdU=\",\"h\":{\"iv\":\"ht00mDxYzReqcBww\",\"at\":\"/uK7s9jIa4xdeg16tc2xdA==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+          "otp_secret_key": "{\"p\":\"tk9gyOTEZEb2eihnIYfOI5ruBzBMQn+Lfk+z/wx0nZA=\",\"h\":{\"iv\":\"mHWNzFKnftEDuco6\",\"at\":\"E+IAsiv2mxSJYoyiY82lDg==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
           "remember_created_at": null,
           "reset_password_sent_at": null,
           "reset_password_token": null,

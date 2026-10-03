@@ -30,6 +30,7 @@ pub struct Engine<F: VenueFactory> {
     started: bool,
     attempts: HashMap<i64, Attempts>,
     retry_at: HashMap<i64, i64>,
+    closed_until: HashMap<i64, i64>,
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
     polls: HashMap<i64, (i64, i64, Attempts)>,
     reconcile_at: HashMap<i64, i64>,
@@ -53,7 +54,7 @@ pub struct Engine<F: VenueFactory> {
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
-        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
+        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(),
                events: EngineEvents::default() }
@@ -153,6 +154,7 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
 
 pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<i64, EngineError> {
     e.process_start.get_or_insert(clock.now());
+    super::provider::bind_cipher(&e.primary,&e.cipher)?;
     let report = eligibility::check_install(&e.primary)?;
     // In one process every other writer of `bots` runs eligibility::guard, so this is a write that skipped it.
     // Debug builds (every test) name the bot; release builds end the engine, and the process with it.
@@ -322,7 +324,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     };
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
-    } else if deferred.is_some() {
+    } else if e.closed_until.get(&id).is_some_and(|&t| t > now_us) || deferred.is_some() {
         false
     } else if defer.flatten().is_some_and(|t| t < now_us) {
         true // the wait has ended (strictly after it, as a checkpoint is): a continue start Rails runs at once (placement::run_now)
@@ -377,6 +379,10 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             e.events.send(EngineEvent::FundsLow { bot_id: id, user_id: bot.user_id, quote_asset_id: bot.quote_asset_id() });
         }
         match outcome {
+            TickOutcome::MarketClosed { until } => {
+                e.closed_until.insert(id, until.timestamp_micros());
+                e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id);
+            }
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, clock.now().timestamp_micros() + d.as_micros() as i64); }
             TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, clock.now().timestamp_micros() + RECONCILE_EVERY_US); }
             TickOutcome::Done { .. } => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); }
@@ -390,7 +396,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     // Only entries that still apply count: a stale one (bot stopped and restarted) would spin the loop.
     if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
-    for at in [e.retry_at.get(&id), e.reconcile_at.get(&id)].into_iter().flatten() { *wake = (*wake).min(*at); }
+    for at in [e.retry_at.get(&id), e.reconcile_at.get(&id), e.closed_until.get(&id).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
     if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
     let next = checkpoints(anchor, clock.now().timestamp_micros(), eff).next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);

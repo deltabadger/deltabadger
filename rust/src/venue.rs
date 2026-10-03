@@ -28,7 +28,7 @@ pub struct NewOrder {
     /// The venue-neutral client order id (Kraken `cl_ord_id`, Alpaca `client_order_id`).
     pub cl_ord_id: String,
     /// Kraken's AddOrder `deadline`. Recorded for every intent; sent only where VenueRules::deadline_sent.
-    pub deadline: DateTime<Utc>,
+    pub deadline: DateTime<Utc>, pub day: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -61,6 +61,12 @@ pub enum VenueError {
 }
 
 pub trait Venue {
+    async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { Err(VenueError::Rejected(vec!["positions unavailable".into()])) }
+
+    /// The market clock. Asked only where VenueRules::market_hours. A transport failure that Client.network_failure raises
+    /// (refused, timeout, lost reply) is `Err(Transient)`.
+    async fn clock(&self) -> Result<ClockAnswer, VenueError> { Err(VenueError::Rejected(vec!["market clock unsupported".into()])) }
+
     /// This venue's Rails rules (errors, minimums, wire, absence window).
     fn rules(&self) -> &'static VenueRules;
     /// One reference price. A zero or missing price is `Rejected` with the venue's own "Wrong … price" message.
@@ -74,7 +80,7 @@ pub trait Venue {
     /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
     /// What Bot::Fundable compares with its buffer (Kraken: balance − hold_trade; Alpaca: #spendable_balance).
-    async fn balance(&self, asset_symbol: &str) -> Result<BigDec, VenueError>;
+    async fn balance(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError>;
 }
 
 pub trait VenueFactory {
@@ -83,3 +89,8 @@ pub trait VenueFactory {
     /// fail at the venue, per bot.
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
 }
+
+/// GET /v2/clock as Clients::Alpaca#get_clock returns it: the 2xx body as text, or the failure with its HTTP status (None for
+/// a TLS failure, which Client.network_failure returns as a Failure) and with_rescue's message.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ClockAnswer { Body(String), Failed { status: Option<u16>, message: String } }

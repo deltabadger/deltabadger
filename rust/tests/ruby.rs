@@ -126,3 +126,13 @@ fn a_decimal_10_6_column_reads_and_writes_as_activemodel_does() {
         assert_eq!(decimal_column(f, 10, 6).unwrap().to_s_f(), c[1].as_str().unwrap(), "{f:e}");
     }
 }
+
+#[test]
+fn time_as_json_is_activesupports_rendering_of_a_parsed_clock_time() {
+    let cases = common::vectors()["time_as_json"].as_object().unwrap().clone();
+    assert_eq!(cases.len(), 6);
+    for (raw, want) in cases {
+        let t = chrono::DateTime::parse_from_rfc3339(&raw).unwrap();
+        assert_eq!(deltabadger::ruby::time_as_json(&raw, &t), want.as_str().unwrap(), "{raw}");
+    }
+}

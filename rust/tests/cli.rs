@@ -5,6 +5,19 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 fn cli(dir: &Path, args: &[&str]) -> Command {
+    // These process tests exercise takeover/reference jobs, not Alpaca. Keep newly registered venue jobs
+    // outside their short lifetime; their network behavior is tested through sync's scripted factory.
+    if args.first().is_some_and(|arg| ["run", "serve"].contains(arg)) && dir.join("production.sqlite3").exists() {
+        let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+        if let Ok(mut stmt) = c.prepare("SELECT id FROM api_keys") {
+            for key in stmt.query_map([], |r| r.get::<_,i64>(0)).unwrap() {
+                let scope=key.unwrap().to_string();
+                for job in ["ledger_sync", "balance_sync"] {
+                    deltabadger::jobs::state::record_success(&c,job,Some(&scope),chrono::Utc::now()).unwrap();
+                }
+            }
+        };
+    }
     let mut c = Command::new(env!("CARGO_BIN_EXE_deltabadger"));
     c.args(args).env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", "engine-test-secret")
         .env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT");

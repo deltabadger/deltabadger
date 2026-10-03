@@ -5,7 +5,7 @@ use super::VenueFactory;
 use crate::crypto::{Cipher, Credentials};
 use crate::engine::{eligibility, model, EngineError};
 use rusqlite::Connection;
-use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, VenueError};
+use super::{ClockAnswer, NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, VenueError};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, ALPACA};
 use crate::ruby::BigDec;
@@ -147,16 +147,47 @@ impl<T: Transport> AlpacaVenue<T> {
 impl<T: Transport> Venue for AlpacaVenue<T> {
     fn rules(&self) -> &'static VenueRules { &ALPACA }
 
-    /// Exchanges::Alpaca#get_ask_price / #get_last_price for a crypto ticker: the latest quote's `ap`, the latest trade's `p`.
+    /// Exchanges::Alpaca#get_ask_price / #get_last_price. Crypto: the latest quote's `ap` / trade's `p` by pair in the
+    /// `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in the path, `quote.ap`
+    /// / `trade.p`, no feed parameter (clients/alpaca.rb:172-192). A zero or missing price is Rails' "Wrong … price" raise.
+    /// Clients::Alpaca#get_clock on the trading host, with the bot's key.
+    async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> {
+        let bad = || VenueError::Rejected(vec!["unreadable venue positions".into()]);
+        let body = self.get(self.request("GET", false, "/v2/positions".into(), vec![], None)).await?;
+        let rows = body.as_array().filter(|rows| rows.len() <= 5000).ok_or_else(bad)?;
+        let mut out = std::collections::HashMap::new();
+        for row in rows {
+            let symbol = row["symbol"].as_str().filter(|s| !s.is_empty() && s.len() <= 100).ok_or_else(bad)?;
+            let qty = ruby_opt_to_d(&row["qty"]).map_err(|_| bad())?.ok_or_else(bad)?;
+            if qty < BigDec::zero() || out.insert(symbol.to_string(), qty).is_some() { return Err(bad()); }
+        }
+        Ok(out)
+    }
+
+    async fn clock(&self) -> Result<ClockAnswer, VenueError> {
+        let r = self.request("GET", false, "/v2/clock".into(), vec![], None);
+        match self.transport.send(&r).await {
+            Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
+            Err(TransportError::Permanent(m)) => Ok(ClockAnswer::Failed { status: None, message: m }),
+            Ok(resp) if (200..300).contains(&resp.status) => Ok(ClockAnswer::Body(resp.body)),
+            Ok(resp) => Ok(ClockAnswer::Failed { status: Some(resp.status), message: error_message(&r, &resp) }),
+        }
+    }
+
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
-        let (path, key, field, label) = match side {
-            PriceSide::Ask => ("/v1beta3/crypto/us/latest/quotes", "quotes", "ap", "ask"),
-            PriceSide::Last => ("/v1beta3/crypto/us/latest/trades", "trades", "p", "last"),
-        };
-        let body = self.get(self.request("GET", true, path.into(), vec![("symbols", ticker.ticker.clone())], None)).await?;
-        // An unreadable price is an unreadable answer (Rejected, as `get` reads one): the tick retries and places nothing.
-        let price = ruby_to_d(&body[key][ticker.ticker.as_str()][field])
-            .map_err(|raw| VenueError::Rejected(vec![format!("unreadable {label} price for {}: {raw}", ticker.base_code)]))?;
+        let label = match side { PriceSide::Ask => "ask", PriceSide::Last => "last" };
+        let price = if ticker.crypto {
+            let (path, key, field) = match side {
+                PriceSide::Ask => ("/v1beta3/crypto/us/latest/quotes", "quotes", "ap"),
+                PriceSide::Last => ("/v1beta3/crypto/us/latest/trades", "trades", "p"),
+            };
+            let body = self.get(self.request("GET", true, path.into(), vec![("symbols", ticker.ticker.clone())], None)).await?;
+            ruby_to_d(&body[key][ticker.ticker.as_str()][field])
+        } else {
+            let (path, key, field) = match side { PriceSide::Ask => ("quotes", "quote", "ap"), PriceSide::Last => ("trades", "trade", "p") };
+            let body = self.get(self.request("GET", true, format!("/v2/stocks/{}/{path}/latest", ticker.base_code), vec![], None)).await?;
+            ruby_to_d(&body[key][field])
+        }.map_err(|raw| VenueError::Rejected(vec![format!("unreadable {label} price for {}: {raw}", ticker.base_code)]))?;
         if price.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.base_code, price.to_s_f())])); }
         Ok(price)
     }
@@ -166,7 +197,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     /// failure while connecting: nothing sent) is a definitive refusal (Rails' failed row); a 3xx, a 5xx, a lost reply, or
     /// a 2xx without a readable id may have placed the order.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
-        let mut body = json!({ "symbol": o.pair, "side": "buy", "type": "market", "time_in_force": "gtc" });
+        let mut body = json!({ "symbol": o.pair, "side": "buy", "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
         match &o.kind {
             OrderKind::Market if o.quote_volume => { body["notional"] = json!(o.volume); }
             OrderKind::Market => { body["qty"] = json!(o.volume); }
@@ -232,14 +263,14 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
 
     /// #get_balances (account, then positions; either failure is the answer) and #spendable_balance for an all-crypto
     /// bot: non_marginable_buying_power, else cash (`&.to_d`, so only an absent field falls back).
-    async fn balance(&self, asset_symbol: &str) -> Result<BigDec, VenueError> {
+    async fn balance(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError> {
         let account = self.get(self.request("GET", false, "/v2/account".into(), vec![], None)).await?;
         self.get(self.request("GET", false, "/v2/positions".into(), vec![], None)).await?;
         // ponytail: eligibility admits only USD-quoted Alpaca bots; another quote would be a position lookup ("BTCUSD").
         if asset_symbol != "USD" { return Ok(BigDec::zero()); }
         // An unreadable balance is never a zero (which would read as low funds). Clients::Alpaca would raise on it, so it is
         // Transient: retried when nothing was placed, rescheduled without a replay when something was (Bot::ActionJob).
-        let free = match ruby_opt_to_d(&account["non_marginable_buying_power"]) {
+        let free = match ruby_opt_to_d(&account[if all_crypto { "non_marginable_buying_power" } else { "buying_power" }]) {
             Ok(Some(d)) => Ok(d),
             Ok(None) => ruby_to_d(&account["cash"]),
             Err(raw) => Err(raw),

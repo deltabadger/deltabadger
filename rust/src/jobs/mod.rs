@@ -58,10 +58,13 @@ pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock }
 
 /// The scheduler's connection for job work (a `store::open` of its own) and the instance's cipher.
 #[derive(Clone)]
-pub struct Db { conn: Arc<Mutex<Connection>>, cipher: Arc<Cipher> }
+pub struct Db { conn: Arc<Mutex<Connection>>, cipher: Arc<Cipher>, longest_hold_us: Arc<std::sync::atomic::AtomicU64> }
 
 impl Db {
-    pub fn new(conn: Connection, cipher: Cipher) -> Self { Self { conn: Arc::new(Mutex::new(conn)), cipher: Arc::new(cipher) } }
+    pub fn longest_write_hold(&self) -> Duration { Duration::from_micros(self.longest_hold_us.load(std::sync::atomic::Ordering::Relaxed)) }
+    pub fn note_write_hold(&self, held: Duration) { self.longest_hold_us.fetch_max(u64::try_from(held.as_micros()).unwrap_or(u64::MAX), std::sync::atomic::Ordering::Relaxed); }
+
+    pub fn new(conn: Connection, cipher: Cipher) -> Self { Self { conn: Arc::new(Mutex::new(conn)), cipher: Arc::new(cipher), longest_hold_us: Arc::new(std::sync::atomic::AtomicU64::new(0)) } }
 
     /// Runs `f` on tokio's blocking pool, as the web's App::db does. Every SQLite statement and every large JSON walk of a
     /// job goes through here: nothing holds the runtime thread the engine ticks on past its 250 ms bound, and a wait
@@ -72,6 +75,8 @@ impl Db {
         let me = self.clone();
         tokio::task::spawn_blocking(move || {
             let c = me.conn.lock().unwrap_or_else(PoisonError::into_inner);
+            let bound: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_function_list WHERE name='rust_index_decrypt')",[],|r|r.get(0)).map_err(|_|"index configuration reader unavailable".to_string())?;
+            if !bound { crate::engine::provider::bind(&c,&me.cipher,&|k|std::env::var(k).ok()).map_err(|_|"index configuration reader unavailable".to_string())?; }
             let out = f(&c, &me.cipher);
             // A closure that returned early inside its own transaction must not leave the shared connection holding the
             // write lock into the next job.

@@ -154,3 +154,82 @@ pub fn insert_row(c: &Connection, s: &Seeded, bot_id: i64, asset: i64, row: &Val
                 real("amount"), real("quote_amount"), real("price"), real("amount_exec"), real("quote_amount_exec"), asset, s.quote, text("created_at"), int("side").unwrap_or(0)]).unwrap();
     c.last_insert_rowid()
 }
+
+/// An Alpaca stock as Asset::SyncStocksFromDeltabadgerJob imports it: the asset (category Stock, instrument_type stock,
+/// external_id "<SYMBOL>.US") and the bare-symbol ticker with MarketData::STOCK_TICKER_DEFAULTS (market_data.rb:381-389),
+/// synced at SYNCED. Returns (asset id, ticker id).
+pub fn add_alpaca_stock(c: &Connection, s: &Seeded, symbol: &str) -> (i64, i64) {
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES (?1, ?2, ?2, 'Stock', 'stock', ?3, ?3)",
+              params![format!("{symbol}.US"), symbol, T]).unwrap();
+    let asset = c.last_insert_rowid();
+    c.execute(
+        "INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+         minimum_base_size, minimum_quote_size, maximum_base_size, maximum_quote_size, trading_enabled, available, created_at, updated_at) \
+         VALUES (?1, ?2, ?2, 'USD', ?3, ?4, 9, 2, 2, '0.000000001', '1', '100000', '10000000', 1, 1, ?5, ?6)",
+        params![s.exchange_id, symbol, asset, s.quote, T, SYNCED]).unwrap();
+    (asset, c.last_insert_rowid())
+}
+
+/// insert_tx for any member: the row records `symbol` and `asset_id` as its base.
+pub fn insert_stock_tx(c: &Connection, s: &Seeded, bot_id: i64, asset_id: i64, symbol: &str, t: &TxSpec) -> i64 {
+    c.execute(
+        "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
+         amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
+         error_messages, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'USD', ?13, ?14, 'week', 60, 'REGULAR', '[]', ?15, ?15)",
+        params![bot_id, s.exchange_id, t.external_id, t.status, t.external_status, t.order_type, t.amount, t.quote_amount, t.price,
+                t.amount_exec, t.quote_amount_exec, symbol, asset_id, s.quote, t.created_at]).unwrap();
+    c.last_insert_rowid()
+}
+
+/// A split as the ledger sync books it (Exchanges::Alpaca#normalize_split, #merge_split_entries): an adjustment marked
+/// corporate_action 'split' for `name` on the seeded venue, at `at` (Rails' quoted_date), with `ratio` when the legs merged.
+pub fn insert_split(c: &Connection, s: &Seeded, name: &str, at: &str, ratio: Option<&str>) -> i64 {
+    let mut raw = json!({ "activity_type": "SPLIT", "symbol": name, "corporate_action": "split" });
+    if let Some(r) = ratio { raw["split_ratio"] = json!(r); }
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, created_at, updated_at) \
+               VALUES (?1, ?2, 15, ?3, '0', ?4, ?5, ?4, ?4)", params![s.user_id, s.exchange_id, name, at, raw.to_string()]).unwrap();
+    c.last_insert_rowid()
+}
+
+/// Controlled test freshness, written through the actual scheduler record API.
+pub fn fresh_stock_jobs(c: &Connection, now: chrono::DateTime<chrono::Utc>) {
+    if let Some(hash)=deltabadger::engine::provider::fingerprint(c).unwrap() {deltabadger::engine::provider::record(c,&hash,now).unwrap();}
+    for job in [deltabadger::jobs::reference::STOCKS, deltabadger::jobs::reference::INDICES, deltabadger::jobs::reference::ASSETS] {
+        deltabadger::jobs::state::record_success(c,job,None,now).unwrap();
+    }
+    let mut stmt=c.prepare("SELECT id FROM api_keys WHERE key_type=0").unwrap();
+    for id in stmt.query_map([],|r|r.get::<_,i64>(0)).unwrap() {
+        deltabadger::jobs::state::record_success(c,"ledger_sync",Some(&id.unwrap().to_string()),now).unwrap();
+    }
+}
+
+/// data-api's index row as MarketData.import_indices! writes it (source deltabadger), synced at SYNCED.
+pub fn insert_index(c: &Connection, external_id: &str, top_coins: &[&str], weights: &Value) -> i64 {
+    c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+               VALUES (?1, 'deltabadger', ?1, ?2, '{}', '{}', ?3, 0, ?4, ?5)",
+              params![external_id, json!(top_coins).to_string(), weights.to_string(), T, SYNCED]).unwrap();
+    c.last_insert_rowid()
+}
+
+/// A weekly Bots::DcaIndex on the seeded venue over the data-api category `external_id`, started 2026-09-01 14:00 UTC.
+pub fn index_bot(c: &Connection, s: &Seeded, external_id: &str, num_coins: i64, flattening: f64, hold_all: bool) -> i64 {
+    deltabadger::engine::provider::bind(c,&cipher(),&|_|None).unwrap();
+    for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","https://data.invalid"),("market_data_token","scripted-token")] {
+        deltabadger::app_config::set_plain(c,key,value,"2026-01-01T00:00:00Z".parse().unwrap()).unwrap();
+    }
+    let settings = json!({ "quote_asset_id": s.quote, "quote_amount": 60.0, "interval": "week", "num_coins": num_coins,
+                           "allocation_flattening": flattening, "index_type": "category", "index_category_id": external_id, "hold_all": hold_all });
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+               VALUES ('Bots::DcaIndex', 1, ?1, ?2, ?3, '{}', '2026-09-01 14:00:00', ?4, ?4)",
+              params![s.exchange_id, s.user_id, settings.to_string(), T]).unwrap();
+    c.last_insert_rowid()
+}
+
+/// A member row as Bot::Composition::Allocatable#save_member writes it.
+#[allow(clippy::too_many_arguments)]
+pub fn insert_member(c: &Connection, bot_id: i64, asset_id: i64, ticker_id: i64, target: f64, in_index: bool, entered_at: &str, exited_at: Option<&str>) -> i64 {
+    c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, entered_at, exited_at, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?6, ?6)", params![bot_id, asset_id, ticker_id, target, in_index, entered_at, exited_at]).unwrap();
+    c.last_insert_rowid()
+}

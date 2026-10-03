@@ -7,12 +7,12 @@ use serde_json::json;
 fn xbteur() -> Ticker {
     Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), quote_code: "EUR".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
              base_asset_id: 1, quote_asset_id: 2, base_decimals: 8, quote_decimals: 5, price_decimals: 1,
-             minimum_base_size: BigDec::parse("0.00005").unwrap(), minimum_quote_size: BigDec::parse("0.5").unwrap(), trading_enabled: true, available: true }
+             minimum_base_size: BigDec::parse("0.00005").unwrap(), minimum_quote_size: BigDec::parse("0.5").unwrap(), trading_enabled: true, available: true, crypto: true, }
 }
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 fn order(cl: &str) -> NewOrder {
     NewOrder { pair: "XBTEUR".into(), kind: OrderKind::Market, volume: "0.0012".into(), quote_volume: false,
-               cl_ord_id: cl.into(), deadline: "2026-09-30T12:00:10Z".parse().unwrap() }
+               cl_ord_id: cl.into(), deadline: "2026-09-30T12:00:10Z".parse().unwrap(), day: false, }
 }
 fn at() -> chrono::DateTime<chrono::Utc> { "2026-09-30T11:00:00Z".parse().unwrap() }
 
@@ -31,8 +31,8 @@ async fn raw_kraken_bodies_are_parsed_as_rails_parses_them() {
     assert_eq!(v.add_order(&order("c-2")).await, Err(VenueError::Rejected(vec!["EOrder:Insufficient funds".into()])));
     let o = &v.orders(&["OTX-1".into()]).await.unwrap()[0];
     assert_eq!((o.status, o.quote_amount.clone(), o.amount.clone()), (OrderStatus::Closed, Some(bd("60")), None));
-    assert_eq!(v.balance("EUR").await.unwrap(), bd("1000"));
-    assert_eq!(v.balance("USD").await.unwrap(), BigDec::zero(), "absent from BalanceEx: Rails' {{ free: 0 }} default");
+    assert_eq!(v.balance("EUR", true).await.unwrap(), bd("1000"));
+    assert_eq!(v.balance("USD", true).await.unwrap(), BigDec::zero(), "absent from BalanceEx: Rails' {{ free: 0 }} default");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -100,7 +100,7 @@ async fn a_body_without_error_or_result_is_unreadable() {
     let v = FakeVenue::from_script(&json!({ "http": { "/0/public/Ticker": [{ "result": {} }], "/0/private/BalanceEx": [{ "error": [] }] } }));
     let unreadable = VenueError::Ambiguous("Kraken: unreadable response".into());
     assert_eq!(v.price(&xbteur(), PriceSide::Ask).await, Err(unreadable.clone()));
-    assert_eq!(v.balance("EUR").await, Err(unreadable));
+    assert_eq!(v.balance("EUR", true).await, Err(unreadable));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -137,10 +137,10 @@ async fn a_registered_filled_order_is_reported_closed_and_a_duplicate_client_id_
 #[tokio::test(flavor = "current_thread")]
 async fn balance_splits_dotted_codes_and_the_last_row_wins() {
     let v = FakeVenue::new().balance_body("EUR.F", "10", "1");
-    assert_eq!(v.balance("EUR").await.unwrap(), bd("9"));
+    assert_eq!(v.balance("EUR", true).await.unwrap(), bd("9"));
     let v = FakeVenue::from_script(&json!({ "http": { "/0/private/BalanceEx": [{ "error": [], "result": {
         "ZEUR": { "balance": "100", "hold_trade": "0" }, "EUR.HOLD": { "balance": "7", "hold_trade": "2" } } }] } }));
-    assert_eq!(v.balance("EUR").await.unwrap(), bd("5"));
+    assert_eq!(v.balance("EUR", true).await.unwrap(), bd("5"));
 }
 
 // Kraken sends decimals as strings. One this build cannot read (non-finite, garbage, out of BigDec's range) is Kraken's
@@ -177,6 +177,6 @@ async fn an_unreadable_kraken_fill_is_an_unreadable_answer_not_a_zero_fill() {
 async fn an_unreadable_kraken_balance_is_an_unreadable_answer_not_a_zero_balance() {
     for bad in UNREADABLE {
         let v = FakeVenue::new().balance_body("ZEUR", bad, "0");
-        assert!(unreadable(v.balance("EUR").await), "{bad}");
+        assert!(unreadable(v.balance("EUR", true).await), "{bad}");
     }
 }

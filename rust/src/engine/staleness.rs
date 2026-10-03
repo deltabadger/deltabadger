@@ -161,10 +161,9 @@ fn judge(c: &Connection, s: &Source, at: DateTime<Utc>, now: DateTime<Utc>) -> O
 /// column where it is trusted, so a takeover after Rails refreshed the data is admitted even when a record from an earlier
 /// takeover is older, and a partial import of this engine never is. With neither, Unknown: noted, never refused.
 /// Kraken has no source yet: it is not connected for real.
-pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
+fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
     if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(Verdict::Fresh); }
-    let s = &ALPACA_CRYPTO_TICKERS;
-    match record_at(c, s)?.flatten().max(trusted_column(c, s, Some(bot.exchange_id))?) {
+    match record_at(c, s)?.flatten().max(trusted_column(c, s, s.per_exchange.then_some(bot.exchange_id))?) {
         Some(at) => Ok(judge(c, s, at, now).map_or(Verdict::Fresh, Verdict::Stale)),
         None => Ok(Verdict::Unknown(Stale { source: s.name, message: format!(
             "reference data unknown: {} has no sync stamp on this install (no app_configs {ALPACA_CRYPTO_SYNCED_KEY}, or no {} row); \
@@ -174,15 +173,14 @@ pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict,
 
 /// The tick (tick.rs). Once the job has a record (seeded at the takeover), only its completed runs count: no complete
 /// refresh at all is stale. Before any takeover, the door's verdict (Unknown is not stale).
-pub fn stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+fn source_stale(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(None); }
-    let s = &ALPACA_CRYPTO_TICKERS;
     Ok(match record_at(c, s)? {
         Some(Some(at)) => judge(c, s, at, now),
         Some(None) => Some(Stale { source: s.name, message: format!(
             "reference data stale: {} ({}) has had no complete refresh since this engine took the install over; refreshed by {}{}; \
              the bot does not tick until it is refreshed", s.name, s.column, s.refreshed_by, job_state(c, s)) }),
-        None => match verdict(c, bot, now)? { Verdict::Stale(x) => Some(x), Verdict::Fresh | Verdict::Unknown(_) => None },
+        None => match source_verdict(c, bot, s, now)? { Verdict::Stale(x) => Some(x), Verdict::Fresh | Verdict::Unknown(_) => None },
     })
 }
 
@@ -236,5 +234,60 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineE
             }
         });
     }
+    let mut holds = c.prepare("SELECT id,json_extract(transient_data,'$.rust_split_hold.reason') FROM bots WHERE json_extract(transient_data,'$.rust_split_hold.reason') IS NOT NULL ORDER BY id")?;
+    for line in holds.query_map([], |r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))? {
+        let (id,reason)=line?; lines.push(format!("bot {id}: last split refusal: {reason}; stop the engine, run sync ledger, correct the ledger with the Rails grouping fix if still inconsistent, then restart; no trade is needed"));
+    }
     Ok(lines)
+}
+
+
+/// Only sources this bot sizes from; index candidates can include both stocks and crypto.
+fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
+    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(vec![]); }
+    let index = bot.bot_type == "Bots::DcaIndex";
+    let mut sources = vec![];
+    if !model::all_crypto(c, bot)? { sources.push(&ALPACA_STOCK_TICKERS); }
+    let crypto: bool = if index {
+        c.query_row("SELECT EXISTS (SELECT 1 FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 AND a.category='Cryptocurrency')", rusqlite::params![bot.exchange_id, bot.quote_asset_id()], |r| r.get(0))?
+    } else {
+        let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
+        c.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE category='Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))", [ids], |r| r.get(0))?
+    };
+    if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
+    if index { sources.push(&INDICES); if crypto { sources.push(&CRYPTO_ASSETS); } }
+    Ok(sources)
+}
+
+pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" || model::all_crypto(c, bot)? { return Ok(None); }
+    let key: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1", rusqlite::params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
+    let state = match key {
+        Some(key) => crate::jobs::state::read(c, "ledger_sync", Some(&key.to_string())).map_err(EngineError::Data)?,
+        None => crate::jobs::state::JobState::default(),
+    };
+    if state.incomplete_since.is_none() && state.last_success_at.is_some_and(|at| at <= now && (now-at).num_seconds() <= bound_secs(24)) { return Ok(None); }
+    Ok(Some(Stale { source: "Alpaca account ledger", message: format!("reference data stale: Alpaca account ledger; ledger_sync:{}: {}; a complete ledger refresh is required before this bot can trade", key.map_or_else(|| "missing".into(), |k| k.to_string()), state.describe()) }))
+}
+
+pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
+    // A restart must be able to start the index refresher. Runtime stale() still refuses all orders.
+    if let Some(s) = super::provider::stale(c, bot)? { return Ok(Verdict::Unknown(s)); }
+    let mut unknown = None;
+    for source in bot_sources(c, bot)? {
+        match source_verdict(c, bot, source, now)? {
+            Verdict::Stale(s) => return Ok(Verdict::Stale(s)),
+            Verdict::Unknown(s) => { if unknown.is_none() { unknown = Some(s); } }
+            Verdict::Fresh => {}
+        }
+    }
+    // At the door an unstamped ledger must allow takeover: only the running scheduler can refresh it.
+    if let Some(s) = ledger_stale(c, bot, now)? { unknown = Some(s); }
+    Ok(unknown.map_or(Verdict::Fresh, Verdict::Unknown))
+}
+
+pub fn stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    if let Some(s) = super::provider::stale(c, bot)? { return Ok(Some(s)); }
+    for source in bot_sources(c, bot)? { if let Some(s) = source_stale(c, bot, source, now)? { return Ok(Some(s)); } }
+    ledger_stale(c, bot, now)
 }

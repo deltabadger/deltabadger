@@ -345,7 +345,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     };
     if keys.is_empty() { println!("no Alpaca key to sync"); return 0; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-    let db = Db::new(o.primary, std::sync::Arc::new(cipher));
+    let db = Db::new(o.primary, cipher);
     let mut code = 0;
     for key in keys {
         let job: Box<dyn Job> = match kind {

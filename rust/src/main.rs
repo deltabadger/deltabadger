@@ -34,6 +34,10 @@ fn main() {
             if let Err(e) = store::check(&paths) { fail(&explain(e)); }
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
+            if let Some(secret) = env("SECRET_KEY_BASE") {
+                let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("index encryption configuration unreadable"));
+                deltabadger::engine::provider::bind(&c,&Cipher::new(&keys),&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
+            }
             // Every background job's last run and every reference source's age (informational, no keys needed).
             for (name, s) in deltabadger::jobs::state::all(&c).unwrap_or_default() { println!("job {name}: {}", s.describe()); }
             for line in deltabadger::engine::staleness::report(&c, chrono::Utc::now()).unwrap_or_default() { println!("reference {line}"); }
@@ -127,7 +131,9 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Ope
     let paths = paths(env);
     let lock = take_lock(&paths);
     let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
-    (lock, opened, Cipher::new(&keys))
+    let cipher = Cipher::new(&keys);
+    deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
+    (lock, opened, cipher)
 }
 
 /// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
@@ -153,7 +159,10 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let own = store::open(paths).map_err(explain)?;
     let cipher = Cipher::new(&keys);
     let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(jobs::data_api::DataApi::live);
-    let scheduler = jobs::Scheduler::new(own.primary, cipher, jobs::reference::jobs(api), Some(engine.subscribe()));
+    let api = std::rc::Rc::new(api);
+    let mut registered = jobs::reference::shared_jobs(api.clone());
+    registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api).map_err(|e| e.0)?);
+    let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe()));
     Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
 }
 
@@ -293,7 +302,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     };
     if keys.is_empty() { println!("no Alpaca key to sync"); return 0; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-    let db = Db::new(o.primary, std::sync::Arc::new(cipher));
+    let db = Db::new(o.primary, cipher);
     let mut code = 0;
     for key in keys {
         let job: Box<dyn Job> = match kind {
@@ -301,8 +310,20 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             _ => Box::new(BalanceSync::new(LiveFactory::new(), std::rc::Rc::new(NoPrices), key)),
         };
         let spec = job.spec();
-        let name = format!("{}:{}", spec.name, spec.scope.unwrap_or_default());
-        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)])) {
+        let name = format!("{}:{}", spec.name, spec.scope.as_deref().unwrap_or_default());
+        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)]));
+        let recorded = rt.block_on(db.run(move |c, _| {
+            use deltabadger::jobs::state;
+            let at = chrono::Utc::now();
+            match &outcome {
+                Outcome::Done => state::record_success(c, spec.name, spec.scope.as_deref(), at)?,
+                Outcome::NothingNew => state::record_run(c, spec.name, spec.scope.as_deref(), at)?,
+                Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => state::record_error(c, spec.name, spec.scope.as_deref(), at, m)?,
+            }
+            Ok(outcome)
+        }));
+        let outcome = match recorded { Ok(outcome) => outcome, Err(_) => { eprintln!("deltabadger: {name}: cannot save job outcome"); code = EXIT_ENGINE_ERROR; continue; } };
+        match outcome {
             Outcome::Done => println!("{name}: done"),
             // An import larger than one run reads: what was read is stored, and the next run continues.
             Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),

@@ -377,3 +377,20 @@ fn stale_catalog_refuses_rails_takeover_but_allows_an_engine_owned_restart() -> 
     assert!(matches!(handover::take_over(&lock, &o, &seed::cipher(), "test", now()), Err(EngineError::Ineligible(_))), "restart still refuses unsupported work");
     Ok(())
 }
+
+#[test]
+fn an_index_bots_rails_jobs_are_removed_at_takeover() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    seed::insert_index(&o.primary, "nasdaq-100", &["AAPL.US"], &serde_json::json!({ "AAPL.US": 3e12 }));
+    let id = seed::index_bot(&o.primary, &s, "nasdaq-100", 1, 0.0, false);
+    seed::fresh_stock_jobs(&o.primary, now());
+    job(&o.queue, "Bot::ActionJob", &format!("gid://deltabadger/Bots::DcaIndex/{id}"));
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(t.deleted_jobs, 1, "the GlobalID names the bot's own class");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
+}

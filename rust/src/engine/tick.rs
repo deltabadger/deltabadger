@@ -4,6 +4,8 @@ use super::amount::{self, RowKind, Sizing};
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
 use super::notice;
+use super::{splits, index};
+use super::clock::{self as market, Gate};
 use super::placement::{self, Recovery, Sent};
 use super::polling::{self, PollFailure};
 use super::{basket, staleness, Clock, EngineError};
@@ -39,6 +41,10 @@ pub struct Attempts { pub transient: u32, pub rate: u32 }
 
 #[derive(Debug)]
 pub enum TickOutcome {
+    /// The market is closed (Bot::ActionJob's closed path): `waiting_for_market_open` and `market_closed` were written, nothing
+    /// else. The bot stays due and `run` holds it until `until` (the clock's next_open).
+    MarketClosed { until: DateTime<Utc> },
+
     Skipped, Done { placed: bool }, RetryAfter(Duration), Rescheduled, Stopped, AwaitingReconciliation,
     /// Reference data only a Rails job refreshes is past its bound (staleness.rs): nothing was read from the venue, nothing
     /// written, and the bot stays due.
@@ -263,11 +269,26 @@ async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dy
     // Decide nothing from reference data past its bound.
     if let Some(s) = staleness::stale(c, &bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
 
+    // Bot::ActionJob#perform asks the market before it writes anything (action_job.rb:91-100): on a venue with market hours,
+    // for a bot that is not all crypto (Exchanges::Alpaca#market_open?). The clock fails closed (clock.rs).
+    if venue.rules().market_hours && !model::all_crypto(c, &bot)? {
+        match market::gate(venue.clock().await, &model::exchange_name(c, &bot)?, clock.now()) {
+            Gate::Open => {}
+            Gate::Closed { next_open, details } => { *attempts = Attempts::default(); return park(c, &bot, next_open, details, clock.now()); }
+            Gate::Retry(m) => return handle_failure(c, bot_id, Fail::Transient(m), clock, attempts, venue.rules()),
+            Gate::InvalidKey(m) => {
+                let fail = Fail::General { errors: vec![m.clone()], message: m, failed_row: false };
+                return handle_failure(c, bot_id, fail, clock, attempts, venue.rules());
+            }
+        }
+    }
+
     let now = clock.now();
-    // Rails' store_accessor writes a key only when the value changes, so `waiting_for_market_open: nil` touches the
-    // key only where it holds something non-null; an absent key stays absent.
-    let mut writes = vec![("last_action_job_at", json!(iso8601_ms(now)))];
-    if bot.transient.get("waiting_for_market_open").is_some_and(|v| !v.is_null()) { writes.push(("waiting_for_market_open", Value::Null)); }
+    // ActionJob's merged Fix C clears a previous closed flag with merge_transient_data! before the stamp.
+    if bot.transient.get("waiting_for_market_open").is_some_and(|v| !v.is_null() && *v != Value::Bool(false)) {
+        model::merge_transient_compact(c, bot_id, &[("waiting_for_market_open", Value::Null)])?;
+    }
+    let writes = vec![("last_action_job_at", json!(iso8601_ms(now)))];
     // The wait this tick was due by (a deferred checkpoint, or a continue's run-now) has come. It goes with the stamp, in one
     // transaction: a crash between the two would leave a stamped run with no wait, and a run-now one checkpoint late.
     model::locked(c, |c| { placement::remove_wait(c, Some(bot_id))?; model::update_transient(c, bot_id, &writes, now) })?;
@@ -299,6 +320,14 @@ async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dy
 /// DcaMultiAsset#execute_action with the sweep in front and Fundable behind. Ok(placed) = success.
 async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<bool, Fail>, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
+    // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action (rebalanceable.rb:75-82): a restatement the
+    // market has not priced yet, or a split the bot cannot size. No sweep, no order, no balance read; success, so the bot goes
+    // back to scheduled, and the contribution is carried by the interval count.
+    if splits::untrusted(c, &bot, clock.now())? {
+        model::log_activity(c, bot_id, "dca_skipped_restatement", Level::Info, json!({}), clock.now())?;
+        return Ok(Ok(false));
+    }
+
     if let Err(f) = polling::sweep(c, venue, &bot, clock.now()).await {
         return Ok(Err(match f {
             PollFailure::RateLimited(m) => Fail::RateLimited(m),
@@ -306,18 +335,39 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
             PollFailure::General(m) => Fail::General { errors: vec![m.clone()], message: m, failed_row: false },
         }));
     }
+    let bot = model::load_bot(c, bot_id)?;
+    let reconciled = splits::snapshot(c, &bot)?;
+    if let Some(reason) = splits::refusal(c, venue, &bot, clock.now()).await? {
+        model::merge_transient_compact(c, bot_id, &[("rust_split_hold", json!({"reason":reason,"at":iso8601_ms(clock.now())}))])?;
+        model::log_activity(c, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":reason}), clock.now())?;
+        super::log(&format!("[engine] bot {bot_id}: split reconciliation required: {reason}; refresh the ledger and correct its split records before restarting; no trade is required"));
+        return Ok(Ok(false));
+    }
+    if splits::snapshot(c, &bot)? != reconciled {
+        model::log_activity(c, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":"split generation or held assets changed during reconciliation"}), clock.now())?;
+        return Ok(Ok(false));
+    }
+    c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_split_hold') WHERE id=?1 AND json_extract(transient_data,'$.rust_split_hold') IS NOT NULL", [bot_id])?;
     // Statusable#transition_working!: every status write of the tick moves only a still-working bot, so a stop that
     // lands meanwhile (during the sweep, or while AddOrder awaits its reply) wins. Stopped before executing, nothing
     // is placed, but Fundable still reads the balance as it wraps execute_action.
     let working = model::transition_working(c, bot_id, BotStatus::Executing, clock.now())?;
     let bot = model::load_bot(c, bot_id)?;
-    let ticker_row = model::ticker_for(c, &bot)?;
     let mut placed = false;
     if working {
         // Bots::DcaMultiAsset#refresh_composition: the members are re-derived and written before anything is sized; with no
         // tradable weighted member the tick fails with no order row.
-        if let Err(m) = basket::refresh_composition(c, &bot, clock.now())? {
-            return Ok(Err(Fail::General { message: m, errors: vec![], failed_row: false }));
+        // The composition this tick buys: an index bot derives it from data-api's ranking with price probes (index.rs), a basket
+        // from its settings (basket.rs). A Failure fails the tick with no order row; a probe's transport failure retries.
+        let refreshed = if bot.bot_type == "Bots::DcaIndex" {
+            index::refresh_composition(c, venue, &bot, clock, cx.prices).await?
+        } else {
+            basket::refresh_composition(c, &bot, clock.now())?.map_err(index::Refusal::Failure)
+        };
+        match refreshed {
+            Ok(()) => {}
+            Err(index::Refusal::Failure(m)) => return Ok(Err(Fail::General { message: m, errors: vec![], failed_row: false })),
+            Err(index::Refusal::Transient(m)) => return Ok(Err(Fail::Transient(m))),
         }
         let mut x = amount::pending_quote_amount(c, &bot, clock.now().timestamp_micros())?;
         // Bot::QuoteAmountLimitable decorates pending_quote_amount: `[super, available].min`. The cap applies to the carry,
@@ -325,7 +375,7 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         if let Some(available) = amount::quote_amount_available(c, &bot)? { if available < x { x = available; } }
         if !x.is_zero() {
             let mut legs = Legs::default();
-            let bought = buy(c, venue, &bot, &x, clock, cx, &mut legs).await;
+            let bought = buy(c, venue, &bot, &x, clock, cx, &mut legs, &reconciled).await;
             // set_orders' `ensure record_skipped_orders!`: on every way out of the loop, a raise included.
             record_skipped(c, &bot, &legs.skipped, legs.placed, clock.now())?;
             placed = legs.placed;
@@ -334,10 +384,10 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
         model::transition_working(c, bot_id, BotStatus::Waiting, clock.now())?;
     }
-    let Some(ticker) = ticker_row else { return Ok(Ok(placed)) }; // stopped, and no pair to read a balance for
-
-    // Bot::Fundable: a failed balance Result means "not low"; only a transport failure raises.
-    match venue.balance(&ticker.quote_symbol).await {
+    // Bot::Fundable#funds_are_low?: the quote asset's balance, whatever the member tickers (an index bot has no allocations),
+    // spent as Exchanges::Alpaca#spendable_balance picks it. A failed balance Result means "not low"; only a transport
+    // failure raises.
+    match venue.balance(&model::quote_symbol(c, &bot)?, model::all_crypto(c, &bot)?).await {
         Ok(free) => {
             let interval_seconds = match bot.interval().map(|i| i.as_str()) { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
             let buffer = BigDec::from_f64(bot.quote_amount().unwrap_or_default() / interval_seconds * THREE_DAYS).map_err(|e| EngineError::Data(format!("{e:?}")))?;
@@ -367,13 +417,19 @@ struct Legs { placed: bool, skipped: Vec<amount::OrderPlan> }
 /// order (Step 1), the split, then the legs in member order. Each leg is settled (row written, intent cleared) before the next
 /// is sent, and the first leg that is not accepted ends the loop (order_setter.rb:80); legs never sent stay owed through
 /// pending_quote_amount. A price failure can only come before the first leg.
-async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs) -> Result<Result<(), Fail>, EngineError> {
+#[allow(clippy::too_many_arguments)]
+async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
+    let composition = placement::composition_snapshot(c, bot)?;
     let members = basket::members(c, bot)?;
     if members.is_empty() {
         let m = "No assets in composition".to_string();
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     }
-    let holdings = basket::holdings(c, bot)?;
+    let holdings = model::locked(c, |tx| {
+        if splits::snapshot(tx, bot)? != *reconciled { return Ok(None); }
+        Ok(Some(basket::walk(tx, bot, clock.now())?.amounts))
+    })?;
+    let Some(holdings) = holdings else { return Ok(Ok(())); };
     let reserved = basket::reserved(c, bot)?;
     // Bot::OrderSetter#reference_price: the last trade for a limit buy, the ask for a market buy.
     let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
@@ -417,7 +473,7 @@ async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, 
             Sizing::Place(plan) => {
                 // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
                 // sized before the change is placed (the fence is in the intent's own transaction).
-                let Some(intent) = placement::begin_unless_changed(c, bot, &plan, &tickers, clock)? else { break };
+                let Some(intent) = placement::begin_unless_changed(c, bot, &plan, &tickers, &composition, reconciled, clock)? else { break };
                 match placement::send(venue, &intent, clock).await {
                     Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }
                     Sent::Rejected(errs) => {
@@ -529,4 +585,15 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
             Ok(TickOutcome::Rescheduled)
         }
     }
+}
+
+/// Bot::ActionJob's closed path (action_job.rb:93-100): `update!(waiting_for_market_open: true)`, which saves nothing (and
+/// moves no updated_at) when the key already holds true; `market_closed` with next_market_open_at; the next run at next_open.
+/// No sweep, no last_action_job_at, no status change, no price.
+fn park(c: &Connection, bot: &model::Bot, next_open: DateTime<Utc>, details: String, now: DateTime<Utc>) -> Result<TickOutcome, EngineError> {
+    if bot.transient.get("waiting_for_market_open") != Some(&json!(true)) {
+        model::update_transient(c, bot.id, &[("waiting_for_market_open", json!(true))], now)?;
+    }
+    model::log_activity(c, bot.id, "market_closed", Level::Info, json!({ "next_market_open_at": details }), now)?;
+    Ok(TickOutcome::MarketClosed { until: next_open })
 }

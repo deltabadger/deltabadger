@@ -1531,6 +1531,143 @@ vectors['bot_pages'] = {
 vectors['action_transport'] = action_transport_vectors
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
+
+# Exchanges::Alpaca sizing and wire for a stock or ETF (category Stock): the importers' MarketData::STOCK_TICKER_DEFAULTS
+# (market_data.rb:381-389) and time_in_force 'day' (exchanges/alpaca.rb:910, :953). rust/tests/amount.rs.
+alpaca = Exchanges::Alpaca.new
+captured = nil
+stock_client = Object.new
+stock_client.define_singleton_method(:create_order) { |**kw| captured = kw; Result::Success.new('id' => 'X') }
+alpaca.define_singleton_method(:client) { stock_client }
+stock = Asset.new(symbol: 'AAPL', category: 'Stock')
+alpaca_stock_sizing = []
+%w[187.43 0.5123 1234.5].each do |price_s|
+  %w[60 0.99 1 5.005 123.456789 1000000].each do |x_s|
+    %i[market_order limit_order].each do |order_type|
+      ticker = Ticker.new(exchange: alpaca, ticker: 'AAPL', base: 'AAPL', quote: 'USD', base_asset: stock, base_decimals: 9, quote_decimals: 2,
+                          price_decimals: 2, minimum_base_size: BigDecimal('0.000000001'), minimum_quote_size: BigDecimal('1'))
+      bot = Bots::DcaMultiAsset.new(exchange: alpaca)
+      price = order_type == :limit_order ? ticker.adjusted_price(price: BigDecimal(price_s) * (1.to_d - 0.0025.to_d)) : BigDecimal(price_s)
+      x = BigDecimal(x_s)
+      info = bot.send(:calculate_best_amount_info, { ticker:, price:, amount: x / price, quote_amount: x, side: :buy, order_type: })
+      captured = nil
+      if order_type == :limit_order
+        alpaca.limit_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type], price:)
+      else
+        alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
+      end
+      alpaca_stock_sizing << { 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s, 'price' => price.to_s('F'),
+                               'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s) }
+    end
+  end
+end
+vectors['alpaca_stock_sizing'] = alpaca_stock_sizing
+
+# ActiveSupport's Time#as_json for Exchanges::Alpaca#next_market_open_at (`Time.parse(clock['next_open'])`), as the
+# market_closed activity's details store it (rust/src/ruby.rs time_as_json).
+vectors['time_as_json'] = ['2026-09-08T09:30:00-04:00', '2026-11-09T09:30:00-05:00', '2026-09-08T13:30:00Z', '2026-09-08T13:30:00+00:00',
+                           '2026-09-08T09:30:00.123456-04:00', '2026-09-08T09:30:00.9999-04:00']
+                          .to_h { |s| [s, JSON.parse({ 't' => Time.parse(s) }.to_json)['t']] }
+
+# Bot::Composition::Measurable#metrics' asset_breakdown amounts and restated_at, and Bot::Restatable#restated_prices_untrusted?,
+# over recorded split rows (rust/tests/splits.rs). Each case: `assets` (an Alpaca stock per `base`, with its `symbol`),
+# `allocations` (bases), `buys` ([base, created_at, amount_exec, price], closed REGULAR buys recording the asset's symbol), and
+# `splits` (account_transactions adjustments marked 'split': base_currency `name`, transacted_at `at`, split_ratio `ratio`,
+# for `user` self or other, on `venue` alpaca or kraken). Recorded at SPLIT_NOW inside a transaction that is rolled back.
+self.extend ActiveSupport::Testing::TimeHelpers
+SPLIT_NOW = Time.utc(2026, 9, 10, 12)
+w = ->(base, symbol = base) { { 'base' => base, 'symbol' => symbol } }
+split = ->(name, at, ratio, user: 'self', venue: 'alpaca') { { 'name' => name, 'at' => at, 'ratio' => ratio, 'user' => user, 'venue' => venue } }
+buy = ->(base, at, amount) { [base, at, amount, '100'] }
+one_buy = [buy.('WAAA', '2026-09-01 14:00:01', '10')]
+split_cases = [
+  { 'name' => 'no_split', 'splits' => [] },
+  { 'name' => 'forward_merged', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'reverse_merged', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '1:10')] },
+  { 'name' => 'lone_leg_then_merged', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', nil), split.('WAAA', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'disagreeing_sources', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1'), split.('WAAA', '2026-09-05 04:00:00', '5:1')] },
+  { 'name' => 'lone_leg_no_ratio', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', nil)] },
+  { 'name' => 'malformed_ratio', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:0')] },
+  { 'name' => 'future_dated', 'splits' => [split.('WAAA', '2026-09-15 00:00:00', '10:1')] },
+  { 'name' => 'before_first_buy', 'splits' => [split.('WAAA', '2026-08-30 00:00:00', '10:1')] },
+  { 'name' => 'between_buys', 'buys' => one_buy + [buy.('WAAA', '2026-09-08 14:00:01', '5')], 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'same_instant_as_an_order', 'buys' => one_buy + [buy.('WAAA', '2026-09-05 00:00:00', '5')], 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'recent', 'splits' => [split.('WAAA', '2026-09-09 12:00:00', '10:1')] },
+  { 'name' => 'exactly_two_days', 'splits' => [split.('WAAA', '2026-09-08 12:00:00', '10:1')] },
+  { 'name' => 'basket_one_member_splits', 'assets' => [w.('WAAA'), w.('WBBB')], 'allocations' => %w[WAAA WBBB],
+    'buys' => one_buy + [buy.('WBBB', '2026-09-01 14:00:02', '7')], 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'spelled_differently', 'assets' => [w.('WCC.X', 'WCCC')], 'allocations' => %w[WCC.X], 'buys' => [buy.('WCC.X', '2026-09-01 14:00:01', '10')],
+    'splits' => [split.('WCC.X', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'a_name_two_assets_share', 'assets' => [w.('WDUP'), w.('WDUQ', 'WDUP')], 'allocations' => %w[WDUP], 'buys' => [buy.('WDUP', '2026-09-01 14:00:01', '10')],
+    'splits' => [split.('WDUP', '2026-09-05 00:00:00', '10:1')] },
+  { 'name' => 'fractional', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '3:2')] },
+  { 'name' => 'another_users_split', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1', user: 'other')] },
+  { 'name' => 'a_venue_never_traded', 'splits' => [split.('WAAA', '2026-09-05 00:00:00', '10:1', venue: 'kraken')] }
+].map { |k| { 'assets' => [w.('WAAA')], 'allocations' => %w[WAAA], 'buys' => one_buy }.merge(k) }
+vectors['split_walks'] = split_cases.map do |kase|
+  expected = nil
+  ActiveRecord::Base.transaction do
+    owner, stranger = %w[split-owner split-stranger].map do |n|
+      User.new(name: n, email: "#{n}@example.com", password: 'correct horse battery staple', confirmed_at: Time.current).tap { |u| u.save!(validate: false) }
+    end
+    alpaca = Exchanges::Alpaca.first || Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    kraken = Exchanges::Kraken.first || Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
+    usd = Asset.create!(external_id: 'usd-w', symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+    assets = kase['assets'].to_h do |a|
+      asset = Asset.create!(external_id: "#{a['base']}.W", symbol: a['symbol'], name: a['symbol'], category: 'Stock', instrument_type: 'stock')
+      [asset, usd].each { |listed| ExchangeAsset.find_or_create_by!(exchange: alpaca, asset: listed) { |ea| ea.available = true } }
+      Ticker.create!(exchange: alpaca, ticker: a['base'], base: a['base'], quote: 'USD', base_asset: asset, quote_asset: usd, base_decimals: 9,
+                     quote_decimals: 2, price_decimals: 2, minimum_base_size: BigDecimal('0.000000001'), minimum_quote_size: 1)
+      [a['base'], asset]
+    end
+    weight = 1.0 / kase['allocations'].size
+    bot = Bots::DcaMultiAsset.new(user: owner, exchange: alpaca, status: :stopped, settings: {
+      'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'week', 'weighting' => 'manual',
+      'allocations' => kase['allocations'].to_h { |b| [assets.fetch(b).id.to_s, weight] } })
+    bot.set_missed_quote_amount
+    bot.save!(validate: false)
+    kase['buys'].each do |base, at, amount, price|
+      asset = assets.fetch(base)
+      Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => alpaca.id, 'external_id' => "W-#{base}-#{at}", 'status' => 0, 'external_status' => 2,
+                            'side' => 0, 'order_type' => 0, 'amount' => amount, 'price' => price, 'amount_exec' => amount,
+                            'quote_amount' => (BigDecimal(amount) * BigDecimal(price)).to_s('F'), 'quote_amount_exec' => (BigDecimal(amount) * BigDecimal(price)).to_s('F'),
+                            'base' => asset.symbol, 'quote' => 'USD', 'base_asset_id' => asset.id, 'quote_asset_id' => usd.id, 'transaction_type' => 'REGULAR',
+                            'bot_interval' => 'week', 'bot_quote_amount' => 60, 'error_messages' => [], 'created_at' => at, 'updated_at' => at })
+    end
+    kase['splits'].each do |s|
+      raw = { 'activity_type' => 'SPLIT', 'symbol' => s['name'], 'corporate_action' => 'split' }
+      raw['split_ratio'] = s['ratio'] if s['ratio']
+      AccountTransaction.insert!({ 'user_id' => (s['user'] == 'other' ? stranger : owner).id, 'exchange_id' => (s['venue'] == 'kraken' ? kraken : alpaca).id,
+                                   'entry_type' => 15, 'base_currency' => s['name'], 'base_amount' => '0', 'transacted_at' => s['at'], 'raw_data' => raw,
+                                   'created_at' => s['at'], 'updated_at' => s['at'] })
+    end
+    travel_to(SPLIT_NOW) do
+      data = bot.metrics(force: true)
+      base_of = assets.to_h { |base, asset| [asset.id, base] }
+      expected = { 'amounts' => data[:asset_breakdown].to_h { |key, v| [base_of.fetch(data[:key_assets].fetch(key)), v[:amount].to_d.to_s('F')] },
+                   'restated_at' => data[:restated_at]&.utc&.iso8601(6), 'untrusted' => bot.restated_prices_untrusted?(data) }
+    end
+    raise ActiveRecord::Rollback
+  end
+  kase.merge('now' => SPLIT_NOW.iso8601, 'expected' => expected)
+end
+
+# Bot::Composition::Weightable.blend: market-cap weights blended toward equal by allocation_flattening, in Float, in the
+# caps' order (rust/src/engine/index.rs blend). Integer keys stand in for asset ids.
+vectors['index_blends'] = [
+  [[5e12, 3e12, 2e12], 0.0], [[5e12, 3e12, 2e12], 0.5], [[5e12, 3e12, 2e12], 1.0], [[1.0, 1.0, 1.0], 0.0], [[0.1, 0.2, 0.3], 0.0],
+  [[3.4e12, 3.1e12, 2.9e12, 2.1e12, 1.9e12, 1.6e12, 1.2e12, 1.0e12, 0.9e12, 0.8e12], 0.0],
+  [[3.4e12, 3.1e12, 2.9e12, 2.1e12, 1.9e12, 1.6e12, 1.2e12, 1.0e12, 0.9e12, 0.8e12], 0.3],
+  [[0.0, 0.0], 0.0], [[0.0, 5.0], 0.25], [[7.0], 0.0], [[1e12, 3e-3], 0.9], [[123_456_789.123, 987_654_321.987, 55_555.5], 0.123]
+].map do |caps, f|
+  { 'caps' => caps, 'flattening' => f,
+    'weights' => Bot::Composition::Weightable.blend(market_caps: caps.each_with_index.to_h { |cap, i| [i, cap] }, flattening: f).values }
+end
+
+vectors['index_duplicate_blend'] = Bots::DcaIndex.new(allocation_flattening: 0.5).calculate_allocations_with_flattening(
+  [{ asset_id: 1, ticker_id: 1, market_cap: 100 }, { asset_id: 1, ticker_id: 1, market_cap: 100 }, { asset_id: 2, ticker_id: 2, market_cap: 10 }]
+).map { |row| row.merge(weight: BotIndexAsset.type_for_attribute('target_allocation').cast(row[:weight]).round(6).to_f) }
+
 File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(vectors)}\n")
 puts "wrote #{ARGV.fetch(0)}"

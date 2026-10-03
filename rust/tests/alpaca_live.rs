@@ -35,7 +35,7 @@ fn btc_usd() -> Ticker {
     let bd = |s: &str| BigDec::parse(s).unwrap();
     Ticker { id: 0, ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), base_symbol: "BTC".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
              base_asset_id: 0, quote_asset_id: 0, base_decimals: 9, quote_decimals: 2, price_decimals: 2,
-             minimum_base_size: bd("0.000027"), minimum_quote_size: bd("1"), trading_enabled: true, available: true }
+             minimum_base_size: bd("0.000027"), minimum_quote_size: bd("1"), trading_enabled: true, available: true, crypto: true, }
 }
 
 /// Recordings hold the owner's account bodies: refuse any directory inside the repo checkout.
@@ -96,13 +96,13 @@ async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     let t = btc_usd();
     assert!(v.price(&t, PriceSide::Ask).await.unwrap().is_positive());
     assert!(v.price(&t, PriceSide::Last).await.unwrap().is_positive());
-    assert!(v.balance("USD").await.unwrap().is_positive(), "the paper account has buying power");
+    assert!(v.balance("USD", true).await.unwrap().is_positive(), "the paper account has buying power");
     let cl = uuid::Uuid::new_v4().to_string();
     assert_eq!(v.order_by_client_id(&cl, Utc::now()).await.unwrap(), None, "an unknown client order id is Alpaca's own not-found envelope");
     let (_, not_found) = log.borrow().iter().rev().find(|(r, _)| r.path == "/v2/orders:by_client_order_id").cloned().unwrap();
     assert_eq!(not_found.status, 404);
     assert!(deltabadger::venue::alpaca::alpaca_not_found(&not_found.body), "the real envelope must match the matcher: {}", not_found.body);
-    let order = NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: "10.00".into(), quote_volume: true, cl_ord_id: cl.clone(), deadline: Utc::now() };
+    let order = NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: "10.00".into(), quote_volume: true, cl_ord_id: cl.clone(), deadline: Utc::now(), day: false, };
     let id = v.add_order(&order).await.unwrap();
     let found = v.order_by_client_id(&cl, Utc::now()).await.unwrap().expect("found by client_order_id");
     assert_eq!(found.txid, id);

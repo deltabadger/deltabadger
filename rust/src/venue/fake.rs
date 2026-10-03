@@ -252,7 +252,7 @@ impl Venue for FakeVenue {
         }).collect())
     }
 
-    async fn balance(&self, asset_symbol: &str) -> Result<BigDec, VenueError> {
+    async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {
         self.wait().await;
         let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
         check(&body)?;

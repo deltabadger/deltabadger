@@ -235,12 +235,12 @@ pub const ADJUSTMENT: i64 = 15;
 
 /// A corporate-action row of the account's ledger, marked as a split.
 #[derive(Clone, Debug)]
-pub struct SplitRow { pub exchange_id: i64, pub base_currency: String, pub raw_data: Value, pub at: At }
+pub struct SplitRow { pub id: i64, pub exchange_id: i64, pub base_currency: String, pub raw_data: Value, pub at: At }
 
 /// The `adjustment` rows marked `corporate_action: split` on these venues (Bot::Restatable#grouped_split_rows).
 pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<Vec<SplitRow>, FiguresError> {
     let mut statement = c.prepare(&format!(
-        "SELECT exchange_id, base_currency, raw_data, transacted_at FROM account_transactions \
+        "SELECT exchange_id, base_currency, raw_data, transacted_at, id FROM account_transactions \
          WHERE user_id = ?1 AND entry_type = ?2 AND exchange_id IN ({}) \
          AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END = 'split'", id_list(exchange_ids)?))?;
     let mut rows = statement.query(params![user_id, ADJUSTMENT])?;
@@ -249,7 +249,7 @@ pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<
         budget::charge(1, 0)?;
         let raw: Option<String> = r.get(2)?;
         out.push(SplitRow {
-            exchange_id: r.get(0)?, base_currency: r.get(1)?,
+            id: r.get(4)?, exchange_id: r.get(0)?, base_currency: r.get(1)?,
             raw_data: raw.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null),
             at: instant(&r.get::<_, String>(3)?)?,
         });

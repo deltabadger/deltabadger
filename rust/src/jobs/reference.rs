@@ -63,7 +63,10 @@ impl<T: Transport + 'static> Job for Reference<T> {
 
 /// The six jobs, sharing one client. `api` None: the install is not on the deltabadger provider.
 pub fn jobs<T: Transport + 'static>(api: Option<DataApi<T>>) -> Vec<Box<dyn Job>> {
-    let api = Rc::new(api);
+    shared_jobs(Rc::new(api))
+}
+
+pub fn shared_jobs<T: Transport + 'static>(api: Rc<Option<DataApi<T>>>) -> Vec<Box<dyn Job>> {
     KINDS.iter().map(|k| Box::new(Reference { kind: *k, api: api.clone() }) as Box<dyn Job>).collect()
 }
 
@@ -221,6 +224,12 @@ async fn tickers<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
 /// Index::SyncFromCoingeckoJob's deltabadger branch → sync_indices_from_deltabadger!. Any failure is PullFailed, retried.
 /// `recheck_index_bots` (:151-155) is left to the engine.
 async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
+    let config = api.configuration().clone();
+    let captured = cx.db.run(move |c,_| {
+        if crate::engine::provider::config(c).map_err(|_|"index configuration unreadable")?.as_ref()!=Some(&config) {return Err("index client configuration changed; restart with current configuration".into());}
+        crate::engine::provider::fingerprint(c).map_err(|_|"index configuration unreadable".to_string())?.ok_or_else(||"index provider not configured".into())
+    }).await;
+    let captured = match captured {Ok(v)=>v,Err(e)=>return Outcome::Failed(e)};
     let body = match api.indices().await { Ok(b) => b, Err(e) => return Outcome::Transient(e.message()) };
     let now = cx.clock.now();
     let plan = cx.db.run(move |_, _| {
@@ -233,7 +242,15 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         Ok(rows) => match incomplete(cx, INDICES, now).await { Ok(()) => import::import_indices(&cx.db, rows, now).await, Err(m) => Err(m) },
         Err(m) => Err(m),
     };
-    match result { Ok(()) => Outcome::Done, Err(m) => Outcome::Transient(m) }
+    match result {
+        Ok(()) => match cx.db.run(move |c,_| {
+            crate::engine::model::locked(c,|tx| {
+                if crate::engine::provider::fingerprint(tx)?.as_deref()!=Some(&captured) {return Err(crate::engine::EngineError::Data("index configuration changed during refresh".into()));}
+                crate::engine::provider::record(tx,&captured,now)
+            }).map_err(|_|"index configuration changed during refresh; refresh again".to_string())
+        }).await {Ok(())=>Outcome::Done,Err(e)=>Outcome::Failed(e)},
+        Err(m)=>Outcome::Transient(m)
+    }
 }
 
 /// ticker_data_from_listing_row (:677-704): the base from the row's public id ("crypto:bitcoin" → "bitcoin"), the pair from

@@ -364,7 +364,7 @@ impl deltabadger::venue::Venue for Hooked {
     async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
     async fn order_by_client_id(&self, cl: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(cl, since).await }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
-    async fn balance(&self, a: &str) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(a).await }
+    async fn balance(&self, a: &str, _all_crypto: bool) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(a, _all_crypto).await }
 }
 
 /// A stop always wins over a tick in progress: the order in hand finishes, nothing more is placed. A listed divergence:
