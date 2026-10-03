@@ -110,3 +110,15 @@ async fn rails_and_rust_mcp_transcripts() {
     }
     assert!(failures.is_empty(), "mismatches: {failures:?}");
 }
+
+#[test]
+fn stale_registry_gate_has_both_refusal_texts(){
+    let dir=common::rails_install();let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    common::seed::seed_alpaca(&c,&common::seed::cipher());
+    let who=deltabadger::web::bearer::Bearer{user_id:1,application_id:999,token_id:999};
+    let refusal=deltabadger::web::mcp::tools::gate(&c,who,"list_bots").unwrap().unwrap();
+    assert_eq!(refusal,deltabadger::web::mcp::protocol::tool_text("Tool 'list_bots' is not available to this client. Grant it in Settings > Connect.",true));
+    c.execute("UPDATE users SET mcp_settings=?1",[r#"{"tool_permissions":{"list_bots":false}}"#]).unwrap();
+    let refusal=deltabadger::web::mcp::tools::gate(&c,who,"list_bots").unwrap().unwrap();
+    assert_eq!(refusal,deltabadger::web::mcp::protocol::tool_text("Tool 'list_bots' is disabled. Enable it in Settings > MCP.",true));
+}

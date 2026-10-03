@@ -19,6 +19,7 @@ pub mod headers;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
+pub mod mcp;
 pub mod oauth;
 pub mod rate_limit;
 pub mod ring;

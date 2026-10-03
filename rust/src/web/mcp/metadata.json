@@ -1,0 +1,993 @@
+{
+  "requests": {
+    "initialize": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "capabilities",
+        "clientInfo"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "protocolVersion": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "elicitation": {
+              "type": "object",
+              "properties": {
+                "form": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "url": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
+            "experimental": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "roots": {
+              "type": "object",
+              "properties": {
+                "listChanged": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            },
+            "sampling": {
+              "type": "object",
+              "properties": {
+                "context": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "tools": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
+            "tasks": {
+              "type": "object",
+              "properties": {
+                "cancel": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "list": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "requests": {
+                  "type": "object",
+                  "properties": {
+                    "elicitation": {
+                      "type": "object",
+                      "properties": {
+                        "create": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "sampling": {
+                      "type": "object",
+                      "properties": {
+                        "createMessage": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "clientInfo": {
+          "type": "object",
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "websiteUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "icons": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "src"
+                ],
+                "properties": {
+                  "src": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "mimeType": {
+                    "type": "string"
+                  },
+                  "sizes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "theme": {
+                    "type": "string",
+                    "enum": [
+                      "dark",
+                      "light"
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "ping": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "resources/list": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "cursor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "resources/templates/list": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "cursor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "resources/read": {
+      "type": "object",
+      "required": [
+        "uri"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": true
+    },
+    "resources/subscribe": {
+      "type": "object",
+      "required": [
+        "uri"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": true
+    },
+    "resources/unsubscribe": {
+      "type": "object",
+      "required": [
+        "uri"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": true
+    },
+    "prompts/list": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "cursor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "prompts/get": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "name": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "tools/list": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "cursor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tools/call": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "name": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "task": {
+          "type": "object",
+          "properties": {
+            "ttl": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "tasks/get": {
+      "type": "object",
+      "required": [
+        "taskId"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tasks/result": {
+      "type": "object",
+      "required": [
+        "taskId"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tasks/cancel": {
+      "type": "object",
+      "required": [
+        "taskId"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tasks/list": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "cursor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "logging/setLevel": {
+      "type": "object",
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "alert",
+            "critical",
+            "debug",
+            "emergency",
+            "error",
+            "info",
+            "notice",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "completion/complete": {
+      "type": "object",
+      "required": [
+        "argument",
+        "ref"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "properties": {
+            "progressToken": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "argument": {
+          "type": "object",
+          "required": [
+            "name",
+            "value"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "context": {
+          "type": "object",
+          "properties": {
+            "arguments": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "name",
+                "type"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "ref/prompt"
+                }
+              },
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "required": [
+                "type",
+                "uri"
+              ],
+              "properties": {
+                "type": {
+                  "const": "ref/resource"
+                },
+                "uri": {
+                  "type": "string",
+                  "format": "uri-template"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required_requests": [
+    "initialize",
+    "resources/read",
+    "resources/subscribe",
+    "resources/unsubscribe",
+    "prompts/get",
+    "tools/call",
+    "tasks/get",
+    "tasks/result",
+    "tasks/cancel",
+    "logging/setLevel",
+    "completion/complete"
+  ],
+  "notifications": {
+    "notifications/cancelled": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "reason": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "notifications/initialized": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "notifications/progress": {
+      "type": "object",
+      "required": [
+        "progress",
+        "progressToken"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "message": {
+          "type": "string"
+        },
+        "progress": {
+          "type": "number"
+        },
+        "progressToken": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true
+    },
+    "notifications/tasks/status": {
+      "type": "object",
+      "required": [
+        "createdAt",
+        "lastUpdatedAt",
+        "status",
+        "taskId",
+        "ttl"
+      ],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "lastUpdatedAt": {
+          "type": "string"
+        },
+        "pollInterval": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "cancelled",
+            "completed",
+            "failed",
+            "input_required",
+            "working"
+          ]
+        },
+        "statusMessage": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "ttl": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "notifications/roots/list_changed": {
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required_notifications": [
+    "notifications/cancelled",
+    "notifications/progress",
+    "notifications/tasks/status"
+  ],
+  "tools": [
+    {
+      "name": "list_bots",
+      "description": "List all DCA bots with their status, type, trading pair, and exchange",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Filter by status: scheduled, executing, waiting, retrying, stopped, created (optional)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_exchanges",
+      "description": "List connected exchanges with API key status",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_transactions",
+      "description": "List recent transactions (trades) with optional bot filter and limit",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "Filter by bot ID (optional)"
+          },
+          "limit": {
+            "type": "number",
+            "description": "Number of transactions to return (default: 20, max: 100)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_tax_jurisdictions",
+      "description": "List all supported tax jurisdictions with their calculation method and currency",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    }
+  ],
+  "tax": {
+    "count": 18,
+    "jurisdictions": [
+      {
+        "code": "DE",
+        "name": "Germany",
+        "method": "fifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "AT",
+        "name": "Austria",
+        "method": "fifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "FR",
+        "name": "France",
+        "method": "pvct",
+        "currency": "EUR"
+      },
+      {
+        "code": "IT",
+        "name": "Italy",
+        "method": "lifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "ES",
+        "name": "Spain",
+        "method": "fifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "BG",
+        "name": "Bulgaria",
+        "method": "fifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "GR",
+        "name": "Greece",
+        "method": "fifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "NL",
+        "name": "Netherlands",
+        "method": "wealth_snapshot",
+        "currency": "EUR"
+      },
+      {
+        "code": "PT",
+        "name": "Portugal",
+        "method": "fifo",
+        "currency": "EUR"
+      },
+      {
+        "code": "CH",
+        "name": "Switzerland",
+        "method": "wealth_snapshot",
+        "currency": "CHF"
+      },
+      {
+        "code": "PL",
+        "name": "Poland",
+        "method": "fifo",
+        "currency": "PLN"
+      },
+      {
+        "code": "GB",
+        "name": "United Kingdom",
+        "method": "share_pooling",
+        "currency": "GBP"
+      },
+      {
+        "code": "US",
+        "name": "United States",
+        "method": "fifo",
+        "currency": "USD"
+      },
+      {
+        "code": "SE",
+        "name": "Sweden",
+        "method": "weighted_average",
+        "currency": "SEK"
+      },
+      {
+        "code": "IE",
+        "name": "Ireland",
+        "method": "fifo_4week",
+        "currency": "EUR"
+      },
+      {
+        "code": "DK",
+        "name": "Denmark",
+        "method": "fifo",
+        "currency": "DKK"
+      },
+      {
+        "code": "CZ",
+        "name": "Czech Republic",
+        "method": "fifo",
+        "currency": "CZK"
+      },
+      {
+        "code": "SK",
+        "name": "Slovakia",
+        "method": "fifo",
+        "currency": "EUR"
+      }
+    ]
+  },
+  "version": "2.70.4",
+  "sources": {
+    "Gemfile.lock": "98cf2263e70c6538f8553f85468f36262d508761b19d9b2e3c8f7b2a1b4b2abb",
+    "config/mcp.yml": "f6e14ea3897ca14cf79a06f33b4c65a4df515e2db575b6cab835bcef9a05f951",
+    "config/routes.rb": "3419624238f923699907a0751adddae4b685b72c23a9015982598568a5b4d119",
+    "config/initializers/rack_attack.rb": "c545474974177fdcff647c383fbb018a1bb56e705eb4f8f1d52e9353e810efda",
+    "config/initializers/mcp_instructions.rb": "9aa196116e366726e8dbecf2472bc3f3a7fd3ee615441b5491aae4b07a93ac84",
+    "src-tauri/Cargo.toml": "e6112b88d3f5dd6636002a47f7549f927b6dfae667c476783c9d6e191865bb24",
+    "app/lib/tool_access.rb": "89381cc0de5810ac85969422eda7b61f7508ab8d333f3edee8e029f02204b402",
+    "app/models/connected_client.rb": "d2b6f75cfa11678db50ad1af761a1330c8299ab91d392f8b852ca70ffea1cb50",
+    "app/models/app_config.rb": "5c6181a642a11c525057f0b97a97986b499b435c89770810233cf625a7664368",
+    "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",
+    "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
+    "app/models/api_key.rb": "83b29e6f3253a49c69cff459c92f9e86a6b2e80874d37a84ba0628d59f9ef921",
+    "app/models/transaction.rb": "81c8b2faedbe817180d0db281160f3fc967d451a0b464629daf6c3f48d3e4d9f",
+    "app/models/bot.rb": "4919fbac42283e9d1ece5a4fdfd6831f576ee7ba21c4bf780845ba475d700c8f",
+    "app/models/bots/dca_single_asset.rb": "25f6e01217ed32b2196f71f0819aecd26dcc14ac3fee2e90e7710067fd531aa3",
+    "app/models/bots/dca_multi_asset.rb": "aa6d29f2c6f54340f13cbd7dbb2d25e7bac0370affc1b30f3c42a3cb6119c677",
+    "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",
+    "app/models/bots/dca_index.rb": "e9b6978128122dcbb427aa8274b5e51587f7fcb491df2135c1cbd948ffebed34",
+    "app/models/bots/signal.rb": "4c3c7af8c01a9f0a833aa4da7f37a08b5c6ca3ada803973b4083859ff71d36e1",
+    "app/models/automation/labelable.rb": "cb6d6e2eb5ed36789a3a81335ba3dea192d7ea5a23827b75500c374a6e3bba95",
+    "app/models/tax/jurisdictions.rb": "32a380a72283ce890fd6e2ad16b5efd2305f991835a6d7e59898fb5ca9514c4f",
+    "app/mcp/application_gateway.rb": "a014f9d4a7d091170dd5ccc840daab787d3d11c2faef49c77468489d9b6a8130",
+    "app/mcp/mcp_token_identifier.rb": "b26471b87359e888ff97e6b1ebf3f84f6eb4c21d5d57a7b9d0632d63d65a2e35",
+    "app/mcp/prompts/application_mcp_prompt.rb": "6962e67b4ff022ebc1663a7a00baf3cd38d64d631a0c0bf7383bad2bf90a42ee",
+    "app/mcp/resource_templates/application_mcp_res_template.rb": "96459c60b135c3ebd909b7fef9e86b38057ac645995b9773829820de33ed10ee",
+    "app/mcp/tools/answer_redeploy_offer_tool.rb": "418f6e938f1f841ab746b28b1f6b6df32501ad50d3ec0d2b2c644b9d78213f65",
+    "app/mcp/tools/application_mcp_tool.rb": "558802033499169e442d57f8eca9bd5cabc4f293c54358400066ce423757c79f",
+    "app/mcp/tools/archive_bot_tool.rb": "24bf68860658c62af94a15d709fec8e90ddde5970ca61d943288e8e1f193fd95",
+    "app/mcp/tools/cancel_order_tool.rb": "7d486d5a32636d8886e80bb05c51a44f99db731169a456fa35cb8a0aa72431f4",
+    "app/mcp/tools/create_bot_tool.rb": "4275eefd0384af45e302f064b92e0a9bb835e5863a2de45aabfe9c5e978f3d46",
+    "app/mcp/tools/create_index_bot_tool.rb": "cee6b681e7441209b45e7fb006977dcb5b55299133d58e3facb2cfabf4f6bc25",
+    "app/mcp/tools/create_rule_tool.rb": "eb2c1a2d0683a99ca2fb67666b0720dc61ecda958acd6c0b413a57387885f660",
+    "app/mcp/tools/create_signal_bot_tool.rb": "9959c7ca0fd26245c698b62b240284cbcd26867e7e74141c7560247716e163f1",
+    "app/mcp/tools/delete_bot_tool.rb": "54baf8133896f7f5e060fb4a9756dd5fbec7fa19e43e0da64e1dcc67a0f8530b",
+    "app/mcp/tools/delete_rule_tool.rb": "ece45414a49d6be46e50bd224aab0c870045e8241481232ce225133f06b8267e",
+    "app/mcp/tools/download_tax_report_tool.rb": "22bff33fb9f387a1fb1bc79207e5aafea26edb66b27b7d7c85784c2ae511866e",
+    "app/mcp/tools/export_transactions_csv_tool.rb": "361a54c1d536ffd728db04598668fa763d2cb8d165aac8183feb7d7822179659",
+    "app/mcp/tools/generate_tax_report_tool.rb": "1d3bd48e65a5d4a0675f4d72e0bb04029eebaf08e82a0365e081d9e6807e4422",
+    "app/mcp/tools/get_bot_details_tool.rb": "282f2a975b11cbc5ee0a9659fbe7362f827b6b205592ba5970304fe9cab12e9f",
+    "app/mcp/tools/get_exchange_balances_tool.rb": "283fb5f8f9a5abaa388d868330e1f4d0f64ff1f59470430f1eee741c2072a86f",
+    "app/mcp/tools/get_portfolio_summary_tool.rb": "a91cb7ae0b87edcaf18739c83794588efc85b40537518757944e64d5b9e8ffe1",
+    "app/mcp/tools/get_tax_report_status_tool.rb": "ce6fc6c1e157926b5cc128608e58876f63c8a5df30979ef4e632424069d69134",
+    "app/mcp/tools/limit_buy_tool.rb": "19a4c3f586722a2c390a7229b738abc17778d77a7bb1518ef414bea11cb3984e",
+    "app/mcp/tools/limit_sell_tool.rb": "94d5301e03d87c799f3ad94e2a5eea671c38976a0cd76aa9f9e4dcbdcf37d7cd",
+    "app/mcp/tools/liquidate_exited_asset_tool.rb": "d594eda44367e248e5c43a3951d971b4f42bda6ec9100d6a8410e47573473f27",
+    "app/mcp/tools/list_account_transactions_tool.rb": "a8bd869876a8f856cfe356360805316197fb2b2b3fc4710e21a6fe8894737547",
+    "app/mcp/tools/list_bots_tool.rb": "67a703dd52e7a36d747f013db2e7c80392e1ba07619ed385cba8d5af943dfb4d",
+    "app/mcp/tools/list_exchanges_tool.rb": "de045dbb91692f0f560839ff56db8af04c410897043438ab9765b2a400638911",
+    "app/mcp/tools/list_indices_tool.rb": "1c206701e02c3ffeb6dd5982eee53902f46cd154622d8a615a6c88a7bc70300a",
+    "app/mcp/tools/list_open_orders_tool.rb": "eddd4be80a072f397da3291d1d8b9cecac893943e7d8bb1b40b69379e8156872",
+    "app/mcp/tools/list_rules_tool.rb": "08f9c4595ab7806cb9ab598c6a5b2e42cccf52d29bc53e57ef57af15711d7dd6",
+    "app/mcp/tools/list_tax_jurisdictions_tool.rb": "aa655fb1f641ced0ca63b3d6f7be47268a33a82d9b87dad99b9dd6ec61a697c7",
+    "app/mcp/tools/list_transactions_tool.rb": "cacd4e57aebf919ed90a74f9d97c0e4735fa9014b9bac2e762aa2443cb57e4e6",
+    "app/mcp/tools/market_buy_tool.rb": "09a512c9a6acac5827718a0f652fcb3eafe7a5a29dc3778b27ef0b0397a6cf73",
+    "app/mcp/tools/market_sell_tool.rb": "f319b27d09172c84283bd1190940ccd9c692a54af02a1038eb120114117b35c6",
+    "app/mcp/tools/set_transaction_price_tool.rb": "ec54ed5efafd28b46003a61a72045262f8bdae5e0bab0d2884d409c3328fd482",
+    "app/mcp/tools/set_transfer_link_tool.rb": "3a7ffd156fddc6a946bdd1cf52b31e2bef900fab83c84b5d9f9038c7ab084141",
+    "app/mcp/tools/start_bot_tool.rb": "14b2e019872f9804e85ed6c5839d4660207285619199e5d16d92d0dbec2c58ae",
+    "app/mcp/tools/start_rule_tool.rb": "b1b1910323264f59528dc9aea346e128ffdbc5a5f42308103a1fa83c6cbc8592",
+    "app/mcp/tools/stop_bot_tool.rb": "ec05e8eb4a980a1c2a261b8d03afa2d25e7edff9432ce18acf5151f6633bb192",
+    "app/mcp/tools/stop_rule_tool.rb": "615f726a7b7a65f6a533606a4b1386c8db61c5e855b64be595f4e32673f38412",
+    "app/mcp/tools/sync_tracker_tool.rb": "8fef70f609e3aa9513ba2840ba0bdf261ca241d84d2f723676ecbed55c2ec7c8",
+    "app/mcp/tools/unarchive_bot_tool.rb": "2e96c080d3643f22f6419b7f71879d8336af355082823fe8a7275649fa6629d7",
+    "app/mcp/tools/update_bot_settings_tool.rb": "7f045732624b459e413e5860d67a22bab8ba8855e4cc150749bd175c74b0a45f",
+    "app/mcp/tools/update_rule_settings_tool.rb": "e0e4855fc5c96ead2c488b393bb95d3fac55d9fb2d419a83a25a540799cfc27d",
+    "app/services/bot_api/bots/list.rb": "1b28072e3b55fb1d77069b5f5a5b03e33362b7893fabbddb0b8a93520d0c8b79",
+    "app/services/bot_api/exchanges/list.rb": "966f83ea42243ec9475f555365cc4c04f1c4c254a0f974624da02e510461e323",
+    "app/services/bot_api/transactions/list.rb": "35f1e182b8052db0fe8244dbe28230a716b21118566af350e2c37a061a63804f",
+    "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970"
+  }
+}
