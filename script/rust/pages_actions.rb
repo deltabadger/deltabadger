@@ -133,6 +133,8 @@ module Pages
     end
 
     raise "expected 154 bot action cases" unless cases.size == 154
+    names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
+    raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
   end
 end
@@ -193,7 +195,31 @@ module Pages
     alias_method :record_without_action_locales, :record
 
     def grid(root)
+      raise 'empty page selection' if selected.empty?
       grid_without_action_locales(root)
+      crypto_names = %w[single_amount single_start start_missed_false start_missed_true]
+      scratch_template = template(root)
+      selected.each do |name, original|
+        next unless crypto_names.include?(name.delete_prefix('actions_'))
+
+        spec = original.deep_dup
+        spec['user']['wash_sale_enabled'] = false
+        spec['bots'][0]['kind'] = 'coins'
+        spec['bots'][0]['settings'] = { 'allocations' => { '16' => 1.0 }, 'interval' => 'day' }
+        spec['bots'][0]['columns'] ||= {}
+        spec['bots'][0]['columns']['status'] = 'stopped'
+        %w[crypto crypto_de].each do |variant|
+          dir = File.join(root, name, variant)
+          jobs = build(dir, scratch_template, spec)
+          steps = spec['steps'].deep_dup
+          steps.each { |step| step['path'] = "/de#{step['path']}" if step['action_snapshot'] } if variant == 'crypto_de'
+          File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate(
+            'page_parity_scratch' => true, 'at' => AT, 'secret_key_base' => Rails.application.secret_key_base,
+            'steps' => steps, 'jobs' => jobs, 'divergence' => 'crypto_actions'
+          ))
+        end
+      end
+      FileUtils.rm_rf(scratch_template)
       Dir[File.join(root, 'actions_*/scenario.json')].each do |path|
         dir = File.dirname(path)
         localized = File.join(dir, 'de')
@@ -211,8 +237,8 @@ module Pages
 
     def record(root)
       record_without_action_locales(root)
-      Dir[File.join(root, 'actions_*/de/scenario.json')].each do |path|
-        record_without_action_locales(File.dirname(File.dirname(path)))
+      Dir[File.join(root, 'actions_*')].select { |path| File.directory?(path) }.each do |dir|
+        record_without_action_locales(dir)
       end
     end
   end

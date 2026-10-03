@@ -253,11 +253,12 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     assert_eq!((gone.status, gone.header("location")), (302, Some("/bots")));
     assert!(browser.get(&app, "/bots").await.body.contains("Such a bot doesn&#39;t exist."), "the alert of Bots::Botable#set_bot");
 
-    // Nothing that changes a bot is served yet: with a valid token each answers the 501 page, and no row moves.
+    // Deferred writes still answer 501 with a valid token, and no row moves.
     opened.primary.execute("UPDATE bots SET status = 1", []).unwrap();
     let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
-    for (method, path) in [("patch", format!("/bots/{first}")), ("patch", format!("/bots/{first}/stop")), ("patch", format!("/bots/{first}/start")), ("delete", format!("/bots/{first}")),
-                           ("delete", format!("/bots/{first}/archive")), ("post", format!("/bots/{first}/reverse")), ("patch", "/bots/reorder".to_string()),
+    for (method, path) in [("delete", format!("/bots/{first}")), ("post", "/bots/dca_multi_assets".to_string()),
+                           ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
+                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split")), ("post", format!("/bots/{first}/reverse")), ("patch", "/bots/reorder".to_string()),
                            ("post", format!("/bots/{first}/export")), ("delete", format!("/bots/{first}/transactions/1")), ("post", "/en/broadcasts/metrics_update".to_string())] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
@@ -1260,26 +1261,77 @@ async fn a_forwarding_header_sent_as_several_lines_is_one_list() {
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.
+// Preserve the read-only milestone's empty-install browser proof: a populated
+// fixture alone cannot detect accidentally reopening the creation wizard at login.
 #[test]
 #[ignore = "needs Chrome and bun: cargo test --test serve -- --ignored"]
-fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() {
+fn a_real_browser_signs_in_to_an_empty_install() -> Result<(), Box<dyn std::error::Error>> {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
-    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").map_err(|e| format!("{e:?}"))?;
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00' WHERE id=?2",(hash,seeded.user_id))?;
     drop(opened);
     let port = free_port();
-    let mut server = serve_command(dir.path(), port).spawn().unwrap();
-    let started = Instant::now();
-    while http_get(port, "/up").is_none() {
-        assert!(started.elapsed() < Duration::from_secs(10) && server.try_wait().unwrap().is_none(), "serve did not come up");
+    let mut server = Child(serve_command(dir.path(),port).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?);
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while !up_within(port,Duration::from_secs(1)) {
+        if Instant::now() >= deadline || server.0.try_wait()?.is_some() { return Err("empty-install server did not start".into()); }
         std::thread::sleep(Duration::from_millis(50));
     }
-    let check = Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
-        .env("BASE_URL", format!("http://127.0.0.1:{port}")).env("EMAIL", "o@example.com").env("PASSWORD", "Correct-horse-9").output();
-    server.kill().unwrap();
-    server.wait().unwrap();
-    let check = check.expect("bun runs the browser check");
-    assert!(check.status.success(), "{}\n{}", String::from_utf8_lossy(&check.stdout), String::from_utf8_lossy(&check.stderr));
+    let scratch = tempfile::tempdir()?;
+    let log_path = scratch.path().join("browser.log");
+    let log = std::fs::File::create(&log_path)?;
+    let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
+        .env("BASE_URL",format!("http://127.0.0.1:{port}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
+        .env_remove("BOT_ID").stdout(log.try_clone()?).stderr(log).spawn()?);
+    let status = check.ended_within(Duration::from_secs(150)).ok_or("empty-install browser deadline")?;
+    assert!(status.success(),"{}",std::fs::read_to_string(log_path)?);
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "needs Chrome and bun: cargo test --test serve -- --ignored"]
+async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<(), Box<dyn std::error::Error>> {
+    use common::seed;
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").map_err(|e| format!("{e:?}"))?;
+    c.execute("UPDATE users SET encrypted_password=?1, confirmed_at='2026-01-01 00:00:00', wash_sale_enabled=0", [hash])?;
+    let mut spec = seed::BotSpec::weekly(5.0, "2026-09-01 10:00:00")
+        .transient("last_action_job_at", json!("2026-09-01T10:00:01Z"));
+    spec.status = 2;
+    let bot = seed::insert_bot(c, &seeded, &spec);
+    for _ in 0..2 { seed::insert_bot(c, &seeded, &spec); }
+    c.execute("UPDATE bots SET label='Browser '||id", [])?;
+    for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test")] {
+        c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,seed::cipher().encrypt(value)))?;
+    }
+    // Hold the engine: this browser proof exercises the real HTTP/CSRF/guard/cable path
+    // on a scripted paper install; the executable smoke test separately proves placement.
+    let app = web::app(dir.path(), "engine-test-secret", TestClock::at(NOW));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    struct Server(tokio::task::JoinHandle<()>);
+    impl Drop for Server { fn drop(&mut self) { self.0.abort(); } }
+    let _server = Server(tokio::spawn(async move { let _ = deltabadger::web::server::serve_on(listener,app,Default::default()).await; }));
+    let log = tempfile::tempfile()?;
+    let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
+        .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
+        .env("BOT_ID",bot.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+    let deadline = Instant::now() + Duration::from_secs(150);
+    let status = loop {
+        if let Some(status) = check.0.try_wait()? { break status; }
+        if Instant::now() >= deadline { return Err("browser check exceeded absolute 150-second deadline".into()); }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+    use std::io::{Seek, SeekFrom};
+    let mut log = log;
+    log.seek(SeekFrom::Start(0))?;
+    let mut output = String::new(); log.read_to_string(&mut output)?;
+    assert!(status.success(), "{output}");
+    assert_eq!(c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|row|row.get::<_,i64>(0))?,3);
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions",[],|row|row.get::<_,i64>(0))?,0);
+    Ok(())
 }
 
 #[tokio::test(flavor = "current_thread")]

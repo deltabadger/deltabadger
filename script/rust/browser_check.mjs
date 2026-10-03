@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const { BASE_URL, EMAIL, PASSWORD } = process.env;
+const { BASE_URL, EMAIL, PASSWORD, BOT_ID } = process.env;
 if (!BASE_URL || !EMAIL || !PASSWORD) {
   console.error("set BASE_URL, EMAIL and PASSWORD");
   process.exit(2);
@@ -37,7 +37,7 @@ async function until(what, check, ms = 20000) {
   for (;;) {
     const value = await check();
     if (value) return value;
-    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    if (Date.now() > end || Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
     await sleep(100);
   }
 }
@@ -65,6 +65,9 @@ const LOOK = `(() => {
   };
 })()`;
 
+const deadline = Date.now() + 120000;
+const watchdog = setTimeout(() => browser.kill("SIGKILL"), 120000);
+const socketsToClose = [];
 let problem = null;
 const complaints = []; // errors the browser logged: failed requests, refused scripts
 // Every WebSocket the page opens to /cable, as the browser's network layer reports it: when it was
@@ -79,6 +82,7 @@ try {
     return targets.find((candidate) => candidate.type === "page");
   });
   const socket = new WebSocket(target.webSocketDebuggerUrl);
+  socketsToClose.push(socket);
   await new Promise((resolve, reject) => {
     socket.onopen = resolve;
     socket.onerror = () => reject(new Error("cannot reach Chrome's DevTools socket"));
@@ -98,9 +102,11 @@ try {
     }
   };
   const send = (method, params = {}) =>
-    new Promise((resolve) => {
-      waiting.set(++id, resolve);
-      socket.send(JSON.stringify({ id, method, params }));
+    new Promise((resolve, reject) => {
+      const requestId = ++id;
+      const timer = setTimeout(() => { waiting.delete(requestId); reject(new Error(`DevTools timeout: ${method}`)); }, 5000);
+      waiting.set(requestId, (message) => { clearTimeout(timer); resolve(message); });
+      socket.send(JSON.stringify({ id: requestId, method, params }));
     });
   // `undefined` while a navigation is replacing the document: callers wait with `until`.
   const evaluate = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true })).result?.result?.value;
@@ -155,12 +161,77 @@ try {
     if (look.sources < 2 || look.connected !== look.sources) wrong.push(`${when}: ${look.connected} of ${look.sources} stream sources are connected`);
   }
   console.log(JSON.stringify({ first, later, cable: sockets.map(({ pings, closed }) => ({ pings: pings.length, closed })) }));
-  if (wrong.length) problem = wrong.join("\n");
+  if (wrong.length) throw new Error(wrong.join("\n"));
+  if (BOT_ID) {
+    const path = `/bots/${BOT_ID}`;
+    const quotedPath = JSON.stringify(path);
+    const columns = `#columns_bots_dca_multi_asset_${BOT_ID}`;
+    const amount = "#bots_dca_multi_asset_quote_amount";
+    const click = async (selector) => {
+      const clicked = await evaluate(`(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!element) return false; element.click(); return true; })()`);
+      if (!clicked) throw new Error(`missing control: ${selector}`);
+    };
+    await send("Page.navigate", { url: BASE_URL + path });
+    await until("bot settings", () => evaluate(`location.pathname === ${quotedPath} && !!document.querySelector(${JSON.stringify(amount)})`));
+    await evaluate(`document.addEventListener("turbo:submit-end", event => { window.lastSubmission = event.detail.fetchResponse?.statusCode; })`);
+    const edit = async (value, status) => {
+      await evaluate(`(() => { window.lastSubmission = null; const field = document.querySelector(${JSON.stringify(amount)}); field.value = ${JSON.stringify(value)}; field.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await until(`amount ${value} response ${status}`, () => evaluate(`window.lastSubmission === ${status}`));
+      await until(`amount ${value} remains in form`, () => evaluate(`document.querySelector(${JSON.stringify(amount)})?.value === ${JSON.stringify(value)} && location.pathname === ${quotedPath}`));
+    };
+    await edit("7", 200);
+    await edit("0", 422);
+    await until("inline amount error", () => evaluate(`!!document.querySelector("${amount}.is-invalid") && !!document.querySelector("#settings .form__info--invalid")`));
+    await edit("7", 200);
+    await until("cleared inline error", () => evaluate(`!document.querySelector("${amount}.is-invalid")`));
+
+    // A separate page target shares only the browser session, not the first tab's DOM.
+    const tab = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(BASE_URL + path)}`, { method: "PUT" })).json();
+    const second = new WebSocket(tab.webSocketDebuggerUrl);
+    socketsToClose.push(second);
+    await new Promise((resolve, reject) => { second.onopen = resolve; second.onerror = reject; });
+    let secondId = 0;
+    const pending = new Map();
+    second.onmessage = event => { const message = JSON.parse(event.data); pending.get(message.id)?.(message); };
+    const secondEvaluate = expression => new Promise((resolve, reject) => {
+      const id = ++secondId;
+      const timer = setTimeout(() => { pending.delete(id); reject(new Error("second-tab DevTools timeout")); }, 5000);
+      pending.set(id, message => { clearTimeout(timer); pending.delete(id); resolve(message.result?.result?.value); });
+      second.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression, returnByValue: true } }));
+    });
+    await until("second tab subscribed", () => secondEvaluate(`location.pathname === ${quotedPath} && [...document.querySelectorAll("turbo-cable-stream-source")].filter(s => s.hasAttribute("connected")).length >= 2`));
+    await click(`form[action="${path}/start/edit"] button`);
+    await until("restart modal with both choices", () => evaluate(`location.pathname === ${quotedPath} && !!document.querySelector('#modal dialog[open]') && !!document.querySelector('#modal form[action$="start_fresh=true"]') && !!document.querySelector('#modal form[action$="start_fresh=false"]')`));
+    await click('#modal form[action$="start_fresh=false"] button');
+    const working = `document.querySelector(${JSON.stringify(columns)})?.classList.contains("bot-locked") && !!document.querySelector('form[action="${path}/stop"]')`;
+    await until("working first tab", () => evaluate(working));
+    await until("working status and column lock in second tab", () => secondEvaluate(working));
+    await until("restart modal closed", () => evaluate(`!document.querySelector('#modal dialog[open]') && location.pathname === ${quotedPath}`));
+    await click(`form[action="${path}/stop"] button`);
+    const stopped = `!!document.querySelector(${JSON.stringify(columns)}) && !document.querySelector(${JSON.stringify(columns)}).classList.contains("bot-locked") && !document.querySelector('form[action="${path}/stop"]')`;
+    await until("stopped first tab", () => evaluate(stopped));
+    await until("stopped and unlocked second tab", () => secondEvaluate(stopped));
+    await click(`a[href="${path}/archive/edit"]`);
+    await until("archive confirmation frame", () => evaluate(`!!document.querySelector('#modal dialog[open] form[action="${path}/archive"]') && location.pathname === ${quotedPath}`));
+    await click(`#modal form[action="${path}/archive"] button`);
+    await until("reactivate button after archive", () => evaluate(`!!document.querySelector('#status_button_bots_dca_multi_asset_${BOT_ID} form[action="${path}/archive"] input[value="delete"]')`));
+    await until("archive confirmation closed", () => evaluate(`!document.querySelector('#modal dialog[open]')`));
+    await click(`#status_button_bots_dca_multi_asset_${BOT_ID} form[action="${path}/archive"] button`);
+    await until("reactivated page", () => evaluate(`location.pathname === ${quotedPath} && !document.querySelector('#status_button_bots_dca_multi_asset_${BOT_ID} form[action="${path}/archive"]') && !!document.querySelector('a[href="${path}/archive/edit"]')`));
+    await click(`a[href="${path}/delete/edit"]`);
+    await until("delete confirmation frame", () => evaluate(`!!document.querySelector('#modal dialog[open] form[action="${path}/delete"]') && location.pathname === ${quotedPath}`));
+    await click(`#modal form[action="${path}/delete"] button`);
+    await until("deleted bot returns to list", () => evaluate(`location.pathname === "/bots" && !document.querySelector('#status_button_bots_dca_multi_asset_${BOT_ID}') && !document.querySelector('#modal dialog[open]')`));
+    console.log("bot actions: amount, inline error, restart choices, two-tab status/locks, stop, archive, reactivate, delete passed");
+  }
 } catch (error) {
   problem = String(error?.message ?? error) + (await where().catch(() => "")) + (complaints.length ? `\n  the browser logged:\n    ${complaints.join("\n    ")}` : "");
 } finally {
-  browser.kill();
-  await sleep(300);
+  clearTimeout(watchdog);
+  for (const socket of socketsToClose) socket.close();
+  const exited = new Promise(resolve => { if (browser.exitCode !== null || browser.signalCode !== null) resolve(); else browser.once("exit", resolve); });
+  browser.kill("SIGKILL");
+  await exited;
   rmSync(profile, { recursive: true, force: true });
 }
 if (problem) {

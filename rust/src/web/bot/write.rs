@@ -256,8 +256,8 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
-    transient_data = CASE WHEN ?4 THEN json_set(transient_data, \
-      '$.last_action_job_at', json('null'), '$.missed_quote_amount', json('null')) \
+    transient_data = CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
+      '$.last_action_job_at', json('null')), '$.missed_quote_amount', json('null')) \
       ELSE transient_data END, updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
 

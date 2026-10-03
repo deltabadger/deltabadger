@@ -281,6 +281,9 @@ async fn run(dir: &Path) -> Value {
     let mut now: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
     let clock = TestClock::at(scenario["at"].as_str().unwrap());
     let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone());
+    let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+    app.attach_engine(wake.clone());
+    let mut observer = None;
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
     let mut responses = vec![];
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
@@ -304,12 +307,27 @@ async fn run(dir: &Path) -> Value {
             other => other,
         };
         let snapshot = step["action_snapshot"] == true;
+        if snapshot && observer.is_none() {
+            let cookie = browsers.get("main").and_then(|browser| browser.cookie.as_deref()).map(str::to_owned);
+            observer = Some(ActionObserver::open(&app, cookie.as_deref()).await.unwrap_or_else(|e| panic!("action observer: {e}")));
+        }
+        let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let before = snapshot.then(|| action_rows(dir).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
         let mut response = rust_answer(&answer);
         if let Some((rows_before, other_before)) = before {
             let (rows_after, other_after) = action_rows(dir).unwrap_or_else(|error| panic!("action rows after: {error}"));
+            let changed = rows_before != rows_after;
+            let woke = tokio::time::timeout(std::time::Duration::ZERO, wake.notified()).await.is_ok();
+            let broadcasts = match observer.as_mut() {
+                Some(observer) => observer.drain(&app).await.unwrap_or_else(|e| panic!("action broadcasts: {e}")),
+                None => panic!("missing action observer"),
+            };
+            assert_eq!(woke, changed, "wake must follow an action write: {step}");
+            if !changed {
+                assert!(broadcasts == 0, "unchanged action woke engine or broadcast: {step}");
+            }
             response["action_snapshot"] = json!(true);
             response["rows_before"] = rows_before;
             response["rows_after"] = rows_after;
@@ -325,7 +343,9 @@ async fn run(dir: &Path) -> Value {
 fn copy_scenario(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for file in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(file), to.join(file)).unwrap(); }
-    if from.join("de").is_dir() { copy_scenario(&from.join("de"), &to.join("de")); }
+    for scope in ["de", "crypto", "crypto_de"] {
+        if from.join(scope).is_dir() { copy_scenario(&from.join(scope), &to.join(scope)); }
+    }
 }
 
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
@@ -480,7 +500,11 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        for scope in if name.starts_with("actions_") { vec!["", "de"] } else { vec![""] } {
+        if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
+        if ["actions_single_amount", "actions_single_start", "actions_start_missed_false", "actions_start_missed_true"].contains(&name.as_str()) {
+            for scope in ["crypto", "crypto_de"] { assert!(dir.join(scope).join("scenario.json").is_file(), "missing {scope} variant: {name}"); }
+        }
+        for scope in ["", "de", "crypto", "crypto_de"].into_iter().filter(|scope| scope.is_empty() || dir.join(scope).is_dir()) {
         let dir = &dir.join(scope);
         let scenario = scenario(dir);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
@@ -515,6 +539,8 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 149, "completed read-only baseline");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 154, "action inventory");
         assert_eq!(dirs.len(), 149 + 154, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
@@ -603,6 +629,9 @@ fn action_snapshot_forbids_other_primary_writes() {
 fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(),String>> {
     if !name.starts_with("actions_") { return None }
     Some((|| {
+        if let Some(kind) = scenario.get("divergence") {
+            if kind != "crypto_actions" { return Err(format!("unknown divergence: {kind}")); }
+        }
         let mut expected = rails.clone();
         let steps = scenario["steps"].as_array().ok_or("missing steps")?;
         let responses = expected["responses"].as_array_mut().ok_or("missing responses")?;
@@ -618,6 +647,18 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let path=step["path"].as_str().ok_or("missing action path")?;
             let locale=if path.starts_with("/de/") {"de"}else{"en"};
             let n=name.strip_prefix("actions_").ok_or("action name")?;
+            if scenario["divergence"] == "crypto_actions" {
+                if a["status"] != 200 || b["status"] != 200 { return Err(format!("crypto action expected 200: {} / {}", a["status"], b["status"])); }
+                if path.contains("start_fresh=false") {
+                    let request = json!({"requested_at":"2026-09-10T12:00:30.123456Z", "was_stopped":true});
+                    let bot = b["rows_after"]["bots"].as_array().and_then(|rows| rows.iter().find(|row| row["id"] == 1)).ok_or("crypto bot")?;
+                    if bot["transient_data"]["rust_continue_start"] != request { return Err("continue request payload differs".into()); }
+                    let expected_bot = a["rows_after"]["bots"].as_array_mut().and_then(|rows| rows.iter_mut().find(|row| row["id"] == 1)).ok_or("Rails crypto bot")?;
+                    if expected_bot["transient_data"].get("rust_continue_start").is_some() { return Err("Rails unexpectedly has engine request".into()); }
+                    expected_bot["transient_data"]["rust_continue_start"] = request;
+                }
+                continue;
+            }
             let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_no_key"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
@@ -767,4 +808,58 @@ fn expected_action_rows(name: &str, step: &Value, before: &Value, writes: bool) 
         logs.push(json!({"id":id,"bot_id":1,"event":event,"level":0,"message":null,"details":details,"created_at":at}));
     }
     Ok(rows)
+}
+
+#[test]
+fn action_unknown_divergence_is_rejected() {
+    let scenario = json!({"divergence": "typo", "steps": []});
+    let answer = json!({"responses": [], "users": [], "bots": []});
+    assert!(matches!(action_divergence("actions_single_start", &scenario, &answer, &answer),
+        Some(Err(message)) if message.contains("unknown divergence")));
+}
+
+// Subscribe to both action streams, then use a marker to count broadcasts without a timing sleep.
+struct ActionObserver {
+    socket: tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    _server: ActionServer,
+}
+struct ActionServer(tokio::task::JoinHandle<()>);
+impl Drop for ActionServer { fn drop(&mut self) { self.0.abort(); } }
+impl ActionObserver {
+    async fn open(app: &App, cookie: Option<&str>) -> Result<Self, Box<dyn std::error::Error>> {
+        use futures_util::SinkExt;
+        use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let address = listener.local_addr()?;
+        let served = app.clone();
+        let server = ActionServer(tokio::spawn(async move { let _ = deltabadger::web::server::serve_on(listener, served, Default::default()).await; }));
+        let mut request = format!("ws://{address}/cable").into_client_request()?;
+        request.headers_mut().insert("origin", format!("http://{address}").parse()?);
+        request.headers_mut().insert("sec-websocket-protocol", "actioncable-v1-json".parse()?);
+        request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={}", cookie.ok_or("signed-in observer cookie")?).parse()?);
+        let socket = tokio::time::timeout(std::time::Duration::from_secs(5), tokio_tungstenite::connect_async(request)).await??.0;
+        let mut observer = Self { socket, _server: server };
+        for stream in ["user_1:bot_updates", "user_1:bot_1"] {
+            let identifier = json!({"channel":"Turbo::StreamsChannel", "signed_stream_name":cable::signed_stream_name(&app.keys.streams, stream)}).to_string();
+            observer.socket.send(Message::Text(json!({"command":"subscribe", "identifier":identifier}).to_string().into())).await?;
+            observer.receive(true).await?;
+        }
+        Ok(observer)
+    }
+    async fn receive(&mut self, subscribing: bool) -> Result<usize, Box<dyn std::error::Error>> {
+        use futures_util::StreamExt;
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            let mut count = 0;
+            while let Some(message) = self.socket.next().await {
+                let value: Value = serde_json::from_str(message?.to_text()?)?;
+                if subscribing && value["type"] == "confirm_subscription" || value["message"] == "parity-marker" { return Ok(count); }
+                if value["message"].is_string() { count += 1; }
+            }
+            Err("action observer closed".into())
+        }).await?
+    }
+    async fn drain(&mut self, app: &App) -> Result<usize, Box<dyn std::error::Error>> {
+        app.hub.broadcast("user_1:bot_updates", "parity-marker");
+        self.receive(false).await
+    }
 }

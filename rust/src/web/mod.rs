@@ -492,6 +492,7 @@ fn routes(app: App) -> Router {
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
         // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
         .route("/bots/new", axum::routing::any(layout::not_ported))
+        .route("/bots/reorder", only(patch(layout::not_ported)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
