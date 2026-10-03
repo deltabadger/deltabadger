@@ -69,6 +69,11 @@ fn rewritten(old: &Value, tail: &[Value], adjusted: bool) -> Fetch<bool> {
     Ok(ratio > Dec::to_d(&serde_json::json!("0.001"))? || ratio < Dec::to_d(&serde_json::json!("-0.001"))?)
 }
 impl Cache {
+    /// Bound the retained wire representation, independently of the decimal budget.
+    pub fn bytes(&self) -> usize {
+        self.entries.values().map(|e| e.value.as_ref().map_or(0,|v|v.to_string().len())).sum::<usize>()
+            + self.heads.values().map(|h|h.bars.iter().map(|v|v.to_string().len()).sum::<usize>()).sum::<usize>()
+    }
     pub fn stamp(&self) -> Option<At> { self.stamp }
     pub fn set_stamp(&mut self, at: At) { self.stamp = Some(at); }
     pub async fn fill(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64) {
@@ -80,6 +85,7 @@ impl Cache {
             // This process is a cache, not a second database. Eviction only causes a new read.
             if self.entries.len() >= MAX_ENTRIES { self.entries.clear(); }
             self.entries.insert(cache_key, Entry { until: now.saturating_add(PRICE_TTL), value });
+            if self.bytes() > 32 * 1024 * 1024 { self.entries.clear(); self.heads.clear(); }
         }
     }
     async fn fill_candles(&mut self, wire: &impl Transport, request: &HttpRequest, now: i64) -> Fetch<Value> {

@@ -79,6 +79,28 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
         let parts = |marked: bool| computed.iter().map(|(s,live,chart,_)| totals::Part { bot_id:s.bot.id, quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(if marked { chart } else { live })) }).collect::<Vec<_>>();
         let pnl = totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false))?;
         let history = totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true))?;
-        Ok(json!({"bots": bots, "account": headline::render(pnl.as_ref(),history.result.as_ref(),unavailable,user.hide_balances)?}))
+        let out = json!({"bots": bots, "account": headline::render(pnl.as_ref(),history.result.as_ref(),unavailable,user.hide_balances)?});
+        let bytes = out.to_string().len();
+        if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
+        budget::charge(bytes as u64,0)?;
+        budget::check()?;
+        Ok(out)
     })
+}
+
+/// The payload boundary for 3b-2b-2: same targets and unsigned stream names as the model broadcasts.
+/// This creates payloads only; delivery and the authenticated broadcast routes remain a separate change.
+pub fn streams(c:&Connection,user:i64,rendered:&Value)->Result<Vec<(String,String)>,FiguresError>{
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD,Engine};
+    let mut out=vec![];
+    for (id,_) in db::account_bots(c,user)? {
+        let bot=db::bot(c,id)?;
+        let (class,kind)=if bot.kind==db::Kind::Index{("DcaIndex","dca_index")}else{("DcaMultiAsset","dca_multi_asset")};
+        let page=format!("{}:bot_updates",URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/Bots::{class}/{id}")));
+        for (part,target,stream) in [("tile",format!("pnl_bots_{kind}_{id}"),format!("user_{user}:bot_updates")),("metrics","metrics".into(),page.clone()),("chart","chart".into(),page)]{
+            if let Some(html)=rendered["bots"][id.to_string()][part].as_str(){out.push((stream,crate::web::turbo::stream("replace",&target,html)));}
+        }
+    }
+    if let Some(html)=rendered["account"].as_str(){out.push((format!("user_{user}:bot_updates"),crate::web::turbo::stream("replace","global-pnl",html)));}
+    Ok(out)
 }

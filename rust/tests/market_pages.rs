@@ -102,3 +102,37 @@ fn page_loads_coalesce_and_late_results_cannot_replace_rotated_credentials() {
     // Dropping a cancelled fill becomes a terminal state with bounded retry, not an eternal spinner.
     assert!(matches!(service.begin(1,"key-b",2,300),Load::Failed));
 }
+
+#[tokio::test]
+async fn failed_refresh_and_hostile_bare_numbers_never_become_prices() {
+    struct Reply(Result<HttpResponse,TransportError>);
+    impl Transport for Reply {
+        async fn send(&self,_:&HttpRequest)->Result<HttpResponse,TransportError>{self.0.clone()}
+    }
+    for reply in [
+        Err(TransportError::NotSent("secret echo".into())),Err(TransportError::Permanent("secret echo".into())),
+        Ok(HttpResponse{status:429,body:"secret echo".into()}),Ok(HttpResponse{status:200,body:"not JSON".into()}),
+        Ok(HttpResponse{status:200,body:r#"{"AAA":{"latestTrade":{"p":1e-350}}}"#.into()}),
+    ] {
+        let mut cache=Cache::default();
+        let symbols=vec!["AAA".into()];
+        let reader=Reader::new(&cache,0);let _=reader.prices(&venue(),&symbols);
+        cache.fill(&Reply(reply),reader.demands(),0).await;
+        let reader=Reader::new(&cache,0);
+        let error=reader.prices(&venue(),&symbols).unwrap_err();
+        assert!(reader.failed());
+        assert!(!format!("{error:?}").contains("secret echo"));
+        assert!(reader.demands().is_empty());
+        assert!(Reader::new(&cache,60).prices(&venue(),&symbols).is_err());
+    }
+}
+
+#[test]
+fn the_rails_sources_of_the_page_figures_are_pinned() {
+    use sha2::{Digest,Sha256};
+    let files:serde_json::Value=serde_json::from_str(include_str!("fixtures/page_figure_sources.json")).unwrap();
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (file,hash) in files.as_object().unwrap(){
+        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),hash.as_str().unwrap(),"{file}: record the page parity grid after checking its port");
+    }
+}
