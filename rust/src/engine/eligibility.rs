@@ -51,6 +51,14 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
 }
 
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    bot_reasons_with(c, bot, &mut SplitRows::new())
+}
+
+/// The split rows of one user on one venue (base_asset_id, base_currency), read once per check: a guarded write must stay
+/// short, and the ledger holds every activity of the account with no index on its entry type.
+type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)>>;
+
+fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<String>, EngineError> {
     let mut r = rails_work(c, bot)?;
     if bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
@@ -83,7 +91,7 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
     if bot.merged_history() { r.push("merged history (merged_history_until_id)".into()); }
-    history_reasons(c, bot, &members, &mut r)?;
+    history_reasons(c, bot, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     Ok(r)
 }
@@ -115,7 +123,7 @@ fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64>
 
 /// The ledger walk this build ports (basket::holdings) holds REGULAR buys recorded with their asset, and nothing a
 /// recorded split would restate.
-fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
+fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     let (sells, other, imported, no_asset): (i64, i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(side = 1), 0), coalesce(sum(transaction_type <> 'REGULAR'), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
                 coalesce(sum(transaction_type = 'REGULAR' AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
@@ -127,14 +135,21 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], r: &mut Vec<Strin
     // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
     // the walk; the ported walk does not. Crypto never splits, so this refuses only what this build does not port. Broader than Rails'
     // match (any member's asset id, symbol or venue spelling), so it can only refuse more.
+    let rows = match splits.entry((bot.user_id, bot.exchange_id)) {
+        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+        std::collections::hash_map::Entry::Vacant(e) => {
+            let mut s = c.prepare(
+                "SELECT base_asset_id, base_currency FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = 15 \
+                 AND (CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END) = 'split'")?;
+            let found = s.query_map(params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+            e.insert(found)
+        }
+    };
     let ids = serde_json::to_string(members).expect("ids serialise");
-    let splits: i64 = c.query_row(
-        "SELECT count(*) FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND a.entry_type = 15 \
-         AND (CASE WHEN json_valid(a.raw_data) THEN json_extract(a.raw_data, '$.corporate_action') END) = 'split' \
-         AND (a.base_asset_id IN (SELECT value FROM json_each(?3)) \
-              OR a.base_currency IN (SELECT symbol FROM assets WHERE id IN (SELECT value FROM json_each(?3))) \
-              OR a.base_currency IN (SELECT base FROM tickers WHERE exchange_id = ?2 AND base_asset_id IN (SELECT value FROM json_each(?3))))",
-        params![bot.user_id, bot.exchange_id, ids], |r| r.get(0))?;
+    let mut s = c.prepare("SELECT symbol FROM assets WHERE id IN (SELECT value FROM json_each(?2)) \
+                           UNION SELECT base FROM tickers WHERE exchange_id = ?1 AND base_asset_id IN (SELECT value FROM json_each(?2))")?;
+    let names = s.query_map(params![bot.exchange_id, ids], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let splits = rows.iter().filter(|(asset, currency)| asset.is_some_and(|a| members.contains(&a)) || names.contains(&Some(currency.clone()))).count();
     if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)")); }
     Ok(())
 }
@@ -175,6 +190,7 @@ fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &
 
 pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
     let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![], notes: vec![] };
+    let mut splits = SplitRows::new();
     let rules: i64 = c.query_row(&format!("SELECT count(*) FROM rules WHERE status IN ({})", model::working_list()), [], |r| r.get(0))?;
     if rules > 0 { report.problems.push(format!("{rules} active rule(s): rules run only in the full app")); }
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
@@ -182,7 +198,7 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     for id in ids {
-        let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons(c, &b).map(|r| (b, r))) {
+        let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons_with(c, &b, &mut splits).map(|r| (b, r))) {
             Ok(x) => x,
             Err(e) => { report.unreadable.push((id, format!("{e:?}"))); continue; }
         };

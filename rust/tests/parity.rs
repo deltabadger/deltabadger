@@ -409,6 +409,30 @@ fn normalised(out: &serde_json::Value, drop: &dyn Fn(&str, &serde_json::Value) -
 
 fn notional_sum(sent: &[serde_json::Value]) -> f64 { sent.iter().map(|o| o["notional"].as_str().unwrap_or("0").parse::<f64>().unwrap()).sum() }
 
+/// The 5xx leg's mail, listed with its failed row: Rails fails the run, mails notify_about_error for it and spends that mail's
+/// day (failure_notifications.unknown); the engine keeps the intent, owes no mail and spends nothing. Each side must show
+/// exactly that; the comparison then leaves the mails and that budget out.
+fn five_xx_mails(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(serde_json::Value, serde_json::Value), String> {
+    let mailed = |out: &serde_json::Value| -> Vec<String> { out["mails"].as_array().into_iter().flatten().filter_map(|m| m["mail"].as_str().map(str::to_string)).collect() };
+    if mailed(rails_out) != ["notify_about_error"] { return Err(format!("Rails mailed {:?} for the 5xx leg, not notify_about_error once", mailed(rails_out))); }
+    if !mailed(rust_out).is_empty() { return Err(format!("Rust mailed {:?} for an ambiguous leg; it owes none", mailed(rust_out))); }
+    let budget = |out: &serde_json::Value| out["changes"]["bots"].as_array().into_iter().flatten()
+        .any(|b| !b["after"]["transient_data"]["failure_notifications"]["unknown"].is_null());
+    if !budget(rails_out) { return Err("Rails spent no notify_about_error day for the 5xx leg".into()); }
+    if budget(rust_out) { return Err("Rust spent a notify_about_error day for an ambiguous leg".into()); }
+    let strip = |out: &serde_json::Value| {
+        let mut out = out.clone();
+        out.as_object_mut().unwrap().remove("mails");
+        for b in out["changes"]["bots"].as_array_mut().into_iter().flatten() {
+            for side in ["before", "after"] {
+                if let Some(t) = b[side]["transient_data"].as_object_mut() { t.remove("failure_notifications"); }
+            }
+        }
+        out
+    };
+    Ok((strip(rails_out), strip(rust_out)))
+}
+
 /// A 5xx on leg k: Rails writes legs 1..k-1 and a failed row for leg k; Rust writes the same k-1 rows, keeps leg k's intent on
 /// leg k's own ticker, and logs placement_ambiguous once. Apart from that one row and that one log, everything else (the
 /// POSTs, the bot's row with its carry and settings, the members, the logs, the funds notification) must equal Rails'.
@@ -422,8 +446,9 @@ fn leg_intent_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_j
     let ambiguous = |r: &serde_json::Value| r["after"]["event"] == "placement_ambiguous";
     let logged = rust_out["changes"]["bot_activity_logs"].as_array().unwrap().iter().filter(|r| ambiguous(r)).count();
     if logged != 1 { return Err(format!("Rust logged placement_ambiguous {logged} time(s), not once\n  rust: {rust_out}")); }
-    let rails = normalised(rails_out, &|t, r| t == "transactions" && r["after"]["status"] == 1);
-    let rust = normalised(rust_out, &|t, r| t == "bot_activity_logs" && ambiguous(r));
+    let (rails_cmp, rust_cmp) = five_xx_mails(rails_out, rust_out)?;
+    let rails = normalised(&rails_cmp, &|t, r| t == "transactions" && r["after"]["status"] == 1);
+    let rust = normalised(&rust_cmp, &|t, r| t == "bot_activity_logs" && ambiguous(r));
     if rails != rust { return Err(format!("beyond leg {k}'s failed row and Rust's ambiguity log\n  rails: {rails}\n  rust:  {rust}")); }
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     let (status, ticker): (i64, Option<i64>) = c.query_row(
@@ -450,7 +475,8 @@ fn settled_like_rails(rails_out: &serde_json::Value, rust_out: &serde_json::Valu
         let ambiguity = count(rust_out, "bot_activity_logs", &|a| a["event"] == "placement_ambiguous" && a["details"]["resolution"].is_null());
         if ambiguity != 1 { return Err(format!("Rust logged the 5xx leg's ambiguity {ambiguity} time(s), not once\n  rust: {rust_out}")); }
     }
-    let mut rust = rust_out.clone();
+    let (rails_out, mut rust) = if five_xx { five_xx_mails(rails_out, rust_out)? } else { (rails_out.clone(), rust_out.clone()) };
+    let rails_out = &rails_out;
     rust.as_object_mut().unwrap().remove("recover_sent");
     let rust = normalised(&rust, &|t, r| t == "bot_activity_logs" && r["after"]["event"] == "placement_ambiguous"
         && (five_xx || r["after"]["details"]["resolution"] == "not_placed"));
