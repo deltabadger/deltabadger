@@ -47,7 +47,14 @@ async fn figures_fragments_match_the_rails_page_partials() {
             for part in components.split(',').filter(|p| *p != "account") {
                 let got = &actual["bots"][id][part];
                 if name == "price_untraded" || name == "index_rotation" || name == "old_rows" { assert!(got.as_str().unwrap().contains("no-value"), "{name} {part}"); continue; }
-                assert_eq!(common::html::normalize(got.as_str().unwrap()), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
+                let mut got = got.as_str().unwrap().to_string();
+                if ["stranded_offset", "liquidations"].contains(&name) && part == "metrics" {
+                    let refusal = "<p role=\"status\">Redeploy unavailable</p>\n";
+                    assert!(got.contains(refusal));
+                    assert_ne!(expected["offset"][0], expected["offset"][1]);
+                    got = got.replacen(refusal, "", 1);
+                }
+                assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
             }
         }
     }

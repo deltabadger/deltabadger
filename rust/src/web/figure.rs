@@ -3,6 +3,8 @@ use crate::figures::{at::At, budget, chart, db::{self, Subject}, live, market::M
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
+mod holdings;
+
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
 fn colour(n: &Num) -> &'static str { if n.is_negative() { "text-danger" } else if n.is_positive() { "text-success" } else { "" } }
 fn precision(n: &Num, digits: usize, grouping: bool) -> Result<String, FiguresError> {
@@ -54,7 +56,7 @@ fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Result<Vec<Stri
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, _locale: &str, _csrf: &str, _prefix: &str) -> Result<Value, FiguresError> {
+pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: &str, prefix: &str) -> Result<Value, FiguresError> {
     budget::within(|| {
         let mut bots = Map::new();
         let user = db::user(c, user_id)?;
@@ -65,7 +67,7 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, _
             let missing = missing(&subject, &marked_live, market)?;
             let marked = chart::marked(c, &subject, &marked_live, market, now)?;
             let _ = chart::page(c, &subject, &marked, user.hide_balances)?;
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, !missing.is_empty(), user.hide_balances)?, "metrics": "", "chart": "", "missing": missing }));
+            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": "", "missing": missing }));
         }
         Ok(json!({"bots": bots, "account": ""}))
     })
