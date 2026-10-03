@@ -219,7 +219,7 @@ module Pages
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
 
   # Bot ids follow the order of 'bots'.
-  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios)
+  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios)
 
   # The same three at work: a history of orders and events on the first, a spending cap that has seen one
   # buy on the second, an order resting on the third.
@@ -456,6 +456,26 @@ module Pages
       'bot_feed_empty' => with_bots(three, signed_in(get('/bots/1.turbo_stream', FEED))),
       'bot_feed_of_another_user' => two_users.merge('steps' => signed_in(get('/bots/3.turbo_stream', FEED), get('/bots'))),
       'bot_feed_signed_out' => with_bots(three, [get('/bots/1.turbo_stream', FEED)])
+    }
+  end
+
+  # Bots Rails serves and this build does not yet: each needs something that is not ported yet.
+  def refused_scenarios
+    selling = [stopped('single', 'stored' => { 'direction' => 'selling' }), { 'kind' => 'basket' }]
+    # 50 a day in slices of 20,000,000: one order every 1,095 years. Rails says so in words; here the calendar is not asked.
+    ages = [stopped('basket', 'settings' => { 'smart_interval_quote_amount' => 20_000_000 }), { 'kind' => 'single' }]
+    {
+      'not_ported_bot_selling' => with_bots(selling, signed_in(get('/bots/2'), get('/bots/1'))),
+      'not_ported_bots_list_selling' => with_bots(selling, signed_in(get('/bots'))),
+      'not_ported_bot_rebalancing' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => true }), { 'kind' => 'single' }], signed_in(get('/bots/1'))),
+      'not_ported_bot_market_cap_weights' => with_bots([stopped('coins', 'settings' => { 'weighting' => 'market_cap' }), { 'kind' => 'single' }],
+                                                       signed_in(get('/bots/1'))),
+      'not_ported_bot_that_sold' => with_bots([stopped('single', 'orders' => 'sold'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
+      'not_ported_bot_wash_sale_rule' => with_bots(three, signed_in(get('/bots/1')), 'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US')),
+      'not_ported_bot_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1')),
+                                                       'user' => owner('wash_sale_enabled' => nil)),
+      'not_ported_bot_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots/2'), get('/bots/1'))),
+      'not_ported_bots_list_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots')))
     }
   end
 

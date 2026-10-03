@@ -215,36 +215,224 @@ async fn a_csp_report_is_accepted_without_a_session_or_a_token() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_bots_page_refuses_an_account_it_cannot_render_yet() {
+async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing() {
     let (dir, opened, seeded) = common::install();
     let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
-    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     assert_eq!(browser.get(&app, "/bots").await.status, 200, "no bots, no balances: the empty page");
 
-    let hold = |asset_id: i64| {
-        opened.primary.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
-                                VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4)", (seeded.user_id, seeded.exchange_id, asset_id, "2026-01-01 00:00:00")).unwrap();
-    };
-    hold(seeded.quote); // the Kraken fixtures' quote asset is EUR: cash
-    assert_eq!(browser.get(&app, "/bots").await.status, 200, "cash only and cash not shown: Rails draws the plain circle, and so does this page");
-    opened.primary.execute("UPDATE users SET tracker_settings = '{\"show_cash\":true}' WHERE id = ?1", [seeded.user_id]).unwrap();
-    let cash_shown = browser.get(&app, "/bots").await;
-    assert!(cash_shown.status == 200 && cash_shown.body.contains("stroke-dasharray=\"52.55 4.0\""), "the tracker shows cash: one holding, one arc around the whole ring");
-    opened.primary.execute("UPDATE users SET tracker_settings = '{}' WHERE id = ?1", [seeded.user_id]).unwrap();
-    hold(seeded.btc);
+    // The tracker's ring is drawn now, so holdings no longer refuse the page.
+    opened.primary.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
+                            VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4)", (seeded.user_id, seeded.exchange_id, seeded.btc, "2026-01-01 00:00:00")).unwrap();
     let with_holdings = browser.get(&app, "/bots").await;
-    assert!(with_holdings.status == 200 && with_holdings.body.contains("stroke-dashoffset"), "a holding that is not cash: the ring, whatever the tracker shows");
-    opened.primary.execute("DELETE FROM account_balances", []).unwrap();
+    assert!(with_holdings.status == 200 && with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "one holding: one arc around the whole ring");
 
-    let bot = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    // One bot: the list is its page. The seeded bot is on Kraken, which this build's pages do not serve.
+    let first = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    opened.primary.execute("UPDATE bots SET label = 'Bitcoin'", []).unwrap();
     let list = browser.get(&app, "/bots").await;
-    assert_eq!((list.status, list.header("location")), (302, Some(format!("/bots/{bot}").as_str())), "exactly one bot: the list is its page, which a later task serves");
-    opened.primary.execute("UPDATE bots SET status = 3 WHERE id = ?1", [bot]).unwrap();
-    assert_eq!(browser.get(&app, "/bots").await.status, 200, "a deleted bot does not count");
+    assert_eq!((list.status, list.header("location")), (302, Some(format!("/bots/{first}").as_str())));
+    let page = browser.get(&app, &format!("/bots/{first}")).await;
+    assert!(page.status == 501 && page.body.contains(&format!("GET /bots/{first}")), "{}", page.body);
+    assert_eq!(browser.get(&app, &format!("/bots/{first}/chart")).await.status, 501);
+    // Two bots: the list, refused for the same reason.
+    let second = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    opened.primary.execute("UPDATE bots SET label = 'Bitcoin'", []).unwrap();
+    assert_eq!(browser.get(&app, "/bots").await.status, 501);
+    // A bot of a class these pages do not know is refused before its row is read as one they do.
+    opened.primary.execute("UPDATE bots SET type = 'Bots::Signal', settings = '{}' WHERE id = ?1", [second]).unwrap();
+    assert_eq!(browser.get(&app, &format!("/bots/{second}")).await.status, 501);
+    // A deleted bot does not count, and its page is the list's "not found".
+    opened.primary.execute("UPDATE bots SET status = 3", []).unwrap();
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
+    let gone = browser.get(&app, &format!("/bots/{first}")).await;
+    assert_eq!((gone.status, gone.header("location")), (302, Some("/bots")));
+    assert!(browser.get(&app, "/bots").await.body.contains("Such a bot doesn&#39;t exist."), "the alert of Bots::Botable#set_bot");
+
+    // Nothing that changes a bot is served yet: with a valid token each answers the 501 page, and no row moves.
+    opened.primary.execute("UPDATE bots SET status = 1", []).unwrap();
+    let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
+    for (method, path) in [("patch", format!("/bots/{first}")), ("patch", format!("/bots/{first}/stop")), ("patch", format!("/bots/{first}/start")), ("delete", format!("/bots/{first}")),
+                           ("delete", format!("/bots/{first}/archive")), ("post", format!("/bots/{first}/reverse")), ("patch", "/bots/reorder".to_string()),
+                           ("post", format!("/bots/{first}/export")), ("delete", format!("/bots/{first}/transactions/1")), ("post", "/en/broadcasts/metrics_update".to_string())] {
+        let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
+        assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
+        let refused = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::None, &[]).await;
+        assert_eq!(refused.status, 302, "{method} {path} without a token is turned back before any route");
+    }
+    let after: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
+    assert_eq!(before, after);
+}
+
+/// One request on a connection of its own, all of it within `deadline`: the connect, every write
+/// and the whole answer, each given only the time that is left. `None` when that did not happen in
+/// time, or nothing listens.
+fn exchange(port: u16, request: &str, deadline: Instant) -> Option<String> {
+    let left = || deadline.checked_duration_since(Instant::now()).filter(|left| !left.is_zero());
+    let mut stream = std::net::TcpStream::connect_timeout(&std::net::SocketAddr::from(([127, 0, 0, 1], port)), left()?).ok()?;
+    let mut written = 0;
+    while written < request.len() {
+        stream.set_write_timeout(Some(left()?)).ok()?;
+        written += stream.write(&request.as_bytes()[written..]).ok().filter(|n| *n > 0)?;
+    }
+    let (mut answer, mut buffer) = (Vec::new(), [0u8; 8192]);
+    loop {
+        stream.set_read_timeout(Some(left()?)).ok()?;
+        match stream.read(&mut buffer).ok()? {
+            0 => return Some(String::from_utf8_lossy(&answer).into_owned()),
+            n => answer.extend_from_slice(&buffer[..n]),
+        }
+    }
+}
+
+/// One request to the running executable, answered within 20 s: the status, the session cookie it
+/// set if it set one, and the body.
+fn http(port: u16, method: &str, path: &str, cookie: Option<&str>, form: Option<&str>) -> (u16, Option<String>, String) {
+    let mut request = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n");
+    if let Some(cookie) = cookie { request.push_str(&format!("Cookie: {cookie}\r\n")); }
+    if let Some(form) = form { request.push_str(&format!("Content-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n", form.len())); }
+    request.push_str(&format!("\r\n{}", form.unwrap_or("")));
+    let answer = exchange(port, &request, Instant::now() + Duration::from_secs(20)).unwrap_or_else(|| panic!("{method} {path}: no whole answer within 20 s"));
+    let (head, body) = answer.split_once("\r\n\r\n").unwrap_or((&answer, ""));
+    let status = head.split(' ').nth(1).and_then(|code| code.parse().ok()).unwrap_or(0);
+    let set = head.lines().find_map(|line| line.to_ascii_lowercase().starts_with("set-cookie:").then(|| line[11..].trim().split(';').next().unwrap_or("").to_string()));
+    (status, set, body.to_string())
+}
+
+/// Whether the executable answers `/up` within `patience`, and never waits longer.
+fn up_within(port: u16, patience: Duration) -> bool {
+    exchange(port, "GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n", Instant::now() + patience).is_some_and(|answer| answer.starts_with("HTTP/1.1 200"))
+}
+
+/// A child process that is killed and reaped however the test ends: a failed assertion must not leave a server behind.
+struct Child(std::process::Child);
+
+impl Drop for Child {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+impl Child {
+    /// How it ended, if it ends within `patience`. Never waits longer.
+    fn ended_within(&mut self, patience: Duration) -> Option<std::process::ExitStatus> {
+        let deadline = Instant::now() + patience;
+        loop {
+            if let Some(status) = self.0.try_wait().unwrap() { return Some(status); }
+            if Instant::now() >= deadline { return None; }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+}
+
+/// `deltabadger serve` on `dir`, with everything it prints in `log`, and the port it answers on. A
+/// port found free can be taken before the child binds it: a child that ends over that is started
+/// again on another, a few times. It is given the secret the fixture's venue key was written with,
+/// because the engine reads that key before it claims the install.
+fn serving(dir: &std::path::Path, log: &std::path::Path) -> (Child, u16) {
+    for _ in 0..5 {
+        let port = free_port();
+        let out = std::fs::File::create(log).unwrap();
+        let mut child = Child(serve_command(dir, port).env("SECRET_KEY_BASE", "engine-test-secret").stdout(out.try_clone().unwrap()).stderr(out).spawn().unwrap());
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            if let Some(status) = child.0.try_wait().unwrap() {
+                let said = std::fs::read_to_string(log).unwrap_or_default();
+                assert!(said.contains("in use"), "serve ended ({status}) before it answered: {said}");
+                break;
+            }
+            // The probe gets what is left of the 30 s and at most two: the loop, not the probe, keeps the deadline.
+            let left = deadline.saturating_duration_since(Instant::now());
+            assert!(!left.is_zero(), "serve did not answer within 30 s: {}", std::fs::read_to_string(log).unwrap_or_default());
+            if up_within(port, left.min(Duration::from_secs(2))) { return (child, port); }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+    panic!("five ports in a row were taken between finding them free and binding them");
+}
+
+/// What the pages are worth through the executable, which is what a person runs. `deltabadger
+/// serve` takes the install over and runs the engine beside the web server, so it serves the pages
+/// of an install the engine accepts and of no other. Here: a working one-asset crypto bot on
+/// Alpaca with a paper key (not due, so the engine calls no venue) and a stopped basket of two,
+/// signed in to over HTTP: their list, both pages and a chart, while a second engine is turned away.
+/// Then the engine is seen to make a pass beside the pages: the basket of two is set to work behind
+/// its back, which is the owner's instance in small, and within its idle minute the engine reads
+/// the install again, finds a bot it cannot trade, and ends the process, the pages with it. And
+/// started on that install, the executable does not come up at all. Every wait has a deadline,
+/// and both children are killed and reaped however the test ends.
+#[test]
+fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refuses_the_owners() {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('ethereum', 'ETH', 'Ethereum', 'Cryptocurrency', ?1, ?1)", ["2026-01-01 00:00:00"]).unwrap();
+    let eth = c.last_insert_rowid();
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+               minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, 'ETH/USD', 'ETH', 'USD', ?2, ?3, 9, 2, 2, '0.001', '1', 1, 1, ?4, ?4)",
+              (seeded.exchange_id, eth, seeded.quote, "2026-01-01 00:00:00")).unwrap();
+    let eth_ticker = c.last_insert_rowid();
+    // Scheduled, and first due in 2099: the engine has it and has nothing to do for it.
+    let working = common::seed::insert_bot(c, &seeded, &common::seed::BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    let mut two = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("allocations", json!({ seeded.btc.to_string(): 0.5, eth.to_string(): 0.5 }));
+    two.status = 2;
+    let basket = common::seed::insert_bot(c, &seeded, &two);
+    for (asset, ticker) in [(seeded.btc, seeded.ticker_id), (eth, eth_ticker)] {
+        c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 0.5, 1, ?4, ?4)",
+                  (basket, asset, ticker, "2026-01-01 00:00:00")).unwrap();
+    }
+    c.execute("UPDATE bots SET label = 'Bot ' || id", []).unwrap();
+    drop(opened);
+    let logs = tempfile::tempdir().unwrap();
+    let said = |name: &str| std::fs::read_to_string(logs.path().join(name)).unwrap_or_default();
+
+    let (mut server, port) = serving(dir.path(), &logs.path().join("serve.log"));
+    let (status, cookie, login) = http(port, "GET", "/login", None, None);
+    assert_eq!(status, 200, "{login}");
+    let token = web::form_token(&login, "/login").expect("the sign-in form carries a token");
+    let form = form_urlencoded::Serializer::new(String::new()).append_pair("authenticity_token", &token).append_pair("user[email]", "o@example.com")
+        .append_pair("user[password]", "Correct-horse-9").finish();
+    let (status, signed_in, _) = http(port, "POST", "/login", cookie.as_deref(), Some(&form));
+    assert_eq!(status, 303, "the sign-in is accepted");
+    let cookie = signed_in.or(cookie);
+    let get = |path: &str| http(port, "GET", path, cookie.as_deref(), None);
+    let list = get("/bots");
+    assert_eq!(list.0, 200, "{}", list.2);
+    for bot in [working, basket] { assert!(list.2.contains(&format!("id=\"tile_bots_dca_multi_asset_{bot}\"")), "the list has a tile for bot {bot}"); }
+    let (working_page, basket_page, chart) = (get(&format!("/bots/{working}")), get(&format!("/bots/{basket}")), get(&format!("/bots/{basket}/chart")));
+    assert_eq!((working_page.0, basket_page.0, chart.0), (200, 200, 200), "{}", working_page.2);
+    assert!(working_page.2.contains(&format!("Bot {working}")) && working_page.2.contains("bot-locked"), "a working bot's page: its label, its rules locked");
+    assert!(basket_page.2.contains(&format!("Bot {basket}")) && basket_page.2.matches("class=\"allocation__input\"").count() == 2 && basket_page.2.contains("value=\"50.0\""), "a basket's page: its two weights");
+    // The install is held: a second engine is turned away while the pages are served.
+    let second = std::fs::File::create(logs.path().join("check.log")).unwrap();
+    let mut check = Child(Command::new(env!("CARGO_BIN_EXE_deltabadger")).arg("check").env("STORAGE_DIR", dir.path()).env("SECRET_KEY_BASE", "engine-test-secret")
+        .stdin(Stdio::null()).stdout(second.try_clone().unwrap()).stderr(second).spawn().unwrap());
+    let refused = check.ended_within(Duration::from_secs(20)).expect("check ends within 20 s");
+    assert!(!refused.success() && said("check.log").contains("another Deltabadger engine"), "{}", said("check.log"));
+
+    // The engine makes its passes beside the pages. Set to work behind its back, the basket of two is a bot it cannot trade:
+    // its next pass (it idles for a minute at most) reads the install again, names the bot, and ends the process.
+    let behind = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    behind.execute("UPDATE bots SET status = 1 WHERE id = ?1", [basket]).unwrap();
+    drop(behind);
+    let ended = server.ended_within(Duration::from_secs(100)).unwrap_or_else(|| panic!("no engine pass within 100 s: {}", said("serve.log")));
+    assert!(!ended.success(), "the engine's pass ends the process: {ended}");
+    assert!(said("serve.log").contains(&format!("bot {basket} (scheduled)")) && said("serve.log").contains("allocations: 2 assets (only one)"), "{}", said("serve.log"));
+    assert!(!up_within(port, Duration::from_secs(2)), "and the pages went with it");
+
+    // Started on that install, the executable does not come up: refused before anything is served.
+    let out = std::fs::File::create(logs.path().join("again.log")).unwrap();
+    let mut again = Child(serve_command(dir.path(), free_port()).env("SECRET_KEY_BASE", "engine-test-secret").stdout(out.try_clone().unwrap()).stderr(out).spawn().unwrap());
+    let refused = again.ended_within(Duration::from_secs(30)).unwrap_or_else(|| panic!("serve neither refused nor ended within 30 s: {}", said("again.log")));
+    assert_eq!(refused.code(), Some(1), "{}", said("again.log"));
+    assert!(said("again.log").contains(&format!("bot {basket} (scheduled)")) && said("again.log").contains("allocations: 2 assets (only one)"), "{}", said("again.log"));
 }
 
 /// The cookie is written when the session changed, not on every response. A request that left the
