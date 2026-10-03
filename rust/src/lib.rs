@@ -4,6 +4,7 @@ pub mod codec;
 pub mod crypto;
 pub mod engine;
 pub mod enums;
+pub mod figures;
 pub mod lease;
 pub mod mail;
 pub mod parity;

@@ -25,6 +25,19 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # What rust/src/figures mirrors (keep in sync with figures_vectors.json "ported_sources").
+      - 'app/models/bot/composition/measurable.rb'
+      - 'app/models/bot/composition/holding_keys.rb'
+      - 'app/models/bot/composition/allocatable.rb'
+      - 'app/models/bot/rebalance_accounting.rb'
+      - 'app/models/bot/tax_lots.rb'
+      - 'app/models/bot/restatable.rb'
+      - 'app/models/bot/chart_series.rb'
+      - 'app/models/candle_series_cache.rb'
+      - 'app/models/user/pnl_history.rb'
+      - 'app/models/utilities/currency.rb'
+      - 'app/models/denomination.rb'
+      - 'app/views/bots/_chart.html.erb'
       # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
       - 'config/environments/production.rb'
       # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
@@ -81,6 +94,19 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # What rust/src/figures mirrors (keep in sync with figures_vectors.json "ported_sources").
+      - 'app/models/bot/composition/measurable.rb'
+      - 'app/models/bot/composition/holding_keys.rb'
+      - 'app/models/bot/composition/allocatable.rb'
+      - 'app/models/bot/rebalance_accounting.rb'
+      - 'app/models/bot/tax_lots.rb'
+      - 'app/models/bot/restatable.rb'
+      - 'app/models/bot/chart_series.rb'
+      - 'app/models/candle_series_cache.rb'
+      - 'app/models/user/pnl_history.rb'
+      - 'app/models/utilities/currency.rb'
+      - 'app/models/denomination.rb'
+      - 'app/views/bots/_chart.html.erb'
       # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
       - 'config/environments/production.rb'
       # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
@@ -179,5 +205,5 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc
+          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test figures_vectors --test figures_limits
           --test mail --test smtp --test sync_vectors
