@@ -918,14 +918,12 @@
       }
     ]
   },
-  "version": "2.70.4",
   "sources": {
     "Gemfile.lock": "98cf2263e70c6538f8553f85468f36262d508761b19d9b2e3c8f7b2a1b4b2abb",
     "config/mcp.yml": "f6e14ea3897ca14cf79a06f33b4c65a4df515e2db575b6cab835bcef9a05f951",
     "config/routes.rb": "3419624238f923699907a0751adddae4b685b72c23a9015982598568a5b4d119",
     "config/initializers/rack_attack.rb": "c545474974177fdcff647c383fbb018a1bb56e705eb4f8f1d52e9353e810efda",
     "config/initializers/mcp_instructions.rb": "9aa196116e366726e8dbecf2472bc3f3a7fd3ee615441b5491aae4b07a93ac84",
-    "src-tauri/Cargo.toml": "e6112b88d3f5dd6636002a47f7549f927b6dfae667c476783c9d6e191865bb24",
     "app/lib/tool_access.rb": "89381cc0de5810ac85969422eda7b61f7508ab8d333f3edee8e029f02204b402",
     "app/models/connected_client.rb": "d2b6f75cfa11678db50ad1af761a1330c8299ab91d392f8b852ca70ffea1cb50",
     "app/models/app_config.rb": "5c6181a642a11c525057f0b97a97986b499b435c89770810233cf625a7664368",
@@ -988,6 +986,7 @@
     "app/services/bot_api/bots/list.rb": "1b28072e3b55fb1d77069b5f5a5b03e33362b7893fabbddb0b8a93520d0c8b79",
     "app/services/bot_api/exchanges/list.rb": "966f83ea42243ec9475f555365cc4c04f1c4c254a0f974624da02e510461e323",
     "app/services/bot_api/transactions/list.rb": "35f1e182b8052db0fe8244dbe28230a716b21118566af350e2c37a061a63804f",
-    "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970"
+    "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970",
+    "config/initializers/version.rb": "0b047ced29695420c080951e60f42c5aef8d05d733e9ca79e70884ff73f74233"
   }
 }
