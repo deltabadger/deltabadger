@@ -232,11 +232,12 @@ async fn the_bots_page_refuses_an_account_it_cannot_render_yet() {
     hold(seeded.quote); // the Kraken fixtures' quote asset is EUR: cash
     assert_eq!(browser.get(&app, "/bots").await.status, 200, "cash only and cash not shown: Rails draws the plain circle, and so does this page");
     opened.primary.execute("UPDATE users SET tracker_settings = '{\"show_cash\":true}' WHERE id = ?1", [seeded.user_id]).unwrap();
-    assert_eq!(browser.get(&app, "/bots").await.status, 501, "the tracker shows cash: the ring would be drawn");
+    let cash_shown = browser.get(&app, "/bots").await;
+    assert!(cash_shown.status == 200 && cash_shown.body.contains("stroke-dasharray=\"52.55 4.0\""), "the tracker shows cash: one holding, one arc around the whole ring");
     opened.primary.execute("UPDATE users SET tracker_settings = '{}' WHERE id = ?1", [seeded.user_id]).unwrap();
     hold(seeded.btc);
     let with_holdings = browser.get(&app, "/bots").await;
-    assert!(with_holdings.status == 501 && with_holdings.body.contains("GET /bots"), "the tracker ring is not ported: {}", with_holdings.body);
+    assert!(with_holdings.status == 200 && with_holdings.body.contains("stroke-dashoffset"), "a holding that is not cash: the ring, whatever the tracker shows");
     opened.primary.execute("DELETE FROM account_balances", []).unwrap();
 
     let bot = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));

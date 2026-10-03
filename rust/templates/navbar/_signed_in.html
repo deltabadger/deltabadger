@@ -1,6 +1,6 @@
 {#- layouts/navbar/_signed_in.html.haml with its two partials (hide_balances_toggle, display_currency_picker),
-    each rendered twice. ponytail: single-bot mode (the bots links go to the one bot's page, labelled links.bot)
-    and the tracker ring with holdings arrive with the bot page and the tracker; /bots answers 501 for both until then. -#}
+    each rendered twice. In single-bot mode (exactly one bot that is not deleted) the bots links go to
+    that bot's page and are labelled links.bot. -#}
 {%- macro hide_balances_toggle(item_class) -%}
 <form class="switch-row-form" data-controller="form--submit" action="{{ v.path("/settings/update_hide_balances") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><label class="{{ item_class }} {{ item_class }}--switch" data-dropdown-keep-open>
 <span>{{ v.t("links.hide_balances")|safe }}</span>
@@ -37,7 +37,7 @@
 <div class="hamburger hamburger__a"></div>
 <div class="hamburger hamburger__b"></div>
 <div class="menu-mobile" data-action="click->menu-mobile#close" data-controller="menu-mobile">
-<a class="menu-mobile__item menu-mobile__item--bots {% if v.current_page("/bots") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/bots") }}">{{ v.t("links.bots")|safe }}
+<a class="menu-mobile__item menu-mobile__item--bots {% if v.current_page(shell.bots_path()) %}menu-mobile__item--active{% endif %}" href="{{ v.path(shell.bots_path()) }}">{{ v.t(shell.bots_label())|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--tracker {% if v.current_page("/tracker") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/tracker") }}">{{ v.t("links.tracker")|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--rules {% if v.current_page("/rules") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/rules") }}">{{ v.t("links.rules")|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--account {% if v.current_page("/settings/account") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/account") }}">{{ v.t("links.account")|safe }}
@@ -50,17 +50,23 @@
 </button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form></div>
 <div class="menu">
 <div class="menu__section menu__section--top menu__section--logo">
-<a class="menu__logo" aria-label="Deltabadger" href="{{ v.path("/bots") }}">{% include "svg/_40x30_logo.html" %}
+<a class="menu__logo" aria-label="Deltabadger" href="{{ v.path(shell.bots_path()) }}">{% include "svg/_40x30_logo.html" %}
 </a></div>
 <div class="menu__section menu__section--top menu__section--main-menu" data-controller="menu">
-<a class="menu__item menu__item--bots {% if v.current_page("/bots") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.bots")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path("/bots") }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<a class="menu__item menu__item--bots {% if v.current_page(shell.bots_path()) %}menu__item--active{% endif %}" aria-label="{{ v.t(shell.bots_label())|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path(shell.bots_path()) }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <text class="fill--icon" x="12" y="{{ bot_count_baseline }}" text-anchor="middle"
         font-size="{{ bot_count_font_size }}">{{ shell.bot_count }}</text>
 </svg>
 
 </a><a class="menu__item menu__item--tracker {% if v.current_page("/tracker") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.tracker")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="tracker" href="{{ v.path("/tracker") }}"><svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+{% if shell.arcs.is_empty() %}
     <circle class="stroke--icon" cx="12" cy="12" r="9"
             fill="none" stroke-width="2"/>
+{% else %}{% for arc in shell.arcs %}
+      <circle cx="12" cy="12" r="9" fill="none"
+              stroke-width="2" stroke-linecap="round" stroke="{{ arc.color }}"
+              stroke-dasharray="{{ arc.dash }}" stroke-dashoffset="{{ arc.offset }}"/>
+{% endfor %}{% endif %}
 </svg>
 
 </a><a class="menu__item menu__item--rules {% if v.current_page("/rules") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.rules")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="rules" href="{{ v.path("/rules") }}">{% include "svg/_24x24_withdrawal.html" %}

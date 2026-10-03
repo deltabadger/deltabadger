@@ -194,8 +194,8 @@ module Pages
       'unrouted_unknown_locale_prefix' => { 'steps' => [get('/zz/login')] },
       'unrouted_locale_before_up' => { 'steps' => [get('/de/up')] },
       'not_ported_tracker' => { 'steps' => [get('/login'), login, get('/tracker')] },
-      'not_ported_bots_with_holdings' => { 'balances' => { 'BTC' => 5000, 'USD' => 120 }, 'steps' => [get('/login'), login, get('/bots')] },
-      'not_ported_bots_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
+      'bots_empty_with_holdings' => { 'balances' => { 'BTC' => 5000, 'USD' => 120 }, 'steps' => [get('/login'), login, get('/bots')] },
+      'bots_empty_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
                                         'steps' => [get('/login'), login, get('/bots')] },
       'up' => { 'steps' => [get('/up')] }
     }.merge(bot_scenarios)

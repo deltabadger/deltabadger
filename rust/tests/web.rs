@@ -651,19 +651,13 @@ mod navbar_numbers {
     }
 
     #[test]
-    fn the_tracker_icon_is_a_ring_exactly_when_rails_draws_one() {
+    fn cash_is_what_rails_calls_cash_and_shown_when_the_tracker_says_so() {
         let recorded = &common::vectors()["tracker"];
         assert_eq!(serde_json::json!(bots::CASH), recorded["cash"], "Tracker::UnfundedCash's FIAT and STABLECOINS");
         for case in recorded["show_cash"].as_array().unwrap() {
             assert_eq!(bots::show_cash(case["column"].as_str()), case["shown"], "{case}");
         }
-        let held = |symbols: &[&str]| symbols.iter().map(|s| Some(s.to_string())).collect::<Vec<_>>();
-        assert!(!bots::tracker_ring(&[], true), "nothing priced: the plain circle");
-        assert!(!bots::tracker_ring(&held(&["USD", "USDC"]), false), "cash only, cash not shown: the plain circle");
-        assert!(bots::tracker_ring(&held(&["USD", "USDC"]), true), "cash is drawn once the tracker shows it");
-        assert!(bots::tracker_ring(&held(&["USD", "BTC"]), false));
-        assert!(bots::tracker_ring(&held(&["usd"]), false), "the comparison is exact, as in Ruby");
-        assert!(bots::tracker_ring(&[None], false), "an asset without a symbol is not cash");
+
     }
 }
 
@@ -1153,3 +1147,35 @@ mod bot_page_formats {
         }
     }
 }
+
+mod colours_and_ring {
+    use super::common;
+    use deltabadger::ruby::BigDec;
+    use deltabadger::web::{colors, ring};
+    use serde_json::Value;
+
+    fn cases(name: &str) -> Vec<Value> {
+        common::vectors()["bot_pages"][name].as_array().unwrap_or_else(|| panic!("bot_pages.{name} is recorded")).clone()
+    }
+
+    #[test]
+    fn colours_and_pills_are_rails_own() {
+        for case in cases("ensure_contrast") {
+            assert_eq!(colors::ensure_contrast(case["color"].as_str().unwrap()).as_deref(), case["contrast"].as_str(), "{case}");
+        }
+        assert_eq!(colors::ensure_contrast("#fff"), None, "Ruby raises on a colour without a blue channel");
+        for case in cases("ticker_class") {
+            assert_eq!(colors::ticker_class(case["category"].as_str(), case["color"].as_str()), case["class"].as_str().unwrap(), "{case}");
+        }
+    }
+
+    #[test]
+    fn the_tracker_ring_is_drawn_arc_for_arc() {
+        for case in cases("ring") {
+            let values = case["values"].as_array().unwrap().iter().map(|pair| (BigDec::parse(pair[0].as_str().unwrap()).unwrap(), pair[1].as_str().map(str::to_string))).collect();
+            let arcs: Vec<Value> = ring::icon_arcs(values).unwrap().iter().map(|arc| serde_json::json!({ "color": arc.color, "dash": arc.dash, "offset": arc.offset })).collect();
+            assert_eq!(Value::Array(arcs), case["arcs"], "{}", case["values"]);
+        }
+    }
+}
+
