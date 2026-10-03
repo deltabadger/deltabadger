@@ -2517,9 +2517,9 @@ mod action_race {
             let path = self.path(suffix);
             Ok(tokio::time::timeout(LIMIT,self.browser.send(&self.app,method,&path,Some(fields),Csrf::Header,HEADERS)).await?)
         }
-        async fn ok(&mut self, method: &str, suffix: &str, fields: &[(&str,&str)]) -> Result {
+        async fn ok(&mut self, method: &str, suffix: &str, fields: &[(&str,&str)]) -> Result<harness::Answer> {
             let answer=self.send(method,suffix,fields).await?;
-            assert_eq!(answer.status,200,"{method} {suffix}: {}",answer.body); Ok(())
+            assert_eq!(answer.status,200,"{method} {suffix}: {}",answer.body); Ok(answer)
         }
         fn one<T: rusqlite::types::FromSql>(&self, sql: &str) -> Result<T> { Ok(self.c.query_row(sql,[self.id],|r|r.get(0))?) }
         fn snapshot(&self) -> Result<Vec<String>> {
@@ -2564,6 +2564,22 @@ mod action_race {
         }
     }
 
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_with_archived_bot_without_exchange() -> Result {
+        let mut f=Fixture::new().await?;
+        f.ok("PATCH","/start",&[]).await?;
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,1);
+        let mut archived=seed::BotSpec::weekly(60.0,ANCHOR);
+        archived.status=7; // Automation::Statusable's archived enum value.
+        let other=seed::insert_bot(&f.c,&f.seed,&archived);
+        f.c.execute("UPDATE bots SET exchange_id=NULL WHERE id=?1",[other])?;
+
+        let answer=f.ok("PATCH","/stop",&[]).await?;
+        assert_eq!(answer.header("content-type"),Some("text/vnd.turbo-stream.html; charset=utf-8"));
+        assert_eq!(answer.body,"<turbo-stream action=\"refresh\"></turbo-stream>");
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
+        Ok(())
+    }
     #[tokio::test(flavor="current_thread")]
     async fn start_after_delete() -> Result {
         let mut f=Fixture::new().await?;

@@ -73,23 +73,32 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
             } else { turbo::refresh().into() }
         }
         Action::Start | Action::Stop => {
+            // A Stop always commits: any fragment that cannot be rendered becomes a refresh, never an error that rolls the Stop back.
+            let rendered = (|| -> Result<Option<String>, WebError> {
             if let Some(draft) = &view.draft {
                 let (forms,exchange,_) = fragments(c,ctx,draft)?;
                 let mut body = turbo::stream("replace","settings",&format!("\n{forms}\n"))+"\n"+&turbo::stream("replace","exchange_select",exchange.trim_end());
                 if action == Action::Stop {
                     let ids = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status<>3 ORDER BY id")?.query_map([user.id],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
                     for id in ids {
-                        let Some(other) = Bot::find(c,user.id,id,super::For::Page)? else { return Ok(Prepared { response: response(turbo::refresh().into(),false), broadcasts: broadcasts(c,ctx,view,action)? }) };
-                        if other.unrendered().is_some() { return Ok(Prepared { response: response(turbo::refresh().into(),false), broadcasts: broadcasts(c,ctx,view,action)? }); }
+                        let Some(other) = Bot::find(c,user.id,id,super::For::Page)? else { return Ok(None) };
+                        if other.unrendered().is_some() { return Ok(None); }
                         let state = status::render(c,ctx,&csrf,&other,configured)?;
                         body += "\n"; body += &turbo::stream("replace",&other.dom_id("status_button"),&state.button);
                     }
                 }
-                body
-            } else { turbo::refresh().into() }
+                Ok(Some(body))
+            } else { Ok(Some(turbo::refresh().into())) }
+            })();
+            match rendered {
+                Ok(Some(body)) => body,
+                Ok(None) => return Ok(Prepared { response: response(turbo::refresh().into(),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
+                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(turbo::refresh().into(),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
+                Err(e) => return Err(e),
+            }
         }
     };
-    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: broadcasts(c,ctx,view,action)? })
+    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? } })
 }
 fn broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -> Result<Vec<(String,String)>, WebError> {
     let Some(draft) = &view.draft else { return Ok(vec![]) };
