@@ -43,6 +43,7 @@ module ScriptedAlpaca
   mattr_accessor :http, :sent
 
   NETWORK = {
+    'pre_send_data' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "data.alpaca.markets" port 443')) },
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
     # Client.network_failure returns a Failure for an SSL cause (not retried): "Faraday::SSLError: certificate verify failed".
@@ -798,16 +799,290 @@ module Decisions
     list.concat(recover_scenarios(prefix: 'limit', limit_for: ->(members) { members ? 200.0 : 100.0 }, stamp: LIMIT_STAMP))
   end
 
+  # Plan 2d: Alpaca stocks and ETFs. Tuesday 2026-09-01, 10:00 EDT; September is EDT, so a session is 13:30–20:00 UTC.
+  STOCK_STARTED = '2026-09-01T14:00:00.123456Z'
+
+  # As MarketData.sync_stocks_from_deltabadger! and #sync_alpaca_listings_from_deltabadger! import them: category Stock,
+  # instrument_type stock, external_id "<SYMBOL>.US", the bare symbol as ticker, MarketData::STOCK_TICKER_DEFAULTS. A
+  # composition is saved as BotApi::Bots::Create saves one (refresh_composition writes bot_index_assets).
+  def build_stock(dir, sc)
+    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
+      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
+      ActiveRecord::Schema.verbose = false
+      load Rails.root.join(schema)
+    end
+    ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
+    user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+                    confirmed_at: Time.current, setup_completed: true)
+    user.save!(validate: false)
+    alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    usd = Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+    ExchangeAsset.create!(exchange: alpaca, asset: usd, available: true)
+    members = sc.fetch('members', [['AAPL', 1.0]])
+    assets = members.to_h do |sym, _|
+      asset = Asset.create!(external_id: "#{sym}.US", symbol: sym, name: sym, category: 'Stock', instrument_type: 'stock')
+      ExchangeAsset.create!(exchange: alpaca, asset:, available: true)
+      Ticker.create!(exchange: alpaca, ticker: sym, base: sym, quote: 'USD', base_asset: asset, quote_asset: usd,
+                     **MarketData::STOCK_TICKER_DEFAULTS.transform_keys(&:to_sym))
+      [sym, asset]
+    end
+    ApiKey.new(user:, exchange: alpaca, key: 'k', secret: 's', passphrase: 'paper', status: :correct, key_type: :trading).save!(validate: false)
+    bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: alpaca, settings: {
+      'quote_asset_id' => usd.id, 'quote_amount' => sc['quote_amount'], 'interval' => sc['interval'], 'weighting' => 'manual',
+      'allocations' => members.to_h { |sym, w| [assets.fetch(sym).id.to_s, w] }
+    }.merge(sc['settings']))
+    bot.set_missed_quote_amount
+    bot.save!
+    bot.update_columns(status: Bot.statuses[:scheduled], settings_changed_at: nil, started_at: Time.iso8601(sc['started_at']),
+                       transient_data: bot.reload.transient_data.merge(sc['transient']))
+    sc['transactions'].each do |t|
+      sym = t.fetch('symbol', members.first.first)
+      Transaction.insert!(t.except('symbol').merge('bot_id' => bot.id, 'exchange_id' => alpaca.id, 'base_asset_id' => assets.fetch(sym).id,
+                                                   'quote_asset_id' => usd.id, 'base' => sym, 'quote' => 'USD', 'side' => 0, 'transaction_type' => 'REGULAR',
+                                                   'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
+                                                   'updated_at' => t['created_at']))
+    end
+    # As the account sync books a split (Exchanges::Alpaca#normalize_split, #merge_split_entries).
+    sc.fetch('splits', []).each do |s|
+      raw = { 'activity_type' => 'SPLIT', 'symbol' => s['name'], 'corporate_action' => 'split' }
+      net = 0
+      if s['ratio']
+        raw['split_ratio'] = s['ratio']
+        p, q = s['ratio'].split(':').map(&:to_d)
+        raw['qty'] = '-0.32'
+        raw['merged_activity_ids'] = ['remove', 'add']
+        net = 0.32.to_d * (p / q - 1)
+      end
+      AccountTransaction.insert!({ 'user_id' => user.id, 'exchange_id' => alpaca.id, 'entry_type' => 15, 'base_currency' => s['name'], 'base_amount' => net,
+                                   'transacted_at' => s['at'], 'raw_data' => raw, 'created_at' => s['at'], 'updated_at' => s['at'] })
+    end
+    unless sc.fetch('splits', []).empty?
+      positions = assets.filter_map do |sym, asset|
+        held = bot.transactions.submitted.where(base_asset_id: asset.id).sum(:amount_exec).to_d
+        sc.fetch('splits', []).select { |sp| sp['name'] == sym && sp['ratio'] }.each do |sp|
+          p,q = sp['ratio'].split(':').map(&:to_d); held *= p/q
+        end
+        { 'symbol' => sym, 'qty' => held.to_s('F') } if held.positive?
+      end
+      sc['script']['alpaca']['GET /v2/positions'] = [ok(positions)]
+    end
+    bot
+  end
+
+  # /v2/clock as Alpaca documents it, for the session of `at` (a weekday in EDT).
+  def clock_body(open, next_open, next_close, at) = { 'timestamp' => at, 'is_open' => open, 'next_open' => next_open, 'next_close' => next_close }
+  def session_day(at) = Time.iso8601(at).utc.to_date
+  def open_clock(at) = ok(clock_body(true, "#{session_day(at) + 1}T09:30:00-04:00", "#{session_day(at)}T16:00:00-04:00", at))
+  def closed_clock(at) = ok(clock_body(false, "#{session_day(at) + 1}T09:30:00-04:00", "#{session_day(at) + 1}T16:00:00-04:00", at))
+  def stock_quote(sym, ask) = ok('symbol' => sym, 'quote' => { 'ap' => ask, 'as' => 100, 'bp' => ask, 'bs' => 100, 't' => '2026-09-01T14:00:00Z' })
+  def stock_trade(sym, price) = ok('symbol' => sym, 'trade' => { 'p' => price, 's' => 10, 't' => '2026-09-01T14:00:00Z' })
+  def stock_account(cash, buying_power) = ok('id' => 'paper-account', 'status' => 'ACTIVE', 'currency' => 'USD', 'cash' => cash,
+                                             'buying_power' => buying_power, 'non_marginable_buying_power' => cash)
+  def stock_order(id, status, sym: 'AAPL', type: 'market', notional: '60', qty: nil, filled_qty: '0', filled_avg_price: nil, limit_price: nil)
+    { 'id' => id, 'client_order_id' => "rails-#{id}", 'symbol' => sym, 'asset_class' => 'us_equity', 'notional' => notional, 'qty' => qty,
+      'filled_qty' => filled_qty, 'filled_avg_price' => filled_avg_price, 'order_type' => type, 'type' => type, 'side' => 'buy',
+      'time_in_force' => 'day', 'limit_price' => limit_price, 'status' => status }
+  end
+
+  def stock_scenarios
+    started = STOCK_STARTED
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'OCLOSED-1', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.32', 'price' => '187.5', 'created_at' => '2026-09-01 14:00:01' }
+    waiting = { 'status' => 0, 'external_status' => 0, 'external_id' => 'OOPEN-1', 'order_type' => 0, 'quote_amount' => '60', 'price' => '187.5',
+                'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 14:00:01' }
+    # A position bought before the start, so a split can be settled (more than two days old) at the first checkpoint.
+    held = closed.merge('external_id' => 'OCLOSED-S', 'created_at' => '2026-08-25 14:00:01')
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      at_n = ->(n, utc_hour = 14, sec = 1) { (Time.iso8601(started).utc.beginning_of_day + (n * step) + utc_hour.hours + sec).iso8601(6) }
+      at1 = at_n.(1)
+      after_close = at_n.(1, 20, 10) # 16:00:10 EDT
+      day1 = session_day(at1)
+      stale_open = clock_body(true, "#{day1 + 1}T09:30:00-04:00", "#{day1}T16:00:00-04:00", after_close)
+      one_day_before = (Time.iso8601(at1) - 1.day).utc.strftime('%Y-%m-%d %H:%M:%S')
+      order_answer = ->(status, **kw) { { 'GET /v2/orders/OOPEN-1' => [ok(stock_order('OOPEN-1', status, **kw))] } }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => at1, 'transactions' => [closed] },
+        'closed' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [closed_clock(at1)] } },
+        'closed_again' => { 'at' => at1, 'transient' => { 'waiting_for_market_open' => true }, 'http' => { 'GET /v2/clock' => [closed_clock(at1)] } },
+        'open_after_park' => { 'at' => at_n.(3), 'transient' => { 'waiting_for_market_open' => true } },
+        'clock_timeout' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [POST_SEND] } },
+        'clock_401' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [{ 'status' => 401, 'body' => { 'code' => 40_110_000, 'message' => 'unauthorized.' } }] } },
+        # Listed divergences (STOCK_DIVERGENCES): Rails reads each as open and places a day order; Rust places nothing.
+        'clock_5xx' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [{ 'status' => 503, 'body' => { 'code' => 50_310_000, 'message' => 'service unavailable' } }] } },
+        'clock_unreadable' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [{ 'status' => 200, 'body' => 'upstream connect error' }] } },
+        'clock_certificate' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [CERTIFICATE] } },
+        'clock_stale_body' => { 'at' => after_close, 'http' => { 'GET /v2/clock' => [ok(stale_open)] } },
+        'clock_stale_cache' => { 'at' => after_close, 'http' => { 'GET /v2/clock' => [closed_clock(after_close)] },
+                                 'rails_cache' => { 'at' => (Time.iso8601(after_close) - 30).iso8601(6), 'clock' => stale_open } },
+        'clock_past_next_open' => { 'at' => at1, 'http' => { 'GET /v2/clock' => [ok(clock_body(false, "#{day1}T09:30:00-04:00", "#{day1}T16:00:00-04:00", at1))] } },
+        'ask_zero' => { 'at' => at1, 'http' => { 'GET /v2/stocks/AAPL/quotes/latest' => [stock_quote('AAPL', 0)], 'GET /v2/stocks/AAPL/trades/latest' => [stock_trade('AAPL', 0)] } },
+        'accepted' => { 'at' => at1, 'poll' => 'OTX-1', 'http' => { 'POST /v2/orders' => [ok(stock_order('OTX-1', 'accepted'))],
+                                                                    'GET /v2/orders/OTX-1' => [ok(stock_order('OTX-1', 'accepted'))] } },
+        'not_fractionable' => { 'at' => at1, 'http' => { 'POST /v2/orders' => [{ 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'asset "AAPL" is not fractionable' } }] } },
+        'insufficient_buying_power' => { 'at' => at1, 'http' => { 'POST /v2/orders' => [{ 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient buying power' } }] } },
+        'day_trading' => { 'at' => at1, 'http' => { 'POST /v2/orders' => [{ 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient day trading buying power' } }] } },
+        'add_server_error' => { 'at' => at1, 'http' => { 'POST /v2/orders' => [{ 'status' => 500, 'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }] } },
+        'sweep_expired_unfilled' => { 'at' => at1, 'transactions' => [waiting], 'http' => order_answer.('expired') },
+        # Rule "A" (A8): the expired order's fill is spent; only its unfilled part is owed again.
+        'sweep_expired_partial' => { 'at' => at1, 'transactions' => [waiting], 'http' => order_answer.('expired', filled_qty: '0.2', filled_avg_price: '187.5') },
+        'sweep_done_for_day' => { 'at' => at1, 'transactions' => [waiting], 'http' => order_answer.('done_for_day', filled_qty: '0.1', filled_avg_price: '187.5') },
+        'sweep_held' => { 'at' => at1, 'transactions' => [waiting], 'http' => order_answer.('held') },
+        'sweep_accepted' => { 'at' => at1, 'transactions' => [waiting], 'http' => order_answer.('accepted') },
+        'poll_expired_partial' => { 'at' => at1, 'tick' => false, 'poll' => 'OOPEN-1', 'transactions' => [waiting],
+                                    'http' => order_answer.('expired', filled_qty: '0.2', filled_avg_price: '187.5') },
+        # Cash and buying power on opposite sides of the buffer: a stock bot spends buying_power (#spendable_balance).
+        'funds_low_buying_power' => { 'at' => at1, 'http' => { 'GET /v2/account' => [stock_account('100000', '1')] } },
+        'funds_low_cash_only' => { 'at' => at1, 'http' => { 'GET /v2/account' => [stock_account('1', '100000')] } },
+        'split_recent' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => one_day_before, 'ratio' => '4:1' }] },
+        'split_settled' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '4:1' }] },
+        'split_unresolved' => { 'at' => at1, 'transactions' => [held], 'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => nil }] },
+        'basket_split_settled' => { 'at' => at1, 'members' => [['AAPL', 0.5], ['MSFT', 0.5]],
+                                    'transactions' => [held, held.merge('external_id' => 'OCLOSED-M', 'symbol' => 'MSFT', 'price' => '400', 'amount_exec' => '0.15')],
+                                    'splits' => [{ 'name' => 'AAPL', 'at' => '2026-08-28 00:00:00', 'ratio' => '4:1' }] }
+      }
+      raise "the stock grid has #{variants.size} variants, not 31" unless variants.size == 31
+
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          base_http = { 'GET /v2/clock' => [open_clock(v.fetch('at'))],
+                        'GET /v2/stocks/AAPL/quotes/latest' => [stock_quote('AAPL', 187.43)], 'GET /v2/stocks/AAPL/trades/latest' => [stock_trade('AAPL', 187.41)],
+                        'GET /v2/stocks/MSFT/quotes/latest' => [stock_quote('MSFT', 401.25)], 'GET /v2/stocks/MSFT/trades/latest' => [stock_trade('MSFT', 401.2)],
+                        'POST /v2/orders' => [ok(stock_order('OTX-1', 'new')), ok(stock_order('OTX-2', 'new', sym: 'MSFT'))],
+                        'GET /v2/account' => [stock_account('100000', '200000')], 'GET /v2/positions' => [ok([])] }
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'alpaca', 'asset' => 'stock', 'interval' => interval, 'quote_amount' => 60.0,
+            'started_at' => started, 'settings' => settings, 'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []),
+            'members' => v['members'], 'splits' => v.fetch('splits', []), 'at' => v.fetch('at'), 'script' => { 'alpaca' => base_http.merge(v.fetch('http', {})) },
+            'rails_cache' => v['rails_cache'], 'tick' => v.fetch('tick', true), 'poll' => v['poll'] }.compact
+        end
+      end
+    end
+  end
+
+  DATA_PRE_SEND = { 'network' => 'pre_send_data', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "data.alpaca.markets" port 443' }.freeze
+
+  INDEX_SYMBOLS = %w[AAA BBB CCC DDD EEE].freeze
+
+  # An ND100-shaped universe: five stocks as the data-api sync imports them, data-api's 'nasdaq-100' row (top_coins in ranking
+  # order, weights = the vendor caps; stock assets carry no market_cap, so get_top_coins reads the weights), and a weekly
+  # Bots::DcaIndex over it. Members and holdings are seeded as earlier ticks left them.
+  def build_index(dir, sc)
+    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
+      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
+      ActiveRecord::Schema.verbose = false
+      load Rails.root.join(schema)
+    end
+    ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
+    user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+                    confirmed_at: Time.current, setup_completed: true)
+    user.save!(validate: false)
+    alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    usd = Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+    ExchangeAsset.create!(exchange: alpaca, asset: usd, available: true)
+    tickers = (INDEX_SYMBOLS + ['ZZZ']).to_h do |sym|
+      asset = Asset.create!(external_id: "#{sym}.US", symbol: sym, name: sym, category: 'Stock', instrument_type: 'stock')
+      ExchangeAsset.create!(exchange: alpaca, asset: asset, available: true)
+      next [sym, nil] if sym == 'ZZZ' # ranked by data-api, never listed on Alpaca (entrant_no_ticker)
+
+      [sym, Ticker.create!(exchange: alpaca, ticker: sym, base: sym, quote: 'USD', base_asset: asset, quote_asset: usd,
+                           **MarketData::STOCK_TICKER_DEFAULTS.transform_keys(&:to_sym))]
+    end
+    AppConfig.market_data_provider = 'deltabadger'
+    AppConfig.market_data_url = 'https://data.invalid'
+    AppConfig.market_data_token = 'scripted-token'
+    unless sc['index_missing']
+      Index.create!(external_id: 'nasdaq-100', source: 'deltabadger', name: 'Nasdaq 100', top_coins: sc['top_coins'].map { |s| "#{s}.US" },
+                    weights: sc.fetch('weights', { 'AAA.US' => 5e12, 'BBB.US' => 3e12, 'CCC.US' => 2e12, 'DDD.US' => 1e12, 'EEE.US' => 5e11, 'ZZZ.US' => 4e12 }),
+                    top_coins_by_exchange: {}, available_exchanges: {}, weight: 0)
+    end
+    ApiKey.new(user:, exchange: alpaca, key: 'k', secret: 's', passphrase: 'paper', status: :correct, key_type: :trading).save!(validate: false)
+    bot = Bots::DcaIndex.new(user:, exchange: alpaca, settings: {
+      'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'week', 'index_type' => 'category', 'index_category_id' => 'nasdaq-100',
+      'num_coins' => sc['num_coins'], 'allocation_flattening' => sc['flattening'], 'hold_all' => sc['hold_all']
+    })
+    bot.set_missed_quote_amount
+    bot.save!(validate: false)
+    bot.update_columns(status: Bot.statuses[:scheduled], settings_changed_at: nil, label: 'ND100', started_at: Time.iso8601(STOCK_STARTED))
+    sc['members'].each do |m|
+      BotIndexAsset.insert!({ 'bot_id' => bot.id, 'asset_id' => tickers.fetch(m['symbol']).base_asset_id, 'ticker_id' => tickers.fetch(m['symbol']).id,
+                              'target_allocation' => m['target'], 'in_index' => m['in_index'], 'entered_at' => '2026-08-01 00:00:00',
+                              'exited_at' => m['in_index'] ? nil : '2026-08-15 10:30:00', 'created_at' => '2026-08-01 00:00:00', 'updated_at' => '2026-08-01 00:00:00' })
+    end
+    sc['transactions'].each_with_index do |(sym, amount), i|
+      t = tickers.fetch(sym)
+      Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => alpaca.id, 'external_id' => "OHELD-#{i}", 'status' => 0, 'external_status' => 2,
+                            'side' => 0, 'order_type' => 0, 'amount' => amount, 'price' => '100', 'amount_exec' => amount,
+                            'quote_amount' => (BigDecimal(amount) * 100).to_s('F'), 'quote_amount_exec' => (BigDecimal(amount) * 100).to_s('F'),
+                            'base' => sym, 'quote' => 'USD', 'base_asset_id' => t.base_asset_id, 'quote_asset_id' => usd.id, 'transaction_type' => 'REGULAR',
+                            'bot_interval' => 'week', 'bot_quote_amount' => 60, 'error_messages' => [], 'created_at' => '2026-08-25 14:00:01',
+                            'updated_at' => '2026-08-25 14:00:01' })
+    end
+    Ticker.where(ticker: sc['unavailable']).update_all(available: false) if sc['unavailable']
+    bot
+  end
+
+  def index_scenarios
+    at = (Time.iso8601(STOCK_STARTED) + 1.week + 1).iso8601(6)
+    asks = INDEX_SYMBOLS.zip([100, 200, 300, 400, 500]).to_h
+    top3 = INDEX_SYMBOLS.first(3)
+    member = ->(sym, target, in_index: true) { { 'symbol' => sym, 'target' => target, 'in_index' => in_index } }
+    steady = [member.('AAA', 0.5), member.('BBB', 0.3), member.('CCC', 0.2)]
+    compositions = {
+      'duplicate' => { 'members' => [], 'top_coins' => %w[AAA AAA BBB], 'weights' => { 'AAA.US' => 100, 'BBB.US' => 10 } },
+      'steady' => { 'members' => steady },
+      'fresh' => { 'members' => [] },
+      'leaver' => { 'members' => steady, 'top_coins' => %w[AAA BBB DDD EEE] },
+      'reentrant' => { 'members' => [member.('AAA', 0.5), member.('BBB', 0.3), member.('CCC', 0.2, in_index: false)] },
+      'entrant_unpriced' => { 'members' => [], 'asks' => { 'CCC' => 0 } },
+      'entrant_probe_transient' => { 'members' => [], 'network' => 'CCC' },
+      'incumbent_unpriced' => { 'members' => steady, 'asks' => { 'CCC' => 0 } },
+      'entrant_no_ticker' => { 'members' => [], 'top_coins' => %w[AAA ZZZ BBB CCC DDD EEE] },
+      'member_unavailable' => { 'members' => steady, 'unavailable' => ['CCC'] },
+      'index_missing' => { 'members' => steady, 'index_missing' => true }
+    }
+    holdings = { 'none' => [], 'at_target' => [%w[AAA 0.5], %w[BBB 0.3], %w[CCC 0.2]], 'drifted' => [%w[AAA 1.0], %w[BBB 0.3], %w[CCC 0.2]] }
+    weightings = { 'top3' => { 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false },
+                   'all_flat' => { 'num_coins' => 3, 'flattening' => 0.5, 'hold_all' => true } }
+    compositions.flat_map do |cname, comp|
+      holdings.flat_map do |hname, rows|
+        weightings.map do |wname, w|
+          prices = asks.merge(comp.fetch('asks', {}))
+          http = { 'GET /v2/clock' => [open_clock(at)], 'GET /v2/account' => [stock_account('100000', '200000')], 'GET /v2/positions' => [ok([])],
+                   'POST /v2/orders' => (1..5).map { |n| ok(stock_order("OTX-#{n}", 'new')) } }
+          prices.each { |sym, ask| http["GET /v2/stocks/#{sym}/quotes/latest"] = [stock_quote(sym, ask)] }
+          http["GET /v2/stocks/#{comp['network']}/quotes/latest"] = [DATA_PRE_SEND] if comp['network']
+          { 'name' => "index-#{cname}-#{hname}-#{wname}", 'venue' => 'alpaca', 'kind' => 'index', 'at' => at,
+            'top_coins' => comp.fetch('top_coins', INDEX_SYMBOLS), 'members' => comp['members'], 'transactions' => rows,
+            'weights' => comp['weights'], 'unavailable' => comp['unavailable'], 'index_missing' => comp['index_missing'], 'script' => { 'alpaca' => http }, 'tick' => true }
+            .merge(w).compact
+        end
+      end
+    end.tap { |list| raise "the index grid has #{list.size} scenarios, not 66" unless list.size == 66 }
+  end
+
   def grid(root, list)
+    ActiveJob::Base.queue_adapter = :test
     list.each do |sc|
       dir = File.join(root, sc['name'])
       FileUtils.mkdir_p(dir)
-      bot = build(dir, sc)
+      seed_dir = File.join(dir, '.seed')
+      if ENV['RUST_GRID_CACHE'] && File.exist?(File.join(seed_dir, 'scenario.json'))
+        %w[production.sqlite3 production_queue.sqlite3 scenario.json].each { |f| FileUtils.cp(File.join(seed_dir, f), File.join(dir, f)) }
+        next
+      end
+      bot = if sc['kind'] == 'index' then build_index(dir, sc) elsif sc['asset'] == 'stock' then build_stock(dir, sc) else build(dir, sc) end
+      enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
+                 JSON.pretty_generate({ 'encryption' => (sc['kind'] == 'index' ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'],
-                                        'between' => sc['between'] }.compact))
+                                        'between' => sc['between'], 'rails_cache' => sc['rails_cache'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
+      if ENV['RUST_GRID_CACHE']
+        FileUtils.mkdir_p(seed_dir)
+        %w[production.sqlite3 production_queue.sqlite3 scenario.json].each { |f| FileUtils.cp(File.join(dir, f), File.join(seed_dir, f)) }
+      end
     end
     puts "built #{list.size} scenarios in #{root}"
   end
@@ -843,6 +1118,7 @@ module Decisions
     end)
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
+      next if ENV['RUST_GRID_CACHE'] && File.exist?(File.join(dir, 'rails.json'))
       sc = JSON.parse(File.read(path))
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear # Exchanges::Kraken caches prices by exchange/ticker id, which every scenario shares
@@ -865,6 +1141,11 @@ module Decisions
         jobs.clear
         travel_to(time, with_usec: true) { stops.each { |j| ActiveJob::Base.execute(j.stringify_keys) } }
       end
+      if (cached = sc['rails_cache']) # Rails' own one-minute clock cache, written before the tick (the clock_stale_cache divergence)
+        exchange_id = Bot.find(sc['bot_id']).exchange_id
+        travel_to(Time.iso8601(cached['at']), with_usec: true) { Rails.cache.write("exchange_#{exchange_id}_clock", cached['clock'], expires_in: 1.minute) }
+        travel_back
+      end
       if sc.fetch('tick', true)
         tick_at(sc, Time.iso8601(sc['at']), mails)
         settle.(Time.iso8601(sc['at']))
@@ -872,7 +1153,7 @@ module Decisions
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       poll_error = nil
       if sc['poll'] # the follow-up poll Transaction enqueues for one order; its retries are not replayed
-        order = Transaction.find_by!(bot_id: sc['bot_id'], external_id: sc['poll'])
+        order = Transaction.find_by(bot_id: sc['bot_id'], external_id: sc['poll']) or raise "#{dir}: missing poll order #{sc['poll']}, rows=#{Transaction.all.pluck(:external_id)}"
         travel_to(Time.iso8601(sc['at']) + 5, with_usec: true) do
           Bot::FetchAndUpdateOrderJob.perform_now(order, update_missed_quote_amount: true)
         rescue StandardError => e
@@ -944,6 +1225,8 @@ case command
 when 'grid' then Decisions.grid(root, Decisions.scenarios)
 when 'grid-alpaca' then Decisions.grid(root, Decisions.alpaca_scenarios)
 when 'grid-basket' then Decisions.grid(root, Decisions.basket_scenarios)
+when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
+when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'record' then Decisions.record(root)
 when 'web-save' then web_save(root)

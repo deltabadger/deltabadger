@@ -122,6 +122,17 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     // copy's last Rails heartbeat must not read as alive against it.
     let _lock = lease::lock(&paths, chrono::Utc::now())?;
     let o = store::open(&paths)?;
+    if let (Some(primary),Some(salt))=(scenario["encryption"]["primary_key"].as_str(),scenario["encryption"]["key_derivation_salt"].as_str()) {
+        let cipher=Cipher::new(&EncryptionKeys{primary_key:primary.into(),key_derivation_salt:salt.into()});
+        crate::engine::provider::bind(&o.primary,&cipher,&|_|None)?;
+    }
+    if scenario["script"]["alpaca"].as_object().is_some_and(|m| m.keys().any(|k| k.contains("/v2/stocks/"))) {
+        if let Some(hash)=crate::engine::provider::fingerprint(&o.primary)? {crate::engine::provider::record(&o.primary,&hash,start)?;}
+        for job in [reference::STOCKS,reference::INDICES,reference::ASSETS] { jobs::state::record_success(&o.primary,job,None,start).map_err(EngineError::Data)?; }
+        let mut stmt=o.primary.prepare("SELECT id FROM api_keys WHERE key_type=0")?;
+        let ids=stmt.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+        for id in ids { jobs::state::record_success(&o.primary,"ledger_sync",Some(&id.to_string()),start).map_err(EngineError::Data)?; }
+    }
     let before = snapshot(&o.primary)?;
     let owed = notice::all_pending(&o.primary)?;
     if scenario["venue"] == "alpaca" {
@@ -198,16 +209,21 @@ async fn ticks<V: Venue>(o: &Opened, venue: &V, bot_id: i64, start: DateTime<Utc
 /// For every bot this engine would run on the copy at `src`: its own scenario, ticking 1 s after its next
 /// checkpoint. The copy is duplicated per bot, so each engine writes only into its own.
 pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) -> Result<usize, EngineError> {
-    use crate::engine::{basket, eligibility, model, schedule};
+    use crate::engine::{eligibility, model, schedule};
     store::check(&Paths::from_env(&|_| None, src))?;
     let c = Connection::open_with_flags(src.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let env=|k:&str|std::env::var(k).ok();
+    if let Some(secret)=env("SECRET_KEY_BASE") {
+        let keys=EncryptionKeys::resolve(&env,&secret).map_err(|_|EngineError::Data("index encryption configuration unreadable".into()))?;
+        crate::engine::provider::bind(&c,&Cipher::new(&keys),&env)?;
+    }
     let report = eligibility::check_install(&c)?;
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for id in &report.eligible {
         let bot = model::load_bot(&c, *id)?;
         let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { continue };
         let next = schedule::checkpoints(anchor, now.timestamp_micros(), schedule::effective(interval, quote, bot.smart_quote_amount())).next_us;
-        let at = DateTime::from_timestamp_micros(next + 1_000_000).unwrap();
+        let at = DateTime::from_timestamp_micros(next.saturating_add(1_000_000)).ok_or_else(|| EngineError::Data("copy checkpoint out of range".into()))?;
         let dir = out.join(format!("bot-{id}"));
         std::fs::create_dir_all(&dir).map_err(|e| EngineError::Data(e.to_string()))?;
         for f in ["production.sqlite3", "production_queue.sqlite3"] {
@@ -217,20 +233,30 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
                 .execute("VACUUM INTO ?1", [target.to_string_lossy()])?;
         }
         // Every member's pair: a basket's legs each read their own price from the copy's script.
-        let pairs = basket::member_pairs(&c, &bot)?;
-        let recorded: Vec<Value> = pairs.iter()
+        let pairs = if bot.bot_type == "Bots::DcaIndex" { crate::engine::index::candidate_pairs(&c, &bot)? } else { crate::engine::basket::member_pairs(&c, &bot)? };
+        let mut crypto = Vec::new();
+        for pair in &pairs {
+            if model::ticker_for_pair(&c, bot.exchange_id, pair)?.is_some_and(|t| t.crypto) {
+                crypto.push(pair.clone());
+            }
+        }
+        let recorded: Vec<Value> = (if model::exchange_type(&c, &bot)? == "Exchanges::Alpaca" { &crypto } else { &pairs }).iter()
             .map(|p| tickers.get(p).cloned().ok_or_else(|| EngineError::Data(format!("no recorded Ticker body for {p}"))))
             .collect::<Result<_, _>>()?;
         let alpaca = model::exchange_type(&c, &bot)? == "Exchanges::Alpaca";
-        let script = if alpaca { alpaca_copy_script(&c, &bot, &recorded, *id)? } else { json!({ "http": {
+        let mut script = if alpaca { alpaca_copy_script(&c, &bot, &recorded, *id)? } else { json!({ "http": {
             "/0/public/Ticker": [recorded.first().cloned().unwrap_or(Value::Null)],
             "/0/private/AddOrder": (1..=placements(1)).map(|n| json!({ "error": [], "result": { "txid": [format!("OPARITY-{id}-{n}")] } })).collect::<Vec<_>>(),
             "/0/private/BalanceEx": [{ "error": [], "result": { "ZEUR": { "balance": "1000000000", "hold_trade": "0" }, "ZUSD": { "balance": "1000000000", "hold_trade": "0" } } }],
             "/0/private/QueryOrders": [{ "error": [], "result": {} }],
             "/0/private/TradesHistory": [{ "error": [], "result": { "trades": {}, "count": 0 } }] } }) };
+        if alpaca {
+            add_stock_bodies(&c, &bot, &mut script, &pairs, tickers, at)?;
+            script["alpaca"]["POST /v2/orders"] = json!((1..=placements(pairs.len())).map(|n| json!({"status":200,"body":{"id":format!("OPARITY-{id}-{n}"),"status":"pending_new"}})).collect::<Vec<_>>());
+        }
         let scenario = json!({ "parity_scratch": true, "bot_id": id, "at": at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true),
                                "venue": if alpaca { "alpaca" } else { "kraken" }, "script": script });
-        std::fs::write(dir.join("scenario.json"), serde_json::to_string_pretty(&scenario).unwrap()).map_err(|e| EngineError::Data(e.to_string()))?;
+        std::fs::write(dir.join("scenario.json"), serde_json::to_string_pretty(&scenario).map_err(|e| EngineError::Data(e.to_string()))?).map_err(|e| EngineError::Data(e.to_string()))?;
     }
     Ok(report.eligible.len())
 }
@@ -357,4 +383,27 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let requests: Vec<String> = transport.requests().iter().map(request_key).collect();
     Ok(json!({ "requests": requests, "retry": matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
                "changes": diff_tables(&before, &reference_snapshot(&o.primary, &cipher)?, &REFERENCE_TABLES) }))
+}
+
+/// Plan 2d: each stock pair's recorded latest quote and trade (tickers.json `{"AAPL": {"quote": …, "trade": …}}`, the bodies
+/// GET /v2/stocks/{base}/quotes/latest and /trades/latest return) at its own path, and a clock open at the copy's tick with its
+/// close an hour on, so both engines decide an open session. Crypto pairs keep 2c's bodies.
+fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mut Value, pairs: &[String], tickers: &Value, at: DateTime<Utc>) -> Result<(), EngineError> {
+    use crate::engine::model;
+    let ok = |b: Value| json!([{ "status": 200, "body": b }]);
+    for pair in pairs {
+        let Some(t) = model::ticker_for_pair(c, bot.exchange_id, pair)? else { continue };
+        if t.crypto { continue; }
+        let rec = tickers.get(pair).ok_or_else(|| EngineError::Data(format!("no recorded stock bodies for {pair}")))?;
+        script["alpaca"][format!("GET /v2/stocks/{}/quotes/latest", t.base_code)] = ok(rec["quote"].clone());
+        script["alpaca"][format!("GET /v2/stocks/{}/trades/latest", t.base_code)] = ok(rec["trade"].clone());
+    }
+    let text = |t: DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let next_open = at.checked_add_signed(chrono::Duration::days(1))
+        .ok_or_else(|| EngineError::Data("copy clock out of range".into()))?;
+    let next_close = at.checked_add_signed(chrono::Duration::hours(1))
+        .ok_or_else(|| EngineError::Data("copy clock out of range".into()))?;
+    script["alpaca"]["GET /v2/clock"] = ok(json!({ "timestamp": text(at), "is_open": true,
+        "next_open": text(next_open), "next_close": text(next_close) }));
+    Ok(())
 }
