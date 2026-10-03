@@ -7,7 +7,9 @@
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
-//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. Rails creates and migrates the databases.
+//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
+//! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
+//! and FORCE_SSL. Rails creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install, Refusal};
 use deltabadger::engine::run::Engine;
@@ -116,6 +118,18 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Ope
     (lock, opened, Cipher::new(&keys))
 }
 
+/// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
+/// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
+fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
+    let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;
+    deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
+}
+
+/// The sender as the supervisor runs it: stopped by the one stop signal. No engine event wakes it yet; it looks every few seconds.
+fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: &deltabadger::engine::run::Shutdown) -> supervisor::Service<'a> {
+    supervisor::Service { name: "mail", run: Box::pin(mail.run(stop.subscribe(), None::<tokio::sync::mpsc::UnboundedReceiver<()>>)) }
+}
+
 /// The takeover `run` and `serve` share. Refusals exit 1 before anything is claimed; a takeover that fails after the
 /// claim exits 2.
 fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), i32> {
@@ -138,14 +152,16 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns,
     // and a service may still be draining then.
     let _held = lock.clone();
+    let mail = mail_sender(env, &cipher);
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let code = rt.block_on(async move {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
+        let services = vec![mail_service(mail, &engine.stop_handle())];
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
-        match supervisor::serve(engine, None, &SystemClock, vec![]).await {
+        match supervisor::serve(engine, None, &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
             Ended::Engine(e) => { log(&format!("engine stopped: {e:?}")); EXIT_ENGINE_ERROR }
             other => { log(&format!("engine stopped: {other:?}")); EXIT_ENGINE_ERROR } // a service; never the web here
@@ -181,13 +197,14 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let listener = rt.block_on(deltabadger::web::server::bind(&app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
+    let mail = mail_sender(env, &cipher);
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let code = rt.block_on(async move {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
         // Background services: each built here with a clone of `engine.stop_handle()`. A scheduler would be one
         // more element; nothing else changes.
-        let services: Vec<supervisor::Service> = vec![];
+        let services: Vec<supervisor::Service> = vec![mail_service(mail, &engine.stop_handle())];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {

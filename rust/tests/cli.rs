@@ -254,3 +254,58 @@ fn serve_refuses_an_ineligible_install_in_the_words_check_uses() {
     assert_eq!(stderr(&served), stderr(&checked), "the same words, byte for byte");
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
+
+/// `run` and `serve` with the mail sender as a service of the supervisor, as processes: what a bot is owed goes out
+/// through the SMTP server the environment names, the marker goes only once the server took the mail, and no credential
+/// is sent in the clear or printed.
+#[test]
+fn run_and_serve_send_the_mail_a_bot_is_owed_and_neither_send_nor_print_a_credential_in_the_clear() {
+    use common::smtp::{self, Behaviour};
+    use deltabadger::engine::notice;
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    for command in ["run", "serve"] {
+        let (dir, o, s) = common::install_alpaca();
+        // Not due for decades: the engine idles, the mail does not wait for a tick.
+        let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+        o.primary.execute("UPDATE bots SET label = 'Weekly BTC', transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+                          (format!("$.{}", notice::STOPPED), notice::stopped_marker("unauthorized.", chrono::Utc::now()).to_string(), bot)).unwrap();
+        drop(o);
+        let owed = || notice::all_pending(&rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap()).unwrap().len();
+        // The server lives in this test's runtime, so every wait here is a tokio sleep that lets it answer.
+        let run_until = |server: &smtp::Fake, credentials: Option<(&str, &str)>, done: &dyn Fn(&smtp::Fake) -> bool| -> (Option<i32>, String) {
+            let mut process = cli(dir.path(), &[command]);
+            process.stdout(Stdio::piped()).stderr(Stdio::piped()).env("PORT", free_port().to_string())
+                .env("SMTP_ADDRESS", "127.0.0.1").env("SMTP_PORT", server.port.to_string()).env("NOTIFICATIONS_SENDER", "bots@example.com");
+            if let Some((user, password)) = credentials { process.env("SMTP_USER_NAME", user).env("SMTP_PASSWORD", password); }
+            let child = process.spawn().unwrap();
+            let reached = rt.block_on(async {
+                for _ in 0..400 { if done(server) { return true; } tokio::time::sleep(std::time::Duration::from_millis(50)).await; }
+                false
+            });
+            // Stopped before anything is asserted, so a failure here leaves no engine running.
+            assert!(Command::new("kill").args(["-TERM", &child.id().to_string()]).status().unwrap().success());
+            let out = child.wait_with_output().unwrap();
+            assert!(reached, "{command}: the sender never got that far");
+            (out.status.code(), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)))
+        };
+
+        // A user name and a password, and a server that offers no STARTTLS: two attempts, no AUTH on the wire, the
+        // marker stays, and the log says why without naming a credential.
+        let plain = rt.block_on(smtp::start(Behaviour { auth: true, ..Default::default() }));
+        let (code, printed) = run_until(&plain, Some(("alice", "s3cret-pw")), &|server| server.sessions().len() >= 2);
+        assert_eq!(code, Some(0), "{command}: {printed}");
+        assert!(printed.contains(&format!("[mail] stopped_by_error for bot {bot}: not sent: tls: 127.0.0.1 offers no STARTTLS")), "{command}: {printed}");
+        for secret in ["s3cret-pw", "alice", "AGFsaWNlAHMzY3JldC1wdw=="] { assert!(!printed.contains(secret), "{command}: {printed}"); }
+        assert!(plain.sessions().iter().all(|s| !s.lines.iter().any(|l| l.starts_with("AUTH"))), "{command}: {:?}", plain.sessions());
+        assert_eq!(owed(), 1, "{command}");
+
+        // The next start, the same relay used without credentials (plain text is then allowed, as in Rails): the mail
+        // goes out and the marker with it, through eligibility::guard.
+        let (code, printed) = run_until(&plain, None, &|server| server.messages().len() == 1 && owed() == 0);
+        assert_eq!(code, Some(0), "{command}: {printed}");
+        assert!(printed.contains(&format!("[mail] stopped_by_error for bot {bot}: sent")), "{command}: {printed}");
+        let mail = &plain.messages()[0];
+        assert!(mail.contains("\r\nFrom: bots@example.com\r\nTo: o@example.com\r\n") && mail.contains("\r\nSubject: Weekly BTC has been stopped\r\n"), "{command}: {mail}");
+        assert_eq!(plain.sessions().last().unwrap().lines[..2], ["EHLO localhost", "AUTH PLAIN AAA="], "{command}");
+    }
+}
