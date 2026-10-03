@@ -233,9 +233,24 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn Pr
     }
     for a in assets.iter().filter(|a| cash(a)) { fresh.insert(a.external_id.clone(), Price::Decimal(BigDec::one())); }
 
+    // Every price, and every value a row will hold (from a fresh price or the last stored one), within a venue
+    // number's caps before the first write. Rails has no such check: a price of 1e300 on a billion coins would be
+    // stored as an infinite value and reported as a success. Here the sync fails and writes no balance.
+    if !fresh.values().all(|p| within(price_f(p))) { return fail(PRICE_OUT_OF_RANGE.into(), false).await; }
+    let (user_id, exchange_id) = (catalog.user_id, catalog.exchange_id);
+    let last = phase(db, move |c| last_prices(c, user_id, exchange_id)).await?;
+    for (asset_id, total) in &held {
+        let Some(asset) = assets.iter().find(|a| a.id == *asset_id) else { continue };
+        let price = match fresh.get(&asset.external_id) {
+            Some(Price::Float(f)) => BigDec::from_f64(*f).ok(),
+            Some(Price::Decimal(d)) => Some(d.clone()),
+            None => last.get(asset_id).cloned().flatten(),
+        };
+        if price.is_some_and(|p| !within(value_of(total, &p))) { return fail(VALUE_OUT_OF_RANGE.into(), false).await; }
+    }
+
     // The rows, `BATCH` at a time; then what is gone, and the key's clock in the last unit.
     let now = clock.now();
-    let (user_id, exchange_id) = (catalog.user_id, catalog.exchange_id);
     let (held, fresh) = (Arc::new(held), Arc::new(fresh));
     let mut summary = Summary::default();
     for from in (0..held.len()).step_by(BATCH) {
@@ -356,6 +371,28 @@ fn gone(c: &Connection, user_id: i64, exchange_id: i64, kept: &HashSet<i64>) -> 
     Ok(rows.into_iter().filter(|(_, asset)| !kept.contains(asset)).map(|(id, _)| id).collect())
 }
 
+/// What a sync fails with when a price, or a value computed from one, is not a number within a venue number's caps.
+pub const PRICE_OUT_OF_RANGE: &str = "a price outside a venue number's range";
+pub const VALUE_OUT_OF_RANGE: &str = "a balance value outside a venue number's range";
+
+/// Finite, and zero or within a venue number's caps (`number::VENUE`: 10^±40, 64 significant digits).
+fn within(f: f64) -> bool { f.is_finite() && (f == 0.0 || number::decimal(&format!("{f:e}"), &number::VENUE).is_ok()) }
+fn price_f(p: &Price) -> f64 { match p { Price::Float(f) => *f, Price::Decimal(d) => d.to_f() } }
+/// `usd_value` as the row stores it: quantity × price, rounded to the column's scale, as a double.
+fn value_of(total: &BigDec, price: &BigDec) -> f64 { cast_decimal(&(total * price), 8).to_f() }
+
+/// The last stored price of each of the user's balances on this venue (the first row of an asset, as `upsert` reads it).
+fn last_prices(c: &Connection, user_id: i64, exchange_id: i64) -> Result<HashMap<i64, Option<BigDec>>, SyncError> {
+    let mut s = c.prepare("SELECT asset_id, usd_price FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id")?;
+    let mut rows = s.query([user_id, exchange_id])?;
+    let mut last = HashMap::new();
+    while let Some(r) = rows.next()? {
+        let asset: i64 = r.get(0)?;
+        if let std::collections::hash_map::Entry::Vacant(e) = last.entry(asset) { e.insert(stored_decimal(r.get_ref(1)?, 8)?); }
+    }
+    Ok(last)
+}
+
 /// AccountBalance::Sync#sync!'s write for at most `BATCH` holdings: each upserted on (user, exchange, asset).
 #[allow(clippy::too_many_arguments)]
 fn upsert(c: &Connection, user_id: i64, exchange_id: i64, held: &[(i64, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
@@ -367,7 +404,8 @@ fn upsert(c: &Connection, user_id: i64, exchange_id: i64, held: &[(i64, BigDec)]
                                    params![user_id, exchange_id, asset_id], |r| Ok((r.get::<_, i64>(0)?, stored_decimal(r.get_ref(1)?, 8)))).optional()?;
         let (id, old_price) = match existing { Some((id, price)) => (Some(id), price?), None => (None, None) };
         let free = cast_decimal(total, 16).to_f();
-        let value = |price: &BigDec| cast_decimal(&(total * price), 8).to_f();
+        // Checked before the first unit; checked again here, so no unit ever writes a value that is no number.
+        let value = |price: &BigDec| Some(value_of(total, price)).filter(|v| within(*v)).ok_or_else(|| SyncError(VALUE_OUT_OF_RANGE.into()));
         match (fresh.get(&asset.external_id), old_price) {
             (Some(price), _) => {
                 summary.priced_fresh += 1;
@@ -378,15 +416,15 @@ fn upsert(c: &Connection, user_id: i64, exchange_id: i64, held: &[(i64, BigDec)]
                 let (Some(stored), Some(exact)) = (stored, exact) else { return Err(SyncError(format!("a price for {} that is not a number", asset.external_id))) };
                 match id {
                     Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = 0, usd_price = ?2, priced_at = ?3, usd_value = ?4, synced_at = ?3, updated_at = ?3 WHERE id = ?5",
-                                          params![free, stored.to_f(), at, value(&exact), id])?,
+                                          params![free, stored.to_f(), at, value(&exact)?, id])?,
                     None => c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, priced_at, usd_value, synced_at, created_at, updated_at) \
-                                       VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?6, ?6, ?6)", params![user_id, exchange_id, asset_id, free, stored.to_f(), at, value(&exact)])?,
+                                       VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?6, ?6, ?6)", params![user_id, exchange_id, asset_id, free, stored.to_f(), at, value(&exact)?])?,
                 };
             }
             // Stale: the last price and its time stay as they are; the value follows the new quantity.
             (None, Some(price)) => {
                 summary.priced_stale += 1;
-                c.execute("UPDATE account_balances SET free = ?1, locked = 0, usd_value = ?2, synced_at = ?3, updated_at = ?3 WHERE id = ?4", params![free, value(&price), at, id])?;
+                c.execute("UPDATE account_balances SET free = ?1, locked = 0, usd_value = ?2, synced_at = ?3, updated_at = ?3 WHERE id = ?4", params![free, value(&price)?, at, id])?;
             }
             (None, None) => {
                 summary.unpriced += 1;

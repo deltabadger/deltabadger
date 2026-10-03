@@ -233,6 +233,28 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
     assert_eq!((bumped, one::<i64>(&db, "SELECT restatement_generation FROM bots").await), (vec![seeded], 3));
 }
 
+/// Every price is held to a venue number's caps, and every value computed from one (fresh or the last stored price)
+/// must be finite and within them, before the first balance row is written: past either the sync fails and writes no
+/// balance and no clock.
+#[tokio::test(flavor = "current_thread")]
+async fn a_price_or_a_value_outside_a_venue_numbers_range_fails_the_balance_sync_before_any_write() {
+    let (_dir, db, s) = install();
+    let state = "SELECT (SELECT count(*) || ' ' || coalesce(group_concat(quote(usd_value)), '') FROM account_balances) || ', synced ' || (SELECT coalesce(balances_synced_at, 'never') FROM api_keys)";
+    let script = json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "symbol": "BTCUSD", "qty": "1000000000" }]))] });
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 1e300 } } }))] }));
+    let (_, v) = venue(script.clone());
+    let failure = balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
+    assert!(failure.error.contains("outside a venue number's range"), "{}", failure.error);
+    assert_eq!(one::<String>(&db, state).await, "0 , synced never", "neither the cash row nor the coin's");
+    // The last stored price, kept when no fresh one comes: 1e300 times a billion is no number.
+    db.run(move |c, _| c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, priced_at, usd_value, synced_at, created_at, updated_at) \
+                                  VALUES (?1, ?2, ?3, 1, 0, 1e300, '2026-09-01', 1e300, '2026-09-01', '2026-09-01', '2026-09-01')", [s.user_id, s.exchange_id, s.btc]).map_err(|e| e.to_string())).await.unwrap();
+    let (_, v) = venue(script);
+    let failure = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
+    assert!(failure.error.contains("outside a venue number's range"), "{}", failure.error);
+    assert_eq!(one::<String>(&db, state).await, "1 1.0e+300, synced never", "the stored row as it was, and no cash row");
+}
+
 /// A venue date is read only within 1970-01-01 ..= 9999-12-31 (UTC); one outside it is an unreadable activity time,
 /// which fails the run and stores nothing, as any unreadable time does. Times read back from the database (the
 /// watermark, a withdrawal Rails stored) go through checked arithmetic: none of them panics a sync.
