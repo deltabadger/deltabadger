@@ -1,8 +1,10 @@
 //! A bot as the bot list and the bot page read it: the row, what Rails' model derives from it
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
-//! Read-only: nothing here writes.
+//! Page readers share their model with the guarded settings writer in `write`.
 pub mod action_params;
 pub mod draft;
+pub mod write;
+pub mod composition;
 pub mod orders;
 pub mod page;
 pub mod settings;

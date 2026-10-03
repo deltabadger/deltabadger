@@ -1728,3 +1728,417 @@ mod action_draft {
         Ok(())
     }
 }
+
+mod action_write {
+    use super::common;
+    use common::{seed, web as harness};
+    use deltabadger::web::{self, bot::{action_params::ActionParams, draft::Draft, write::{self, Outcome, Prepared}}, layout::Ctx, Params, WebError};
+    use rusqlite::Connection;
+    use serde_json::{json, Value};
+    use std::sync::Arc;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    const NOW: &str = "2026-09-10T12:00:30.123456Z";
+
+    struct Fixture { _dir: tempfile::TempDir, c: Connection, ctx: Ctx, seed: seed::Seeded, id: i64 }
+    impl Fixture {
+        fn new() -> Result<Self> {
+            let (dir, opened, s) = common::install_alpaca();
+            let c = opened.primary;
+            c.execute("UPDATE users SET wash_sale_enabled=0",[])?;
+            let mut spec = seed::BotSpec::weekly(5.0, "2026-09-10 12:00:00");
+            spec.status = 2;
+            spec.transient = json!({"engine_private":{"keep":null}, "mail":"untouched", "failure":7});
+            let id = seed::insert_bot(&c, &s, &spec);
+            c.execute("UPDATE bots SET label = 'Original', position = 17 WHERE id = ?1", [id])?;
+            let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
+            let ctx = Ctx { app, params: Arc::new(Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+                session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
+                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None };
+            Ok(Self { _dir: dir, c, ctx, seed: s, id })
+        }
+        fn params(fields: Value) -> Result<ActionParams> {
+            let p = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(json!({"bots_dca_multi_asset":fields})) };
+            ActionParams::parse(&p).map_err(|e| format!("{e:?}").into())
+        }
+        fn write(&self, fields: Value) -> Result<Outcome<Value>> {
+            Ok(write::settings(&self.c, &self.ctx, self.seed.user_id, self.id, &Self::params(fields)?, |_, ctx, draft| {
+                assert_eq!(ctx.now, harness::at(NOW));
+                Ok(Prepared { response: json!({"settings":draft.candidate.settings,"errors":draft.errors.iter().map(|e| &e.message).collect::<Vec<_>>()}), broadcasts: vec![] })
+            }).map_err(|e| format!("{e:?}"))?)
+        }
+        fn stored(&self) -> Result<Value> {
+            let (settings, transient, updated, changed, label): (String,String,String,Option<String>,String) = self.c.query_row("SELECT settings, transient_data, updated_at, settings_changed_at, label FROM bots WHERE id=?1", [self.id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?)))?;
+            Ok(json!({"settings":serde_json::from_str::<Value>(&settings)?,"transient":serde_json::from_str::<Value>(&transient)?,"updated":updated,"changed":changed,"label":label}))
+        }
+        fn snapshot(&self) -> Result<Vec<String>> {
+            let mut all = vec![];
+            for table in ["bots","bot_index_assets","bot_activity_logs","transactions","api_keys","users"] {
+                let mut q = self.c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+                let n = q.column_count();
+                let mut rows = q.query([])?;
+                while let Some(r) = rows.next()? { let values = (0..n).map(|i| r.get_ref(i).map(|v| format!("{v:?}"))).collect::<std::result::Result<Vec<_>,_>>()?; all.push(format!("{table}:{values:?}")); }
+            }
+            Ok(all)
+        }
+        fn stabilize(&self) -> Result { assert!(matches!(self.write(json!({"label":"Original"}))?, Outcome::Committed(_) | Outcome::NoChange(_))); Ok(()) }
+    }
+
+    #[test]
+    fn action_write_amount_preserves_columns_and_json() -> Result {
+        let f = Fixture::new()?;
+        assert!(matches!(f.write(json!({"quote_amount":"37.25"}))?, Outcome::Committed(_)));
+        let v = f.stored()?;
+        assert_eq!(v["settings"]["quote_amount"], json!(37.25));
+        assert_eq!(v["transient"]["engine_private"], json!({"keep":null}));
+        assert_eq!(v["transient"]["mail"], "untouched");
+        assert_eq!(v["changed"], "2026-09-10 12:00:30.123456");
+        assert_eq!(f.c.query_row("SELECT position FROM bots WHERE id=?1", [f.id], |r| r.get::<_,i64>(0))?, 17);
+        Ok(())
+    }
+    #[test]
+    fn action_write_rename_blank_identical_preserve_window() -> Result {
+        let f = Fixture::new()?; f.stabilize()?;
+        let before = f.stored()?;
+        assert!(matches!(f.write(json!({"quote_amount":"", "label":"", "interval":""}))?, Outcome::NoChange(_)));
+        assert_eq!(f.stored()?, before);
+        assert!(matches!(f.write(json!({"quote_amount":"5"}))?, Outcome::NoChange(_)));
+        assert!(matches!(f.write(json!({"label":"Renamed"}))?, Outcome::Committed(_)));
+        let after = f.stored()?;
+        assert_eq!(after["transient"], before["transient"]); assert_eq!(after["changed"], before["changed"]);
+        Ok(())
+    }
+    #[test]
+    fn action_write_defaults_do_not_move_window() -> Result {
+        let f = Fixture::new()?;
+        f.c.execute("UPDATE bots SET settings=json_set(json_remove(settings,'$.smart_intervaled'),'$.limit_ordered',null) WHERE id=?1", [f.id])?;
+        assert!(matches!(f.write(json!({"label":"Original"}))?, Outcome::Committed(_)));
+        let v = f.stored()?;
+        assert_eq!(v["settings"]["smart_intervaled"], false); assert_eq!(v["settings"]["limit_ordered"], false);
+        assert_eq!(v["changed"], Value::Null);
+        Ok(())
+    }
+    #[test]
+    fn action_write_carry_partial_fills_inclusive_and_class() -> Result {
+        for status in [3,4] {
+            let f = Fixture::new()?;
+            seed::insert_row(&f.c,&f.seed,f.id,f.seed.btc,&json!({"external_status":status,"quote_amount_exec":"1.25","created_at":"2026-09-10 12:00:00","external_id":format!("cancel-{status}")}));
+            assert!(matches!(f.write(json!({"quote_amount":"7"}))?, Outcome::Committed(_)));
+            assert_eq!(f.stored()?["transient"]["missed_quote_amount"], "3.75");
+        }
+        let f = Fixture::new()?;
+        f.write(json!({"quote_amount":"2"}))?;
+        assert_eq!(f.stored()?["transient"]["missed_quote_amount"], json!(2.0));
+        Ok(())
+    }
+    #[test]
+    fn action_write_unfilled_cancel_preserves_numeric_class() -> Result {
+        let f=Fixture::new()?;
+        seed::insert_row(&f.c,&f.seed,f.id,f.seed.btc,&json!({"external_status":3,"created_at":"2026-09-10 12:00:00"}));
+        let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e|format!("{e:?}"))?.ok_or("draft")?;
+        let pending=write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e|format!("{e:?}"))?;
+        assert!(matches!(pending,web::format::Num::Float(5.0)),"{pending:?}");
+        Ok(())
+    }
+
+    #[test]
+    fn action_write_toggle_keys_preserve_private_data() -> Result {
+        let f = Fixture::new()?;
+        assert!(matches!(f.write(json!({"quote_amount_limited":"true","quote_amount_limit":"100"}))?, Outcome::Committed(_)));
+        assert_eq!(f.stored()?["transient"]["quote_amount_limit_enabled_at"], "2026-09-10T12:00:30.123Z");
+        f.write(json!({"quote_amount_limited":"false"}))?;
+        let v = f.stored()?;
+        assert_eq!(v["transient"]["quote_amount_limit_enabled_at"], Value::Null);
+        assert_eq!(v["transient"]["failure"], 7);
+        Ok(())
+    }
+    #[test]
+    fn action_write_membership_removal_reentry_zero_and_scale() -> Result {
+        let f = Fixture::new()?;
+        let (eth, sol) = seed::add_eth_sol(&f.c,&f.seed);
+        for fields in [json!({"add_asset_id":eth.to_string()}), json!({"allocations":{f.seed.btc.to_string():"20",eth.to_string():"20"}})] {
+            assert!(matches!(f.write(fields)?, Outcome::Committed(_)));
+        }
+        let first: (String,String,String) = f.c.query_row("SELECT entered_at,created_at,updated_at FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2", (f.id,eth), |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+        f.c.execute("UPDATE bot_index_assets SET updated_at='2001-01-01 00:00:00' WHERE bot_id=?1 AND asset_id=?2", (f.id,eth))?;
+        f.write(json!({"remove_asset_id":eth.to_string()}))?;
+        let exited: (bool,String,String) = f.c.query_row("SELECT in_index,exited_at,updated_at FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2", (f.id,eth), |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+        assert_eq!(exited,(false,"2026-09-10 12:00:30.123456".into(),"2001-01-01 00:00:00".into()));
+        assert_eq!(f.stored()?["settings"]["allocations"][f.seed.btc.to_string()],json!(1.0));
+        f.write(json!({"add_asset_id":eth.to_string()}))?;
+        let returned: (String,String,Option<String>,f64) = f.c.query_row("SELECT entered_at,created_at,exited_at,target_allocation FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2", (f.id,eth), |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
+        assert_eq!(returned,(first.0,first.1,None,0.0));
+        f.write(json!({"allocations":{f.seed.btc.to_string():"20",eth.to_string():"20",sol.to_string():"20"}}))?;
+        let weight: f64 = f.c.query_row("SELECT target_allocation FROM bot_index_assets WHERE bot_id=?1 LIMIT 1", [f.id], |r| r.get(0))?;
+        assert_eq!(weight,0.333333);
+        let before = f.snapshot()?;
+        f.write(json!({"allocations":{f.seed.btc.to_string():"0",eth.to_string():"0",sol.to_string():"0"}}))?;
+        let members = |rows: Vec<String>| rows.into_iter().filter(|s| s.starts_with("bot_index_assets:")).collect::<Vec<_>>();
+        assert_eq!(members(before),members(f.snapshot()?));
+        Ok(())
+    }
+    #[test]
+    fn action_write_validation_retains_draft_rolls_back_all_rows() -> Result {
+        let f = Fixture::new()?; let before=f.snapshot()?;
+        let outcome=f.write(json!({"quote_amount":"0","label":"Rejected"}))?;
+        let Outcome::Invalid(response)=outcome else { return Err("expected invalid".into()) };
+        assert_eq!(response["settings"]["quote_amount"],json!(0.0));
+        assert!(!response["errors"].as_array().ok_or("errors")?.is_empty());
+        assert_eq!(f.snapshot()?,before); Ok(())
+    }
+    #[test]
+    fn action_write_guard_rolls_back_all_rows() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1",[f.id])?;
+        f.c.execute("DELETE FROM api_keys",[])?;
+        let before=f.snapshot()?;
+        assert!(matches!(f.write(json!({"quote_amount":"7"}))?,Outcome::GuardRefused(_)));
+        assert_eq!(f.snapshot()?,before); Ok(())
+    }
+    #[test]
+    fn action_write_renderer_and_commit_failure_roll_back() -> Result {
+        let f=Fixture::new()?; let before=f.snapshot()?;
+        let render=write::settings::<()>(&f.c,&f.ctx,f.seed.user_id,f.id,&Fixture::params(json!({"quote_amount":"7"}))?,|_,_,_| Err(WebError::Config("renderer failed".into())));
+        assert!(render.is_err()); assert_eq!(f.snapshot()?,before);
+        f.c.execute_batch("CREATE TABLE commit_parent(id INTEGER PRIMARY KEY); CREATE TABLE commit_child(id INTEGER REFERENCES commit_parent(id) DEFERRABLE INITIALLY DEFERRED); CREATE TRIGGER fail_commit AFTER UPDATE ON bots BEGIN INSERT INTO commit_child VALUES(42); END;")?;
+        assert!(f.write(json!({"quote_amount":"7"})).is_err()); assert_eq!(f.snapshot()?,before);
+        Ok(())
+    }
+    #[test]
+    fn action_write_second_browser_preserves_unrelated_setting() -> Result {
+        let f=Fixture::new()?;
+        let submitted=Fixture::params(json!({"quote_amount":"7"}))?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.limit_order_pcnt_distance',0.07) WHERE id=?1",[f.id])?;
+        write::settings(&f.c,&f.ctx,f.seed.user_id,f.id,&submitted,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e| format!("{e:?}"))?;
+        assert_eq!(f.stored()?["settings"]["limit_order_pcnt_distance"],json!(0.07)); Ok(())
+    }
+    #[test]
+    fn action_write_composition_locks_precede_scope_refusal() -> Result {
+        for pending in [false,true] {
+            let f=Fixture::new()?; let (eth,_)=seed::add_eth_sol(&f.c,&f.seed);
+            if pending { f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',1) WHERE id=?1",[f.id])?; }
+            else { f.c.execute("UPDATE bots SET status=1 WHERE id=?1",[f.id])?; }
+            let before=f.snapshot()?;
+            let Outcome::Invalid(response)=f.write(json!({"add_asset_id":eth.to_string()}))? else { return Err("expected composition lock".into()) };
+            assert!(response["errors"].to_string().contains("cannot be changed while the bot is running"),"{response}"); assert_eq!(f.snapshot()?,before);
+        }
+        Ok(())
+    }
+    #[test]
+    fn action_write_history_and_input_bounds() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute_batch(&format!("WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<100000) INSERT INTO transactions(bot_id,exchange_id,status,side,external_status,quote_amount_exec,created_at,updated_at) SELECT {},{},0,0,3,0,'2026-09-10 12:00:00','2026-09-10 12:00:00' FROM n",f.id,f.seed.exchange_id))?;
+        let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+        assert!(write::pending(&f.c,&draft.original,harness::at(NOW)).is_ok());
+        f.c.execute("INSERT INTO transactions(bot_id,exchange_id,status,side,external_status,quote_amount_exec,created_at,updated_at) VALUES(?1,?2,0,0,3,0,'2026-09-10 12:00:00','2026-09-10 12:00:00')",(f.id,f.seed.exchange_id))?;
+        let before=f.snapshot()?;
+        assert!(matches!(f.write(json!({"quote_amount":"7"}))?,Outcome::Unported(_)));
+        assert_eq!(f.snapshot()?,before);
+        assert!(matches!(f.write(json!({"quote_amount":"1e999"}))?,Outcome::Invalid(_)));
+        f.c.execute("UPDATE bots SET transient_data='{' WHERE id=?1",[f.id])?;
+        let before=f.snapshot()?; assert!(matches!(f.write(json!({"label":"bad"}))?,Outcome::Unported(_))); assert_eq!(f.snapshot()?,before);
+        Ok(())
+    }
+    #[test]
+    fn action_write_carry_decorator_oracle() -> Result {
+        // Fresh Rails runner measurements, Ruby 4.0.7: Accountable + Startable + conditions
+        // + SmartIntervalable + QuoteAmountLimitable, at the microsecond request clock.
+        let cases = [
+            ("plain", json!({}), json!({}), "2026-09-10 12:00:00", None, "5.0"),
+            ("future", json!({"start_time_enabled":true,"start_at":"2026-09-11T12:00:00Z"}), json!({}), "2026-09-10 12:00:00", None, "0.0"),
+            ("month", json!({"interval":"month"}), json!({}), "2026-01-31 12:00:00.123456", None, "35.0"),
+            ("microseconds", json!({"interval":"hour"}), json!({}), "2026-09-10 11:00:30.123455", None, "10.0"),
+            ("changed", json!({"interval":"hour"}), json!({"missed_quote_amount":"3.75"}), "2026-09-10 10:00:00", Some("2026-09-10 11:30:00"), "8.75"),
+            ("price_paused", json!({"price_limited":true}), json!({}), "2026-09-10 12:00:00", None, "0"),
+            ("price_resumed", json!({"price_limited":true}), json!({"price_limit_condition_met_at":"2026-09-10T11:30:00Z"}), "2026-09-10 10:00:00", None, "0.0"),
+            ("cap", json!({"quote_amount_limited":true,"quote_amount_limit":3.0}), json!({}), "2026-09-10 12:00:00", None, "3.0"),
+        ];
+        for (name,settings,transient,started,changed,expected) in cases {
+            let f=Fixture::new()?;
+            let mut stored=f.stored()?;
+            stored["settings"].as_object_mut().ok_or("settings")?.extend(settings.as_object().ok_or("settings")?.clone());
+            stored["transient"]["missed_quote_amount"]=json!("0.0");
+            stored["transient"].as_object_mut().ok_or("transient")?.extend(transient.as_object().ok_or("transient")?.clone());
+            f.c.execute("UPDATE bots SET settings=?1,transient_data=?2,started_at=?3,settings_changed_at=?4 WHERE id=?5",(stored["settings"].to_string(),stored["transient"].to_string(),started,changed,f.id))?;
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+            let amount=write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+            assert_eq!(amount.to_s(),expected,"{name}");
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_write_cancelled_awaiter_still_wakes_once() -> Result {
+        let f=Fixture::new()?;
+        let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+        let (entered_tx,entered_rx)=tokio::sync::oneshot::channel();
+        let (release_tx,release_rx)=std::sync::mpsc::channel();
+        let ctx=f.ctx.clone(); let app=ctx.app.clone(); let owner=f.seed.user_id; let id=f.id;
+        let params=Fixture::params(json!({"quote_amount":"7"}))?;
+        let job=tokio::spawn(async move { app.db(move |c| write::settings(c,&ctx,owner,id,&params,|_,_,_| {
+            let _=entered_tx.send(());
+            release_rx.recv_timeout(std::time::Duration::from_secs(10)).map_err(|e| WebError::Task(e.to_string()))?;
+            Ok(Prepared {response:(),broadcasts:vec![]})
+        })).await });
+        tokio::time::timeout(std::time::Duration::from_secs(10),entered_rx).await??;
+        job.abort(); let _=job.await;
+        release_tx.send(())?;
+        tokio::time::timeout(std::time::Duration::from_secs(10),notify.notified()).await?;
+        // A DB barrier proves the entire post-commit tail completed before checking a duplicate.
+        f.ctx.app.db(|_|Ok(())).await.map_err(|e|format!("{e:?}"))?;
+        assert_eq!(f.stored()?["settings"]["quote_amount"],json!(7.0));
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(20),notify.notified()).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_write_real_guard_variants_and_no_notifications() -> Result {
+        for kind in ["ineligible","unreadable","reconciling","untradable","failed"] {
+            let f=Fixture::new()?;
+            let (eth,_)=seed::add_eth_sol(&f.c,&f.seed);
+            match kind {
+                "ineligible" => { f.c.execute("INSERT INTO rules(type,status,user_id,created_at,updated_at) VALUES('Rule',1,?1,'2026-01-01','2026-01-01')",[f.seed.user_id])?; },
+                "unreadable" => { let id=seed::insert_bot(&f.c,&f.seed,&seed::BotSpec::weekly(5.0,"2026-01-01 00:00:00")); f.c.execute("UPDATE bots SET settings='{}' WHERE id=?1",[id])?; },
+                "reconciling" => { f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement',json(?1)) WHERE id=?2",(json!({"allocations":{f.seed.btc.to_string():1.0},"exchange_id":f.seed.exchange_id,"quote_asset_id":f.seed.quote}).to_string(),f.id))?; },
+                "untradable" => { f.c.execute("UPDATE bots SET status=1 WHERE id=?1",[f.id])?; f.c.execute("DELETE FROM api_keys",[])?; },
+                "failed" => { f.c.execute_batch("DROP TABLE rules")?; },
+                _=>return Err("guard variant".into()),
+            }
+            let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+            let before=f.snapshot()?;
+            let fields=if kind=="reconciling" {json!({"add_asset_id":eth.to_string()})} else {json!({"quote_amount":"7"})};
+            let Outcome::GuardRefused(response)=f.write(fields)? else {return Err(format!("{kind}: expected guard refusal").into())};
+            assert!(!response["errors"].as_array().ok_or("errors")?.is_empty());
+            if kind=="failed" { assert!(response.to_string().contains("the check could not be completed")); }
+            assert_eq!(f.snapshot()?,before,"{kind}");
+            assert!(tokio::time::timeout(std::time::Duration::from_millis(10),notify.notified()).await.is_err());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn action_write_ownership_and_stored_bounds() -> Result {
+        let f=Fixture::new()?;
+        let p=Fixture::params(json!({"quote_amount":"7"}))?;
+        let before=f.snapshot()?;
+        for (owner,id) in [(f.seed.user_id+1,f.id),(f.seed.user_id,i64::MAX)] {
+            let out=write::settings::<()>(&f.c,&f.ctx,owner,id,&p,|_,_,_|panic!("foreign bot rendered")).map_err(|e|format!("{e:?}"))?;
+            assert!(matches!(out,Outcome::Missing)); assert_eq!(f.snapshot()?,before);
+        }
+        f.c.execute("UPDATE bots SET status=3 WHERE id=?1",[f.id])?;
+        assert!(matches!(f.write(json!({"quote_amount":"7"}))?,Outcome::Missing));
+        f.c.execute("UPDATE bots SET status=2 WHERE id=?1",[f.id])?;
+        let mut deep=json!(0); for _ in 0..34 { deep=json!({"x":deep}); }
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.deep',json(?1)) WHERE id=?2",(deep.to_string(),f.id))?;
+        let before=f.snapshot()?;
+        assert!(matches!(f.write(json!({"label":"bound"}))?,Outcome::Unported(_)));
+        assert_eq!(f.snapshot()?,before);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_write_broadcasts_follow_commit_only() -> Result {
+        use futures_util::{SinkExt,StreamExt};
+        use tokio_tungstenite::tungstenite::{client::IntoClientRequest,Message};
+        use deltabadger::web::{cable,session};
+        let f=Fixture::new()?; f.stabilize()?;
+        let hash="$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+        f.c.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00'",[hash])?;
+        let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let address=listener.local_addr()?;
+        let app=f.ctx.app.clone();
+        struct Server(tokio::task::JoinHandle<()>);
+        impl Drop for Server { fn drop(&mut self) { self.0.abort(); } }
+        let _server=Server(tokio::spawn(async move { let _=axum::serve(listener,web::router(app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await; }));
+        let cookie=session::seal(&f.ctx.app.keys.session,&session::SessionData {user:Some((f.seed.user_id,hash.chars().take(29).collect())),..Default::default()},f.ctx.app.now());
+        let mut request=format!("ws://{address}/cable").into_client_request()?;
+        request.headers_mut().insert("origin",format!("http://{address}").parse()?);
+        request.headers_mut().insert("sec-websocket-protocol","actioncable-v1-json".parse()?);
+        request.headers_mut().insert("cookie",format!("_deltabadger_rust_session={cookie}").parse()?);
+        let (mut socket,_)=tokio::time::timeout(std::time::Duration::from_secs(5),tokio_tungstenite::connect_async(request)).await??;
+        let stream=format!("user_{}:bot_{}",f.seed.user_id,f.id);
+        let signed=cable::signed_stream_name(&f.ctx.app.keys.streams,&stream);
+        let identifier=json!({"channel":"Turbo::StreamsChannel","signed_stream_name":signed}).to_string();
+        socket.send(Message::Text(json!({"command":"subscribe","identifier":identifier}).to_string().into())).await?;
+        tokio::time::timeout(std::time::Duration::from_secs(5),async {
+            while let Some(message)=socket.next().await {
+                let value:Value=serde_json::from_str(message?.to_text()?)?;
+                if value["type"]=="confirm_subscription" { return Ok::<(),Box<dyn std::error::Error>>(()); }
+            }
+            Err("socket closed".into())
+        }).await??;
+        for (kind,fields) in [("success",json!({"quote_amount":"7"})),("noop",json!({"quote_amount":"7"})),("invalid",json!({"quote_amount":"0"})),("commit",json!({"quote_amount":"8"})),("renderer",json!({"quote_amount":"8"})),("guard",json!({"quote_amount":"8"}))] {
+            if kind=="commit" { f.c.execute_batch("CREATE TABLE commit_parent(id INTEGER PRIMARY KEY); CREATE TABLE commit_child(id INTEGER REFERENCES commit_parent(id) DEFERRABLE INITIALLY DEFERRED); CREATE TRIGGER fail_commit AFTER UPDATE ON bots BEGIN INSERT INTO commit_child VALUES(42); END;")?; }
+            if kind=="guard" {f.c.execute_batch("DROP TABLE rules")?;}
+            let before=f.snapshot()?;
+            let result=write::settings(&f.c,&f.ctx,f.seed.user_id,f.id,&Fixture::params(fields)?,|_,_,_| {
+                if kind=="renderer" {return Err(WebError::Config("renderer failed".into()));}
+                Ok(Prepared {response:(),broadcasts:vec![(stream.clone(),"committed".into())]})
+            });
+            if kind=="success" { assert!(matches!(result,Ok(Outcome::Committed(_)))); }
+            else { assert!(!matches!(result,Ok(Outcome::Committed(_)))); assert_eq!(f.snapshot()?,before); }
+            if kind=="commit" {f.c.execute_batch("DROP TRIGGER fail_commit")?;}
+            f.ctx.app.hub.broadcast(&stream,"barrier");
+            let mut messages=vec![];
+            tokio::time::timeout(std::time::Duration::from_secs(5),async {
+                while let Some(message)=socket.next().await {
+                    let value:Value=serde_json::from_str(message?.to_text()?)?;
+                    if let Some(text)=value["message"].as_str() {
+                        if text=="barrier" {return Ok::<(),Box<dyn std::error::Error>>(());}
+                        messages.push(text.to_string());
+                    }
+                }
+                Err("socket closed".into())
+            }).await??;
+            assert_eq!(messages,if kind=="success" {vec!["committed"]} else {vec![]},"{kind}");
+        }
+        socket.close(None).await?;
+        Ok(())
+    }
+
+    #[test]
+    fn action_write_stopped_stock_and_index_vectors() -> Result {
+        let f=Fixture::new()?;
+        // Reuse the recorder's complete stock/index model rows. No fake guard: every bot is
+        // stopped, and this fixture has no outstanding unsupported venue work.
+        f.c.execute_batch("PRAGMA foreign_keys=OFF; DELETE FROM api_keys; DELETE FROM bot_index_assets; DELETE FROM bots; DELETE FROM exchange_assets; DELETE FROM tickers; DELETE FROM assets; DELETE FROM exchanges; DELETE FROM users;")?;
+        let vectors=common::vectors();
+        let group=&vectors["bot_actions"];
+        for (table,rows) in group["rows"].as_object().ok_or("rows")? {
+            for row in rows.as_array().ok_or("table rows")? {
+                let row=row.as_object().ok_or("row")?;
+                let columns=row.keys().map(|k|format!("\"{k}\"")).collect::<Vec<_>>().join(",");
+                let values=row.values().map(|v|match v {
+                    Value::Null=>rusqlite::types::Value::Null,
+                    Value::Bool(b)=>rusqlite::types::Value::Integer(i64::from(*b)),
+                    Value::Number(n)=>n.as_i64().map(rusqlite::types::Value::Integer).unwrap_or_else(||rusqlite::types::Value::Real(n.as_f64().unwrap_or_default())),
+                    Value::String(s)=>rusqlite::types::Value::Text(s.clone()),
+                    v=>rusqlite::types::Value::Text(v.to_string()),
+                }).collect::<Vec<_>>();
+                f.c.execute(&format!("INSERT INTO {table} ({columns}) VALUES ({})",vec!["?";values.len()].join(",")),rusqlite::params_from_iter(values))?;
+            }
+        }
+        f.c.execute_batch("PRAGMA foreign_keys=ON; UPDATE users SET wash_sale_enabled=0; UPDATE bots SET status=2; DELETE FROM transactions WHERE external_status IN (0,1);")?;
+        for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test")] {
+            let encrypted=f.ctx.app.cipher.encrypt(value);
+            f.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,encrypted))?;
+        }
+        for id in [1,2,3] {
+            let bot=Draft::load(&f.c,1,id).map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
+            let root=bot.original.param_key();
+            let p=Params {json:Some(json!({root:{"quote_amount":"37.25"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
+            let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
+            let out=write::settings(&f.c,&f.ctx,1,id,&params,|_,_,draft|Ok(Prepared {response:draft.candidate.settings.clone(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?;
+            let Outcome::Committed(settings)=out else {return Err(format!("stock shape {id} did not commit").into())};
+            assert_eq!(settings.get("quote_amount"),Some(&json!(37.25)));
+        }
+        // A moved index slider writes settings and leaves every membership byte unchanged.
+        let before=f.snapshot()?.into_iter().filter(|r|r.starts_with("bot_index_assets:")).collect::<Vec<_>>();
+        let p=Params {json:Some(json!({"bots_dca_index":{"num_coins":"5","num_coins_rendered":"10","num_coins_ceiling":"5"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
+        let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
+        let outcome=write::settings(&f.c,&f.ctx,1,2,&params,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?;
+        assert!(matches!(outcome,Outcome::Committed(_)));
+        assert_eq!(f.snapshot()?.into_iter().filter(|r|r.starts_with("bot_index_assets:")).collect::<Vec<_>>(),before);
+        Ok(())
+    }
+
+}

@@ -373,8 +373,9 @@ impl App {
     }
 
     /// After a committed write the engine must act on (a bot started, stopped, deleted or archived, or its settings
-    /// saved): the engine re-reads its bots now instead of within a minute. Call it after `db` returned `Ok`, never
-    /// inside the closure. One permit is stored, so a call while the engine is mid-pass makes it pass again right after;
+    /// saved): the engine re-reads its bots now instead of within a minute. Call immediately after a successful
+    /// commit inside the `db` job, so dropping the HTTP future cannot lose the wake. One permit is stored,
+    /// so a call while the engine is mid-pass makes it pass again right after;
     /// wakes coalesce. With no engine attached it does nothing.
     pub fn wake_engine(&self) {
         if let Some(wake) = self.engine.get() {

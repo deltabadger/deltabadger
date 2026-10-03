@@ -93,10 +93,19 @@ impl Draft {
         let row = c.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1 AND user_id = ?2 AND status <> 3 AND type IN ('Bots::DcaMultiAsset', 'Bots::DcaIndex')",
             (id, owner), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))).optional()?;
         let Some((raw, transient)) = row else { return Ok(None) };
+        // Bound stored input before loading associations or cloning a renderable model.
+        if raw.len() > 65_536 || transient.len() > 65_536 { return Err(start::history_error()); }
+        let raw_settings = super::object(&raw, "bots.settings").map_err(|_| start::history_error())?;
+        let raw_transient = super::object(&transient, "bots.transient_data").map_err(|_| start::history_error())?;
+        for values in [&raw_settings, &raw_transient] {
+            action_params::validate(&Value::Object(values.clone())).map_err(|_| start::history_error())?;
+        }
+        let members: i64 = c.query_row("SELECT count(*) FROM (SELECT 1 FROM bot_index_assets WHERE bot_id=?1 LIMIT 1001)", [id], |r| r.get(0))?;
+        if members > 1000 { return Err(start::history_error()); }
         let Some(bot) = Bot::find(c, owner, id, For::Page)? else { return Ok(None) };
         let mut draft = Self::from_bot(bot);
-        draft.raw_settings = super::object(&raw, "bots.settings")?;
-        draft.raw_transient = super::object(&transient, "bots.transient_data")?;
+        draft.raw_settings = raw_settings;
+        draft.raw_transient = raw_transient;
         Ok(Some(draft))
     }
 
@@ -748,7 +757,7 @@ fn changes(before: &Map<String, Value>, after: &Map<String, Value>) -> JsonChang
 fn equal_option(a: Option<&Value>, b: Option<&Value>) -> bool {
     match (a, b) { (Some(a), Some(b)) => equal(a, b), (None, None) => true, _ => false }
 }
-fn equal(a: &Value, b: &Value) -> bool {
+pub(super) fn equal(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(key, value)| equal_option(Some(value), b.get(key))),
         (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| equal(a, b)),
