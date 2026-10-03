@@ -685,9 +685,9 @@ impl Bot {
         weights.iter().filter_map(|(asset_id, stored)| Some((asset_id.parse().ok()?, weight(stored)?))).collect()
     }
 
-    /// `allocations.values.sum(&:to_f)`: added in stored order, as a Float sum is.
+    /// `allocations.values.sum(&:to_f)`: Ruby's compensated Float sum, in stored order.
     pub fn allocations_total(&self) -> f64 {
-        self.allocations().iter().fold(0.0, |sum, (_, weight)| sum + weight)
+        float_sum(self.allocations().iter().map(|(_, weight)| *weight))
     }
 
     /// Bots::DcaMultiAsset::Allocatable#allocations_balanced?: within 0.001 of one. An index bot has no such rule.
@@ -817,4 +817,27 @@ fn index_row(c: &Connection, settings: &Map<String, Value>) -> Result<Option<Ind
 /// no-break space is not a space), and what is not positive, or is past the column's range, is no bot's id.
 pub fn id_from_path(segment: &str) -> Option<i64> {
     i64::try_from(super::format::to_i(segment)).ok().filter(|id| *id > 0)
+}
+
+/// Array#sum over Floats (array.c ary_sum): Kahan-Babuska compensated summation, not a left fold.
+// ponytail: copy of ruby::float_sum on the rust-baskets branch; use that one once it is on main.
+fn float_sum(xs: impl IntoIterator<Item = f64>) -> f64 {
+    let (mut f, mut c) = (0.0f64, 0.0f64);
+    for x in xs {
+        let t = f + x;
+        if f.abs() >= x.abs() { c += (f - t) + x; } else { c += (x - t) + f; }
+        f = t;
+    }
+    f + c
+}
+
+#[cfg(test)]
+mod tests {
+    /// Ruby: `([0.1] * 9 + [0.099]).sum` is 0.9990000000000001, inside allocations_balanced?'s 0.001; a left fold is not.
+    #[test]
+    fn allocations_add_up_as_ruby_adds_them() {
+        let weights = [0.1; 9].into_iter().chain([0.099]);
+        assert_eq!(super::float_sum(weights), 0.9990000000000001);
+        assert!((super::float_sum([0.1; 9].into_iter().chain([0.099])) - 1.0).abs() <= 0.001);
+    }
 }
