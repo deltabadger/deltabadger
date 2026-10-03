@@ -198,6 +198,19 @@ pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>) -> 
     }
 }
 
+/// The same answer from a handler that knows why it does not serve a page Rails serves. The reason
+/// goes to the log: the page names the request, which is what its reader can act on.
+pub fn refused(ctx: &Ctx, reason: &str) -> Response {
+    eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
+    not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())
+}
+
+/// The answer to a failed read of a bot: the 501 page when it failed on a stored number this build
+/// does not read (`bot::Unreadable`), and the failure itself otherwise.
+pub fn or_refused(ctx: &Ctx, error: WebError) -> Result<Response, WebError> {
+    if super::bot::unreadable(&error) { Ok(refused(ctx, super::bot::UNREADABLE)) } else { Err(error) }
+}
+
 pub async fn not_ported(request: Request) -> Response {
     // The path as it was requested: `entry` has taken the locale prefix off the URI by now.
     let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| params.fullpath.clone());

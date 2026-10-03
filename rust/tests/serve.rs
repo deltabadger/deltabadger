@@ -241,7 +241,8 @@ async fn the_bots_page_refuses_an_account_it_cannot_render_yet() {
     opened.primary.execute("DELETE FROM account_balances", []).unwrap();
 
     let bot = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    assert_eq!(browser.get(&app, "/bots").await.status, 501, "the bot list is the next plan");
+    let list = browser.get(&app, "/bots").await;
+    assert_eq!((list.status, list.header("location")), (302, Some(format!("/bots/{bot}").as_str())), "exactly one bot: the list is its page, which a later task serves");
     opened.primary.execute("UPDATE bots SET status = 3 WHERE id = ?1", [bot]).unwrap();
     assert_eq!(browser.get(&app, "/bots").await.status, 200, "a deleted bot does not count");
 }

@@ -206,18 +206,113 @@ module Pages
   def stopped(kind, spec = {}) = { 'kind' => kind }.merge(spec).merge('columns' => { 'status' => 2 }.merge(spec.fetch('columns', {})))
 
   # A bot that is scheduled since `started_at`, with the job Rails holds for it at its next checkpoint.
+  # A bot at work has acted at its last checkpoint: `acted` is the time Bot::ActionJob wrote then.
   def running(kind, started_at, spec = {})
     { 'kind' => kind, 'job' => 'checkpoint' }.merge(spec).merge('columns' => { 'status' => 1, 'started_at' => started_at }.merge(spec.fetch('columns', {})))
   end
 
   # The owner's three bots as the wizard leaves them.
+  def acted(at, transient = {}) = { 'transient' => { 'last_action_job_at' => at }.merge(transient) }
+
   def three = [{ 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }, { 'kind' => 'single' }, { 'kind' => 'index' }]
 
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
 
-  # Bot ids follow the order of 'bots'. The list itself is a later task: until then a page with bots is refused.
-  def bot_scenarios
-    { 'not_ported_bots_list' => with_bots(three, signed_in(get('/bots'))) }
+  # Bot ids follow the order of 'bots'.
+  def bot_scenarios = list_scenarios
+
+  # The same three at work: a history of orders and events on the first, a spending cap that has seen one
+  # buy on the second, an order resting on the third.
+  def traded
+    [running('basket', '2026-09-01T12:30:00Z', 'orders' => 'history', 'logs' => 'history', 'transient' => { 'last_action_job_at' => '2026-09-10T11:55:00.250Z' }),
+     running('single', '2026-09-08T13:30:00Z', { 'orders' => 'one_fill' }.merge(acted('2026-09-09T13:30:00.800Z', 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z'))),
+     running('index', '2026-09-07T13:30:00.5Z', { 'orders' => 'open' }.merge(acted('2026-09-07T13:30:01.100Z')))]
+  end
+
+  # Stopped bots that may not be started, each for its own reason, and three (7, 8 and 10) that may.
+  def blocked
+    cap = { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z' }
+    [stopped('single', 'settings' => { 'quote_amount_limit' => 40 }, 'orders' => 'one_fill', 'transient' => cap),
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-09-10T12:00:30Z' }),
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'friday', 'start_time_of_day' => '25:00' }),
+     stopped('index', 'stored' => { 'num_coins' => 1 }),
+     stopped('basket', 'stored' => { 'smart_interval_quote_amount' => 0.5 }),
+     stopped('basket', 'stored' => { 'price_limited' => true, 'price_limit_in_ticker_id' => 5 }),
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-09-10T12:00:31Z' }),
+     stopped('single', 'settings' => { 'quote_amount_limit' => 50.01 }, 'orders' => 'one_fill', 'transient' => cap),
+     # The starting time switched on and no mode ever chosen (9): the mode is the error, and the clock time is not looked at.
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_of_day' => '25:00' }),
+     # A switch that is null is off (10), whatever the rest says.
+     stopped('basket', 'settings' => { 'start_time_mode' => 'friday', 'start_time_of_day' => '25:00' }, 'stored' => { 'start_time_enabled' => nil }),
+     stopped('single', 'settings' => { 'allocations' => { '3' => 1.0 } }, 'delist' => 'IBIT')]
+  end
+
+  # Bots whose tick is due: the checkpoint has come, and Rails' job is no longer scheduled but ready,
+  # or blocked behind another job of the venue. Neither side has a time to count down to. The first
+  # is at its checkpoint to the microsecond; the fifth was started this second and has not acted yet.
+  # The sixth has not acted either, but its first run is still ahead: both sides count down to it.
+  # The seventh began its tick within its checkpoint's millisecond. The time it wrote then is cut to
+  # the millisecond and so reads as before the checkpoint; it has acted, and both sides count down.
+  def due
+    [running('single', '2026-09-09T12:00:30.123456Z', { 'job' => 'ready' }.merge(acted('2026-09-09T12:00:30.500Z'))),
+     running('index', '2026-09-03T12:00:29Z', { 'job' => 'blocked' }.merge(acted('2026-09-03T12:00:29.400Z'))),
+     running('basket', '2026-09-09T12:00:30Z', { 'job' => 'blocked' }.merge(acted('2026-09-10T09:36:30.200Z'))),
+     running('single', '2026-09-09T12:00:00Z', { 'job' => 'blocked', 'columns' => { 'status' => 5 }, 'orders' => 'failed' }.merge(acted('2026-09-09T12:00:00.300Z'))),
+     running('single', '2026-09-10T12:00:30Z', 'job' => 'blocked'),
+     running('single', '2026-09-11T06:30:00Z'),
+     running('single', '2026-09-09T12:00:30.000456Z', acted('2026-09-10T12:00:30.000Z'))]
+  end
+
+  # A second user with a bot of their own (3), beside the owner's two and one the owner deleted (4).
+  def two_users
+    { 'user' => owner, 'install' => 'alpaca', 'extra_users' => [owner('email' => 'second@example.com', 'admin' => false)],
+      'bots' => [{ 'kind' => 'basket' }, { 'kind' => 'single' }, { 'kind' => 'index', 'owner' => 'second@example.com' },
+                 { 'kind' => 'single', 'columns' => { 'status' => 3 } }] }
+  end
+
+  # GET /bots with bots.
+  def list_scenarios
+    holdings = { 'QQQM' => 5000, 'IBIT' => 2500.5, 'USD' => 120, 'NVDA' => 30, 'MSFT' => 20, 'BTC' => 900 }
+    {
+      'bots_list' => with_bots(three, signed_in(get('/bots'), get('/de/bots'), get('/bots', 'Turbo-Frame' => 'modal'))),
+      # One bot in every state the status bar and the button can show, and the four filters over them.
+      'bots_list_statuses' => with_bots(
+        [running('basket', '2026-09-09T12:30:00Z', 'transient' => { 'last_action_job_at' => '2026-09-10T11:55:00.250Z' }),
+         { 'kind' => 'single', 'columns' => { 'status' => 2, 'stop_message_key' => 'bot.settings.extra_amount_limit.amount_spent' },
+           'transient' => { 'last_action_job_at' => '2026-09-09T12:30:00.000Z' } },
+         running('index', '2026-09-07T13:30:00.5Z', acted('2026-09-07T13:30:01.100Z')),
+         { 'kind' => 'basket', 'columns' => { 'status' => 4, 'started_at' => '2026-09-09T12:30:00Z' } },
+         running('single', '2026-09-09T12:30:00Z', { 'columns' => { 'status' => 5 }, 'orders' => 'failed' }.merge(acted('2026-09-09T12:30:00.700Z'))),
+         { 'kind' => 'single', 'columns' => { 'status' => 6, 'started_at' => '2026-09-09T12:30:00Z' } },
+         { 'kind' => 'basket', 'columns' => { 'status' => 7 } },
+         { 'kind' => 'index', 'columns' => { 'status' => 3 } },
+         { 'kind' => 'basket', 'columns' => { 'status' => 2 } },
+         running('single', '2026-09-10T11:59:00Z', { 'columns' => { 'status' => 5 } }.merge(acted('2026-09-10T11:59:00.600Z'))),
+         { 'kind' => 'basket', 'settings' => { 'allocations' => { '2' => 0.5, '3' => 0.4 } } }],
+        signed_in(get('/bots'), get('/bots?filter=active'), get('/bots?filter=inactive'), get('/bots?filter=archived'), get('/bots?filter=all'),
+                  get('/bots?filter=zz'), get('/de/bots?filter=active'))
+      ),
+      # Exactly one bot: the list is its page.
+      'bots_list_single' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))],
+                                      signed_in(get('/bots').merge('expect' => 302), get('/de/bots'), get('/bots?filter=archived'))),
+      'bots_list_archived_only' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
+                                             signed_in(get('/bots'), get('/bots?filter=archived'))),
+      'bots_list_start_blocked' => with_bots(blocked, signed_in(get('/bots'))),
+      'bots_list_key_incorrect' => with_bots(three, signed_in(get('/bots')), 'api_keys' => { 'alpaca' => 'incorrect', 'ibkr' => 'correct' }),
+      'bots_list_no_key' => with_bots(three, signed_in(get('/bots')), 'api_keys' => {}),
+      'bots_list_of_another_user' => two_users.merge('steps' => signed_in(get('/bots'))),
+      # The navbar's tracker icon as a ring of the account's holdings.
+      'bots_list_ring' => with_bots(three, signed_in(get('/bots')), 'balances' => holdings),
+      'bots_list_ring_with_cash' => with_bots(three, signed_in(get('/bots')), 'user' => owner('tracker_settings' => { 'show_cash' => true }),
+                                                                             'balances' => { 'QQQM' => 50, 'USD' => 120 }),
+      # A basket of four (its tile names three while they fit) and a basket of coins.
+      'bots_list_wide' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'coins' }, running('wide', '2026-08-31T10:00:00Z', acted('2026-08-31T10:00:00.900Z'))],
+                                    signed_in(get('/bots'))),
+      # Bots that have traded: the account's total is on its way, and a tile says whether orders are resting.
+      'bots_list_traded' => with_bots(traded, signed_in(get('/bots'), get('/de/bots'))),
+      'bots_list_hidden' => with_bots(traded, signed_in(get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'bots_list_due' => with_bots(due, signed_in(get('/bots')))
+    }
   end
 
   def connect(dir) = ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))

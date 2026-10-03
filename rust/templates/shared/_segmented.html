@@ -1,0 +1,20 @@
+{#- shared/_segmented.html.erb without its trailing action, which neither page uses: options with a
+    link are navigation, options without are a radio group. -#}
+<div class="segmented{% if fluid %} segmented--fluid{% endif %}"{% if !links %} role="radiogroup"{% endif %} aria-label="{{ label }}" data-controller="segmented" data-action="click->segmented#toggle"{% if let Some(key) = key %} data-segmented-key="{{ key }}"{% endif %}>
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+{% for option in options %}
+{% if let Some(href) = option.href %}
+            <a class="segmented__option{% if option.active %} is-on{% endif %}"{% if option.active %} aria-current="page"{% endif %} data-value="{{ option.value }}" data-segmented-target="option" data-action="segmented#select" href="{{ href }}">{{ option.label }}</a>
+{% else %}
+            <button type="button" class="segmented__option{% if option.active %} is-on{% endif %}" role="radio" aria-checked="{{ option.active }}" tabindex="{% if option.active %}0{% else %}-1{% endif %}" data-value="{{ option.value }}" data-segmented-target="option" data-action="segmented#select keydown->segmented#keys">{{ option.label }}</button>
+{% endif %}
+{% endfor %}
+      </div>
+    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    {% include "svg/_16x16_down.html" %}
+</span></div>

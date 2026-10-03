@@ -2,6 +2,7 @@
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
 //! Read-only: nothing here writes.
 pub mod start;
+pub mod status;
 
 use super::format::Num;
 use super::WebError;

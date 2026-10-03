@@ -1193,3 +1193,60 @@ mod bot_rows {
         }
     }
 }
+
+mod status_bar {
+    use super::common;
+    use deltabadger::web::bot::status;
+
+    #[test]
+    fn the_progress_bar_is_as_wide_as_rails_draws_it() {
+        for case in common::vectors()["bot_pages"]["progress"].as_array().unwrap() {
+            let time = |key: &str| case[key].as_str().unwrap().parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+            let from = status::Instant::from_micros(time("from").timestamp_micros());
+            assert_eq!(status::progress_width(time("now"), Some(&from), Some(time("to"))), case["width"].as_str().unwrap(), "{case}");
+        }
+        assert_eq!(status::progress_width("2026-09-10T12:00:30Z".parse().unwrap(), None, Some("2026-09-11T12:00:30Z".parse().unwrap())), "0", "no start: nothing to measure");
+    }
+
+    #[test]
+    fn a_checkpoint_is_held_where_rails_job_table_holds_it() {
+        let cases = common::vectors()["bot_pages"]["job_time"].as_array().unwrap().clone();
+        let micros = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros();
+        let mut early = 0;
+        for case in &cases {
+            let (checkpoint, job) = (micros(case["checkpoint"].as_str().unwrap()), micros(case["job"].as_str().unwrap()));
+            assert_eq!(status::job_time_us(checkpoint), job, "{case}");
+            early += usize::from(job < checkpoint);
+        }
+        assert!(cases.len() > 60 && early > 10 && early < cases.len() - 10, "{early} of {} came back early: the vectors hold both kinds", cases.len());
+    }
+
+    /// A checkpoint is a time out of a row plus Floats, and Rails takes the Float of that exact sum
+    /// when it enqueues the job: the time the job is held at, the second `iso8601` prints, `to_f`
+    /// itself and `Time#-` in both directions, for checkpoints that are not on the microsecond grid.
+    #[test]
+    fn a_checkpoint_off_the_microsecond_grid_is_held_and_measured_as_ruby_does() {
+        use deltabadger::engine::schedule::Unrounded;
+        let cases = common::vectors()["bot_pages"]["exact_times"].as_array().unwrap().clone();
+        let time = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+        let float = |value: &serde_json::Value| f64::from_bits(u64::from_str_radix(value["bits"].as_str().unwrap(), 16).unwrap());
+        let (mut early, mut off_grid) = (0, 0);
+        for case in &cases {
+            let anchor = time(case["anchor"].as_str().unwrap()).timestamp_micros();
+            let exact = status::Instant::of(&Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] });
+            let rounded = Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] }.rounded();
+            let job = time(case["job"].as_str().unwrap()).timestamp_micros();
+            assert_eq!(exact.held_micros(), job, "{case}");
+            assert_eq!(exact.floor_micros().div_euclid(1_000_000), time(case["second"].as_str().unwrap()).timestamp(), "{case}");
+            assert_eq!(exact.to_f().to_bits(), float(&case["to_f"]).to_bits(), "{case}");
+            let other = status::Instant::from_micros(time(case["other"].as_str().unwrap()).timestamp_micros());
+            assert_eq!(other.since(&exact).to_bits(), float(&case["since"]).to_bits(), "{case}");
+            assert_eq!(exact.since(&other).to_bits(), float(&case["until"]).to_bits(), "{case}");
+            off_grid += usize::from(status::job_time_us(rounded) != job);
+            early += usize::from(job < rounded);
+        }
+        // The reviewed case: 7 a day in slices of 1 from 12:00:30.000456 is next due at 15:26:12.857598857…, held at …598, not …599.
+        assert!(cases.iter().any(|case| case["job"] == "2026-10-01T15:26:12.857598Z"), "the reviewed case is recorded");
+        assert!(cases.len() > 300 && off_grid > 30 && early > 30, "{} cases, {off_grid} where the rounded checkpoint would be held elsewhere, {early} held before it", cases.len());
+    }
+}
