@@ -145,6 +145,16 @@ impl Bot {
         let (anchor, interval, quote) = (self.started_at_us?, self.interval()?, self.quote_amount()?);
         Some(format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount())))
     }
+    /// What an amount-limit stop is counted under: the bot's start (a fresh start moves it) and its limit settings. A count
+    /// whose key no longer matches lost its cause (the user started the bot afresh, or changed or switched off the limit).
+    pub fn amount_limit_key(&self) -> String {
+        serde_json::json!([self.started_at_us, self.settings.get("quote_amount_limited"), self.settings.get("quote_amount_limit")]).to_string()
+    }
+    /// transient_data.rust_amount_limit_stops_pending: its count, and whether it was counted under this bot's current key.
+    pub fn pending_amount_limit_stops(&self) -> Option<(i64, bool)> {
+        let v = self.transient.get("rust_amount_limit_stops_pending").filter(|v| !v.is_null())?;
+        Some((v["count"].as_i64().unwrap_or(0), v["key"].as_str() == Some(self.amount_limit_key().as_str())))
+    }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }
     pub fn last_action_job_at_us(&self) -> Result<Option<i64>, EngineError> {

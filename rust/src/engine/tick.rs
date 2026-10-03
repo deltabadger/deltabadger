@@ -56,17 +56,24 @@ pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, now: DateTime<Utc>) ->
 /// Bot::StopJob per callback: Bot::Lifecycle#stop writes a `stopped` log every time it succeeds, a stopped bot included
 /// (lifecycle.rb:91-115). Each stop consumes one count in its own transaction, so a crash replays exactly the rest: at the end
 /// of the tick that swept, at the next start (run::step), or at the handback.
+/// A count whose key (Bot::amount_limit_key) no longer matches the bot is discarded and logged, never run.
 pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     loop {
         let tx = model::immediate(c)?;
-        let n: i64 = tx.query_row("SELECT coalesce(json_extract(transient_data, '$.rust_amount_limit_stops_pending'), 0) FROM bots WHERE id = ?1",
-                                  [bot_id], |r| r.get(0))?;
-        if n <= 0 { return Ok(()); }
+        let Some((n, current)) = model::load_bot(&tx, bot_id)?.pending_amount_limit_stops() else { return Ok(()) };
+        let remove = "UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1";
+        if !current || n <= 0 {
+            // Counted before the bot was started afresh or its limit changed: Rails' Bot::StopJob ran before either.
+            tx.execute(remove, [bot_id])?;
+            tx.commit()?;
+            if !current { super::log(&format!("[engine] bot {bot_id}: {n} amount-limit stop(s) counted before a fresh start or a limit change; discarded")); }
+            return Ok(());
+        }
         stop_for_amount_limit(&tx, bot_id, now)?;
         if n == 1 {
-            tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1", [bot_id])?;
+            tx.execute(remove, [bot_id])?;
         } else {
-            tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', ?1) WHERE id = ?2", params![n - 1, bot_id])?;
+            tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending.count', ?1) WHERE id = ?2", params![n - 1, bot_id])?;
         }
         tx.commit()?;
     }
@@ -131,13 +138,26 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
     // A stop an earlier tick counted but could not run (an error outlasted it): Rails' Bot::StopJob ran long before now.
     run_pending_amount_limit_stops(c, bot_id, clock.now())?;
     let outcome = tick_inner(c, venue, bot_id, clock, attempts, recovered, cx).await;
-    // The Bot::StopJobs this tick's sweep enqueued run after the run, whatever its outcome (polling::apply_committed counted
-    // them), unless the engine itself can no longer write.
+    end_of_tick(c, bot_id, clock.now(), outcome)
+}
+
+/// The Bot::StopJobs a tick's sweep enqueued run after the run, whatever its outcome (polling::apply_committed counted
+/// them), unless the engine itself can no longer write. When the tick and the stops both fail, both errors are reported:
+/// an error that ends the engine wins, and the other is logged.
+pub fn end_of_tick(c: &Connection, bot_id: i64, now: DateTime<Utc>, outcome: Result<TickOutcome, EngineError>) -> Result<TickOutcome, EngineError> {
     if let Err(EngineError::Lease(_) | EngineError::Store(_)) = outcome { return outcome; }
-    let drained = run_pending_amount_limit_stops(c, bot_id, clock.now());
-    let outcome = outcome?;
-    drained?;
-    Ok(outcome)
+    match (outcome, run_pending_amount_limit_stops(c, bot_id, now)) {
+        (outcome, Ok(())) => outcome,
+        (Ok(_), Err(drain)) => Err(drain),
+        (Err(tick), Err(drain @ (EngineError::Lease(_) | EngineError::Store(_)))) => {
+            super::log(&format!("[engine] bot {bot_id}: the tick failed: {tick:?}"));
+            Err(drain)
+        }
+        (Err(tick), Err(drain)) => {
+            super::log(&format!("[engine] bot {bot_id}: the amount-limit stops after a failed tick also failed: {drain:?}"));
+            Err(tick)
+        }
+    }
 }
 
 async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {

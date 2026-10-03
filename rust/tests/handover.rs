@@ -265,7 +265,14 @@ async fn a_settings_write_cannot_strand_an_unresolved_order_and_handback_settles
 /// A swept fill spent the cap, then the engine died before its tick's end ran the stop; the operator hands back instead of
 /// restarting. The handback runs the pending stop, as the engine's next start would have.
 #[tokio::test(flavor = "current_thread")]
-async fn a_crash_then_handback_lands_the_pending_amount_limit_stop() {
+async fn a_crash_then_handback_lands_the_pending_amount_limit_stop() { crash_then_handback(false).await }
+
+/// The same, but the cap was raised before the handback: the stop's cause is gone, so the handback discards it and hands the
+/// bot back scheduled.
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_then_cap_raise_then_handback_discards_the_pending_amount_limit_stop() { crash_then_handback(true).await }
+
+async fn crash_then_handback(raised: bool) {
     use common::scripted::{ok, script, venue};
     let at: DateTime<Utc> = "2026-09-08T10:00:00.5Z".parse().unwrap();
     let dir = common::rails_install();
@@ -282,14 +289,21 @@ async fn a_crash_then_handback_lands_the_pending_amount_limit_stop() {
         "notional": "60", "qty": null, "filled_qty": "0.0009375", "filled_avg_price": "64000", "limit_price": null }))] }));
     // The tick's sweep commits the fill and counts the stop; the engine dies before the tick's end.
     deltabadger::engine::polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, b).unwrap(), at).await.unwrap();
-    assert_eq!(count(&o.primary, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots"), 1);
-    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(), 0,
-               "the stopped bot is not handed back as scheduled");
-    let (status, key, pending): (i64, String, Option<i64>) = o.primary.query_row(
+    assert_eq!(count(&o.primary, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots"), 1);
+    if raised {
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limit', 200.0) WHERE id = ?1", [b]).unwrap();
+    }
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(),
+               raised as usize, "a stopped bot is not handed back as scheduled");
+    let (status, key, pending): (i64, Option<String>, Option<String>) = o.primary.query_row(
         "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots WHERE id = ?1", [b],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
-    assert_eq!((status, key.as_str(), pending), (deltabadger::enums::BotStatus::Stopped as i64, deltabadger::engine::tick::AMOUNT_SPENT, None));
-    assert_eq!(count(&o.primary, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 1);
+    if raised {
+        assert_eq!((status, key, pending), (deltabadger::enums::BotStatus::Scheduled as i64, None, None));
+    } else {
+        assert_eq!((status, key.as_deref(), pending), (deltabadger::enums::BotStatus::Stopped as i64, Some(deltabadger::engine::tick::AMOUNT_SPENT), None));
+    }
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), !raised as i64);
 }
 
 /// A settled order deferred the next buy to the next weekly checkpoint, then the engine died and the operator handed back.

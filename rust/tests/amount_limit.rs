@@ -210,14 +210,14 @@ async fn a_crash_between_a_swept_fill_and_its_stop_replays_the_stop_at_the_next_
     // stamp makes the bot not due at the restart, so only the replay can stop it.
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-08T10:00:00.500Z') WHERE id = ?1", [id]).unwrap();
     polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), at("2026-09-08T10:00:00.5Z")).await.unwrap();
-    assert_eq!(one::<i64>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots"), 1, "persisted with the fill");
+    assert_eq!(one::<i64>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots"), 1, "persisted with the fill");
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Scheduled);
     drop(o);
     let lock = deltabadger::lease::lock(&paths, at("2026-09-08T10:05:00Z")).unwrap();
     let mut e = deltabadger::engine::run::Engine::new(store::open(&paths).unwrap().primary, ScriptedFactory(t.clone()), seed::cipher(), lock);
     deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-08T10:05:00Z"))).await.unwrap();
     let (status, key, pending): (i64, String, Option<i64>) = e.primary.query_row(
-        "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots WHERE id = ?1", [id],
+        "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots WHERE id = ?1", [id],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!((status, key.as_str(), pending), (BotStatus::Stopped as i64, tick::AMOUNT_SPENT, None));
     let stopped: i64 = e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'", [], |r| r.get(0)).unwrap();
@@ -236,7 +236,7 @@ async fn two_swept_fills_that_spend_the_cap_stop_the_bot_twice_as_two_stop_jobs_
     // Each fill's after_commit finds the cap spent and enqueues its own Bot::StopJob; each writes a `stopped` log.
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 2);
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
-    assert!(one::<Option<i64>>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots").is_none());
+    assert!(one::<Option<i64>>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots").is_none());
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -295,9 +295,10 @@ async fn a_swept_stop_lands_when_the_tick_then_fails_on_the_database() {
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await;
     assert!(out.is_err(), "{out:?}");
     let (status, key, pending): (i64, String, Option<i64>) = o.primary.query_row(
-        "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots WHERE id = ?1", [id],
+        "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots WHERE id = ?1", [id],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!((status, key.as_str(), pending), (BotStatus::Stopped as i64, tick::AMOUNT_SPENT, None));
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 1);
 }
 
 /// A stop an earlier tick counted but could not run (its database error outlasted the tick) lands before the next tick sizes
@@ -305,14 +306,73 @@ async fn a_swept_stop_lands_when_the_tick_then_fails_on_the_database() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_stop_left_pending_by_an_earlier_tick_lands_before_the_next_tick_sizes() {
     let (_d, o, s) = common::install_alpaca();
-    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.005)).transient("rust_amount_limit_stops_pending", json!(1)));
-    seed::insert_tx(&o.primary, &s, id, &closed("OC", "60"));
-    let t = script(json!({}));
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.005)));
+    seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-S"), 0, None, Some("60"), Some("64000"), None, None, IN));
+    let t = script(json!({ "GET /v2/orders/OTX-S": [filled("OTX-S", "0.0009375")] }));
+    // The earlier tick's sweep counted the stop; its end never ran it.
+    polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), at("2026-09-08T10:00:00.5Z")).await.unwrap();
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), 0, "the 0.005 left is never sized");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'order_skipped'"), 0);
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 1);
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
-    assert!(one::<Option<i64>>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots").is_none());
+    assert!(one::<Option<i64>>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots").is_none());
+}
+
+/// One swept fill that spent the 60 cap, its stop counted and not yet run (the tick then ended in an error that skipped it).
+async fn counted_stop() -> (tempfile::TempDir, store::Opened, i64) {
+    let (d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.0)));
+    seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-S"), 0, None, Some("60"), Some("64000"), None, None, IN));
+    let t = script(json!({ "GET /v2/orders/OTX-S": [filled("OTX-S", "0.0009375")] }));
+    polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), at("2026-09-08T10:00:00.5Z")).await.unwrap();
+    assert_eq!(one::<i64>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots"), 1);
+    (d, o, id)
+}
+fn stops(o: &store::Opened) -> i64 { one(o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'") }
+fn pending(o: &store::Opened) -> Option<String> { one(o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots") }
+
+/// Rails' Bot::StopJob ran right after the fill, long before the user started the bot afresh; a stop counted before that
+/// start is not run on the restarted bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_counted_stop_is_discarded_after_a_fresh_start() {
+    let (_d, o, id) = counted_stop().await;
+    o.primary.execute("UPDATE bots SET started_at = '2026-09-08 11:00:00' WHERE id = ?1", [id]).unwrap();
+    let out = tick::tick(&o.primary, &venue(&script(json!({}))), id, &FixedClock(at("2026-09-08T11:00:00.5Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { .. }), "{out:?}");
+    assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stops(&o), pending(&o)), (BotStatus::Scheduled, 0, None));
+}
+
+/// A stop counted under a 60 cap is not run once the user raised the cap: the cause is gone.
+#[tokio::test(flavor = "current_thread")]
+async fn a_counted_stop_is_discarded_after_the_cap_is_raised() {
+    let (_d, o, id) = counted_stop().await;
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limit', 200.0) WHERE id = ?1", [id]).unwrap();
+    let t = script(json!({}));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:01Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stops(&o), pending(&o)), (BotStatus::Scheduled, 0, None));
+    assert_eq!(t.posted_orders()[0]["notional"], "60.00", "120 owed − 60 invested, 140 left under the raised cap");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_counted_stop_on_an_unchanged_bot_stops_it_exactly_once() {
+    let (_d, o, id) = counted_stop().await;
+    tick::tick(&o.primary, &venue(&script(json!({}))), id, &FixedClock(at("2026-09-08T10:00:01Z")), &mut Attempts::default()).await.unwrap();
+    assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stops(&o), pending(&o)), (BotStatus::Stopped, 1, None));
+    tick::tick(&o.primary, &venue(&script(json!({}))), id, &FixedClock(at("2026-09-08T10:00:02Z")), &mut Attempts::default()).await.unwrap();
+    assert_eq!(stops(&o), 1, "nothing left to run twice");
+}
+
+/// After a lease or store error the engine no longer writes: the counted stop stays for the next start or the handback.
+#[tokio::test(flavor = "current_thread")]
+async fn a_lease_or_store_error_leaves_the_counted_stop_unrun() {
+    for err in [deltabadger::engine::EngineError::Lease(deltabadger::lease::LeaseError::Locked),
+                deltabadger::engine::EngineError::Store(store::StoreError::Behind { missing: vec![] })] {
+        let (_d, o, id) = counted_stop().await;
+        assert!(tick::end_of_tick(&o.primary, id, at("2026-09-08T10:00:01Z"), Err(err)).is_err());
+        assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stops(&o)), (BotStatus::Scheduled, 0));
+        assert_eq!(one::<i64>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots"), 1);
+    }
 }

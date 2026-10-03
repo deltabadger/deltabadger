@@ -160,7 +160,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
         let now_us = clock.now().timestamp_micros();
         for (tx, bot) in outstanding_orders(&e.primary)? { e.polls.entry(tx).or_insert((bot, now_us, Attempts::default())); }
         // Amount-limit stops a swept fill committed before a crash (polling::apply_committed): Rails' StopJobs would have run.
-        let mut s = e.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') > 0 ORDER BY id")?;
+        let mut s = e.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
         let pending = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
         for id in pending { tick::run_pending_amount_limit_stops(&e.primary, id, clock.now())?; }
