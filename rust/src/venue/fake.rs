@@ -23,6 +23,7 @@ struct State {
     on_add: Option<Rc<dyn Fn()>>,   // runs while AddOrder "awaits its reply": a test's concurrent writer
     on_query: Option<Rc<dyn Fn()>>, // the same, while QueryOrders does (the pre-tick sweep)
     on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
+    on_price: Option<Rc<dyn Fn()>>,  // the same, while a price read does
     hold_add: Option<Rc<tokio::sync::Notify>>, // AddOrder's reply waits for it: a tick held in hand while a test acts
     latency: Option<std::time::Duration>,      // every call first awaits this much timer: a slow venue whose await yields
 }
@@ -89,6 +90,7 @@ impl FakeVenue {
     pub fn on_add(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_add = Some(Rc::new(f)); self }
     pub fn on_query(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_query = Some(Rc::new(f)); self }
     pub fn on_lookup(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_lookup = Some(Rc::new(f)); self }
+    pub fn on_price(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_price = Some(Rc::new(f)); self }
     /// AddOrder records the order and runs `on_add`, then waits for `gate.notify_one()` before it answers: a tick held
     /// in hand at an await point while a test stops the process or writes as the web does.
     pub fn hold_add(self, gate: Rc<tokio::sync::Notify>) -> Self { self.s.borrow_mut().hold_add = Some(gate); self }
@@ -126,6 +128,8 @@ impl Venue for FakeVenue {
 
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
         self.wait().await;
+        let hook = self.s.borrow().on_price.clone();
+        if let Some(f) = hook { f(); }
         let body = self.body("/0/public/Ticker").ok_or_else(|| VenueError::Transient("no scripted Ticker".into()))?;
         check(&body)?;
         let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;

@@ -61,6 +61,18 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     Ok((&(&owed + &bot.missed_quote_amount()?) - &invested).max(BigDec::zero()))
 }
 
+/// Bot::Lifecycle#start(start_fresh: false)'s `set_orders_now`, for a stopped bot the web continued. `use_delayed_first` is
+/// always false there (only a fresh start computes a start time), so the bot runs at once unless #restarting_within_interval?:
+/// it had ticked (last_action_job_at is set) and what it owes, capped as QuoteAmountLimitable caps it, is under one
+/// `effective_quote_amount` (a smart split's amount when the split is on). Only the buy side: a selling bot is refused.
+pub fn continue_runs_now(c: &Connection, bot: &Bot, now_us: i64) -> Result<bool, EngineError> {
+    if bot.last_action_job_at_us()?.is_none() { return Ok(true); }
+    let mut owed = pending_quote_amount(c, bot, now_us)?;
+    if let Some(available) = quote_amount_available(c, bot)? { if available < owed { owed = available; } }
+    let effective = bot.smart_quote_amount().or(bot.quote_amount()).ok_or_else(|| EngineError::Data("quote_amount".into()))?;
+    Ok(owed >= BigDec::from_f64(effective).map_err(data)?)
+}
+
 #[derive(Debug, Clone)]
 pub struct OrderPlan {
     pub ticker: Ticker, pub limit: bool, pub price: BigDec,

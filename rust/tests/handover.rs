@@ -336,3 +336,21 @@ async fn a_deferral_crash_then_handback_then_rails_tick_buys_nothing_before_the_
                                   WHERE j.class_name = 'Bot::ActionJob'", [], |r| r.get(0)).unwrap();
     assert!(at.starts_with("2026-09-08 10:00:00"), "Rails' first run is the deferred checkpoint, not earlier: {at}");
 }
+
+/// The web continued a bot and the engine never passed before the handback: the request is the engine's own key, so it goes.
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_removes_an_unhandled_continue_request() {
+    let at: DateTime<Utc> = "2026-09-08T12:00:00Z".parse().unwrap();
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, at).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .transient("rust_continue_start", json!({ "requested_at": "2026-09-08T11:59:59Z" })));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", at).unwrap();
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(), 1);
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    assert!(bot.transient.get("rust_continue_start").is_none(), "the engine's key does not reach Rails");
+    assert_eq!(bot.status, deltabadger::enums::BotStatus::Scheduled);
+}

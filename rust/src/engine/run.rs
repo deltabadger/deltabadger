@@ -3,7 +3,7 @@
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
 use super::schedule::{checkpoints, effective};
 use super::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
-use super::{eligibility, model, placement, polling, Clock, EngineError};
+use super::{amount, eligibility, model, placement, polling, Clock, EngineError};
 use crate::crypto::Cipher;
 use crate::lease::EngineLock;
 use crate::venue::VenueFactory;
@@ -237,9 +237,41 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     for (_, at, _) in e.polls.values() { *wake = (*wake).min(*at); }
 }
 
+/// The web continued this bot (Bot::Lifecycle#start(start_fresh: false)) and left `rust_continue_start` for the engine.
+/// Rails' decision (amount::continue_runs_now) becomes a persisted wait: one that has ended (run now) or one for the next
+/// checkpoint. In the same transaction the request goes, with any amount-limit stop still counted (the user's resume
+/// overrides a stop Rails would already have run) and the old wait (the decision replaces it). A request whose value is not
+/// `{"requested_at": ISO 8601}` is logged; the decision still runs.
+fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let tx = model::immediate(c)?;
+    let bot = model::load_bot(&tx, id)?;
+    let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(()) };
+    if request.get("requested_at").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {
+        super::log(&format!("[engine] warning: bot {id}: rust_continue_start {request} is malformed; removed, and the bot continues as Rails would"));
+    }
+    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending', \
+                '$.rust_defer_until') WHERE id = ?1", [id])?;
+    let decision = if bot.started_at_us.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
+        "never ticks" // step_bot skips it as before
+    } else if amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
+        placement::run_now(&tx, &bot, now)?;
+        "runs now"
+    } else {
+        placement::defer_to_next_checkpoint(&tx, &bot, now)?;
+        "waits for its next checkpoint"
+    };
+    tx.commit()?;
+    super::log(&format!("[engine] bot {id}: continued; {decision}"));
+    Ok(())
+}
+
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let now_us = clock.now().timestamp_micros();
-    let bot = model::load_bot(&e.primary, id)?;
+    let mut bot = model::load_bot(&e.primary, id)?;
+    if bot.transient.get("rust_continue_start").is_some() {
+        continue_start(&e.primary, id, clock.now())?;
+        bot = model::load_bot(&e.primary, id)?;
+    }
     let venue = e.venue_for(&bot)?;
 
     let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
@@ -263,6 +295,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
     } else if deferred.is_some() {
         false
+    } else if defer.flatten().is_some_and(|t| t < now_us) {
+        true // the wait has ended (strictly after it, as a checkpoint is): a continue start Rails runs at once (placement::run_now)
     } else if defer == Some(None) {
         on_schedule()? // a retrying bot too: its in-memory wait was computed under the old schedule
     } else if bot.status == crate::enums::BotStatus::Retrying {

@@ -109,19 +109,55 @@ fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), Engi
 /// (run::step_bot), together with the schedule it was computed under: a fresh start or an interval edit voids it. The
 /// deferred tick removes it (tick::tick_recovering). A Rust-only key, outside the parity snapshots, like `rust_placement`.
 pub fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    wait_until(c, bot, now, |cps| cps.next_us)
+}
+
+/// A wait that has already ended (at the bot's last checkpoint): the bot is due at once, across a restart too, until its next
+/// tick removes it. What a continue start that Rails runs at once leaves (run::step_bot).
+pub fn run_now(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    wait_until(c, bot, now, |cps| cps.last_us)
+}
+
+fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::schedule::Checkpoints) -> i64) -> Result<(), EngineError> {
     let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us, bot.interval(), bot.quote_amount(), bot.schedule_key()) else { return Ok(()) };
-    let next = checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())).next_us;
-    let until = DateTime::from_timestamp_micros(next).expect("time in range").to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())));
+    let until = DateTime::from_timestamp_micros(at).expect("time in range").to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
               params![json!({ "until": until, "schedule": schedule }).to_string(), bot.id])?;
     Ok(())
 }
 
+/// The intent for `plan`, written without the fence: for a caller that already holds the row it sized from (tests, recovery
+/// fixtures). The tick uses `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
+    Ok(begin_checked(c, bot, plan, clock, false)?.expect("unfenced"))
+}
+
+/// `begin`, fenced: under the same write lock, the bot must still be working and its composition (exchange, quote asset and
+/// allocations, compared by value as `stranded` compares them) must still be what `sized_from` holds. Otherwise no intent is
+/// written, nothing will be sent, and `None` is returned with one log line naming the reason; the next pass sees the new row.
+///
+/// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
+/// an order; what it would have bought stays owed through pending_quote_amount.
+pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
+    begin_checked(c, sized_from, plan, clock, true)
+}
+
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: bool) -> Result<Option<Intent>, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
+    }
+    if fence {
+        let reason = if !crate::enums::BOT_WORKING.contains(&current.status) { Some("it was stopped") }
+            else if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
+                != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
+            else { None };
+        if let Some(reason) = reason {
+            super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));
+            return Ok(None);
+        }
     }
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
     let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now + Duration::seconds(DEADLINE_SECONDS), at: now, plan: plan.clone() };
@@ -132,7 +168,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     set_intent(&tx, bot.id, Some(&v))?;
     tx.commit()?; // durable before the send
-    Ok(intent)
+    Ok(Some(intent))
 }
 
 #[derive(Debug)]

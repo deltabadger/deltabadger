@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"/32j89U5k/hl9TkAriE7tWA=\",\"h\":{\"iv\":\"X/hsgpF524ZYSHJd\",\"at\":\"Nxak4RlXU6BfxnooPSF+2Q==\"}}"
+      "cipher": "{\"p\":\"vivfCJYZJmuPoiVn73K2W4s=\",\"h\":{\"iv\":\"5Wfn7F00K5CJ+j/7\",\"at\":\"ByYOtJT1vf38sSvWvQkjMQ==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"Oa6oTYCorEnlBEECXJBk\",\"h\":{\"iv\":\"sNtcb4dn2DGO+Mm5\",\"at\":\"r7Zy26TnngZh4kYiD1CkJQ==\"}}"
+      "cipher": "{\"p\":\"xwh0Hws0KjYsJteN6afh\",\"h\":{\"iv\":\"j+WmTglNZYc3Xef5\",\"at\":\"n9KiH+NTxjuMzUPR/+7Gxw==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"G0YEZL+KPTOVnrkLgsZ+ICl6Dd2HXCGcECF8nfxNT1mpkRc7YC/EKULhZK+Bu8aKMYHpNELvNcuveTL8jCnRkYitZ5VOVEuXB5kyhmM=\",\"h\":{\"iv\":\"yFL/ob2EV4LKkc3l\",\"at\":\"w1Vsiz5NsieavAijQy54Pw==\",\"c\":true}}"
+      "cipher": "{\"p\":\"iTIIvexXz/fS3zy6xkcJincHhUeadG4qeB+x2sQCnBtsX59/Dz8ZLiYHgLLsp1hR4P0wyF1AJi2rXR6QK20GRaFb/OKecFgwxA0kJIU=\",\"h\":{\"iv\":\"ns8uZliZ4mGi3NSD\",\"at\":\"r3oUW+DztfB2ju4SmGqV5A==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "2IJ6DHAUZNS4DSLMAPMMOFNMFRRMSMWP",
-      "cipher": "{\"p\":\"sXyh9+Id2kuA20s+htrkEG2iQ2jKb3F21YQHgGZkn+g=\",\"h\":{\"iv\":\"1+utUYmtNPjBXmJc\",\"at\":\"SjOPeD7Ihl/dncGk75jSTw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "YGH6BLBFY7QQGQ5AK5NJELD5V5OB4MGG",
+      "cipher": "{\"p\":\"EGKDGRzLZuocrMVuDA92ktJ/j+XnGuLKoWEAqRfHlbs=\",\"h\":{\"iv\":\"nv6R0FPv97R+vRnx\",\"at\":\"RN42helex/SKzSNknR6yVQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"yT/nKxYao2PrTyAVlqKZC8g=\",\"h\":{\"iv\":\"wouvLLznJPmT7lCy\",\"at\":\"NR5dzIQFXqVeEqFX6n96ww==\"}}"
+      "cipher": "{\"p\":\"tALHCJq0V3qn3H9x5C8xAHw=\",\"h\":{\"iv\":\"jTVAezvIArKhumXf\",\"at\":\"gAXpopsR/ujcSzR7eyyYLA==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$nw8YsZRvh/d0oZeBmLTW6.UbrJi/6t8ws4.li9pluIllSPN4CC4qO"
+      "hash": "$2a$11$i.wzH7QDN41Yg84e7D.caeVc7il9beiPY/TjP5RZl8rPZCU0LL.ES"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$KBGRVZ1Rh9Gq21/9B3wJzuwYZxQXPy1l4FY4JnAcIJJebBT2E5FPy"
+      "hash": "$2a$11$qBW19fYD2Hnbr9fNkkm56OgXSvt28O6vpf.tNNENeJAAV4vgI6THi"
     }
   ],
   "totp": {
@@ -61453,6 +61453,262 @@
         "d": "82.32"
       },
       "reached": false
+    }
+  ],
+  "continue_start": [
+    {
+      "name": "owes_its_contribution",
+      "settings": {},
+      "last_action_job_at": "2026-09-03T10:00:00.500Z",
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-0",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-01 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-1",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-02 10:00:01"
+        }
+      ],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "now"
+    },
+    {
+      "name": "nothing_owed",
+      "settings": {},
+      "last_action_job_at": "2026-09-03T10:00:00.500Z",
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-10",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-01 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-11",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-02 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-12",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-03 10:00:01"
+        }
+      ],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "checkpoint"
+    },
+    {
+      "name": "a_cent_short_of_a_contribution",
+      "settings": {},
+      "last_action_job_at": "2026-09-03T10:00:00.500Z",
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-20",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-01 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-21",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-02 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-22",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "0.01",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-03 10:00:01"
+        }
+      ],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "checkpoint"
+    },
+    {
+      "name": "never_ticked",
+      "settings": {},
+      "last_action_job_at": null,
+      "rows": [],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "now"
+    },
+    {
+      "name": "the_cap_leaves_less_than_a_contribution",
+      "settings": {
+        "quote_amount_limited": true,
+        "quote_amount_limit": 100
+      },
+      "last_action_job_at": "2026-09-03T10:00:00.500Z",
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-40",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-01 10:00:01"
+        }
+      ],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "checkpoint"
+    },
+    {
+      "name": "a_smart_interval_compares_with_its_split_amount",
+      "settings": {
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "last_action_job_at": "2026-09-03T10:00:00.500Z",
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-50",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-01 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-51",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-02 10:00:01"
+        }
+      ],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "now"
+    },
+    {
+      "name": "a_future_start_time_is_not_a_delayed_first_run",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "date",
+        "start_at": "2026-10-01T00:00:00Z"
+      },
+      "last_action_job_at": "2026-09-03T10:00:00.500Z",
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-60",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-01 10:00:01"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "side": 0,
+          "transaction_type": "REGULAR",
+          "external_id": "rust-continue-61",
+          "order_type": 0,
+          "price": "64000",
+          "external_status": 2,
+          "quote_amount": "60",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.0009375",
+          "created_at": "2026-09-02 10:00:01"
+        }
+      ],
+      "now": "2026-09-03T15:00:00.000000Z",
+      "decision": "now"
     }
   ],
   "i18n": {

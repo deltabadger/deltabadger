@@ -150,10 +150,14 @@ impl Bot {
     pub fn amount_limit_key(&self) -> String {
         serde_json::json!([self.started_at_us, self.settings.get("quote_amount_limited"), self.settings.get("quote_amount_limit")]).to_string()
     }
-    /// transient_data.rust_amount_limit_stops_pending: its count, and whether it was counted under this bot's current key.
+    /// transient_data.rust_amount_limit_stops_pending: its count, and whether it still applies: counted under this bot's current
+    /// key, and no continue start pending (`rust_continue_start`): the user's resume overrides a stop counted before it, which
+    /// Rails would already have run, and a plain resume keeps the key. A count that raced the resume inside one tick is
+    /// discarded too (the safe direction for a resume the user asked for).
     pub fn pending_amount_limit_stops(&self) -> Option<(i64, bool)> {
         let v = self.transient.get("rust_amount_limit_stops_pending").filter(|v| !v.is_null())?;
-        Some((v["count"].as_i64().unwrap_or(0), v["key"].as_str() == Some(self.amount_limit_key().as_str())))
+        let continued = self.transient.get("rust_continue_start").is_some();
+        Some((v["count"].as_i64().unwrap_or(0), !continued && v["key"].as_str() == Some(self.amount_limit_key().as_str())))
     }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }

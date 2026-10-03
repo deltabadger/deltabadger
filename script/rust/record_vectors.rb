@@ -590,6 +590,56 @@ vectors['amount_caps'] = (cap_fixed + cap_random).map do |cap, specs|
   end
 end
 
+# Bot::Lifecycle#start(start_fresh: false) on a stopped one-asset basket (daily, 60, started 2026-09-01 10:00), called at
+# 2026-09-03 15:00 UTC: whether Rails runs it now, at the next checkpoint or at a delayed first run, read from the
+# Bot::ActionJob it enqueues. The engine makes the same decision when the web asks it to continue a bot.
+continue_row = lambda do |n, quote_exec, created_at|
+  { 'asset' => 'VBTC', 'status' => 0, 'side' => 0, 'transaction_type' => 'REGULAR', 'external_id' => "rust-continue-#{n}", 'order_type' => 0,
+    'price' => '64000', 'external_status' => 2, 'quote_amount' => '60', 'quote_amount_exec' => quote_exec, 'amount_exec' => '0.0009375',
+    'created_at' => created_at }
+end
+stamped = '2026-09-03T10:00:00.500Z' # today's tick stamped last_action_job_at
+two_days = [['60', '2026-09-01 10:00:01'], ['60', '2026-09-02 10:00:01']]
+continue_cases = [
+  ['owes_its_contribution', stamped, two_days, {}],                         # stamped, never placed: 60 owed, not under 60
+  ['nothing_owed', stamped, two_days + [['60', '2026-09-03 10:00:01']], {}],
+  ['a_cent_short_of_a_contribution', stamped, two_days + [['0.01', '2026-09-03 10:00:01']], {}],
+  ['never_ticked', nil, [], {}],                                            # not restarting
+  ['the_cap_leaves_less_than_a_contribution', stamped, [['60', '2026-09-01 10:00:01']],
+   { 'quote_amount_limited' => true, 'quote_amount_limit' => 100 }],        # 120 owed, 40 left under the cap
+  ['a_smart_interval_compares_with_its_split_amount', stamped, two_days,
+   { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 }], # 7 eight-hour intervals: 20 owed, not under 20
+  ['a_future_start_time_is_not_a_delayed_first_run', stamped, two_days,
+   { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-10-01T00:00:00Z' }]
+]
+adapter = ActiveJob::Base.queue_adapter
+ActiveJob::Base.queue_adapter = :test
+vectors['continue_start'] = continue_cases.each_with_index.map do |(name, last_action_job_at, specs, settings), i|
+  rows = specs.each_with_index.map { |(q, t), n| continue_row.((i * 10) + n, q, t) }
+  with_basket({ 'VBTC' => 1.0 }, settings:, rows:) do |bot, _assets, _alpaca|
+    transient = bot.transient_data.merge('last_action_job_at' => last_action_job_at, 'quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z').compact
+    bot.update_columns(status: Bot.statuses[:stopped], started_at: Time.utc(2026, 9, 1, 10), settings_changed_at: nil, transient_data: transient)
+    bot = Bot.find(bot.id)
+    now = Time.utc(2026, 9, 3, 15)
+    travel_to(now, with_usec: true) do
+      ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+      raise "#{name}: Rails refused the start: #{bot.errors.full_messages}" unless bot.start(start_fresh: false)
+
+      jobs = ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j[:job] == Bot::ActionJob }
+      raise "#{name}: #{jobs.size} action jobs" unless jobs.size == 1
+
+      at = jobs.first[:at] && Time.zone.at(jobs.first[:at]).utc
+      decision = if at.nil? then 'now'
+                 elsif at.round(6) == bot.next_interval_checkpoint_at.round(6) then 'checkpoint'
+                 else "at #{at.iso8601(6)}"
+                 end
+      { 'name' => name, 'settings' => settings, 'last_action_job_at' => last_action_job_at, 'rows' => rows, 'now' => now.iso8601(6),
+        'decision' => decision }
+    end
+  end
+end
+ActiveJob::Base.queue_adapter = adapter
+
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe

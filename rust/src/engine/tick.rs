@@ -8,7 +8,7 @@ use super::polling::{self, PollFailure};
 use super::{basket, staleness, Clock, EngineError};
 use chrono::{DateTime, Utc};
 use crate::codec::format_time;
-use crate::enums::{BotStatus, BOT_WORKING};
+use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, to_sentence, BigDec};
 use crate::venue::{PriceSide, Venue, VenueError};
 use rusqlite::{params, Connection};
@@ -56,17 +56,17 @@ pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, now: DateTime<Utc>) ->
 /// Bot::StopJob per callback: Bot::Lifecycle#stop writes a `stopped` log every time it succeeds, a stopped bot included
 /// (lifecycle.rb:91-115). Each stop consumes one count in its own transaction, so a crash replays exactly the rest: at the end
 /// of the tick that swept, at the next start (run::step), or at the handback.
-/// A count whose key (Bot::amount_limit_key) no longer matches the bot is discarded and logged, never run.
+/// A count that no longer applies (Bot::pending_amount_limit_stops) is discarded and logged, never run.
 pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     loop {
         let tx = model::immediate(c)?;
         let Some((n, current)) = model::load_bot(&tx, bot_id)?.pending_amount_limit_stops() else { return Ok(()) };
         let remove = "UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1";
         if !current || n <= 0 {
-            // Counted before the bot was started afresh or its limit changed: Rails' Bot::StopJob ran before either.
+            // Counted before the bot was started (afresh or continued) or its limit changed: Rails' Bot::StopJob ran before either.
             tx.execute(remove, [bot_id])?;
             tx.commit()?;
-            if !current { super::log(&format!("[engine] bot {bot_id}: {n} amount-limit stop(s) counted before a fresh start or a limit change; discarded")); }
+            if !current { super::log(&format!("[engine] bot {bot_id}: {n} amount-limit stop(s) counted before a start or a limit change; discarded")); }
             return Ok(());
         }
         stop_for_amount_limit(&tx, bot_id, now)?;
@@ -335,9 +335,9 @@ async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, 
                 return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
             }
             Sizing::Place(plan) => {
-                // A stop always wins over a tick in progress: the leg in hand finishes, nothing more is placed.
-                if !BOT_WORKING.contains(&model::load_bot(c, bot.id)?.status) { break; }
-                let intent = placement::begin(c, bot, &plan, clock)?;
+                // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
+                // sized before the change is placed (the fence is in the intent's own transaction).
+                let Some(intent) = placement::begin_unless_changed(c, bot, &plan, clock)? else { break };
                 match placement::send(venue, &intent, clock).await {
                     Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }
                     Sent::Rejected(errs) => {

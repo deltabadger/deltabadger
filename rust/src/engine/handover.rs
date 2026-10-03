@@ -96,6 +96,9 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // the run it follows, and the handback comes later). So the key goes, and Rails' own scheduling keeps the wait.
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
                 WHERE json_extract(transient_data, '$.rust_defer_until') IS NOT NULL", [])?;
+    // A continue start the engine never handled goes the same way: Rails' adoption re-arms the bot at its next checkpoint.
+    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
+                WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
     lease::hand_back(lock, &tx, cipher, now)?;
     tx.commit()?;
     Ok(scheduled)
