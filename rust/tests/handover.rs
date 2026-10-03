@@ -84,7 +84,7 @@ async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let px = deltabadger::ruby::BigDec::from_i64(50_000);
     let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
-        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
+        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
     let factory = FakeFactory(FakeVenue::new().lookup_fails(1));
     assert!(matches!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await, Err(EngineError::Unresolved(ref v)) if v == &vec![b]));
@@ -170,7 +170,7 @@ async fn handback_after_lookups(lookups: serde_json::Value) -> (Result<usize, En
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic).unwrap() else { panic!() };
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
     let t = deltabadger::venue::http::ScriptedTransport::from_script(&serde_json::json!({ "GET /v2/orders:by_client_order_id": lookups }));
     let factory = ScriptedAlpaca(deltabadger::venue::alpaca::AlpacaVenue::new(t.clone(), deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper"))));
@@ -209,7 +209,7 @@ async fn the_cli_handback_trusts_no_absence_before_a_full_margin_after_its_own_s
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic).unwrap() else { panic!() };
     // The intent is far older than the margin: only this process's own (fresh) start can hold the absence back.
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now() - chrono::Duration::seconds(2000))).unwrap();
     let not_found = json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for 9b1d2c3e-0000-4000-8000-000000000001" } });
@@ -241,7 +241,7 @@ async fn a_settings_write_cannot_strand_an_unresolved_order_and_handback_settles
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let px = deltabadger::ruby::BigDec::from_i64(50_000);
     let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
-        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
+        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
     let intent = placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap(); // sent; its reply lost
     // The web changes the bot's composition (BTC's weight) while its BTC order is unresolved.
     let tx = model::immediate(&o.primary).unwrap();

@@ -156,6 +156,27 @@ async fn a_stopped_bot_is_stopped_again_as_bot_stop_job_does() {
     }
 }
 
+/// Bot::QuoteAmountLimitable#handle_quote_amount_limit_update mails stopped_by_amount_limit from the fill's own callback,
+/// whatever the stop then does (an archived bot is mailed too), and only when the fill spends the cap: the mail is owed in
+/// the fill's transaction, on a follow-up poll and on a swept fill alike.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fill_that_spends_the_cap_owes_the_amount_limit_mail_in_its_own_transaction() {
+    let limit_mail = |o: &store::Opened| one::<Option<String>>(o, "SELECT json_extract(transient_data, '$.rust_limit_mail_pending.stamped_at') FROM bots");
+    for (status, cap, sweep, owed) in [(1, 60.0, false, true), (7, 60.0, false, true), (1, 100.0, false, false), (1, 60.0, true, true)] {
+        let (_d, o, s) = common::install_alpaca();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..limited(json!(cap)) });
+        let order = seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-P"), 0, None, Some("60"), Some("64000"), None, None, IN));
+        let t = script(json!({ "GET /v2/orders/OTX-P": [filled("OTX-P", "0.0009375")] }));
+        if sweep {
+            polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T10:00:06Z")).await.unwrap();
+        } else {
+            polling::follow_up(&o.primary, &venue(&t), id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+        }
+        let expected = owed.then(|| "2026-09-01T10:00:06.000Z".to_string());
+        assert_eq!(limit_mail(&o), expected, "status {status}, cap {cap}, sweep {sweep}");
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_recovered_order_is_counted_once() {
     let (_d, o, s) = common::install_alpaca();

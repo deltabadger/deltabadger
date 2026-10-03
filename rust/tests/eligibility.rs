@@ -35,6 +35,10 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("type", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
         ("smart interval amount", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("smart_intervaled", json!(true))))),
         ("smart interval amount", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!("20"))))),
+        // A precision outside 0..=40 is a data problem: refused here, never used as a rounding scale.
+        ("price_decimals 1000000000", Box::new(|c, s| { c.execute("UPDATE tickers SET price_decimals = 1000000000", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("base_decimals -1", Box::new(|c, s| { c.execute("UPDATE tickers SET base_decimals = -1", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("quote_decimals 41", Box::new(|c, s| { c.execute("UPDATE tickers SET quote_decimals = 41", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("LIQUIDATION/REDEPLOY", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
             c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
                        VALUES (?1, ?2, 'OLIQ', 0, 1, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01', '2026-09-01')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
@@ -518,7 +522,7 @@ fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen(
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000),
-        deltabadger::engine::venue_rules::ALPACA.minimum_logic) else { panic!("sized") };
+        deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!("sized") };
     placement::begin(&o.primary, &bot, &plan, &FixedClock(now)).unwrap();
     // As the earlier build wrote it: no exchange, quote or allocations recorded.
     o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.exchange_id', \

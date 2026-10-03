@@ -1,13 +1,16 @@
-//! `deltabadger check | run | handback | serve | resolve-placement | decide`.
+//! `deltabadger check | run | handback | serve | sync | resolve-placement | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
 //! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
 //!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before Rails starts again.
+//! - sync ledger|balances [<api_key_id>]: one tracker sync by hand, under the engine lock, and exit.
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
-//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. Rails creates and migrates the databases.
+//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
+//! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
+//! and FORCE_SSL. Rails creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
@@ -44,6 +47,7 @@ fn main() {
         }
         Some("run") => std::process::exit(run_engine(&env)),
         Some("handback") => std::process::exit(hand_back(&env)),
+        Some("sync") => std::process::exit(sync_by_hand(&env)),
         Some("serve") => std::process::exit(serve(&env)),
         Some("resolve-placement") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
@@ -78,7 +82,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }
@@ -122,6 +126,18 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Ope
     (lock, opened, Cipher::new(&keys))
 }
 
+/// The mail sender, ready to become a service: on its own connection (a background service never uses the engine's),
+/// with what the environment says about SMTP read now. Opened before the claim, so a failure here leaves the install Rails'.
+fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltabadger::mail::sender::Sender<SystemClock> {
+    let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;
+    deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
+}
+
+/// The sender as the supervisor runs it: stopped by the one stop signal. No engine event wakes it yet; it looks every few seconds.
+fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: &deltabadger::engine::run::Shutdown) -> supervisor::Service<'a> {
+    supervisor::Service { name: "mail", run: Box::pin(mail.run(stop.subscribe(), None::<tokio::sync::mpsc::UnboundedReceiver<()>>)) }
+}
+
 /// The takeover `run` and `serve` share. Refusals exit 1 before anything is claimed; a takeover that fails after the
 /// claim exits 2.
 fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), i32> {
@@ -144,14 +160,16 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns,
     // and a service may still be draining then.
     let _held = lock.clone();
+    let mail = mail_sender(env, &cipher);
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let code = rt.block_on(async move {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
+        let services = vec![mail_service(mail, &engine.stop_handle())];
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
-        match supervisor::serve(engine, None, &SystemClock, vec![]).await {
+        match supervisor::serve(engine, None, &SystemClock, services).await {
             Ended::Stopped => { log("stopped on request"); 0 }
             Ended::Engine(e) => { log(&format!("engine stopped: {e:?}")); EXIT_ENGINE_ERROR }
             other => { log(&format!("engine stopped: {other:?}")); EXIT_ENGINE_ERROR } // a service; never the web here
@@ -187,13 +205,14 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let listener = rt.block_on(deltabadger::web::server::bind(&app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
+    let mail = mail_sender(env, &cipher);
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let code = rt.block_on(async move {
         let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
         // Background services: each built here with a clone of `engine.stop_handle()`. A scheduler would be one
         // more element; nothing else changes.
-        let services: Vec<supervisor::Service> = vec![];
+        let services: Vec<supervisor::Service> = vec![mail_service(mail, &engine.stop_handle())];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
@@ -222,6 +241,48 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
                        then run `deltabadger resolve-placement <bot_id> --placed <order_id>` or `--not-placed`, and run handback again.");
         }
         Err(e) => eprintln!("deltabadger: handback failed: {e:?}"),
+    }
+    code
+}
+
+/// One ledger or balance sync by hand, for one Alpaca key or for every key the nightly jobs read, exactly as the
+/// scheduler's job runs it. It holds the exclusive engine lock from before it opens a database until it exits, so it
+/// runs only while neither the Rails app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
+/// can never run against an install Rails is also syncing. It claims nothing and writes no lease: an install Rails
+/// owns stays Rails' (the rows are the ones Rails' own job would write). A split that moves a bot's counter passes
+/// `eligibility::guard`, as under the scheduler; nothing else it writes is the engine's business. Balances by hand
+/// have no market-data source, so coins keep their last price; stocks and cash are priced. A run is held to the
+/// deadline its job declares, as the scheduler's runner would hold it.
+fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    use deltabadger::sync::balances::NoPrices;
+    use deltabadger::sync::job_api::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
+    const USAGE: &str = "usage: deltabadger sync ledger|balances [<api_key_id>]";
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    let kind = match args.first().map(String::as_str) { Some(kind @ ("ledger" | "balances")) if args.len() <= 2 => kind, _ => fail(USAGE) };
+    let key = args.get(1).map(|k| k.parse::<i64>().unwrap_or_else(|_| fail(USAGE)));
+    let (_lock, o, cipher) = open_install(env);
+    let keys = match key {
+        Some(key) => vec![key],
+        None => deltabadger::sync::reading_keys(&o.primary).unwrap_or_else(|e| fail(&e.0)),
+    };
+    if keys.is_empty() { println!("no Alpaca key to sync"); return 0; }
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
+    let db = Db::new(o.primary, std::sync::Arc::new(cipher));
+    let mut code = 0;
+    for key in keys {
+        let job: Box<dyn Job> = match kind {
+            "ledger" => Box::new(LedgerSync::new(LiveFactory::new(), key)),
+            _ => Box::new(BalanceSync::new(LiveFactory::new(), std::rc::Rc::new(NoPrices), key)),
+        };
+        let spec = job.spec();
+        let name = format!("{}:{}", spec.name, spec.scope.unwrap_or_default());
+        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)])) {
+            Outcome::Done => println!("{name}: done"),
+            // An import larger than one run reads: what was read is stored, and the next run continues.
+            Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),
+            Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => { eprintln!("deltabadger: {name} failed: {m}"); code = EXIT_ENGINE_ERROR; }
+        }
     }
     code
 }

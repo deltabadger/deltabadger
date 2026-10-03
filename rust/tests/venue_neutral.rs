@@ -70,7 +70,7 @@ async fn an_intent_delayed_before_its_send_is_never_sent_and_is_settled_as_not_p
     let (_d, o, s) = common::install();
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic) else { panic!() };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic).unwrap() else { panic!() };
     let t0: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0)).unwrap();
     let v = FakeVenue::new();

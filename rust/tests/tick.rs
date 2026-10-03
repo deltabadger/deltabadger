@@ -2,7 +2,7 @@ mod common;
 use chrono::{DateTime, Utc};
 use common::seed::{self, BotSpec};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
-use deltabadger::engine::{model, FixedClock};
+use deltabadger::engine::{model, notice, FixedClock};
 use deltabadger::enums::BotStatus;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::{AddOutcome, FakeVenue};
@@ -181,6 +181,191 @@ async fn low_funds_record_the_notification_time_like_fundable() {
     assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")).as_deref(), Some("2026-09-01 10:00:01"));
 }
 
+// ---- The mail budget, as Rails stamps it, and the mail it owes (engine::notice) ----
+
+fn transient(o: &store::Opened, id: i64) -> serde_json::Value { bot(o, id).transient }
+fn rejecting(error: &str) -> FakeVenue { priced().next_add(AddOutcome::Reject(vec![error.into()])) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn low_funds_after_a_buy_stamp_the_budget_and_owe_the_mail_in_the_same_write() {
+    let dir = common::rails_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let (first, second) = (seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")), seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")));
+    let poor = || FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "10", "0");
+    assert!(matches!(run(&o, &poor(), first, "2026-09-01T10:00:01Z").await, TickOutcome::Done { placed: true }));
+    assert_eq!(transient(&o, first)[notice::FUNDS], json!({ "quote_asset": s.quote, "stamped_at": "2026-09-01T10:00:01.000Z" }));
+    assert_eq!(notice::all_pending(&o.primary).unwrap().iter().map(|p| (p.bot_id, p.notice.mail())).collect::<Vec<_>>(), [(first, "end_of_funds")]);
+    // Bot::Fundable#notified_in_last_day?: one mail a day per user and quote asset, whichever bot asks.
+    run(&o, &poor(), second, "2026-09-01T11:00:00Z").await;
+    assert!(transient(&o, second).get(notice::FUNDS).is_none());
+    assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {second}")), None);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_buy_refused_for_funds_owes_the_end_of_funds_mail_and_leaves_updated_at_alone() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    assert!(matches!(run(&o, &rejecting("EOrder:Insufficient funds"), id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
+    let t = transient(&o, id);
+    assert_eq!(t[notice::FUNDS]["stamped_at"], "2026-09-01T10:00:01.000Z");
+    assert_eq!((t.get(notice::ERROR), t.get("failure_notifications")), (None, None), "this kind spends Bot::Fundable's budget, not its own");
+    assert_eq!(one::<String>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")), "2026-09-01 10:00:01");
+    // The same refusal an hour later: the budget is spent, nothing more is owed.
+    o.primary.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", notice::FUNDS), [id]).unwrap();
+    run(&o, &rejecting("EOrder:Insufficient funds"), id, "2026-09-01T11:00:00Z").await;
+    assert!(transient(&o, id).get(notice::FUNDS).is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_failure_owes_one_error_mail_a_day_for_its_kind() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let error = "EGeneral:Invalid arguments:volume minimum not met";
+    run(&o, &rejecting(error), id, "2026-09-01T10:00:01Z").await;
+    let t = transient(&o, id);
+    assert_eq!(t["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:01Z" }), "Time.current.iso8601, under the key Rails uses for no kind");
+    assert_eq!(t[notice::ERROR], json!({ "unknown": { "error": error, "stamped_at": "2026-09-01T10:00:01.000Z" } }));
+    assert_eq!(one::<Option<String>>(&o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")), None);
+    // Inside the day: no second mail, whatever happened to the first. A success in between changes nothing (the budget is never cleared).
+    run(&o, &rejecting(error), id, "2026-09-02T10:00:00Z").await;
+    assert_eq!(transient(&o, id)[notice::ERROR]["unknown"]["stamped_at"], "2026-09-01T10:00:01.000Z");
+    // A day and a second later the budget is open again.
+    run(&o, &rejecting(error), id, "2026-09-02T10:00:02Z").await;
+    let t = transient(&o, id);
+    assert_eq!((t["failure_notifications"]["unknown"].clone(), t[notice::ERROR]["unknown"]["stamped_at"].clone()), (json!("2026-09-02T10:00:02Z"), json!("2026-09-02T10:00:02.000Z")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_second_blocking_failure_stops_the_bot_and_owes_the_stopped_mail() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    assert!(matches!(run(&o, &rejecting("EAPI:Invalid key"), id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
+    let t = transient(&o, id);
+    assert_eq!(t[notice::ERROR]["invalid_key"]["error"], "EAPI:Invalid key", "the first one is an ordinary failure: notify_about_error");
+    assert!(t.get(notice::STOPPED).is_none());
+    assert!(matches!(run(&o, &rejecting("EAPI:Invalid key"), id, "2026-09-01T10:05:00Z").await, TickOutcome::Stopped));
+    let t = transient(&o, id);
+    assert_eq!(bot(&o, id).status, BotStatus::Stopped);
+    assert_eq!(t[notice::STOPPED], json!({ "error": "EAPI:Invalid key", "stamped_at": "2026-09-01T10:05:00.000Z" }));
+    assert_eq!(t["failure_notifications"]["invalid_key"], "2026-09-01T10:05:00Z", "a blocking stop notifies whatever the budget says, and stamps it");
+    assert_eq!(t[notice::ERROR]["invalid_key"]["stamped_at"], "2026-09-01T10:00:01.000Z", "no second error mail: the stop has its own");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_rate_limit_that_outlasts_its_retries_owes_the_error_mail() {
+    let dir = common::rails_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    seed::insert_tx(&o.primary, &s, id, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("OMKT".into()), order_type: 0,
+        amount: None, quote_amount: Some("60"), price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:01".into() });
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/private/QueryOrders": [{ "error": ["EAPI:Rate limit exceeded"] }] } }));
+    let mut attempts = Attempts::default();
+    for n in 1..=4 {
+        let out = tick::tick(&o.primary, &v, id, &clock("2026-09-08T10:00:01Z"), &mut attempts).await.unwrap();
+        assert_eq!(matches!(out, TickOutcome::Rescheduled), n == 4, "attempt {n}: {out:?}");
+        assert_eq!(transient(&o, id).get(notice::ERROR).is_some(), n == 4, "nothing is owed while it is still retrying");
+    }
+    let t = transient(&o, id);
+    assert_eq!(t[notice::ERROR]["throttle"], json!({ "error": "EAPI:Rate limit exceeded", "stamped_at": "2026-09-08T10:00:01.000Z" }));
+    assert_eq!(t["failure_notifications"]["throttle"], "2026-09-08T10:00:01Z");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_that_stopped_nothing_owes_no_mail_and_a_plain_stop_leaves_the_row_s_json_alone() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("UPDATE bots SET transient_data = '{\"missed_quote_amount\": \"12.50\",  \"x\": 1.0}' WHERE id = ?1", [id]).unwrap();
+    let now = clock("2026-09-01T10:00:01Z").0;
+    tick::stop(&o.primary, id, "bot.settings.extra_amount_limit.amount_spent", now).unwrap();
+    assert_eq!(one::<String>(&o, "SELECT transient_data FROM bots"), "{\"missed_quote_amount\": \"12.50\",  \"x\": 1.0}", "byte for byte");
+    assert_eq!(bot(&o, id).status, BotStatus::Stopped);
+    // Already stopped: the second stop is not the one that stopped it.
+    assert!(!tick::stop_owing_mail(&o.primary, id, "bot.status.stopped_by_error.invalid_key", Some((notice::STOPPED, notice::stopped_marker("x", now))), now).unwrap());
+    assert!(notice::all_pending(&o.primary).unwrap().is_empty());
+    // Working: stopped, and the mail owed in the same statement.
+    o.primary.execute("UPDATE bots SET status = 1 WHERE id = ?1", [id]).unwrap();
+    assert!(tick::stop_owing_mail(&o.primary, id, "bot.settings.extra_amount_limit.amount_spent", Some((notice::LIMIT, notice::limit_marker(now))), now).unwrap());
+    assert_eq!(notice::all_pending(&o.primary).unwrap().iter().map(|p| p.notice.mail()).collect::<Vec<_>>(), ["stopped_by_amount_limit"]);
+    assert_eq!(transient(&o, id)["missed_quote_amount"], "12.50");
+}
+
+/// `tick::stop` and `tick::stop_owing_mail` called on their own (a stop outside a failing exit; Plan 2c's amount limit):
+/// the stop, its marker and its log line are one transaction there too. A log line that cannot be written leaves the bot
+/// working and nothing owed, so the retry writes all three; inside a caller's transaction the stop goes with it.
+#[test]
+fn a_stop_called_on_its_own_stops_marks_and_logs_together_or_not_at_all() {
+    let now = clock("2026-09-01T10:00:01Z").0;
+    for owing in [false, true] {
+        let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        let before = bot(&o, id).status;
+        let stop = |c: &rusqlite::Connection| match owing {
+            true => tick::stop_owing_mail(c, id, "bot.settings.extra_amount_limit.amount_spent", Some((notice::LIMIT, notice::limit_marker(now))), now).map(|_| ()),
+            false => tick::stop(c, id, "bot.settings.extra_amount_limit.amount_spent", now),
+        };
+        let written = || (bot(&o, id).status, notice::all_pending(&o.primary).unwrap().len(), one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs"));
+        o.primary.execute_batch("CREATE TEMP TRIGGER refuse BEFORE INSERT ON bot_activity_logs BEGIN SELECT RAISE(ABORT, 'refused'); END").unwrap();
+        assert!(stop(&o.primary).is_err());
+        assert_eq!(written(), (before, 0, 0), "owing {owing}: not stopped, no marker, no log line");
+        o.primary.execute_batch("DROP TRIGGER refuse").unwrap();
+        // The caller's transaction, rolled back: the stop joined it and is gone with it.
+        let tx = model::immediate(&o.primary).unwrap();
+        stop(&tx).unwrap();
+        drop(tx);
+        assert_eq!(written(), (before, 0, 0), "owing {owing}: the caller's transaction is the stop's");
+        // The retry writes all three.
+        stop(&o.primary).unwrap();
+        assert_eq!(written(), (BotStatus::Stopped, owing as usize, 1), "owing {owing}");
+    }
+}
+
+/// The budget, the stop, the marker and the log line of one failing exit are one transaction: when any of them cannot
+/// be written, none is, and the bot is as the tick found it. (A budget spent without its marker would be a mail the
+/// owner never gets and Rails never sends.) Each case makes a later statement of the exit fail, with a trigger.
+#[tokio::test(flavor = "current_thread")]
+async fn a_failing_exit_writes_its_budget_its_marker_and_its_log_line_together_or_not_at_all() {
+    let refuse_log = |o: &store::Opened, event: &str| o.primary.execute_batch(&format!(
+        "CREATE TEMP TRIGGER refuse BEFORE INSERT ON bot_activity_logs WHEN NEW.event = '{event}' BEGIN SELECT RAISE(ABORT, 'refused'); END")).unwrap();
+    // (the out-of-funds stamp, failure_notifications, markers owed, status)
+    let written = |o: &store::Opened, id: i64| {
+        (one::<Option<String>>(o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")), transient(o, id).get("failure_notifications").cloned(),
+         notice::all_pending(&o.primary).unwrap().len(), bot(o, id).status)
+    };
+    let nothing = (None, None, 0, BotStatus::Retrying); // `retrying` is the tick's own, written before the exit
+
+    // An ordinary failure (no order row, so the exit logs): the per-kind budget and the error marker, then the log line.
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("UPDATE tickers SET trading_enabled = 0", []).unwrap();
+    refuse_log(&o, "execution_failed");
+    assert!(tick::tick(&o.primary, &priced(), id, &clock("2026-09-01T10:00:01Z"), &mut Attempts::default()).await.is_err());
+    assert_eq!(written(&o, id), nothing, "an ordinary failure");
+
+    // A rate limit that outlasted its retries: the same, through the other exit.
+    let dir = common::rails_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let seeded = seed::seed_kraken(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &seeded, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    seed::insert_tx(&o.primary, &seeded, id, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("OMKT".into()), order_type: 0,
+        amount: None, quote_amount: Some("60"), price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:01".into() });
+    let throttled = FakeVenue::from_script(&json!({ "http": { "/0/private/QueryOrders": [{ "error": ["EAPI:Rate limit exceeded"] }] } }));
+    refuse_log(&o, "execution_failed");
+    let mut attempts = Attempts::default();
+    for _ in 0..3 { tick::tick(&o.primary, &throttled, id, &clock("2026-09-08T10:00:01Z"), &mut attempts).await.unwrap(); }
+    assert!(tick::tick(&o.primary, &throttled, id, &clock("2026-09-08T10:00:01Z"), &mut attempts).await.is_err());
+    assert_eq!(written(&o, id), nothing, "an exhausted rate limit");
+
+    // The second blocking failure: the budget, then the stop with its marker, then the stop's log line.
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_failure_kind", json!("invalid_key")));
+    refuse_log(&o, "stopped");
+    assert!(tick::tick(&o.primary, &rejecting("EAPI:Invalid key"), id, &clock("2026-09-01T10:00:01Z"), &mut Attempts::default()).await.is_err());
+    assert_eq!(written(&o, id), nothing, "a stop that could not be logged: not stopped, nothing spent, nothing owed");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs"), 0);
+
+    // A buy refused for funds: the stamp with its marker, then the kind. Here the kind's write is the one that fails.
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute_batch("CREATE TEMP TRIGGER refuse BEFORE UPDATE OF transient_data ON bots \
+        WHEN json_extract(NEW.transient_data, '$.last_failure_kind') = 'insufficient_funds' BEGIN SELECT RAISE(ABORT, 'refused'); END").unwrap();
+    assert!(tick::tick(&o.primary, &rejecting("EOrder:Insufficient funds"), id, &clock("2026-09-01T10:00:01Z"), &mut Attempts::default()).await.is_err());
+    assert_eq!(written(&o, id), nothing, "out of funds: no stamp without its marker and its kind");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_bot_stopped_mid_tick_stays_stopped() {
     let (_d, o, id) = setup(BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
@@ -295,4 +480,18 @@ async fn with_neither_the_order_read_during_the_price_await_is_placed_as_before(
     assert_eq!(v.sent().len(), 1);
     assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-F");
     assert!(bot(&o, id).rust_placement().is_none(), "the intent was settled into its row");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_balance_number_after_a_placement_fails_the_tick_without_a_retry_or_a_funds_notice() {
+    for bad in ["NaN", "Infinity", "garbage", "1e41"] {
+        let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", bad, "0").next_add(AddOutcome::Accept("OTX-1".into()));
+        let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+        assert!(matches!(out, TickOutcome::Rescheduled), "{bad}: {out:?}");
+        assert_eq!(v.sent().len(), 1, "{bad}: placed once, never replayed");
+        let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
+        assert!(details.contains("unreadable"), "{bad}: {details}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bots WHERE last_end_of_funds_notification IS NOT NULL"), 0, "{bad}: not a zero balance");
+    }
 }

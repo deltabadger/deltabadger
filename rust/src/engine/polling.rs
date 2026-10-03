@@ -2,7 +2,7 @@
 //! lenient poll after a placement), and Transaction#update_with_order_data.
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
-use super::{amount, tick, EngineError};
+use super::{amount, notice, tick, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::enums::TxExternalStatus;
 use crate::ruby::{from_sql, inspect, to_sentence, to_sql, BigDec};
@@ -114,7 +114,8 @@ fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64
 }
 
 /// One fill, committed. A fill that spends the amount limit enqueues one Rails Bot::StopJob per qualifying callback
-/// (quote_amount_limitable.rb:104). With `stop_now` (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
+/// (quote_amount_limitable.rb:104), and mails stopped_by_amount_limit: its marker (notice::LIMIT) is written in the fill's
+/// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. With `stop_now` (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
 /// has nothing left to do) the stop lands in the fill's own transaction. Without it (the tick's sweep: the job runs after the
 /// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
 /// fill's own transaction, so a crash before the tick ends loses nothing: tick::run_pending_amount_limit_stops runs them at
@@ -122,6 +123,9 @@ fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64
 fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
     if apply_in(&tx, bot_id, tx_id, s, true, now)? {
+        // notify_stopped_by_amount_limit runs in the same callback, whatever the stop then does: the mail is owed here.
+        tx.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+                   params![format!("$.{}", notice::LIMIT), notice::limit_marker(now).to_string(), bot_id])?;
         if stop_now {
             tick::stop_for_amount_limit(&tx, bot_id, now)?;
         } else {

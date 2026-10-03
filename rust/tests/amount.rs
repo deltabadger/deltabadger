@@ -73,7 +73,7 @@ fn every_recorded_rails_sizing_is_reproduced() {
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
         let p = bd(c["last_or_ask"].as_str().unwrap());
-        let sizing = amount::size(bot, &sizing_ticker(&c["ticker"]), &bd(c["x"].as_str().unwrap()), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic);
+        let sizing = amount::size(bot, &sizing_ticker(&c["ticker"]), &bd(c["x"].as_str().unwrap()), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (Ruby's division) {c}");
@@ -90,7 +90,7 @@ fn a_limit_price_that_floors_to_zero_is_refused() {
         .with("limit_ordered", json!(true)))).unwrap();
     let t = sizing_ticker(&json!({"base_decimals": "0", "quote_decimals": "0", "price_decimals": "0", "minimum_base_size": "1", "minimum_quote_size": "5"}));
     let p = bd("0.9");
-    assert!(matches!(amount::size(&bot, &t, &bd("60"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic), Sizing::ZeroPrice { decimals: 0 }));
+    assert!(matches!(amount::size(&bot, &t, &bd("60"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap(), Sizing::ZeroPrice { decimals: 0 }));
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn rows_bind_decimals_as_rails_does() {
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let t = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let p = bd("50000.2");
-    let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
+    let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
     assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "Ruby's 31 digits, unrounded");
     let id = amount::write_order_row(&o.primary, &bot, &plan, amount::RowKind::Skipped, "2026-09-01T10:00:01Z".parse().unwrap()).unwrap();
     let (amount, created): (f64, String) = o.primary.query_row("SELECT amount, created_at FROM transactions WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
@@ -120,14 +120,14 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
         let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(), ..sizing_ticker(&c["ticker"]) };
-        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), ALPACA.minimum_logic);
+        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), ALPACA.minimum_logic).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
         assert_eq!(c["amount_type"], "quote", "Alpaca sizes every buy in quote {c}");
         assert!(plan.quote_type, "{c}");
         assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum (quote-only) {c}");
-        let order = plan.to_order("cl".into(), deadline, ALPACA.wire);
+        let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some("BTC/USD"), Some("buy"), Some("gtc")), "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "pair {c}");
@@ -142,7 +142,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
                 assert_eq!(w["type"], "limit", "{c}");
                 assert_eq!(order.volume, w["qty"].as_str().unwrap(), "qty {c}");
                 assert_eq!(price, w["limit_price"].as_str().unwrap(), "limit_price {c}");
-                let qty_exact = plan.volume.div(&plan.price.floor(t.price_decimals)).unwrap().floor(t.base_decimals);
+                let qty_exact = plan.volume.div(&plan.price.floor(t.scales().unwrap().2)).unwrap().floor(t.scales().unwrap().0);
                 float_changed += (order.volume != qty_exact.to_s_f()) as usize;
                 assert!(!order.quote_volume);
             }

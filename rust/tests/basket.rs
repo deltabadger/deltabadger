@@ -151,7 +151,7 @@ fn every_recorded_rails_split_is_reproduced() {
         let side = if case["limit"] == true { "last" } else { "ask" };
         let priced: Vec<basket::Priced> = basket::members(&o.primary, &bot).unwrap().into_iter().map(|m| {
             let reference = bd(case["prices"][&m.ticker.base_code][side].as_str().unwrap());
-            let price = amount::order_price(&bot, &m.ticker, &reference);
+            let price = amount::order_price(&bot, &m.ticker, &reference).unwrap();
             basket::Priced { member: m, reference, price }
         }).collect();
         let got = basket::split(&priced, &basket::holdings(&o.primary, &bot).unwrap(), &basket::reserved(&o.primary, &bot).unwrap(), &bd(case["x"].as_str().unwrap()));

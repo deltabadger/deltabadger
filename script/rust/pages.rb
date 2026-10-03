@@ -356,7 +356,10 @@ module Pages
   end
 end
 
-command, root = ARGV
-raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
+# script/rust/oauth.rb loads this file for its helpers and runs its own command.
+unless defined?(OAUTH_PARITY)
+  command, root = ARGV
+  raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
 
-Pages.public_send(command, root)
+  Pages.public_send(command, root)
+end

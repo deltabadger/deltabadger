@@ -40,6 +40,11 @@ const DIVERGENCES: [&str; 1] = ["add_service_unavailable"];
 fn intent_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let failed_rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().filter(|t| t["after"]["status"] == 1).count();
     if failed_rows(rails_out) == 0 { return Err(format!("Rails no longer writes a failed row: drop the listed divergence\n  rails: {rails_out}")); }
+    rust_kept_the_intent(dir, rust_out)
+}
+
+/// One AddOrder sent, no order row, the bot retrying with its intent kept and one placement_ambiguous log.
+fn rust_kept_the_intent(dir: &Path, rust_out: &serde_json::Value) -> Result<(), String> {
     if rust_out["sent"].as_array().map(Vec::len) != Some(1) { return Err(format!("Rust must send exactly one AddOrder: {rust_out}")); }
     if !rust_out["changes"]["transactions"].as_array().unwrap().is_empty() { return Err(format!("Rust wrote an order row: {rust_out}")); }
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
@@ -50,6 +55,47 @@ fn intent_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json:
     Ok(())
 }
 
+/// Both grids' `-unreadable_{price,placed,poll}_{nan,infinity,garbage}` variants: a venue number that is "NaN", "Infinity" or
+/// "garbage", in a price, in the placement's answer (Kraken: the placed order's first poll) and in a fill poll. Rust
+/// refuses every one as an unreadable answer (ruby::json_to_d): a price fails the tick with no order (retried); the Alpaca
+/// placement answer keeps the intent for recovery; a poll changes no row and records no fill. What Rails did, recorded
+/// from the grid (Kraken parses with honeymaker's strict BigDecimal(), Alpaca with String#to_d):
+/// - price, garbage: both venues read 0 and raise their own "Wrong ask/last price … 0.0": retried, no order (only the
+///   message differs from Rust's).
+/// - price, NaN or Infinity: both venues accept the non-finite price and sizing raises "comparison of BigDecimal with 0
+///   failed": execution_failed, no order.
+/// - placed, Kraken (the placed order's first poll): garbage raises in the follow-up job (the row stays waiting); NaN closes
+///   the order with amount_exec written as NULL (NaN); Infinity closes it with amount_exec +Inf.
+/// - placed, Alpaca (the POST answer): all three are ignored and the order is recorded as submitted.
+/// - poll, Kraken (the sweep): garbage raises (execution_failed, no order); NaN closes the waiting order with a NULL
+///   amount_exec and, where an amount is still owed, the same tick places another order; Infinity closes it with +Inf
+///   (and some ticks then fail "comparison of BigDecimal with 0 failed").
+/// - poll, Alpaca (the follow-up): garbage closes the order with a ZERO fill (amount_exec and quote_amount_exec 0, whose
+///   amount the next tick buys again); NaN closes it with NULL fills; Infinity closes it with +Inf fills.
+const UNREADABLE: &str = "-unreadable_";
+
+fn unreadable_number_refused(name: &str, dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value, alpaca: bool) -> Result<(), String> {
+    if rails_out == rust_out { return Err("Rails now decides as Rust: drop the listed divergence".into()); }
+    let sent = rust_out["sent"].as_array().map_or(0, Vec::len);
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    let logged_unreadable = rust_out["changes"]["bot_activity_logs"].to_string().contains("unreadable");
+    let ok = if name.contains("-unreadable_price_") {
+        sent == 0 && rows.is_empty() && logged_unreadable
+    } else if name.contains("-unreadable_placed_") && alpaca {
+        return rust_kept_the_intent(dir, rust_out);
+    } else if name.contains("-unreadable_placed_") {
+        // The order was placed and recorded at placement; its unreadable first poll records nothing on it.
+        sent == 1 && rows.len() == 1 && rows[0]["after"]["external_status"] == 0
+            && rows[0]["after"]["amount_exec"].is_null() && rows[0]["after"]["quote_amount_exec"].is_null()
+            && rust_out["poll_error"].as_str().is_some_and(|e| e.contains("unreadable"))
+    } else if alpaca {
+        sent == 0 && rows.is_empty() && rust_out["poll_error"].as_str().is_some_and(|e| e.contains("unreadable"))
+    } else {
+        sent == 0 && rows.is_empty() && logged_unreadable
+    };
+    if ok { Ok(()) } else { Err(format!("Rust must refuse the number as unreadable: {rust_out}")) }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -57,7 +103,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 216, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 297, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -70,7 +116,21 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
             if let Err(e) = intent_kept(&rust_root.path().join(&name), &rails_out, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")); }
             continue;
         }
+        if name.contains(UNREADABLE) {
+            if let Err(e) = unreadable_number_refused(&name, &rust_root.path().join(&name), &rails_out, &rust_out, false) { failures.push(format!("{name} (listed divergence): {e}")); }
+            continue;
+        }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    // The mails are part of what is compared; pin what Rails enqueues, so that two silent sides cannot pass. Checked
+    // before the comparison's own verdict, so it holds even while other scenarios differ.
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-blocking", &["stopped_by_error"][..]), ("-rejected", &["end_of_funds"]), ("-low_funds", &["end_of_funds"]), ("-on_schedule", &[])]
+            .into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, mails)| mails);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
@@ -173,17 +233,27 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
     rails(&["grid-alpaca", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 288, "the Alpaca grid has {} scenarios", dirs.len());
+    // 369 (with #451's unreadable-number variants) and the six mail variants (54 scenarios).
+    assert_eq!(dirs.len(), 423, "the Alpaca grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let mut failures = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let mut rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        // The Rust engine's mail markers, seeded on the row before Rails ticked it: Rails must hand them back as they were.
+        if let Some(left) = rails_out.as_object_mut().unwrap().remove("markers") {
+            assert!(name.contains("-markers_survive_"), "{name}: only these scenarios seed markers");
+            assert_eq!(left, seeded_markers(), "{name}: Rails changed or dropped a marker");
+        } else {
+            assert!(!name.contains("-markers_survive_"), "{name}: Rails reported no markers");
+        }
         let rust_dir = rust_root.path().join(&name);
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
-        let listed = if name.ends_with("-untradable_clock_closed") {
+        let listed = if name.contains(UNREADABLE) {
+            Some(unreadable_number_refused(&name, &rust_dir, &rails_out, &rust_out, true))
+        } else if name.ends_with("-untradable_clock_closed") {
             Some(crypto_ignores_the_stock_clock(&rust_dir, &rails_out, &rust_out))
         } else if ALPACA_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
             Some(intent_kept(&rust_dir, &rails_out, &rust_out))
@@ -197,8 +267,7 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
             None => {}
         }
     }
-    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    // The comparison above sees the funds notification only if Rails really sends it one way and not the other: a Rust side
+    // The comparison below sees the funds notification only if Rails really sends it one way and not the other: a Rust side
     // that suppressed it (or sent it always) then differs in `funds_notified` and fails.
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -207,11 +276,43 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
         if name.ends_with("-funds_low_cash_only") { assert_eq!(rails_out["funds_notified"], false, "{name}: Rails must not notify"); }
         if name.ends_with("-poll_partially_filled") { assert_eq!(rails_out["poll_error"], "Order OOPEN-5 status is unknown.", "{name}"); }
         if name.ends_with("-insufficient_buying_power") { assert_eq!(rails_out["funds_notified"], true, "{name}: Bot::Failable stamps the budget"); }
+        // The mails are compared above, which proves nothing if Rails mails in neither scenario or in both: pin Rails' side.
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-funds_low_buying_power", &["end_of_funds"][..]), ("-funds_budget_spent", &[]), ("-funds_budget_reopened", &["end_of_funds"]),
+                                         ("-error_budget_spent", &[]), ("-error_budget_reopened", &["notify_about_error"]), ("-insufficient_buying_power", &["end_of_funds"]),
+                                         ("-unauthorized_twice", &["stopped_by_error"]), ("-markers_survive_a_tick", &[]), ("-markers_survive_a_failure", &["end_of_funds"]),
+                                         ("-on_schedule", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, mails)| mails);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        if name.ends_with("-error_budget_reopened") { assert_eq!(rails_out["mails"][0]["errors"], serde_json::json!(["qty must be > 0 & <sane>"]), "{name}"); }
+        if name.ends_with("-unauthorized_twice") { assert!(rails_out["mails"][0]["errors"][0].as_str().unwrap().starts_with("Alpaca rejected the API key."), "{name}"); }
         if name.ends_with("-retry_reuses_cached_price") {
             assert_eq!(rails_out["sent"].as_array().map(Vec::len), Some(2), "{name}: one failed and one accepted POST");
             assert_eq!(rails_out["sent"][0], rails_out["sent"][1], "{name}: Rails' retry reused its cached price");
         }
     }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
+/// script/rust/decisions.rb SEEDED_MARKERS.
+fn seeded_markers() -> serde_json::Value {
+    serde_json::json!({ "rust_funds_mail_pending": { "quote_asset": 2, "stamped_at": "2026-08-31T09:00:00.000Z" },
+                        "rust_error_mail_pending": { "unknown": { "error": "an <old> \"error\"", "stamped_at": "2026-08-31T09:00:00.000Z" } },
+                        "rust_stopped_mail_pending": { "error": "unauthorized.", "stamped_at": "2026-08-31T09:00:00.000Z" },
+                        "rust_limit_mail_pending": { "stamped_at": "2026-08-31T09:00:00.000Z" } })
+}
+
+/// The same four markers through Rails' web paths: the settings form on the running bot, a stop, the settings form on
+/// the stopped bot. Rails writes `transient_data` back whole from the row it loaded, unknown keys included.
+#[test]
+fn a_rails_web_save_of_the_bot_keeps_the_mail_markers() {
+    let dir = tempfile::tempdir().unwrap();
+    rails(&["web-save", dir.path().to_str().unwrap()]);
+    let out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.path().join("web_save.json")).unwrap()).unwrap();
+    // Rails really saved, three times: or the markers' survival proves nothing.
+    assert_eq!((out["saved_while_running"].clone(), out["stopped"].clone(), out["saved_while_stopped"].clone()), (serde_json::json!(true), serde_json::json!(true), serde_json::json!(true)), "{out}");
+    assert_eq!(out["settings"], serde_json::json!({ "quote_amount": 80.0, "interval": "day", "limit_ordered": true }), "{out}");
+    assert_eq!((out["status"].as_str(), out["label"].as_str()), (Some("stopped"), Some("Renamed again")), "{out}");
+    assert_eq!(out["markers"], seeded_markers(), "Rails changed or dropped a marker");
 }
 
 #[test]
@@ -582,7 +683,7 @@ async fn a_basket_copy_is_planned_with_every_members_prices() {
 }
 
 /// Amount-limit scenarios in which Rails mails stopped_by_amount_limit (Bot::Notifyable, deliver_later on every qualifying fill,
-/// no dedupe): a paused Rails-only side effect, since the engine sends no mail yet. Archived: Rails mails although
+/// no dedupe), and so does the engine (notice::LIMIT, written with the fill). Archived: Rails mails although
 /// Bot::Lifecycle#stop changes nothing.
 const LIMIT_MAILS: [&str; 10] = ["limit-poll-reaches", "limit-poll-reaches-limit_order", "limit-poll-stopped_bot", "limit-poll-archived",
                                  "limit-sweep-reaches", "limit-sweep-reaches-under_floor", "limit-sweep-reaches-twice", "limit-poll-cancelled_partial_reaches",
@@ -605,19 +706,27 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
     let reference = |name: &str| outputs.iter().find(|(n, ..)| *n == format!("{name}-reference")).map(|(_, d, r, _)| (d.as_path(), r));
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
-        let mut rails_out = rails_out.clone();
-        let mails = rails_out.as_object_mut().unwrap().remove("mails").unwrap_or_else(|| panic!("{name}: Rails reported no mails"));
-        let mailed = if name == "limit-sweep-reaches-twice" {
-            serde_json::json!(["BotAlertsMailer#stopped_by_amount_limit", "BotAlertsMailer#stopped_by_amount_limit"]) // one per callback
-        } else if LIMIT_MAILS.contains(&name.as_str()) {
-            serde_json::json!(["BotAlertsMailer#stopped_by_amount_limit"])
-        } else if name.ends_with("-5xx") {
-            // Rails' failed row for the 5xx leg mails its error (Bot::Notifyable#notify_about_error); paused in Rust like every mail.
-            serde_json::json!(["BotAlertsMailer#notify_about_error"])
-        } else {
-            serde_json::json!([])
+        let (mut rails_out, rust_out) = (rails_out.clone(), rust_out.clone());
+        let mailed = |out: &serde_json::Value| -> Vec<String> {
+            out["mails"].as_array().unwrap_or_else(|| panic!("{name}: no mails reported")).iter().map(|m| m["mail"].as_str().unwrap().to_string()).collect()
         };
-        if mails != mailed { failures.push(format!("{name}: Rails mailed {mails}, expected {mailed}")); }
+        // Rails' side pinned, so that two silent sides cannot pass.
+        let expected: &[&str] = if name == "limit-sweep-reaches-twice" {
+            &["stopped_by_amount_limit", "stopped_by_amount_limit"] // one per callback
+        } else if LIMIT_MAILS.contains(&name.as_str()) {
+            &["stopped_by_amount_limit"]
+        } else if name.ends_with("-5xx") {
+            &["notify_about_error"] // Rails' failed row for the 5xx leg (Bot::Notifyable#notify_about_error)
+        } else {
+            &[]
+        };
+        if mailed(&rails_out) != expected { failures.push(format!("{name}: Rails mailed {:?}, expected {expected:?}", mailed(&rails_out))); }
+        if name == "limit-sweep-reaches-twice" {
+            // Listed divergence: the engine's mail marker is one key, so the two callbacks of one sweep owe one mail.
+            if mailed(&rust_out) != ["stopped_by_amount_limit"] { failures.push(format!("{name}: Rust mailed {:?}, expected one", mailed(&rust_out))); }
+            rails_out["mails"] = rust_out["mails"].clone();
+        }
+        let rust_out = &rust_out;
         let listed = if name == "limit-ambiguous_overspend" {
             Some(overspend_prevented(dir, &rails_out, rust_out, reference(name)))
         } else if name.ends_with("-landed") {

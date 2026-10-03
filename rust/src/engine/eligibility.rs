@@ -147,6 +147,8 @@ fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &
             r.push(format!("no ticker for the asset {asset_id} on this venue"));
             continue;
         };
+        // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
+        if let Err(e) = t.scales() { r.push(e); }
         // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer); wrappers such as tokenized stocks carry
         // an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice.
         let (category, instrument): (Option<String>, Option<String>) = c.query_row(

@@ -25,6 +25,38 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
+      - 'config/environments/production.rb'
+      # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
+      - 'app/models/app_config.rb'
+      - 'config/initializers/doorkeeper.rb'
+      - 'config/initializers/rack_attack.rb'
+      # What rust/src/mail mirrors (rust/tests/fixtures/mail_vectors.json "ported_sources"): a change to a mailer, a
+      # mail view or the notification rules must run rust/tests/mail.rs, which then asks for a re-recording.
+      - 'app/mailers/**'
+      - 'app/views/layouts/mailers/**'
+      - 'app/views/bot_alerts_mailer/**'
+      - 'app/views/test_mailer/**'
+      - 'app/views/devise/mailer/**'
+      - 'app/models/bot/notifyable.rb'
+      - 'app/models/bot/failable.rb'
+      - 'app/models/bot/fundable.rb'
+      - 'app/models/smtp_settings.rb'
+      - 'config/initializers/smtp_settings.rb'
+      - 'app/jobs/application_mail_delivery_job.rb'
+      # The tracker's syncs (rust/src/sync) port these; rust/tests/sync_vectors.rs hashes them (sync_vectors.json "ported_sources").
+      - 'app/services/account_transaction_sync.rb'
+      - 'app/services/account_balance/sync.rb'
+      - 'app/services/transfer_matcher.rb'
+      - 'app/jobs/account_transaction/sync_job.rb'
+      - 'app/jobs/account_transaction/sync_all_job.rb'
+      - 'app/jobs/account_balance/sync_job.rb'
+      - 'app/jobs/account_balance/sync_all_job.rb'
+      - 'app/models/api_key.rb'
+      - 'app/models/concerns/api_key_failure_handling.rb'
+      - 'app/models/ticker.rb'
+      - 'app/models/account_transaction.rb'
+      - 'config/initializers/oj.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -49,6 +81,38 @@ on:
       - 'app/models/exchange.rb'
       - 'app/models/exchanges/alpaca.rb'
       - 'app/models/exchanges/kraken.rb'
+      # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
+      - 'config/environments/production.rb'
+      # The OAuth provider mirrors these three (rust/tests/web.rs `oauth_sources` reads them).
+      - 'app/models/app_config.rb'
+      - 'config/initializers/doorkeeper.rb'
+      - 'config/initializers/rack_attack.rb'
+      # What rust/src/mail mirrors (rust/tests/fixtures/mail_vectors.json "ported_sources"): a change to a mailer, a
+      # mail view or the notification rules must run rust/tests/mail.rs, which then asks for a re-recording.
+      - 'app/mailers/**'
+      - 'app/views/layouts/mailers/**'
+      - 'app/views/bot_alerts_mailer/**'
+      - 'app/views/test_mailer/**'
+      - 'app/views/devise/mailer/**'
+      - 'app/models/bot/notifyable.rb'
+      - 'app/models/bot/failable.rb'
+      - 'app/models/bot/fundable.rb'
+      - 'app/models/smtp_settings.rb'
+      - 'config/initializers/smtp_settings.rb'
+      - 'app/jobs/application_mail_delivery_job.rb'
+      # The tracker's syncs (rust/src/sync) port these; rust/tests/sync_vectors.rs hashes them (sync_vectors.json "ported_sources").
+      - 'app/services/account_transaction_sync.rb'
+      - 'app/services/account_balance/sync.rb'
+      - 'app/services/transfer_matcher.rb'
+      - 'app/jobs/account_transaction/sync_job.rb'
+      - 'app/jobs/account_transaction/sync_all_job.rb'
+      - 'app/jobs/account_balance/sync_job.rb'
+      - 'app/jobs/account_balance/sync_all_job.rb'
+      - 'app/models/api_key.rb'
+      - 'app/models/concerns/api_key_failure_handling.rb'
+      - 'app/models/ticker.rb'
+      - 'app/models/account_transaction.rb'
+      - 'config/initializers/oj.rb'
 
 permissions:
   contents: read
@@ -115,4 +179,5 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable --test web --test normaliser
+          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc
+          --test mail --test smtp --test sync_vectors

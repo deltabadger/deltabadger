@@ -1,5 +1,6 @@
 //! The Rust half of the decision-parity harness (script/rust/decisions.rb is the Rails half): the same
 //! ticks, with retries, on a marked scratch copy, reported in the canonical shape Rails reports.
+use crate::engine::notice::{self, Notice, Pending};
 use crate::engine::polling;
 use crate::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use crate::engine::{EngineError, FixedClock};
@@ -21,6 +22,8 @@ use std::path::Path;
 const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_index_assets"];
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
+/// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
+const RUST_KEYS: [&str; 3] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending"];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -42,10 +45,10 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
         while let Some(r) = q.next()? {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
-                if name == "last_end_of_funds_notification" { continue; }
                 let mut v = raw(r.get_ref(i)?);
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
-                if name == "transient_data" { if let Value::Object(m) = &mut v { m.remove("failure_notifications"); m.remove("rust_placement"); m.remove("rust_defer_until"); m.remove("rust_amount_limit_stops_pending"); } }
+                // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.
+                if name == "transient_data" { if let Value::Object(m) = &mut v { for key in RUST_KEYS.iter().chain(&notice::KEYS) { m.remove(*key); } } }
                 row.insert(name.clone(), v);
             }
             rows.insert(row["id"].to_string(), Value::Object(row));
@@ -79,6 +82,31 @@ pub fn wire(o: &NewOrder) -> Value {
     v
 }
 
+/// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
+/// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language), the quote asset's symbol.
+fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
+    let mut out = vec![];
+    for p in notice::all_pending(c)?.into_iter().filter(|p| !before.contains(p)) {
+        let (exchange_type, exchange_name, locale): (String, String, Option<String>) = c.query_row(
+            "SELECT e.type, e.name, u.locale FROM bots b JOIN exchanges e ON e.id = b.exchange_id JOIN users u ON u.id = b.user_id WHERE b.id = ?1",
+            [p.bot_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        let mut mail = json!({ "mail": p.notice.mail() });
+        match &p.notice {
+            Notice::EndOfFunds { quote_asset_id } => mail["quote"] = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [quote_asset_id], |r| r.get::<_, String>(0))?.into(),
+            Notice::Error { error, .. } | Notice::StoppedByError { error } => {
+                mail["errors"] = json!([crate::mail::render::humanize_error(&exchange_type, &exchange_name, crate::mail::render::user_locale(locale.as_deref()), error)]);
+            }
+            // Bot::Notifyable#notify_stopped_by_amount_limit hands the mailer the bot's quote symbol.
+            Notice::StoppedByAmountLimit => mail["quote"] = c.query_row(
+                "SELECT a.symbol FROM bots b JOIN assets a ON a.id = json_extract(b.settings, '$.quote_asset_id') WHERE b.id = ?1",
+                [p.bot_id], |r| r.get::<_, String>(0))?.into(),
+        }
+        out.push(mail);
+    }
+    out.sort_by_key(|m| m["mail"].as_str().unwrap_or_default().to_string());
+    Ok(Value::Array(out))
+}
+
 pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| EngineError::Data(e.to_string()))?;
     let scenario: Value = serde_json::from_str(&read).map_err(|e| EngineError::Data(e.to_string()))?;
@@ -93,6 +121,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let _lock = lease::lock(&paths, chrono::Utc::now())?;
     let o = store::open(&paths)?;
     let before = snapshot(&o.primary)?;
+    let owed = notice::all_pending(&o.primary)?;
     if scenario["venue"] == "alpaca" {
         // Rust's real Alpaca client over the recorded bodies Rails' harness serves beneath Clients::Alpaca.
         let transport = ScriptedTransport::from_script(&scenario["script"]["alpaca"]);
@@ -102,7 +131,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         // A raised follow-up is reported like Rails' job raise; a throttle or transient failure is a retry Rails enqueues.
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
-        let mut out = json!({ "sent": transport.posted_orders(), "changes": diff(&before, &snapshot(&o.primary)?),
+        let mut out = json!({ "sent": transport.posted_orders(), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         // The engine's reconciliation tick has no Rails counterpart: what it sent (nothing, expected) goes to the asserters only.
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
@@ -110,11 +139,13 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     }
     let venue = FakeVenue::from_script(&scenario["script"]);
     let posted = || venue.sent().len();
-    if let (Some(e), _) = play(&o, &venue, &scenario, bot_id, start, &posted).await? {
-        return Err(EngineError::Data(format!("follow-up poll of {}: {e:?}", scenario["poll"])));
-    }
+    let (poll, _) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
     let sent: Vec<Value> = venue.sent().iter().map(wire).collect();
-    Ok(json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?) }))
+    let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
+    // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
+    // scenarios fail a Kraken poll; anywhere else the key's presence alone makes the outputs differ).
+    if let Some(e) = poll { out["poll_error"] = json!(format!("{e:?}")); }
+    Ok(out)
 }
 
 /// The scenario's phases, in Rails' harness order: the tick at `at` (with Rails' retries); the follow-up poll Rails enqueues for

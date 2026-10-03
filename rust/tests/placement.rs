@@ -17,7 +17,7 @@ fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) 
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let p = BigDec::from_i64(50_000);
-    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
     (dir, o, bot, plan)
 }
 fn count(o: &store::Opened, sql: &str) -> i64 { o.primary.query_row(sql, [], |r| r.get(0)).unwrap() }
@@ -168,7 +168,7 @@ async fn a_basket_legs_intent_names_its_own_ticker_and_is_recorded_on_it() {
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").weights(&[(s.btc, 0.7), (eth, 0.3)]));
     let bot = model::load_bot(&o.primary, id).unwrap();
     let eth_ticker = model::ticker_for_asset(&o.primary, &bot, eth).unwrap().unwrap();
-    let Sizing::Place(plan) = amount::size(&bot, &eth_ticker, &BigDec::from_i64(18), &BigDec::from_i64(2500), deltabadger::engine::venue_rules::ALPACA.minimum_logic) else { panic!() };
+    let Sizing::Place(plan) = amount::size(&bot, &eth_ticker, &BigDec::from_i64(18), &BigDec::from_i64(2500), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!() };
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
     let stored = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap();
     assert_eq!((stored["ticker_id"].as_i64(), stored["base_asset_id"].as_i64()), (Some(eth_ticker.id), Some(eth)), "the leg's own pair, not the first member's");

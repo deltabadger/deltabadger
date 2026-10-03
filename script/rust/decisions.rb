@@ -84,20 +84,37 @@ module Decisions
 
   JSON_COLUMNS = %w[settings transient_data details error_messages].freeze
   MAX_ATTEMPTS = 6
+  # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
+  MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
+  # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
+  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending] + MAIL_MARKERS).freeze
+  # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
+  SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
+                     'rust_error_mail_pending' => { 'unknown' => { 'error' => 'an <old> "error"', 'stamped_at' => '2026-08-31T09:00:00.000Z' } },
+                     'rust_stopped_mail_pending' => { 'error' => 'unauthorized.', 'stamped_at' => '2026-08-31T09:00:00.000Z' },
+                     'rust_limit_mail_pending' => { 'stamped_at' => '2026-08-31T09:00:00.000Z' } }.freeze
 
   def raw(value) = value.is_a?(Float) ? { 'f' => [value].pack('G').unpack1('H*') } : value
 
   def rows(table)
     ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a.to_h do |r|
-      r = r.except('last_end_of_funds_notification').transform_values { |v| raw(v) }
+      r = r.transform_values { |v| raw(v) }
       JSON_COLUMNS.each { |c| r[c] = JSON.parse(r[c]) if r[c].is_a?(String) }
-      r['transient_data'] = r['transient_data'].except('failure_notifications', 'rust_placement', 'rust_defer_until', 'rust_amount_limit_stops_pending') if r['transient_data'].is_a?(Hash)
+      r['transient_data'] = r['transient_data'].except(*RUST_KEYS) if r['transient_data'].is_a?(Hash)
       [r['id'], r]
     end
   end
 
   # The tick rewrites a basket's members (Bot::Composition::Allocatable#update_bot_index_assets), so they are compared too.
   def snapshot = %w[bots transactions bot_activity_logs bot_index_assets].to_h { |t| [t, rows(t)] }
+
+  # The mails Rails has enqueued (Bot::Notifyable's deliver_later): the mailer action, and what it was handed.
+  def enqueued_mails
+    ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j['job_class'].to_s.end_with?('MailDeliveryJob') }.map do |j|
+      params = j['arguments'][3]['params']
+      { 'mail' => j['arguments'][1], 'errors' => params['errors'], 'quote' => params['quote'] }.compact
+    end
+  end
 
   def diff(before, after)
     after.to_h { |t, rows| [t, rows.filter_map { |id, row| row == before[t][id] ? nil : { 'id' => id, 'before' => before[t][id], 'after' => row } }] }
@@ -149,7 +166,9 @@ module Decisions
     bot.save!
     bot.update_columns({ 'status' => Bot.statuses[:scheduled], 'started_at' => Time.iso8601(sc['started_at']),
                          'settings_changed_at' => sc['settings_changed_at'] && Time.iso8601(sc['settings_changed_at']),
-                         'transient_data' => bot.reload.transient_data.merge(sc['transient']) }.merge(sc['bot_columns'] || {}))
+                         'transient_data' => bot.reload.transient_data.merge(sc['transient']),
+                         'last_end_of_funds_notification' => sc['funds_notified_at'] && Time.iso8601(sc['funds_notified_at']) }
+                       .merge(sc['bot_columns'] || {}))
     sc['transactions'].each do |t|
       asset = assets.fetch(t.fetch('asset', 'BTC'))
       Transaction.insert!(t.except('asset').merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
@@ -261,6 +280,18 @@ module Decisions
                                                               'minimum_base_size' => '1', 'minimum_quote_size' => '5' },
                              'http' => { '/0/public/Ticker' => [ticker_body('9.9', '10.1', '10.0')] } }
       }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, in the placed order's
+      # first poll (Kraken's AddOrder answer carries no number either side reads), and in the sweep's poll of a waiting order.
+      { 'nan' => 'NaN', 'infinity' => 'Infinity', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { '/0/public/Ticker' => [ticker_body('49990.1', bad, bad)] } }
+        variants["unreadable_placed_#{label}"] = { 'at' => after.(1), 'poll' => 'OTX-1',
+          'http' => ->(mode) { { '/0/private/QueryOrders' => [query_body('OTX-1' => raw_order(status: 'closed', vol: '0.0012', vol_exec: bad, cost: '59.99', price: '49991.7',
+                                                                                             viqc: false, limit_price: mode == 'limit' ? '49870.3' : '0'))] } } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1),
+          'transactions' => [{ 'status' => 0, 'external_status' => 0, 'external_id' => 'OMKT-8', 'order_type' => 0, 'quote_amount' => '60',
+                               'price' => '50000', 'created_at' => '2026-09-01 10:00:01' }],
+          'http' => { '/0/private/QueryOrders' => [query_body('OMKT-8' => raw_order(status: 'closed', vol: '60', vol_exec: bad, cost: '60', price: '50010.5', viqc: true))] } }
+      end
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
           v_http = v.fetch('http', {})
@@ -367,6 +398,19 @@ module Decisions
         'poll_http_error' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-6', 'transactions' => [waiting.('OOPEN-6', limit: true)],
           'http' => { 'GET /v2/orders/OOPEN-6' => [{ 'status' => 500, 'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }] } },
         'balance_network' => { 'at' => after.(1), 'http' => { 'GET /v2/account' => [POST_SEND] } },
+        # The two mail budgets, each inside its day (no mail) and a day and an hour on (a mail again).
+        'funds_budget_spent' => { 'at' => after.(1), 'funds_notified_at' => (Time.iso8601(after.(1)) - 23.hours).iso8601,
+                                  'http' => { 'GET /v2/account' => [account('100000', '1')] } },
+        'funds_budget_reopened' => { 'at' => after.(1), 'funds_notified_at' => (Time.iso8601(after.(1)) - 25.hours).iso8601,
+                                     'http' => { 'GET /v2/account' => [account('100000', '1')] } },
+        'error_budget_spent' => { 'at' => after.(1), 'transient' => { 'failure_notifications' => { 'unknown' => (Time.iso8601(after.(1)) - 23.hours).iso8601 } },
+                                  'http' => { 'POST /v2/orders' => [{ 'status' => 422, 'body' => { 'code' => 42_210_000, 'message' => 'qty must be > 0 & <sane>' } }] } },
+        'error_budget_reopened' => { 'at' => after.(1), 'transient' => { 'failure_notifications' => { 'unknown' => (Time.iso8601(after.(1)) - 25.hours).iso8601 } },
+                                     'http' => { 'POST /v2/orders' => [{ 'status' => 422, 'body' => { 'code' => 42_210_000, 'message' => 'qty must be > 0 & <sane>' } }] } },
+        # The Rust engine's mail markers on the row while Rails ticks it, once into a success and once into a failure.
+        'markers_survive_a_tick' => { 'at' => after.(1), 'transactions' => [closed], 'transient' => SEEDED_MARKERS },
+        'markers_survive_a_failure' => { 'at' => after.(1), 'transient' => SEEDED_MARKERS, 'http' => { 'POST /v2/orders' => [{ 'status' => 403,
+          'body' => { 'buying_power' => '0', 'code' => 40_310_000, 'cost_basis' => '60', 'message' => 'insufficient buying power' } }] } },
         'untradable' => { 'at' => after.(1), 'ticker_after' => { 'trading_enabled' => false }, 'http' => { 'GET /v2/clock' => [clock(true)] } },
         # Sanctioned divergence: Rails parks a crypto bot whose ticker went untradable behind the stock market's clock.
         'untradable_clock_closed' => { 'at' => after.(1), 'ticker_after' => { 'trading_enabled' => false }, 'http' => { 'GET /v2/clock' => [clock(false)] } },
@@ -390,6 +434,17 @@ module Decisions
             { 'GET /v2/orders/OTX-1' => [ok(filled)] }
           end }
       }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, in the answer to the
+      # placement, and in the follow-up poll of a waiting order.
+      { 'nan' => 'NaN', 'infinity' => 'Infinity', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(bad)],
+                                                                                 'GET /v1beta3/crypto/us/latest/trades' => [trades(bad)] } }
+        variants["unreadable_placed_#{label}"] = { 'at' => after.(1),
+          'http' => { 'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'filled', filled_qty: bad, filled_avg_price: '64321.5'))] } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-7', 'transactions' => [waiting.('OOPEN-7', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-7' => [ok(alpaca_order('OOPEN-7', 'filled', type: 'limit', notional: nil, qty: '0.000935',
+                                                                   filled_qty: bad, filled_avg_price: '64150', limit_price: '64150'))] } }
+      end
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
           v_http = v.fetch('http', {})
@@ -398,7 +453,7 @@ module Decisions
             'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => ticker,
             'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'alpaca' => http.merge(v_http) },
-            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'], 'funds_notified_at' => v['funds_notified_at'] }
         end
       end
     end
@@ -520,13 +575,13 @@ module Decisions
       settings = limit_for ? { 'quote_amount_limited' => true, 'quote_amount_limit' => limit_for.(members) } : {}
       transient = stamp ? { 'quote_amount_limit_enabled_at' => stamp } : {}
       basket("#{prefix}-recover-#{name}", members, at: basket_first, quote_amount:, settings:, transient:, recover_at: recover,
-             next_at: basket_at(1), report_mails: limit_for ? true : nil,
+             next_at: basket_at(1),
              http: swept.merge('POST /v2/orders' => posts, 'GET /v2/orders:by_client_order_id' => [lookup]))
     end
     settings = limit_for ? { 'quote_amount_limited' => true, 'quote_amount_limit' => limit_for.(WEIGHTS['tiers']) } : {}
     transient = stamp ? { 'quote_amount_limit_enabled_at' => stamp } : {}
     list << landed_reference("#{prefix}-recover-tiers-k2-landed", WEIGHTS['tiers'], legs: [%w[OTX-1 BTC 60]], landed: %w[ETH 36],
-                             quote_amount: 120.0, settings:, transient:, report_mails: limit_for ? true : nil)
+                             quote_amount: 120.0, settings:, transient:)
   end
 
   # The Rails reference for a landed-recovery scenario `name`. The same bot at the next checkpoint
@@ -648,7 +703,7 @@ module Decisions
   # One amount-limit scenario: the daily 60 USD BTC bot with `limit` switched on at its start (the stamp can be overridden).
   def limited(name, at:, limit: 100.0, settings: {}, transient: {}, **rest)
     basket("limit-#{name}", nil, at:, settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => limit }.merge(settings),
-           transient: { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }.merge(transient), report_mails: true, **rest)
+           transient: { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }.merge(transient), **rest)
   end
 
   def limit_scenarios
@@ -736,7 +791,7 @@ module Decisions
     list << landed_reference('limit-ambiguous_overspend', nil, legs: [], landed: %w[BTC 60], quote_amount: 60.0,
                              http: { 'POST /v2/orders' => [placed(2, 'BTC')] },
                              settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => 100.0 },
-                             transient: { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }, report_mails: true)
+                             transient: { 'quote_amount_limit_enabled_at' => LIMIT_STAMP })
     list << limited('ambiguous_not_placed', at: basket_first, recover_at: recover, next_at: basket_at(1),
                     http: { 'POST /v2/orders' => [POST_SEND, placed(2, 'BTC')], 'GET /v2/orders:by_client_order_id' => [NOT_FOUND] })
     # The recovery scenarios under a cap.
@@ -751,7 +806,7 @@ module Decisions
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'],
-                                        'report_mails' => sc['report_mails'], 'between' => sc['between'] }.compact))
+                                        'between' => sc['between'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -763,11 +818,13 @@ module Decisions
     end
   end
 
-  # Bot::ActionJob at `at`, then the retries it enqueues for itself, as Solid Queue would run them.
-  def tick_at(sc, at)
+  # Bot::ActionJob at `at`, then the retries it enqueues for itself, as Solid Queue would run them. The mails each run
+  # enqueued go to `mails` before the next run clears the queue.
+  def tick_at(sc, at, mails)
     travel_to(at, with_usec: true) { Bot::ActionJob.perform_now(Bot.find(sc['bot_id'])) }
     (MAX_ATTEMPTS - 1).times do
       job = retry_of(sc['bot_id']) or break
+      mails.concat(enqueued_mails)
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       travel_to(Time.at(job[:at]), with_usec: true) { ActiveJob::Base.execute(job.stringify_keys) }
     end
@@ -796,29 +853,32 @@ module Decisions
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       before = snapshot
+      markers = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS)
       mails = []
       # What Transaction's after_commit enqueues for the amount limit (quote_amount_limitable.rb:94-106): Bot::StopJob runs at
       # once, at the moment of the phase that enqueued it (the engine stops in the fill's own transaction), and each mail is
-      # listed, never delivered. With no limit nothing is enqueued, and the other grids are unchanged.
+      # listed, never delivered.
       settle = lambda do |time|
+        mails.concat(enqueued_mails)
         jobs = ActiveJob::Base.queue_adapter.enqueued_jobs
-        # deliver_later enqueues the app's ApplicationMailDeliveryJob (config/initializers/active_job.rb), not ActionMailer::MailDeliveryJob.
-        mails.concat(jobs.select { |j| j['job_class'] == ActionMailer::Base.delivery_job.name }.map { |j| j['arguments'].first(2).join('#') })
         stops = jobs.select { |j| j['job_class'] == 'Bot::StopJob' }
         jobs.clear
         travel_to(time, with_usec: true) { stops.each { |j| ActiveJob::Base.execute(j.stringify_keys) } }
       end
       if sc.fetch('tick', true)
-        tick_at(sc, Time.iso8601(sc['at']))
+        tick_at(sc, Time.iso8601(sc['at']), mails)
         settle.(Time.iso8601(sc['at']))
       end
+      ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       poll_error = nil
       if sc['poll'] # the follow-up poll Transaction enqueues for one order; its retries are not replayed
         order = Transaction.find_by!(bot_id: sc['bot_id'], external_id: sc['poll'])
         travel_to(Time.iso8601(sc['at']) + 5, with_usec: true) do
           Bot::FetchAndUpdateOrderJob.perform_now(order, update_missed_quote_amount: true)
         rescue StandardError => e
-          raise unless alpaca # a Kraken scenario must not fail its poll
+          # A Kraken scenario must not fail its poll, except a listed unreadable-number divergence (honeymaker's strict
+          # BigDecimal() raises on "garbage"): that raise is Rails' answer, recorded for rust/tests/parity.rs.
+          raise unless alpaca || File.basename(dir).include?('-unreadable_')
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
@@ -831,13 +891,16 @@ module Decisions
       # next_interval_checkpoint_at, action_job.rb:325-328), so nothing runs here for it. `next_at` is that next run.
       if sc['next_at']
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
-        tick_at(sc, Time.iso8601(sc['next_at']))
+        tick_at(sc, Time.iso8601(sc['next_at']), mails)
         settle.(Time.iso8601(sc['next_at']))
       end
-      out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot) }
-      out['mails'] = mails if sc['report_mails']
+      mails.concat(enqueued_mails)
+      out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
+      # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
+      out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
       out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca
+      out['poll_error'] = poll_error if !alpaca && poll_error
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!
@@ -845,8 +908,36 @@ module Decisions
   end
 end
 
+# What the web UI does to a bot through the model, on an install whose bot carries the Rust engine's four mail markers:
+# the settings form on a running bot (BotsController#update), a stop (Bots::StopsController), the settings form again on
+# the stopped bot (now the interval may change). Writes <dir>/web_save.json: what was saved, and what Rails left of the markers.
+def web_save(dir)
+  sc = Decisions.alpaca_scenarios.find { |s| s['name'] == 'week-market-markers_survive_a_tick' }
+  FileUtils.mkdir_p(dir)
+  id = Decisions.build(dir, sc).id
+  ActiveJob::Base.queue_adapter = :test
+  Bot.prepend(Module.new do # broadcasts are UI side effects
+    %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel].each { |m| define_method(m) { |*| nil } }
+  end)
+  form = lambda do |fields|
+    bot = Bot.find(id)
+    bot.set_missed_quote_amount
+    params = ActiveSupport::HashWithIndifferentAccess.new(fields.except(:label))
+    bot.update(settings: bot.settings.merge(bot.parse_params(params).stringify_keys), label: fields[:label]) || bot.errors.full_messages
+  end
+  running = form.call(quote_amount: '75', limit_ordered: '1', limit_order_pcnt_distance: '0.5', label: 'Renamed in the form')
+  stopped = Bot.find(id).stop(stop_message_key: 'bot.status.stopped_by_user')
+  idle = form.call(quote_amount: '80', interval: 'day', label: 'Renamed again')
+  after = Bot.find(id)
+  File.write(File.join(dir, 'web_save.json'), JSON.pretty_generate(
+    'saved_while_running' => running, 'stopped' => stopped, 'saved_while_stopped' => idle, 'status' => after.status, 'label' => after.label,
+    'settings' => after.settings.slice('quote_amount', 'interval', 'limit_ordered'), 'markers' => after.transient_data.slice(*Decisions::MAIL_MARKERS)
+  ))
+  ActiveRecord::Base.connection_pool.disconnect!
+end
+
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | record <root>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -855,5 +946,6 @@ when 'grid-alpaca' then Decisions.grid(root, Decisions.alpaca_scenarios)
 when 'grid-basket' then Decisions.grid(root, Decisions.basket_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'record' then Decisions.record(root)
+when 'web-save' then web_save(root)
 else raise ArgumentError, USAGE
 end

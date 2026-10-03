@@ -255,7 +255,7 @@ async fn a_send_resumed_past_its_bound_never_reaches_alpaca() {
     let v = AlpacaVenue::new(ReqwestTransport::new(client(), "k".into(), "s".into()), Urls { trading: server.uri(), data: server.uri() });
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000), ALPACA.minimum_logic).unwrap() else { panic!() };
     let at_ = chrono::Utc::now() - Duration::seconds(60);
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(at_)).unwrap();
     assert!(matches!(placement::send(&v, &intent, &FixedClock(at_)).await, Sent::NotSent(_)), "the freshness check passed; the bound did not");
@@ -351,3 +351,239 @@ async fn a_restarted_engine_keeps_a_running_bots_old_intent_until_a_margin_after
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_restarted_engine_keeps_a_stopped_bots_old_intent_until_a_margin_after_its_own_start() { a_restarted_engine_keeps_an_old_intent(Some(2)).await }
+
+// A venue number this build cannot read (non-finite, garbage, out of BigDec's range) is an error, never zero. Ruby's
+// String#to_d gives 0 for garbage and NaN/Infinity for those words; the engine refuses both on purpose.
+const UNREADABLE: [&str; 4] = ["NaN", "Infinity", "garbage", "-Infinity"];
+/// Outside BigDec's own range, or outside the venue-number caps (exponent ±40, 64 significant digits).
+const OUT_OF_RANGE: [&str; 4] = ["1e-1000000000", "1e41", "1e-41", "1.00000000000000000000000000000000000000000000000000000000000000001"];
+fn every_bad() -> impl Iterator<Item = &'static str> { UNREADABLE.into_iter().chain(OUT_OF_RANGE) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_price_places_nothing_and_retries() {
+    for bad in UNREADABLE {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": bad } } })) }));
+        assert!(matches!(tick_until_settled(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled), "{bad}");
+        assert!(t.posted_orders().is_empty(), "{bad}: nothing is placed");
+        assert_eq!(t.requests().iter().filter(|r| r.path.ends_with("/quotes")).count(), 4, "{bad}: transient, retried as retry_on does");
+        let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_retrying'");
+        let error = serde_json::from_str::<Value>(&details).unwrap()["error"].as_str().unwrap().to_string();
+        assert!(error.starts_with("No price for BTC: ") && error.contains("unreadable") && error.contains(bad), "{bad}: {error}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_balance_after_a_placement_reschedules_without_a_second_buy_or_a_funds_notice() {
+    for bad in UNREADABLE {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "GET /v2/account": ok(json!({ "cash": "100000", "non_marginable_buying_power": bad })) }));
+        let mut attempts = Attempts::default();
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut attempts).await.unwrap();
+        assert!(matches!(out, TickOutcome::Rescheduled), "{bad}: {out:?}");
+        assert_eq!(t.posted_orders().len(), 1, "{bad}: a retry would buy twice");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bots WHERE last_end_of_funds_notification IS NOT NULL"), 0, "{bad}: not read as a zero balance");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_balance_before_any_placement_retries() {
+    let (_d, o, id, _) = setup(BotSpec::weekly(0.4, "2026-09-01 10:00:00")); // under the minimum: nothing placed
+    let t = script(json!({ "GET /v2/account": ok(json!({ "cash": "NaN" })) }));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::RetryAfter(_)), "{out:?}");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bots WHERE last_end_of_funds_notification IS NOT NULL"), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_placement_answer_with_an_unreadable_fill_is_ambiguous_and_records_no_fill() {
+    for field in ["filled_qty", "filled_avg_price"] {
+        for bad in every_bad() {
+            let (_d, o, id, _) = setup(weekly());
+            let mut answer = json!({ "id": "OTX-1", "status": "filled", "filled_qty": "0.000932719", "filled_avg_price": "64328.1" });
+            answer[field] = json!(bad);
+            let t = script(json!({ "POST /v2/orders": ok(answer) }));
+            let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+            assert!(matches!(out, TickOutcome::AwaitingReconciliation), "{field}={bad}: {out:?}");
+            assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{field}={bad}: no row, so no zero fill");
+            assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "{field}={bad}: the intent stays");
+            assert_eq!(t.posted_orders().len(), 1);
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_recovery_lookup_with_an_unreadable_fill_stays_pending() {
+    let (_d, o, id, _) = setup(weekly());
+    let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+    let v = venue(&t);
+    let t0 = at(T0);
+    tick::tick(&o.primary, &v, id, &FixedClock(t0), &mut Attempts::default()).await.unwrap();
+    let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+    t.reply("GET /v2/orders:by_client_order_id", 200, json!({ "id": "OTX-9", "client_order_id": cl, "status": "filled", "symbol": "BTC/USD", "type": "market",
+        "side": "buy", "notional": "60", "qty": null, "filled_qty": "NaN", "filled_avg_price": "64328.1", "limit_price": null }));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let recovered = placement::recover(&o.primary, &v, &bot, &FixedClock(t0 + Duration::seconds(1300))).await.unwrap();
+    assert!(matches!(recovered, Recovery::Pending), "{recovered:?}");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "no zero fill recorded");
+    assert_eq!(t.posted_orders().len(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_poll_with_an_unreadable_fill_records_no_zero_fill() {
+    use deltabadger::engine::polling;
+    for (field, bad) in [("filled_qty", "NaN"), ("filled_avg_price", "NaN"), ("filled_qty", "Infinity"), ("filled_avg_price", "garbage"),
+                         ("filled_qty", "1e-1000000000"), ("filled_qty", "1e350"), ("filled_avg_price", "1e41")] {
+        let (_d, o, id, s) = setup(weekly());
+        let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(0), external_id: Some("OFILL".into()), order_type: 0, amount: None,
+            quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:01".into() });
+        let mut answer = json!({ "id": "OFILL", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "buy", "notional": "60", "qty": null,
+            "filled_qty": "0.000932719", "filled_avg_price": "64328.1", "limit_price": null });
+        answer[field] = json!(bad);
+        let t = script(json!({ "GET /v2/orders/OFILL": ok(answer) }));
+        let now = at("2026-09-01T10:00:06Z");
+        assert!(polling::follow_up(&o.primary, &venue(&t), id, tx, now).await.is_err(), "{field}={bad}");
+        let (ext, exec): (i64, Option<f64>) = o.primary.query_row("SELECT external_status, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((ext, exec), (0, None), "{field}={bad}: the row is untouched");
+        // The sweep in front of the next tick fails the same way, so nothing new is bought on top of it.
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0) + Duration::days(7)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::Rescheduled), "{field}={bad}: the sweep's general failure: {out:?}");
+        let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
+        assert!(details.contains("unreadable"), "{field}={bad}: {details}");
+        assert!(t.posted_orders().is_empty(), "{field}={bad}");
+        assert_eq!(one::<Option<f64>>(&o, "SELECT quote_amount_exec FROM transactions"), None);
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_price_outside_bigdecs_range_places_nothing_and_retries() {
+    for bad in ["1e-1000000000", "1e1000000000", "1e-401", "1e300", "1e-300", "1e41"] {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": bad } } })) }));
+        assert!(matches!(tick_until_settled(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled), "{bad}");
+        assert!(t.posted_orders().is_empty(), "{bad}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_ticker_precision_out_of_range_fails_the_tick_without_an_order() {
+    // Eligibility refuses this install; a tick that runs anyway must still fail cleanly, not size with it.
+    let (_d, o, id, _) = setup(weekly());
+    o.primary.execute("UPDATE tickers SET price_decimals = 1000000000", []).unwrap();
+    let t = script(json!({}));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
+    assert!(t.posted_orders().is_empty());
+    let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
+    assert!(details.contains("price_decimals 1000000000"), "{details}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_recovery_lookup_with_an_out_of_range_fill_stays_pending() {
+    for bad in OUT_OF_RANGE {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+        let v = venue(&t);
+        tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+        t.reply("GET /v2/orders:by_client_order_id", 200, json!({ "id": "OTX-9", "client_order_id": cl, "status": "filled", "symbol": "BTC/USD", "type": "market",
+            "side": "buy", "notional": "60", "qty": null, "filled_qty": bad, "filled_avg_price": "64328.1", "limit_price": null }));
+        let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(1300))).await.unwrap();
+        assert!(matches!(recovered, Recovery::Pending), "{bad}: {recovered:?}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{bad}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_plan_whose_intent_would_not_read_back_is_refused_before_anything_is_written_or_sent() {
+    use deltabadger::engine::{amount, venue_rules::ALPACA};
+    let (_d, o, id, _) = setup(weekly());
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    // A 1e300 ask (venue caps refuse it now; the check must not rely on them): the amount, 6e-299, is 301 characters written out.
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::parse("1e300").unwrap(), ALPACA.minimum_logic).unwrap() else { panic!() };
+    let err = placement::begin(&o.primary, &bot, &plan, &FixedClock(at(T0))).unwrap_err();
+    assert!(format!("{err:?}").contains("read back"), "{err:?}");
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "no intent that recovery could not read");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_tick_whose_order_would_not_read_back_places_nothing() {
+    // 1e300 USD a week sizes a notional of 301 digits: the intent could not be read back, so nothing is committed or sent.
+    let (_d, o, id, _) = setup(BotSpec::weekly(1e300, "2026-09-01 10:00:00"));
+    let t = script(json!({}));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
+    assert!(t.posted_orders().is_empty());
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
+    assert!(details.contains("read back"), "{details}");
+}
+
+// A bare JSON number serde would turn into 0.0 (1e-350), ±Inf or an error (1e400), or a 70-digit float: the whole raw
+// body is unreadable before it is parsed, so none of them is ever a zero price, fill or balance.
+const RAW_BAD: [&str; 3] = ["1e-350", "1e400", "1234567890123456789012345678901234567890123456789012345678901234567890"];
+fn raw(body: String) -> Value { json!([{ "status": 200, "body": body }]) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_raw_price_body_with_an_out_of_range_number_places_nothing() {
+    for bad in RAW_BAD {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "GET /v1beta3/crypto/us/latest/quotes": raw(format!(r#"{{"quotes":{{"BTC/USD":{{"ap":{bad},"bp":64300.25}}}}}}"#)) }));
+        assert!(matches!(tick_until_settled(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled), "{bad}");
+        assert!(t.posted_orders().is_empty(), "{bad}");
+        let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_retrying'");
+        assert!(details.contains("unreadable"), "{bad}: {details}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_raw_placement_answer_with_an_out_of_range_fill_is_ambiguous() {
+    for bad in RAW_BAD {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "POST /v2/orders": raw(format!(r#"{{"id":"OTX-1","status":"filled","filled_qty":{bad},"filled_avg_price":"64328.1"}}"#)) }));
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::AwaitingReconciliation), "{bad}: {out:?}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{bad}: no row, no zero fill");
+        assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "{bad}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_raw_poll_or_lookup_with_an_out_of_range_fill_records_no_zero_fill() {
+    use deltabadger::engine::polling;
+    for bad in RAW_BAD {
+        let (_d, o, id, s) = setup(weekly());
+        let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(0), external_id: Some("OFILL".into()), order_type: 0, amount: None,
+            quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:01".into() });
+        let t = script(json!({ "GET /v2/orders/OFILL": raw(format!(r#"{{"id":"OFILL","status":"filled","type":"market","side":"buy","notional":"60","filled_qty":{bad},"filled_avg_price":"64328.1"}}"#)) }));
+        assert!(polling::follow_up(&o.primary, &venue(&t), id, tx, at("2026-09-01T10:00:06Z")).await.is_err(), "{bad}");
+        let (ext, exec): (i64, Option<f64>) = o.primary.query_row("SELECT external_status, amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((ext, exec), (0, None), "{bad}: the row is untouched");
+    }
+    for bad in RAW_BAD {
+        let (_d, o, id, _) = setup(weekly());
+        let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+        let v = venue(&t);
+        tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+        t.reply("GET /v2/orders:by_client_order_id", 200, json!(format!(r#"{{"id":"OTX-9","client_order_id":"{cl}","status":"filled","type":"market","side":"buy","notional":"60","filled_qty":{bad},"filled_avg_price":"64328.1"}}"#)));
+        let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(1300))).await.unwrap();
+        assert!(matches!(recovered, Recovery::Pending), "{bad}: {recovered:?}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{bad}: no zero fill recorded");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_not_found_answer_with_an_out_of_range_number_proves_nothing() {
+    let (_d, o, id, _) = setup(weekly());
+    let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }],
+        "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": r#"{"code":40410000,"message":"order not found","x":1e-350}"# }] }));
+    let v = venue(&t);
+    tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(1300))).await.unwrap();
+    assert!(matches!(recovered, Recovery::Pending), "{recovered:?}");
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "the intent stays");
+}

@@ -140,7 +140,7 @@ mod form_fields {
     #[test]
     fn a_repeated_form_field_reads_its_last_value_as_rack_does() {
         let form = fields(&[("user[remember_me]", "0"), ("a", "1"), ("user[remember_me]", "1")]);
-        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query: Vec::new(), form };
+        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query: Vec::new(), form, json: None };
         assert_eq!(params.form("user[remember_me]"), Some("1"));
         assert_eq!(params.form("a"), Some("1"));
         assert_eq!(params.form("b"), None);
@@ -151,7 +151,7 @@ mod form_fields {
     #[test]
     fn a_repeated_query_key_reads_its_last_value_as_rack_does() {
         let query = fields(&[("locale", "de"), ("x", "1"), ("locale", "pl")]);
-        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query, form: Vec::new() };
+        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query, form: Vec::new(), json: None };
         assert_eq!(params.query("locale"), Some("pl"));
         assert_eq!(params.locale(), Some("pl"));
         assert_eq!(params.query("x"), Some("1"));
@@ -664,5 +664,370 @@ mod navbar_numbers {
         assert!(bots::tracker_ring(&held(&["USD", "BTC"]), false));
         assert!(bots::tracker_ring(&held(&["usd"]), false), "the comparison is exact, as in Ruby");
         assert!(bots::tracker_ring(&[None], false), "an asset without a symbol is not cash");
+    }
+}
+
+mod host_authorization {
+    use super::common;
+    use axum::http::{HeaderMap, HeaderName};
+    use deltabadger::web::{self, Config};
+
+    /// ALLOWED_HOSTS becomes `config.hosts` as config/environments/production.rb's own lines make it
+    /// (script/rust/record_vectors.rb runs them).
+    #[test]
+    fn allowed_hosts_is_read_as_production_rb_reads_it() {
+        let recorded = common::vectors()["host_authorization"]["hosts"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 10, "{} vectors", recorded.len());
+        for case in &recorded {
+            let hosts: Vec<&str> = case["hosts"].as_array().unwrap().iter().map(|host| host.as_str().unwrap()).collect();
+            assert_eq!(web::allowed_hosts(case["allowed_hosts"].as_str()), hosts, "{case}");
+        }
+        assert!(recorded.iter().any(|case| case["hosts"].as_array().unwrap().is_empty()) && recorded.iter().any(|case| case["hosts"].as_array().unwrap().iter().any(|host| host == "")));
+    }
+
+    /// Each entry against each host, as Action Pack's own matcher (HostAuthorization::Permissions) answers.
+    #[test]
+    fn a_host_is_allowed_as_action_packs_matcher_allows_it() {
+        let recorded = common::vectors()["host_authorization"]["allows"].as_array().unwrap().clone();
+        let allowed = recorded.iter().filter(|case| case["allowed"] == true).count();
+        assert!(recorded.len() >= 400 && allowed >= 25 && allowed < recorded.len() / 4, "{} vectors, {allowed} allowed", recorded.len());
+        for case in &recorded {
+            assert_eq!(web::host_allowed(case["entry"].as_str().unwrap(), case["host"].as_str().unwrap()), case["allowed"], "{case}");
+        }
+        // No host of any length or shape is a reason to stop the process.
+        for host in ["é.apps.example", "é", ".", ":", "::", "a:", ":1", &"a".repeat(100_000), &format!("{}.apps.example", "é".repeat(10))] {
+            for entry in [".apps.example", "apps.example", ".", "", "é", ".é", "a:1"] {
+                let _ = web::host_allowed(entry, host);
+            }
+        }
+    }
+
+    /// Whole requests, answered by ActionDispatch::HostAuthorization behind Puma: which pass, and what a
+    /// refusal is. The one difference: a forwarded header that names no host, where Rails fails (500).
+    #[test]
+    fn a_request_is_refused_as_host_authorization_refuses_it() {
+        let recorded = common::vectors()["host_authorization"]["requests"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 20 && recorded.iter().filter(|case| case["status"] == 500).count() == 1, "{} vectors", recorded.len());
+        for case in &recorded {
+            let allowed_hosts = case["allowed_hosts"].as_str().map(str::to_string);
+            let config = Config::from_env(&move |name| match name {
+                "SECRET_KEY_BASE" => Some("s".to_string()),
+                "ALLOWED_HOSTS" => allowed_hosts.clone(),
+                _ => None,
+            }).unwrap();
+            let mut headers = HeaderMap::new();
+            headers.insert("host", case["host"].as_str().unwrap().parse().unwrap());
+            for line in case["headers"].as_array().unwrap() {
+                let (name, value) = line.as_str().unwrap().split_once(':').unwrap();
+                headers.append(HeaderName::from_bytes(name.as_bytes()).unwrap(), value.trim().parse().unwrap());
+            }
+            if case["xhr"] == true { headers.insert("x-requested-with", "XMLHttpRequest".parse().unwrap()); }
+            let blocked = config.blocked_hosts(&headers);
+            assert_eq!(blocked.is_empty(), case["status"] == 200, "{case}: {blocked:?}");
+            if case["status"] == 403 {
+                let response = web::blocked_host(&headers, &blocked);
+                assert_eq!((response.status().as_u16(), response.headers()["content-type"].to_str().unwrap()), (403, case["content_type"].as_str().unwrap()), "{case}");
+                assert_eq!((case["body"].as_str(), case["other_headers"].as_array().map(Vec::len), response.headers().len()), (Some(""), Some(0), 1), "{case}: an empty answer with one header");
+            }
+        }
+        // No Host header at all is no allowed host; without a list nothing is looked at.
+        let listed = Config::from_env(&|name| Some(if name == "ALLOWED_HOSTS" { "app.example" } else { "s" }.to_string())).unwrap();
+        assert_eq!(listed.blocked_hosts(&HeaderMap::new()), [String::new()]);
+        let open = Config::from_env(&|name| (name == "SECRET_KEY_BASE").then(|| "s".to_string())).unwrap();
+        assert!(open.allowed_hosts.is_empty() && open.blocked_hosts(&HeaderMap::new()).is_empty());
+    }
+
+    /// The recorder runs production.rb's own lines, and CI cannot run the recorder: the lines are
+    /// held here as text, so that a change to them fails where it is seen.
+    #[test]
+    fn production_rb_builds_config_hosts_as_it_did_when_the_vectors_were_recorded() {
+        let ruby = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("config/environments/production.rb")).unwrap();
+        // The statements, without their comments and indentation.
+        let statements: Vec<&str> = ruby.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#')).collect();
+        let recorded = ["if ENV['ALLOWED_HOSTS'].present?", "ENV['ALLOWED_HOSTS'].split(',').each do |host|", "config.hosts << host.strip", "end", "config.hosts << \"localhost\"", "config.hosts << \"127.0.0.1\"", "else", "config.hosts.clear", "end"];
+        assert!(statements.windows(recorded.len()).any(|window| window == recorded), "config/environments/production.rb no longer builds config.hosts with these statements: {recorded:?}");
+        assert!(!ruby.contains("host_authorization"), "production.rb now sets config.host_authorization (an exclusion or another response)");
+    }
+}
+
+mod oauth_rules {
+    use super::common::web::{at, header_map};
+    use axum::http::Method;
+    use deltabadger::web::oauth::{self, Credentials, Sent, Uri};
+    use deltabadger::web::{rate_limit, Params};
+
+    #[test]
+    fn a_uri_is_read_as_ruby_reads_it() {
+        let uri = Uri::parse("HTTPS://user:pw@Client.Example:8443/a/b?x=[1]&y=%z1#frag").unwrap();
+        assert_eq!((uri.scheme.as_deref(), uri.userinfo.as_deref(), uri.host.as_deref(), uri.path.as_str(), uri.query.as_deref(), uri.fragment.as_deref(), uri.opaque),
+                   (Some("https"), Some("user:pw"), Some("Client.Example"), "/a/b", Some("x=[1]&y=%z1"), Some("frag"), false));
+        assert_eq!(Uri::parse("http://[::1]:9/cb").unwrap().host.as_deref(), Some("[::1]"));
+        assert!(Uri::parse("urn:ietf:wg:oauth:2.0:oob").unwrap().opaque);
+        assert_eq!(Uri::parse("/relative").unwrap().scheme, None);
+        for refused in ["https://exa mple.com/cb", "https://client.example/cälback", "https://client.example/c[b]", "https://client.example/cb?x=%zz",
+                        "https://client.example/cb%2", "http://[::1/cb", "http://[1:2]/cb", "http://a.example:x/cb", "https://client.example/\"cb\""] {
+            assert_eq!(Uri::parse(refused), None, "{refused}");
+        }
+    }
+
+    #[test]
+    fn a_redirect_uri_must_be_registered_exactly_or_differ_only_in_a_loopback_port() {
+        let registered = "https://client.example/callback\nhttp://127.0.0.1/cb\nhttp://localhost:3334/cb?x=1";
+        for allowed in ["https://client.example/callback", "http://127.0.0.1/cb", "http://127.0.0.1:53211/cb", "http://localhost:9/cb?x=1"] {
+            assert!(oauth::redirect_uri_allowed(allowed, registered), "{allowed}");
+        }
+        for refused in ["https://client.example/callback/", "https://client.example/callback?x=1", "https://CLIENT.example/callback", "https://client.example:443/callback",
+                        "https://evil.example/callback", "https://client.example.evil.example/callback", "http://127.0.0.1:9/other", "http://127.0.0.2:9/cb",
+                        "https://127.0.0.1:9/cb", "http://user@127.0.0.1:9/cb", "http://localhost:9/cb", "http://[::1]:9/cb", "javascript:alert(1)", "/callback", ""] {
+            assert!(!oauth::redirect_uri_allowed(refused, registered), "{refused}");
+        }
+        assert!(!oauth::redirect_uri_allowed("https://client.example/cb#f", "https://client.example/cb#f"), "a fragment is never redirected to, registered or not");
+    }
+
+    #[test]
+    fn an_answer_to_the_client_keeps_the_redirect_uris_own_query() {
+        let with = |uri: &str, parameters: &[(&str, &str)], fragment: bool| oauth::redirect_with(uri, parameters, fragment);
+        assert_eq!(with("https://c.example/cb", &[("code", "abc"), ("state", "s t&=")], false), "https://c.example/cb?code=abc&state=s+t%26%3D");
+        assert_eq!(with("https://c.example/cb?keep=1&state=theirs", &[("code", "abc"), ("state", "")], false), "https://c.example/cb?keep=1&state=theirs&code=abc");
+        assert_eq!(with("https://c.example/cb?state=theirs&a=1&a=2&empty=", &[("code", "abc"), ("state", "mine")], false), "https://c.example/cb?state=mine&a=1&a=2&code=abc");
+        assert_eq!(with("https://c.example/cb", &[("error", "access_denied"), ("state", "")], true), "https://c.example/cb#error=access_denied");
+    }
+
+    /// What Ruby's URI.parse makes of a text, and what URI#to_s writes back (script/rust/record_vectors.rb).
+    #[test]
+    fn a_uri_has_the_parts_and_the_text_ruby_gives_it() {
+        let recorded = super::common::vectors()["oauth_uri"]["parse"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 55 && recorded.iter().filter(|case| case["parts"].is_null()).count() >= 10, "{} vectors", recorded.len());
+        for case in &recorded {
+            let (parsed, parts) = (Uri::parse(case["uri"].as_str().unwrap()), &case["parts"]);
+            let Some(uri) = parsed else { assert!(parts.is_null(), "{case}: Ruby parses it"); continue };
+            assert!(!parts.is_null(), "{case}: Ruby refuses it, this crate read {uri:?}");
+            assert_eq!((uri.scheme.as_deref(), uri.opaque, uri.fragment.as_deref()), (parts["scheme"].as_str(), parts["opaque"] == true, parts["fragment"].as_str()), "{case}");
+            if uri.opaque { continue; }
+            assert_eq!((uri.userinfo.as_deref(), uri.host.as_deref(), Some(uri.path.as_str()), uri.query.as_deref()),
+                       (parts["userinfo"].as_str(), parts["host"].as_str(), parts["path"].as_str(), parts["query"].as_str()), "{case}");
+            assert_eq!(Some(uri.to_string().as_str()), parts["to_s"].as_str(), "{case}");
+        }
+    }
+
+    /// Doorkeeper's RedirectUriValidator on the stored text of a client's redirect URIs.
+    #[test]
+    fn registered_redirect_uris_are_refused_in_doorkeepers_words() {
+        let recorded = super::common::vectors()["oauth_uri"]["errors"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 28 && recorded.iter().filter(|case| case["errors"].as_array().unwrap().is_empty()).count() >= 6, "{} vectors", recorded.len());
+        for case in &recorded {
+            let errors: Vec<&str> = case["errors"].as_array().unwrap().iter().map(|error| error.as_str().unwrap()).collect();
+            assert_eq!(oauth::redirect_uri_errors(case["redirect_uri"].as_str().unwrap()), errors, "{case}");
+        }
+    }
+
+    /// Doorkeeper's URIChecker.valid_for_authorization?, with the cases a rewritten query decides.
+    #[test]
+    fn a_redirect_uri_is_allowed_as_doorkeepers_checker_allows_it() {
+        let recorded = super::common::vectors()["oauth_uri"]["allowed"].as_array().unwrap().clone();
+        let allowed = recorded.iter().filter(|case| case["allowed"] == true).count();
+        assert!(recorded.len() >= 30 && allowed >= 10 && recorded.len() - allowed >= 10, "{} vectors, {allowed} allowed", recorded.len());
+        for case in &recorded {
+            assert_eq!(oauth::redirect_uri_allowed(case["url"].as_str().unwrap(), case["registered"].as_str().unwrap()), case["allowed"], "{case}");
+        }
+    }
+
+    /// Doorkeeper's URIBuilder: the redirect with the answer in its query, and in its fragment. In one
+    /// vector Rails has no answer: the URI's own query holds a byte that is not text (`%FF`), Rack
+    /// refuses to read it, and the approval fails. This crate writes the byte back as it stood.
+    #[test]
+    fn an_answer_is_written_as_doorkeepers_builder_writes_it() {
+        let recorded = super::common::vectors()["oauth_uri"]["answers"].as_array().unwrap().clone();
+        assert!(recorded.len() >= 15 && recorded.iter().filter(|case| case["query"].is_null()).count() == 1 && recorded.iter().all(|case| case["fragment"].is_string()), "{} vectors", recorded.len());
+        for case in &recorded {
+            let parameters: Vec<(&str, &str)> = case["parameters"].as_array().unwrap().iter().map(|pair| (pair[0].as_str().unwrap(), pair[1].as_str().unwrap())).collect();
+            let url = case["url"].as_str().unwrap();
+            if case["query"].is_null() {
+                assert_eq!(oauth::redirect_with(url, &parameters, false), "https://client.example/cb?code=c0de&a+b=c%2Fd&e=%FF", "{case}");
+            } else {
+                assert_eq!(Some(oauth::redirect_with(url, &parameters, false).as_str()), case["query"].as_str(), "{case}");
+            }
+            assert_eq!(Some(oauth::redirect_with(url, &parameters, true).as_str()), case["fragment"].as_str(), "{case}");
+        }
+    }
+
+    /// Ruby's Base64.decode64, and Doorkeeper's reading of an `Authorization: Basic` header with it.
+    #[test]
+    fn a_basic_header_is_decoded_as_ruby_decodes_it() {
+        let recorded = super::common::vectors()["oauth_basic"].clone();
+        let (decoded, credentials) = (recorded["decode64"].as_array().unwrap(), recorded["credentials"].as_array().unwrap());
+        assert!(decoded.len() >= 25 && credentials.len() >= 20 && credentials.iter().filter(|case| case["credentials"].is_null()).count() >= 8, "{} and {} vectors", decoded.len(), credentials.len());
+        for case in decoded {
+            let bytes: Vec<u8> = case["bytes"].as_array().unwrap().iter().map(|byte| u8::try_from(byte.as_u64().unwrap()).unwrap()).collect();
+            assert_eq!(oauth::decode64(case["text"].as_str().unwrap()), bytes, "{case}");
+        }
+        for case in credentials {
+            let ours = oauth::basic_credentials(case["authorization"].as_str().unwrap());
+            let theirs = case["credentials"].as_array().map(|pair| (pair[0].as_str().unwrap().to_string(), pair[1].as_str().map(str::to_string)));
+            assert_eq!(ours, theirs, "{case}");
+        }
+        let megabyte = "YW Jj\n".repeat(150_000);
+        assert_eq!(oauth::decode64(&megabyte).len(), 450_000, "one pass, whatever is between the characters");
+    }
+
+    fn params(form: &[(&str, &str)], query: &[(&str, &str)]) -> Params {
+        let owned = |pairs: &[(&str, &str)]| pairs.iter().map(|(name, value)| (name.to_string(), value.to_string())).collect();
+        Params { full_path: "/oauth/token".into(), fullpath: "/oauth/token".into(), route_path: "/oauth/token".into(), path_locale: None, query: owned(query), form: owned(form), json: None }
+    }
+
+    #[test]
+    fn a_client_names_itself_in_the_body_or_in_a_basic_header_and_in_one_way_only() {
+        let given = |headers: &[(&'static str, &str)], form: &[(&str, &str)], query: &[(&str, &str)]| {
+            let params = params(form, query);
+            match oauth::credentials(&header_map(headers), &Sent { params: &params }) {
+                Credentials::None => "none".to_string(),
+                Credentials::Multiple => "multiple".to_string(),
+                Credentials::Given(id, secret) => format!("{id}/{}", secret.unwrap_or_else(|| "-".into())),
+            }
+        };
+        assert_eq!(given(&[], &[("client_id", "abc")], &[]), "abc/-");
+        assert_eq!(given(&[], &[], &[("client_id", "abc")]), "none", "a client id in the query string names nobody");
+        assert_eq!(given(&[], &[("client_id", "abc"), ("client_secret", "s")], &[]), "abc/s");
+        assert_eq!(given(&[("authorization", "Bearer whatever")], &[("client_id", "abc")], &[]), "abc/-", "a Bearer header is not client authentication");
+        assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[], &[]), "abc/");
+        assert_eq!(given(&[("authorization", "basic YWJjOnM")], &[("client_id", "abc")], &[]), "abc/s", "unpadded, as Ruby's decode64 takes it");
+        assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[("client_id", "other")], &[]), "none", "the two ids disagree");
+        assert_eq!(given(&[("authorization", "Basic YWJjOg==")], &[("client_id", "abc"), ("client_secret", "s")], &[]), "multiple");
+        assert_eq!(given(&[("authorization", "Digest x")], &[("client_id", "abc")], &[]), "none", "another scheme is somebody else's authentication");
+        assert_eq!(given(&[("authorization", "Basic YW JjOnM=")], &[("client_id", "abc"), ("client_secret", "s")], &[]), "multiple", "a space inside the value does not hide the header");
+        assert_eq!(given(&[], &[("client_id", "abc"), ("client_assertion", "a.b.c")], &[]), "none");
+    }
+
+    #[test]
+    fn scopes_are_names_separated_by_spaces_and_nothing_else() {
+        assert_eq!(oauth::scopes(" mcp  api mcp "), ["mcp", "api"]);
+        assert!(oauth::scopes_valid("mcp api", &["mcp", "api"]));
+        for refused in ["", " ", "mcp admin", "mcp\tapi", "mcp\napi", "MCP"] {
+            assert!(!oauth::scopes_valid(refused, &["mcp", "api"]), "{refused:?}");
+        }
+    }
+
+    #[test]
+    fn the_token_endpoints_challenge_holds_only_characters_a_header_parameter_may() {
+        let response = oauth::token_error("invalid_grant", "it's \"quoted\" \\ and ünicode");
+        assert_eq!(response.headers()["www-authenticate"].to_str().unwrap(), "Bearer realm=\"Doorkeeper\", error=\"invalid_grant\", error_description=\"it's _quoted_ _ and _nicode\"");
+        assert_eq!((response.status().as_u16(), response.headers()["cache-control"].to_str().unwrap()), (400, "no-store"));
+        assert_eq!(oauth::token_error("invalid_client", oauth::text::INVALID_CLIENT).status().as_u16(), 401);
+    }
+
+    #[test]
+    fn the_oauth_limits_are_rack_attacks_three() {
+        let limiter = rate_limit::Limiter::default();
+        let now = at("2026-09-10T12:00:30Z");
+        for (method, path, limit) in [(Method::POST, "/oauth/register", 5), (Method::POST, "/oauth/token", 20), (Method::GET, "/oauth/authorize", 10)] {
+            for _ in 0..limit { assert_eq!(limiter.hit(&method, path, "1.1.1.1", now), None, "{path}"); }
+            assert_eq!(limiter.hit(&method, path, "1.1.1.1", now), Some(30), "{path}: one more than {limit}");
+            assert_eq!(limiter.hit(&method, path, "2.2.2.2", now), None, "{path}: another address");
+        }
+        for (method, path) in [(Method::HEAD, "/oauth/authorize"), (Method::POST, "/oauth/authorize"), (Method::DELETE, "/oauth/authorize"), (Method::GET, "/oauth/token"),
+                               (Method::POST, "/oauth/revoke"), (Method::GET, "/.well-known/oauth-authorization-server")] {
+            for _ in 0..30 { assert_eq!(limiter.hit(&method, path, "3.3.3.3", now), None, "{method} {path} has no rule"); }
+        }
+    }
+}
+
+/// The Ruby this part of the port mirrors, read as text, so that these tests need no Rails and run
+/// in CI: a change to any of it fails here and sends the reader to the parity grid (tests/oauth.rs).
+mod oauth_sources {
+    use deltabadger::web::{oauth, rate_limit};
+    use std::path::Path;
+
+    fn source(path: &str) -> String {
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(path)).unwrap_or_else(|e| panic!("{path}: {e}"))
+    }
+
+    /// The text between `start` and the next `end`.
+    fn between<'a>(text: &'a str, start: &str, end: &str) -> &'a str {
+        let from = text.find(start).unwrap_or_else(|| panic!("{start} is gone")) + start.len();
+        &text[from..from + text[from..].find(end).unwrap()]
+    }
+
+    #[test]
+    fn the_tool_catalogue_is_app_configs() {
+        let ruby = source("app/models/app_config.rb");
+        let defaults: Vec<(String, bool)> = between(&ruby, "MCP_TOOL_DEFAULTS = {", "}.freeze").lines().filter_map(|line| {
+            let (name, on) = line.trim().trim_end_matches(',').split_once(" => ")?;
+            Some((name.trim_matches('\'').to_string(), on == "true"))
+        }).collect();
+        assert_eq!(defaults, oauth::TOOL_DEFAULTS.iter().map(|(name, on)| (name.to_string(), *on)).collect::<Vec<_>>());
+        let groups: Vec<(String, Vec<String>)> = between(&ruby, "TOOL_GROUPS = {", "}.freeze").split("' => %w[").collect::<Vec<_>>().windows(2).map(|pair| {
+            let name = pair[0].rsplit('\'').next().unwrap().to_string();
+            (name, between(pair[1], "", "]").split_whitespace().map(str::to_string).collect())
+        }).collect();
+        assert_eq!(groups, oauth::TOOL_GROUPS.iter().map(|(name, tools)| (name.to_string(), tools.iter().map(|tool| tool.to_string()).collect())).collect::<Vec<_>>());
+        assert!(ruby.contains("REST_TOOL_DEFAULTS = MCP_TOOL_DEFAULTS.transform_values { false }.freeze"), "the REST defaults are no longer the same names, all off");
+    }
+
+    #[test]
+    fn the_provider_is_configured_as_doorkeeper_rb_configures_it() {
+        let ruby = source("config/initializers/doorkeeper.rb");
+        for line in ["grant_flows %w[authorization_code]", "force_pkce", "access_token_expires_in 1.hour", "use_refresh_token", "default_scopes :mcp", "optional_scopes :api",
+                     "force_ssl_in_redirect_uri false", "allow_blank_redirect_uri false", "response_mode_matches: %w[query fragment]"] {
+            assert!(ruby.lines().any(|known| known.trim().starts_with(line)), "config/initializers/doorkeeper.rb no longer has `{line}`");
+        }
+        for unset in ["reuse_access_token", "hash_token_secrets", "hash_application_secrets", "authorization_code_expires_in", "pkce_code_challenge_methods", "custom_access_token_expires_in"] {
+            assert!(!ruby.lines().any(|known| known.trim().starts_with(unset)), "config/initializers/doorkeeper.rb now sets `{unset}`");
+        }
+        assert_eq!((oauth::SCOPES, oauth::DEFAULT_SCOPE, oauth::ACCESS_TOKEN_SECONDS, oauth::CODE_SECONDS), (["mcp", "api"], "mcp", 3600, 600));
+        // The answers were measured against this revision of the gem; another one has to be measured again.
+        assert!(source("Gemfile.lock").contains("remote: https://github.com/doorkeeper-gem/doorkeeper.git\n  revision: c00c3b4ed6248ed9873a905a55330928ad0ba655\n"),
+                "Doorkeeper was updated: run `cargo test --test oauth` and, when it passes, name the new revision here");
+    }
+
+    #[test]
+    fn the_oauth_limits_are_rack_attack_rbs() {
+        let ruby = source("config/initializers/rack_attack.rb");
+        for (rule, method, path, limit) in rate_limit::OAUTH_RULES {
+            let pattern = path.rsplit('/').next().unwrap().to_uppercase();
+            let expected = format!("Rack::Attack.throttle('{rule}', limit: {limit}, period: 60) do |req|\n  Rack::Attack.client_ip(req) if req.{}? && RackAttackPaths::{pattern}.match?",
+                                   method.to_lowercase());
+            assert!(ruby.contains(&expected), "config/initializers/rack_attack.rb no longer has:\n{expected}");
+            assert!(ruby.contains(&format!("{pattern}{}= %r{{\\A{path}#{{FORMAT}}\\z}}", " ".repeat(12 - pattern.len()))), "the pattern of {rule} changed");
+        }
+    }
+}
+
+mod bearer_header {
+    use deltabadger::web::bearer;
+
+    #[test]
+    fn a_bearer_header_is_read_as_the_resolver_reads_it() {
+        for (header, token) in [
+            (Some("Bearer abc"), Some("abc")), (Some("bearer abc"), Some("abc")), (Some("BEARER   abc  "), Some("abc")), (Some("Bearer\tabc"), Some("abc")),
+            (Some("Bearer a b"), Some("a b")), (None, None), (Some(""), None), (Some("Bearer"), None), (Some("Bearer "), None), (Some(" Bearer abc"), None),
+            (Some("Bearerabc"), None), (Some("Basic abc"), None), (Some("abc"), None), (Some("Bearer abc\ndef"), None), (Some("Bearé abc"), None),
+        ] {
+            assert_eq!(bearer::bearer_token(header), token, "{header:?}");
+        }
+    }
+
+    /// `expires_in` is a number from the database. One that no date can hold is not a reason to stop
+    /// the process (the release profile aborts on a panic): it never expires, or always when negative.
+    #[test]
+    fn a_lifetime_no_date_can_hold_is_an_answer_not_a_panic() {
+        let created_at = chrono::DateTime::parse_from_rfc3339("2026-09-10T12:00:00Z").unwrap().with_timezone(&chrono::Utc);
+        let token = |expires_in| deltabadger::web::oauth::AccessToken { id: 1, application_id: 1, resource_owner_id: Some(1), scopes: "mcp".into(), expires_in,
+                                                                         created_at, revoked_at: None, refresh_token: None, previous_refresh_token: String::new() };
+        let later = created_at + chrono::Duration::seconds(3601);
+        for (expires_in, expired) in [(Some(3600), true), (Some(3601), false), (None, false), (Some(i64::MAX), false), (Some(i64::MAX / 1000), false), (Some(i64::MIN), true), (Some(-1), true)] {
+            assert_eq!(token(expires_in).expired(later), expired, "{expires_in:?}");
+        }
+    }
+
+    /// Rails' pattern, `/\ABearer\s+(.+)\z/i`, is the one CodeQL flags: on a run of spaces it can try
+    /// every split between `\s+` and `.+`. Here a megabyte of spaces is read once: trying every split
+    /// would be half a million million steps, not the few seconds allowed.
+    #[test]
+    fn a_header_of_nothing_but_spaces_costs_one_pass() {
+        let header = format!("Bearer{}", " ".repeat(1_000_000));
+        let started = std::time::Instant::now();
+        assert_eq!(bearer::bearer_token(Some(&header)), None);
+        assert_eq!(bearer::bearer_token(Some(&format!("{header}x"))), Some("x"));
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "a megabyte of spaces took {:?}", started.elapsed());
     }
 }

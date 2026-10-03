@@ -13,6 +13,11 @@ const PERIOD: i64 = 60;
 /// (rule name, route path, requests allowed per window). POST only, as in rack_attack.rb.
 pub const RULES: [(&str, &str, u32); 2] = [("users/login", "/login", 10), ("users/verify_two_factor", "/verify_two_factor", 5)];
 
+/// rack_attack.rb's three OAuth rules: (rule name, method, route path, requests allowed per window).
+/// Each is pinned by a `throttle_` scenario of tests/oauth.rs.
+pub const OAUTH_RULES: [(&str, &str, &str, u32); 3] =
+    [("oauth/register", "POST", "/oauth/register", 5), ("oauth/token", "POST", "/oauth/token", 20), ("oauth/authorize", "GET", "/oauth/authorize", 10)];
+
 /// The addresses counted at once. An address costs about a hundred bytes, so this is some ten
 /// megabytes at most. When it is reached, an address not yet counted is refused until the minute
 /// ends, instead of being let through uncounted: a flood of addresses buys no free attempts.
@@ -34,7 +39,9 @@ impl Limiter {
     /// Counts this request. `Some(seconds)` when it is over its rule's limit: the `retry-after` value.
     /// `method` is the one in effect after `_method` (Rack::MethodOverride runs before rack-attack).
     pub fn hit(&self, method: &Method, route_path: &str, address: &str, now: DateTime<Utc>) -> Option<i64> {
-        let (rule, _, limit) = *RULES.iter().find(|(_, path, _)| method == Method::POST && *path == route_path)?;
+        let (rule, _, limit) = RULES.iter().filter(|_| method == Method::POST).copied()
+            .chain(OAUTH_RULES.iter().filter(|(_, limited, _, _)| method.as_str() == *limited).map(|&(rule, _, path, limit)| (rule, path, limit)))
+            .find(|(_, path, _)| *path == route_path)?;
         let epoch = now.timestamp();
         let window = epoch.div_euclid(PERIOD);
         let retry_after = PERIOD - epoch.rem_euclid(PERIOD);

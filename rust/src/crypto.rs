@@ -53,6 +53,7 @@ impl EncryptionKeys {
     }
 }
 
+#[derive(Clone)]
 pub struct Cipher {
     aead: Aes256Gcm,
 }
