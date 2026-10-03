@@ -1,0 +1,46 @@
+{#- bots/_chart.html.erb while its figures are loading, which is its only state in this build: the
+    widget at the height of the chart it waits for, or nothing at all for a bot that has never traded. -#}
+{% if !charted %}
+<div id="chart" hidden="hidden">
+</div>
+{% else %}
+<div id="chart" class="widget widget--chart">
+      <div>
+        <div class="widget--chart__head">
+{% if !hide_money %}
+            <div class="widget--chart__modes" style="visibility: hidden;" inert aria-hidden="true">
+              {{ modes|safe }}
+            </div>
+{% endif %}
+          <div class="widget--chart__summary">
+            <div class="widget--chart__date">&nbsp;</div>
+            {% if !hide_money %}<div class="widget--chart__pnl">&nbsp;<small>&nbsp;</small></div>{% endif %}
+            <div class="{% if hide_money %}widget--chart__pnl{% else %}widget--chart__percent{% endif %}">&nbsp;</div>
+          </div>
+        </div>
+        <div class="widget--chart__plot">
+            <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+        </div>
+          <div class="widget--chart__axis"></div>
+          <div style="visibility: hidden;" inert aria-hidden="true"><div class="widget--chart__orders">
+  <label class="toggle-inline">
+    <div class="toggle toggle--small">
+      <input type="checkbox" data-bot--chart-target="orders"
+             data-action="change->bot--chart#toggleOrders">
+      <div class="toggle__style"></div>
+    </div>
+    <span class="label">{{ v.t("bot.details.stats.chart.orders")|safe }}</span>
+  </label>
+  <label class="toggle-inline">
+    <div class="toggle toggle--small">
+      <input type="checkbox" data-bot--chart-target="prices"
+             data-action="change->bot--chart#togglePrices">
+      <div class="toggle__style"></div>
+    </div>
+    <span class="label">{{ v.t("bot.details.stats.chart.prices")|safe }}</span>
+  </label>
+</div>
+</div>
+      </div>
+</div>
+{% endif %}

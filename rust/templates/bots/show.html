@@ -1,0 +1,177 @@
+{#- bots/show.html.erb with _header, _menu, _converting, _exchange_select, composition/_metrics
+    (without figures) and orders/_orders, _order_filters and _export. -#}
+{{ v.stream_from(preferences)|safe }}
+{{ v.stream_from(bot_updates)|safe }}
+
+<turbo-frame id="bot">
+  {{ v.stream_from(page_stream)|safe }}
+  
+  <div class="page-head">
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
+  <div id="{{ label_id }}">
+    {{ label }}
+</div>  {% include "svg/_16x16_down.html" %}
+  <div class="dropdown dropdown--bots">
+    <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/bots/new") }}">{{ v.t("bot.new")|safe }} +</a>
+{% if !other_bots.is_empty() %}
+      <div class="dropdown__item dropdown__item--divider"></div>
+{% for (path, label) in other_bots %}
+        <a class="dropdown__item" data-turbo-frame="bot" data-turbo-action="advance" href="{{ path }}">{{ label }}</a>
+{% endfor %}
+{% endif %}
+  </div>
+</div>
+<div class="flex-row" id="{{ menu_id }}">
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+    {% include "svg/_24x24_dot_menu.html" %}
+    <div class="dropdown">
+      <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/edit">{{ v.t("utils.change_name")|safe }}</a>
+{% if !archived %}
+{% if index %}
+          <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.change_index")|safe }}</a>
+          <div data-controller="converting" data-action="turbo:submit-start->converting#show turbo:submit-end->converting#hide">
+            <template data-converting-target="template">
+  <dialog class="dialog dialog--open">
+    <div class="dialog__vertical-center">
+      <div class="modal modal--busy">
+        <div class="loader"></div>
+        <p>{{ v.t("bot.index_switch.converting")|safe }}</p>
+      </div>
+    </div>
+  </dialog>
+</template>
+
+            <form class="button_to" method="post" action="{{ path }}/custom_allocation"><button class="dropdown__item" type="submit">{{ v.t("bot.index_switch.custom_allocation")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+</div>{% else if follow_index %}
+          <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.follow_index")|safe }}</a>
+{% endif %}
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/archive/edit">{{ v.t("button.archive")|safe }}</a>
+{% endif %}
+      <div class="dropdown__item dropdown__item--divider"></div>
+      <a class="dropdown__item dropdown__item--danger" data-turbo-frame="modal" href="{{ path }}/delete/edit">{{ v.t("button.delete")|safe }}</a>
+    </div>
+  </div>
+</div>
+
+  </div>
+  <div class="flex-column gap-1">
+    <div class="bot-control">
+      <form id="exchange_select" class="sbutton sbutton--exchange-group" data-controller="form--submit" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
+    <div class="sbutton sbutton--exchange sbutton--exchange--{{ exchange_name_id }} {% if !switchable %}sinput--disabled{% endif %}">
+      {{ exchange_svg|safe }}
+      <span class="hide-on-mobile">{{ exchange_name }}</span>
+    </div>
+    <div class="dropdown dropdown--exchanges">
+{% if can_reconnect %}
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/add_api_key/new">
+          {{ v.t("button.reconnect")|safe }}
+</a>        <div class="dropdown__item dropdown__item--divider"></div>
+{% endif %}
+{% if let Some(note) = exchange_note %}
+        <p class="dropdown__item dropdown__item--note">{{ note }}</p>
+{% else %}
+{% for other in other_exchanges %}
+          <button name="{{ param_key }}[exchange_id]" type="submit" value="{{ other.id }}" class="dropdown__item{% if other.connected %} dropdown__item--highlight{% endif %}">
+            {{ other.svg|safe }}
+            {{ other.name }}
+</button>
+{% endfor %}
+{% endif %}
+    </div>
+  </div>
+
+{% if needs_key %}
+    <a class="sbutton sbutton--success" data-turbo-frame="modal" href="{{ path }}/add_api_key/new">{{ v.t("button.connect")|safe }}</a>
+{% endif %}
+</form>
+      {{ status_bar|safe }}
+      {{ status_button|safe }}
+    </div>
+
+    <turbo-frame id="bot_chart" src="{{ path }}/chart?metrics_missing=1">
+      {{ chart|safe }}
+</turbo-frame>
+    <div id="{{ columns_id }}" class="columns{% if working %} bot-locked{% endif %}">
+      <div class="column gap-1">
+          {{ settings|safe }}
+      </div>
+      <div class="column gap-1">
+          <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
+{% if !hide_money %}
+    <div class="widget data-grid data-grid--two-columns">
+      <div class="data-grid__item" data-controller="tooltip">
+        <div class="label">{{ v.t("bot.details.stats.total_invested")|safe }}</div>
+        <div class="data-grid__item__value">
+            <span class="loading-placeholder">...</span>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip">
+        <div class="label">{{ v.t("bot.details.stats.portfolio_value")|safe }}</div>
+        <div class="data-grid__item__value">
+            <span class="loading-placeholder">...</span>
+        </div>
+      </div>
+    </div>
+{% endif %}
+</div>
+
+        
+<div data-controller="order-filter" data-order-filter-current-value="{{ order_filter }}" style="gap: 1rem; display: flex; flex-direction: column">
+
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    
+<div id="{{ order_filters_id }}" class="filters" data-order-filter-target="filterContainer"
+     data-order-filter-default="{{ default_filter }}"
+     data-action="segmented:change->order-filter#filter">
+{% if let Some(filters) = order_filters %}
+    {{ filters|safe }}
+{% endif %}
+</div>
+
+    <div style="display: flex; gap: 1rem">
+  <div id="{{ export_id }}" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]' data-class-toggle-reset-after-value="3000">
+    <form class="button_to" method="post" action="{{ path }}/export"><button class="rbutton" data-turbo="false" data-class-toggle-target="togglable" data-action="click->class-toggle#toggle" type="submit">{{ v.t("bot.details.stats.download_csv")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    <div class="hidden" data-class-toggle-target="togglable" style="font-weight: 600; padding: 0.5rem; color: var(--concrete); display: flex; align-items: center; justify-content: center;">
+      <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem; display: flex; align-items: center; justify-content: center;"></div>
+      {{ v.t("bot.details.stats.generating_csv")|safe }}
+    </div>
+  </div>
+
+  <div id="{{ import_id }}">
+    <form id="{{ import_form_id }}" data-turbo="false" data-controller="file-picker" enctype="multipart/form-data" action="{{ path }}/import" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <button type="button" class="rbutton" data-action="click->file-picker#open">
+        {{ v.t("bot.details.stats.import_csv")|safe }}
+      </button>
+      <input accept=".csv" hidden="hidden" data-file-picker-target="input" data-action="change->file-picker#submit" type="file" name="file" id="file" />
+</form>  </div>
+</div>
+  </div>
+
+  <div class="widget widget--table" data-controller="table-fit{% if has_waiting %} broadcast--on-connect{% endif %}"{% if has_waiting %} data-broadcast--on-connect-method-value="fetch_open_orders" data-broadcast--on-connect-method-args-value="{{ bot_args }}"{% endif %}>
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">{{ v.t("data_labels.date")|safe }}</th>
+{% if !hide_money %}
+            <th scope="col" data-order-filter-target="columnHeader">{{ v.t("data_labels.amount")|safe }}</th>
+            <th scope="col" data-order-filter-target="columnHeader">{{ v.t("data_labels.value")|safe }}</th>
+{% endif %}
+          <th scope="col" data-order-filter-target="columnHeader">{{ v.t("data_labels.price")|safe }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="orders_list">
+{% if feed_empty %}
+          <tr id="orders_list_placeholder">
+            <td colspan="{% if hide_money %}3{% else %}5{% endif %}" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+          </tr>
+{% endif %}
+      </tbody>
+    </table>
+    <turbo-frame id="orders_pagination" src="{{ path }}.turbo_stream"></turbo-frame>
+</div></div>
+      </div>
+    </div>
+  </div>
+</turbo-frame>

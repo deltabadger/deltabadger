@@ -7,17 +7,21 @@
 pub mod assets;
 pub mod auth;
 pub mod bearer;
+pub mod bot;
 pub mod bots;
 pub mod cable;
 pub mod consent;
+pub mod colors;
 pub mod csrf;
 pub mod flash;
+pub mod format;
 pub mod headers;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
 pub mod oauth;
 pub mod rate_limit;
+pub mod ring;
 pub mod server;
 pub mod session;
 pub mod shell;
@@ -485,6 +489,10 @@ fn routes(app: App) -> Router {
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
+        // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
+        .route("/bots/new", axum::routing::any(layout::not_ported))
+        .route("/bots/{id}", only(get(bot::page::show)))
+        .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))

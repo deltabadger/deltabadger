@@ -651,19 +651,13 @@ mod navbar_numbers {
     }
 
     #[test]
-    fn the_tracker_icon_is_a_ring_exactly_when_rails_draws_one() {
+    fn cash_is_what_rails_calls_cash_and_shown_when_the_tracker_says_so() {
         let recorded = &common::vectors()["tracker"];
         assert_eq!(serde_json::json!(bots::CASH), recorded["cash"], "Tracker::UnfundedCash's FIAT and STABLECOINS");
         for case in recorded["show_cash"].as_array().unwrap() {
             assert_eq!(bots::show_cash(case["column"].as_str()), case["shown"], "{case}");
         }
-        let held = |symbols: &[&str]| symbols.iter().map(|s| Some(s.to_string())).collect::<Vec<_>>();
-        assert!(!bots::tracker_ring(&[], true), "nothing priced: the plain circle");
-        assert!(!bots::tracker_ring(&held(&["USD", "USDC"]), false), "cash only, cash not shown: the plain circle");
-        assert!(bots::tracker_ring(&held(&["USD", "USDC"]), true), "cash is drawn once the tracker shows it");
-        assert!(bots::tracker_ring(&held(&["USD", "BTC"]), false));
-        assert!(bots::tracker_ring(&held(&["usd"]), false), "the comparison is exact, as in Ruby");
-        assert!(bots::tracker_ring(&[None], false), "an asset without a symbol is not cash");
+
     }
 }
 
@@ -1029,5 +1023,230 @@ mod bearer_header {
         assert_eq!(bearer::bearer_token(Some(&header)), None);
         assert_eq!(bearer::bearer_token(Some(&format!("{header}x"))), Some("x"));
         assert!(started.elapsed() < std::time::Duration::from_secs(5), "a megabyte of spaces took {:?}", started.elapsed());
+    }
+}
+
+mod bot_page_formats {
+    use super::common;
+    use deltabadger::ruby::BigDec;
+    use deltabadger::web::format::{self, Num};
+    use serde_json::Value;
+
+    fn cases(name: &str) -> Vec<Value> {
+        common::vectors()["bot_pages"][name].as_array().unwrap_or_else(|| panic!("bot_pages.{name} is recorded")).clone()
+    }
+
+    /// A recorded Float: its exact bits, because the JSON writer keeps only 16 digits of one.
+    fn float(value: &Value) -> Option<f64> {
+        value["bits"].as_str().map(|bits| f64::from_bits(u64::from_str_radix(bits, 16).unwrap()))
+    }
+
+    /// A recorded number: a BigDecimal as a string with `decimal: true`, a Float as its bits, an Integer as it is.
+    fn number(case: &Value, key: &str) -> Num {
+        if case["decimal"] == true { return Num::Dec(BigDec::parse(case[key].as_str().unwrap()).unwrap()); }
+        float(&case[key]).map_or_else(|| Num::Int(case[key].as_i64().unwrap()), Num::Float)
+    }
+
+    #[test]
+    fn a_float_prints_as_ruby_prints_it() {
+        for case in cases("float_to_s") {
+            assert_eq!(format::float_to_s(float(&case["float"]).unwrap()), case["text"].as_str().unwrap(), "{case}");
+        }
+    }
+
+    #[test]
+    fn a_float_rounds_as_ruby_rounds_it() {
+        for case in cases("float_round") {
+            let rounded = format::float_round(float(&case["float"]).unwrap(), case["digits"].as_i64().unwrap());
+            assert_eq!(rounded.to_bits(), float(&case["rounded"]).unwrap().to_bits(), "{case}: {rounded}");
+        }
+        for case in cases("float_round_whole") {
+            assert_eq!(Num::Float(float(&case["float"]).unwrap()).round(0), Num::Int(case["rounded"].as_i64().unwrap()), "{case}");
+        }
+    }
+
+    #[test]
+    fn a_stored_number_is_written_into_an_input_as_rails_writes_it() {
+        for case in cases("input_value") {
+            assert_eq!(format::input_value(&number(&case, "number")).as_deref(), case["text"].as_str(), "{case}");
+        }
+        for case in cases("times_100") {
+            let percent = &number(&case, "number").to_d().unwrap() * &BigDec::from_i64(100);
+            assert_eq!(format::input_value(&Num::Dec(percent)).as_deref(), case["text"].as_str(), "{case}");
+        }
+    }
+
+    #[test]
+    fn each_class_of_number_prints_and_rounds_its_own_way() {
+        for case in cases("to_s") {
+            let number = number(&case, "number");
+            assert_eq!((number.to_s().as_str(), number.round(2).to_s().as_str()), (case["text"].as_str().unwrap(), case["rounded"].as_str().unwrap()), "{case}");
+        }
+        for case in cases("number_with_precision") {
+            let text = format::number_with_precision(&number(&case, "number"), u8::try_from(case["precision"].as_i64().unwrap()).unwrap(), case["delimited"] == true);
+            assert_eq!(text.as_deref(), case["text"].as_str(), "{case}");
+        }
+    }
+
+    #[test]
+    fn what_is_left_of_a_spending_cap_is_computed_in_rubys_classes() {
+        for case in cases("limit_left") {
+            let spent = case["spent"].as_str().map_or(Num::Int(0), |text| Num::Dec(BigDec::parse(text).unwrap()));
+            let left = number(&case, "limit").sub(&spent).unwrap().at_least_zero();
+            assert_eq!(left.round(2).to_s(), case["text"].as_str().unwrap(), "{case}");
+            assert_eq!(left.to_f() < 0.01, case["reached"] == true, "{case}");
+        }
+    }
+
+    #[test]
+    fn a_duration_reads_as_rails_words_it() {
+        for case in cases("distance_of_time") {
+            let seconds = float(&case["seconds"]).unwrap_or_else(|| case["seconds"].as_f64().unwrap());
+            let words = format::distance_of_time_in_words(seconds, case["now"].as_str().unwrap().parse().unwrap(), case["locale"].as_str().unwrap());
+            assert_eq!(words, case["text"].as_str().unwrap(), "{case}");
+        }
+    }
+
+    #[test]
+    fn a_text_is_read_as_an_integer_as_ruby_reads_it() {
+        let cases = cases("string_to_i");
+        assert!(cases.len() > 35, "only {} texts were recorded", cases.len());
+        for case in cases {
+            let ruby: Option<i128> = case["integer"].as_str().unwrap().parse().ok();
+            assert_eq!(Some(format::to_i(case["text"].as_str().unwrap())), ruby, "{case}");
+        }
+        // Where Ruby goes on counting, this stops; no id is anywhere near.
+        assert_eq!(format::to_i(&"9".repeat(60)), i128::MAX);
+        assert_eq!(format::to_i(&format!("-{}", "9".repeat(60))), -i128::MAX);
+    }
+
+    #[test]
+    fn times_are_written_in_the_readers_zone_and_convention() {
+        let mut different = vec![];
+        for (at, zones) in common::vectors()["bot_pages"]["zones"].as_object().unwrap() {
+            for (zone, abbreviation) in zones.as_object().unwrap() {
+                let ours = format::zone_abbreviation(at.parse().unwrap(), zone);
+                if ours != abbreviation.as_str().unwrap() { different.push(format!("{zone} at {at}: {ours} here, {abbreviation} in Rails")); }
+            }
+        }
+        // The two sides carry their own copy of the time zone database (tzinfo-data 2026.4 in Rails,
+        // chrono-tz's in this crate), and Morocco's rules for the end of 2026 are not the same in both.
+        assert_eq!(different, ["Casablanca at 2026-11-01T05:59:00Z: +01 here, \"+00\" in Rails"], "the zone databases disagree elsewhere too");
+        for case in cases("table_when") {
+            let (at, zone) = (case["at"].as_str().unwrap().parse().unwrap(), case["zone"].as_str().unwrap());
+            let ours = (format::table_date(at, zone), format::table_clock(at, zone, case["locale"].as_str().unwrap()), format::iso8601(at), format::datetime_local(at, zone));
+            let theirs = (case["date"].as_str().unwrap(), case["clock"].as_str().unwrap(), case["iso8601"].as_str().unwrap(), case["datetime_local"].as_str().unwrap());
+            assert_eq!((ours.0.as_str(), ours.1.as_str(), ours.2.as_str(), ours.3.as_str()), theirs, "{case}");
+        }
+        for case in cases("iso8601") {
+            assert_eq!(format::iso8601(case["at"].as_str().unwrap().parse().unwrap()), case["text"].as_str().unwrap(), "{case}");
+        }
+        for case in cases("start_default") {
+            let (mode, time) = format::default_start_time_selection(case["at"].as_str().unwrap().parse().unwrap(), case["zone"].as_str().unwrap()).unwrap();
+            assert_eq!((mode, time.as_str()), (case["mode"].as_str().unwrap(), case["time"].as_str().unwrap()), "{case}");
+        }
+    }
+}
+
+mod colours_and_ring {
+    use super::common;
+    use deltabadger::ruby::BigDec;
+    use deltabadger::web::{colors, ring};
+    use serde_json::Value;
+
+    fn cases(name: &str) -> Vec<Value> {
+        common::vectors()["bot_pages"][name].as_array().unwrap_or_else(|| panic!("bot_pages.{name} is recorded")).clone()
+    }
+
+    #[test]
+    fn colours_and_pills_are_rails_own() {
+        for case in cases("ensure_contrast") {
+            assert_eq!(colors::ensure_contrast(case["color"].as_str().unwrap()).as_deref(), case["contrast"].as_str(), "{case}");
+        }
+        assert_eq!(colors::ensure_contrast("#fff"), None, "Ruby raises on a colour without a blue channel");
+        for case in cases("ticker_class") {
+            assert_eq!(colors::ticker_class(case["category"].as_str(), case["color"].as_str()), case["class"].as_str().unwrap(), "{case}");
+        }
+    }
+
+    #[test]
+    fn the_tracker_ring_is_drawn_arc_for_arc() {
+        for case in cases("ring") {
+            let values = case["values"].as_array().unwrap().iter().map(|pair| (BigDec::parse(pair[0].as_str().unwrap()).unwrap(), pair[1].as_str().map(str::to_string))).collect();
+            let arcs: Vec<Value> = ring::icon_arcs(values).unwrap().iter().map(|arc| serde_json::json!({ "color": arc.color, "dash": arc.dash, "offset": arc.offset })).collect();
+            assert_eq!(Value::Array(arcs), case["arcs"], "{}", case["values"]);
+        }
+    }
+}
+
+
+mod bot_rows {
+    use super::common;
+    use deltabadger::web::bot;
+
+    #[test]
+    fn an_id_in_a_path_is_read_as_activemodel_reads_it() {
+        for case in common::vectors()["bot_pages"]["string_to_id"].as_array().unwrap() {
+            // What `find` binds to a positive id finds a row; anything else finds none.
+            let expected = case["id"].as_i64().filter(|id| *id > 0);
+            assert_eq!(bot::id_from_path(case["text"].as_str().unwrap()), expected, "{case}");
+        }
+    }
+}
+
+mod status_bar {
+    use super::common;
+    use deltabadger::web::bot::status;
+
+    #[test]
+    fn the_progress_bar_is_as_wide_as_rails_draws_it() {
+        for case in common::vectors()["bot_pages"]["progress"].as_array().unwrap() {
+            let time = |key: &str| case[key].as_str().unwrap().parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+            let from = status::Instant::from_micros(time("from").timestamp_micros());
+            assert_eq!(status::progress_width(time("now"), Some(&from), Some(time("to"))), case["width"].as_str().unwrap(), "{case}");
+        }
+        assert_eq!(status::progress_width("2026-09-10T12:00:30Z".parse().unwrap(), None, Some("2026-09-11T12:00:30Z".parse().unwrap())), "0", "no start: nothing to measure");
+    }
+
+    #[test]
+    fn a_checkpoint_is_held_where_rails_job_table_holds_it() {
+        let cases = common::vectors()["bot_pages"]["job_time"].as_array().unwrap().clone();
+        let micros = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros();
+        let mut early = 0;
+        for case in &cases {
+            let (checkpoint, job) = (micros(case["checkpoint"].as_str().unwrap()), micros(case["job"].as_str().unwrap()));
+            assert_eq!(status::job_time_us(checkpoint), job, "{case}");
+            early += usize::from(job < checkpoint);
+        }
+        assert!(cases.len() > 60 && early > 10 && early < cases.len() - 10, "{early} of {} came back early: the vectors hold both kinds", cases.len());
+    }
+
+    /// A checkpoint is a time out of a row plus Floats, and Rails takes the Float of that exact sum
+    /// when it enqueues the job: the time the job is held at, the second `iso8601` prints, `to_f`
+    /// itself and `Time#-` in both directions, for checkpoints that are not on the microsecond grid.
+    #[test]
+    fn a_checkpoint_off_the_microsecond_grid_is_held_and_measured_as_ruby_does() {
+        use deltabadger::engine::schedule::Unrounded;
+        let cases = common::vectors()["bot_pages"]["exact_times"].as_array().unwrap().clone();
+        let time = |text: &str| text.parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+        let float = |value: &serde_json::Value| f64::from_bits(u64::from_str_radix(value["bits"].as_str().unwrap(), 16).unwrap());
+        let (mut early, mut off_grid) = (0, 0);
+        for case in &cases {
+            let anchor = time(case["anchor"].as_str().unwrap()).timestamp_micros();
+            let exact = status::Instant::of(&Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] });
+            let rounded = Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] }.rounded();
+            let job = time(case["job"].as_str().unwrap()).timestamp_micros();
+            assert_eq!(exact.held_micros(), job, "{case}");
+            assert_eq!(exact.floor_micros().div_euclid(1_000_000), time(case["second"].as_str().unwrap()).timestamp(), "{case}");
+            assert_eq!(exact.to_f().to_bits(), float(&case["to_f"]).to_bits(), "{case}");
+            let other = status::Instant::from_micros(time(case["other"].as_str().unwrap()).timestamp_micros());
+            assert_eq!(other.since(&exact).to_bits(), float(&case["since"]).to_bits(), "{case}");
+            assert_eq!(exact.since(&other).to_bits(), float(&case["until"]).to_bits(), "{case}");
+            off_grid += usize::from(status::job_time_us(rounded) != job);
+            early += usize::from(job < rounded);
+        }
+        // The reviewed case: 7 a day in slices of 1 from 12:00:30.000456 is next due at 15:26:12.857598857…, held at …598, not …599.
+        assert!(cases.iter().any(|case| case["job"] == "2026-10-01T15:26:12.857598Z"), "the reviewed case is recorded");
+        assert!(cases.len() > 300 && off_grid > 30 && early > 30, "{} cases, {off_grid} where the rounded checkpoint would be held elsewhere, {early} held before it", cases.len());
     }
 }
