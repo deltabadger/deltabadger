@@ -1,6 +1,7 @@
 # The Rails half of the decision-parity harness (rust/tests/parity.rs, script/rust/parity_on_copy.sh).
 #   bin/rails runner script/rust/decisions.rb grid <root>    # one install per scenario, built with Rails' own models
 #   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -94,7 +95,8 @@ module Decisions
     end
   end
 
-  def snapshot = %w[bots transactions bot_activity_logs].to_h { |t| [t, rows(t)] }
+  # The tick rewrites a basket's members (Bot::Composition::Allocatable#update_bot_index_assets), so they are compared too.
+  def snapshot = %w[bots transactions bot_activity_logs bot_index_assets].to_h { |t| [t, rows(t)] }
 
   def diff(before, after)
     after.to_h { |t, rows| [t, rows.filter_map { |id, row| row == before[t][id] ? nil : { 'id' => id, 'before' => before[t][id], 'after' => row } }] }
@@ -132,23 +134,35 @@ module Decisions
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
     exchange, btc, quote, ticker, passphrase = sc['venue'] == 'alpaca' ? alpaca_venue(sc) : kraken_venue(sc)
+    # A basket's other members, created after BTC so that a one-asset scenario's ids are what they were.
+    assets = { 'BTC' => btc }
+    (sc['members'] || {}).each_key { |sym| assets[sym] ||= basket_member(exchange, quote, sym) }
     ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
-    # As BotApi::Bots::Create does (create_basket + save_and_start), without starting a job.
+    allocations = sc['members'] ? sc['members'].to_h { |sym, w| [assets.fetch(sym).id.to_s, w] } : { btc.id.to_s => 1.0 }
+    # As BotApi::Bots::Create does (create_basket + save_and_start), without starting a job; its after_save writes bot_index_assets.
     bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange:, settings: {
       'quote_asset_id' => quote.id, 'quote_amount' => sc['quote_amount'], 'interval' => sc['interval'], 'weighting' => 'manual',
-      'allocations' => { btc.id.to_s => 1.0 }
+      'allocations' => allocations
     }.merge(sc['settings']))
     bot.set_missed_quote_amount
     bot.save!
-    bot.update_columns(status: Bot.statuses[:scheduled], started_at: Time.iso8601(sc['started_at']),
-                       settings_changed_at: sc['settings_changed_at'] && Time.iso8601(sc['settings_changed_at']),
-                       transient_data: bot.reload.transient_data.merge(sc['transient']))
+    bot.update_columns({ 'status' => Bot.statuses[:scheduled], 'started_at' => Time.iso8601(sc['started_at']),
+                         'settings_changed_at' => sc['settings_changed_at'] && Time.iso8601(sc['settings_changed_at']),
+                         'transient_data' => bot.reload.transient_data.merge(sc['transient']) }.merge(sc['bot_columns'] || {}))
     sc['transactions'].each do |t|
-      Transaction.insert!(t.merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => btc.id, 'quote_asset_id' => quote.id,
-                                  'base' => 'BTC', 'quote' => quote.symbol, 'side' => 0, 'transaction_type' => 'REGULAR', 'bot_interval' => sc['interval'],
-                                  'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [], 'updated_at' => t['created_at']))
+      asset = assets.fetch(t.fetch('asset', 'BTC'))
+      Transaction.insert!(t.except('asset').merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
+                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => 0, 'transaction_type' => 'REGULAR',
+                                                  'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
+                                                  'updated_at' => t['created_at']))
     end
     ticker.update_columns(sc['ticker_after']) if sc['ticker_after'] # e.g. delisted after the bot was set up
+    (sc['tickers_after'] || {}).each { |sym, cols| Ticker.find_by!(exchange:, base_asset: assets.fetch(sym)).update_columns(cols) }
+    # Members an earlier tick exited (in_index false, still holdings), written as update_bot_index_assets writes them
+    # (update_all, so updated_at stays).
+    (sc['exited'] || []).each do |sym|
+      bot.bot_index_assets.where(asset_id: assets.fetch(sym).id).update_all(in_index: false, exited_at: Time.iso8601(sc['started_at']) + 3600)
+    end
     bot
   end
 
@@ -266,8 +280,8 @@ module Decisions
 
   def ok(body) = { 'status' => 200, 'body' => body }
   # An order as Alpaca documents it (GET /v2/orders/{id}); only the fields Exchanges::Alpaca#parse_order_data reads matter.
-  def alpaca_order(id, status, type: 'market', notional: '60', qty: nil, filled_qty: '0', filled_avg_price: nil, limit_price: nil)
-    { 'id' => id, 'client_order_id' => "rails-#{id}", 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'notional' => notional, 'qty' => qty,
+  def alpaca_order(id, status, symbol: 'BTC/USD', type: 'market', notional: '60', qty: nil, filled_qty: '0', filled_avg_price: nil, limit_price: nil)
+    { 'id' => id, 'client_order_id' => "rails-#{id}", 'symbol' => symbol, 'asset_class' => 'crypto', 'notional' => notional, 'qty' => qty,
       'filled_qty' => filled_qty, 'filled_avg_price' => filled_avg_price, 'order_type' => type, 'type' => type, 'side' => 'buy',
       'time_in_force' => 'gtc', 'limit_price' => limit_price, 'status' => status }
   end
@@ -389,6 +403,237 @@ module Decisions
     end
   end
 
+  # The basket members beside BTC/USD, with the precision data-api's listing sync gives them, and their prices.
+  BASKET_PAIRS = {
+    'BTC' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
+    'ETH' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.0005', 'minimum_quote_size' => '1' },
+    'SOL' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 3, 'minimum_base_size' => '0.01', 'minimum_quote_size' => '1' }
+  }.freeze
+  BASKET_PRICES = { 'BTC' => [64_000.0, 63_990.0], 'ETH' => [2500.0, 2499.5], 'SOL' => [150.0, 149.9] }.freeze # [ask, last]
+  WEIGHTS = {
+    'w50' => { 'BTC' => 0.5, 'ETH' => 0.5 }, 'w70' => { 'BTC' => 0.7, 'ETH' => 0.3 },
+    'thirds' => { 'BTC' => 0.334, 'ETH' => 0.333, 'SOL' => 0.333 }, 'tiers' => { 'BTC' => 0.5, 'ETH' => 0.3, 'SOL' => 0.2 }
+  }.freeze
+  BASKET_STARTED = '2026-09-01T10:00:00.123456Z'
+  # Alpaca's own not-found envelope: the only 404 that proves an order absent.
+  NOT_FOUND = { 'status' => 404, 'body' => { 'code' => 40_410_000, 'message' => 'order not found for 9b1d2c3e-0000-4000-8000-000000000001' } }.freeze
+  FIVE_XX = { 'status' => 500, 'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }.freeze
+
+  def basket_member(exchange, quote, sym)
+    asset = Asset.create!(external_id: sym.downcase, symbol: sym, name: sym, category: 'Cryptocurrency')
+    ExchangeAsset.create!(exchange:, asset:, available: true)
+    Ticker.create!(exchange:, ticker: "#{sym}/USD", base: sym, quote: 'USD', base_asset: asset, quote_asset: quote,
+                   **BASKET_PAIRS.fetch(sym).symbolize_keys)
+    asset
+  end
+
+  def basket_at(days) = (Time.iso8601(BASKET_STARTED) + days.days + 1.second).iso8601(6)
+  def basket_first = (Time.iso8601(BASKET_STARTED) + 0.5).iso8601(6)
+
+  # Every member's price in one body, as Alpaca answers `symbols=…`: Exchanges::Alpaca#get_ask_price digs out its own pair.
+  def basket_quotes(over = {}, without: nil)
+    quotes = BASKET_PRICES.merge(over).except(without).to_h do |s, (ask, last)|
+      ["#{s}/USD", { 'ap' => ask, 'as' => 0.5, 'bp' => last, 'bs' => 0.4, 't' => '2026-09-01T10:00:00Z' }]
+    end
+    ok('quotes' => quotes)
+  end
+
+  def basket_trades(over = {})
+    ok('trades' => BASKET_PRICES.merge(over).to_h { |s, (_ask, last)| ["#{s}/USD", { 'p' => last, 's' => 0.01, 't' => '2026-09-01T10:00:00Z', 'i' => 1, 'tks' => 'B' }] })
+  end
+
+  def placed(n, sym) = ok(alpaca_order("OTX-#{n}", 'pending_new', symbol: "#{sym}/USD"))
+
+  # A market leg filled at the ask, as a later sweep or the engine's client-order-id lookup finds it.
+  def filled_leg(id, sym, notional)
+    ask = BASKET_PRICES.fetch(sym)[0].to_d
+    ok(alpaca_order(id, 'filled', symbol: "#{sym}/USD", notional:, filled_qty: (notional.to_d / ask).round(9).to_s('F'), filled_avg_price: ask.to_s('F')))
+  end
+
+  def basket_http
+    { 'GET /v1beta3/crypto/us/latest/quotes' => [basket_quotes], 'GET /v1beta3/crypto/us/latest/trades' => [basket_trades],
+      'POST /v2/orders' => [placed(1, 'BTC'), placed(2, 'ETH'), placed(3, 'SOL')], 'GET /v2/account' => [account('100000')],
+      'GET /v2/positions' => [ok([])], 'GET /v2/clock' => [clock(true)] }
+  end
+
+  # One basket scenario: daily, 60 USD, started like the 2b grids, `members` in settings order (nil: the one-asset BTC bot).
+  def basket(name, members, at:, quote_amount: 60.0, settings: {}, transient: {}, transactions: [], http: {}, **extra)
+    { 'name' => name, 'venue' => 'alpaca', 'interval' => 'day', 'quote_amount' => quote_amount, 'started_at' => BASKET_STARTED,
+      'settings' => settings, 'settings_changed_at' => nil, 'transient' => transient, 'transactions' => transactions,
+      'ticker' => BASKET_PAIRS['BTC'], 'members' => members, 'at' => at, 'script' => { 'alpaca' => basket_http.merge(http) },
+      'tick' => true }.merge(extra.transform_keys(&:to_s))
+  end
+
+  def closed_leg(n, sym, value)
+    ask = BASKET_PRICES.fetch(sym)[0].to_d
+    qty = (value.to_d / ask).round(9)
+    { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OCLOSED-#{n}", 'order_type' => 0, 'quote_amount' => value.to_d.to_s('F'),
+      'quote_amount_exec' => (qty * ask).to_s('F'), 'amount_exec' => qty.to_s('F'), 'price' => ask.to_s('F'), 'created_at' => '2026-09-01 10:00:01' }
+  end
+
+  # A basket's holdings before its second tick: [rows, the sweep's replies for the waiting ones].
+  def basket_holdings(weights, state)
+    resting = { 'asset' => 'ETH', 'status' => 0, 'external_status' => 1, 'external_id' => 'OOPEN-1', 'order_type' => 1, 'amount' => '0.0072',
+                'price' => '2493.25', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }
+    rest = lambda do |status, filled|
+      { 'GET /v2/orders/OOPEN-1' => [ok(alpaca_order('OOPEN-1', status, symbol: 'ETH/USD', type: 'limit', notional: nil, qty: '0.0072', filled_qty: filled,
+                                                     filled_avg_price: filled == '0' ? nil : '2493.25', limit_price: '2493.25'))] }
+    end
+    case state
+    when 'empty' then [[], {}]
+    # The first contribution bought by weight.
+    when 'at_target' then [weights.each_with_index.map { |(sym, w), i| closed_leg(i + 1, sym, (60 * w).round(2)) }, {}]
+    # BTC holds the whole first contribution: its offset is zero, the others take this tick's.
+    when 'drifted' then [[closed_leg(1, 'BTC', 60.0)], {}]
+    # An ETH limit buy resting unfilled: its remainder counts as held (reserved_waiting_amounts) and as invested.
+    when 'resting' then [[resting], rest.('new', '0')]
+    # The same buy part-filled: Alpaca's partially_filled reads as unknown, so the sweep raises and the tick fails on both sides.
+    when 'resting_partial' then [[resting.merge('amount_exec' => '0.003', 'quote_amount_exec' => '7.47975')], rest.('partially_filled', '0.003')]
+    # A closed BTC buy that reported a zero executed quote adds no units to the ledger.
+    when 'zero_quote_exec' then [[closed_leg(1, 'BTC', 42.0).merge('quote_amount_exec' => '0')], {}]
+    # An ETH buy cancelled after filling 9 of 18 counts 9 as invested (pending) and 0.0036 ETH as held (ledger).
+    when 'cancelled_partial'
+      [[{ 'asset' => 'ETH', 'status' => 0, 'external_status' => 3, 'external_id' => 'OCAN-1', 'order_type' => 0, 'quote_amount' => '18',
+          'quote_amount_exec' => '9', 'amount_exec' => '0.0036', 'price' => '2500', 'created_at' => '2026-09-01 10:00:01' }], {}]
+    end
+  end
+
+  # The recovery scenarios: the one-asset bot and the 50/30/20 basket (120 USD: legs 60, 36, 24) with leg k ambiguous, the
+  # engine's reconciliation 20 min + 1 s later (Rust only: Rails has no job then), and the next checkpoint (both). With
+  # `limit_for`, each is the amount-limit twin: that cap, switched on at `stamp`.
+  def recover_scenarios(prefix:, limit_for: nil, stamp: nil)
+    recover = (Time.iso8601(basket_first) + 1201).iso8601(6)
+    later = [placed(4, 'BTC'), placed(5, 'ETH'), placed(6, 'SOL')]
+    swept = { 'GET /v2/orders/OTX-1' => [filled_leg('OTX-1', 'BTC', '60')], 'GET /v2/orders/OTX-2' => [filled_leg('OTX-2', 'ETH', '36')] }
+    landed = filled_leg('OTX-L', 'ETH', '36').tap { |r| r['body'] = r['body'].merge('client_order_id' => '$client_order_id') }
+    cases = {
+      'one-network' => [nil, 60.0, [POST_SEND, placed(2, 'BTC')], NOT_FOUND],
+      'one-5xx' => [nil, 60.0, [FIVE_XX, placed(2, 'BTC')], NOT_FOUND],
+      'tiers-k1-network' => [WEIGHTS['tiers'], 120.0, [POST_SEND] + later, NOT_FOUND],
+      'tiers-k2-network' => [WEIGHTS['tiers'], 120.0, [placed(1, 'BTC'), POST_SEND] + later, NOT_FOUND],
+      'tiers-k3-network' => [WEIGHTS['tiers'], 120.0, [placed(1, 'BTC'), placed(2, 'ETH'), POST_SEND] + later, NOT_FOUND],
+      'tiers-k2-5xx' => [WEIGHTS['tiers'], 120.0, [placed(1, 'BTC'), FIVE_XX] + later, NOT_FOUND],
+      'tiers-k2-landed' => [WEIGHTS['tiers'], 120.0, [placed(1, 'BTC'), POST_SEND] + later, landed]
+    }
+    list = cases.map do |name, (members, quote_amount, posts, lookup)|
+      settings = limit_for ? { 'quote_amount_limited' => true, 'quote_amount_limit' => limit_for.(members) } : {}
+      transient = stamp ? { 'quote_amount_limit_enabled_at' => stamp } : {}
+      basket("#{prefix}-recover-#{name}", members, at: basket_first, quote_amount:, settings:, transient:, recover_at: recover,
+             next_at: basket_at(1), report_mails: limit_for ? true : nil,
+             http: swept.merge('POST /v2/orders' => posts, 'GET /v2/orders:by_client_order_id' => [lookup]))
+    end
+    settings = limit_for ? { 'quote_amount_limited' => true, 'quote_amount_limit' => limit_for.(WEIGHTS['tiers']) } : {}
+    transient = stamp ? { 'quote_amount_limit_enabled_at' => stamp } : {}
+    list << landed_reference("#{prefix}-recover-tiers-k2-landed", WEIGHTS['tiers'], legs: [%w[OTX-1 BTC 60]], landed: %w[ETH 36],
+                             quote_amount: 120.0, settings:, transient:, report_mails: limit_for ? true : nil)
+  end
+
+  # The Rails reference for a landed-recovery scenario `name`. The same bot at the next checkpoint
+  # (`basket_at(1)`, the scenario's next_at) holding the rows the engine holds by then: each accepted leg as Rails wrote it
+  # (unknown, swept to filled by this tick), and the landed leg as the engine recorded it from the client-order-id lookup
+  # (the intent's quote, base and price; the lookup's fill). Rails' orders here are the ones the engine must send.
+  def landed_reference(name, members, legs:, landed:, http: {}, **rest)
+    first = Time.iso8601(basket_first).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+    rows = legs.map do |id, sym, q|
+      { 'asset' => sym, 'status' => 0, 'external_status' => 0, 'external_id' => id, 'order_type' => 0, 'quote_amount' => q,
+        'price' => BASKET_PRICES.fetch(sym)[0].to_s, 'created_at' => first }
+    end
+    sym, q = landed
+    ask = BASKET_PRICES.fetch(sym)[0].to_d
+    qty = (q.to_d / ask).round(9)
+    rows << { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => 'OTX-L', 'order_type' => 0, 'quote_amount' => q,
+              'amount' => (q.to_d / ask).to_s('F'), 'price' => ask.to_s('F'), 'amount_exec' => qty.to_s('F'),
+              'quote_amount_exec' => (qty * ask).to_s('F'), 'created_at' => first }
+    swept = legs.to_h { |id, s, v| ["GET /v2/orders/#{id}", [filled_leg(id, s, v)]] }
+    basket("#{name}-reference", members, at: basket_at(1), transactions: rows,
+           http: swept.merge('POST /v2/orders' => [placed(4, 'BTC'), placed(5, 'ETH'), placed(6, 'SOL')]).merge(http), **rest)
+  end
+
+  def basket_scenarios
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    list = []
+    # Sizing (26): weights × holdings × order type; the rarer holdings on the 70/30 basket only.
+    %w[w50 w70 thirds].product(%w[empty at_target drifted], modes.keys).each do |w, state, mode|
+      rows, http = basket_holdings(WEIGHTS[w], state)
+      list << basket("basket-sizing-#{w}-#{state}-#{mode}", WEIGHTS[w], at: basket_at(1), settings: modes[mode], transactions: rows, http:)
+    end
+    %w[resting resting_partial zero_quote_exec cancelled_partial].product(modes.keys).each do |state, mode|
+      rows, http = basket_holdings(WEIGHTS['w70'], state)
+      list << basket("basket-sizing-w70-#{state}-#{mode}", WEIGHTS['w70'], at: basket_at(1), settings: modes[mode], transactions: rows, http:)
+    end
+    # Order safety (25): every failing outcome at every leg of the 3- and the 2-member basket; the legs before k are accepted.
+    outcomes = {
+      'rejected' => { 'status' => 422, 'body' => { 'code' => 42_210_000, 'message' => 'order is not allowed' } },
+      'insufficient' => { 'status' => 403, 'body' => { 'buying_power' => '0', 'code' => 40_310_000, 'cost_basis' => '30', 'message' => 'insufficient buying power' } },
+      'ambiguous_5xx' => FIVE_XX, 'ambiguous_network' => POST_SEND, 'pre_send' => PRE_SEND
+    }
+    %w[tiers w70].each do |w|
+      syms = WEIGHTS[w].keys
+      outcomes.each do |outcome, reply|
+        (1..syms.size).each do |k|
+          posts = syms.first(k - 1).each_with_index.map { |sym, i| placed(i + 1, sym) } + [reply]
+          list << basket("basket-safety-#{w}-#{outcome}-k#{k}", WEIGHTS[w], at: basket_at(1), http: { 'POST /v2/orders' => posts })
+        end
+      end
+    end
+    # Minimums (4): one leg under Alpaca's 1 USD (SOL 0.96 of 4.80), and every leg under it (0.84 and 0.36 of 1.20).
+    modes.each do |mode, settings|
+      list << basket("basket-minimum-one_below-#{mode}", WEIGHTS['tiers'], at: basket_first, quote_amount: 4.8, settings:)
+      list << basket("basket-minimum-all_below-#{mode}", WEIGHTS['w70'], at: basket_first, quote_amount: 1.2, settings:)
+    end
+    # Smart intervals (3): 20 USD every 8 hours of a 60 USD daily basket.
+    smart = { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 }
+    list << basket('basket-smart-tiers-first_tick', WEIGHTS['tiers'], at: basket_first, settings: smart)
+    list << basket('basket-smart-tiers-late', WEIGHTS['tiers'], at: basket_at(1), settings: smart)
+    list << basket('basket-smart-w70-first_tick-limit', WEIGHTS['w70'], at: basket_first, settings: smart.merge(modes['limit']))
+    # A member that stops trading at the tick (3): it is exited and the rest reweighted; or none is left.
+    off = { 'trading_enabled' => false }
+    list << basket('basket-untradable-one-market', WEIGHTS['w70'], at: basket_at(1), tickers_after: { 'ETH' => off })
+    list << basket('basket-untradable-one-limit', WEIGHTS['w70'], at: basket_at(1), settings: modes['limit'], tickers_after: { 'ETH' => off })
+    list << basket('basket-untradable-all', WEIGHTS['w70'], at: basket_at(1), tickers_after: { 'BTC' => off, 'ETH' => off })
+    # Prices (2): the middle member unpriced, before any order; a limit price under SOL's 3 decimals, before any order.
+    list << basket('basket-price-missing-middle', WEIGHTS['tiers'], at: basket_at(1),
+                   http: { 'GET /v1beta3/crypto/us/latest/quotes' => [basket_quotes(without: 'ETH')] })
+    list << basket('basket-price-zero_limit-sol', WEIGHTS['tiers'], at: basket_at(1), settings: modes['limit'],
+                   http: { 'GET /v1beta3/crypto/us/latest/trades' => [basket_trades('SOL' => [150.0, 0.0004])] })
+    # Carry and lifecycle (5).
+    list << basket('basket-carry-w70', WEIGHTS['w70'], at: basket_at(1), transient: { 'missed_quote_amount' => '12.5' })
+    list << basket('basket-late_3-tiers', WEIGHTS['tiers'], at: basket_at(3))
+    list << basket('basket-settings_changed-thirds', WEIGHTS['thirds'], at: basket_at(1), settings_changed_at: '2026-09-01T18:00:00Z')
+    # Yesterday's three legs, still unknown, filled by this tick's sweep before the split.
+    legs = { 'OTX-A' => %w[BTC 30], 'OTX-B' => %w[ETH 18], 'OTX-C' => %w[SOL 12] }
+    waiting = legs.map do |id, (sym, q)|
+      { 'asset' => sym, 'status' => 0, 'external_status' => 0, 'external_id' => id, 'order_type' => 0, 'quote_amount' => q,
+        'price' => BASKET_PRICES[sym][0].to_s, 'created_at' => '2026-09-01 10:00:01' }
+    end
+    list << basket('basket-sweep_fills-tiers', WEIGHTS['tiers'], at: basket_at(1), transactions: waiting,
+                   http: legs.to_h { |id, (sym, q)| ["GET /v2/orders/#{id}", [filled_leg(id, sym, q)]] })
+    list << basket('basket-tick_then_poll-w70', WEIGHTS['w70'], at: basket_at(1), poll: 'OTX-1',
+                   http: { 'GET /v2/orders/OTX-1' => [filled_leg('OTX-1', 'BTC', '84')] })
+    # An ambiguous leg, the engine's reconciliation, the next checkpoint (7).
+    list.concat(recover_scenarios(prefix: 'basket'))
+    # Exited members (2): an exited member is a holding only. SOL left on an earlier tick and holds 24 USD of units: the split
+    # values BTC and ETH only (Rails' Σcurrent excludes SOL too, get_orders_data prices buyable_allocations), so both sides
+    # buy 30 and 18; eligibility admits the bot (asserted on Rust's copy).
+    held = [closed_leg(1, 'BTC', 30.0), closed_leg(2, 'ETH', 18.0), closed_leg(3, 'SOL', 24.0)]
+    list << basket('basket-exited-holds-tiers', WEIGHTS['tiers'], at: basket_at(1), transactions: held, exited: ['SOL'],
+                   tickers_after: { 'SOL' => off })
+    # SOL's leg is ambiguous on the first tick; before the next, Rails' sync delists SOL and the member is exited while its
+    # intent is unresolved. The engine still settles the intent by client order id (it landed) and records the fill against
+    # SOL; the next checkpoint buys BTC and ETH only, and Rails, with no row for the landed 24, buys that much more.
+    sol_landed = filled_leg('OTX-L', 'SOL', '24').tap { |r| r['body'] = r['body'].merge('client_order_id' => '$client_order_id') }
+    list << basket('basket-exited-intent-tiers-k3-landed', WEIGHTS['tiers'], at: basket_first, quote_amount: 120.0,
+                   recover_at: (Time.iso8601(basket_first) + 1201).iso8601(6), next_at: basket_at(1),
+                   between: ["UPDATE tickers SET trading_enabled = 0 WHERE ticker = 'SOL/USD'",
+                             "UPDATE bot_index_assets SET in_index = 0, exited_at = '2026-09-01 10:10:00' " \
+                             "WHERE asset_id = (SELECT base_asset_id FROM tickers WHERE ticker = 'SOL/USD')"],
+                   http: { 'POST /v2/orders' => [placed(1, 'BTC'), placed(2, 'ETH'), POST_SEND, placed(4, 'BTC'), placed(5, 'ETH')],
+                           'GET /v2/orders/OTX-1' => [filled_leg('OTX-1', 'BTC', '60')], 'GET /v2/orders/OTX-2' => [filled_leg('OTX-2', 'ETH', '36')],
+                           'GET /v2/orders:by_client_order_id' => [sol_landed] })
+    list << landed_reference('basket-exited-intent-tiers-k3-landed', WEIGHTS['tiers'], legs: [%w[OTX-1 BTC 60], %w[OTX-2 ETH 36]],
+                             landed: %w[SOL 24], quote_amount: 120.0, exited: ['SOL'], tickers_after: { 'SOL' => off })
+  end
+
   def grid(root, list)
     list.each do |sc|
       dir = File.join(root, sc['name'])
@@ -396,7 +641,8 @@ module Decisions
       bot = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
-                                        'tick' => sc['tick'], 'poll' => sc['poll'] }.compact))
+                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'],
+                                        'report_mails' => sc['report_mails'], 'between' => sc['between'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -405,6 +651,16 @@ module Decisions
   def retry_of(bot_id)
     ActiveJob::Base.queue_adapter.enqueued_jobs.find do |j|
       j['job_class'] == 'Bot::ActionJob' && j['executions'].to_i.positive? && j['arguments'].to_s.include?("/#{bot_id}\"")
+    end
+  end
+
+  # Bot::ActionJob at `at`, then the retries it enqueues for itself, as Solid Queue would run them.
+  def tick_at(sc, at)
+    travel_to(at, with_usec: true) { Bot::ActionJob.perform_now(Bot.find(sc['bot_id'])) }
+    (MAX_ATTEMPTS - 1).times do
+      job = retry_of(sc['bot_id']) or break
+      ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+      travel_to(Time.at(job[:at]), with_usec: true) { ActiveJob::Base.execute(job.stringify_keys) }
     end
   end
 
@@ -430,14 +686,7 @@ module Decisions
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       before = snapshot
-      if sc.fetch('tick', true)
-        travel_to(Time.iso8601(sc['at']), with_usec: true) { Bot::ActionJob.perform_now(Bot.find(sc['bot_id'])) }
-        (MAX_ATTEMPTS - 1).times do
-          job = retry_of(sc['bot_id']) or break
-          ActiveJob::Base.queue_adapter.enqueued_jobs.clear
-          travel_to(Time.at(job[:at]), with_usec: true) { ActiveJob::Base.execute(job.stringify_keys) }
-        end
-      end
+      tick_at(sc, Time.iso8601(sc['at'])) if sc.fetch('tick', true)
       poll_error = nil
       if sc['poll'] # the follow-up poll Transaction enqueues for one order; its retries are not replayed
         order = Transaction.find_by!(bot_id: sc['bot_id'], external_id: sc['poll'])
@@ -448,6 +697,15 @@ module Decisions
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
+      end
+      # What changes between the first tick and the next, outside both engines (Rails' own sync delisting a member, the
+      # member exited meanwhile). The same SQL runs on Rust's copy (parity::play).
+      (sc['between'] || []).each { |sql| ActiveRecord::Base.connection.execute(sql) }
+      # `recover_at` is the engine's own reconciliation tick: Rails has no job then (its next run is at
+      # next_interval_checkpoint_at, action_job.rb:325-328), so nothing runs here for it. `next_at` is that next run.
+      if sc['next_at']
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        tick_at(sc, Time.iso8601(sc['next_at']))
       end
       out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot) }
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
@@ -460,11 +718,13 @@ module Decisions
 end
 
 command, root = ARGV
-raise ArgumentError, 'usage: grid <root> | grid-alpaca <root> | record <root>' unless root
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | record <root>'.freeze
+raise ArgumentError, USAGE unless root
 
 case command
 when 'grid' then Decisions.grid(root, Decisions.scenarios)
 when 'grid-alpaca' then Decisions.grid(root, Decisions.alpaca_scenarios)
+when 'grid-basket' then Decisions.grid(root, Decisions.basket_scenarios)
 when 'record' then Decisions.record(root)
-else raise ArgumentError, 'usage: grid <root> | grid-alpaca <root> | record <root>'
+else raise ArgumentError, USAGE
 end
