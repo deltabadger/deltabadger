@@ -113,7 +113,7 @@ class Exchanges::UnreadableOrderNumbersTest < ActiveSupport::TestCase
             data = { 'a' => [value, '1', '1'], 'b' => [value, '1', '1'], 'c' => [value, '1'],
                      'v' => %w[1 1], 'p' => %w[50000 50000], 't' => [1, 1],
                      'l' => %w[50000 50000], 'h' => %w[50000 50000], 'o' => '50000' }
-            stub_request(:get, %r{https://api.kraken.com/0/public/Ticker})
+            stub_request(:get, %r{\Ahttps://api\.kraken\.com/0/public/Ticker(?:\?[^#]*)?\z})
               .to_return(**json_response('error' => [], 'result' => { @bot.ticker.ticker => data }))
           else
             @exchange.stubs(:crypto_ticker?).returns(false)

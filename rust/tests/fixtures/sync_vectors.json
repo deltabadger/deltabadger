@@ -21997,7 +21997,7 @@
     "app/jobs/account_balance/sync_all_job.rb": "0a31ced64a9583ba71795e7b0297777356f565df6288312dff016317984810d3",
     "app/models/api_key.rb": "83b29e6f3253a49c69cff459c92f9e86a6b2e80874d37a84ba0628d59f9ef921",
     "app/models/concerns/api_key_failure_handling.rb": "1af31e8d00a2e38f0343954e95b51aeb736c28158c97f088d22660e3fbea9cec",
-    "app/models/exchanges/alpaca.rb": "29a2fa34f228a49c43f779631bfe36dbda413208cf09f8d7cc8924d972caf33a",
+    "app/models/exchanges/alpaca.rb": "58793d3062328cf7dc327216316fd93d697868ca66155639b3da1c959992e372",
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
     "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
     "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",

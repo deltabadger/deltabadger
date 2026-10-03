@@ -961,7 +961,6 @@ async fn a_malformed_balance_answer_fails_the_sync_and_removes_nothing() {
         ("cash past the caps", json!({ "cash": "9".repeat(70) }), aapl.clone(), json!({}), "unreadable cash: more than 64 significant digits".into()),
         ("cash that is no number", json!({ "cash": true }), aapl.clone(), json!({}), "unreadable cash: not a number".into()),
         ("an account that is a list", json!([{ "cash": "1" }]), aapl.clone(), json!({}), "unreadable account".into()),
-        ("a snapshot price past the caps", good_account.clone(), aapl.clone(), json!({ "AAPL": { "latestTrade": { "p": "1e400" } } }), "unreadable snapshot for AAPL".into()),
         ("a snapshot that is no object", good_account.clone(), aapl.clone(), json!({ "AAPL": 5 }), "unreadable snapshot for AAPL".into()),
         ("more positions than one run holds", good_account.clone(), Value::Array(vec![aapl[0].clone(); balances::MAX_POSITIONS + 1]), json!({}), "more than 5000 positions".into()),
         ("a million empty positions inside the byte limit", good_account.clone(), json!(format!("[{}]", vec!["[]"; 1_300_000].join(","))), json!({}), "more than 5000 positions".into()),
@@ -980,6 +979,25 @@ async fn a_malformed_balance_answer_fails_the_sync_and_removes_nothing() {
         assert_eq!((failure.error.as_str(), failure.raised), (error.as_str(), false), "{what}");
         assert_eq!(one::<String>(&db, state).await, before, "{what}: every balance is as it was, and the key's clock did not move");
         assert_eq!(one::<i64>(&db, "SELECT status FROM api_keys").await, 1, "{what}: the key is not condemned for an answer this port refuses");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_snapshot_price_updates_holdings_and_keeps_the_last_price() {
+    for value in [json!("NaN"), json!("Infinity"), json!("-Infinity"), json!("garbage"), json!("1e400"), json!(true), json!({})] {
+        let (_dir, db, s) = install();
+        let (_, v) = venue(balances_script());
+        balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+        let (_, v) = venue(json!({
+            "GET /v2/account": [ok(json!({ "cash": "100" }))],
+            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "qty": "2" }]))],
+            "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": value } } }))]
+        }));
+        let later = FixedClock("2026-09-21T02:30:00Z".parse().unwrap());
+        let summary = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &later).await.unwrap().unwrap();
+        assert_eq!((summary.synced, summary.priced_fresh, summary.priced_stale), (2, 1, 1), "{value}");
+        assert_eq!(one::<f64>(&db, "SELECT usd_value FROM account_balances WHERE asset_id = (SELECT id FROM assets WHERE symbol = 'AAPL')").await, 455.04);
+        assert_eq!(one::<String>(&db, "SELECT priced_at FROM account_balances WHERE asset_id = (SELECT id FROM assets WHERE symbol = 'AAPL')").await, "2026-09-20 02:00:00");
     }
 }
 
