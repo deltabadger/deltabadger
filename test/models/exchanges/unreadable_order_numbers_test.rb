@@ -35,7 +35,7 @@ class Exchanges::UnreadableOrderNumbersTest < ActiveSupport::TestCase
         end
 
         %i[market limit].each do |type|
-          test "#{venue} #{type} placement rejects #{value} in #{field}" do
+          test "#{venue} #{type} placement preserves the accepted order with #{value} in #{field}" do
             prepare_bot(venue)
             @bot.set_missed_quote_amount
             @bot.update!(limit_ordered: type == :limit)
@@ -55,9 +55,21 @@ class Exchanges::UnreadableOrderNumbersTest < ActiveSupport::TestCase
             else
               @client.stubs(:create_order).returns(Result::Success.new(raw))
 
-              assert_no_difference -> { @bot.transactions.count } do
-                assert_raises(ArgumentError) { @bot.set_order(order_amount_in_quote: 100.to_d) }
+              pending_before = @bot.pending_quote_amount
+              assert_difference -> { @bot.transactions.count }, 1 do
+                assert_predicate @bot.set_order(order_amount_in_quote: 100.to_d), :success?
               end
+              order = @bot.transactions.last
+              assert_equal raw['id'], order.external_id
+              assert_predicate order, :waiting?
+              assert_nil order.amount_exec
+              assert_nil order.quote_amount_exec
+              assert_equal pending_before - 100, @bot.pending_quote_amount
+              original = order.attributes
+              stub_poll(venue, order.external_id, raw)
+
+              assert_raises(ArgumentError) { Bot::FetchAndUpdateOrderJob.new.perform(order) }
+              assert_equal original, order.reload.attributes
             end
           end
         end
@@ -156,7 +168,166 @@ class Exchanges::UnreadableOrderNumbersTest < ActiveSupport::TestCase
     assert_nil result.data[:amount]
   end
 
+  %i[market limit].each do |type|
+    test "Alpaca #{type} acceptance with an unreadable fill reserves spend before the next tick" do
+      prepare_bot(:alpaca)
+      @bot.ticker.update!(ticker: 'AAPL')
+      @bot.set_missed_quote_amount
+      @bot.update!(limit_ordered: type == :limit)
+      raw = { 'id' => 'accepted-1', 'status' => 'filled', 'symbol' => 'AAPL', 'type' => type.to_s,
+              'side' => 'buy', 'notional' => '100', 'filled_qty' => '1', 'filled_avg_price' => 'NaN' }
+      @client.expects(:create_order).once.returns(Result::Success.new(raw))
+      pending_before = @bot.pending_quote_amount
+
+      assert_predicate @bot.set_order(order_amount_in_quote: 100.to_d), :success?
+      order = @bot.transactions.find_by!(external_id: 'accepted-1')
+      assert_predicate order, :waiting?
+      assert_nil order.amount_exec
+      assert_nil order.quote_amount_exec
+      assert_equal pending_before - 100, @bot.pending_quote_amount
+      original = order.attributes
+      stub_poll(:alpaca, order.external_id, raw)
+
+      assert_no_difference -> { @bot.transactions.count } do
+        assert_raises(ArgumentError) { @bot.execute_action }
+      end
+      assert_equal original, order.reload.attributes
+
+      order.bot = @bot
+      stub_poll(:alpaca, order.external_id, raw.merge('filled_avg_price' => '100'))
+      Bot::FetchAndUpdateOrderJob.new.perform(order)
+      assert_predicate order.reload, :closed?
+      assert_equal 1.to_d, order.amount_exec
+      assert_equal 100.to_d, order.quote_amount_exec
+    end
+  end
+
+  %i[single bulk].each do |poll|
+    test "Alpaca #{poll} poll preserves a waiting order when a positive fill has no average price" do
+      prepare_bot(:alpaca)
+      @bot.ticker.update!(ticker: 'AAPL')
+      order = waiting_order
+      original = order.attributes
+      raw = { 'id' => 'filled-1', 'symbol' => 'AAPL', 'type' => 'market', 'side' => 'buy',
+              'status' => 'filled', 'qty' => '1', 'filled_qty' => '1', 'filled_avg_price' => nil,
+              'limit_price' => nil, 'notional' => nil }
+      stub_poll(:alpaca, order.external_id, raw)
+
+      assert_raises(ArgumentError) do
+        if poll == :single
+          Bot::FetchAndUpdateOrderJob.new.perform(order)
+        else
+          Bot::FetchAndUpdateOpenOrdersJob.new.perform(@bot)
+        end
+      end
+      assert_equal original, order.reload.attributes
+      assert_predicate order, :waiting?
+    end
+  end
+
+  INVALID_NUMBERS.each do |value|
+    test "Alpaca stock batch omits #{value} while retaining valid and absent prices" do
+      prepare_bot(:alpaca)
+      @exchange.stubs(:market_data_client).returns(@client)
+      @client.expects(:get_snapshots).returns(Result::Success.new(alpaca_snapshots(value)))
+
+      result = @exchange.get_tickers_prices(symbols: %w[AAPL DYNI MSFT], force: true)
+
+      assert_predicate result, :success?
+      assert_equal({ 'AAPL' => 200.to_d, 'DYNI' => 0.to_d }, result.data)
+    end
+
+    test "Alpaca crypto batch omits #{value} while retaining valid and absent prices" do
+      prepare_bot(:alpaca)
+      @exchange.stubs(:market_data_client).returns(@client)
+      trades = { 'BTC/USD' => { 'p' => '50000' }, 'ETH/USD' => { 'p' => value }, 'SOL/USD' => {} }
+      @client.expects(:get_crypto_latest_trade).returns(Result::Success.new('trades' => trades))
+
+      result = @exchange.get_tickers_prices(symbols: %w[BTC/USD ETH/USD SOL/USD], force: true)
+
+      assert_predicate result, :success?
+      assert_equal({ 'BTC/USD' => 50_000.to_d, 'SOL/USD' => 0.to_d }, result.data)
+    end
+
+    [nil, %w[XXBTZUSD], %w[XXBTZUSD XETHZUSD]].each do |symbols|
+      test "Kraken batch contains valid pairs with #{value} and requested symbols #{symbols.inspect}" do
+        prepare_bot(:kraken)
+        @bot.ticker.update!(ticker: 'XXBTZUSD')
+        @client = @exchange.send(:client)
+        prices = { 'XXBTZUSD' => { 'c' => %w[50000 1] }, 'XETHZUSD' => { 'c' => [value, '1'] } }
+        @client.expects(:get_ticker_information).with.once.returns(Result::Success.new('error' => [], 'result' => prices))
+        result = @exchange.get_tickers_prices(symbols: symbols, force: true)
+
+        assert_predicate result, :success?
+        assert_equal({ 'XXBTZUSD' => 50_000.to_d }, result.data)
+      end
+    end
+
+    test "Kraken per-pair fallback omits #{value} without losing the healthy batch price" do
+      prepare_bot(:kraken)
+      @client = @exchange.send(:client)
+      batch = { 'error' => [], 'result' => { 'XXBTZUSD' => { 'c' => %w[50000 1] } } }
+      fallback = { 'error' => [], 'result' => { 'XETHZUSD' => { 'c' => [value, '1'] } } }
+      @client.expects(:get_ticker_information).with.returns(Result::Success.new(batch))
+      @client.expects(:get_ticker_information).with(pair: 'ETHUSD').returns(Result::Success.new(fallback))
+
+      result = @exchange.get_tickers_prices(symbols: %w[XXBTZUSD ETHUSD], force: true)
+
+      assert_predicate result, :success?
+      assert_equal({ 'XXBTZUSD' => 50_000.to_d }, result.data)
+    end
+  end
+
+  test 'Kraken does not inspect price fields of unrequested pairs' do
+    prepare_bot(:kraken)
+    prices = { 'XXBTZUSD' => { 'c' => %w[50000 1] }, 'XETHZUSD' => {} }
+    @exchange.send(:client).expects(:get_ticker_information).with.returns(Result::Success.new('error' => [], 'result' => prices))
+
+    result = @exchange.get_tickers_prices(symbols: ['XXBTZUSD'], force: true)
+
+    assert_predicate result, :success?
+    assert_equal({ 'XXBTZUSD' => 50_000.to_d }, result.data)
+  end
+
+  test 'Alpaca balance sync updates holdings and cash despite absent and unreadable stock prices' do
+    prepare_bot(:alpaca)
+    api_key = @bot.user.api_keys.find_by!(exchange: @exchange)
+    api_key.exchange = @exchange
+    @exchange.stubs(:market_data_client).returns(@client)
+    @client.stubs(:get_snapshots).returns(Result::Success.new(alpaca_snapshots('NaN')))
+    stocks = %w[AAPL DYNI MSFT].map do |symbol|
+      create(:asset, symbol: symbol, external_id: "alpaca_#{symbol}", category: 'Stock')
+    end
+    cash = @bot.quote_asset
+    balances = (stocks + [cash]).to_h { |asset| [asset.id, { free: 2.to_d, locked: 0.to_d }] }
+    @exchange.stubs(:get_balances).returns(Result::Success.new(balances))
+    MarketData.expects(:get_prices).with(coin_ids: ['alpaca_MSFT'], currency: 'usd').returns(Result::Success.new({}))
+    stale = AccountBalance.create!(user: @bot.user, exchange: @exchange, asset: stocks.last,
+                                   free: 1, locked: 0, usd_price: 50, usd_value: 50,
+                                   synced_at: 1.day.ago, priced_at: 1.day.ago)
+    priced_at = stale.priced_at
+
+    result = AccountBalance::Sync.new(api_key).sync!
+
+    assert_predicate result, :success?
+    assert_equal 4, result.data.synced
+    assert_equal 3, result.data.priced_fresh
+    assert_equal 1, result.data.priced_stale
+    assert_equal 400.to_d, AccountBalance.find_by!(asset: stocks.first).usd_value
+    assert_equal 0.to_d, AccountBalance.find_by!(asset: stocks.second).usd_price
+    assert_equal 2.to_d, AccountBalance.find_by!(asset: cash).usd_value
+    assert_equal 2.to_d, stale.reload.free
+    assert_equal 100.to_d, stale.usd_value
+    assert_equal priced_at, stale.priced_at
+  end
+
   private
+
+  def alpaca_snapshots(invalid_price)
+    { 'AAPL' => { 'latestTrade' => { 'p' => 200 } },
+      'DYNI' => { 'latestQuote' => { 'ap' => 31.02, 'bp' => 20.66 } },
+      'MSFT' => { 'latestTrade' => { 'p' => invalid_price } } }
+  end
 
   def prepare_bot(venue)
     @exchange = create(:"#{venue}_exchange")

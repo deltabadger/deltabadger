@@ -207,7 +207,12 @@ class Exchanges::Alpaca < Exchange
       result = market_data_client.get_snapshots(symbols: sorted)
       return result if result.failure?
 
-      result.data.transform_values { |snapshot| parse_venue_number(snapshot.dig('latestTrade', 'p')) }
+      result.data.each_with_object({}) do |(symbol, snapshot), prices|
+        value = snapshot.dig('latestTrade', 'p')
+        prices[symbol] = value.nil? ? 0.to_d : parse_venue_number(value)
+      rescue ArgumentError
+        next
+      end
     end
 
     Result::Success.new(tickers_prices)
@@ -220,7 +225,12 @@ class Exchanges::Alpaca < Exchange
       result = market_data_client.get_crypto_latest_trade(symbols: sorted)
       return result if result.failure?
 
-      result.data.fetch('trades', {}).transform_values { |trade| parse_venue_number(trade['p']) }
+      result.data.fetch('trades', {}).each_with_object({}) do |(symbol, trade), prices|
+        value = trade['p']
+        prices[symbol] = value.nil? ? 0.to_d : parse_venue_number(value)
+      rescue ArgumentError
+        next
+      end
     end
 
     Result::Success.new(tickers_prices)
@@ -937,7 +947,7 @@ class Exchanges::Alpaca < Exchange
              end
     return result if result.failure?
 
-    validate_placement_numbers(result.data)
+    # Persist the accepted id before polling fills, even when the placement's numbers are unreadable.
     data = { order_id: result.data['id'] }
     Result::Success.new(data)
   end
@@ -965,15 +975,9 @@ class Exchanges::Alpaca < Exchange
     )
     return result if result.failure?
 
-    validate_placement_numbers(result.data)
+    # Persist the accepted id before polling fills, even when the placement's numbers are unreadable.
     data = { order_id: result.data['id'] }
     Result::Success.new(data)
-  end
-
-  def validate_placement_numbers(order_data)
-    %w[filled_qty filled_avg_price notional qty limit_price].each do |field|
-      parse_venue_number(order_data[field]) unless order_data[field].nil?
-    end
   end
 
   def parse_order_data(order_data)
@@ -981,7 +985,7 @@ class Exchanges::Alpaca < Exchange
     order_type = order_data['type'] == 'limit' ? :limit_order : :market_order
     side = order_data['side']&.to_sym
     filled_qty = parse_venue_number(order_data['filled_qty'])
-    filled_avg_price = parse_venue_number(order_data['filled_avg_price']) unless order_data['filled_avg_price'].nil?
+    filled_avg_price = parse_venue_number(order_data['filled_avg_price']) if filled_qty.positive? || !order_data['filled_avg_price'].nil?
     notional = parse_venue_number(order_data['notional']) unless order_data['notional'].nil?
     qty = parse_venue_number(order_data['qty']) unless order_data['qty'].nil?
     limit_price = parse_venue_number(order_data['limit_price']) unless order_data['limit_price'].nil?

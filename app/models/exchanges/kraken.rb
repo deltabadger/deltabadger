@@ -159,13 +159,18 @@ class Exchanges::Kraken < Exchange
       return Result::Failure.new(*error) if error.any?
 
       prices_hash = {}
-      result.data['result'].each do |data|
-        ticker = data[0]
-        price = parse_venue_number(Utilities::Hash.dig_or_raise(data[1], 'c')[0])
+      returned_tickers = result.data['result']
+      returned_tickers.each do |ticker, data|
+        next if wanted && !wanted.include?(ticker)
+
+        price = parse_venue_number(Utilities::Hash.dig_or_raise(data, 'c')[0])
         prices_hash[ticker] = price
+      rescue ArgumentError
+        next
       end
 
-      missing_tickers = (wanted || tickers.available.pluck(:ticker)) - prices_hash.keys
+      # Retry pairs absent from the batch; unreadable returned prices stay omitted for this fetch.
+      missing_tickers = (wanted || tickers.available.pluck(:ticker)) - returned_tickers.keys
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
@@ -181,6 +186,8 @@ class Exchanges::Kraken < Exchange
 
         price = parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0])
         prices_hash[ticker] = price
+      rescue ArgumentError
+        next
       end
 
       prices_hash
