@@ -128,6 +128,8 @@ module McpParity
       [init.merge('sql' => ["CREATE TRIGGER m2_fail BEFORE INSERT ON action_mcp_session_messages BEGIN SELECT RAISE(ABORT,'synthetic failure'); END"])]
     s['tool_exception'] = ready + [tool('list_bots').merge('sql' => ["UPDATE bots SET type='NotAClass' WHERE id=1"])]
     s['progress'] = ready + [session_rpc('tools/list', { _meta: { progressToken: 0 } }), session_rpc('tools/wrong')]
+    s['transactions_null_side'] =
+      ready + [tool('list_transactions', { limit: 4 }).merge('sql' => ['UPDATE transactions SET side=NULL,status=1 WHERE id=1'])]
     s['numeric_formats'] =
       ready + [tool('list_transactions',
                     { limit: 4 }).merge('sql' => ['UPDATE transactions SET amount_exec=0,price=10000000000000000,quote_amount_exec=0.10000000000000001 WHERE id=1',

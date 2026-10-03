@@ -65,14 +65,14 @@ fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
     let limit=if raw<=0{20}else{raw.min(100)};
     let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
     let mut q=c.prepare("SELECT t.created_at,t.side,t.status,t.amount_exec,t.base,t.price,t.quote,t.quote_amount_exec FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.id=?2) ORDER BY t.created_at DESC LIMIT ?3")?;
-    let rows=q.query_map(rusqlite::params![user,bot,limit],|r|Ok((r.get::<_,String>(0)?,r.get::<_,usize>(1)?,r.get::<_,usize>(2)?,number(r,3)?,r.get::<_,Option<String>>(4)?,number(r,5)?,r.get::<_,Option<String>>(6)?,number(r,7)?)))?;
+    let rows=q.query_map(rusqlite::params![user,bot,limit],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,usize>(2)?,number(r,3)?,r.get::<_,Option<String>>(4)?,number(r,5)?,r.get::<_,Option<String>>(6)?,number(r,7)?)))?;
     let mut lines=vec![];
     for row in rows{
         let (time,side,status,amount,base,price,quote,cost)=row?;
         let t=crate::codec::parse_time(&time).map_err(|e|WebError::Config(format!("MCP timestamp: {e:?}")))?;
         let date=timezone::local(t,&zone).format("%Y-%m-%d %H:%M");
         let quote=quote.unwrap_or_default();
-        lines.push(format!("- [{date}] {} {} {} {} | {}",["BUY","SELL"].get(side).copied().unwrap_or(""),amount.map(|v|format!("{v} {}",base.unwrap_or_default())).unwrap_or_else(||"N/A".into()),price.map(|v|format!("@ {v} {quote}")).unwrap_or_default(),cost.map(|v|format!("({v} {quote})")).unwrap_or_default(),["submitted","failed","skipped"].get(status).copied().unwrap_or("")));
+        lines.push(format!("- [{date}] {} {} {} {} | {}",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|["BUY","SELL"].get(s).copied()).unwrap_or(""),amount.map(|v|format!("{v} {}",base.unwrap_or_default())).unwrap_or_else(||"N/A".into()),price.map(|v|format!("@ {v} {quote}")).unwrap_or_default(),cost.map(|v|format!("({v} {quote})")).unwrap_or_default(),["submitted","failed","skipped"].get(status).copied().unwrap_or("")));
     }
     Ok(if lines.is_empty(){"No transactions found.".into()}else{format!("Transactions ({}):\n{}",lines.len(),lines.join("\n"))})
 }
