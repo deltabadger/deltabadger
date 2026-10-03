@@ -50,3 +50,38 @@ async fn crypto_empty_requests_failures_and_bad_unused_numbers() {
     assert_eq!(wire.calls.borrow()[0].base, "https://data.alpaca.markets");
     assert_eq!(wire.calls.borrow()[0].path, "/v1beta3/crypto/us/latest/trades");
 }
+
+fn ticker(crypto: bool) -> deltabadger::figures::db::Ticker {
+    deltabadger::figures::db::Ticker { id: 1, ticker: if crypto { "BTC/USD" } else { "AAA" }.into(), base: "AAA".into(), base_asset_id: 1,
+        quote_decimals: Some(2), base_category: Some(if crypto { "Cryptocurrency" } else { "Stock" }.into()), base_asset_exists: true }
+}
+
+#[tokio::test]
+async fn closed_candles_overlap_and_rebuild_instead_of_splicing_a_split() {
+    use deltabadger::figures::at::At;
+    let mut cache = Cache::default();
+    let at = |seconds: i64| At(seconds * 1_000_000_000);
+    let bars = |price: f64| json!({"bars":[{"t":"1970-01-01T00:01:00Z","o":price},{"t":"1970-01-01T00:00:00Z","o":10},{"t":"1970-01-01T00:02:00Z","o":30}]}).to_string();
+    let wire = Wire { calls: RefCell::default(), body: bars(20.0) };
+    let reader = Reader::new(&cache, 120);
+    assert!(reader.candles(&venue(), &ticker(false), at(0), 60, true).is_err());
+    cache.fill(&wire, reader.demands(), 120).await;
+    let reader = Reader::new(&cache, 179);
+    let got = reader.candles(&venue(), &ticker(false), at(0), 60, true).unwrap();
+    assert_eq!(got.len(), 2);
+    assert_eq!(got[0].0, at(0));
+    assert!(reader.demands().is_empty());
+    let reader = Reader::new(&cache, 180);
+    assert!(reader.candles(&venue(), &ticker(false), at(0), 60, true).is_err());
+    let demand = reader.demands();
+    assert!(demand[0].query.contains(&("start", "1970-01-01T00:00:00Z".into())));
+    // Cache.fill changes the wire start to the overlapping bar; a restatement then refetches the head.
+    let changed = Wire { calls: RefCell::default(), body: bars(2.0) };
+    cache.fill(&changed, demand, 180).await;
+    assert_eq!(changed.calls.borrow().len(), 2);
+    assert!(changed.calls.borrow()[0].query.contains(&("start", "1970-01-01T00:01:00Z".into())));
+    assert!(changed.calls.borrow()[1].query.contains(&("start", "1970-01-01T00:00:00Z".into())));
+    let got = Reader::new(&cache, 180).candles(&venue(), &ticker(false), at(0), 60, true).unwrap();
+    assert_eq!(got.len(), 3);
+    assert_eq!(got[1].1.to_s_f(), "2.0");
+}
