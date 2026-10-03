@@ -286,7 +286,9 @@ fn snapshot_prices(text: &str, symbols: &[String]) -> Result<HashMap<String, Big
         let unreadable = |_| Unread::Raised(format!("unreadable snapshot for {symbol}"));
         let Some(snapshot) = snapshots.object(symbol).map_err(unreadable)? else { continue };
         let Some(trade) = snapshot.object("latestTrade").map_err(unreadable)? else { continue };
-        if let Some(price) = trade.number("p").map_err(unreadable)?.filter(BigDec::is_positive) { prices.insert(symbol.clone(), price); }
+        // Rails omits just the symbol whose price is unreadable. Keep the healthy prices in this batch;
+        // the omitted holding can use the market source or its previous price. Numeric caps still apply.
+        if let Some(price) = trade.number("p").ok().flatten().filter(BigDec::is_positive) { prices.insert(symbol.clone(), price); }
     }
     Ok(prices)
 }

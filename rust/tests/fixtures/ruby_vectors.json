@@ -41175,10 +41175,10 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "29a2fa34f228a49c43f779631bfe36dbda413208cf09f8d7cc8924d972caf33a",
+    "app/models/exchanges/alpaca.rb": "58793d3062328cf7dc327216316fd93d697868ca66155639b3da1c959992e372",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
-    "app/models/exchanges/kraken.rb": "59c8298dbc7cc8078ce65f65ed3e0d907c8e77abf151c4ba515fe16bb908f096",
+    "app/models/exchanges/kraken.rb": "f0054f310b4c625ff446fe1a3a217826c22432f29345ce1d63e12bb9274e053a",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/jobs/bot/fetch_and_update_open_orders_job.rb": "0594f4ce138af9283aac4980a27a01b5d791f8fa995379f3b34f948ea90b7609",
     "app/jobs/bot/fetch_and_update_order_job.rb": "47f9d960ed232cfae34e4f96db4e0ccb8dc8b320b9eabd21a747e8539c3e35d2"
@@ -301091,6 +301091,1417 @@
         "start_time_of_day": "09:30"
       },
       "expected": "2026-03-09T13:30:00Z"
+    }
+  ],
+  "venue_order_numbers": [
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": null,
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "garbage",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "NaN",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "Infinity",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "-Infinity",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "1.25",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "garbage",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "NaN",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "Infinity",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "-Infinity",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "0",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "1.25",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": null,
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "garbage",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "NaN",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "Infinity",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "-Infinity",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "0",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "1.25",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "garbage",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "NaN",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "Infinity",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "-Infinity",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "0",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": "1.25",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "garbage",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "NaN",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "Infinity",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "-Infinity",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": false
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "0",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": "1.25",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "alpaca",
+      "body": {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": null,
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "garbage",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "NaN",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "Infinity",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "-Infinity",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "0",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "1.25",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": null,
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "garbage",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "NaN",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "Infinity",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "-Infinity",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "0",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "1.25",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "vol": "0.0012",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": null,
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "garbage",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "NaN",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "Infinity",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "-Infinity",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "1.25",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol_exec": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": null,
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "garbage",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "NaN",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "Infinity",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "-Infinity",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "0",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "vol_exec": "1.25",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": true
+    },
+    {
+      "venue": "kraken",
+      "body": {
+        "status": "closed",
+        "price": "50000",
+        "cost": "60",
+        "vol": "0.0012",
+        "oflags": "",
+        "descr": {
+          "pair": "XBTEUR",
+          "type": "buy",
+          "ordertype": "market",
+          "price": "0"
+        }
+      },
+      "accepted": false
     }
   ]
 }
