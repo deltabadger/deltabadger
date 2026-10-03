@@ -24,7 +24,7 @@ pub struct Holding { pub key: String, pub asset_id: Option<i64>, pub strings: Ve
 pub struct Event { pub at: At, pub key: String, pub factor: Dec }
 
 /// The split rows that apply to one holding on one effective date.
-struct Group { key: String, rows: Vec<SplitRow> }
+pub struct Group { pub key: String, pub rows: Vec<SplitRow> }
 
 /// `"10:1"` is 10. Anything else names no factor: a blank, one number, a zero side, words, extra parts. A ratio of
 /// numbers beyond `dec`'s limits is an error: Rails would restate by it.
@@ -62,7 +62,7 @@ fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
 
 /// Bot::Restatable#grouped_split_rows: the marked rows this bot is eligible for, per holding and effective date
 /// (the UTC date of the row). Eligibility is the venues and symbols the bot actually traded.
-fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
+pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let mut string_pairs = HashSet::new();
     let mut asset_pairs = HashSet::new();
     let mut exchange_ids = vec![];

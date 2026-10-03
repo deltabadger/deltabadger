@@ -33,8 +33,17 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 143' INT TERM # not `trap cleanup EXIT INT TERM`: that would clean up and then carry on running
-bin="$root/rust/target/release/deltabadger"
-(cd "$root/rust" && cargo build -q --release --bin deltabadger)
+# Tests pass their already-built binary; real copy checks build release in Cargo's selected target directory.
+bin=${DELTABADGER_PARITY_BIN:-}
+if [ -z "$bin" ]; then
+  df -g / 2>/dev/null || df -Pk /
+  python3 -c 'import shutil,sys; sys.exit(0 if shutil.disk_usage("/").free >= 3*1024**3 else "STOP: under 3 GB free")'
+  target_dir=${CARGO_TARGET_DIR:-"$root/rust/target"}
+  case "$target_dir" in /*) ;; *) target_dir="$root/rust/$target_dir" ;; esac
+  bin="$target_dir/release/deltabadger"
+  (cd "$root/rust" && cargo build -q --release --bin deltabadger)
+fi
+[ -x "$bin" ] || { echo 'parity binary is not executable' >&2; exit 1; }
 "$bin" decide plan "$src" "$tickers" "$rails_root" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cp -a "$rails_root/." "$rust_root/"
 (cd "$root" && env -u DATABASE_URL PROXY_KRAKEN=http://127.0.0.1:9 SKIP_TEST_DATABASE=true APP_ROOT_URL="${APP_ROOT_URL:-http://localhost:3000}" \

@@ -59,7 +59,7 @@ fn sizing_ticker(t: &serde_json::Value) -> Ticker {
     Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), quote_code: "EUR".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
              base_asset_id: 1, quote_asset_id: 2, base_decimals: n("base_decimals"), quote_decimals: n("quote_decimals"), price_decimals: n("price_decimals"),
              minimum_base_size: bd(t["minimum_base_size"].as_str().unwrap()), minimum_quote_size: bd(t["minimum_quote_size"].as_str().unwrap()),
-             trading_enabled: true, available: true }
+             trading_enabled: true, available: true, crypto: true, }
 }
 
 #[test]
@@ -232,5 +232,40 @@ fn every_recorded_rails_continue_start_decision_is_reproduced() {
         let bot = model::load_bot(&o.primary, id).unwrap();
         let now = amount::continue_runs_now(&o.primary, &bot, us(c["now"].as_str().unwrap())).unwrap();
         assert_eq!(if now { "now" } else { "checkpoint" }, c["decision"].as_str().unwrap(), "case {i}: {c}");
+    }
+}
+
+#[test]
+fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
+    let (_d, o, s) = common::install_alpaca();
+    let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    let spec = || BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)]);
+    let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec())).unwrap();
+    let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec()
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
+    let t = model::ticker_for(&o.primary, &market).unwrap().unwrap();
+    assert!(!t.crypto, "a Stock asset's ticker is not crypto");
+    let cases = common::vectors()["alpaca_stock_sizing"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 36);
+    let deadline = "2026-09-01T14:00:10Z".parse().unwrap();
+    for c in cases {
+        let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
+        let (plan, below) = match amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), ALPACA.minimum_logic).unwrap() {
+            Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}"),
+        };
+        assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
+        assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
+        let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
+        let w = &c["wire"];
+        assert_eq!(w["time_in_force"], "day", "Rails sends a stock as a day order {c}");
+        assert!(order.day, "{c}");
+        assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "the bare symbol {c}");
+        match order.kind {
+            OrderKind::Market => assert_eq!(order.volume, w["notional"].as_str().unwrap(), "notional {c}"),
+            OrderKind::Limit { price } => {
+                assert_eq!(order.volume, w["qty"].as_str().unwrap(), "qty {c}");
+                assert_eq!(price, w["limit_price"].as_str().unwrap(), "limit_price floored to 2 decimals {c}");
+            }
+        }
     }
 }

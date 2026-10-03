@@ -17,7 +17,7 @@ use std::rc::Rc;
 fn xbteur() -> Ticker {
     Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), quote_code: "EUR".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
              base_asset_id: 1, quote_asset_id: 2, base_decimals: 8, quote_decimals: 5, price_decimals: 1,
-             minimum_base_size: BigDec::parse("0.00005").unwrap(), minimum_quote_size: BigDec::parse("0.5").unwrap(), trading_enabled: true, available: true }
+             minimum_base_size: BigDec::parse("0.00005").unwrap(), minimum_quote_size: BigDec::parse("0.5").unwrap(), trading_enabled: true, available: true, crypto: true, }
 }
 
 #[tokio::test(flavor = "current_thread")]

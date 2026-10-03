@@ -51,9 +51,16 @@ pub mod staleness;
 pub mod amount;
 pub mod basket;
 pub mod placement;
+pub mod provider;
 pub mod polling;
 pub mod venue_rules;
 pub mod tick;
 pub mod handover;
 pub mod notice;
 pub mod run;
+
+pub mod clock;
+
+pub mod splits;
+
+pub mod index;

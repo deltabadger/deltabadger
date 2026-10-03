@@ -116,6 +116,13 @@ fn split_verdicts(out: &Value) -> Vec<String> {
 }
 
 fn split_verdict(rows: &[Value]) -> &'static str {
+    let expected = oracle_split_verdict(rows);
+    let normalized: Vec<Value> = rows.iter().map(|row| { let mut row=row.clone(); row["base_amount"]=json!(num(&row["base_amount"]).map(|n| n.to_string())); row }).collect();
+    assert_eq!(deltabadger::engine::splits::row_verdict(&normalized), expected);
+    expected
+}
+
+fn oracle_split_verdict(rows: &[Value]) -> &'static str {
     let [row] = rows else { return "several rows" };
     let raw = &row["raw_data"];
     if raw["merged_activity_ids"].as_array().is_none_or(|ids| ids.len() < 2) { return "a lone leg"; }
@@ -227,7 +234,7 @@ fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(),
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_write_identical_rows_across_the_sync_grid() {
+async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<(), Box<dyn std::error::Error>> {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     let handback = tempfile::tempdir().unwrap();
@@ -337,6 +344,14 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() {
     // the venue reports. The last is two splits on one date whose merged ratio looks like one split's.
     for wrong in ["third_leg_later", "overlap_new_leg_last", "leg_changed", "two_alike_on_one_date"] {
         assert_eq!(verdicts(&format!("ledger-split_{wrong}")), ["KLAC 2026-09-15: trusted"], "{wrong}");
+        use deltabadger::{engine::splits::position_agrees, ruby::BigDec};
+        let out = rails_of(&format!("ledger-split_{wrong}"));
+        let stored=rows(&out,"account_transactions")[0]["after"]["raw_data"]["split_ratio"].as_str().ok_or("missing stored ratio")?.to_string();
+        let (new,old)=stored.split_once(':').ok_or("invalid stored ratio")?;
+        let before=if wrong=="two_alike_on_one_date" {1000} else {10};
+        let venue=match wrong { "leg_changed"=>200, "two_alike_on_one_date"=>1005, _=>30 };
+        let expected=&BigDec::from_i64(before)*&BigDec::parse(new).map_err(|e| format!("{e:?}"))?.div(&BigDec::parse(old).map_err(|e| format!("{e:?}"))?).ok_or("invalid ratio division")?;
+        assert!(!position_agrees(&expected,&BigDec::from_i64(venue)), "{wrong}: {stored} must stand down against {venue} shares");
     }
     // A key the venue sent twice is stored once, with its last value in its first place, at every level; and Rails
     // reads the row as a split (the comparison above found Rust's row identical).
@@ -397,6 +412,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() {
     assert_eq!((rows(&rails_night, "account_transactions").len(), rails_night["splits_read"].clone(), rails_night["steps"][0]["generations"].clone()),
                (0, json!(1), own["steps"][1]["generations"].clone()), "Rails on Rust's row: the same as Rails on its own");
     assert!(rows(&rails_night, "bots").is_empty() && rows(&rails_night, "bot_activity_logs").is_empty());
+    Ok(())
 }
 
 #[tokio::test(flavor = "current_thread")]

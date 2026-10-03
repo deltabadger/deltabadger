@@ -49,7 +49,7 @@ pub struct VenueRules {
     pub transport_raises: bool,
     /// Bot::FetchAndUpdateOrderJob raises on an unknown status (partially_filled on Alpaca) and on a failed fetch. True for
     /// Alpaca (one GET per order, as Exchange#get_order); false keeps Kraken's follow-up exactly as merged.
-    pub follow_up_strict: bool,
+    pub follow_up_strict: bool, pub market_hours: bool,
 }
 
 fn any(patterns: &[&str], messages: &[String]) -> bool { patterns.iter().any(|p| messages.iter().any(|m| m.contains(p))) }
@@ -83,7 +83,7 @@ pub static KRAKEN: VenueRules = VenueRules {
     reach_within_secs: 10,
     absence_margin_secs: 0, // Kraken enforces the deadline server-side: absence is deadline + 60 s (placement::recover_since)
     transport_raises: false,
-    follow_up_strict: false,
+    follow_up_strict: false, market_hours: false,
 };
 
 /// Client::NETWORK_TRANSIENT_PATTERNS: Exchange#transient_error? applies them to every venue.
@@ -112,7 +112,7 @@ pub static ALPACA: VenueRules = VenueRules {
     // later lands, and the next tick buys twice. Kraken is unaffected: its `deadline` is enforced server-side.
     absence_margin_secs: 1200,
     transport_raises: true,
-    follow_up_strict: true,
+    follow_up_strict: true, market_hours: true,
 };
 
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> {

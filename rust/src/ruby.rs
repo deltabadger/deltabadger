@@ -35,12 +35,13 @@ pub const MAX_SCALE: i64 = 40;
 /// so "1e-1000000000" is two small numbers until something writes it out, aligns it or divides by it: the bounds are
 /// checked at construction, where refusing costs nothing.
 ///
-/// The operations are not re-checked; each is bounded by its operands (n = digits written out):
+/// The fixed-expression operators are not re-checked; each is bounded by its operands (n = digits written out):
 /// `+` and `−`: n ≤ max(nₐ, n_b) + 1. `×`: n ≤ nₐ + n_b. `div`: at most max(precision) + 17 significant digits, and
 /// its working integer is at most ~2·MAX_DIGITS + 20 digits. `floor`/`ceil`/`round`: n ≤ nₐ + 1 — a value already
 /// within `places` is returned as it is, so `places` (a u8) never pads. Comparison aligns at most the operands' scales.
-/// The engine evaluates fixed expressions of depth ≤ 4 over bounded inputs, so nothing it computes exceeds a few
-/// thousand digits; none of these operations can run away, and none returns an error.
+/// Fixed expressions of depth ≤ 4 over bounded inputs stay within a few thousand digits.
+/// Accumulating ledger/split walks must instead use checked_add/checked_mul, which reapply the
+/// construction bounds and charge the existing figures budget before each operation.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BigDec(BigDecimal);
 
@@ -73,6 +74,25 @@ impl BigDec {
         if v.precision() > MAX_DIGITS { return Err(format!("{} digits (at most {MAX_DIGITS})", v.precision())); }
         Ok(v)
     }
+    /// Accumulating walks revalidate each operand/result and charge before arithmetic. Reuse
+    /// figures' cumulative budget; fixed-depth engine expressions retain their existing operators.
+    pub fn checked_mul(&self, other: &Self) -> Result<Self, CodecError> {
+        let a = Self::bounded(self.0.clone()).map_err(CodecError::Decimal)?;
+        let b = Self::bounded(other.0.clone()).map_err(CodecError::Decimal)?;
+        let n = (a.precision().max(1) as u64).div_ceil(9);
+        let m = (b.precision().max(1) as u64).div_ceil(9);
+        crate::figures::budget::charge(n*m+n+m, n+m).map_err(|_| CodecError::Decimal("split walk arithmetic budget exceeded".into()))?;
+        Self::bounded(&a.0 * &b.0).map_err(CodecError::Decimal)
+    }
+    pub fn checked_add(&self, other: &Self) -> Result<Self, CodecError> {
+        let a = Self::bounded(self.0.clone()).map_err(CodecError::Decimal)?;
+        let b = Self::bounded(other.0.clone()).map_err(CodecError::Decimal)?;
+        // Alignment is bounded by both exponent ranges plus both precision caps.
+        let limbs = ((2 * (MAX_DIGITS + MAX_EXPONENT)) as u64).div_ceil(9);
+        crate::figures::budget::charge(limbs, limbs).map_err(|_| CodecError::Decimal("split walk arithmetic budget exceeded".into()))?;
+        Self::bounded(&a.0 + &b.0).map_err(CodecError::Decimal)
+    }
+
     /// The venue-number caps (VENUE_MAX_EXPONENT, VENUE_MAX_DIGITS) on a value already within BigDec's own.
     fn venue_bounded(self) -> Result<Self, CodecError> {
         if self.is_zero() { return Ok(self); }
@@ -405,4 +425,12 @@ pub fn to_i(s: &str) -> i64 {
         }
     }
     if negative { -n } else { n }
+}
+
+/// ActiveSupport's Time#as_json for `Time.parse(raw)`: xmlschema(3), fractions truncated to milliseconds, in the offset the
+/// text gave ("Z" only when the text said Z: Time.parse makes that a UTC time; "+00:00" stays "+00:00"). Pinned by the
+/// time_as_json vectors.
+pub fn time_as_json(raw: &str, t: &chrono::DateTime<chrono::FixedOffset>) -> String {
+    let base = t.format("%Y-%m-%dT%H:%M:%S%.3f").to_string();
+    if raw.ends_with(['Z', 'z']) { format!("{base}Z") } else { format!("{base}{}", t.format("%:z")) }
 }

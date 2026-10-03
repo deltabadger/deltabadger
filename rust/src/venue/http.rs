@@ -300,7 +300,7 @@ impl Transport for ScriptedTransport {
         }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
-            Some("pre_send") => Err(TransportError::NotSent(message)),
+            Some("pre_send" | "pre_send_data") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),
             Some("post_send") => Err(TransportError::MaybeSent(message)),
             Some(other) => panic!("unknown network kind {other:?} scripted for {key}"),

@@ -29,6 +29,7 @@ pub struct Config { pub url: String, pub token: String }
 ///
 /// None: another provider, whose sync this build does not port.
 pub fn config(env: &dyn Fn(&str) -> Option<String>, c: &Connection, cipher: &Cipher) -> Result<Option<Config>, String> {
+    crate::engine::provider::bind(c,cipher,env).map_err(|_| "index configuration reader unavailable".to_string())?;
     let env_url = env("MARKET_DATA_URL").filter(|v| !v.trim().is_empty());
     let deltabadger = env_url.is_some() || app_config::get(c, cipher, "market_data_provider")?.as_deref() == Some("deltabadger");
     if !deltabadger { return Ok(None); }
@@ -99,6 +100,8 @@ impl<T: Transport> DataApi<T> {
 
     /// MarketDataSettings.deltabadger_public_url (market_data_settings.rb:60-70): logo paths are served to browsers, so the
     /// docker alias `data-api` becomes the public host.
+    pub fn configuration(&self) -> &Config { &self.config }
+
     pub fn public_url(&self) -> String {
         match reqwest::Url::parse(&self.config.url) {
             Ok(u) if u.host_str() == Some("data-api") => "https://data.deltabadger.com".into(),
@@ -191,4 +194,14 @@ fn failure_message(r: &HttpRequest, resp: &HttpResponse) -> String {
     let lower = body.to_ascii_lowercase();
     if lower.match_indices('<').any(|(i, _)| lower[i + 1..].trim_start().starts_with("html")) { return format!("HTTP {}", resp.status); }
     body.to_string()
+}
+
+
+impl<T: Transport> PriceSource for Option<DataApi<T>> {
+    fn prices<'a>(&'a self, ids: &'a [String], currency: &'a str) -> PriceFuture<'a> {
+        match self {
+            Some(api) => PriceSource::prices(api, ids, currency),
+            None => Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider available for prices".into() }) }),
+        }
+    }
 }

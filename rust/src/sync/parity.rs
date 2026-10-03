@@ -114,7 +114,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     let opened = store::open(&paths).map_err(|e| SyncError(format!("{e:?}")))?;
     let before = snapshot(&opened.primary)?;
     let reading = reading_keys(&opened.primary)?;
-    let db = Db::new(opened.primary, cipher);
+    let db = Db::new(opened.primary, (*cipher).clone());
 
     let mut steps = vec![];
     for step in scenario["steps"].as_array().ok_or_else(|| data("steps"))? {

@@ -199,13 +199,13 @@ fn the_alpaca_crypto_slice_is_eligible_with_its_two_options() {
 }
 
 #[test]
-fn alpaca_stocks_etfs_index_bots_and_other_quotes_are_refused() {
+fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() {
     let cases: Vec<(&str, Make)> = vec![
         ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
-        ("type Bots::DcaIndex", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
+        ("index_category_id missing", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
         ("direction", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
         ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
     ];
@@ -554,3 +554,43 @@ fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen(
     reweigh(&tx);
     assert_eq!(eligibility::guard(&tx, &seed::cipher(), Some(id)).unwrap_err().reason(), reconciling);
 }
+
+#[test]
+fn alpaca_stocks_and_etfs_are_admitted_as_data_api_imports_them() {
+    let (_d, o, s) = common::install_alpaca();
+    let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    let (qqqm, _) = seed::add_alpaca_stock(&o.primary, &s, "QQQM");
+    o.primary.execute("UPDATE assets SET instrument_type = 'etf' WHERE id = ?1", [qqqm]).unwrap();
+    for w in [vec![(aapl, 1.0)], vec![(qqqm, 1.0)], vec![(aapl, 0.5), (s.btc, 0.5)]] {
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&w));
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        assert_eq!(eligibility::bot_reasons(&o.primary, &bot).unwrap(), Vec::<String>::new(), "{w:?}");
+    }
+}
+
+#[test]
+fn a_legacy_untyped_or_tokenized_stock_is_refused() {
+    let (_d, o, s) = common::install_alpaca();
+    let (legacy, _) = seed::add_alpaca_stock(&o.primary, &s, "IBIT");
+    o.primary.execute("UPDATE assets SET external_id = 'alpaca_0f4c9e2a', instrument_type = NULL WHERE id = ?1", [legacy]).unwrap();
+    let (untyped, _) = seed::add_alpaca_stock(&o.primary, &s, "MSFT");
+    o.primary.execute("UPDATE assets SET instrument_type = NULL WHERE id = ?1", [untyped]).unwrap();
+    let (tokenized, _) = seed::add_alpaca_stock(&o.primary, &s, "TSLAX");
+    o.primary.execute("UPDATE assets SET category = 'Cryptocurrency', instrument_type = 'tokenized_stock' WHERE id = ?1", [tokenized]).unwrap();
+    for (asset, why) in [(legacy, "legacy alpaca_<uuid>"), (untyped, "no instrument_type"), (tokenized, "tokenized")] {
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(asset, 1.0)]));
+        let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
+        assert!(reasons.iter().any(|r| r.starts_with("asset category")), "{why}: {reasons:?}");
+    }
+}
+
+#[test]
+fn a_stock_on_kraken_is_refused() {
+    let (_d, o, s) = common::install();
+    o.primary.execute("UPDATE assets SET category = 'Stock', instrument_type = 'stock' WHERE id = ?1", [s.btc]).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
+    assert!(reasons.iter().any(|r| r.contains("stocks and ETFs on Alpaca")), "{reasons:?}");
+}
+
+use deltabadger::engine::model;

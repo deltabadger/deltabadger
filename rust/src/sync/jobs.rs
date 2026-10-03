@@ -83,6 +83,9 @@ impl<C: Connect> Job for LedgerSync<C> {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
             let credentials = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return Outcome::Failed(e) };
+            let key = self.key_id.to_string();
+            let at = cx.clock.now();
+            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
             outcome(ledger::sync_within(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits).await, |out| out.complete)
         })
     }

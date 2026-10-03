@@ -50,7 +50,7 @@ fn install() -> (tempfile::TempDir, Db, Ids) {
         c.execute("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES (?1, ?2, 1, '2026-01-01', '2026-01-01')", [asset, s.exchange_id]).unwrap();
     }
     let ids = Ids { user_id: s.user_id, exchange_id: s.exchange_id, btc: s.btc, quote: s.quote, ticker_id: s.ticker_id, api_key_id: s.api_key_id };
-    (dir, Db::new(o.primary, Arc::new(seed::cipher())), ids)
+    (dir, Db::new(o.primary, seed::cipher()), ids)
 }
 
 fn venue(script: Value) -> (ScriptedTransport, AlpacaVenue<ScriptedTransport>) {
@@ -306,7 +306,7 @@ async fn a_split_dated_ahead_bumps_again_at_the_first_sync_on_or_after_its_date_
     drop(db);
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     deltabadger::store::configure(&c).unwrap();
-    let db = Db::new(c, Arc::new(seed::cipher()));
+    let db = Db::new(c, seed::cipher());
     ledger::sync(&db, &empty(), s.api_key_id, &paper(), &at("2026-10-05T00:00:00Z")).await.unwrap().unwrap();
     assert_eq!((one::<i64>(&db, generation).await, one::<i64>(&db, pending).await), (2, 0), "bumped at the first sync on its date, and no longer owed");
     ledger::sync(&db, &empty(), s.api_key_id, &paper(), &at("2026-10-06T00:00:00Z")).await.unwrap().unwrap();

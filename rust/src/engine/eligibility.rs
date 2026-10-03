@@ -60,14 +60,15 @@ type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)
 
 fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<String>, EngineError> {
     let mut r = rails_work(c, bot)?;
-    if bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets)", bot.bot_type)); }
+    let index = bot.bot_type == "Bots::DcaIndex";
+    if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca")) {
         r.push(format!("exchange {} (only Kraken and Alpaca)", exchange.as_deref().unwrap_or_default()));
     }
     let kraken = exchange.as_deref() == Some("Exchanges::Kraken");
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
-    let members = composition_reasons(bot, kraken, &mut r);
+    let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, kraken, &mut r) };
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
@@ -82,7 +83,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if BOT_WORKING.contains(&bot.status) && bot.started_at_us.is_none() { r.push("started_at missing (never ticks)".into()); }
     if bot.interval().is_none() { r.push("interval".into()); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
-    if bot.restatement_generation > 0 { r.push("restated prices".into()); }
+    if bot.restatement_generation > 0 && model::all_crypto(c, bot)? { r.push("restated prices".into()); }
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
     if bot.quote_amount_limited() {
@@ -132,6 +133,7 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut Spli
     if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
+    if !model::all_crypto(c, bot)? { return Ok(()); }
     // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
     // the walk; the ported walk does not. Crypto never splits, so this refuses only what this build does not port. Broader than Rails'
     // match (any member's asset id, symbol or venue spelling), so it can only refuse more.
@@ -155,7 +157,7 @@ fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut Spli
 }
 
 /// Every member's pair on this venue, and the composition rows Rails' tick reads (bot_index_assets).
-fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
+pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
     let mut quote_checked = false;
     for &asset_id in members {
         let Some(t) = model::ticker_for_asset(c, bot, asset_id)? else {
@@ -165,11 +167,17 @@ fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
         if let Err(e) = t.scales() { r.push(e); }
         // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer); wrappers such as tokenized stocks carry
-        // an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice.
-        let (category, instrument): (Option<String>, Option<String>) = c.query_row(
-            "SELECT category, instrument_type FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        if category.as_deref() != Some("Cryptocurrency") || instrument.is_some() {
-            r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies)", category.unwrap_or_default(), instrument.unwrap_or_default()));
+        // an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice. Stocks and ETFs are category Stock,
+        // typed by instrument_type (MarketData::CATEGORY_BY_TYPE, market_data.rb:377, :447), and trade on Alpaca only. A legacy
+        // `alpaca_<uuid>` asset is never refreshed by the listings sync (market_data.rb:563-566), so nothing vouches for it.
+        let (category, instrument, external_id): (Option<String>, Option<String>, Option<String>) = c.query_row(
+            "SELECT category, instrument_type, external_id FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        let crypto = category.as_deref() == Some("Cryptocurrency") && instrument.is_none();
+        let stock = alpaca && category.as_deref() == Some("Stock") && matches!(instrument.as_deref(), Some("stock" | "etf"))
+            && !external_id.as_deref().unwrap_or_default().starts_with("alpaca_");
+        if !crypto && !stock {
+            r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks and ETFs on Alpaca)",
+                           category.unwrap_or_default(), instrument.unwrap_or_default()));
         }
         // Both Alpaca catalogs import only USD-quoted crypto (MarketData.sync_alpaca_crypto_listings_from_deltabadger!,
         // Exchange::SyncAlpacaAssetsJob), and Exchanges::Alpaca#get_balances resolves the quote from USD only. One quote per bot.
@@ -184,7 +192,7 @@ fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
     let current = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     let foreign = current.iter().filter(|a| !members.contains(a)).count();
-    if foreign > 0 { r.push(format!("index assets present ({foreign})")); }
+    if bot.bot_type != "Bots::DcaIndex" && foreign > 0 { r.push(format!("index assets present ({foreign})")); }
     Ok(())
 }
 
@@ -305,6 +313,7 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
         crate::engine::log(&format!("guard failed for {writer}: {e:?}"));
         Refusal::Failed(e)
     };
+    super::provider::bind_cipher(tx,cipher).map_err(failed)?;
     check_install(tx).map_err(failed)?.refusal()?;
     let stranded = placement::stranded(tx).map_err(failed)?;
     if !stranded.is_empty() {
@@ -313,4 +322,26 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
         }).collect()));
     }
     crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)
+}
+
+/// Bots::DcaIndex within what Plan 2d ports: Alpaca, USD, a data-api category index this install holds (MarketData.get_top_coins
+/// reads the local row only on a data-api install; on a CoinGecko one it calls CoinGecko live), a readable count and
+/// flattening. Returns the assets of every bot_index_assets row, in or out of the index, for member_reasons.
+fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
+    if super::provider::config(c)?.is_none() { r.push("index requires a configured deltabadger market-data provider".into()); }
+    if !alpaca { r.push("index bot (only on Alpaca)".into()); }
+    if model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
+    if bot.index_type() != Some("category") { r.push(format!("index_type {:?} (only a data-api category index)", bot.index_type())); }
+    match bot.index_category_id() {
+        None => r.push("index_category_id missing".into()),
+        Some(id) => {
+            let source: Option<Option<String>> = c.query_row("SELECT source FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1", [id], |r| r.get(0)).optional()?;
+            if source.flatten().as_deref() != Some("deltabadger") { r.push(format!("index {id} is not a data-api index on this install")); }
+        }
+    }
+    if !bot.num_coins().is_some_and(|n| (1..=1000).contains(&n)) { r.push("num_coins is not a positive integer".into()); }
+    if !bot.allocation_flattening().is_some_and(|f| (0.0..=1.0).contains(&f)) { r.push("allocation_flattening is not a number in 0..1".into()); }
+    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id")?;
+    let ids = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(ids)
 }

@@ -40,6 +40,34 @@ pub fn load_bot(c: &Connection, id: i64) -> Result<Bot, EngineError> {
 }
 
 impl Bot {
+    /// Bots::DcaIndex settings (dca_index.rb:19-30): 'top' or 'category'.
+    pub fn index_type(&self) -> Option<&str> { self.settings.get("index_type")?.as_str() }
+    pub fn index_category_id(&self) -> Option<&str> { self.settings.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }
+    /// `num_coins.to_i`: a JSON integer or a string of digits (the slider posts strings). None for anything else: refused.
+    pub fn num_coins(&self) -> Option<i64> {
+        match self.settings.get("num_coins")? { Value::Number(n) => n.as_i64(), Value::String(s) => s.trim().parse().ok(), _ => None }
+    }
+    /// `ActiveModel::Type::Boolean.new.cast(hold_all)` read as `hold_all?`: nil and "" are nil (false); false, 0, "0", "f", "F",
+    /// "false", "FALSE", "off", "OFF" are false; anything else is true.
+    pub fn hold_all(&self) -> bool {
+        match self.settings.get("hold_all") {
+            None | Some(Value::Null) => false,
+            Some(Value::Bool(b)) => *b,
+            Some(Value::Number(n)) => n.as_f64() != Some(0.0),
+            Some(Value::String(s)) => !(s.is_empty() || ["0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&s.as_str())),
+            Some(_) => true,
+        }
+    }
+    /// `allocation_flattening.to_f` (after_initialize `||= 0.0`): a JSON number or a numeric string. None: refused.
+    pub fn allocation_flattening(&self) -> Option<f64> {
+        match self.settings.get("allocation_flattening") {
+            None | Some(Value::Null) => Some(0.0),
+            Some(Value::Number(n)) => n.as_f64(),
+            Some(Value::String(s)) => s.trim().parse().ok(),
+            Some(_) => None,
+        }
+    }
+
     pub fn interval(&self) -> Option<Interval> { self.settings.get("interval")?.as_str().and_then(Interval::parse) }
     pub fn quote_amount(&self) -> Option<f64> { self.settings.get("quote_amount")?.as_f64() }
     /// Bot::SmartIntervalable: `smart_intervaled?` is `== true`; the split amount must be a JSON number. A string
@@ -180,7 +208,7 @@ pub struct Ticker {
     /// tickers.base: the venue's own code for the base (Kraken "XBT", Alpaca "BTC").
     pub base_code: String, pub quote_code: String, pub base_symbol: String, pub quote_symbol: String, pub exchange_name: String,
     pub base_asset_id: i64, pub quote_asset_id: i64, pub base_decimals: i64, pub quote_decimals: i64, pub price_decimals: i64,
-    pub minimum_base_size: BigDec, pub minimum_quote_size: BigDec, pub trading_enabled: bool, pub available: bool,
+    pub minimum_base_size: BigDec, pub minimum_quote_size: BigDec, pub trading_enabled: bool, pub available: bool, pub crypto: bool,
 }
 
 impl Ticker {
@@ -192,7 +220,7 @@ impl Ticker {
 }
 
 const TICKER_SELECT: &str = "SELECT t.id, t.ticker, b.symbol, q.symbol, e.name, t.base_asset_id, t.quote_asset_id, t.base_decimals, \
-    t.quote_decimals, t.price_decimals, t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base, t.quote \
+    t.quote_decimals, t.price_decimals, t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base, t.quote, b.category \
     FROM tickers t JOIN assets b ON b.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id";
 
 fn ticker_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Ticker> {
@@ -203,7 +231,7 @@ fn ticker_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Ticker> {
         base_asset_id: r.get(5)?, quote_asset_id: r.get(6)?, base_decimals: r.get(7)?, quote_decimals: r.get(8)?, price_decimals: r.get(9)?,
         minimum_base_size: dec(10)?.unwrap_or_else(BigDec::zero), minimum_quote_size: dec(11)?.unwrap_or_else(BigDec::zero),
         // Ticker#available? on a NULL column is false, exactly as the placement guard reads it.
-        trading_enabled: r.get::<_, Option<bool>>(12)?.unwrap_or(false), available: r.get::<_, Option<bool>>(13)?.unwrap_or(false),
+        trading_enabled: r.get::<_, Option<bool>>(12)?.unwrap_or(false), available: r.get::<_, Option<bool>>(13)?.unwrap_or(false), crypto: r.get::<_, Option<String>>(16)?.as_deref() == Some("Cryptocurrency"),
     })
 }
 
@@ -354,4 +382,32 @@ pub fn log_activity(c: &Connection, bot_id: i64, event: &str, level: Level, deta
     c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
               params![bot_id, event, level as i64, details.to_string(), format_time(now)])?;
     Ok(())
+}
+
+/// The bot's quote asset symbol: Bot::Fundable#funds_are_low? reads `get_balance(asset_id: quote_asset_id)`.
+pub fn quote_symbol(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
+    let s: Option<Option<String>> = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [bot.quote_asset_id()], |r| r.get(0)).optional()?;
+    Ok(s.flatten().unwrap_or_default())
+}
+
+/// Exchanges::Alpaca#all_crypto?(bot.tickers) (exchanges/alpaca.rb:582-585), by the composition's asset categories:
+/// - an index bot (Bots::DcaIndex#set_tickers: every ticker at its quote on the venue) is all crypto only when every such
+///   ticker's base is a cryptocurrency;
+/// - a basket (Bots::DcaMultiAsset#set_tickers: its allocations and every bot_index_assets row) only when it has members and
+///   every member asset is a cryptocurrency.
+///
+/// Read from the assets, whatever their tickers' availability: a crypto bot whose ticker went untradable stays all crypto
+/// (Plan 2b's `untradable_clock_closed` ruling), where Rails' empty ticker list is not.
+pub fn all_crypto(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    let (members, crypto): (i64, i64) = if bot.bot_type == "Bots::DcaIndex" {
+        c.query_row("SELECT count(*), coalesce(sum(a.category = 'Cryptocurrency'), 0) FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
+                     WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2", params![bot.exchange_id, bot.quote_asset_id()], |r| Ok((r.get(0)?, r.get(1)?)))?
+    } else {
+        let mut ids = bot.asset_ids();
+        let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
+        for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !ids.contains(&a) { ids.push(a); } }
+        c.query_row("SELECT count(*), coalesce(sum(category = 'Cryptocurrency'), 0) FROM assets WHERE id IN (SELECT value FROM json_each(?1))",
+                    [serde_json::to_string(&ids).map_err(|_| EngineError::Data("unreadable member ids".into()))?], |r| Ok((r.get(0)?, r.get(1)?)))?
+    };
+    Ok(members > 0 && members == crypto)
 }

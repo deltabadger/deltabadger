@@ -73,12 +73,15 @@ impl Touched {
             Self::Tickers(ids) => (ids, "t.id IN (SELECT value FROM json_each(?1))"),
         };
         if ids.is_empty() { return Ok(false); }
-        // settings.allocations is authoritative, including members without a bot_index_assets row yet. The pair lookup
+        // Manual allocations include members not yet persisted; index membership (including leavers)
+        // comes from bot_index_assets. Both participate in the same guard. The pair lookup
         // uses the exchange/base prefix of tickers' unique pair index. Every quote counts: the split-history check
         // reads all venue spellings of a member, including tickers outside the bot's own quote.
         // Pending intents and open orders count in every status: stopping a bot does not settle an order already sent.
-        let query = format!("SELECT EXISTS(SELECT 1 FROM bots b, json_each(b.settings, '$.allocations') a \
-            JOIN tickers t ON t.exchange_id = b.exchange_id AND t.base_asset_id = CAST(a.key AS INTEGER) \
+        let query = format!("WITH members AS (SELECT b.id AS bot_id, CAST(a.key AS INTEGER) AS asset_id \
+            FROM bots b, json_each(b.settings, '$.allocations') a UNION SELECT bot_id, asset_id FROM bot_index_assets) \
+            SELECT EXISTS(SELECT 1 FROM bots b JOIN members m ON m.bot_id=b.id \
+            JOIN tickers t ON t.exchange_id = b.exchange_id AND t.base_asset_id = m.asset_id \
             WHERE (b.status IN ({}) OR json_extract(b.transient_data, '$.rust_placement') IS NOT NULL \
                 OR EXISTS(SELECT 1 FROM transactions orders WHERE orders.bot_id = b.id AND orders.status = 0 AND orders.external_status IN (0, 1))) \
                 AND ({predicate}))",

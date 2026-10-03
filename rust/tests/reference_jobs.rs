@@ -339,6 +339,11 @@ fn scripted(t: &ScriptedTransport) -> Option<DataApi<ScriptedTransport>> {
     Some(DataApi::new(Config { url: "http://data-api:3000".into(), token: "tok".into() }, t.clone(), t.clone()))
 }
 async fn run(name: &str, api: Option<DataApi<ScriptedTransport>>, c: Connection, now: &str) -> Outcome {
+    if name == reference::INDICES && api.is_some() {
+        deltabadger::engine::provider::bind(&c,&seed::cipher(),&|key| match key {
+            "MARKET_DATA_URL"=>Some("http://data-api:3000".into()),"MARKET_DATA_TOKEN"=>Some("tok".into()),_=>None
+        }).unwrap();
+    }
     reference::run_once(name, api, Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(now)) }).await
 }
 
@@ -637,6 +642,43 @@ async fn crypto_freshness_requires_written_tickers_meeting_the_baseline() {
             assert_eq!(state.last_success_at, Some(old));
             assert_eq!(state.incomplete_since, Some(old));
             assert_ne!(state.last_success_at, Some(now));
+        }
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn index_refresh_attests_only_the_configuration_it_requested() {
+    use deltabadger::{app_config,engine::provider,venue::http::{Transport,HttpRequest,HttpResponse,TransportError}};
+    struct Change { scripted:ScriptedTransport, c:Connection, change:bool }
+    impl Transport for Change {
+        async fn send(&self, req:&HttpRequest)->Result<HttpResponse,TransportError> {
+            if self.change {
+                self.c.execute("UPDATE app_configs SET value='https://changed.invalid' WHERE key='market_data_url'",[]).unwrap();
+            }
+            self.scripted.send(req).await
+        }
+    }
+    for change in [false,true] {
+        let (dir,c)=db();
+        let now=at("2026-10-02T10:30:00Z");
+        for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://data-api:3000"),("market_data_token","tok")] {
+            app_config::set(&c,&seed::cipher(),key,value,now).unwrap();
+        }
+        provider::bind(&c,&seed::cipher(),&|_|None).unwrap();
+        let captured=provider::fingerprint(&c).unwrap().unwrap();
+        let t=ScriptedTransport::default();
+        t.reply("GET /api/v2/indices",200,json!({"data":[{"external_id":"nasdaq-100","name":"Nasdaq 100","top_coins":["AAA.US"]}]}));
+        let make=||Change{scripted:t.clone(),c:reopen(&dir),change};
+        let api=DataApi::new(Config{url:"http://data-api:3000".into(),token:"tok".into()},make(),make());
+        let out=reference::run_once(reference::INDICES,Some(api),Cx{db:Db::new(c,seed::cipher()),clock:&FixedClock(now)}).await;
+        let after=reopen(&dir);
+        let attested=app_config::get_plain(&after,"rust_job.index_provider").unwrap();
+        if change {
+            assert!(matches!(out,Outcome::Failed(_)),"{out:?}");
+            assert!(attested.is_none(),"an old request cannot vouch for new configuration");
+        } else {
+            assert_eq!(out,Outcome::Done);
+            assert_eq!(attested.as_deref(),Some(captured.as_str()));
         }
     }
 }

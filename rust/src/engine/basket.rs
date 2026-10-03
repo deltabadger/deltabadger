@@ -5,6 +5,8 @@
 //! holdings only: the walk counts them, the split never sees them.
 use super::model::{self, Bot, Ticker};
 use super::EngineError;
+use super::splits::{self, SplitEvent};
+use crate::codec::parse_time;
 use crate::codec::format_time;
 use crate::enums::TxExternalStatus;
 use crate::ruby::{decimal_column, float_sum, from_sql, BigDec};
@@ -21,13 +23,46 @@ fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:
 /// or whose executed quote or base is zero, adds nothing (measurable.rb:153-154: Alpaca reports a zero quote before it
 /// knows the average price). Every other row is a REGULAR buy and adds its executed base amount
 /// (Bot::RebalanceAccounting#apply_regular_buy). An asset with nothing applied is absent, as in Rails.
-pub fn holdings(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, EngineError> {
+/// The walk's result: `metrics(force: true)` narrowed to what an eligible bot holds. `restated_at_us` is metrics[:restated_at]:
+/// the last split that moved a held position.
+#[derive(Debug, Default)]
+pub struct Walk { pub amounts: HashMap<i64, BigDec>, pub restated_at_us: Option<i64> }
+
+/// Base amount held, by asset id: `metrics(force: true)[:asset_breakdown][key_for(asset_id)][:amount]`, splits applied. For
+/// callers without a tick clock (2c's ledger vectors); a tick calls `walk` with its own.
+pub fn holdings(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, EngineError> { Ok(walk(c, bot, Utc::now())?.amounts) }
+
+/// Bot::Composition::Measurable#metrics with its split queue (measurable.rb:51-58, :179-180): the events effective at `now`.
+pub fn walk(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Walk, EngineError> {
+    crate::figures::budget::within(|| {
+        let s = splits::splits(c, bot, now)?;
+        walk_with(c, bot, &s.events)
+    })
+}
+
+/// The walk over these events. Every submitted row of the bot, whatever its external status, goes through
+/// Transaction.confirmed_exec_amounts (a closed row without executions reads its requested ones). A row whose price, executed
+/// quote or executed base is blank, or whose executed quote or base is zero, adds nothing (measurable.rb:153-154; Q9). Every
+/// other row is a REGULAR buy and adds its executed base amount (Bot::RebalanceAccounting#apply_regular_buy). Before each row,
+/// every event at or before its created_at is applied, and after the last row the rest (#apply_due_splits, :487-507): a split
+/// multiplies a holding the walk holds and that is not zero, and moves restated_at; one of nothing moves nothing.
+pub fn walk_with(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk, EngineError> {
+    crate::figures::budget::within(|| walk_bounded(c, bot, events))
+        .map_err(|e| EngineError::Data(format!("split walk refused: {e:?}")))
+}
+fn walk_bounded(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk, EngineError> {
     let mut s = c.prepare(
-        "SELECT base_asset_id, external_status, price, amount, amount_exec, quote_amount_exec, side, transaction_type \
+        "SELECT base_asset_id, external_status, price, amount, amount_exec, quote_amount_exec, side, transaction_type, created_at \
          FROM transactions WHERE bot_id = ?1 AND status = 0 ORDER BY created_at, id")?;
     let mut rows = s.query([bot.id])?;
-    let mut out: HashMap<i64, BigDec> = HashMap::new();
+    let mut w = Walk::default();
+    let mut pending = events.iter().peekable();
     while let Some(r) = rows.next()? {
+        crate::figures::budget::charge(1,0).map_err(data)?;
+        let created: String = r.get(8)?;
+        let created_us = parse_time(&created).map_err(data)?.timestamp_micros();
+        // Before the order, not after: a split sharing an order's timestamp is applied first.
+        while let Some(e) = pending.next_if(|e| e.at_us <= created_us) { apply(&mut w, e)?; }
         let (asset, side, kind): (Option<i64>, Option<i64>, String) = (r.get(0)?, r.get(6)?, r.get(7)?);
         // Eligibility refuses all three. Met anyway, the walk this build ports would be wrong for the bot, so its tick fails.
         let Some(asset) = asset.filter(|_| side == Some(0) && kind == "REGULAR") else {
@@ -36,15 +71,25 @@ pub fn holdings(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, Engin
         let dec = |i: usize| -> Result<Option<BigDec>, EngineError> { from_sql(r.get_ref(i)?).map_err(data) };
         let (price, amount, mut amount_exec, mut quote_exec) = (dec(2)?, dec(3)?, dec(4)?, dec(5)?);
         if r.get::<_, Option<i64>>(1)? == Some(TxExternalStatus::Closed as i64) {
-            if quote_exec.is_none() { if let (Some(p), Some(a)) = (&price, &amount) { quote_exec = Some(p * a); } }
+            if quote_exec.is_none() { if let (Some(p), Some(a)) = (&price, &amount) { quote_exec = Some(p.checked_mul(a).map_err(data)?); } }
             if amount_exec.is_none() { amount_exec = amount.clone(); }
         }
         let (Some(_), Some(q), Some(a)) = (&price, &quote_exec, &amount_exec) else { continue };
         if q.is_zero() || a.is_zero() { continue; }
-        let held = out.remove(&asset).unwrap_or_else(BigDec::zero);
-        out.insert(asset, &held + a);
+        let held = w.amounts.remove(&asset).unwrap_or_else(BigDec::zero);
+        w.amounts.insert(asset, held.checked_add(a).map_err(data)?);
     }
-    Ok(out)
+    for e in pending { apply(&mut w, e)?; } // the ordinary case: a split lands and the bot has not traded since
+    Ok(w)
+}
+
+fn apply(w: &mut Walk, e: &SplitEvent) -> Result<(), EngineError> {
+    crate::figures::budget::charge(1,0).map_err(data)?;
+    // `ledger.key?(symbol)` and a non-zero amount: a split of nothing creates no row and moves nothing.
+    let Some(held) = w.amounts.get(&e.asset_id).filter(|h| !h.is_zero()).cloned() else { return Ok(()) };
+    w.amounts.insert(e.asset_id, held.checked_mul(&e.factor).map_err(data)?);
+    w.restated_at_us = Some(w.restated_at_us.map_or(e.at_us, |r| r.max(e.at_us)));
+    Ok(())
 }
 
 /// Bot::Composition::OrderSetter#reserved_waiting_amounts(:buy): the unexecuted remainder (`amount.to_d - amount_exec.to_d`,
@@ -89,15 +134,8 @@ pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Res
     // `matched.sum { weight }` is Ruby's compensated Float sum; each weight is renormalised in Float (`weight / total`).
     let total = float_sum(&matched.iter().map(|(_, _, w)| *w).collect::<Vec<_>>());
     if total <= 0.0 { return Ok(Err(format!("None of the portfolio's weighted assets trade on {}", model::exchange_name(c, bot)?))); }
-    let kept: Vec<i64> = matched.iter().map(|(asset, _, _)| *asset).collect();
-    // Rails' `transaction do`: nested in the caller's transaction if there is one.
-    model::locked(c, |tx| {
-        // A member that dropped out keeps its row as a holding: update_all, so updated_at stays.
-        tx.execute("UPDATE bot_index_assets SET in_index = 0, exited_at = ?1 WHERE bot_id = ?2 AND in_index = 1 AND asset_id NOT IN (SELECT value FROM json_each(?3))",
-                   params![format_time(now), bot.id, serde_json::to_string(&kept).expect("ids serialise")])?;
-        for (asset_id, ticker_id, weight) in matched { save_member(tx, bot.id, asset_id, ticker_id, weight / total, now)?; }
-        Ok(())
-    })?;
+    let members: Vec<(i64, i64, f64)> = matched.iter().map(|(asset, ticker, weight)| (*asset, *ticker, weight / total)).collect();
+    write_members(c, bot.id, &members, now)?;
     Ok(Ok(()))
 }
 
@@ -215,4 +253,17 @@ pub fn split(priced: &[Priced], holdings: &HashMap<i64, BigDec>, reserved: &Hash
         legs.push(Leg { ticker: p.member.ticker.clone(), reference: p.reference.clone(), quote: order });
     }
     Ok(legs)
+}
+
+/// Bot::Composition::Allocatable#update_bot_index_assets (allocatable.rb:108-132), in one transaction: the members not kept
+/// are marked out of the index (`update_all`, so updated_at stays), then each kept member is saved (#save_member) with its
+/// Float weight, in the order given. An index bot (index.rs) and a basket (refresh_composition) both write through here.
+pub fn write_members(c: &Connection, bot_id: i64, members: &[(i64, i64, f64)], now: DateTime<Utc>) -> Result<(), EngineError> {
+    model::locked(c, |tx| {
+    let kept: Vec<i64> = members.iter().map(|(asset, _, _)| *asset).collect();
+    tx.execute("UPDATE bot_index_assets SET in_index = 0, exited_at = ?1 WHERE bot_id = ?2 AND in_index = 1 AND asset_id NOT IN (SELECT value FROM json_each(?3))",
+               params![format_time(now), bot_id, serde_json::to_string(&kept).map_err(|_| EngineError::Data("unreadable member ids".into()))?])?;
+    for (asset_id, ticker_id, weight) in members { save_member(tx, bot_id, *asset_id, *ticker_id, *weight, now)?; }
+    Ok(())
+    })
 }

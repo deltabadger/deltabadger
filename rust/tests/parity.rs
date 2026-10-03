@@ -185,6 +185,7 @@ fn a_killed_or_failed_parity_run_leaves_no_copies_and_no_children() {
     std::fs::set_permissions(&sh, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
     let tmp = tempfile::tempdir().unwrap();
     let mut child = Command::new(root.join("script/rust/parity_on_copy.sh")).arg(src.path()).arg(&tickers)
+        .env("DELTABADGER_PARITY_BIN", env!("CARGO_BIN_EXE_deltabadger"))
         .env("TMPDIR", tmp.path()).env("PATH", format!("{}:{}", fake.path().display(), std::env::var("PATH").unwrap()))
         .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
@@ -793,4 +794,168 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
             _ => {}
         }
     }
+}
+
+/// Stock grid variants where Rust deliberately decides otherwise than Rails (spec Amendment 2026-10-02b), each asserted below.
+const STOCK_DIVERGENCES: [&str; 7] = ["clock_5xx", "clock_unreadable", "clock_certificate", "clock_stale_body", "clock_stale_cache",
+                                      "clock_past_next_open", "add_server_error"];
+
+fn events_and_status(dir: &Path) -> Result<(Vec<String>, i64), String> {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).map_err(|e| e.to_string())?;
+    let mut s = c.prepare("SELECT event FROM bot_activity_logs ORDER BY id").map_err(|e| e.to_string())?;
+    let events = s.query_map([], |r| r.get(0)).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    Ok((events, c.query_row("SELECT status FROM bots", [], |r| r.get(0)).map_err(|e| e.to_string())?))
+}
+
+/// Rails reads the clock as open and places; Rust places nothing. `parked`: Rust read the fresh clock as closed (no cache);
+/// otherwise it retried as transient and ended `retrying` with execution_retrying.
+fn clock_failed_closed(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value, parked: bool) -> Result<(), String> {
+    if rails_out["sent"].as_array().map(Vec::len) != Some(1) { return Err(format!("Rails no longer places on this clock: drop the listed divergence\n  rails: {rails_out}")); }
+    if !rust_out["sent"].as_array().ok_or("expected JSON array")?.is_empty() { return Err(format!("Rust sent an order: {rust_out}")); }
+    let (events, status) = events_and_status(dir)?;
+    let want: &[&str] = if parked { &["market_closed"] } else { &["execution_retrying"] };
+    if events != want || (!parked && status != 5) { return Err(format!("Rust: events {events:?}, status {status}")); }
+    Ok(())
+}
+
+/// Rails parks on a closed clock whose next_open is already past (and would spin on its cache); Rust retries and parks nothing.
+fn past_next_open_retried(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let rails_events: Vec<&str> = rails_out["changes"]["bot_activity_logs"].as_array().ok_or("expected JSON array")?.iter().filter_map(|l| l["after"]["event"].as_str()).collect();
+    if rails_events != ["market_closed"] { return Err(format!("Rails no longer parks on a past next_open: {rails_out}")); }
+    if !rust_out["sent"].as_array().ok_or("expected JSON array")?.is_empty() { return Err(format!("Rust sent an order: {rust_out}")); }
+    let (events, status) = events_and_status(dir)?;
+    if events != ["execution_retrying"] || status != 5 { return Err(format!("Rust: events {events:?}, status {status}")); }
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(), Box<dyn std::error::Error>> {
+    let rails_root = grid_dir("stock");
+    let rust_root = tempfile::tempdir().unwrap();
+    rails(&["grid-stock", rails_root.path().to_str().unwrap()]);
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 124, "the stock grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
+        let rust_dir = rust_root.path().join(&name);
+        let rust_out = deltabadger::parity::decide(&rust_dir).await.map_err(|e| format!("{e:?}"))?;
+        let variant = STOCK_DIVERGENCES.iter().find(|v| name.ends_with(&format!("-{v}")));
+        let listed = match variant.copied() {
+            Some("add_server_error") => Some(intent_kept(&rust_dir, &rails_out, &rust_out)),
+            Some("clock_past_next_open") => Some(past_next_open_retried(&rust_dir, &rails_out, &rust_out)),
+            Some("clock_stale_cache") => Some(clock_failed_closed(&rust_dir, &rails_out, &rust_out, true)),
+            Some(_) => Some(clock_failed_closed(&rust_dir, &rails_out, &rust_out, false)),
+            None => None,
+        };
+        match listed {
+            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}")),
+            Some(Ok(())) => {}
+            None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
+            None => {}
+        }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+    // The comparison proves parity only where Rails really does what the variant names: pin those facts on Rails' side.
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let r: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
+        let events: Vec<&str> = r["changes"]["bot_activity_logs"].as_array().ok_or("expected JSON array")?.iter().filter_map(|l| l["after"]["event"].as_str()).collect();
+        if name.ends_with("-closed") { assert_eq!(events, ["market_closed"], "{name}"); }
+        if name.ends_with("-split_recent") || name.ends_with("-split_unresolved") { assert_eq!(events, ["dca_skipped_restatement"], "{name}"); }
+        if name.ends_with("-sweep_done_for_day") || name.ends_with("-sweep_held") { assert!(events.contains(&"execution_failed"), "{name}: the sweep raises"); }
+        if name.ends_with("-funds_low_buying_power") { assert_eq!(r["funds_notified"], true, "{name}: a stock bot spends buying_power"); }
+        if name.ends_with("-funds_low_cash_only") { assert_eq!(r["funds_notified"], false, "{name}"); }
+        if name.ends_with("-first_tick") { assert_eq!(r["sent"][0]["time_in_force"], "day", "{name}"); }
+    }
+    Ok(())
+}
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_index_grid() -> Result<(), Box<dyn std::error::Error>> {
+    let rails_root = grid_dir("index");
+    let rust_root = tempfile::tempdir().unwrap();
+    rails(&["grid-index", rails_root.path().to_str().unwrap()]);
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 66, "the index grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
+        let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.map_err(|e| format!("{e:?}"))?;
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Pinned on Rails' side, so a vacuous pass is impossible: what each composition names really happened there.
+        let members: Vec<&serde_json::Value> = rails_out["changes"]["bot_index_assets"].as_array().ok_or("expected JSON array")?.iter().collect();
+        if name.contains("-duplicate-") && name.ends_with("-all_flat") {
+            let allocations = members.iter().map(|m| -> Result<_, Box<dyn std::error::Error>> { Ok(f64::from_bits(u64::from_str_radix(m["after"]["target_allocation"]["f"].as_str().ok_or("expected allocation bits")?, 16)?)) }).collect::<Result<Vec<_>, _>>()?;
+            assert_eq!(allocations,vec![0.704545,0.295455],"Rails recorded [A,A,B]: {name}");
+        }
+        if name.contains("-leaver-") {
+            assert!(members.iter().any(|m| m["after"]["in_index"] == 0 && m["after"]["exited_at"].is_string()), "{name}: CCC marked out");
+            assert!(rails_out["sent"].as_array().ok_or("expected JSON array")?.iter().all(|o| o["side"] == "buy" && o["symbol"] != "CCC"), "{name}: never sold, not bought");
+        }
+        if name.contains("-index_missing-") { assert!(rails_out["sent"].as_array().ok_or("expected JSON array")?.is_empty(), "{name}"); }
+        if name.contains("-incumbent_unpriced-") { assert!(rails_out["sent"].as_array().ok_or("expected JSON array")?.is_empty(), "{name}: the buy stalls"); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+    Ok(())
+}
+
+
+mod common;
+#[tokio::test(flavor = "current_thread")]
+async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clock() -> Result<(), Box<dyn std::error::Error>> {
+    use common::seed::{self, BotSpec};
+    use deltabadger::store::{self, Paths};
+    use serde_json::{json, Value};
+    use chrono::{DateTime, Utc};
+    let src = common::rails_install();
+    {
+        let o = store::open(&Paths::from_env(&|_| None, src.path())).map_err(|e| format!("{e:?}"))?;
+        let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+        let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+        seed::add_alpaca_stock(&o.primary, &s, "MSFT");
+        seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(aapl, 1.0)]));
+        seed::insert_index(&o.primary, "nasdaq-100", &["MSFT.US", "AAPL.US"], &json!({ "MSFT.US": 3.1e12, "AAPL.US": 3.4e12 }));
+        seed::index_bot(&o.primary, &s, "nasdaq-100", 2, 0.0, false);
+    }
+    let tickers = json!({ "AAPL": { "quote": { "symbol": "AAPL", "quote": { "ap": 187.43 } }, "trade": { "symbol": "AAPL", "trade": { "p": 187.41 } } },
+                          "MSFT": { "quote": { "symbol": "MSFT", "quote": { "ap": 401.25 } }, "trade": { "symbol": "MSFT", "trade": { "p": 401.2 } } } });
+    let out = tempfile::tempdir().unwrap();
+    assert_eq!(deltabadger::parity::plan_copy(src.path(), &tickers, out.path(), "2026-09-10T12:00:00Z".parse()?).map_err(|e| format!("{e:?}"))?, 2);
+    let mut index_scripts = 0;
+    for dir in std::fs::read_dir(out.path()).unwrap() {
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir?.path().join("scenario.json"))?)?;
+        let a = &sc["script"]["alpaca"];
+        assert_eq!(a["GET /v2/stocks/AAPL/quotes/latest"][0]["body"]["quote"]["ap"], 187.43, "{sc}");
+        assert_eq!(a["GET /v2/stocks/AAPL/trades/latest"][0]["body"]["trade"]["p"], 187.41, "{sc}");
+        let clock = &a["GET /v2/clock"][0]["body"];
+        let close: DateTime<Utc> = clock["next_close"].as_str().ok_or("expected JSON string")?.parse()?;
+        let tick: DateTime<Utc> = sc["at"].as_str().ok_or("expected JSON string")?.parse()?;
+        assert!(clock["is_open"] == true && close > tick, "both engines decide an open session: {sc}");
+        if a.get("GET /v2/stocks/MSFT/quotes/latest").is_some() { index_scripts += 1; }
+    }
+    assert_eq!(index_scripts, 1, "only the index bot prices MSFT (a candidate it may probe)");
+    Ok(())
+}
+
+
+struct GridDir { path: PathBuf, _temp: Option<tempfile::TempDir> }
+impl GridDir { fn path(&self) -> &Path { &self.path } }
+fn grid_dir(name: &str) -> GridDir {
+    if let Ok(root) = std::env::var("RUST_GRID_CACHE") {
+        // The source text keys the cache, so edited fixtures never reuse old results.
+        use std::hash::{Hash, Hasher};
+        let mut h=std::collections::hash_map::DefaultHasher::new();
+        include_str!("../../script/rust/decisions.rb").hash(&mut h);
+        let path=Path::new(&root).join(format!("{name}-{:x}",h.finish()));
+        std::fs::create_dir_all(&path).unwrap(); GridDir {path,_temp:None}
+    } else { let temp=tempfile::tempdir().unwrap(); GridDir {path:temp.path().into(),_temp:Some(temp)} }
 }
