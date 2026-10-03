@@ -486,6 +486,151 @@ vectors['remote_ip_lines'] = [
   ['X-Forwarded-For: 1.1.1.1', 'Client-Ip: 198.51.100.8', 'X-Forwarded-For: 198.51.100.7']
 ].map { |headers| { 'headers' => headers }.merge(JSON.parse(ask_puma.(remote_ip_server.last, 'bot.example.com', headers))) }
 remote_ip_server.first.stop(true)
+# ActionDispatch::HostAuthorization as production runs it when ALLOWED_HOSTS is set (rust/src/web/mod.rs:
+# `allowed_hosts`, `host_allowed`, `Config::blocked_hosts`, `blocked_host`). `config.hosts` is built by
+# production.rb's own lines, run here on a stand-in for `config`; what a host is allowed is asked of
+# Action Pack's matcher; and the answers come from the middleware behind Puma, as the base_url vectors do.
+production_rb = Rails.root.join('config/environments/production.rb').read
+hosts_lines = production_rb[/^  if ENV\['ALLOWED_HOSTS'\]\.present\?\n.*?^  end\n/m] or
+  raise 'production.rb no longer builds config.hosts from ALLOWED_HOSTS, which the host vectors assume'
+raise 'production.rb sets config.host_authorization, which the host vectors assume it does not' if production_rb.include?('host_authorization')
+config_hosts = lambda do |value|
+  config = Struct.new(:hosts).new([]) # Rails' own default outside development
+  kept = ENV.fetch('ALLOWED_HOSTS', nil)
+  ENV['ALLOWED_HOSTS'] = value
+  begin
+    binding.eval(hosts_lines) # rubocop:disable Security/Eval
+    config.hosts
+  ensure
+    ENV['ALLOWED_HOSTS'] = kept
+  end
+end
+host_entries = ['app.example', '.apps.example', 'app.example:8443', '.apps.example:8443', '127.0.0.1', 'localhost', '[::1]', '::1', '', '.', 'a+b.example', 'App.Example']
+host_values = ['app.example', 'APP.EXAMPLE', 'app.example:80', 'app.example:8443', 'app.example:', 'app.example:80:90', 'app.example:8443:1', 'app.example.', 'xapp.example',
+               'app.examplex', 'app-example', 'apps.example', 'bot.apps.example', 'BOT.Apps.Example:3000', 'a.b.apps.example', '.apps.example', 'bot_x.apps.example', 'bot-1.apps.example',
+               'bot.apps.example:8443', 'evil.example', 'evilapps.example', '127.0.0.1', '127.0.0.1:3000', '127.0.0.2', 'localhost', 'localhost:3000', 'localhost.evil.example',
+               '[::1]', '[::1]:3000', '::1', '', ':80', 'x.', 'x.:80', 'a+b.example', 'aab.example', 'app.example, evil.example', "app.example\t", ' app.example']
+host_requests = [
+  ['app.example, .apps.example', 'app.example', [], false], ['app.example, .apps.example', 'evil.example', [], false], ['app.example, .apps.example', 'evil.example', [], true],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example'], false], ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: bot.apps.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example, app.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: app.example, evil.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: app.example', 'X-Forwarded-Host: evil.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example', 'X-Forwarded-Host: app.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: evil.example,'], false], ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: app.example,  evil.example'], false],
+  ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host:  '], false], ['app.example, .apps.example', 'app.example', ['X-Forwarded-Host: ,'], false],
+  ['app.example, .apps.example', 'evil.example', ['X-Forwarded-Host: app.example'], false], ['app.example, .apps.example', 'evil.example', ['X-Forwarded-Host: other.example'], false],
+  ['app.example, .apps.example', 'localhost:3000', [], false], ['app.example, .apps.example', '127.0.0.1', [], false],
+  ['app.example, .apps.example', 'app.example', ['X-Requested-With: xmlhttprequest', 'X-Forwarded-Host: evil.example'], false],
+  [nil, 'evil.example', ['X-Forwarded-Host: other.example'], false], [' ', 'evil.example', [], false], [',', 'evil.example', [], false], [',', 'localhost', [], false]
+]
+host_ask = lambda do |port, host, headers, xhr|
+  lines = headers + (xhr ? ['X-Requested-With: XMLHttpRequest'] : [])
+  answer = TCPSocket.open('127.0.0.1', port) do |socket|
+    socket.write("GET / HTTP/1.1\r\nHost: #{host}\r\n#{lines.map { |line| "#{line}\r\n" }.join}Connection: close\r\n\r\n")
+    socket.read
+  end
+  head, body = answer.split("\r\n\r\n", 2)
+  { 'status' => head[%r{\AHTTP/1.1 (\d+)}, 1].to_i, 'content_type' => head[/^content-type: (.*?)\r?$/i, 1], 'body' => body,
+    'other_headers' => head.lines.drop(1).map { |line| line[/\A[^:]+/].downcase }.reject { |name| %w[content-type content-length connection].include?(name) } }
+end
+host_servers = Hash.new do |servers, hosts|
+  inner = ->(_env) { [200, { 'content-type' => 'text/plain' }, ['passed']] }
+  # Rails leaves the middleware out when config.hosts is empty (DefaultMiddlewareStack).
+  servers[hosts] = over_puma.(hosts.empty? ? inner : ActionDispatch::HostAuthorization.new(inner, hosts))
+end
+vectors['host_authorization'] = {
+  'hosts' => [nil, '', ' ', ',', 'app.example', ' app.example , .apps.example ', 'a.example,,b.example', 'a.example, ', 'a.example,', ',a.example', "a.example\t,\nb.example:8443"]
+    .map { |value| { 'allowed_hosts' => value, 'hosts' => config_hosts.(value) } },
+  'allows' => host_entries.product(host_values).map do |entry, host|
+    { 'entry' => entry, 'host' => host, 'allowed' => ActionDispatch::HostAuthorization::Permissions.new([entry]).allows?(host) }
+  end,
+  'requests' => host_requests.map do |allowed, host, headers, xhr|
+    { 'allowed_hosts' => allowed, 'host' => host, 'headers' => headers, 'xhr' => xhr }.merge(host_ask.(host_servers[config_hosts.(allowed)].last, host, headers, xhr))
+  end
+}
+host_servers.each_value { |server, _| server.stop(true) }
+# What the OAuth provider's pure rules must reproduce (rust/src/web/oauth.rs), each asked of the code Rails runs:
+# Ruby's URI.parse and URI#to_s, Doorkeeper's redirect-URI validator, its URIChecker and URIBuilder, Base64.decode64
+# and Doorkeeper's reading of an `Authorization: Basic` header.
+oauth_uris = ['https://client.example/callback', 'HTTPS://Client.Example:0443/Callback?x=1', 'http://client.example:80/cb', 'http://client.example:080/cb', 'http://client.example:/cb',
+              'http://client.example:8080/cb', 'https://client.example:80/cb', 'http://client.example', 'http://u:p@localhost:3000/cb?x=1#f', 'http://[::1]:9/cb', 'http://[::1]/cb',
+              'http://LOCALHOST/cb', 'https://c.example/cb?x=hello world', "https://c.example/cb?x=a\tb\r\nc", 'http://127.0.0.1/cb?a[]=1&b={}|^`"<>\\', "http://localhost/cb?\u0000",
+              "http://localhost/cb?x=\u007F\u0001", "http://localhost/cb?x=a?b/c:d@e'f(g)h*i+j,k;l=m!n$o&p", 'http://localhost/cb?x=%7e~', 'http://localhost/cb?x=%zz',
+              "http://localhost/cb?x=%z\tz", 'http://localhost/cb?x=%z', 'http://localhost/cb?x=%', 'http://localhost/cb?x=%a', 'http://localhost/cb?%zzz', 'http://localhost/cb?',
+              'http://localhost/cb?#', 'http://localhost/cb#', 'http://127.0.0.1/c b', 'http://127.0.0.1/cb#a b', "http://localhost\t/cb", "\thttp://localhost/cb", "http://localhost/cb\n",
+              'http://localhost/cb?x=é', 'http://localhost:99999999999999999999/cb', 'http://localhost:0/cb', 'http://localhost:00/cb', 'myapp://callback', 'myapp://callback:9/x',
+              'myapp://callback:80', 'ws://h:80/x', 'wss://h:443/x', 'ws://h:443/x', '//host/p', '//host:8/p?q', '/callback', 'callback', '', 'world', 'urn:ietf:wg:oauth:2.0:oob',
+              'javascript:alert(1)', 'localhost:3000/cb', 'mailto:a@b', 'https:///callback', 'http://', 'http://@h/x', 'http://u@/x', 'http://h/%zz', 'http://h/a%20b', 'a:b', 'a:/b']
+oauth_uri_parts = lambda do |text|
+  uri = URI.parse(text)
+  { 'scheme' => uri.scheme, 'userinfo' => uri.userinfo, 'host' => uri.host, 'opaque' => !uri.opaque.nil?, 'fragment' => uri.fragment }
+    .merge(uri.opaque ? {} : { 'path' => uri.path, 'query' => uri.query, 'to_s' => uri.to_s })
+rescue URI::InvalidURIError
+  nil
+end
+oauth_registered = ['https://client.example/callback', "https://c.example/cb#a\nhttps://c.example/cb#b", 'https://c.example/cb#', 'https://c.example/cb?x=hello world',
+                    "https://c.example/cb?x=a\tb", "https://c.example/cb?x=a\vb", "https://c.example/cb?x=a\fb", "https://c.example/cb?x=a\rb", 'https://c.example/cb?x=1 https://b.example/cb',
+                    'https://c.example/cb?x=1 javascript:alert(1)', 'https://c.example/cb?x=1 VBScript:x', 'https://c.example/cb?x=1 data:text/html,x', 'https://c.example/cb?x=1 urn:x',
+                    'https://c.example/cb?x=1 localhost:3000/cb', 'https://c.example/cb?x=1 localhost://h/cb', 'https://c.example/cb?x=1 http:///nohost', 'https://c.example/cb?x=1 https://',
+                    'https://c.example/cb?x=1 %zz', 'https://c.example/cb?x=1 a#f %zz /c', 'https://c.example/cb?x=1 a#f b#g /c', 'https://c.example/cb?x=1 /c a#f',
+                    'https://c.example/cb?x=1 urn:ietf:wg:oauth:2.0:oob', 'https://c.example/cb?x=1 urn:ietf:wg:oauth:2.0:oob:auto', 'https://c.example/cb?x=1 //host/p',
+                    'https://c.example/cb?x=1 mailto:a@b', 'https://c.example/cb?x=1 HTTP://UP.example/cb', 'https://c.example/cb?x=1 myapp://cb', "https://c.example/cb\nhttp://localhost/cb",
+                    'https://c.example/cb?x=1  ', 'https://c.example/cb?x=1 javascript:alert(1)#f']
+oauth_matches = [
+  ['https://client.example/callback', 'https://client.example/callback'], ['https://client.example/callback', "http://localhost/cb\nhttps://client.example/callback"],
+  ['HTTPS://client.example/callback', 'https://client.example/callback'], ['https://client.example:443/callback', 'https://client.example/callback'],
+  ['http://127.0.0.1:9/cb?x=hello world', 'http://127.0.0.1/cb?x=hello%20world'], ['http://127.0.0.1:9/cb?x=hello%20world', 'http://127.0.0.1/cb?x=hello%20world'],
+  ['http://127.0.0.1:9/cb?x=hello+world', 'http://127.0.0.1/cb?x=hello%20world'], ["http://127.0.0.1:9/cb?x=a\tb", 'http://127.0.0.1/cb?x=ab'],
+  ["http://127.0.0.1:9/cb?x=a\r\nb", 'http://127.0.0.1/cb?x=ab'], ['http://127.0.0.1:9/cb?x=hello world', 'http://127.0.0.1:9/cb?x=hello world'],
+  ['http://127.0.0.1:9/cb?x=hello', 'http://127.0.0.1/cb?x=hello world'], ['http://127.0.0.1:9/world', 'http://127.0.0.1/cb?x=hello http://127.0.0.1/world'],
+  ['http://LOCALHOST:9/cb', 'http://localhost/cb'], ['HTTP://localhost:9/cb', 'http://localhost/cb'], ['http://localhost:9/cb?x=%7e', 'http://localhost/cb?x=~'],
+  ['http://localhost:9/cb?x=%7E', 'http://localhost/cb?x=%7e'], ['http://localhost:09/cb', 'http://localhost:9/cb'], ['http://localhost:/cb', 'http://localhost:9/cb'],
+  ['http://localhost:9/cb?x="', 'http://localhost/cb?x=%22'], ["http://localhost:9/cb?x='", 'http://localhost/cb?x=%27'], ['http://localhost:9/cb?', 'http://localhost/cb'],
+  ['http://localhost:9/cb', 'http://localhost/cb?'], ['http://localhost:9', 'http://localhost/'], ['http://user@127.0.0.1:9/cb', 'http://127.0.0.1/cb'],
+  ['http://[::1]:9/cb', 'http://[::1]/cb'], ['http://[::1]:9/cb', 'http://127.0.0.1/cb'], ['http://127.0.0.1:9/cb?x=%zz', 'http://127.0.0.1/cb?x=%zz'],
+  ['//host/p', '//host/p'], ['myapp://callback', 'myapp://callback'], ['https://client.example/callback', ''], ['https://client.example/callback', "  \n"]
+]
+oauth_answers = [
+  ['https://client.example/callback', { code: 'c0de', state: 'st' }], ['HTTPS://Client.Example:0443/Callback?x=1', { code: 'c0de', state: '' }],
+  ['http://127.0.0.1:53211/cb?x=hello world', { code: 'c0de', state: 'a b&c="d"<e>+é' }], ['https://client.example/callback?keep=1&state=theirs', { code: 'c0de', state: nil }],
+  ['https://client.example/callback?keep=1&state=theirs', { code: 'c0de', state: 'ours' }], ['https://client.example/cb?a=1&a=2&b&c=&d=%20&e=x', { code: 'c0de' }],
+  ['https://client.example/cb?a&a=1', { code: 'c0de' }], ['https://client.example/cb?a=1&a', { code: 'c0de' }], ['https://client.example/cb?a=&a=1&&=v&x=y=z', { code: 'c0de' }],
+  ['https://client.example/cb?code=theirs&a+b=c%2Fd&e=%FF', { code: 'c0de' }], ['https://client.example/cb?', { error: 'access_denied', error_description: 'The resource owner said no.', state: ' ' }],
+  ['https://client.example/cb', {}], ['http://localhost:080/cb', { code: 'c0de' }], ['myapp://callback:9/x?y=1', { code: 'c0de' }], ['http://u:p@localhost/cb', { code: 'c0de' }]
+]
+oauth_built = lambda do |builder, url, parameters|
+  Doorkeeper::OAuth::Authorization::URIBuilder.public_send(builder, url, parameters.dup)
+rescue ArgumentError, Rack::QueryParser::InvalidParameterError
+  nil
+end
+vectors['oauth_uri'] = {
+  'parse' => oauth_uris.map { |text| { 'uri' => text, 'parts' => oauth_uri_parts.(text) } },
+  'errors' => oauth_registered.map do |text|
+    application = Doorkeeper::Application.new(name: 'x', redirect_uri: text, scopes: 'mcp', confidential: false)
+    application.valid?
+    raise "#{text}: #{application.errors.full_messages}" unless application.errors.attribute_names.all?(:redirect_uri)
+
+    { 'redirect_uri' => text, 'errors' => application.errors.full_messages }
+  end,
+  'allowed' => oauth_matches.map do |url, registered|
+    { 'url' => url, 'registered' => registered, 'allowed' => Doorkeeper::OAuth::Helpers::URIChecker.valid_for_authorization?(url, registered) }
+  end,
+  'answers' => oauth_answers.map do |url, parameters|
+    { 'url' => url, 'parameters' => parameters.map { |name, value| [name.to_s, value.to_s] }, 'query' => oauth_built.(:uri_with_query, url, parameters),
+      'fragment' => oauth_built.(:uri_with_fragment, url, parameters) }
+  end
+}
+oauth_basic = Doorkeeper::OAuth::ClientAuthentication::ClientSecretBasic
+vectors['oauth_basic'] = {
+  'decode64' => ['YWJjOnM=', 'YW JjOnM=', 'YWJjOnM', "YW\nJj\tOnM=", 'YWJj=OnM=', '=YWJjOnM=', 'YWJjOnM===', 'Y', 'YQ', 'YQ=', 'YQ==', 'YWI', 'YWI=', 'YWJj', 'YW-Jj_OnM', 'YWJjOnM=YWJj',
+                 '!!!!', '', 'Basic', 'YQ==YQ==', 'YWJ=jOnM', 'Y=WJj', '/+/+', '////', 'AAAA', 'é', 'YWJjZGVmZ2hpamtsbW5vcA==', 'Y Q = ='].map { |text| { 'text' => text, 'bytes' => Base64.decode64(text).bytes } },
+  'credentials' => ['Basic YWJjOnM=', 'Basic YW JjOnM=', 'Basic  YWJjOnM=', "basic\tYWJjOnM=", 'BASIC YWJjOnM=', 'bAsIc YWJjOnM=', 'Basic ', 'Basic', 'Basic  ', 'Basic OnM=', 'Basic IDpz',
+                    'Basic IAk6cw==', 'Basic YWJj', 'Basic YWJjOg==', 'Basic YWJjOnM6dA==', "Basic\vYQ==", "Basic \tYQ==", 'Basic YQ==YQ==', 'Basic !!!!', 'Bearer YWJjOnM=', ' Basic YWJjOnM=', '',
+                    'Basic YWJjOnM= trailing', 'Basic YTpiIGM='].map do |header|
+    { 'authorization' => header, 'credentials' => oauth_basic.send(:credentials_from, Struct.new(:authorization).new(header)) }
+  end
+}
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
 File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")

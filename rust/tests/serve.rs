@@ -996,3 +996,43 @@ async fn a_request_ready_on_a_keep_alive_connection_when_the_server_is_dropped_n
     let second = tokio::task::spawn_blocking(move || { let mut stream = stream; web::read_answer(&mut stream) }).await.unwrap();
     assert!(second.as_deref().is_none_or(|a| a.starts_with("HTTP/1.1 503")), "the app answered after the server was dropped: {second:?}");
 }
+
+
+/// ALLOWED_HOSTS, as Rails' HostAuthorization in front of the whole app: a request for a host that
+/// is not allowed gets the same empty 403 whatever it asks for, before its query, its body, its
+/// cookie or the rate limit are looked at. Without the variable every host is served.
+#[tokio::test(flavor = "current_thread")]
+async fn a_request_for_a_host_that_is_not_allowed_is_refused_before_anything_reads_it() {
+    use tower::ServiceExt;
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app_allowing(dir.path(), web::SECRET, Some("app.example, .apps.example"), TestClock::at(NOW));
+    async fn ask(app: &deltabadger::web::App, method: &str, path: &str, host: &str, forwarded: Option<&str>) -> (u16, Vec<String>, String) {
+        let mut request = axum::http::Request::builder().method(method).uri(path).header("host", host).header("cookie", "_deltabadger_rust_session=anything");
+        if let Some(forwarded) = forwarded { request = request.header("x-forwarded-host", forwarded); }
+        if method == "POST" { request = request.header("content-type", "application/x-www-form-urlencoded"); }
+        let mut request = request.body(axum::body::Body::from(if method == "POST" { "user%5Bemail%5D=a&".repeat(5000) } else { String::new() })).unwrap();
+        request.extensions_mut().insert(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 40000))));
+        let response = deltabadger::web::router(app.clone()).oneshot(request).await.unwrap();
+        let names = response.headers().keys().map(|name| name.as_str().to_string()).collect();
+        (response.status().as_u16(), names, String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap()).into_owned())
+    }
+    let css = deltabadger::web::assets::path("application.css");
+    let long_query = format!("/up?{}", "q=1&".repeat(4000));
+    let refused = (403, vec!["content-type".to_string(), "content-length".to_string()], String::new());
+    for (method, path) in [("GET", "/up"), ("GET", "/login"), ("GET", css), ("GET", "/cable"), ("POST", "/login"), ("DELETE", "/logout"), ("GET", "/nothing"), ("GET", long_query.as_str())] {
+        assert_eq!(ask(&app, method, path, "evil.example", None).await, refused, "{method} {path}");
+        assert_eq!(ask(&app, method, path, "app.example", Some("evil.example")).await, refused, "{method} {path} with a forwarded host");
+    }
+    // Twenty refused sign-ins counted nothing: the first one from an allowed host is not the limit's 429.
+    for _ in 0..20 { assert_eq!(ask(&app, "POST", "/login", "evil.example", None).await.0, 403); }
+    assert_ne!(ask(&app, "POST", "/login", "app.example", None).await.0, 429);
+    for (host, forwarded) in [("app.example", None), ("APP.example:8443", None), ("bot.apps.example", None), ("localhost:3000", None), ("127.0.0.1", None), ("app.example", Some("evil.example, bot.apps.example"))] {
+        assert_eq!(ask(&app, "GET", "/up", host, forwarded).await.0, 200, "{host} {forwarded:?}");
+    }
+    for host in ["a.b.apps.example", "apps.example.evil.example", "app.example.", "evil.example:80"] {
+        assert_eq!(ask(&app, "GET", "/up", host, None).await.0, 403, "{host}");
+    }
+    let open = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    assert_eq!(ask(&open, "GET", "/up", "evil.example", Some("other.example")).await.0, 200, "no ALLOWED_HOSTS: no list");
+}
