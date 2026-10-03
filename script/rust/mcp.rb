@@ -132,7 +132,7 @@ module McpParity
       ready + [tool('list_transactions',
                     { limit: 4 }).merge('sql' => ['UPDATE transactions SET amount_exec=0,price=10000000000000000,quote_amount_exec=0.10000000000000001 WHERE id=1',
                                                   'UPDATE transactions SET amount_exec=0.000000000000000123456789123456789,price=-3.141592653589793,quote_amount_exec=123456789.123456789 WHERE id=2',
-                                                  %q(UPDATE transactions SET amount_exec=10000000000000002,price=1.23456789123456789e30,quote_amount_exec='123_456.789123456789' WHERE id=3)])]
+                                                  "UPDATE transactions SET amount_exec=10000000000000002,price=1.23456789123456789e30,quote_amount_exec='123_456.789123456789' WHERE id=3"])]
     prefixes = ENV.fetch('MCP', '').split(',')
     s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
   end

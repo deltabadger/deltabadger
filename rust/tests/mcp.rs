@@ -111,6 +111,78 @@ async fn rails_and_rust_mcp_transcripts() {
     assert!(failures.is_empty(), "mismatches: {failures:?}");
 }
 
+fn rails_leg(boot:&Path,dir:&Path,steps:&[Value],sid:Option<&str>)->Value{
+    std::fs::write(dir.join("leg.json"),serde_json::to_vec(steps).unwrap()).unwrap();
+    let mut args=vec!["runner","script/rust/mcp.rb","play",dir.to_str().unwrap()];
+    if let Some(id)=sid{args.push(id);}
+    common::rails(boot,"test",&args);
+    read(dir.join("rails.json"))
+}
+fn request(method:&str,body:Value,sid:bool)->Value{
+    let mut headers=json!({"Authorization":"Bearer m2-token","Content-Type":"application/json","Accept":"application/json, text/event-stream"});
+    if sid{headers["Mcp-Session-Id"]=json!("$session");}
+    json!({"method":method,"path":"/mcp","headers":headers,"body":body.to_string()})
+}
+fn initialize()->Value{request("POST",json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"cross","version":"1"}}}),false)}
+fn rpc(method:&str,params:Value)->Value{request("POST",json!({"jsonrpc":"2.0","id":2,"method":method,"params":params}),true)}
+fn grid(boot:&Path,root:&Path){common::rails(boot,"test",&["runner","script/rust/mcp.rb","grid",root.to_str().unwrap()]);}
+#[tokio::test(flavor="current_thread")]
+async fn sessions_cross_before_and_after_initialized_in_both_directions(){
+    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();grid(boot.path(),root.path());
+    let steps=vec![initialize(),request("POST",json!({"jsonrpc":"2.0","method":"notifications/initialized"}),true),rpc("tools/list",json!({})),rpc("tools/call",json!({"name":"list_bots","arguments":{}})),request("DELETE",Value::Null,true),rpc("ping",json!({}))];
+    let oracle=tempfile::tempdir().unwrap();copy_install(&root.path().join(".template"),oracle.path());
+    let expected=rails_leg(boot.path(),oracle.path(),&steps,None);
+    for cut in [1,2]{for rails_first in [true,false]{
+        let dir=tempfile::tempdir().unwrap();copy_install(&root.path().join(".template"),dir.path());
+        let first=if rails_first{rails_leg(boot.path(),dir.path(),&steps[..cut],None)}else{play(dir.path(),&steps[..cut],None).await};
+        let sid=first["session"].as_str().unwrap();
+        let mut second=if rails_first{play(dir.path(),&steps[cut..],Some(sid.into())).await}else{rails_leg(boot.path(),dir.path(),&steps[cut..],Some(sid))};
+        let mut responses=first["responses"].as_array().unwrap().clone();responses.extend(second["responses"].as_array().unwrap().clone());second["responses"]=json!(responses);
+        assert_eq!(comparable(second),comparable(expected.clone()),"cut {cut}, rails_first {rails_first}");
+    }}
+}
+#[tokio::test(flavor="current_thread")]
+async fn every_unported_name_stays_absent_even_if_granted_and_enabled(){
+    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();grid(boot.path(),root.path());
+    let dir=&root.path().join(".template");
+    let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let all:Vec<_>=deltabadger::web::oauth::TOOL_DEFAULTS.iter().map(|(n,_)|*n).collect();
+    let overrides:serde_json::Map<String,Value>=all.iter().map(|n|(n.to_string(),json!(true))).collect();
+    c.execute("UPDATE users SET mcp_settings=?1",[json!({"tool_permissions":overrides}).to_string()]).unwrap();
+    c.execute("UPDATE connected_clients SET mcp_tools=?1",[json!(all).to_string()]).unwrap();
+    drop(c);
+    let mut steps=vec![initialize(),request("POST",json!({"jsonrpc":"2.0","method":"notifications/initialized"}),true),rpc("tools/list",json!({}))];
+    for name in &all{if !deltabadger::web::mcp::tools::NAMES.contains(name){steps.push(rpc("tools/call",json!({"name":name,"arguments":{}})));}}
+    let out=play(dir,&steps,None).await;
+    let listed:Value=serde_json::from_str(out["responses"][2]["body"].as_str().unwrap()).unwrap();
+    let names:Vec<_>=listed["result"]["tools"].as_array().unwrap().iter().map(|v|v["name"].as_str().unwrap()).collect();
+    assert_eq!(names,deltabadger::web::mcp::tools::NAMES);
+    for r in out["responses"].as_array().unwrap().iter().skip(3){let body:Value=serde_json::from_str(r["body"].as_str().unwrap()).unwrap();assert_eq!(body["error"]["code"],-32602);}
+}
+#[tokio::test(flavor="current_thread")]
+async fn a_refresh_and_revocation_cross_the_actual_mcp_endpoint(){
+    let root=tempfile::tempdir().unwrap();let boot=tempfile::tempdir().unwrap();grid(boot.path(),root.path());
+    let dir=&root.path().join(".template");
+    let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let uid:String=c.query_row("SELECT uid FROM oauth_applications WHERE id=1",[],|r|r.get(0)).unwrap();drop(c);
+    let token_request=|path:&str,body:Value|json!({"method":"POST","path":path,"headers":{"Content-Type":"application/json"},"body":body.to_string()});
+    let issued=play(dir,&[token_request("/oauth/token",json!({"grant_type":"refresh_token","client_id":uid,"refresh_token":"refresh-m2-token"}))],None).await;
+    assert_eq!(issued["responses"][0]["status"],200);
+    let pair:Value=serde_json::from_str(issued["responses"][0]["body"].as_str().unwrap()).unwrap();
+    let mut init=initialize();init["headers"]["Authorization"]=json!(format!("Bearer {}",pair["access_token"].as_str().unwrap()));
+    let accepted=rails_leg(boot.path(),dir,&[init.clone()],None);assert_eq!(accepted["responses"][0]["status"],200);
+    let handed_back=rails_leg(boot.path(),dir,&[token_request("/oauth/token",json!({"grant_type":"refresh_token","client_id":uid,"refresh_token":pair["refresh_token"]}))],None);
+    assert_eq!(handed_back["responses"][0]["status"],200);
+    let next:Value=serde_json::from_str(handed_back["responses"][0]["body"].as_str().unwrap()).unwrap();
+    init["headers"]["Authorization"]=json!(format!("Bearer {}",next["access_token"].as_str().unwrap()));
+    let accepted=play(dir,&[init.clone()],None).await;assert_eq!(accepted["responses"][0]["status"],200);
+    // M1's already-approved retirement is inherited, not reimplemented: the presented chain is retired.
+    let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM oauth_access_tokens WHERE token IN ('m2-token',?1) AND revoked_at IS NOT NULL",[pair["access_token"].as_str().unwrap()],|r|r.get::<_,i64>(0)).unwrap(),2);drop(c);
+    let revoked=play(dir,&[token_request("/oauth/revoke",json!({"client_id":uid,"token":next["access_token"]}))],None).await;assert_eq!(revoked["responses"][0]["status"],200);
+    let rails=rails_leg(boot.path(),dir,&[init.clone()],None);let rust=play(dir,&[init],None).await;
+    assert_eq!(comparable(rust),comparable(rails));
+}
 #[test]
 fn stale_registry_gate_has_both_refusal_texts(){
     let dir=common::rails_install();let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
@@ -121,4 +193,18 @@ fn stale_registry_gate_has_both_refusal_texts(){
     c.execute("UPDATE users SET mcp_settings=?1",[r#"{"tool_permissions":{"list_bots":false}}"#]).unwrap();
     let refusal=deltabadger::web::mcp::tools::gate(&c,who,"list_bots").unwrap().unwrap();
     assert_eq!(refusal,deltabadger::web::mcp::protocol::tool_text("Tool 'list_bots' is disabled. Enable it in Settings > MCP.",true));
+}
+#[tokio::test(flavor="current_thread")]
+async fn slow_body_keeps_the_existing_deadline_and_no_token_is_checked_first(){
+    let (dir,opened,_)=common::install_alpaca();drop(opened);
+    let app=web::app(dir.path(),web::SECRET,TestClock::at(AT));
+    let pending=||Body::from_stream(futures_util::stream::pending::<Result<Vec<u8>,std::io::Error>>());
+    let build=|auth:bool|{
+        let mut r=Request::builder().method("POST").uri("/mcp").header("host","localhost:3000").header("content-type","application/json");
+        if auth{r=r.header("authorization","Bearer unknown");}r.body(pending()).unwrap()
+    };
+    let no_token=deltabadger::web::mcp::entry(app.clone(),build(false),std::time::Duration::from_millis(1)).await;
+    assert_eq!(no_token.status(),401);
+    let timed_out=deltabadger::web::mcp::entry(app,build(true),std::time::Duration::from_millis(1)).await;
+    assert_eq!(timed_out.status(),408);assert_eq!(timed_out.headers()["connection"],"close");
 }
