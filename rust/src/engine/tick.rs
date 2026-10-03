@@ -36,9 +36,45 @@ pub fn retry_wait(executions: u32, rate_limited: bool) -> Duration {
     Duration::from_secs(if rate_limited { 15 * executions as u64 } else { (executions as u64).pow(4) + 2 })
 }
 
-pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
-    let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2 WHERE id = ?4 AND status IN ({})", model::working_list()),
-              params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id])?;
+/// stop_message_key of the amount-limit stop (config/locales/bot.en.yml: "The whole amount has been invested.").
+pub const AMOUNT_SPENT: &str = "bot.settings.extra_amount_limit.amount_spent";
+
+/// Bot::ActionJob#stop_for_blocking_failure: only a still-working bot is stopped.
+pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<Utc>) -> Result<(), EngineError> {
+    stop_where(c, bot_id, stop_message_key, now, &format!("status IN ({})", model::working_list()))
+}
+
+/// The stop Bot::QuoteAmountLimitable#handle_quote_amount_limit_update enqueues (Bot::StopJob → Bot::Lifecycle#stop,
+/// lifecycle.rb:91-115): every status but archived and deleted, so a stopped bot is stopped again (a new stopped_at and a
+/// `stopped` log). Rails also mails stopped_by_amount_limit; this engine sends no mail yet, a listed paused side effect like
+/// the end-of-funds mail.
+pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    stop_where(c, bot_id, AMOUNT_SPENT, now, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64))
+}
+
+/// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as Rails runs one
+/// Bot::StopJob per callback: Bot::Lifecycle#stop writes a `stopped` log every time it succeeds, a stopped bot included
+/// (lifecycle.rb:91-115). Each stop consumes one count in its own transaction, so a crash replays exactly the rest: at the end
+/// of the tick that swept, at the next start (run::step), or at the handback.
+pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    loop {
+        let tx = model::immediate(c)?;
+        let n: i64 = tx.query_row("SELECT coalesce(json_extract(transient_data, '$.rust_amount_limit_stops_pending'), 0) FROM bots WHERE id = ?1",
+                                  [bot_id], |r| r.get(0))?;
+        if n <= 0 { return Ok(()); }
+        stop_for_amount_limit(&tx, bot_id, now)?;
+        if n == 1 {
+            tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1", [bot_id])?;
+        } else {
+            tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', ?1) WHERE id = ?2", params![n - 1, bot_id])?;
+        }
+        tx.commit()?;
+    }
+}
+
+fn stop_where(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<Utc>, condition: &str) -> Result<(), EngineError> {
+    let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2 WHERE id = ?4 AND {condition}"),
+                      params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id])?;
     if n == 0 { return Ok(()); }
     model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)
 }
@@ -131,20 +167,23 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
         Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
         Err(e) => Err(Fail::General { message: format!("{e:?}"), errors: vec![], failed_row: false }),
     };
-    match executed {
+    let outcome = match executed {
         Ok(placed) => {
             *attempts = Attempts::default();
             // clear_failure_state!, then back to scheduled unless stopped meanwhile.
             if model::load_bot(c, bot_id)?.last_failure_kind().is_some() { record_failure(c, bot_id, None)?; }
-            Ok(if model::transition_working(c, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped })
+            if model::transition_working(c, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped }
         }
         Err(fail) => {
             let outcome = handle_failure(c, bot_id, fail, clock, attempts, venue.rules())?;
             // Every rescheduled run waits for the next checkpoint, across a restart too.
             if matches!(outcome, TickOutcome::Rescheduled) { placement::defer_to_next_checkpoint(c, &model::load_bot(c, bot_id)?, clock.now())?; }
-            Ok(outcome)
+            outcome
         }
-    }
+    };
+    // The Bot::StopJobs this tick's sweep enqueued run now, after the run (polling::apply_committed counted them).
+    run_pending_amount_limit_stops(c, bot_id, clock.now())?;
+    Ok(outcome)
 }
 
 /// DcaMultiAsset#execute_action with the sweep in front and Fundable behind. Ok(placed) = success.
@@ -170,7 +209,10 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         if let Err(m) = basket::refresh_composition(c, &bot, clock.now())? {
             return Ok(Err(Fail::General { message: m, errors: vec![], failed_row: false }));
         }
-        let x = amount::pending_quote_amount(c, &bot, clock.now().timestamp_micros())?;
+        let mut x = amount::pending_quote_amount(c, &bot, clock.now().timestamp_micros())?;
+        // Bot::QuoteAmountLimitable decorates pending_quote_amount: `[super, available].min`. The cap applies to the carry,
+        // so the last order is cut to what is left, never skipped for exceeding it; nothing left is no order, no row, no log.
+        if let Some(available) = amount::quote_amount_available(c, &bot)? { if available < x { x = available; } }
         if !x.is_zero() {
             let mut legs = Legs::default();
             let bought = buy(c, venue, &bot, &x, clock, cx, &mut legs).await;

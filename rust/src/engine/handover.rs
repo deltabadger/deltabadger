@@ -77,12 +77,25 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
+    // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
+    // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
+    // again, so after the handback nothing else would ever stop the bot.
+    let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') > 0 ORDER BY id")?;
+    let stops: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    drop(s);
+    for id in stops { super::tick::run_pending_amount_limit_stops(&o.primary, id, clock.now())?; }
 
     let now = clock.now();
     let tx = model::immediate(&o.primary)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     tx.execute(&format!("UPDATE bots SET status = ?1, updated_at = ?2 WHERE status IN ({working}) AND status <> ?1"), params![scheduled, crate::codec::format_time(now)])?;
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
+    // rust_defer_until is the engine's own key. Rails needs no translation of it: adopting a handback re-arms every scheduled
+    // bot at next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first
+    // checkpoint after the handback, which is never before the deferred one (a deferral is always the next checkpoint after
+    // the run it follows, and the handback comes later). So the key goes, and Rails' own scheduling keeps the wait.
+    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
+                WHERE json_extract(transient_data, '$.rust_defer_until') IS NOT NULL", [])?;
     lease::hand_back(lock, &tx, cipher, now)?;
     tx.commit()?;
     Ok(scheduled)

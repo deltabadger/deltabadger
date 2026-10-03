@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"V5nIUGfnl+RGgqkpKU6yYpo=\",\"h\":{\"iv\":\"14rwETkeKq+cgdWT\",\"at\":\"FPXuo6M2myASnaSVRtUWtg==\"}}"
+      "cipher": "{\"p\":\"/32j89U5k/hl9TkAriE7tWA=\",\"h\":{\"iv\":\"X/hsgpF524ZYSHJd\",\"at\":\"Nxak4RlXU6BfxnooPSF+2Q==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"64qb+A5vWJv9zyTZNyWG\",\"h\":{\"iv\":\"TVtZKhkYA+mn5esB\",\"at\":\"ldi3SBwQGLqNfqc/j9xu6Q==\"}}"
+      "cipher": "{\"p\":\"Oa6oTYCorEnlBEECXJBk\",\"h\":{\"iv\":\"sNtcb4dn2DGO+Mm5\",\"at\":\"r7Zy26TnngZh4kYiD1CkJQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"tXbtlbCzgnGOeJxV6E/CvuEaq2D4LOeLJLDmDPoNsIMHB1L1/zGppcs+Vsmk16Z0Dka2BCTZXGiVlun3oW4T4Wcp2Q74BQioh12T5Mg=\",\"h\":{\"iv\":\"rjtTp51E2K0Kb1/k\",\"at\":\"V7RdsmNpTPLEbXzpu5dMpQ==\",\"c\":true}}"
+      "cipher": "{\"p\":\"G0YEZL+KPTOVnrkLgsZ+ICl6Dd2HXCGcECF8nfxNT1mpkRc7YC/EKULhZK+Bu8aKMYHpNELvNcuveTL8jCnRkYitZ5VOVEuXB5kyhmM=\",\"h\":{\"iv\":\"yFL/ob2EV4LKkc3l\",\"at\":\"w1Vsiz5NsieavAijQy54Pw==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "K7CCEWNY4GRUXA4P6MO6LU7XV6WV2ER7",
-      "cipher": "{\"p\":\"A9W2gwicnERhz5rry1gvEPgYwuZnWuSWYSzTdln5SUE=\",\"h\":{\"iv\":\"iDwY6PEgXF2r7UfF\",\"at\":\"O8IxmJo1+4zJH71o6Rtq3Q==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "2IJ6DHAUZNS4DSLMAPMMOFNMFRRMSMWP",
+      "cipher": "{\"p\":\"sXyh9+Id2kuA20s+htrkEG2iQ2jKb3F21YQHgGZkn+g=\",\"h\":{\"iv\":\"1+utUYmtNPjBXmJc\",\"at\":\"SjOPeD7Ihl/dncGk75jSTw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"THYWJpVUB4ETnAZW5Sf4c0E=\",\"h\":{\"iv\":\"0N14cIhbFX8w1dLA\",\"at\":\"xBYLz4r1gqD8mtfuT1hJtg==\"}}"
+      "cipher": "{\"p\":\"yT/nKxYao2PrTyAVlqKZC8g=\",\"h\":{\"iv\":\"wouvLLznJPmT7lCy\",\"at\":\"NR5dzIQFXqVeEqFX6n96ww==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$FvQ4eofuU6HbIodTcf4B/.HKGcxV1ccBsXd40vnldvk7Z4rqZvGDC"
+      "hash": "$2a$11$nw8YsZRvh/d0oZeBmLTW6.UbrJi/6t8ws4.li9pluIllSPN4CC4qO"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$I/2ShgoTYfI/2K4V/yns1..Vt6De9BaKzzUereLoQnwqFSGIbhup."
+      "hash": "$2a$11$KBGRVZ1Rh9Gq21/9B3wJzuwYZxQXPy1l4FY4JnAcIJJebBT2E5FPy"
     }
   ],
   "totp": {
@@ -59532,6 +59532,1927 @@
         ]
       ],
       "failure": null
+    }
+  ],
+  "amount_caps": [
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-337",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "60.02",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "Float",
+        "f": "3f847ae147ae1000"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-338",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "60.02",
+          "quote_amount_exec": "60.02",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "BigDecimal",
+        "d": "0.01"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-339",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "30.01",
+          "quote_amount_exec": "30.01",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-340",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "30.01",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "BigDecimal",
+        "d": "0.01"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-341",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "30.01",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-342",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "30.01",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "Float",
+        "f": "3f847ae147ae1000"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-343",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "99.99",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 100,
+      "available": {
+        "class": "Float",
+        "f": "3f847ae147ae2000"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-344",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "99.995",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 100,
+      "available": {
+        "class": "Float",
+        "f": "3f747ae147ae0000"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-345",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "99.995",
+          "quote_amount_exec": "99.995",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 100,
+      "available": {
+        "class": "BigDecimal",
+        "d": "0.005"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-346",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-347",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "60.02",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "Float",
+        "f": "3f847ae147ae1000"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-348",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "60",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-349",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.02",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "Float",
+        "f": "3f847ae147ae1000"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [],
+      "cap": 1000,
+      "available": {
+        "class": "Integer",
+        "i": "1000"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-350",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "25.25"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-351",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "25.24",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 50.5,
+      "available": {
+        "class": "BigDecimal",
+        "d": "0.01"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-352",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.1",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-353",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.2",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-354",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.1",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-355",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.2",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.31,
+      "available": {
+        "class": "Float",
+        "f": "3f847ae147ae1460"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-356",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "40.02",
+          "quote_amount_exec": "40.02",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-357",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "40.02"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-358",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "40.02",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "BigDecimal",
+        "d": "0.01"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-359",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "24.90",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-360",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "6.40"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-361",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "16.09",
+          "quote_amount_exec": "16.09",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-362",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-363",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "17.24",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "Float",
+        "f": "4045651eb851eb86"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-364",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "25.94",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-365",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "10.12",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-366",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "14.88",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-367",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "5.61"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-368",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "24.98",
+          "quote_amount_exec": "24.98",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "BigDecimal",
+        "d": "14.56"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-369",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "5.07",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 99.99,
+      "available": {
+        "class": "Float",
+        "f": "4057bae147ae147a"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-370",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "6.44"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-371",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "27.37"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-372",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "26.84"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-373",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "7.04",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-374",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "2.96",
+          "quote_amount_exec": "2.96",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-375",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.80",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "BigDecimal",
+        "d": "116.31"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-376",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "18.34"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-377",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "1.39",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-378",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "19.54",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-379",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "20.14"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-380",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-381",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "17.47",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-382",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "20.12",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "BigDecimal",
+        "d": "62.34"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-383",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-384",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "27.08",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-385",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "14.96",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-386",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "20.03",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-387",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-388",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "29.29",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-389",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "8.47"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "BigDecimal",
+        "d": "22.27"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-390",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "22.08",
+          "quote_amount_exec": "22.08",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-391",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "9.05",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-392",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "14.78",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-393",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "4.86"
+        }
+      ],
+      "cap": 75.5,
+      "available": {
+        "class": "BigDecimal",
+        "d": "24.73"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-394",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        }
+      ],
+      "cap": 100,
+      "available": {
+        "class": "Integer",
+        "i": "100"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-395",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "25.86"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-396",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "28.75",
+          "quote_amount_exec": "28.75",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-397",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "22.93",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-398",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "14.89",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-399",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "22.92"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-400",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "26.69",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-401",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "3.58"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "BigDecimal",
+        "d": "66.88"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-402",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "10.12",
+          "quote_amount_exec": "10.12",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 0.3,
+      "available": {
+        "class": "Integer",
+        "i": "0"
+      },
+      "reached": true
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-403",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "15.37",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 75.5,
+      "available": {
+        "class": "Float",
+        "f": "404e10a3d70a3d71"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-404",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "15.81",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-405",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "29.00"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "BigDecimal",
+        "d": "15.22"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-406",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "21.89",
+          "quote_amount_exec": "21.89",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-407",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "27.29"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-408",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "26.44"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-409",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "BigDecimal",
+        "d": "44.45"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-410",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "20.11",
+          "quote_amount_exec": "20.11",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 75.5,
+      "available": {
+        "class": "BigDecimal",
+        "d": "55.39"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-411",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-412",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "21.27"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-413",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.51",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-414",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "7.95"
+        }
+      ],
+      "cap": 100,
+      "available": {
+        "class": "BigDecimal",
+        "d": "70.27"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-415",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "12.69",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-416",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "Float",
+        "f": "405ad851eb851eb8"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-417",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.96",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-418",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "5.34",
+          "quote_amount_exec": "5.34",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-419",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "1.62"
+        }
+      ],
+      "cap": 60.03,
+      "available": {
+        "class": "BigDecimal",
+        "d": "52.11"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-420",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "1.72",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-421",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-422",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "4.42",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-423",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "21.66",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 75.5,
+      "available": {
+        "class": "Float",
+        "f": "4047d9999999999a"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-424",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "24.64",
+          "amount_exec": "0.001"
+        }
+      ],
+      "cap": 75.5,
+      "available": {
+        "class": "Float",
+        "f": "40496e147ae147ae"
+      },
+      "reached": false
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-425",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "29.52"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-426",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "7.52",
+          "quote_amount_exec": "7.52",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-427",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 3,
+          "quote_amount": "100",
+          "quote_amount_exec": "0.71",
+          "amount_exec": "0.001"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-428",
+          "order_type": 0,
+          "price": "64000",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 4,
+          "quote_amount": "100"
+        }
+      ],
+      "cap": 120.07,
+      "available": {
+        "class": "BigDecimal",
+        "d": "82.32"
+      },
+      "reached": false
     }
   ],
   "i18n": {

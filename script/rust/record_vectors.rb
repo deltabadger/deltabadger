@@ -532,6 +532,64 @@ vectors['basket_splits'] = split_cases.map do |c|
   end
 end
 
+# Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached and
+# #quote_amount_limit_reached? as Ruby computes them. The closed and waiting buckets pluck decimal columns (BigDecimal); the
+# stopped bucket plucks Arel.sql('COALESCE(quote_amount_exec, 0)'), which SQLite answers as its own INTEGER or REAL (Integer
+# or Float in Ruby); each bucket is summed by Array#sum, the buckets added in that order, and the limit is the settings
+# JSON's Integer or Float. Recorded with the class of the result: a Float leaks into the remainder (cap 60.03, a sole
+# cancelled fill of 60.02: 0.00999999999999801, under the 0.01 floor).
+cap_row = lambda do |kind, q|
+  vector_row_id += 1
+  row = { 'asset' => 'VBTC', 'status' => 0, 'external_id' => "rust-vector-#{vector_row_id}", 'order_type' => 0, 'price' => '64000',
+          'created_at' => '2026-08-20 10:00:00' }
+  case kind
+  when 'closed' then row.merge('external_status' => 2, 'quote_amount' => q, 'quote_amount_exec' => q, 'amount_exec' => '0.001')
+  when 'unknown' then row.merge('external_status' => 0, 'quote_amount' => q)
+  when 'cancelled' then row.merge('external_status' => 3, 'quote_amount' => '100', 'quote_amount_exec' => q, 'amount_exec' => '0.001')
+  when 'abandoned' then row.merge('external_status' => 4, 'quote_amount' => '100')
+  end
+end
+cap_fixed = [
+  [60.03, [%w[cancelled 60.02]]],                        # a Float remainder under the floor: reached
+  [60.03, [%w[closed 60.02]]],                           # the same in BigDecimal: exactly 0.01, not reached
+  [60.03, [%w[closed 30.01], %w[cancelled 30.01]]],      # BigDecimal + Float
+  [60.03, [%w[cancelled 30.01], %w[cancelled 30.01]]],   # two Floats, Kahan-summed
+  [100, [%w[cancelled 99.99]]],                          # Integer - Float
+  [100, [%w[cancelled 99.995]]],
+  [100, [%w[closed 99.995]]],
+  [60.03, [['abandoned', nil], %w[cancelled 60.02]]],    # Integer 0, then a Float
+  [60.03, [%w[cancelled 60], %w[cancelled 0.02]]],       # an integral fill is stored INTEGER, then a Float
+  [1000, []],
+  [50.5, [%w[unknown 25.25], %w[cancelled 25.24]]],
+  [0.3, [%w[cancelled 0.1], %w[cancelled 0.2]]],
+  [0.31, [%w[cancelled 0.1], %w[cancelled 0.2]]],
+  [120.07, [%w[closed 40.02], %w[unknown 40.02], %w[cancelled 40.02]]]
+]
+cap_rng = Random.new(2_202_670)
+cap_random = Array.new(26) do
+  cap = [60.03, 100, 99.99, 120.07, 0.3, 75.5].sample(random: cap_rng)
+  rows = Array.new(cap_rng.rand(1..4)) do
+    kind = %w[closed unknown cancelled cancelled abandoned].sample(random: cap_rng)
+    [kind, kind == 'abandoned' ? nil : format('%.2f', cap_rng.rand(1..3000) / 100.0)]
+  end
+  [cap, rows]
+end
+vectors['amount_caps'] = (cap_fixed + cap_random).map do |cap, specs|
+  rows = specs.map { |kind, q| cap_row.(kind, q) }
+  with_basket({ 'VBTC' => 1.0 }, settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => cap }, rows:) do |bot, _assets, _alpaca|
+    bot.update_columns(transient_data: bot.transient_data.merge('quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z'))
+    bot = Bot.find(bot.id)
+    left = bot.quote_amount_available_before_limit_reached
+    value = case left
+            when Float then { 'class' => 'Float', 'f' => [left].pack('G').unpack1('H*') }
+            when BigDecimal then { 'class' => 'BigDecimal', 'd' => left.to_s('F') }
+            else { 'class' => left.class.name, 'i' => left.to_s }
+            end
+    { 'weights' => { 'VBTC' => 1.0 }, 'pairs' => pairs_of.({ 'VBTC' => 1.0 }), 'rows' => rows, 'cap' => cap, 'available' => value,
+      'reached' => bot.quote_amount_limit_reached? }
+  end
+end
+
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe

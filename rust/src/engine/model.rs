@@ -4,7 +4,7 @@ use super::EngineError;
 use crate::codec::{format_time, parse_time};
 use crate::crypto::{Cipher, Credentials};
 use crate::enums::{BotStatus, BOT_WORKING};
-use crate::ruby::{from_sql, BigDec};
+use crate::ruby::{from_sql, BigDec, Num};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -85,16 +85,18 @@ impl Bot {
     }
     /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`.
     pub fn quote_amount_limited(&self) -> bool { self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
-    /// The cap as #quote_amount_available_before_limit_reached reads it; None when the limit is off. A stored nil or false
-    /// reads as 1000 (after_initialize: `quote_amount_limit ||= 1000`). Err for anything else that is not a JSON number (a
-    /// blank string is Float::INFINITY in Rails, other strings raise there): eligibility refuses it.
-    pub fn quote_amount_limit(&self) -> Result<Option<BigDec>, String> {
+    /// The cap as #quote_amount_available_before_limit_reached reads it, as the Ruby Integer or Float the settings JSON holds;
+    /// None when the limit is off. A stored nil or false reads as Integer 1000 (after_initialize: `quote_amount_limit ||= 1000`).
+    /// Err for anything else that is not a JSON number (a blank string is Float::INFINITY in Rails, other strings raise there):
+    /// eligibility refuses it.
+    pub fn quote_amount_limit(&self) -> Result<Option<Num>, String> {
         if !self.quote_amount_limited() { return Ok(None); }
         match self.settings.get("quote_amount_limit") {
-            None | Some(Value::Null) | Some(Value::Bool(false)) => Ok(Some(BigDec::from_i64(1000))),
-            Some(Value::Number(n)) => match n.as_i64() {
-                Some(i) => Ok(Some(BigDec::from_i64(i))),
-                None => n.as_f64().and_then(|f| BigDec::from_f64(f).ok()).map(Some).ok_or_else(|| format!("quote_amount_limit {n} is not a number")),
+            None | Some(Value::Null) | Some(Value::Bool(false)) => Ok(Some(Num::Int(1000))),
+            Some(Value::Number(n)) => match (n.as_i64(), n.as_f64()) {
+                (Some(i), _) => Ok(Some(Num::Int(i))),
+                (None, Some(f)) if f.is_finite() => Ok(Some(Num::Float(f))),
+                _ => Err(format!("quote_amount_limit {n} is not a number")),
             },
             Some(other) => Err(format!("quote_amount_limit {other} is not a number")),
         }

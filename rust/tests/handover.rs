@@ -113,11 +113,16 @@ async fn a_completed_handback_is_adopted_by_rails() {
 
 /// Boots the real Rails app (development env, not test, so the engine-lease initializers run) against this
 /// install's files, with the test cipher's keys, and reports whether it started.
-fn rails_boot(dir: &std::path::Path) -> (bool, String) {
+fn rails_boot(dir: &std::path::Path) -> (bool, String) { rails_boot_running(dir, "") }
+
+/// `rails_boot`, running `script` (Ruby) in the booted app.
+fn rails_boot_running(dir: &std::path::Path, script: &str) -> (bool, String) {
     let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
-    let out = Command::new(root.join("bin/rails")).current_dir(root).args(["runner", "puts :booted"])
+    let file = scratch.path().join("script.rb"); // a file, so a raise shows its backtrace
+    std::fs::write(&file, format!("{script}\nputs :booted\n")).unwrap();
+    let out = Command::new(root.join("bin/rails")).current_dir(root).args(["runner", file.to_str().unwrap()])
         .env("RAILS_ENV", "development").env_remove("DATABASE_URL").env("APP_ROOT_URL", "http://localhost:3000")
         .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}", dir.join("production.sqlite3").display()))
         .env("QUEUE_DATABASE_URL", format!("sqlite3:{}", dir.join("production_queue.sqlite3").display()))
@@ -255,4 +260,65 @@ async fn a_settings_write_cannot_strand_an_unresolved_order_and_handback_settles
     assert_eq!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
     assert!(model::load_bot(&o.primary, b).unwrap().rust_placement().is_none(), "the order is settled");
     assert_eq!(count(&o.primary, "SELECT count(*) FROM transactions WHERE external_id = 'OTX-H'"), 1, "and recorded");
+}
+
+/// A swept fill spent the cap, then the engine died before its tick's end ran the stop; the operator hands back instead of
+/// restarting. The handback runs the pending stop, as the engine's next start would have.
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_then_handback_lands_the_pending_amount_limit_stop() {
+    use common::scripted::{ok, script, venue};
+    let at: DateTime<Utc> = "2026-09-08T10:00:00.5Z".parse().unwrap();
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, at).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", json!(true))
+        .with("quote_amount_limit", json!(60.0)).transient("quote_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z")));
+    seed::insert_tx(&o.primary, &s, b, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("OTX-S".into()), order_type: 0,
+        amount: None, quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-01 10:00:01".into() });
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", at).unwrap();
+    let t = script(json!({ "GET /v2/orders/OTX-S": [ok(json!({ "id": "OTX-S", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "buy",
+        "notional": "60", "qty": null, "filled_qty": "0.0009375", "filled_avg_price": "64000", "limit_price": null }))] }));
+    // The tick's sweep commits the fill and counts the stop; the engine dies before the tick's end.
+    deltabadger::engine::polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, b).unwrap(), at).await.unwrap();
+    assert_eq!(count(&o.primary, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots"), 1);
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(), 0,
+               "the stopped bot is not handed back as scheduled");
+    let (status, key, pending): (i64, String, Option<i64>) = o.primary.query_row(
+        "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots WHERE id = ?1", [b],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    assert_eq!((status, key.as_str(), pending), (deltabadger::enums::BotStatus::Stopped as i64, deltabadger::engine::tick::AMOUNT_SPENT, None));
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 1);
+}
+
+/// A settled order deferred the next buy to the next weekly checkpoint, then the engine died and the operator handed back.
+/// The handback removes the engine's key; Rails' own adoption re-arms the bot at next_interval_checkpoint_at, which is that
+/// checkpoint, so Rails does not buy the remainder early either.
+#[tokio::test(flavor = "current_thread")]
+async fn a_deferral_crash_then_handback_then_rails_tick_buys_nothing_before_the_next_checkpoint() {
+    let at: DateTime<Utc> = "2026-09-01T10:30:00Z".parse().unwrap();
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, at).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    o.primary.execute("UPDATE bots SET label = 'Bitcoin' WHERE id = ?1", [b]).unwrap(); // Rails loads it: Labelable needs one
+    placement::defer_to_next_checkpoint(&o.primary, &model::load_bot(&o.primary, b).unwrap(), at).unwrap();
+    assert_eq!(model::load_bot(&o.primary, b).unwrap().rust_defer_until_us().unwrap(), Some("2026-09-08T10:00:00Z".parse::<DateTime<Utc>>().unwrap().timestamp_micros()));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", at).unwrap();
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(at)).await.unwrap(), 1);
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    assert_eq!(bot.status, deltabadger::enums::BotStatus::Scheduled);
+    assert!(bot.transient.get("rust_defer_until").is_none(), "the engine's key does not reach Rails");
+    drop((l, o));
+    // Rails boots, adopts the handback, and its repair sweep (run here at the handback's time) re-arms the bot.
+    let (booted, err) = rails_boot_running(dir.path(),
+        "require 'active_support/testing/time_helpers'\ninclude ActiveSupport::Testing::TimeHelpers\ntravel_to(Time.utc(2026, 9, 1, 10, 30)) { Bot::RepairOrphanedBotsJob.perform_now }");
+    assert!(booted, "{err}");
+    let q = rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap();
+    let at: String = q.query_row("SELECT e.scheduled_at FROM solid_queue_scheduled_executions e JOIN solid_queue_jobs j ON j.id = e.job_id \
+                                  WHERE j.class_name = 'Bot::ActionJob'", [], |r| r.get(0)).unwrap();
+    assert!(at.starts_with("2026-09-08 10:00:00"), "Rails' first run is the deferred checkpoint, not earlier: {at}");
 }

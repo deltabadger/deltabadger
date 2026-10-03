@@ -199,8 +199,11 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
-            polling::apply_in(&tx, bot.id, id, &state, true, now)?; // as FetchAndUpdateOrderJob would, after placement
+            // The intent goes before the fill is applied: the amount cap counts an unresolved intent as spent, and this one is
+            // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
+            // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
+            if polling::apply_in(&tx, bot.id, id, &state, true, now)? { super::tick::stop_for_amount_limit(&tx, bot.id, now)?; }
             defer_to_next_checkpoint(&tx, bot, now)?;
             tx.commit()?;
             Ok(Recovery::Recorded(id))

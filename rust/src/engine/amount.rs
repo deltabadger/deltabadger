@@ -5,7 +5,8 @@ use super::schedule::{checkpoints, effective, interval_count};
 use super::EngineError;
 use crate::codec::format_time;
 use crate::enums::{BotStatus, TxExternalStatus, TxStatus};
-use crate::ruby::{from_sql, to_sql, BigDec};
+use crate::ruby::{from_sql, ruby_sum, to_sql, BigDec, Num};
+use rusqlite::types::ValueRef;
 use super::venue_rules::{MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
@@ -183,4 +184,82 @@ pub fn write_order_row(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKin
             serde_json::to_string(&errors).unwrap(), format_time(created_at),
         ])?;
     Ok(c.last_insert_rowid())
+}
+
+/// Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached (quote_amount_limitable.rb:50-79), with one stricter
+/// term: an unresolved placement intent counts as spent at its full quote until it is settled.
+/// None = no cap (the limit is off). Since the stamp (`created_at >= quote_amount_limit_enabled_at`; an unset stamp matches
+/// nothing), submitted REGULAR buys count: closed at their executed quote, waiting at their submitted quote (or
+/// amount × price), cancelled or abandoned at what they executed. Failed and skipped rows, sells and other types do not.
+///
+/// Computed with Ruby's own numerics: the closed and waiting buckets are BigDecimal (decimal columns); the
+/// stopped bucket is `pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))`, SQLite's own INTEGER or REAL; each bucket is an
+/// Array#sum in row order, the buckets are added closed + waiting + stopped, and the limit is the settings' Integer or Float.
+/// So a Float leaks in where Rails' does: cap 60.03 with one cancelled fill of 60.02 leaves 0.00999999999999801.
+pub fn quote_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
+    let Some(limit) = bot.quote_amount_limit().map_err(EngineError::Data)? else { return Ok(None) };
+    let mut spent = Num::Int(0);
+    if let Some(since) = bot.quote_amount_limit_enabled_at_us().map_err(EngineError::Data)? {
+        // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
+        let since_text = format_time(at(since));
+        let window = "bot_id = ?1 AND status = 0 AND side = 0 AND transaction_type = 'REGULAR' AND created_at >= ?2";
+        let mut closed = vec![];
+        let mut s = c.prepare(&format!("SELECT quote_amount_exec FROM transactions WHERE {window} AND external_status = 2 ORDER BY id"))?;
+        let mut rows = s.query(params![bot.id, since_text])?;
+        while let Some(r) = rows.next()? {
+            closed.push(Num::Dec(from_sql(r.get_ref(0)?).map_err(data)?.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))?));
+        }
+        let mut waiting = vec![];
+        let mut s = c.prepare(&format!("SELECT quote_amount, amount, price FROM transactions WHERE {window} AND external_status IN (0, 1) ORDER BY id"))?;
+        let mut rows = s.query(params![bot.id, since_text])?;
+        while let Some(r) = rows.next()? {
+            let (q, a, p) = (from_sql(r.get_ref(0)?).map_err(data)?, from_sql(r.get_ref(1)?).map_err(data)?, from_sql(r.get_ref(2)?).map_err(data)?);
+            waiting.push(Num::Dec(match (q, a, p) {
+                (Some(q), _, _) => q,
+                (None, Some(a), Some(p)) => &a * &p,
+                _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
+            }));
+        }
+        let mut stopped = vec![];
+        let mut s = c.prepare(&format!("SELECT COALESCE(quote_amount_exec, 0) FROM transactions WHERE {window} AND external_status IN (3, 4) ORDER BY id"))?;
+        let mut rows = s.query(params![bot.id, since_text])?;
+        while let Some(r) = rows.next()? {
+            stopped.push(match r.get_ref(0)? {
+                ValueRef::Integer(i) => Num::Int(i),
+                ValueRef::Real(f) => Num::Float(f),
+                other => return Err(EngineError::Data(format!("quote_amount_exec {other:?}"))),
+            });
+        }
+        spent = ruby_sum(&closed).map_err(data)?.add(&ruby_sum(&waiting).map_err(data)?).map_err(data)?
+            .add(&ruby_sum(&stopped).map_err(data)?).map_err(data)?;
+    }
+    if let Some(intent) = bot.rust_placement() {
+        let quote = intent["quote_amount"].as_str().and_then(|q| BigDec::parse(q).ok()).ok_or_else(|| EngineError::Data(format!("rust_placement {intent}")))?;
+        spent = spent.add(&Num::Dec(quote)).map_err(data)?;
+    }
+    let left = limit.sub(&spent).map_err(data)?;
+    Ok(Some(if left.is_negative() { Num::Int(0) } else { left })) // [left, 0].max
+}
+
+/// `quote_amount_available_num` as the BigDecimal the engine sizes with (a Float as Float#to_d, which is what Rails' next
+/// BigDecimal operation makes of it).
+pub fn quote_amount_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, EngineError> {
+    quote_amount_available_num(c, bot)?.map(|n| n.to_dec().map_err(data)).transpose()
+}
+
+/// Bot::QuoteAmountLimitable#quote_amount_limit_reached?: what is left is under the pair's precision floor,
+/// `1.0 / 10**min(quote_decimals)` over Bot#tickers (members and former members, available and trading-enabled; with none
+/// the floor is 0 and nothing is under it). Not the venue minimum: a remainder between the two keeps the bot running.
+pub fn quote_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    let Some(available) = quote_amount_available_num(c, bot)? else { return Ok(false) };
+    let mut assets = bot.asset_ids();
+    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
+    for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !assets.contains(&a) { assets.push(a); } }
+    let decimals: Option<i64> = c.query_row(
+        "SELECT min(quote_decimals) FROM tickers WHERE exchange_id = ?1 AND quote_asset_id = ?2 AND available = 1 AND trading_enabled = 1 \
+         AND base_asset_id IN (SELECT value FROM json_each(?3))",
+        params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).expect("ids serialise")], |r| r.get(0))?;
+    let Some(d) = decimals else { return Ok(false) };
+    // `1.0 / (10**d)`: a Float, compared as Ruby compares the remainder's own class with it.
+    available.lt_f64(1.0 / 10f64.powi(d as i32)).map_err(data)
 }

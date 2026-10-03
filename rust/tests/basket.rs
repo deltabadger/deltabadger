@@ -169,3 +169,30 @@ fn every_recorded_rails_split_is_reproduced() {
         }
     }
 }
+
+/// The cap's remainder and its decision, with Rails' own numerics. Each case is a one-asset bot with the recorded cap (an
+/// Integer or a Float in the settings JSON) switched on before its rows.
+#[test]
+fn every_recorded_rails_amount_cap_is_reproduced() {
+    use deltabadger::engine::amount;
+    use deltabadger::ruby::Num;
+    let cases = common::vectors()["amount_caps"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 40);
+    for (i, case) in cases.iter().enumerate() {
+        let (_d, o, id, _ids) = build(case);
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', json(?1)), \
+                           transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?2",
+                          rusqlite::params![case["cap"].to_string(), id]).unwrap();
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let got = amount::quote_amount_available_num(&o.primary, &bot).unwrap().unwrap();
+        let want = &case["available"];
+        let same = match (&got, want["class"].as_str().unwrap()) {
+            (Num::Float(f), "Float") => format!("{:016x}", f.to_bits()) == want["f"].as_str().unwrap(),
+            (Num::Dec(d), "BigDecimal") => d.to_s_f() == want["d"].as_str().unwrap(),
+            (Num::Int(n), "Integer") => n.to_string() == want["i"].as_str().unwrap(),
+            _ => false,
+        };
+        assert!(same, "case {i}: Rust {got:?}, Rails {want}: {case}");
+        assert_eq!(amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), case["reached"] == true, "case {i}: {case}");
+    }
+}

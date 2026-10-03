@@ -189,3 +189,65 @@ pub fn decimal_column(f: f64, precision: usize, scale: i32) -> Result<BigDec, Co
     if !rounded.is_finite() { return Err(CodecError::Decimal(format!("{f:e} is not finite"))); }
     Ok(BigDec::parse(&format!("{:.*e}", precision.clamp(1, 16) - 1, rounded))?.round(scale as i64))
 }
+
+/// A Ruby numeric as Rails' amount-cap arithmetic carries it: Integer, Float or BigDecimal.
+/// Bot::QuoteAmountLimitable mixes all three: decimal columns pluck as BigDecimal, `pluck(Arel.sql('COALESCE(...)'))` as
+/// SQLite's own INTEGER or REAL, and the settings JSON holds the limit as an Integer or a Float. Pinned by the amount_caps
+/// vectors.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Num { Int(i64), Float(f64), Dec(BigDec) }
+
+impl Num {
+    /// self + o, or self - o with `sub`, coerced as Ruby does: Integer with Integer stays Integer; Integer with Float is
+    /// Float arithmetic; anything with a BigDecimal is BigDecimal arithmetic, a Float operand converted as BigDecimal#coerce
+    /// converts it (Float#to_d: 16 significant digits, BigDec::from_f64).
+    fn op(&self, o: &Num, sub: bool) -> Result<Num, CodecError> {
+        Ok(match (self, o) {
+            (Num::Int(a), Num::Int(b)) => Num::Int(if sub { a - b } else { a + b }),
+            (Num::Int(_) | Num::Float(_), Num::Int(_) | Num::Float(_)) => {
+                let (a, b) = (self.to_f(), o.to_f());
+                Num::Float(if sub { a - b } else { a + b })
+            }
+            _ => {
+                let (a, b) = (self.to_dec()?, o.to_dec()?);
+                Num::Dec(if sub { &a - &b } else { &a + &b })
+            }
+        })
+    }
+    pub fn add(&self, o: &Num) -> Result<Num, CodecError> { self.op(o, false) }
+    pub fn sub(&self, o: &Num) -> Result<Num, CodecError> { self.op(o, true) }
+    fn to_f(&self) -> f64 { match self { Num::Int(i) => *i as f64, Num::Float(f) => *f, Num::Dec(d) => d.to_f() } }
+    pub fn is_negative(&self) -> bool { match self { Num::Int(i) => *i < 0, Num::Float(f) => *f < 0.0, Num::Dec(d) => *d < BigDec::zero() } }
+    /// The value as a BigDecimal, a Float as Float#to_d (what a later BigDecimal operation in Ruby makes of it).
+    pub fn to_dec(&self) -> Result<BigDec, CodecError> {
+        match self { Num::Int(i) => Ok(BigDec::from_i64(*i)), Num::Float(f) => BigDec::from_f64(*f), Num::Dec(d) => Ok(d.clone()) }
+    }
+    /// self < f, as Ruby compares with a Float: a BigDecimal against Float#to_d, the others as doubles.
+    pub fn lt_f64(&self, f: f64) -> Result<bool, CodecError> {
+        Ok(match self { Num::Dec(d) => *d < BigDec::from_f64(f)?, _ => self.to_f() < f })
+    }
+}
+
+/// Array#sum (array.c ary_sum) over Integers, Floats and BigDecimals: Integers add exactly; from the first Float on, a
+/// Kahan-Babuska sum in doubles that starts from the Integer prefix (later Integers join as doubles); anything else leaves
+/// that path (the double so far, uncompensated, as Ruby's `not_float` does) and is added with `+`. Empty is Integer 0.
+pub fn ruby_sum(xs: &[Num]) -> Result<Num, CodecError> {
+    let mut i = 0;
+    let mut n: i64 = 0;
+    while let Some(Num::Int(x)) = xs.get(i) { n += x; i += 1; }
+    let mut v = Num::Int(n);
+    if let Some(Num::Float(_)) = xs.get(i) {
+        let (mut f, mut c) = (n as f64, 0.0f64);
+        let mut left = false;
+        while let Some(e) = xs.get(i) {
+            let x = match e { Num::Float(x) => *x, Num::Int(x) => *x as f64, Num::Dec(_) => { left = true; break } };
+            let t = f + x;
+            if f.abs() >= x.abs() { c += (f - t) + x; } else { c += (x - t) + f; }
+            f = t;
+            i += 1;
+        }
+        v = Num::Float(if left { f } else { f + c });
+    }
+    for e in &xs[i..] { v = v.add(e)?; }
+    Ok(v)
+}
