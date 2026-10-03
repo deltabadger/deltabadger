@@ -118,10 +118,19 @@ fn text(v: &Value) -> Option<String> { v.as_str().map(str::to_string) }
 /// What an activity whose time this port cannot read fails the sync with. It names no value of the answer.
 const UNREADABLE_TIME: &str = "unreadable activity time";
 
+/// The times a venue activity may carry: 1970-01-01T00:00:00Z ..= 9999-12-31T23:59:59.999999Z. Ruby reads any year;
+/// outside this range a time is an unreadable activity time (the sync fails, as on any time it cannot read), so no
+/// arithmetic on it (the dedup's second either side, a watermark, a transfer window) can leave chrono's range.
+const EARLIEST: i64 = 0;
+const LATEST: i64 = 253_402_300_799_999_999; // 9999-12-31T23:59:59.999999Z, in microseconds
+fn sane(t: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
+    if (EARLIEST..=LATEST).contains(&t.timestamp_micros()) { Ok(t) } else { Err(UNREADABLE_TIME.to_string()) }
+}
+
 /// `Time.parse(s).utc` for the shapes Alpaca sends: RFC 3339. Anything else is an error here (Ruby reads more).
 fn trade_time(v: &Value) -> Result<DateTime<Utc>, String> {
     v.as_str().filter(|s| s.len() <= 64).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc))
-        .ok_or_else(|| UNREADABLE_TIME.to_string())
+        .ok_or_else(|| UNREADABLE_TIME.to_string()).and_then(sane)
 }
 
 /// #non_trade_timestamp: `date` (midnight UTC) or `transaction_time`; nil when the activity carries neither.
@@ -130,7 +139,7 @@ fn non_trade_time(a: &Value) -> Result<Option<DateTime<Utc>>, String> {
     if v.is_null() { return Ok(None); }
     let s = v.as_str().ok_or_else(|| UNREADABLE_TIME.to_string())?;
     if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-        return Ok(d.and_hms_opt(0, 0, 0).map(|t| t.and_utc()));
+        return d.and_hms_opt(0, 0, 0).map(|t| sane(t.and_utc())).transpose();
     }
     trade_time(v).map(Some)
 }

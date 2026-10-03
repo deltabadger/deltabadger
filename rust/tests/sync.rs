@@ -233,6 +233,32 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
     assert_eq!((bumped, one::<i64>(&db, "SELECT restatement_generation FROM bots").await), (vec![seeded], 3));
 }
 
+/// A venue date is read only within 1970-01-01 ..= 9999-12-31 (UTC); one outside it is an unreadable activity time,
+/// which fails the run and stores nothing, as any unreadable time does. Times read back from the database (the
+/// watermark, a withdrawal Rails stored) go through checked arithmetic: none of them panics a sync.
+#[tokio::test(flavor = "current_thread")]
+async fn a_date_at_the_ends_of_the_calendar_is_unreadable_and_nothing_panics() {
+    let (_dir, db, s) = install();
+    for date in ["-262143-01-01", "+262142-12-31", "262142-12-31", "1969-12-31", "10000-01-01"] {
+        let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("fine", "2026-09-01"), interest("edge", date)]))] }));
+        let failure = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
+        assert_eq!((failure.error.as_str(), failure.raised), ("unreadable activity time", true), "{date}");
+        assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 0, "{date}: nothing stored");
+    }
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("first", "1970-01-01"), interest("last", "9999-12-31")]))] }));
+    assert_eq!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().imported, 2, "the ends of the range are read");
+    // What Rails may have left: a watermark and a withdrawal at the ends of what the database can hold.
+    db.run(move |c, _| {
+        c.execute("UPDATE api_keys SET last_synced_at = '-262143-01-01 00:00:00'", []).map_err(|e| e.to_string())?;
+        c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, manual_values, \
+                   transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, 5, 'USD', 10, '+262142-12-31 23:59:59', '{}', '{}', 0, '2026-01-01', '2026-01-01')",
+                  [s.user_id, s.api_key_id, s.exchange_id]).map_err(|e| e.to_string())
+    }).await.unwrap();
+    let (t, v) = venue(json!({ ACTIVITIES: [ok(json!([]))] }));
+    ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert!(t.requests()[0].query.iter().all(|(k, _)| *k != "after"), "a watermark with no time 25 h before it reads from the beginning");
+}
+
 /// A split imported ahead of its date bumps its bots once at import (as Rails' log_split does) and once more at its
 /// date (Rails' Bot::ExpireRestatedMetricsJob): the second bump is kept in the sync's own `app_configs` row, applied by
 /// the first ledger sync at or after the date, also after a restart, and then removed.

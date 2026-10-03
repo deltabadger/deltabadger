@@ -250,7 +250,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
 
     // Where this run starts: where an unfinished import stopped, or the watermark less the overlap. A stored
     // watermark ahead of now (Rails leaves one behind a split dated ahead) is read as now.
-    let import = resumed.unwrap_or_else(|| Import { cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.map(|w| after(w.min(now))),
+    let import = resumed.unwrap_or_else(|| Import { cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),
                                                     started: now, max_seen: None, min_skipped: None, stored: 0, watermark: micros(key.last_synced_at) });
     // An import that does not end is stopped: its record goes, the watermark stays, and the key and the job say why.
     let give_up = |text: &'static str| async move {
@@ -345,8 +345,9 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
 
 /// The `after` an incremental sync asks for: the watermark less the 25-hour overlap, as `Time#iso8601` (whole seconds).
 /// A key with no watermark sends none and reads the whole history. Alpaca caps no window, so there is no floor.
-pub fn after(last_synced_at: DateTime<Utc>) -> String {
-    (last_synced_at - Duration::hours(OVERLAP_HOURS)).format("%Y-%m-%dT%H:%M:%SZ").to_string()
+/// `None` for a watermark with no time 25 hours before it (one at the start of chrono's calendar): the whole history.
+pub fn after(last_synced_at: DateTime<Utc>) -> Option<String> {
+    last_synced_at.checked_sub_signed(Duration::hours(OVERLAP_HOURS)).map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
 }
 
 /// One page as #get_ledger reads it (`Array(result.data)`: an empty object or null is no activities), each activity
@@ -599,11 +600,13 @@ fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: 
         if stored { return Ok(true); }
     }
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
+    let second = Duration::seconds(1);
+    let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let id_less = if tx_id.is_some() { "AND tx_id IS NULL" } else { "" };
     Ok(c.query_row(
         &format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {id_less} AND entry_type = ?3 \
                   AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7)"),
-        params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(at - Duration::seconds(1)), sql_time(at + Duration::seconds(1))],
+        params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
         |r| r.get(0))?)
 }
 
@@ -786,8 +789,10 @@ fn transfer_matches(c: &Connection, user_id: i64, after_id: i64) -> Result<Trans
          ORDER BY d.transacted_at ASC, d.id ASC LIMIT ?7"))?;
     let mut pairs: Vec<(i64, i64)> = vec![];
     for (id, currency, amount, at) in withdrawals {
+        // A withdrawal with no time 72 hours after it (a stored time at the end of the calendar) has no window.
+        let Some(until) = at.checked_add_signed(Duration::hours(TRANSFER_WINDOW_HOURS)) else { continue };
         let candidates = deposits.query_map(
-            params![user_id, currency, sql_time(at), sql_time(at + Duration::hours(TRANSFER_WINDOW_HOURS)), real(&(&amount * &tolerance)), real(&amount), pairs.len() as i64 + 1],
+            params![user_id, currency, sql_time(at), sql_time(until), real(&(&amount * &tolerance)), real(&amount), pairs.len() as i64 + 1],
             |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         if let Some(deposit) = candidates.into_iter().find(|d| !pairs.iter().any(|(taken, _)| taken == d)) { pairs.push((deposit, id)); }
     }
