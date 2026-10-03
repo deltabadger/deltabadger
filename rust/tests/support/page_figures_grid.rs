@@ -43,6 +43,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
         let reader = Reader::new(&cache, now.utc().timestamp());
         let actual = deltabadger::web::figure::account(&c, sc["user_id"].as_i64().unwrap(), &reader, now, "en", "token", "").unwrap();
         let components = std::env::var("FIGURE_PARTS").unwrap_or_else(|_| "tile".into());
+        if components.split(',').any(|p| p == "account") {
+            let got = actual["account"].as_str().unwrap();
+            if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { assert!(got.contains("no-value")); }
+            else { assert_eq!(common::html::normalize(got),common::html::normalize(expected["account"].as_str().unwrap()),"{name} account"); }
+        }
         for (id, parts) in expected["bots"].as_object().unwrap() {
             for part in components.split(',').filter(|p| *p != "account") {
                 let got = &actual["bots"][id][part];

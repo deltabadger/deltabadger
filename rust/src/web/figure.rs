@@ -5,6 +5,8 @@ use serde_json::{json, Map, Value};
 
 mod holdings;
 mod plot;
+mod headline;
+use crate::figures::totals;
 
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
 fn colour(n: &Num) -> &'static str { if n.is_negative() { "text-danger" } else if n.is_positive() { "text-success" } else { "" } }
@@ -60,6 +62,7 @@ fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Result<Vec<Stri
 pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: &str, prefix: &str) -> Result<Value, FiguresError> {
     budget::within(|| {
         let mut bots = Map::new();
+        let mut computed = vec![];
         let user = db::user(c, user_id)?;
         for (id, _) in db::account_bots(c, user_id)? {
             let subject = Subject::load(c, id)?;
@@ -67,9 +70,13 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
             let marked_live = live::live(c, &subject, &walked, market, now)?;
             let missing = missing(&subject, &marked_live, market)?;
             let marked = chart::marked(c, &subject, &marked_live, market, now)?;
-            let _ = chart::page(c, &subject, &marked, user.hide_balances)?;
             bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
+            computed.push((subject, marked_live, marked, missing));
         }
-        Ok(json!({"bots": bots, "account": ""}))
+        let unavailable = computed.iter().any(|(s,_,m,missing)| !missing.is_empty() || !m.chart_omitted.is_empty() || s.quote.as_deref() != Some("USD"));
+        let parts = |marked: bool| computed.iter().map(|(s,live,chart,_)| totals::Part { bot_id:s.bot.id, quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(if marked { chart } else { live })) }).collect::<Vec<_>>();
+        let pnl = totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false))?;
+        let history = totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true))?;
+        Ok(json!({"bots": bots, "account": headline::render(pnl.as_ref(),history.result.as_ref(),unavailable,user.hide_balances)?}))
     })
 }
