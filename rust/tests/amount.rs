@@ -214,3 +214,23 @@ fn every_recorded_rails_carry_is_reproduced() {
         assert_eq!(got, bd(c["pending"].as_str().unwrap()), "case {i}: {c}");
     }
 }
+
+/// Bot::Lifecycle#start(start_fresh: false): run now, or wait for the next checkpoint, as Rails decided each recorded case
+/// (from the Bot::ActionJob it enqueued). A continue start never takes a delayed first run, whatever the start time says.
+#[test]
+fn every_recorded_rails_continue_start_decision_is_reproduced() {
+    let cases = common::vectors()["continue_start"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 7);
+    for (i, c) in cases.iter().enumerate() {
+        let (_d, o, s) = common::install_alpaca();
+        let mut spec = BotSpec { status: 1, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }.with("interval", json!("day"))
+            .transient("quote_amount_limit_enabled_at", json!("2026-08-01T00:00:00.000Z"));
+        for (k, v) in c["settings"].as_object().unwrap() { spec = spec.with(k, v.clone()); }
+        if !c["last_action_job_at"].is_null() { spec = spec.transient("last_action_job_at", c["last_action_job_at"].clone()); }
+        let id = seed::insert_bot(&o.primary, &s, &spec);
+        for r in c["rows"].as_array().unwrap() { insert_carry_row(&o.primary, &s, id, r); }
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let now = amount::continue_runs_now(&o.primary, &bot, us(c["now"].as_str().unwrap())).unwrap();
+        assert_eq!(if now { "now" } else { "checkpoint" }, c["decision"].as_str().unwrap(), "case {i}: {c}");
+    }
+}

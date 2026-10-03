@@ -109,7 +109,7 @@ const PRIMARY: &[TableContract] = &[
         ("quote", "varchar", true), ("base_asset_id", "bigint", true), ("quote_asset_id", "bigint", true),
         ("base_decimals", "integer", true), ("quote_decimals", "integer", true), ("price_decimals", "integer", true),
         ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
-        ("trading_enabled", "boolean", true), ("available", "boolean", false),
+        ("trading_enabled", "boolean", true), ("available", "boolean", false), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[] },
     // The bot pages (src/web/bot) also read an asset's name, colour, market cap and external id, and an exchange's fee and availability.
     TableContract { name: "assets", columns: &[
@@ -167,10 +167,12 @@ const PRIMARY: &[TableContract] = &[
         ("id", "integer", true), ("user_id", "integer", true), ("oauth_application_id", "integer", true), ("mcp_tools", "json", true),
         ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
+    // The tick reads and writes a basket's members exactly as Bot::Composition::Allocatable does.
     TableContract { name: "bot_index_assets", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("asset_id", "integer", true), ("ticker_id", "integer", true),
-        ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false),
-    ], unique_indexes: &[] },
+        ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false), ("entered_at", "datetime(6)", false),
+        ("exited_at", "datetime(6)", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["bot_id", "asset_id"]] },
     // An index bot's page draws the members of the index it follows (src/web/bot/settings.rs).
     TableContract { name: "indices", columns: &[
         ("id", "integer", true), ("external_id", "varchar", false), ("source", "varchar", false), ("top_coins", "json", false), ("weights", "json", false),
@@ -182,8 +184,10 @@ const PRIMARY: &[TableContract] = &[
         ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false),
         ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "exchange_id", "asset_id"]] },
-    // `exchange.assets`: what the venue lists, and the order balance rows are written in.
-    TableContract { name: "exchange_assets", columns: &[("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true)], unique_indexes: &[] },
+    // `exchange.assets`: what the venue lists, and the order balance rows are written in. staleness::ALPACA_CRYPTO_TICKERS
+    // reads updated_at: the catalog sync's own stamp (MarketData.import_tickers!' ExchangeAsset upsert).
+    TableContract { name: "exchange_assets", columns: &[("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true),
+        ("updated_at", "datetime(6)", true)], unique_indexes: &[] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),

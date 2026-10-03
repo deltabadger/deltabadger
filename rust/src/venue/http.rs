@@ -272,12 +272,17 @@ impl ScriptedTransport {
 impl Transport for ScriptedTransport {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         let key = format!("{} {}", r.method, r.path);
-        let reply = {
+        let mut reply = {
             let mut s = self.s.borrow_mut();
             s.requests.push(r.clone());
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
         };
+        // A body naming its client order id "$client_order_id" answers for the one the request asked for: a recorded answer
+        // cannot know the UUID the engine generated (the grids' landed-recovery scenarios).
+        if reply["body"]["client_order_id"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "client_order_id") { reply["body"]["client_order_id"] = Value::String(cl.clone()); }
+        }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
             Some("pre_send") => Err(TransportError::NotSent(message)),

@@ -5,6 +5,7 @@
 //! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
+use super::schedule::{checkpoints, effective};
 use super::{polling, Clock, EngineError};
 use crate::ruby::BigDec;
 use crate::venue::{Venue, VenueError};
@@ -30,6 +31,7 @@ impl Intent {
         let p = &self.plan;
         let d = |name: &str, v: &BigDec| v.to_persisted().map_err(|e| EngineError::Data(format!("the order's {name} {e:?}; not placed")));
         Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
+                   "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
                    "quote_type": p.quote_type, "volume": d("volume", &p.volume)? }))
     }
@@ -38,27 +40,54 @@ impl Intent {
         let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);
         let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);
         let b = |k: &str| v[k].as_bool().ok_or_else(bad);
-        let ticker = model::ticker_for(c, bot)?.filter(|t| Some(t.id) == v["ticker_id"].as_i64()).ok_or_else(bad)?;
+        // The intent names its own ticker: a basket's leg k is not the bot's first member. base_asset_id is for the logs; an
+        // intent written by an earlier build has none.
+        let ticker = model::ticker_by_id(c, bot.exchange_id, v["ticker_id"].as_i64().ok_or_else(bad)?)?.ok_or_else(bad)?;
         Ok(Self { cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
 }
 
-/// Bots whose unresolved order (`rust_placement`) no longer matches them as the row stands now: `Intent::from_json`
-/// fails (the ticker their asset, exchange and quote select is not the intent's). Recovery, `handback` and
-/// `resolve-placement` could not settle such an order, so `eligibility::guard` refuses the write that would leave one.
+/// Bots whose unresolved order (`rust_placement`) was sent under another composition, asset, exchange or quote than the
+/// row holds now. `eligibility::guard` refuses ANY such change while the order is unresolved. Recovery would cope, since
+/// `Intent::from_json` finds the order's ticker by its id whatever the bot's settings, but Rails freezes a working bot's
+/// composition too, and one rule is simpler and safe. The intent records what it was sent under (`exchange_id`,
+/// `quote_asset_id`, `allocations`, written by `begin`; one written by an earlier build gets them at takeover,
+/// `backfill_snapshots`). An intent without them counts as changed: fail closed.
 pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     let mut out = vec![];
     for id in ids {
         let bot = model::load_bot(c, id)?;
-        if let Some(v) = bot.rust_placement() {
-            if Intent::from_json(c, &bot, &v).is_err() { out.push(id); }
-        }
+        let Some(v) = bot.rust_placement() else { continue };
+        let changed = match v.get("allocations") {
+            Some(sent) => v["exchange_id"].as_i64() != Some(bot.exchange_id) || v["quote_asset_id"].as_i64() != bot.quote_asset_id()
+                || bot.settings.get("allocations") != Some(sent),
+            None => true,
+        };
+        if changed { out.push(id); }
     }
     Ok(out)
+}
+
+/// Gives every unresolved intent written by an earlier build the snapshot `begin` now records, from the bot's row. Exact:
+/// such intents come only from the earlier engine, which had no web UI and let nothing else write, so the row is what the
+/// order was sent under. `handover::take_over` calls it before the engine ticks or the web serves a request. Each write is
+/// one key-scoped statement. Returns how many it filled.
+pub fn backfill_snapshots(c: &Connection) -> Result<usize, EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL \
+                           AND json_type(transient_data, '$.rust_placement.allocations') IS NULL ORDER BY id")?;
+    let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    for id in &ids {
+        let bot = model::load_bot(c, *id)?;
+        let allocations = bot.settings.get("allocations").cloned().unwrap_or(Value::Null);
+        c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement.exchange_id', ?1, \
+                   '$.rust_placement.quote_asset_id', ?2, '$.rust_placement.allocations', json(?3)) WHERE id = ?4",
+                  params![bot.exchange_id, bot.quote_asset_id(), allocations.to_string(), id])?;
+    }
+    Ok(ids.len())
 }
 
 /// Re-read under the write lock: is the intent with this cl_ord_id still the bot's unresolved one?
@@ -76,21 +105,84 @@ fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), Engi
     Ok(())
 }
 
+/// After a run is rescheduled (an intent settled, placed or not, or a failure that reschedules), nothing is placed before
+/// the bot's next checkpoint, as Bot::ActionJob's next run of a failed run is at next_interval_checkpoint_at
+/// (action_job.rb:325-328). Written with `json_set` (in the transaction that settles an intent), so a restart honours it
+/// (run::step_bot), together with the schedule it was computed under: a fresh start or an interval edit voids it. The
+/// deferred tick removes it (tick::tick_recovering). A Rust-only key, outside the parity snapshots, like `rust_placement`.
+pub fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    wait_until(c, bot, now, |cps| cps.next_us)
+}
+
+/// A wait that has already ended (at the bot's last checkpoint): the bot is due at once, across a restart too, until its next
+/// tick removes it. What a continue start that Rails runs at once leaves (run::step_bot).
+pub fn run_now(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    wait_until(c, bot, now, |cps| cps.last_us)
+}
+
+/// Removes `rust_defer_until`: one bot's, or every bot's (`None`, the handback). The one statement every path uses.
+pub fn remove_wait(c: &Connection, bot_id: Option<i64>) -> Result<(), EngineError> {
+    c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
+               WHERE (?1 IS NULL OR id = ?1) AND json_type(transient_data, '$.rust_defer_until') IS NOT NULL", [bot_id])?;
+    Ok(())
+}
+
+fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::schedule::Checkpoints) -> i64) -> Result<(), EngineError> {
+    let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us, bot.interval(), bot.quote_amount(), bot.schedule_key()) else { return Ok(()) };
+    let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())));
+    let until = DateTime::from_timestamp_micros(at).expect("time in range").to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
+              params![json!({ "until": until, "schedule": schedule }).to_string(), bot.id])?;
+    Ok(())
+}
+
+/// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
+/// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
+    Ok(begin_checked(c, bot, plan, clock, false)?.expect("unfenced"))
+}
+
+/// `begin`, fenced: under the same write lock, the bot must still be working and its composition (exchange, quote asset and
+/// allocations, compared by value as `stranded` compares them) must still be what `sized_from` holds. Otherwise no intent is
+/// written, nothing will be sent, and `None` is returned with one log line naming the reason; the next pass sees the new row.
+///
+/// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
+/// an order; what it would have bought stays owed through pending_quote_amount.
+pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
+    begin_checked(c, sized_from, plan, clock, true)
+}
+
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: bool) -> Result<Option<Intent>, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
-    if model::load_bot(&tx, bot.id)?.rust_placement().is_some() {
+    let current = model::load_bot(&tx, bot.id)?;
+    if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
+    }
+    if fence {
+        let reason = if !crate::enums::BOT_WORKING.contains(&current.status) { Some("it was stopped") }
+            else if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
+                != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
+            else { None };
+        if let Some(reason) = reason {
+            super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));
+            return Ok(None);
+        }
     }
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
     let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now + Duration::seconds(DEADLINE_SECONDS), at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
-    // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back.
-    let json = intent.to_json()?;
-    Intent::from_json(&tx, bot, &json)?;
-    set_intent(&tx, bot.id, Some(&json))?;
+    // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
+    // intent's own ticker by its id, as recovery will.
+    let mut v = intent.to_json()?;
+    Intent::from_json(&tx, bot, &v)?;
+    // What the order is sent under: `stranded` refuses any change to it until the order settles.
+    v["exchange_id"] = json!(current.exchange_id);
+    v["quote_asset_id"] = json!(current.quote_asset_id());
+    v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
+    set_intent(&tx, bot.id, Some(&v))?;
     tx.commit()?; // durable before the send
-    Ok(intent)
+    Ok(Some(intent))
 }
 
 #[derive(Debug)]
@@ -161,8 +253,15 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
-            polling::apply_in(&tx, bot.id, id, &state, true, now)?; // as FetchAndUpdateOrderJob would, after placement
+            // The intent goes before the fill is applied: the amount cap counts an unresolved intent as spent, and this one is
+            // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
+            // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
+            if polling::apply_in(&tx, bot.id, id, &state, true, now)? {
+                polling::owe_limit_mail(&tx, bot.id, now)?;
+                super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
+            }
+            defer_to_next_checkpoint(&tx, bot, now)?;
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -170,6 +269,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
+            defer_to_next_checkpoint(&tx, bot, started)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -200,6 +300,7 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         OperatorResolution::NotPlaced => ("not_placed", None),
     };
     set_intent(&tx, bot_id, None)?;
+    defer_to_next_checkpoint(&tx, &bot, now)?;
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;

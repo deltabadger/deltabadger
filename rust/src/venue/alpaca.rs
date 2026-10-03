@@ -91,7 +91,7 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
         txid: id.to_string(), status: status(o["status"].as_str()), price: Some(price),
         amount: d("qty")?, quote_amount: d("notional")?,
         quote_amount_exec: &filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero), amount_exec: filled_qty,
-        limit: o["type"] == "limit", sell: o["side"] == "sell",
+        limit: o["type"] == "limit", sell: o["side"] == "sell", pair: o["symbol"].as_str().map(str::to_string),
     })
 }
 

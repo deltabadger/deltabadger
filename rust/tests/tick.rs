@@ -108,7 +108,7 @@ async fn a_lost_reply_pauses_the_bot_until_reconciled_and_never_sends_twice() {
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::AwaitingReconciliation));
     assert_eq!(bot(&o, id).status, BotStatus::Retrying);
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:31Z").await, TickOutcome::AwaitingReconciliation), "first lookup incomplete");
-    assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:01Z").await, TickOutcome::Done { placed: false }), "found: nothing left to buy");
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:01Z").await, TickOutcome::Rescheduled), "found and recorded: the tick ends there");
     assert_eq!((v.sent().len(), one::<i64>(&o, "SELECT count(*) FROM transactions")), (1, 1));
 }
 
@@ -414,7 +414,9 @@ async fn a_transient_kraken_answer_to_addorder_is_ambiguous_not_a_rejection() {
         assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{err}: no failed row");
         assert_eq!(one::<String>(&o, "SELECT event FROM bot_activity_logs ORDER BY id DESC LIMIT 1"), "placement_ambiguous");
         assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:41Z").await, TickOutcome::AwaitingReconciliation), "{err}: absent before deadline + 60 s proves nothing");
-        assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:12Z").await, TickOutcome::Done { placed: true }), "{err}: absent after it: not placed, buy now");
+        assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:12Z").await, TickOutcome::Rescheduled), "{err}: absent after it: settled as not placed, the tick ends");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{err}: nothing placed before the next checkpoint");
+        assert!(matches!(run(&o, &v, id, "2026-09-08T10:00:01Z").await, TickOutcome::Done { placed: true }), "{err}: the next checkpoint buys");
         assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-2");
     }
 }
@@ -434,6 +436,50 @@ async fn a_web_json_set_landing_while_addorder_awaits_survives_the_ticks_own_tra
     assert_eq!(t["web_key"], "from the web", "the web's key survives the engine's writes after it");
     assert!(t.get("last_failure_kind").is_none(), "the engine's own write landed too (cleared, then compacted away)");
     assert!(t.get("last_action_job_at").is_some());
+}
+
+/// What the web may commit while the tick awaits a price: a stop, or a new composition (an allocation's weight). The order
+/// was sized from the row as it was before, so the intent's transaction re-reads both and writes nothing when either moved.
+fn tick_with_price_hook(sql: &'static str) -> (tempfile::TempDir, store::Opened, i64, FakeVenue) {
+    let (d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let db = o.primary.path().unwrap().to_string();
+    let v = priced().next_add(AddOutcome::Accept("OTX-F".into())).on_price(move || {
+        if !sql.is_empty() { rusqlite::Connection::open(&db).unwrap().execute(sql, [id]).unwrap(); }
+    });
+    (d, o, id, v)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_committed_while_the_price_is_read_places_nothing_and_writes_no_intent() {
+    let (_d, o, id, v) = tick_with_price_hook("UPDATE bots SET status = 2 WHERE id = ?1");
+    let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    assert!(v.sent().is_empty(), "nothing sent after the stop");
+    assert!(bot(&o, id).rust_placement().is_none(), "no intent written");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    assert_eq!(bot(&o, id).status, BotStatus::Stopped);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_allocation_change_committed_while_the_price_is_read_places_nothing_and_writes_no_intent() {
+    let (_d, o, id, v) = tick_with_price_hook(
+        "UPDATE bots SET settings = json_set(settings, '$.allocations', json_object((SELECT key FROM json_each(settings, '$.allocations')), 0.5)) WHERE id = ?1");
+    let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    assert!(matches!(out, TickOutcome::Done { placed: false }), "the tick ends cleanly, not as a failure: {out:?}");
+    assert!(v.sent().is_empty(), "nothing sized from the old composition is sent");
+    assert!(bot(&o, id).rust_placement().is_none(), "no intent written");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    assert_eq!(bot(&o, id).status, BotStatus::Scheduled, "the next pass sees the new composition");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn with_neither_the_order_read_during_the_price_await_is_placed_as_before() {
+    let (_d, o, id, v) = tick_with_price_hook("");
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Done { placed: true }));
+    assert_eq!(v.sent().len(), 1);
+    assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-F");
+    assert!(bot(&o, id).rust_placement().is_none(), "the intent was settled into its row");
 }
 
 #[tokio::test(flavor = "current_thread")]

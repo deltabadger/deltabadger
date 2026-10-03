@@ -18,9 +18,12 @@ use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-const TABLES: [&str; 3] = ["bots", "transactions", "bot_activity_logs"];
+// The tick rewrites a basket's members, so they are compared too.
+const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_index_assets"];
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
+/// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
+const RUST_KEYS: [&str; 3] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending"];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -44,8 +47,8 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
             for (i, name) in names.iter().enumerate() {
                 let mut v = raw(r.get_ref(i)?);
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
-                // What only this engine writes: its placement intent and the mails it owes. Rails has neither.
-                if name == "transient_data" { if let Value::Object(m) = &mut v { m.remove("rust_placement"); for key in notice::KEYS { m.remove(key); } } }
+                // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.
+                if name == "transient_data" { if let Value::Object(m) = &mut v { for key in RUST_KEYS.iter().chain(&notice::KEYS) { m.remove(*key); } } }
                 row.insert(name.clone(), v);
             }
             rows.insert(row["id"].to_string(), Value::Object(row));
@@ -93,7 +96,10 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
             Notice::Error { error, .. } | Notice::StoppedByError { error } => {
                 mail["errors"] = json!([crate::mail::render::humanize_error(&exchange_type, &exchange_name, crate::mail::render::user_locale(locale.as_deref()), error)]);
             }
-            Notice::StoppedByAmountLimit => {}
+            // Bot::Notifyable#notify_stopped_by_amount_limit hands the mailer the bot's quote symbol.
+            Notice::StoppedByAmountLimit => mail["quote"] = c.query_row(
+                "SELECT a.symbol FROM bots b JOIN assets a ON a.id = json_extract(b.settings, '$.quote_asset_id') WHERE b.id = ?1",
+                [p.bot_id], |r| r.get::<_, String>(0))?.into(),
         }
         out.push(mail);
     }
@@ -119,15 +125,21 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     if scenario["venue"] == "alpaca" {
         // Rust's real Alpaca client over the recorded bodies Rails' harness serves beneath Clients::Alpaca.
         let transport = ScriptedTransport::from_script(&scenario["script"]["alpaca"]);
-        let poll = play(&o, &AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper"))), &scenario, bot_id, start).await?;
+        let posted = || transport.posted_orders().len();
+        let venue = AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper")));
+        let (poll, recover_sent) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         // A raised follow-up is reported like Rails' job raise; a throttle or transient failure is a retry Rails enqueues.
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
-        return Ok(json!({ "sent": transport.posted_orders(), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
-                          "funds_notified": funds_notified, "poll_error": poll_error }));
+        let mut out = json!({ "sent": transport.posted_orders(), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        // The engine's reconciliation tick has no Rails counterpart: what it sent (nothing, expected) goes to the asserters only.
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
+        return Ok(out);
     }
     let venue = FakeVenue::from_script(&scenario["script"]);
-    let poll = play(&o, &venue, &scenario, bot_id, start).await?;
+    let posted = || venue.sent().len();
+    let (poll, _) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
     let sent: Vec<Value> = venue.sent().iter().map(wire).collect();
     let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
     // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
@@ -136,33 +148,55 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     Ok(out)
 }
 
-/// The scenario's tick (with Rails' retries) and the follow-up poll Rails enqueues for one order; returns how that poll failed.
-async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>) -> Result<Option<polling::PollFailure>, EngineError> {
-    if scenario["tick"] != false {
-        // One price cache across the retries, as Rails' 5 s cache spans its retried jobs (Task 8).
-        let (mut at, mut attempts) = (start, Attempts::default());
-        let prices = PriceCache::default();
-        let cx = TickContext { prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
-        for _ in 0..MAX_ATTEMPTS {
-            match tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(at), &mut attempts, &mut None, &cx).await? {
-                TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
-                _ => break,
-            }
-        }
-    }
-    // The follow-up poll Rails enqueues for one order (Bot::FetchAndUpdateOrderJob), 5 s after the tick; its retries
-    // are not replayed (ponytail: no grid scenario fails a poll, add the retry loop when one does).
+/// The scenario's phases, in Rails' harness order: the tick at `at` (with Rails' retries); the follow-up poll Rails enqueues for
+/// one order, 5 s after it; the SQL a scenario runs `between` the ticks on both sides; the engine's own reconciliation tick at
+/// `recover_at` (Rust only: Rails has no job then, its next run is at next_interval_checkpoint_at); the next checkpoint's tick
+/// at `next_at` (both). Returns how the poll failed and, when there is a reconciliation tick, how many orders it sent.
+async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, posted: &dyn Fn() -> usize)
+    -> Result<(Option<polling::PollFailure>, Option<usize>), EngineError> {
+    // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
+    let prices = PriceCache::default();
+    let cx = TickContext { prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
+    let at = |key: &str| -> Result<Option<DateTime<Utc>>, EngineError> {
+        scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
+    };
+    if scenario["tick"] != false { ticks(o, venue, bot_id, start, &cx).await?; }
+    // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
+    let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
         let tx: i64 = o.primary.query_row("SELECT id FROM transactions WHERE bot_id = ?1 AND external_id = ?2", rusqlite::params![bot_id, ext], |r| r.get(0))?;
-        return Ok(polling::follow_up(&o.primary, venue, bot_id, tx, start + chrono::Duration::seconds(5)).await.err());
+        poll = polling::follow_up(&o.primary, venue, bot_id, tx, start + chrono::Duration::seconds(5)).await.err();
     }
-    Ok(None)
+    // What changes between the first tick and the next, outside both engines; the same SQL runs on Rails' copy.
+    for sql in scenario["between"].as_array().into_iter().flatten() {
+        o.primary.execute_batch(sql.as_str().ok_or_else(|| EngineError::Data(format!("scenario.between: {sql}")))?)?;
+    }
+    let mut recover_sent = None;
+    if let Some(when) = at("recover_at")? {
+        let before = posted();
+        tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(when), &mut Attempts::default(), &mut None, &cx).await?;
+        recover_sent = Some(posted() - before);
+    }
+    if let Some(when) = at("next_at")? { ticks(o, venue, bot_id, when, &cx).await?; }
+    Ok((poll, recover_sent))
+}
+
+/// One Bot::ActionJob run at `start` and the retries it enqueues for itself.
+async fn ticks<V: Venue>(o: &Opened, venue: &V, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>) -> Result<(), EngineError> {
+    let (mut at, mut attempts) = (start, Attempts::default());
+    for _ in 0..MAX_ATTEMPTS {
+        match tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(at), &mut attempts, &mut None, cx).await? {
+            TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
+            _ => break,
+        }
+    }
+    Ok(())
 }
 
 /// For every bot this engine would run on the copy at `src`: its own scenario, ticking 1 s after its next
 /// checkpoint. The copy is duplicated per bot, so each engine writes only into its own.
 pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) -> Result<usize, EngineError> {
-    use crate::engine::{eligibility, model, schedule};
+    use crate::engine::{basket, eligibility, model, schedule};
     store::check(&Paths::from_env(&|_| None, src))?;
     let c = Connection::open_with_flags(src.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let report = eligibility::check_install(&c)?;
@@ -180,12 +214,15 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
             Connection::open_with_flags(src.join(f), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?
                 .execute("VACUUM INTO ?1", [target.to_string_lossy()])?;
         }
-        let pair = model::ticker_for(&c, &bot)?.map(|t| t.ticker).unwrap_or_default();
-        let recorded = tickers.get(&pair).cloned().ok_or_else(|| EngineError::Data(format!("no recorded Ticker body for {pair}")))?;
+        // Every member's pair: a basket's legs each read their own price from the copy's script.
+        let pairs = basket::member_pairs(&c, &bot)?;
+        let recorded: Vec<Value> = pairs.iter()
+            .map(|p| tickers.get(p).cloned().ok_or_else(|| EngineError::Data(format!("no recorded Ticker body for {p}"))))
+            .collect::<Result<_, _>>()?;
         let alpaca = model::exchange_type(&c, &bot)? == "Exchanges::Alpaca";
-        let script = if alpaca { alpaca_copy_script(&c, &bot, &pair, &recorded, *id)? } else { json!({ "http": {
-            "/0/public/Ticker": [recorded],
-            "/0/private/AddOrder": [{ "error": [], "result": { "txid": [format!("OPARITY-{id}")] } }],
+        let script = if alpaca { alpaca_copy_script(&c, &bot, &recorded, *id)? } else { json!({ "http": {
+            "/0/public/Ticker": [recorded.first().cloned().unwrap_or(Value::Null)],
+            "/0/private/AddOrder": (1..=placements(1)).map(|n| json!({ "error": [], "result": { "txid": [format!("OPARITY-{id}-{n}")] } })).collect::<Vec<_>>(),
             "/0/private/BalanceEx": [{ "error": [], "result": { "ZEUR": { "balance": "1000000000", "hold_trade": "0" }, "ZUSD": { "balance": "1000000000", "hold_trade": "0" } } }],
             "/0/private/QueryOrders": [{ "error": [], "result": {} }],
             "/0/private/TradesHistory": [{ "error": [], "result": { "trades": {}, "count": 0 } }] } }) };
@@ -196,24 +233,37 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
     Ok(report.eligible.len())
 }
 
-/// An Alpaca copy's script: the recorded quote and trade bodies, an accepted order, a funded account, an open clock, and
-/// every order the bot still waits on answered as resting and unfilled. Both engines read the same bodies, so that answer
-/// is neutral.
-fn alpaca_copy_script(c: &Connection, bot: &crate::engine::model::Bot, pair: &str, recorded: &Value, id: i64) -> Result<Value, EngineError> {
+/// How many distinct order ids a copy's script holds: every leg of every attempt Bot::ActionJob may make (MAX_ATTEMPTS), so
+/// none repeats; the script repeats its last answer only past that.
+fn placements(members: usize) -> usize { members.max(1) * MAX_ATTEMPTS }
+
+/// An Alpaca copy's script: one quotes and one trades body naming every member's pair (as Alpaca answers `symbols=…`), an
+/// accepted order, a funded account, an open clock, and every order the bot still waits on answered as resting and unfilled,
+/// on its own pair. Both engines read the same bodies, so that answer is neutral.
+fn alpaca_copy_script(c: &Connection, bot: &crate::engine::model::Bot, recorded: &[Value], id: i64) -> Result<Value, EngineError> {
     let ok = |body: Value| json!([{ "status": 200, "body": body }]);
+    let merged = |endpoint: &str| {
+        let mut all = Map::new();
+        for r in recorded { if let Some(m) = r[endpoint][endpoint].as_object() { all.extend(m.clone()); } }
+        json!({ endpoint: Value::Object(all) })
+    };
     let mut a = json!({
-        "GET /v1beta3/crypto/us/latest/quotes": ok(recorded["quotes"].clone()),
-        "GET /v1beta3/crypto/us/latest/trades": ok(recorded["trades"].clone()),
-        "POST /v2/orders": ok(json!({ "id": format!("OPARITY-{id}"), "status": "pending_new" })),
+        "GET /v1beta3/crypto/us/latest/quotes": ok(merged("quotes")),
+        "GET /v1beta3/crypto/us/latest/trades": ok(merged("trades")),
+        // One distinct order id per placement: both engines deduplicate an accepted order by its external id, so a repeated
+        // id would fold a basket's legs into one row on both sides and still compare equal.
+        "POST /v2/orders": Value::Array((1..=placements(recorded.len())).map(|n| json!({ "status": 200, "body": { "id": format!("OPARITY-{id}-{n}"), "status": "pending_new" } })).collect()),
         "GET /v2/account": ok(json!({ "cash": "1000000000", "buying_power": "1000000000", "non_marginable_buying_power": "1000000000" })),
         "GET /v2/positions": ok(json!([])),
         "GET /v2/clock": ok(json!({ "is_open": true, "next_open": "2026-01-05T09:30:00-05:00", "next_close": "2026-01-05T16:00:00-05:00" })),
     });
-    let mut s = c.prepare("SELECT external_id, order_type FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 \
+    let mut s = c.prepare("SELECT external_id, order_type, base_asset_id FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 \
                            AND external_status IN (0, 1) AND external_id IS NOT NULL")?;
-    let waiting = s.query_map(rusqlite::params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?)))?
+    let waiting = s.query_map(rusqlite::params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    for (ext, order_type) in waiting {
+    for (ext, order_type, asset) in waiting {
+        // Eligibility refuses a row without base_asset_id, so every waiting row names its member.
+        let pair = match asset { Some(a) => crate::engine::model::ticker_for_asset(c, bot, a)?.map(|t| t.ticker).unwrap_or_default(), None => String::new() };
         let kind = if order_type == Some(1) { "limit" } else { "market" };
         a[format!("GET /v2/orders/{ext}")] = ok(json!({ "id": ext, "status": "accepted", "symbol": pair, "type": kind, "side": "buy",
             "filled_qty": "0", "filled_avg_price": null, "qty": null, "notional": null, "limit_price": null }));

@@ -156,6 +156,24 @@ module Pages
                order_row(record, symbol, '2026-09-10T11:30:00Z', external_status: 'unknown', price: nil, amount: nil, quote_amount: '50',
                                                                  amount_exec: nil, quote_amount_exec: nil)
              ]
+           when 'engine_legs'
+             # What the Rust engine leaves on a basket mid-run: one filled leg per member, the next run's NVDA leg accepted and
+             # not yet swept, MSFT's leg sent and unresolved (its intent names MSFT's own ticker), and the keys only that
+             # engine writes, which Rails reads past.
+             msft = record.exchange.tickers.find_by!(base: 'MSFT')
+             record.update_columns(transient_data: record.transient_data.merge(
+               'rust_placement' => { 'cl_ord_id' => '9b1d2c3e-1111-4000-8000-000000000001', 'deadline' => '2026-09-09T13:30:12Z', 'at' => '2026-09-09T13:30:02Z',
+                                     'ticker_id' => msft.id, 'base_asset_id' => msft.base_asset_id, 'limit' => false, 'price' => '505.1',
+                                     'amount' => '0.098990299', 'quote_amount' => '50.0', 'quote_type' => true, 'volume' => '50.0',
+                                     'exchange_id' => record.exchange_id, 'quote_asset_id' => asset_id('USD'), 'allocations' => record.settings['allocations'] },
+               'rust_defer_until' => { 'until' => '2026-10-01T10:00:00.000000Z', 'schedule' => 'month' },
+               'rust_amount_limit_stops_pending' => { 'count' => 1, 'key' => 'x' },
+               'rust_limit_mail_pending' => { 'stamped_at' => '2026-09-09T13:30:01.000Z' }))
+             %w[QQQM IBIT NVDA MSFT].each_with_index.map do |sym, i|
+               order_row(record, sym, "2026-09-0#{i + 1}T13:30:01Z", price: '400', amount: '0.125', amount_exec: '0.125', quote_amount: '50',
+                                                                    quote_amount_exec: '50')
+             end + [order_row(record, 'NVDA', '2026-09-09T13:30:01Z', external_status: 'unknown', price: nil, amount: nil, quote_amount: '50',
+                                                                      amount_exec: nil, quote_amount_exec: nil)]
            else raise "unknown orders #{name}"
            end
     Transaction.insert_all!(rows)

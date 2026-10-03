@@ -417,14 +417,15 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
     let refused = check.ended_within(Duration::from_secs(20)).expect("check ends within 20 s");
     assert!(!refused.success() && said("check.log").contains("another Deltabadger engine"), "{}", said("check.log"));
 
-    // The engine makes its passes beside the pages. Set to work behind its back, the basket of two is a bot it cannot trade:
-    // its next pass (it idles for a minute at most) reads the install again, names the bot, and ends the process.
+    // The engine makes its passes beside the pages. Set to work behind its back with market-cap weights, the basket of two
+    // is a bot it cannot trade: its next pass (it idles for a minute at most) reads the install again, names the bot, and
+    // ends the process.
     let behind = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    behind.execute("UPDATE bots SET status = 1 WHERE id = ?1", [basket]).unwrap();
+    behind.execute("UPDATE bots SET status = 1, settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = ?1", [basket]).unwrap();
     drop(behind);
     let ended = server.ended_within(Duration::from_secs(100)).unwrap_or_else(|| panic!("no engine pass within 100 s: {}", said("serve.log")));
     assert!(!ended.success(), "the engine's pass ends the process: {ended}");
-    assert!(said("serve.log").contains(&format!("bot {basket} (scheduled)")) && said("serve.log").contains("allocations: 2 assets (only one)"), "{}", said("serve.log"));
+    assert!(said("serve.log").contains(&format!("bot {basket} (scheduled)")) && said("serve.log").contains("weighting market_cap"), "{}", said("serve.log"));
     assert!(!up_within(port, Duration::from_secs(2)), "and the pages went with it");
 
     // Started on that install, the executable does not come up: refused before anything is served.
@@ -432,7 +433,7 @@ fn the_executable_serves_the_bot_pages_of_an_install_the_engine_accepts_and_refu
     let mut again = Child(serve_command(dir.path(), free_port()).env("SECRET_KEY_BASE", "engine-test-secret").stdout(out.try_clone().unwrap()).stderr(out).spawn().unwrap());
     let refused = again.ended_within(Duration::from_secs(30)).unwrap_or_else(|| panic!("serve neither refused nor ended within 30 s: {}", said("again.log")));
     assert_eq!(refused.code(), Some(1), "{}", said("again.log"));
-    assert!(said("again.log").contains(&format!("bot {basket} (scheduled)")) && said("again.log").contains("allocations: 2 assets (only one)"), "{}", said("again.log"));
+    assert!(said("again.log").contains(&format!("bot {basket} (scheduled)")) && said("again.log").contains("weighting market_cap"), "{}", said("again.log"));
 }
 
 /// The cookie is written when the session changed, not on every response. A request that left the

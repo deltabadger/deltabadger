@@ -293,8 +293,10 @@ async fn a_five_minute_smart_bot_waits_on_its_unresolved_intent_and_never_places
     assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::seconds(1199)), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
     assert_eq!(t.posted_orders().len(), 1, "no second placement while the first may still land");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some());
-    // At the margin the absence is proven and that same tick buys again, once.
-    tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::seconds(1200)), &mut Attempts::default()).await.unwrap();
+    // At the margin the absence is proven; that tick only settles it, and the next 5-minute checkpoint buys, once.
+    assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::seconds(1200)), &mut Attempts::default()).await.unwrap(), TickOutcome::Rescheduled));
+    assert_eq!(t.posted_orders().len(), 1);
+    tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::minutes(25)), &mut Attempts::default()).await.unwrap();
     assert_eq!(t.posted_orders().len(), 2);
 }
 

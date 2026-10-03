@@ -372,6 +372,10 @@ module Pages
       'bot_page_no_key' => with_bots(three, signed_in(get('/bots/2')), 'api_keys' => {}),
       'bot_page_wide' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'coins' }, running('wide', '2026-08-31T10:00:00Z', acted('2026-08-31T10:00:00.900Z'))],
                                    signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'))),
+      # A four-member basket as the Rust engine leaves it mid-run: a leg per member, an unresolved intent on its own
+      # ticker, and the engine's own transient_data keys.
+      'bot_page_engine_basket' => with_bots([running('wide', '2026-08-31T10:00:00Z', acted('2026-09-09T13:30:00.900Z')).merge('orders' => 'engine_legs')],
+                                            signed_in(get('/bots/1'), get('/bots/1.turbo_stream', FEED))),
       # Every rule of a stopped basket switched on, and the three ways of setting a starting time.
       'bot_page_rules' => with_bots(
         [stopped('basket', 'settings' => { 'price_limited' => true, 'price_limit_value_condition' => 'between', 'price_limit_range_lower_bound' => 100.5,

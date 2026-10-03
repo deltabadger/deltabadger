@@ -315,6 +315,331 @@ vectors['carry'] = Array.new(36) do |i|
   end
   c
 end
+# Alpaca crypto baskets (rust/src/engine/basket.rs), recorded on real rows inside a transaction that is rolled back,
+# so the development database keeps nothing. Members are V-prefixed so no real asset, ticker or order id is touched.
+Rails.cache = ActiveSupport::Cache::NullStore.new # metrics(force: true) recomputes; nothing is written to a cache store
+BASKET_PAIRS = {
+  'VBTC' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
+  'VETH' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.0005', 'minimum_quote_size' => '1' },
+  'VSOL' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 3, 'minimum_base_size' => '0.01', 'minimum_quote_size' => '1' },
+  'VADA' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 4, 'minimum_base_size' => '1', 'minimum_quote_size' => '1' }
+}.freeze
+# A basket over `weights` on the development database's Alpaca exchange, saved as BotApi::Bots::Create saves one (its
+# after_save refresh_composition writes bot_index_assets), with `rows` inserted as REGULAR buys. Yields it and its assets
+# by symbol, returns the block's value, and rolls everything back.
+def with_basket(weights, settings: {}, rows: [])
+  out = nil
+  ActiveRecord::Base.transaction do
+    alpaca = Exchanges::Alpaca.first || Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    usd = Asset.create!(external_id: 'rust-vector-usd', symbol: 'USD', name: 'US Dollar', category: 'Currency')
+    ExchangeAsset.create!(exchange: alpaca, asset: usd, available: true) # Ticker#exchange_matches_assets
+    assets = weights.keys.to_h do |sym|
+      asset = Asset.create!(external_id: "rust-vector-#{sym.downcase}", symbol: sym, name: sym, category: 'Cryptocurrency')
+      ExchangeAsset.create!(exchange: alpaca, asset:, available: true)
+      Ticker.create!(exchange: alpaca, ticker: "#{sym}/USD", base: sym, quote: 'USD', base_asset: asset, quote_asset: usd,
+                     **BASKET_PAIRS.fetch(sym).to_h { |k, v| [k.to_sym, v.is_a?(String) ? BigDecimal(v) : v] })
+      [sym, asset]
+    end
+    user = User.new(name: 'Vectors', email: 'rust-vectors@example.com', password: 'correct horse battery staple', confirmed_at: Time.current)
+    user.save!(validate: false)
+    bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: alpaca, settings: {
+      'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'day', 'weighting' => 'manual',
+      'allocations' => weights.to_h { |sym, w| [assets.fetch(sym).id.to_s, w] }
+    }.merge(settings))
+    bot.set_missed_quote_amount
+    bot.save!
+    rows.each do |r|
+      Transaction.insert!(r.except('asset').merge('bot_id' => bot.id, 'exchange_id' => alpaca.id, 'base_asset_id' => assets.fetch(r['asset']).id,
+                                                  'quote_asset_id' => usd.id, 'base' => r['asset'], 'quote' => 'USD', 'side' => 0,
+                                                  'transaction_type' => 'REGULAR', 'bot_interval' => 'day', 'bot_quote_amount' => 60,
+                                                  'error_messages' => [], 'updated_at' => r['created_at']))
+    end
+    out = yield bot.reload, assets, alpaca
+    raise ActiveRecord::Rollback
+  end
+  out
+end
+vector_row_id = 0
+LEDGER_KINDS = %w[closed closed_nil_exec closed_zero_quote_exec open_partial open_unfilled unknown_market cancelled_partial abandoned failed skipped].freeze
+# One REGULAR buy of `sym` in the state `kind`, priced near the member's usual price. Every decimal is a string, as the
+# Rust test inserts it; Rails casts it to BigDecimal and binds it as a Float, as for any row.
+ledger_row = lambda do |rng, sym, kind|
+  vector_row_id += 1
+  p = ({ 'VBTC' => 64_000, 'VETH' => 2500, 'VSOL' => 150 }.fetch(sym) * (0.9 + (rng.rand(20) / 100.0))).round(2).to_d
+  q = (10 + rng.rand(200)).to_d
+  a = (q / p).round(9)
+  row = { 'asset' => sym, 'status' => 0, 'external_id' => "rust-vector-#{vector_row_id}", 'order_type' => 0, 'price' => p.to_s('F'),
+          'created_at' => "2026-08-#{10 + (vector_row_id % 18)} 10:00:00" }
+  case kind
+  when 'closed' then row.merge('external_status' => 2, 'quote_amount' => q.to_s('F'), 'amount_exec' => a.to_s('F'), 'quote_amount_exec' => (a * p).to_s('F'))
+  when 'closed_nil_exec' then row.merge('external_status' => 2, 'amount' => a.to_s('F'))
+  when 'closed_zero_quote_exec' then row.merge('external_status' => 2, 'quote_amount' => q.to_s('F'), 'amount_exec' => a.to_s('F'), 'quote_amount_exec' => '0')
+  when 'open_partial' then row.merge('external_status' => 1, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => (a / 3).round(9).to_s('F'),
+                                     'quote_amount_exec' => ((a / 3).round(9) * p).to_s('F'))
+  when 'open_unfilled' then row.merge('external_status' => 0, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  when 'unknown_market' then row.merge('external_status' => 0, 'quote_amount' => q.to_s('F'))
+  when 'cancelled_partial' then row.merge('external_status' => 3, 'quote_amount' => q.to_s('F'), 'amount_exec' => (a / 2).round(9).to_s('F'),
+                                          'quote_amount_exec' => ((a / 2).round(9) * p).to_s('F'))
+  when 'abandoned' then row.merge('external_status' => 4, 'quote_amount' => q.to_s('F'))
+  when 'failed' then row.merge('status' => 1, 'external_id' => nil, 'quote_amount' => q.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  when 'skipped' then row.merge('status' => 2, 'external_id' => nil, 'quote_amount' => q.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  when 'cancelled_limit_partial' then row.merge('external_status' => 3, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => (a / 2).round(9).to_s('F'),
+                                                'quote_amount_exec' => ((a / 2).round(9) * p).to_s('F'))
+  when 'abandoned_limit' then row.merge('external_status' => 4, 'order_type' => 1, 'amount' => a.to_s('F'))
+  when 'failed_resting' then row.merge('status' => 1, 'external_status' => 1, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => (a / 3).round(9).to_s('F'),
+                                       'quote_amount_exec' => ((a / 3).round(9) * p).to_s('F'))
+  when 'skipped_closed' then row.merge('status' => 2, 'external_status' => 2, 'quote_amount' => q.to_s('F'), 'amount' => a.to_s('F'), 'amount_exec' => a.to_s('F'),
+                                       'quote_amount_exec' => (a * p).to_s('F'))
+  end
+end
+pairs_of = ->(weights) { BASKET_PAIRS.slice(*weights.keys) }
+# Bot::Composition::Measurable#metrics' asset_breakdown amounts and #reserved_waiting_amounts(:buy), by member symbol.
+ledger_rng = Random.new(2_202_610)
+ledger_cases = Array.new(40) do
+  members = %w[VBTC VETH VSOL].first(ledger_rng.rand(1..3))
+  weights = members.size == 1 ? { members[0] => 1.0 } : Bots::DcaMultiAsset.new.send(:normalize_allocations, members.to_h { |m| [m, 1.0] })
+  rows = members.flat_map { |sym| Array.new(ledger_rng.rand(0..4)) { ledger_row.(ledger_rng, sym, LEDGER_KINDS.sample(random: ledger_rng)) } }
+  { weights:, rows: }
+end
+# Rows the random cases never hold, each one decisive for a filter: a cancelled or abandoned limit buy whose amount is
+# set (a resting remainder only the external-status filter keeps out), and a failed or skipped row carrying amounts (kept
+# out only by the submitted filter). Drawn after the random cases so those stay as they were.
+filter_rng = Random.new(2_202_611)
+FILTER_KINDS = %w[cancelled_limit_partial abandoned_limit failed_resting skipped_closed].freeze
+ledger_cases += FILTER_KINDS.map { |kind| { weights: { 'VBTC' => 1.0 }, rows: [ledger_row.(filter_rng, 'VBTC', 'open_partial'), ledger_row.(filter_rng, 'VBTC', kind)] } }
+ledger_cases << { weights: Bots::DcaMultiAsset.new.send(:normalize_allocations, { 'VBTC' => 1.0, 'VETH' => 1.0 }),
+                  rows: FILTER_KINDS.flat_map { |kind| %w[VBTC VETH].map { |sym| ledger_row.(filter_rng, sym, kind) } } }
+vectors['basket_ledgers'] = ledger_cases.map do |c|
+  with_basket(c[:weights], rows: c[:rows]) do |bot, assets, _alpaca|
+    m = bot.metrics(force: true)
+    breakdown = m[:asset_breakdown] || {}
+    symbol_of = ->(id) { assets.find { |_, a| a.id == id }&.first }
+    { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows],
+      'holdings' => assets.filter_map { |sym, a| (h = breakdown.dig(bot.key_for(a.id, m), :amount)) && [sym, h.to_d.to_s('F')] }.to_h,
+      'reserved' => bot.send(:reserved_waiting_amounts, :buy).to_h { |id, amount| [symbol_of.(id), amount.to_d.to_s('F')] } }
+  end
+end
+
+# The weights a basket is derived with: settings sliders (Floats), renormalised in Float with Ruby's compensated Array#sum,
+# written into bot_index_assets.target_allocation decimal(10,6), and read back as BigDecimal, then #to_f.
+bits = ->(f) { [f].pack('G').unpack1('H*') }
+composition_rng = Random.new(2_202_640)
+weight_sets = [{ 'VBTC' => 1.0 }, { 'VBTC' => 0.5, 'VETH' => 0.5 }, { 'VBTC' => 0.7, 'VETH' => 0.3 },
+               { 'VBTC' => 0.334, 'VETH' => 0.333, 'VSOL' => 0.333 }, { 'VBTC' => 0.5, 'VETH' => 0.3, 'VSOL' => 0.2 },
+               { 'VBTC' => 0.1, 'VETH' => 0.2, 'VSOL' => 0.3 }, { 'VBTC' => 0.6, 'VETH' => 0.4, 'VSOL' => 0.0 }] +
+              Array.new(12) { Bots::DcaMultiAsset.new.send(:normalize_allocations, %w[VBTC VETH VSOL].to_h { |m| [m, composition_rng.rand(1..97).to_f] }) }
+vectors['float_sum'] = (weight_sets.map(&:values) + [[0.1, 0.2, 0.3], [1.0e16, 1.0, -1.0e16], [0.333, 0.333, 0.334]])
+                       .map { |values| [values.map(&bits), bits.(values.sum)] }
+target_type = BotIndexAsset.type_for_attribute(:target_allocation)
+derived = weight_sets.flat_map { |w| (t = w.values.sum).positive? ? w.values.map { |v| v / t } : [] }
+vectors['decimal_10_6'] = (derived + [1.0 / 3, 2.0 / 3, 0.3333335, 0.1234565, 0.0000005, 0.9999995, 1.0e-7, 0.12345649999999999])
+                          .map { |f| [bits.(f), target_type.cast(f).to_s('F')] }
+composition_cases = [[weight_sets[0], []], [weight_sets[1], []], [weight_sets[1], %w[VETH]], [weight_sets[1], %w[VBTC VETH]],
+                     [weight_sets[2], []], [weight_sets[2], %w[VBTC]], [weight_sets[3], []], [weight_sets[3], %w[VSOL]],
+                     [weight_sets[4], []], [weight_sets[4], %w[VETH]], [weight_sets[5], []], [weight_sets[6], []]] +
+                    weight_sets.drop(7).flat_map { |w| [[w, []], [w, [w.keys.sample(random: composition_rng)]]] }
+# Members left whose stored decimal(10,6) targets do not sum to 1, so buyable_allocations re-weights them in BigDecimal: a
+# four-asset basket with one member out (0.444444 + 0.333333 + 0.222222), and true thirds (0.333333 × 3). Then members that
+# exited and trade again: the third refresh re-adds them (`readd`).
+four = { 'VBTC' => 0.4, 'VETH' => 0.3, 'VSOL' => 0.2, 'VADA' => 0.1 }
+thirds = { 'VBTC' => 1.0 / 3, 'VETH' => 1.0 / 3, 'VSOL' => 1.0 / 3 }
+composition_cases = composition_cases.map { |w, u| [w, u, []] } +
+                    [[four, %w[VADA], []], [four, %w[VETH], []], [thirds, [], []], [thirds, %w[VSOL], []],
+                     [weight_sets[4], %w[VETH], %w[VETH]], [four, %w[VADA VSOL], %w[VSOL]], [thirds, %w[VBTC], %w[VBTC]]]
+vectors['basket_compositions'] = composition_cases.map do |weights, untradable, readd|
+  with_basket(weights) do |bot, assets, alpaca|
+    failure = nil
+    ticker_of = ->(sym) { Ticker.find_by!(exchange: alpaca, base_asset: assets.fetch(sym)) }
+    entered = bot.bot_index_assets.to_h { |b| [b.asset_id, b.entered_at] }
+    if untradable.any?
+      untradable.each { |sym| ticker_of.(sym).update_columns(trading_enabled: false) }
+      result = bot.refresh_composition
+      failure = result.errors.to_sentence if result.failure?
+    end
+    if readd.any?
+      readd.each { |sym| ticker_of.(sym).update_columns(trading_enabled: true) }
+      bot.refresh_composition.then { |r| raise r.errors.to_sentence if r.failure? }
+    end
+    # Per row: entered_at as the first save wrote it, and exited_at blank.
+    stamps = bot.bot_index_assets.reload.order(:id).map { |b| [assets.key(b.asset), b.entered_at == entered[b.asset_id], b.exited_at.nil?] }
+    { 'weights' => weights, 'pairs' => pairs_of.(weights), 'exchange' => alpaca.name, 'untradable' => untradable, 'readd' => readd,
+      'failure' => failure, 'stamps' => stamps,
+      'index_rows' => bot.bot_index_assets.order(:id).map { |b| [assets.key(b.asset), b.target_allocation&.to_s('F'), b.in_index] },
+      'members' => bot.send(:buyable_allocations).map { |a| [assets.key(a[:asset]), bits.(a[:target_allocation].to_f)] } }
+  end
+end
+
+# Bot::Composition::OrderSetter#get_orders_data over recorded holdings and prices: every order it returns (base, price,
+# base amount, quote amount) or its failure. Prices are read from the book below, not from the venue.
+module VectorPrices
+  mattr_accessor :book
+  def get_ask_price(force: false) = Result::Success.new(VectorPrices.book.fetch([id, :ask]))
+  def get_last_price(force: false) = Result::Success.new(VectorPrices.book.fetch([id, :last]))
+end
+Ticker.prepend(VectorPrices)
+closed_row = lambda do |sym, value, price|
+  vector_row_id += 1
+  qty = (value.to_d / price.to_d).round(9)
+  { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "rust-vector-#{vector_row_id}", 'order_type' => 0,
+    'price' => price.to_s, 'quote_amount' => value.to_s, 'amount_exec' => qty.to_s('F'), 'quote_amount_exec' => (qty * price.to_d).to_s('F'),
+    'created_at' => '2026-08-20 10:00:00' }
+end
+split_rng = Random.new(2_202_650)
+base_prices = { 'VBTC' => 64_000.0, 'VETH' => 2500.0, 'VSOL' => 150.0 }
+usual = { 'VBTC' => { 'ask' => '64000', 'last' => '63990' }, 'VETH' => { 'ask' => '2500', 'last' => '2499.5' }, 'VSOL' => { 'ask' => '150', 'last' => '149.9' } }
+split_cases = Array.new(48) do
+  members = %w[VBTC VETH VSOL].first(split_rng.rand(1..3))
+  weights = members.size == 1 ? { members[0] => 1.0 } : Bots::DcaMultiAsset.new.send(:normalize_allocations, members.to_h { |m| [m, split_rng.rand(1..9).to_f] })
+  rows = members.flat_map { |sym| Array.new(split_rng.rand(0..3)) { ledger_row.(split_rng, sym, LEDGER_KINDS.sample(random: split_rng)) } }
+  prices = members.to_h { |m| p = base_prices[m] * (0.8 + (split_rng.rand(40) / 100.0)); [m, { 'ask' => format('%.3f', p), 'last' => format('%.3f', p * 0.999) }] }
+  { weights:, rows:, prices:, limit: split_rng.rand < 0.5, x: %w[0.5 3 60 120 123.45 1000].sample(random: split_rng) }
+end
+split_cases += [
+  # A limit price under the pair's precision: Rails fails before any order ("limit price rounds to zero at 3 decimals").
+  { weights: { 'VBTC' => 0.5, 'VSOL' => 0.5 }, rows: [], prices: { 'VBTC' => usual['VBTC'], 'VSOL' => { 'ask' => '0.0004', 'last' => '0.0004' } }, limit: true, x: '60' },
+  # At balance: each member holds its weight of 600 at the ask, so the contribution is spent by weight.
+  { weights: { 'VBTC' => 0.334, 'VETH' => 0.333, 'VSOL' => 0.333 },
+    rows: [closed_row.('VBTC', 200.4, 64_000), closed_row.('VETH', 199.8, 2500), closed_row.('VSOL', 199.8, 150)], prices: usual, limit: false, x: '60' },
+  # Drifted past its share even after the contribution: that member's offset is zero, the other takes everything.
+  { weights: { 'VBTC' => 0.5, 'VETH' => 0.5 }, rows: [closed_row.('VBTC', 1000, 64_000)], prices: usual.slice('VBTC', 'VETH'), limit: false, x: '60' },
+  # One member: the offsets reduce to the contribution.
+  { weights: { 'VBTC' => 1.0 }, rows: [closed_row.('VBTC', 300, 64_000)], prices: usual.slice('VBTC'), limit: true, x: '123.45' },
+  # True thirds, stored as 0.333333 each and re-weighted in BigDecimal, valued at limit prices.
+  { weights: { 'VBTC' => 1.0 / 3, 'VETH' => 1.0 / 3, 'VSOL' => 1.0 / 3 }, rows: [closed_row.('VBTC', 100, 64_000)], prices: usual, limit: true, x: '60' },
+  # A resting limit buy counts as held: VETH's unfilled 0.08 at 2500 balances VBTC's 200, so the contribution splits by
+  # weight instead of all going to VETH.
+  { weights: { 'VBTC' => 0.5, 'VETH' => 0.5 },
+    rows: [closed_row.('VBTC', 200, 64_000),
+           { 'asset' => 'VETH', 'status' => 0, 'external_status' => 0, 'external_id' => "rust-vector-#{vector_row_id += 1}", 'order_type' => 1,
+             'price' => '2500.0', 'amount' => '0.08', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-08-20 10:00:00' }],
+    prices: usual.slice('VBTC', 'VETH'), limit: false, x: '60' },
+  # 7:7:1 from nothing, stored as 0.466667, 0.466667 and 0.066667 and re-weighted: the offsets sum past the contribution,
+  # and the last leg is capped by what is left rather than by its own share.
+  { weights: { 'VBTC' => 7.0 / 15, 'VETH' => 7.0 / 15, 'VSOL' => 1.0 / 15 }, rows: [], prices: usual, limit: false, x: '60' }
+]
+vectors['basket_splits'] = split_cases.map do |c|
+  settings = c[:limit] ? { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } : {}
+  with_basket(c[:weights], settings:, rows: c[:rows]) do |bot, assets, alpaca|
+    VectorPrices.book = c[:prices].each_with_object({}) do |(sym, p), book|
+      t = Ticker.find_by!(exchange: alpaca, base_asset: assets.fetch(sym))
+      book[[t.id, :ask]] = BigDecimal(p['ask'])
+      book[[t.id, :last]] = BigDecimal(p['last'])
+    end
+    r = bot.send(:get_orders_data, BigDecimal(c[:x]))
+    { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows], 'prices' => c[:prices], 'limit' => c[:limit], 'x' => c[:x],
+      'orders' => r.success? ? r.data.map { |o| [o[:ticker].base, o[:price].to_d.to_s('F'), o[:amount].to_d.to_s('F'), o[:quote_amount].to_d.to_s('F')] } : nil,
+      'failure' => r.failure? ? r.errors.to_sentence : nil }
+  end
+end
+
+# Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached and
+# #quote_amount_limit_reached? as Ruby computes them. The closed and waiting buckets pluck decimal columns (BigDecimal); the
+# stopped bucket plucks Arel.sql('COALESCE(quote_amount_exec, 0)'), which SQLite answers as its own INTEGER or REAL (Integer
+# or Float in Ruby); each bucket is summed by Array#sum, the buckets added in that order, and the limit is the settings
+# JSON's Integer or Float. Recorded with the class of the result: a Float leaks into the remainder (cap 60.03, a sole
+# cancelled fill of 60.02: 0.00999999999999801, under the 0.01 floor).
+cap_row = lambda do |kind, q|
+  vector_row_id += 1
+  row = { 'asset' => 'VBTC', 'status' => 0, 'external_id' => "rust-vector-#{vector_row_id}", 'order_type' => 0, 'price' => '64000',
+          'created_at' => '2026-08-20 10:00:00' }
+  case kind
+  when 'closed' then row.merge('external_status' => 2, 'quote_amount' => q, 'quote_amount_exec' => q, 'amount_exec' => '0.001')
+  when 'unknown' then row.merge('external_status' => 0, 'quote_amount' => q)
+  when 'cancelled' then row.merge('external_status' => 3, 'quote_amount' => '100', 'quote_amount_exec' => q, 'amount_exec' => '0.001')
+  when 'abandoned' then row.merge('external_status' => 4, 'quote_amount' => '100')
+  end
+end
+cap_fixed = [
+  [60.03, [%w[cancelled 60.02]]],                        # a Float remainder under the floor: reached
+  [60.03, [%w[closed 60.02]]],                           # the same in BigDecimal: exactly 0.01, not reached
+  [60.03, [%w[closed 30.01], %w[cancelled 30.01]]],      # BigDecimal + Float
+  [60.03, [%w[cancelled 30.01], %w[cancelled 30.01]]],   # two Floats, Kahan-summed
+  [100, [%w[cancelled 99.99]]],                          # Integer - Float
+  [100, [%w[cancelled 99.995]]],
+  [100, [%w[closed 99.995]]],
+  [60.03, [['abandoned', nil], %w[cancelled 60.02]]],    # Integer 0, then a Float
+  [60.03, [%w[cancelled 60], %w[cancelled 0.02]]],       # an integral fill is stored INTEGER, then a Float
+  [1000, []],
+  [50.5, [%w[unknown 25.25], %w[cancelled 25.24]]],
+  [0.3, [%w[cancelled 0.1], %w[cancelled 0.2]]],
+  [0.31, [%w[cancelled 0.1], %w[cancelled 0.2]]],
+  [120.07, [%w[closed 40.02], %w[unknown 40.02], %w[cancelled 40.02]]]
+]
+cap_rng = Random.new(2_202_670)
+cap_random = Array.new(26) do
+  cap = [60.03, 100, 99.99, 120.07, 0.3, 75.5].sample(random: cap_rng)
+  rows = Array.new(cap_rng.rand(1..4)) do
+    kind = %w[closed unknown cancelled cancelled abandoned].sample(random: cap_rng)
+    [kind, kind == 'abandoned' ? nil : format('%.2f', cap_rng.rand(1..3000) / 100.0)]
+  end
+  [cap, rows]
+end
+vectors['amount_caps'] = (cap_fixed + cap_random).map do |cap, specs|
+  rows = specs.map { |kind, q| cap_row.(kind, q) }
+  with_basket({ 'VBTC' => 1.0 }, settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => cap }, rows:) do |bot, _assets, _alpaca|
+    bot.update_columns(transient_data: bot.transient_data.merge('quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z'))
+    bot = Bot.find(bot.id)
+    left = bot.quote_amount_available_before_limit_reached
+    value = case left
+            when Float then { 'class' => 'Float', 'f' => [left].pack('G').unpack1('H*') }
+            when BigDecimal then { 'class' => 'BigDecimal', 'd' => left.to_s('F') }
+            else { 'class' => left.class.name, 'i' => left.to_s }
+            end
+    { 'weights' => { 'VBTC' => 1.0 }, 'pairs' => pairs_of.({ 'VBTC' => 1.0 }), 'rows' => rows, 'cap' => cap, 'available' => value,
+      'reached' => bot.quote_amount_limit_reached? }
+  end
+end
+
+# Bot::Lifecycle#start(start_fresh: false) on a stopped one-asset basket (daily, 60, started 2026-09-01 10:00), called at
+# 2026-09-03 15:00 UTC: whether Rails runs it now, at the next checkpoint or at a delayed first run, read from the
+# Bot::ActionJob it enqueues. The engine makes the same decision when the web asks it to continue a bot.
+continue_row = lambda do |n, quote_exec, created_at|
+  { 'asset' => 'VBTC', 'status' => 0, 'side' => 0, 'transaction_type' => 'REGULAR', 'external_id' => "rust-continue-#{n}", 'order_type' => 0,
+    'price' => '64000', 'external_status' => 2, 'quote_amount' => '60', 'quote_amount_exec' => quote_exec, 'amount_exec' => '0.0009375',
+    'created_at' => created_at }
+end
+stamped = '2026-09-03T10:00:00.500Z' # today's tick stamped last_action_job_at
+two_days = [['60', '2026-09-01 10:00:01'], ['60', '2026-09-02 10:00:01']]
+continue_cases = [
+  ['owes_its_contribution', stamped, two_days, {}],                         # stamped, never placed: 60 owed, not under 60
+  ['nothing_owed', stamped, two_days + [['60', '2026-09-03 10:00:01']], {}],
+  ['a_cent_short_of_a_contribution', stamped, two_days + [['0.01', '2026-09-03 10:00:01']], {}],
+  ['never_ticked', nil, [], {}],                                            # not restarting
+  ['the_cap_leaves_less_than_a_contribution', stamped, [['60', '2026-09-01 10:00:01']],
+   { 'quote_amount_limited' => true, 'quote_amount_limit' => 100 }],        # 120 owed, 40 left under the cap
+  ['a_smart_interval_compares_with_its_split_amount', stamped, two_days,
+   { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 }], # 7 eight-hour intervals: 20 owed, not under 20
+  ['a_future_start_time_is_not_a_delayed_first_run', stamped, two_days,
+   { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-10-01T00:00:00Z' }]
+]
+adapter = ActiveJob::Base.queue_adapter
+ActiveJob::Base.queue_adapter = :test
+vectors['continue_start'] = continue_cases.each_with_index.map do |(name, last_action_job_at, specs, settings), i|
+  rows = specs.each_with_index.map { |(q, t), n| continue_row.((i * 10) + n, q, t) }
+  with_basket({ 'VBTC' => 1.0 }, settings:, rows:) do |bot, _assets, _alpaca|
+    transient = bot.transient_data.merge('last_action_job_at' => last_action_job_at, 'quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z').compact
+    bot.update_columns(status: Bot.statuses[:stopped], started_at: Time.utc(2026, 9, 1, 10), settings_changed_at: nil, transient_data: transient)
+    bot = Bot.find(bot.id)
+    now = Time.utc(2026, 9, 3, 15)
+    travel_to(now, with_usec: true) do
+      ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+      raise "#{name}: Rails refused the start: #{bot.errors.full_messages}" unless bot.start(start_fresh: false)
+
+      jobs = ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j[:job] == Bot::ActionJob }
+      raise "#{name}: #{jobs.size} action jobs" unless jobs.size == 1
+
+      at = jobs.first[:at] && Time.zone.at(jobs.first[:at]).utc
+      decision = if at.nil? then 'now'
+                 elsif at.round(6) == bot.next_interval_checkpoint_at.round(6) then 'checkpoint'
+                 else "at #{at.iso8601(6)}"
+                 end
+      { 'name' => name, 'settings' => settings, 'last_action_job_at' => last_action_job_at, 'rows' => rows, 'now' => now.iso8601(6),
+        'decision' => decision }
+    end
+  end
+end
+ActiveJob::Base.queue_adapter = adapter
+
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
 include ActiveSupport::Testing::TimeHelpers

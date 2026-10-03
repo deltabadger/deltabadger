@@ -22,13 +22,18 @@ fn first_gid(arguments: &str) -> Option<String> {
 }
 
 pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Takeover, EngineError> {
-    let report = eligibility::check_install(&o.primary)?;
+    let report = eligibility::check_install_at(&o.primary, now)?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    // Claim first and on its own: once committed, Rails refuses, and a failure below is repaired by the next
-    // start, which repeats the deletes and the normalisation idempotently.
-    let claim = lease::claim(lock, &o.primary, cipher, version, now)?;
+    // Claim first, with the snapshot backfill and nothing else: once committed, Rails refuses, and a failure below is
+    // repaired by the next start, which repeats the deletes and the normalisation idempotently.
+    let tx = model::immediate(&o.primary)?;
+    let claim = lease::claim(lock, &tx, cipher, version, now)?;
+    // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
+    // carries what it was sent under (placement::backfill_snapshots).
+    placement::backfill_snapshots(&tx)?;
+    tx.commit()?;
 
     let mut gids: Vec<String> = report.eligible.iter().map(|id| format!("gid://deltabadger/Bots::DcaMultiAsset/{id}")).collect();
     for id in &report.eligible {
@@ -72,12 +77,28 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
+    // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
+    // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row
+    // again, so after the handback nothing else would ever stop the bot.
+    let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
+    let stops: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    drop(s);
+    for id in stops { super::tick::run_pending_amount_limit_stops(&o.primary, id, clock.now())?; }
 
     let now = clock.now();
     let tx = model::immediate(&o.primary)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     tx.execute(&format!("UPDATE bots SET status = ?1, updated_at = ?2 WHERE status IN ({working}) AND status <> ?1"), params![scheduled, crate::codec::format_time(now)])?;
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
+    // rust_defer_until is the engine's own key, and it goes. Adopting a handback re-arms every scheduled bot at
+    // next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first checkpoint
+    // after the handback. For a checkpoint wait that is never before the deferred checkpoint, so Rails keeps the wait. A
+    // run-now wait (placement::run_now, a continue Rails would run at once) that has not ticked yet is dropped: the bot runs
+    // one checkpoint late, with the amount carried.
+    placement::remove_wait(&tx, None)?;
+    // A continue start the engine never handled goes the same way: Rails' adoption re-arms the bot at its next checkpoint.
+    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
+                WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
     lease::hand_back(lock, &tx, cipher, now)?;
     tx.commit()?;
     Ok(scheduled)

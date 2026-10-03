@@ -6,13 +6,19 @@ use super::placement;
 use crate::crypto::Cipher;
 use super::EngineError;
 use crate::enums::{BotStatus, BOT_WORKING};
-use rusqlite::{Connection, OptionalExtension};
+use chrono::{DateTime, Utc};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
-/// `unreadable`: bots whose rows this build cannot read. Takeover refuses them; the running engine skips them.
-pub struct Report { pub eligible: Vec<i64>, pub problems: Vec<String>, pub unreadable: Vec<(i64, String)> }
+/// `unreadable`: bots whose rows this build cannot read. Takeover refuses them; the running engine skips them. `notes`: what
+/// `check` and the takeover report without refusing (a reference source with no stamp, staleness::Verdict::Unknown).
+pub struct Report { pub eligible: Vec<i64>, pub problems: Vec<String>, pub unreadable: Vec<(i64, String)>, pub notes: Vec<String> }
 
-const SUPPORTED_FLAGS: [&str; 2] = ["limit_ordered", "smart_intervaled"];
+const SUPPORTED_FLAGS: [&str; 3] = ["limit_ordered", "smart_intervaled", "quote_amount_limited"];
+/// Bots::DcaMultiAsset::MAX_ASSETS.
+pub const MAX_ASSETS: usize = 100;
+/// Bots::DcaMultiAsset::Allocatable::ALLOCATION_TOLERANCE: Rails starts a manual basket only this close to 100 %.
+const ALLOCATION_TOLERANCE: f64 = 0.001;
 const PENDING_KEYS: [&str; 3] = ["rebalance_pending", "liquidation_pending", "redeploy_pending"];
 
 fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v != "false" && v != 0 && v != "" }
@@ -45,13 +51,23 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
 }
 
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    bot_reasons_with(c, bot, &mut SplitRows::new())
+}
+
+/// The split rows of one user on one venue (base_asset_id, base_currency), read once per check: a guarded write must stay
+/// short, and the ledger holds every activity of the account with no index on its entry type.
+type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)>>;
+
+fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<String>, EngineError> {
     let mut r = rails_work(c, bot)?;
-    if bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only one-asset DCA baskets)", bot.bot_type)); }
+    if bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca")) {
         r.push(format!("exchange {} (only Kraken and Alpaca)", exchange.as_deref().unwrap_or_default()));
     }
-    if bot.asset_ids().len() != 1 { r.push(format!("allocations: {} assets (only one)", bot.asset_ids().len())); }
+    let kraken = exchange.as_deref() == Some("Exchanges::Kraken");
+    let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
+    let members = composition_reasons(bot, kraken, &mut r);
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
@@ -69,36 +85,112 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     if bot.restatement_generation > 0 { r.push("restated prices".into()); }
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
-    // Bots::DcaMultiAsset#set_tickers adds bot_index_assets to the asset list: not modelled in the slice.
-    // Rails keeps a row for the bot's own allocated asset too; set_tickers uniq's it away, so only other assets count.
-    let own = bot.asset_ids();
-    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
-    let index_assets = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().filter(|a| !own.contains(a)).count();
-    if index_assets > 0 { r.push(format!("index assets present ({index_assets})")); }
-    match model::ticker_for(c, bot)? {
-        None => r.push("no ticker for the asset on this venue".into()),
-        Some(t) => {
-            // An unbounded integer column used as a rounding scale: refused here, before anything is sized with it.
-            if let Err(e) = t.scales() { r.push(e); }
-            // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer); wrappers such as tokenized
-            // stocks carry an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice.
-            let (category, instrument): (Option<String>, Option<String>) = c.query_row(
-                "SELECT category, instrument_type FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-            if category.as_deref() != Some("Cryptocurrency") || instrument.is_some() {
-                r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies)", category.unwrap_or_default(), instrument.unwrap_or_default()));
-            }
-            // Both Alpaca catalogs import only USD-quoted crypto (MarketData.sync_alpaca_crypto_listings_from_deltabadger!,
-            // Exchange::SyncAlpacaAssetsJob), and Exchanges::Alpaca#get_balances resolves the quote from USD only.
-            if exchange.as_deref() == Some("Exchanges::Alpaca") && t.quote_symbol != "USD" {
-                r.push(format!("quote {} (Alpaca: only USD)", t.quote_symbol));
-            }
-        }
+    if bot.quote_amount_limited() {
+        if kraken { r.push("quote_amount_limited (Kraken: amount limits are not supported by this engine yet)".into()); }
+        if let Err(e) = bot.quote_amount_limit() { r.push(e); }
+        if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
+    if bot.merged_history() { r.push("merged history (merged_history_until_id)".into()); }
+    history_reasons(c, bot, &members, splits, &mut r)?;
+    member_reasons(c, bot, alpaca, &members, &mut r)?;
     Ok(r)
 }
 
+/// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;
+/// Kraken keeps one member). Returns the member asset ids in settings order.
+fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64> {
+    if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights are not supported by this engine yet)", bot.weighting())); }
+    let Some(a) = bot.allocations() else {
+        r.push("allocations: an asset id or a weight this build does not read".into());
+        return vec![];
+    };
+    if a.is_empty() { r.push("allocations: none".into()); }
+    if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
+    if kraken && a.len() > 1 { r.push(format!("allocations: {} assets (Kraken: only one-asset bots are supported by this engine yet)", a.len())); }
+    // Bots::DcaMultiAsset::Allocatable#allocations_balanced?. The tolerance dwarfs the difference between this plain sum and
+    // Ruby's compensated one.
+    let total: f64 = a.iter().map(|(_, w)| w).sum();
+    if a.iter().any(|(_, w)| *w < 0.0) || (total - 1.0).abs() > ALLOCATION_TOLERANCE {
+        r.push(format!("allocations: weights sum to {total}, not 1"));
+    }
+    // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
+    let ids: Vec<i64> = a.into_iter().map(|(id, _)| id).collect();
+    for (i, id) in ids.iter().enumerate() {
+        if ids[..i].contains(id) && !ids[i + 1..].contains(id) { r.push(format!("allocations: asset {id} listed more than once")); }
+    }
+    ids
+}
+
+/// The ledger walk this build ports (basket::holdings) holds REGULAR buys recorded with their asset, and nothing a
+/// recorded split would restate.
+fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+    let (sells, other, imported, no_asset): (i64, i64, i64, i64) = c.query_row(
+        "SELECT coalesce(sum(side = 1), 0), coalesce(sum(transaction_type <> 'REGULAR'), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
+                coalesce(sum(transaction_type = 'REGULAR' AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
+        [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+    if sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
+    if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
+    if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
+    if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
+    // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
+    // the walk; the ported walk does not. Crypto never splits, so this refuses only what this build does not port. Broader than Rails'
+    // match (any member's asset id, symbol or venue spelling), so it can only refuse more.
+    let rows = match splits.entry((bot.user_id, bot.exchange_id)) {
+        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+        std::collections::hash_map::Entry::Vacant(e) => {
+            let mut s = c.prepare(
+                "SELECT base_asset_id, base_currency FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = 15 \
+                 AND (CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END) = 'split'")?;
+            let found = s.query_map(params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+            e.insert(found)
+        }
+    };
+    let ids = serde_json::to_string(members).expect("ids serialise");
+    let mut s = c.prepare("SELECT symbol FROM assets WHERE id IN (SELECT value FROM json_each(?2)) \
+                           UNION SELECT base FROM tickers WHERE exchange_id = ?1 AND base_asset_id IN (SELECT value FROM json_each(?2))")?;
+    let names = s.query_map(params![bot.exchange_id, ids], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let splits = rows.iter().filter(|(asset, currency)| asset.is_some_and(|a| members.contains(&a)) || names.contains(&Some(currency.clone()))).count();
+    if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)")); }
+    Ok(())
+}
+
+/// Every member's pair on this venue, and the composition rows Rails' tick reads (bot_index_assets).
+fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
+    let mut quote_checked = false;
+    for &asset_id in members {
+        let Some(t) = model::ticker_for_asset(c, bot, asset_id)? else {
+            r.push(format!("no ticker for the asset {asset_id} on this venue"));
+            continue;
+        };
+        // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
+        if let Err(e) = t.scales() { r.push(e); }
+        // Rails' crypto assets are category 'Cryptocurrency' (Exchange::Synchronizer); wrappers such as tokenized stocks carry
+        // an instrument_type (Asset.mark_tokenized!) and may be split — outside the slice.
+        let (category, instrument): (Option<String>, Option<String>) = c.query_row(
+            "SELECT category, instrument_type FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        if category.as_deref() != Some("Cryptocurrency") || instrument.is_some() {
+            r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies)", category.unwrap_or_default(), instrument.unwrap_or_default()));
+        }
+        // Both Alpaca catalogs import only USD-quoted crypto (MarketData.sync_alpaca_crypto_listings_from_deltabadger!,
+        // Exchange::SyncAlpacaAssetsJob), and Exchanges::Alpaca#get_balances resolves the quote from USD only. One quote per bot.
+        if alpaca && !quote_checked && t.quote_symbol != "USD" { r.push(format!("quote {} (Alpaca: only USD)", t.quote_symbol)); }
+        quote_checked = true;
+    }
+    // Rails keeps a row per member (in_index) and per former member (exited: in_index false or NULL, outside the `in_index`
+    // scope). An exited row is allowed. It is a holding only: the ledger walk counts its units, the split never
+    // sees it (current_allocations reads in_index rows), and nothing buys it. Refusing it would let one mid-run delisting (the
+    // tick marks the member exited) refuse the whole install and stop every bot. An in_index row for an asset outside
+    // settings is an index asset.
+    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
+    let current = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let foreign = current.iter().filter(|a| !members.contains(a)).count();
+    if foreign > 0 { r.push(format!("index assets present ({foreign})")); }
+    Ok(())
+}
+
 pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
-    let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![] };
+    let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![], notes: vec![] };
+    let mut splits = SplitRows::new();
     let rules: i64 = c.query_row(&format!("SELECT count(*) FROM rules WHERE status IN ({})", model::working_list()), [], |r| r.get(0))?;
     if rules > 0 { report.problems.push(format!("{rules} active rule(s): rules run only in the full app")); }
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
@@ -106,7 +198,7 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     for id in ids {
-        let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons(c, &b).map(|r| (b, r))) {
+        let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons_with(c, &b, &mut splits).map(|r| (b, r))) {
             Ok(x) => x,
             Err(e) => { report.unreadable.push((id, format!("{e:?}"))); continue; }
         };
@@ -129,15 +221,38 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
     Ok(report)
 }
 
+/// `check` and the takeover: check_install, plus every bot this engine would run whose reference data is past its bound
+/// (staleness.rs). A source with no stamp is logged and noted, never refused. The running engine does not call this: there
+/// the tick refuses a stale bot (tick.rs), and the engine goes on.
+pub fn check_install_at(c: &Connection, now: DateTime<Utc>) -> Result<Report, EngineError> {
+    use super::staleness::{verdict, Verdict};
+    let mut report = check_install(c)?;
+    let mut fresh = vec![];
+    for id in std::mem::take(&mut report.eligible) {
+        let bot = model::load_bot(c, id)?;
+        match verdict(c, &bot, now)? {
+            Verdict::Stale(s) => { report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), s.message)); continue; }
+            Verdict::Unknown(s) => {
+                let line = format!("bot {id} ({}): {}", bot.status.label(), s.message);
+                super::log(&format!("[check] {line}"));
+                report.notes.push(line);
+            }
+            Verdict::Fresh => {}
+        }
+        fresh.push(id);
+    }
+    report.eligible = fresh;
+    Ok(report)
+}
+
 /// Why `check` and `serve` refuse an install, or why a write to `bots` must not commit (`guard`).
 #[derive(Debug)]
 pub enum Refusal {
-    /// `check`'s problem lines, each naming the bot and the reason: "bot 7 (scheduled): quote_amount_limited".
+    /// `check`'s problem lines, each naming the bot and the reason: "bot 7 (scheduled): price_limited".
     Ineligible(Vec<String>),
     /// Bot rows this build cannot read. Takeover refuses them, so no write may leave one behind.
     Unreadable(Vec<(i64, String)>),
-    /// Bots whose unresolved order would no longer match them: recovery, `handback` and `resolve-placement` read the
-    /// intent against the bot's current asset, exchange and quote (`placement::stranded`).
+    /// Bots with an unresolved order whose composition, asset, exchange or quote a write would change (`placement::stranded`).
     Reconciling(Vec<String>),
     /// What this build cannot trade, in `alpaca::preflight`'s words: a venue other than Alpaca, a live key, no key.
     Untradable(Vec<String>),
@@ -190,7 +305,7 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: i64) -> Result<(), Refusa
     let stranded = placement::stranded(tx).map_err(failed)?;
     if !stranded.is_empty() {
         return Err(Refusal::Reconciling(stranded.iter().map(|id| {
-            format!("bot {id}: an order is still being reconciled; its asset, exchange and quote cannot change until it settles")
+            format!("bot {id}: an order is still being reconciled; its composition, asset, exchange and quote cannot change until it settles")
         }).collect()));
     }
     crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)

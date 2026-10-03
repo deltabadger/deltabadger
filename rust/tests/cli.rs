@@ -134,11 +134,11 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
 #[test]
 fn check_names_each_ineligible_bot_and_its_reason() {
     let (dir, o, s) = common::install_alpaca();
-    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", serde_json::json!(true)));
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", serde_json::json!(true)));
     drop(o);
     let out = cli(dir.path(), &["check"]).output().unwrap();
     assert_eq!(out.status.code(), Some(1));
-    assert_eq!(stderr(&out), format!("deltabadger: this install uses things only the full app runs:\nbot {id} (scheduled): quote_amount_limited\n"));
+    assert_eq!(stderr(&out), format!("deltabadger: this install uses things only the full app runs:\nbot {id} (scheduled): price_limited\n"));
 }
 
 fn free_port() -> u16 { std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port() }
@@ -245,12 +245,12 @@ fn serve_refusals_come_before_the_claim() {
 #[test]
 fn serve_refuses_an_ineligible_install_in_the_words_check_uses() {
     let (dir, o, s) = common::install_alpaca(); // seeds an admin user
-    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", serde_json::json!(true)));
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", serde_json::json!(true)));
     drop(o);
     let checked = cli(dir.path(), &["check"]).output().unwrap();
     let served = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
     assert_eq!((checked.status.code(), served.status.code()), (Some(1), Some(1)));
-    assert!(stderr(&served).contains(&format!("bot {id} (scheduled): quote_amount_limited")), "{}", stderr(&served));
+    assert!(stderr(&served).contains(&format!("bot {id} (scheduled): price_limited")), "{}", stderr(&served));
     assert_eq!(stderr(&served), stderr(&checked), "the same words, byte for byte");
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }

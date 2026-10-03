@@ -91,6 +91,8 @@ async fn an_operator_decision_resolves_an_intent_kraken_cannot_answer_for() {
     placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::Placed("OTX-HUMAN".into()), t0()).unwrap();
     assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 1);
     assert!(reload(&o, &bot).rust_placement().is_none());
+    let next: DateTime<Utc> = "2026-10-06T10:00:00Z".parse().unwrap();
+    assert_eq!(reload(&o, &bot).rust_defer_until_us().unwrap(), Some(next.timestamp_micros()), "the wait for the next checkpoint is persisted");
     assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()).is_err(), "nothing left to resolve");
 }
 
@@ -156,4 +158,54 @@ async fn an_ambiguous_send_keeps_the_intent_and_a_not_sent_one_can_drop_it() {
     assert!(matches!(placement::send(&refused, &intent, &FixedClock(t0())).await, Sent::NotSent(_)));
     placement::drop_intent(&o.primary, bot.id).unwrap();
     assert!(reload(&o, &bot).rust_placement().is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_basket_legs_intent_names_its_own_ticker_and_is_recorded_on_it() {
+    use common::scripted::{ok, script, venue};
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").weights(&[(s.btc, 0.7), (eth, 0.3)]));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let eth_ticker = model::ticker_for_asset(&o.primary, &bot, eth).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size(&bot, &eth_ticker, &BigDec::from_i64(18), &BigDec::from_i64(2500), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!() };
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    let stored = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap();
+    assert_eq!((stored["ticker_id"].as_i64(), stored["base_asset_id"].as_i64()), (Some(eth_ticker.id), Some(eth)), "the leg's own pair, not the first member's");
+    let t = script(json!({ "GET /v2/orders:by_client_order_id": [ok(json!({ "id": "OTX-E", "client_order_id": intent.cl_ord_id, "status": "filled",
+        "symbol": "ETH/USD", "type": "market", "side": "buy", "notional": "18", "qty": null, "filled_qty": "0.0072", "filled_avg_price": "2500", "limit_price": null }))] }));
+    let recovered = placement::recover(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), &FixedClock(t0() + Duration::seconds(5))).await.unwrap();
+    assert!(matches!(recovered, Recovery::Recorded(_)), "{recovered:?}");
+    let (asset, base, exec): (i64, String, f64) = o.primary.query_row(
+        "SELECT base_asset_id, base, quote_amount_exec FROM transactions WHERE external_id = 'OTX-E'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    assert_eq!((asset, base.as_str(), exec), (eth, "ETH", 18.0));
+}
+
+#[test]
+fn a_legacy_intent_without_base_asset_id_still_resolves() {
+    let (_d, o, bot, plan) = setup();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.base_asset_id') WHERE id = ?1", [bot.id]).unwrap();
+    placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()).unwrap();
+    assert!(reload(&o, &bot).rust_placement().is_none());
+}
+
+#[test]
+fn an_intent_naming_another_venues_ticker_is_unreadable() {
+    let (_d, o, bot, plan) = setup();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement.ticker_id', 999999) WHERE id = ?1", [bot.id]).unwrap();
+    match placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()) {
+        Err(deltabadger::engine::EngineError::Data(m)) => assert!(m.contains("rust_placement"), "{m}"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn an_intent_without_its_snapshot_counts_as_stranded_and_begin_records_one() {
+    let (_d, o, bot, plan) = setup();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(placement::stranded(&o.primary).unwrap().is_empty(), "begin records what the order was sent under");
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.allocations') WHERE id = ?1", [bot.id]).unwrap();
+    assert_eq!(placement::stranded(&o.primary).unwrap(), vec![bot.id], "no snapshot: fail closed");
 }

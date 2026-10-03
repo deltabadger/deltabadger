@@ -12,7 +12,7 @@
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
 //! and FORCE_SSL. Rails creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
-use deltabadger::engine::eligibility::{check_install, Refusal};
+use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
 use deltabadger::engine::{handover, log, EngineError, SystemClock};
 use deltabadger::lease::{self, EngineLock, LeaseError};
@@ -33,9 +33,15 @@ fn main() {
             if let Err(e) = store::check(&paths) { fail(&explain(e)); }
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
-            // The words `serve` refuses with too (Refusal::message).
-            match check_install(&c).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
-                Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
+            // The words `serve` refuses with too (Refusal::message). A source with no stamp is noted, never refused.
+            match check_install_at(&c, chrono::Utc::now()).map_err(Refusal::Failed) {
+                Ok(report) => {
+                    for note in &report.notes { println!("note: {note}"); }
+                    match report.refusal() {
+                        Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
+                        Err(refusal) => fail(&refusal.message()),
+                    }
+                }
                 Err(refusal) => fail(&refusal.message()),
             }
         }
@@ -186,7 +192,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let _held = lock.clone();
     // In `check`'s words, and before anything else prints: each line names the bot and the reason. Venue and key
     // problems stay `preflight`'s (`claim_install`, below).
-    if let Err(refusal) = check_install(&o.primary).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
+    if let Err(refusal) = check_install_at(&o.primary, chrono::Utc::now()).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
         fail(&refusal.message());
     }
     let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
