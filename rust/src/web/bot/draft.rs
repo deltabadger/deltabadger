@@ -774,3 +774,41 @@ pub(super) fn equal(a: &Value, b: &Value) -> bool {
 fn callback_set(values: &mut Map<String, Value>, key: String, value: Value) {
     if !equal(values.get(&key).unwrap_or(&Value::Null), &value) { values.insert(key, value); }
 }
+
+impl Draft {
+    /// Startable#initial_start_at. Day arithmetic is bounded and follows local calendar days;
+    /// Rails chooses the DST occurrence on overlaps and advances gaps by one hour.
+    pub fn initial_start_at(&self, now: DateTime<Utc>, name: &str) -> Result<Option<DateTime<Utc>>, WebError> {
+        if !self.candidate.start_time_enabled() { return Ok(None); }
+        let mode=self.candidate.text("start_time_mode").ok_or_else(||failure("missing start mode"))?;
+        if mode=="date" {
+            return self.candidate.text("start_at").and_then(|s|DateTime::parse_from_rfc3339(s).ok()).map(|t|Some(t.with_timezone(&Utc))).ok_or_else(||failure("invalid start date"));
+        }
+        let zone=timezone::zone(name).unwrap_or(chrono_tz::UTC);
+        let local=now.with_timezone(&zone);
+        let (hour,minute)=self.candidate.text("start_time_of_day").and_then(|s|s.split_once(':')).ok_or_else(||failure("invalid start hour"))?;
+        let hour=hour.parse::<u32>().map_err(|_|failure("invalid start hour"))?;
+        let minute=minute.parse::<u32>().map_err(|_|failure("invalid start minute"))?;
+        let mut day=local.date_naive();
+        let step=if mode=="hour" {1} else {
+            let weekday=start::MODES.iter().position(|s|*s==mode).filter(|n|*n<7).ok_or_else(||failure("invalid start weekday"))?;
+            let days=(weekday as i64-i64::from(local.weekday().num_days_from_monday())).rem_euclid(7);
+            day=day.checked_add_signed(Duration::days(days)).ok_or_else(||failure("start date overflow"))?;
+            7
+        };
+        let resolve=|day:NaiveDate| -> Result<DateTime<Utc>,WebError> {
+            let naive=day.and_hms_opt(hour,minute,0).ok_or_else(||failure("invalid start time"))?;
+            let at=match zone.from_local_datetime(&naive) {
+                LocalResult::Single(at)=>Some(at), LocalResult::Ambiguous(a,b)=>Some(a.min(b)),
+                LocalResult::None=>naive.checked_add_signed(Duration::hours(1)).and_then(|n|zone.from_local_datetime(&n).earliest()),
+            }.ok_or_else(||failure("unresolvable start time"))?;
+            Ok(at.with_timezone(&Utc))
+        };
+        let first=resolve(day)?;
+        let future=if first<=now {
+            // Rails adds fixed seconds after converting the candidate to UTC.
+            first.checked_add_signed(Duration::days(step)).ok_or_else(||failure("start date overflow"))?
+        } else {first};
+        Ok(Some(future))
+    }
+}

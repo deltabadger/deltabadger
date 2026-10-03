@@ -251,7 +251,9 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
 /// Rails' decision (amount::continue_runs_now) becomes a persisted wait: one that has ended (run now) or one for the next
 /// checkpoint. In the same transaction the request goes, with any amount-limit stop still counted (the user's resume
 /// overrides a stop Rails would already have run) and the old wait (the decision replaces it). A request whose value is not
-/// `{"requested_at": ISO 8601}` is logged; the decision still runs.
+/// `{"requested_at": ISO 8601}` is logged; the decision still runs. The web also sends
+/// `was_stopped`: only an originally stopped bot may wait. Older requests omit it and
+/// retain the stopped-bot contract that preceded lifecycle writes.
 fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
     let bot = model::load_bot(&tx, id)?;
@@ -264,7 +266,8 @@ fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), Eng
     placement::remove_wait(&tx, Some(id))?;
     let decision = if bot.started_at_us.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
         "never ticks" // step_bot skips it as before
-    } else if amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
+    } else if request.get("was_stopped").and_then(serde_json::Value::as_bool) == Some(false)
+        || amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
         placement::run_now(&tx, &bot, now)?;
         "runs now"
     } else {

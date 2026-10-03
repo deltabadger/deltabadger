@@ -376,6 +376,31 @@ module BotActionVectors
   end
 end
 
+# Startable's pure first-anchor calculation, independent of the engine's scope refusal.
+# Record only this group so encrypted fixtures and earlier action vectors retain their bytes.
+if ENV['ACTION_LIFECYCLE_ONLY'] == 'true'
+  inputs = [
+    ['UTC', '2026-09-10T12:00:30.123456Z', 'date', '2026-09-11T13:45:00Z'],
+    ['UTC', '2026-09-10T12:00:30.123456Z', 'hour', '13:45'],
+    ['UTC', '2026-09-10T14:00:00Z', 'hour', '13:45'],
+    ['Warsaw', '2026-09-10T12:00:30.123456Z', 'monday', '09:30'],
+    ['Eastern Time (US & Canada)', '2026-03-08T06:00:00Z', 'hour', '02:30'],
+    ['Eastern Time (US & Canada)', '2026-11-01T04:00:00Z', 'hour', '01:30'],
+    ['Eastern Time (US & Canada)', '2026-03-06T12:00:00Z', 'monday', '09:30']
+  ]
+  group = inputs.map do |zone, clock, mode, value|
+    settings = { 'start_time_enabled' => true, 'start_time_mode' => mode,
+                 mode == 'date' ? 'start_at' : 'start_time_of_day' => value }
+    bot = Bots::DcaMultiAsset.new(user: User.new(time_zone: zone), settings:)
+    { 'zone' => zone, 'now' => clock, 'settings' => settings,
+      'expected' => bot.initial_start_at(now: Time.iso8601(clock))&.utc&.iso8601 }
+  end
+  path = Rails.root.join('rust/tests/fixtures/ruby_vectors.json')
+  write_vector_group(path, 'action_lifecycle', group)
+  puts "wrote #{group.size} action_lifecycle vectors in #{path}"
+  exit
+end
+
 # The task's no-argument command adds only the new group. Earlier recordings contain random
 # encryption material; preserve their bytes and avoid writing unrelated generated zone files.
 if ARGV.empty?

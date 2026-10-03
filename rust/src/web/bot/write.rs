@@ -1,4 +1,4 @@
-//! Settings writes own their observation, response construction and post-commit delivery.
+//! Settings and lifecycle writes own their observation, response construction and post-commit delivery.
 //! Call from App::db: cancelling its await must not cancel the committed write's wake.
 use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, start, Bot, For, Kind, Stored};
 use crate::{codec, engine::{eligibility, model, schedule::Effective}, ruby::{BigDec, round6_micros}};
@@ -252,4 +252,208 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
         Effective::Month => return Err(start::history_error()),
     };
     Ok(round6_micros(us,&terms))
+}
+
+const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
+    started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
+    transient_data = CASE WHEN ?4 THEN json_set(transient_data, \
+      '$.last_action_job_at', json('null'), '$.missed_quote_amount', json('null')) \
+      ELSE transient_data END, updated_at = ?5 \
+    WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
+
+// Provisional spelling: MUST match the merged engine PR before execution.
+const START_DECISION_KEY: &str = "rust_continue_start";
+
+const WEB_REQUEST_START_DECISION: &str = "UPDATE bots SET \
+    transient_data = json_set(transient_data, ?4, json(?5)) \
+    WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status = 1";
+
+const WEB_STOP: &str = "UPDATE bots SET status = 2, stopped_at = ?4, \
+    stop_message_key = NULL, updated_at = ?4 \
+    WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status <> 3";
+
+const WEB_DELETE: &str = "UPDATE bots SET status = 3, updated_at = ?4 \
+    WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status <> 3";
+
+const WEB_UNARCHIVE: &str = "UPDATE bots SET status = 2, updated_at = ?4 \
+    WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status = 7";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Action { Start, Stop, Delete, Archive, Unarchive }
+
+/// Safety actions can render a refresh/redirect even when the full page cannot be read.
+pub struct LifecycleView {
+    pub draft: Option<Draft>,
+    pub errors: Vec<FieldError>,
+}
+impl LifecycleView {
+    fn add(&mut self, locale: &str, key: &str) {
+        self.errors.push(FieldError { field: "base".into(), message: i18n::text(locale, key, &[]) });
+    }
+}
+
+/// Same transaction, guard and delivery boundary as settings. No network or queue work.
+#[allow(clippy::too_many_arguments)]
+pub fn lifecycle<T>(
+    c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action, submitted: &ActionParams,
+    response_builder: impl FnOnce(&Connection, &Ctx, &LifecycleView) -> Result<Prepared<T>, WebError>,
+) -> Result<Outcome<T>, WebError> {
+    match lifecycle_inner(c, ctx, owner, id, action, submitted, response_builder) {
+        Err(e) if super::unreadable(&e) => Ok(Outcome::Unported("lifecycle exceeds the supported history, member or numeric bounds")),
+        other => other,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn lifecycle_inner<T>(
+    c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action, submitted: &ActionParams,
+    response_builder: impl FnOnce(&Connection, &Ctx, &LifecycleView) -> Result<Prepared<T>, WebError>,
+) -> Result<Outcome<T>, WebError> {
+    use crate::enums::{ApiKeyStatus, BotStatus};
+    let tx = model::immediate(c)?;
+    let mut ctx = ctx.clone();
+    ctx.now = ctx.app.now();
+    let row = tx.query_row("SELECT type,status,settings,transient_data FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaMultiAsset','Bots::DcaIndex')",
+        (id,owner), |r| Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).optional()?;
+    let Some((class,status,raw,transient)) = row else { return Ok(Outcome::Missing) };
+    let mut view = LifecycleView { draft: None, errors: vec![] };
+    // A stale Reactivate never validates, fills defaults, or wakes a running bot.
+    if action == Action::Unarchive && status != 7 || action == Action::Archive && status == 7 {
+        let prepared = response_builder(&tx, &ctx, &view)?;
+        tx.rollback()?;
+        return Ok(Outcome::NoChange(prepared.response));
+    }
+    let safety = matches!(action, Action::Stop | Action::Delete | Action::Archive);
+    // Never replace an unreadable JSON document with an empty object. The guard owns the
+    // refusal for safety operations; other operations retain the page's bounded refusal.
+    let structural = raw.len() <= 65_536 && transient.len() <= 65_536
+        && super::object(&raw,"bots.settings").is_ok() && super::object(&transient,"bots.transient_data").is_ok();
+    if !structural {
+        if !safety { return Ok(Outcome::Unported("invalid or oversized stored bot JSON")); }
+        view.errors.push(FieldError { field: "base".into(), message: i18n::text(ctx.locale,"engine.write_refused", &[("reason",i18n::Arg::Text("invalid or oversized stored bot JSON"))]) });
+        let prepared=response_builder(&tx,&ctx,&view)?;
+        tx.rollback()?;
+        return Ok(Outcome::GuardRefused(prepared.response));
+    }
+    view.draft = match Draft::load(&tx,owner,id) {
+        Ok(draft) => draft,
+        Err(WebError::Engine(crate::engine::EngineError::Data(_))) if safety => None,
+        Err(e) if safety && super::unreadable(&e) => None,
+        Err(e) => return Err(e),
+    };
+    let mut fresh = true;
+    let mut delayed = None;
+    if action == Action::Start {
+        // Execute the final SQL gate even for a working row; it must touch zero rows.
+        if matches!(status,1|4|5|6) {
+            let rows=tx.execute(WEB_START,(id,owner,&class,true,codec::format_time(ctx.now)))?;
+            if rows != 0 { return Err(error("working Start passed its SQL gate")); }
+            view.add(ctx.locale,"engine.already_running");
+        } else {
+            match submitted.start_fresh() { Ok(value) => fresh=value, Err(_) => view.add(ctx.locale,"engine.invalid_start_fresh") }
+        }
+    }
+    if view.errors.is_empty() && !safety {
+        let (provider,configured)=bots::market_data(&tx,&ctx.app)?;
+        let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
+        let refusal=super::refusal(&tx,id,wash,provider,For::Page)?;
+        let draft=view.draft.as_mut().ok_or_else(||error("owned lifecycle draft disappeared"))?;
+        let refusal=refusal.or_else(||draft.original.unrendered());
+        if action==Action::Start {
+            if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
+        }
+        draft.candidate.status=if action==Action::Start {BotStatus::Scheduled}else{BotStatus::Stopped};
+        draft.validate(&tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
+        view.errors.extend(draft.errors.clone());
+        if action==Action::Unarchive && view.errors.is_empty() {
+            if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
+        }
+        if action==Action::Start && view.errors.is_empty() {
+            if draft.candidate.api_key != Some(ApiKeyStatus::Correct as i64) {
+                let reason=i18n::text(ctx.locale,"engine.api_key_not_ready",&[]);
+                view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
+            } else if fresh {
+                let zone:String=tx.query_row("SELECT time_zone FROM users WHERE id=?1",[owner],|r|r.get(0))?;
+                delayed=draft.initial_start_at(ctx.now,&zone)?;
+            }
+        }
+    }
+    if !view.errors.is_empty() {
+        if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
+        let prepared=response_builder(&tx,&ctx,&view)?;
+        tx.rollback()?;
+        return Ok(Outcome::Invalid(prepared.response));
+    }
+    let at=codec::format_time(ctx.now);
+    if let Some(draft)=view.draft.as_mut() {
+        if let Some(future)=delayed {
+            draft.candidate.settings.insert("start_at".into(),json!(future.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)));
+            draft.candidate.started_at=Some(future);
+            draft.candidate.transient.insert("last_action_job_at".into(),Value::Null);
+            draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
+        }
+        let mut effects=draft.save_effects(&tx,ctx.now)?;
+        if delayed.is_some() {
+            // Rails captures after assigning the future anchor and resetting carry.
+            let carry=pending(&tx,&draft.candidate,ctx.now)?;
+            effects.transient.set.insert("missed_quote_amount".into(),serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?);
+            effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
+            effects.transient.set.insert("last_action_job_at".into(),Value::Null);
+        }
+        for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,value.to_string(),id,owner,&class))?)?; }
+        for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},value.to_string(),id,owner,&class))?)?; }
+        for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
+        if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }
+    } else {
+        // These defaults need no ticker, interval, amount, exchange or history read.
+        let settings=super::object(&raw,"bots.settings")?;
+        for (key,value) in [("smart_intervaled",json!(false)),("limit_ordered",json!(false)),("limit_order_pcnt_distance",json!(0.001))] {
+            if matches!(settings.get(key),None|Some(Value::Null|Value::Bool(false))) {
+                one(tx.execute(SET_SETTING,(path(key,false)?,value.to_string(),id,owner,&class))?)?;
+            }
+        }
+    }
+    match action {
+        Action::Start => {
+            one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
+            if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
+            if !fresh {
+                // PR #457 accepted requested_at; preserve the original status too, so a
+                // created bot with a historical stamp cannot inherit stopped-only scheduling.
+                let request=json!({"requested_at":ctx.now.to_rfc3339_opts(chrono::SecondsFormat::AutoSi,true),"was_stopped":status==2});
+                one(tx.execute(WEB_REQUEST_START_DECISION,(id,owner,&class,format!("$.{START_DECISION_KEY}"),request.to_string()))?)?;
+            }
+        }
+        Action::Stop | Action::Archive => {
+            one(tx.execute(WEB_STOP,(id,owner,&class,&at))?)?;
+            if action==Action::Archive { one(tx.execute("UPDATE bots SET status=7 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=2",(id,owner,&class))?)?; }
+        }
+        Action::Delete => one(tx.execute(WEB_DELETE,(id,owner,&class,&at))?)?,
+        Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
+    }
+    if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,id) {
+        let reason=refusal.reason();
+        view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
+        if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
+        let prepared=response_builder(&tx,&ctx,&view)?;
+        tx.rollback()?;
+        return Ok(Outcome::GuardRefused(prepared.response));
+    }
+    if matches!(action,Action::Start|Action::Stop|Action::Archive) {
+        let (event,details)=if action==Action::Start {("started",json!({"start_fresh":fresh}))}else{("stopped",json!({}))};
+        one(tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,?2,0,NULL,?3,?4)",(id,event,details.to_string(),&at))?)?;
+    }
+    if let Some(draft)=view.draft.as_mut() {
+        draft.candidate=Bot::find(&tx,owner,id,For::Page)?.ok_or_else(||error("lifecycle bot disappeared"))?;
+        if safety {
+            let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
+            let (provider,_)=bots::market_data(&tx,&ctx.app)?;
+            if draft.candidate.unrendered().is_some() || super::refusal(&tx,id,wash,provider,For::Page)?.is_some() { view.draft=None; }
+        }
+    }
+    let prepared=response_builder(&tx,&ctx,&view)?;
+    tx.commit()?;
+    ctx.app.wake_engine();
+    for (stream,html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream,&html); }
+    Ok(Outcome::Committed(prepared.response))
 }

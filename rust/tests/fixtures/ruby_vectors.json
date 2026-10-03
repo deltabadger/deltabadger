@@ -301020,5 +301020,77 @@
         "save_transient": 1
       }
     ]
-  }
+  },
+  "action_lifecycle": [
+    {
+      "zone": "UTC",
+      "now": "2026-09-10T12:00:30.123456Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "date",
+        "start_at": "2026-09-11T13:45:00Z"
+      },
+      "expected": "2026-09-11T13:45:00Z"
+    },
+    {
+      "zone": "UTC",
+      "now": "2026-09-10T12:00:30.123456Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "hour",
+        "start_time_of_day": "13:45"
+      },
+      "expected": "2026-09-10T13:45:00Z"
+    },
+    {
+      "zone": "UTC",
+      "now": "2026-09-10T14:00:00Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "hour",
+        "start_time_of_day": "13:45"
+      },
+      "expected": "2026-09-11T13:45:00Z"
+    },
+    {
+      "zone": "Warsaw",
+      "now": "2026-09-10T12:00:30.123456Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "monday",
+        "start_time_of_day": "09:30"
+      },
+      "expected": "2026-09-14T07:30:00Z"
+    },
+    {
+      "zone": "Eastern Time (US & Canada)",
+      "now": "2026-03-08T06:00:00Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "hour",
+        "start_time_of_day": "02:30"
+      },
+      "expected": "2026-03-08T07:30:00Z"
+    },
+    {
+      "zone": "Eastern Time (US & Canada)",
+      "now": "2026-11-01T04:00:00Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "hour",
+        "start_time_of_day": "01:30"
+      },
+      "expected": "2026-11-01T05:30:00Z"
+    },
+    {
+      "zone": "Eastern Time (US & Canada)",
+      "now": "2026-03-06T12:00:00Z",
+      "settings": {
+        "start_time_enabled": true,
+        "start_time_mode": "monday",
+        "start_time_of_day": "09:30"
+      },
+      "expected": "2026-03-09T13:30:00Z"
+    }
+  ]
 }

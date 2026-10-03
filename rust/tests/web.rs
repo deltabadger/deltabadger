@@ -2141,4 +2141,265 @@ mod action_write {
         Ok(())
     }
 
+    impl Fixture {
+        fn lifecycle(&self, action: write::Action, flag: Option<Value>) -> Result<Outcome<Value>> {
+            let p = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(flag.map_or_else(|| json!({}), |v| json!({"start_fresh":v}))) };
+            let params = ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
+            Ok(write::lifecycle(&self.c, &self.ctx, self.seed.user_id, self.id, action, &params, |_, ctx, view| {
+                assert_eq!(ctx.now, harness::at(NOW));
+                Ok(Prepared { response: json!({"errors":view.errors.iter().map(|e| &e.message).collect::<Vec<_>>(),"minimal":view.draft.is_none()}), broadcasts: vec![] })
+            }).map_err(|e|format!("{e:?}"))?)
+        }
+        fn status(&self) -> Result<i64> { Ok(self.c.query_row("SELECT status FROM bots WHERE id=?1",[self.id],|r|r.get(0))?) }
+    }
+
+    async fn lifecycle_wake(notify: &tokio::sync::Notify, expected: bool) -> Result {
+        assert_eq!(tokio::time::timeout(std::time::Duration::from_millis(5), notify.notified()).await.is_ok(), expected);
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(5), notify.notified()).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_lifecycle_forty_status_transitions() -> Result {
+        use write::Action::*;
+        let mut cases = 0;
+        for action in [Start, Stop, Delete, Archive, Unarchive] {
+            for status in 0..8 {
+                let f = Fixture::new()?;
+                f.c.execute("UPDATE bots SET status=?1, stopped_at='2026-01-02 00:00:00', stop_message_key='old' WHERE id=?2",(status,f.id))?;
+                let before = f.snapshot()?;
+                let notify = Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+                let result = f.lifecycle(action,None)?;
+                let no_change = status == 3 || action == Start && ![0,2].contains(&status) || action == Archive && status == 7 || action == Unarchive && status != 7;
+                if status == 3 { assert!(matches!(result,Outcome::Missing)); }
+                else if action == Start && ![0,2].contains(&status) { assert!(matches!(result,Outcome::Invalid(_)),"{action:?} {status}"); }
+                else if no_change { assert!(matches!(result,Outcome::NoChange(_))); }
+                else { assert!(matches!(result,Outcome::Committed(_)),"{action:?} {status}"); }
+                if no_change { assert_eq!(f.snapshot()?,before,"{action:?} {status}"); }
+                else {
+                    let expected = match action { Start=>1, Stop|Unarchive=>2, Delete=>3, Archive=>7 };
+                    assert_eq!(f.status()?,expected);
+                    let (stopped,message,updated):(Option<String>,Option<String>,String) = f.c.query_row("SELECT stopped_at,stop_message_key,updated_at FROM bots WHERE id=?1",[f.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+                    assert_eq!(updated,"2026-09-10 12:00:30.123456");
+                    assert_eq!(stopped.as_deref(),Some(if matches!(action,Stop|Archive) { "2026-09-10 12:00:30.123456" } else { "2026-01-02 00:00:00" }));
+                    assert_eq!(message.as_deref(),if matches!(action,Delete|Unarchive) {Some("old")} else {None});
+                    let logs: i64=f.c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id=?1",[f.id],|r|r.get(0))?;
+                    assert_eq!(logs,if matches!(action,Start|Stop|Archive){1}else{0});
+                    if logs==1 {
+                        let (event,level,message,details,at):(String,i64,Option<String>,String,String)=f.c.query_row("SELECT event,level,message,details,created_at FROM bot_activity_logs WHERE bot_id=?1",[f.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?)))?;
+                        assert_eq!((event.as_str(),level,message),(if action==Start {"started"}else{"stopped"},0,None));
+                        assert_eq!(serde_json::from_str::<Value>(&details)?,if action==Start {json!({"start_fresh":true})}else{json!({})});
+                        assert_eq!(at,updated);
+                    }
+                }
+                lifecycle_wake(&notify,!no_change).await?;
+                cases+=1;
+            }
+        }
+        assert_eq!(cases,40);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_lifecycle_start_flags_carry_and_handoff() -> Result {
+        for status in [0,2] {
+            for paid in [false,true] {
+                for flag in [None,Some(json!(true)),Some(json!(false)),Some(json!("TRUE")),Some(json!("0"))] {
+                    let f=Fixture::new()?;
+                    f.c.execute("UPDATE bots SET status=?1,transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:00.000Z','$.missed_quote_amount','3.75') WHERE id=?2",(status,f.id))?;
+                    if paid { seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("paid".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("10"),price:Some("10000"),quote_amount_exec:Some("10"),amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()}); }
+                    let before=f.stored()?;
+                    let fresh=flag!=Some(json!(false)) && flag!=Some(json!("0"));
+                    assert!(matches!(f.lifecycle(write::Action::Start,flag)?,Outcome::Committed(_)));
+                    let after=f.stored()?;
+                    let mut expected=before["transient"].clone();
+                    if fresh { expected["last_action_job_at"]=Value::Null; expected["missed_quote_amount"]=Value::Null; }
+                    else { expected["rust_continue_start"]=json!({"requested_at":NOW,"was_stopped":status==2}); }
+                    assert_eq!(after["transient"],expected);
+                    let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+                    assert_eq!(anchor,if fresh {"2026-09-10 12:00:30.123456"}else{"2026-09-10 12:00:00"});
+                }
+            }
+        }
+        for flag in [json!("bad"),json!(null),json!([]),json!({})] {
+            let f=Fixture::new()?; let before=f.snapshot()?;
+            assert!(matches!(f.lifecycle(write::Action::Start,Some(flag))?,Outcome::Invalid(_)));
+            assert_eq!(f.snapshot()?,before);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_lifecycle_failure_is_atomic_and_never_wakes() -> Result {
+        for (action,sql) in [
+            (write::Action::Start,"CREATE TRIGGER fail_log BEFORE INSERT ON bot_activity_logs BEGIN SELECT RAISE(ABORT,'log failure'); END"),
+            (write::Action::Archive,"CREATE TRIGGER fail_archive BEFORE UPDATE OF status ON bots WHEN NEW.status=7 BEGIN SELECT RAISE(ABORT,'archive failure'); END"),
+            (write::Action::Start,"UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('true'))"),
+        ] {
+            let f=Fixture::new()?; f.c.execute_batch(sql)?; let before=f.snapshot()?;
+            let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+            let result=f.lifecycle(action,Some(json!(false)));
+            assert!(result.is_err() || matches!(result,Ok(Outcome::GuardRefused(_)|Outcome::Unported(_))));
+            assert_eq!(f.snapshot()?,before); lifecycle_wake(&notify,false).await?;
+        }
+        let f=Fixture::new()?; let before=f.snapshot()?;
+        let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+        let result=write::lifecycle::<()>(&f.c,&f.ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_|Err(WebError::Config("render failed".into())));
+        assert!(result.is_err()); assert_eq!(f.snapshot()?,before); lifecycle_wake(&notify,false).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_lifecycle_start_key_and_validation_refusals() -> Result {
+        for sql in [
+            "DELETE FROM api_keys",
+            "UPDATE api_keys SET status=0",
+            "UPDATE api_keys SET status=2",
+            "UPDATE api_keys SET passphrase='live'",
+            r#"UPDATE api_keys SET key='{"p":"!!!","h":{"iv":"!!!","at":"!!!"}}'"#,
+            "UPDATE tickers SET available=0",
+            "UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))",
+            "UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"999999\":1.0}'))",
+            "UPDATE bots SET settings=json_set(settings,'$.quote_amount',0)",
+            "UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','date','$.start_at','2026-09-01T00:00:00Z')",
+            "UPDATE assets SET category='Stock' WHERE symbol='BTC'",
+            "UPDATE bots SET type='Bots::DcaIndex'",
+        ] {
+            let f=Fixture::new()?; f.c.execute_batch(sql)?; let before=f.snapshot()?;
+            let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+            let result=f.lifecycle(write::Action::Start,Some(json!(false)))?;
+            if sql.contains("passphrase='live'") || sql.contains("SET key=") || sql.contains("category='Stock'") {
+                assert!(matches!(result,Outcome::GuardRefused(_)),"guard must roll back the continue request: {sql}");
+            } else {
+                assert!(matches!(result,Outcome::Invalid(_)|Outcome::GuardRefused(_)|Outcome::Unported(_)),"{sql}");
+            }
+            assert_eq!(f.snapshot()?,before,"{sql}"); lifecycle_wake(&notify,false).await?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn action_lifecycle_delayed_date_hour_guard_sees_future_anchor() -> Result {
+        for (mode,time,expected) in [("date","2026-09-11T13:45:00Z","2026-09-11 13:45:00"),("hour","13:45","2026-09-10 13:45:00")] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE users SET time_zone='UTC'",[])?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode',?1,'$.start_at',?2,'$.start_time_of_day',?2)",(mode,time))?;
+            let before=f.snapshot()?;
+            let result=write::lifecycle(&f.c,&f.ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|c,_,_| {
+                let (anchor,updated,transient):(String,String,String)=c.query_row("SELECT started_at,updated_at,transient_data FROM bots WHERE id=?1",[f.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+                assert_eq!(anchor,expected); assert_eq!(updated,"2026-09-10 12:00:30.123456");
+                assert!(serde_json::from_str::<Value>(&transient).map_err(|e|WebError::Config(e.to_string()))?.get("rust_continue_start").is_none());
+                Ok(Prepared {response:(),broadcasts:vec![]})
+            }).map_err(|e|format!("{e:?}"))?;
+            // The actual merged engine still refuses future-start execution.
+            assert!(matches!(result,Outcome::GuardRefused(_)));
+            assert_eq!(f.snapshot()?,before);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn action_lifecycle_stop_delete_unrenderable_and_preserve_orders() -> Result {
+        for action in [write::Action::Stop,write::Action::Delete] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',0,'$.unknown',json('{\"keep\":null}'))",[])?;
+            assert!(matches!(f.lifecycle(action,None)?,Outcome::Committed(_)));
+            assert_eq!(f.stored()?["settings"]["unknown"],json!({"keep":null}));
+        }
+        let f=Fixture::new()?;
+        seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(0),external_id:Some("in-flight".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("5"),price:Some("5000"),quote_amount_exec:None,amount_exec:None,created_at:"2026-09-10 12:00:01".into()});
+        let before=f.snapshot()?.into_iter().filter(|s|s.starts_with("transactions:")).collect::<Vec<_>>();
+        assert!(matches!(f.lifecycle(write::Action::Stop,None)?,Outcome::Committed(_)));
+        assert_eq!(before,f.snapshot()?.into_iter().filter(|s|s.starts_with("transactions:")).collect::<Vec<_>>());
+        Ok(())
+    }
+
+    #[test]
+    fn action_lifecycle_start_time_matches_rails_vectors() -> Result {
+        let vectors=common::vectors();
+        let cases=vectors.get("action_lifecycle").and_then(Value::as_array).ok_or("missing lifecycle vectors")?;
+        assert!(cases.len()>=6);
+        let f=Fixture::new()?;
+        for case in cases {
+            let mut draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e|format!("{e:?}"))?.ok_or("draft missing")?;
+            draft.candidate.settings.extend(case["settings"].as_object().ok_or("settings missing")?.clone());
+            let now=case["now"].as_str().ok_or("now missing")?.parse()?;
+            let actual=draft.initial_start_at(now,case["zone"].as_str().ok_or("zone missing")?).map_err(|e|format!("{e:?}"))?;
+            assert_eq!(actual.map(|t|t.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)),case["expected"].as_str().map(str::to_owned),"{case}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn action_lifecycle_cap_basket_and_intent_contracts() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',5),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at','2026-09-01T00:00:00Z')",[])?;
+        seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("cap".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("5"),price:Some("5000"),quote_amount_exec:Some("5"),amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()});
+        let before=f.snapshot()?;
+        assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Invalid(_)));
+        assert_eq!(f.snapshot()?,before);
+        for unbalanced in [false,true] {
+            let f=Fixture::new()?;
+            f.c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES ('ethereum','ETH','Ethereum','Cryptocurrency','2026-01-01','2026-01-01')",[])?;
+            let eth=f.c.last_insert_rowid();
+            f.c.execute("INSERT INTO tickers (exchange_id,ticker,base,quote,base_asset_id,quote_asset_id,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,trading_enabled,available,created_at,updated_at) SELECT exchange_id,'ETH/USD','ETH',quote,?1,quote_asset_id,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,trading_enabled,available,created_at,updated_at FROM tickers WHERE id=?2",(eth,f.seed.ticker_id))?;
+            let weights=json!({f.seed.btc.to_string():0.5,eth.to_string():if unbalanced {0.2}else{0.5}});
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1))",[weights.to_string()])?;
+            let before=f.snapshot()?;
+            let result=f.lifecycle(write::Action::Start,None)?;
+            if unbalanced { assert!(matches!(result,Outcome::Invalid(_))); assert_eq!(f.snapshot()?,before); }
+            else { assert!(matches!(result,Outcome::Committed(_)),"PR #457's supported crypto basket must remain eligible"); }
+        }
+        for action in [write::Action::Stop,write::Action::Delete,write::Action::Archive] {
+            let f=Fixture::new()?;
+            let intent=json!({"allocations":{f.seed.btc.to_string():1.0},"exchange_id":f.seed.exchange_id,"quote_asset_id":f.seed.quote,"cl_ord_id":"in-flight"});
+            f.c.execute("UPDATE bots SET status=4,transient_data=json_set(transient_data,'$.rust_placement',json(?1))",[intent.to_string()])?;
+            assert!(matches!(f.lifecycle(action,None)?,Outcome::Committed(_)));
+            assert_eq!(f.stored()?["transient"]["rust_placement"],intent);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn action_lifecycle_minimal_reader_and_corrupt_json() -> Result {
+        for sql in ["UPDATE bots SET exchange_id=NULL", "UPDATE bots SET settings=json_set(settings,'$.interval','unknown')"] {
+            let f=Fixture::new()?; f.c.execute_batch(sql)?;
+            let result=f.lifecycle(write::Action::Stop,None)?;
+            let Outcome::Committed(view)=result else { return Err(format!("minimal stop failed: {sql}").into()) };
+            assert_eq!(view["minimal"],true);
+        }
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET transient_data='not json'",[])?;
+        let before=f.snapshot()?;
+        assert!(matches!(f.lifecycle(write::Action::Stop,None)?,Outcome::GuardRefused(_)));
+        assert_eq!(before,f.snapshot()?);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn action_lifecycle_index_guard_ownership_and_unarchive_validation() -> Result {
+        let f=Fixture::new()?;
+        for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test")] {
+            f.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,f.ctx.app.cipher.encrypt(value)))?;
+        }
+        f.c.execute("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.index_type','top','$.num_coins',2,'$.quote_amount',60)",[])?;
+        let before=f.snapshot()?;
+        let result=f.lifecycle(write::Action::Start,Some(json!(false)))?;
+        let Outcome::GuardRefused(_) = result else { return Err("index must reach the actual engine guard".into()) };
+        assert_eq!(f.snapshot()?,before);
+        for action in [write::Action::Start,write::Action::Stop,write::Action::Delete,write::Action::Archive,write::Action::Unarchive] {
+            let result=write::lifecycle::<()>(&f.c,&f.ctx,f.seed.user_id+1,f.id,action,&Fixture::params(json!({}))?,|_,_,_|panic!("foreign bot rendered")).map_err(|e|format!("{e:?}"))?;
+            assert!(matches!(result,Outcome::Missing));
+            assert_eq!(f.snapshot()?,before);
+        }
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET status=7,settings=json_set(settings,'$.quote_amount',0)",[])?;
+        let before=f.snapshot()?;
+        let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
+        assert!(matches!(f.lifecycle(write::Action::Unarchive,None)?,Outcome::Invalid(_)));
+        assert_eq!(f.snapshot()?,before);
+        lifecycle_wake(&notify,false).await?;
+        Ok(())
+    }
+
 }
