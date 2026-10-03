@@ -8,11 +8,15 @@
 pub mod at;
 pub mod books;
 pub mod budget;
+pub mod db;
 pub mod dec;
 pub mod json;
 pub mod keys;
 pub mod lots;
 pub mod num;
+pub mod parity;
+pub mod splits;
+pub mod walk;
 
 #[derive(Debug)]
 pub enum FiguresError {

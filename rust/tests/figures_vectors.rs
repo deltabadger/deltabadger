@@ -207,3 +207,60 @@ fn every_kind_of_fill_moves_the_books_as_rails_moves_them() {
     }
     assert_eq!(branches.len(), 7, "every branch is met: {branches:?}");
 }
+
+// ---- the walk: how a row is read, a split ratio, the profit ratio, and the pin of the Ruby being mirrored ----
+
+use deltabadger::figures::db::Order;
+use deltabadger::figures::{splits, walk};
+
+#[test]
+fn an_order_row_is_read_as_filled_only_when_it_is_closed() {
+    let v = vectors();
+    let cases = v["confirmed_exec_amounts"].as_array().unwrap();
+    assert_eq!(cases.len(), 216);
+    for c in cases {
+        let order = Order {
+            id: 1, at: At(0), exchange_id: None, price: opt_dec(&c[1]), amount: opt_dec(&c[2]), amount_exec: opt_dec(&c[3]), quote_amount_exec: opt_dec(&c[4]),
+            base: None, asset_id: None, sell: false, buy: true, closed: c[0] == "closed", kind: "REGULAR".into(),
+        };
+        let (amount, quote) = walk::confirmed_exec_amounts(&order).unwrap();
+        assert_eq!((amount.map(|d| d.to_s_f()), quote.map(|d| d.to_s_f())), (c[5].as_str().map(str::to_string), c[6].as_str().map(str::to_string)), "{c}");
+    }
+}
+
+#[test]
+fn a_split_ratio_is_read_as_rails_reads_it_or_not_at_all() {
+    let v = vectors();
+    let cases = v["split_factor"].as_array().unwrap();
+    assert_eq!(cases.len(), 36);
+    for c in cases {
+        let got = splits::factor(&serde_json::json!({ "split_ratio": c[0] })).unwrap().map(|f| f.to_s_f());
+        assert_eq!(got.as_deref(), c[1].as_str(), "{c}");
+    }
+    assert_eq!(splits::factor(&serde_json::json!({})), Ok(None));
+}
+
+#[test]
+fn the_profit_ratio_is_rubys_float_or_bigdecimal_as_rails_computes_it() {
+    let v = vectors();
+    let cases = v["pnl"].as_array().unwrap();
+    assert_eq!(cases.len(), 8);
+    for c in cases { assert_eq!(tagged(&walk::pnl(&num(&c[0]), &num(&c[1])).unwrap()), c[2], "{c}"); }
+}
+
+/// The Ruby this library mirrors, by content: a change to any of these files fails here until the port is checked
+/// against it and the vectors are recorded again (script/rust/record_figures_vectors.rb).
+#[test]
+fn the_ruby_being_mirrored_has_not_changed() {
+    use sha2::{Digest, Sha256};
+    let v = vectors();
+    let pinned = v["ported_sources"].as_object().unwrap();
+    assert_eq!(pinned.len(), 12);
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, sum) in pinned {
+        let bytes = std::fs::read(root.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
+        assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
+    }
+    assert_eq!(v["account_transaction_adjustment"], deltabadger::figures::db::ADJUSTMENT, "AccountTransaction.entry_types[:adjustment]");
+    assert_eq!(v["versions"]["bigdecimal"], "3.3.1", "BigDecimal's division precision is the gem's: record again and re-run the grid when it moves");
+}
