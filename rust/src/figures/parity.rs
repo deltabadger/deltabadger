@@ -1,7 +1,8 @@
 //! The Rust half of the figures-parity harness (script/rust/figures.rb is the Rails half): every figure of one
 //! scenario, computed from its database copy and its scripted market, in the shape Rails reports them.
 use super::at::At;
-use super::db::Subject;
+use super::chart;
+use super::db::{self, Subject};
 use super::live;
 use super::scripted::Scripted;
 use super::walk::{self, Metrics};
@@ -48,6 +49,8 @@ pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
     let now = scenario["at"].as_str().and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).and_then(|at| At::from_utc(at.to_utc()))
         .ok_or_else(|| FiguresError::Data("scenario.json has no `at`".into()))?;
     let market = Scripted::new(&scenario["script"], scenario["provider"].as_str());
+    let user = db::user(&c, scenario["user_id"].as_i64().unwrap_or(0))?;
+    let zone = crate::web::timezone::zone(&user.time_zone).unwrap_or(chrono_tz::Tz::UTC);
     let written = |m: &Metrics| m.to_json(9).write();
 
     let mut bots = Map::new();
@@ -59,11 +62,27 @@ pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
         };
         let metrics = answer(walk::metrics(&c, &subject, now))?;
         let live = after(&metrics, |metrics| live::live(&c, &subject, metrics, &market, now))?;
+        let marked = after(&live, |live| chart::marked(&c, &subject, live, &market, now))?;
+        // The page's chart: nothing where Rails has nothing (no point to plot, or a raise), and a reason where this
+        // library has none to give.
+        let page = match &marked {
+            Ok(marked) => answer(chart::page(&c, &subject, marked, user.hide_balances))?,
+            Err(Absent::NotComputed(reason)) => Err(Absent::NotComputed(reason.clone())),
+            Err(Absent::Raised(_)) => Ok(None),
+        };
         let mut out = Map::new();
         out.insert("metrics".into(), text(&metrics, written));
         out.insert("live".into(), text(&live, written));
+        out.insert("marked".into(), text(&marked, written));
+        out.insert("chart".into(), match &page {
+            Ok(Some(page)) => Value::Object(page.attributes(&zone, 9).into_iter().map(|(name, value)| (name.to_string(), json!(value))).collect()),
+            Ok(None) | Err(Absent::Raised(_)) => Value::Null,
+            Err(Absent::NotComputed(reason)) => json!({ "not_computed": reason }),
+        });
         // Beside the figures, and no part of what is compared with Rails: the held assets the live pass left out.
         out.insert("unpriced".into(), json!(live.iter().flat_map(|live| &live.unpriced).map(|u| json!([u.key, u.reason.as_str()])).collect::<Vec<_>>()));
+        // And the holdings the marked chart leaves out of its points.
+        out.insert("chart_omitted".into(), json!(marked.iter().flat_map(|marked| &marked.chart_omitted).map(|u| json!([u.key, u.reason.as_str()])).collect::<Vec<_>>()));
         bots.insert(id.to_string(), Value::Object(out));
     }
 

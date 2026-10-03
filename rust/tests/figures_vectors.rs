@@ -264,3 +264,89 @@ fn the_ruby_being_mirrored_has_not_changed() {
     assert_eq!(v["account_transaction_adjustment"], deltabadger::figures::db::ADJUSTMENT, "AccountTransaction.entry_types[:adjustment]");
     assert_eq!(v["versions"]["bigdecimal"], "3.3.1", "BigDecimal's division precision is the gem's: record again and re-run the grid when it moves");
 }
+
+// ---- Bot::ChartSeries: the timeframe, reading a grid, thinning the buy marks, marking a chart at market ----
+
+use deltabadger::figures::chart::{self, BuyMark};
+use deltabadger::figures::walk::Chart;
+
+#[test]
+fn the_candle_timeframe_follows_the_bots_age_as_rails_picks_it() {
+    let v = vectors();
+    let frames = v["timeframes"].as_array().unwrap();
+    assert_eq!(frames.len(), 17);
+    for c in frames { assert_eq!(chart::timeframe(float(&c[0])), c[1].as_i64().unwrap(), "{c}"); }
+}
+
+fn marks(v: &Value) -> Vec<(At, Dec)> { v.as_array().unwrap().iter().map(|m| (At(m[0].as_i64().unwrap()), dec(&m[1]))).collect() }
+
+#[test]
+fn a_price_grid_is_read_between_its_marks_as_rails_reads_it() {
+    let v = vectors();
+    let cases = v["grid_price"].as_array().unwrap();
+    assert_eq!(cases.len(), 120);
+    let (mut asked, mut read, mut between) = (0, 0, 0);
+    for c in cases {
+        let grid = marks(&c[0]);
+        for q in c[1].as_array().unwrap() {
+            let at = At(q[0].as_i64().unwrap());
+            let got = chart::grid_price(&grid, at).unwrap().map(|p| p.to_s_f());
+            assert_eq!(got.as_deref(), q[1].as_str(), "{q} in {}", c[0]);
+            asked += 1;
+            if got.is_some() { read += 1; }
+            if got.is_some() && !grid.iter().any(|m| m.0 == at) { between += 1; }
+        }
+    }
+    assert!(read > 150 && between > 60 && asked - read > 100, "{asked} asked, {read} read, {between} between two marks");
+}
+
+#[test]
+fn buy_marks_are_thinned_and_summed_as_rails_thins_them() {
+    let v = vectors();
+    let cases = v["thinned_marks"].as_array().unwrap();
+    assert_eq!(cases.len(), 11);
+    let list = |v: &Value| -> Vec<BuyMark> {
+        v.as_array().unwrap().iter().map(|m| BuyMark { at: At(m[0].as_i64().unwrap()), key: m[1].as_str().unwrap().into(), amount: dec(&m[2]), quote: dec(&m[3]), fills: m[4].as_i64().unwrap() }).collect()
+    };
+    let mut thinned = 0;
+    for c in cases {
+        let (given, want) = (list(&c[0]), list(&c[1]));
+        if want.len() < given.len() { thinned += 1; }
+        assert_eq!(chart::thinned_marks(given).unwrap(), want, "{} marks", c[0].as_array().unwrap().len());
+    }
+    assert_eq!(thinned, 6, "six histories are long enough to thin");
+}
+
+#[test]
+fn a_chart_is_marked_at_market_point_for_point_as_rails_marks_it() {
+    let v = vectors();
+    let cases = v["marked_at_market"].as_array().unwrap();
+    assert_eq!(cases.len(), 60);
+    let rows = |v: &Value| -> Vec<Vec<(String, Num)>> {
+        v.as_array().unwrap().iter().map(|row| row.as_array().unwrap().iter().map(|p| (p[0].as_str().unwrap().to_string(), num(&p[1]))).collect()).collect()
+    };
+    let nums = |v: &Value| -> Vec<Num> { v.as_array().unwrap().iter().map(num).collect() };
+    let grids = |v: &Value| -> chart::Grids { v.as_array().unwrap().iter().map(|g| (g[0].as_str().unwrap().to_string(), marks(&g[1]))).collect() };
+    let (mut kept, mut dropped, mut unpriced) = (0, 0, 0);
+    for c in cases {
+        let given = Chart {
+            labels: c["labels"].as_array().unwrap().iter().map(|t| At(t.as_i64().unwrap())).collect(), value: nums(&c["values"]), invested: nums(&c["invested"]),
+            extra: rows(&c["extra"]), invested_by: rows(&c["cost"]), cash: nums(&c["cash"]), prices: None, assets: None,
+        };
+        let priceable: Vec<String> = c["priceable"].as_array().unwrap().iter().map(|k| k.as_str().unwrap().to_string()).collect();
+        let got = chart::marked_at_market(&given, &grids(&c["grids"]), &grids(&c["display"]), &priceable).unwrap();
+        let out = serde_json::json!({
+            "labels": got.labels.iter().map(|at| at.0).collect::<Vec<_>>(),
+            "values": got.value.iter().map(tagged).collect::<Vec<_>>(),
+            "invested": got.invested.iter().map(tagged).collect::<Vec<_>>(),
+            "prices": got.prices.iter().flatten().map(|(key, serie)| serde_json::json!([key, serie.iter().map(|p| p.as_ref().map(|p| p.to_d().unwrap().to_s_f())).collect::<Vec<_>>()])).collect::<Vec<_>>(),
+            "assets": got.assets.iter().flatten().map(|(key, serie)| serde_json::json!([key, serie.value.iter().map(|v| v.as_ref().map(tagged)).collect::<Vec<_>>(), serie.invested.iter().map(tagged).collect::<Vec<_>>()])).collect::<Vec<_>>(),
+        });
+        assert_eq!(out, c["out"], "{}", c);
+        assert_eq!((&got.extra, &got.invested_by, &got.cash), (&given.extra, &given.invested_by, &given.cash), "the walk's own rows are carried unchanged");
+        kept += got.labels.len();
+        dropped += c["grids"].as_array().unwrap().iter().flat_map(|g| g[1].as_array().unwrap()).count();
+        unpriced += got.assets.iter().flatten().flat_map(|(_, serie)| &serie.value).filter(|v| v.is_none()).count();
+    }
+    assert!(kept > 200 && dropped > kept / 2 && unpriced > 20, "{kept} points kept of {dropped} grid marks, {unpriced} left on their fill mark");
+}

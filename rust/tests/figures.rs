@@ -216,3 +216,43 @@ fn holdings_left_out_of_the_value_are_named_beside_the_figures() {
     ].into_iter().map(|(bot, list)| (bot.to_string(), list.to_string())).collect();
     assert_eq!(named, expected);
 }
+
+#[test]
+fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
+    compare("marked", of_bots(&["marked"]));
+    compare("chart", of_bots(&["chart"]));
+    let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
+    let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
+    // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (119, 10, 22, 1));
+}
+
+/// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
+/// money that bought it stays in what went in. Named beside the chart, as the live pass names its own; everywhere
+/// else the list is empty.
+#[test]
+fn holdings_left_out_of_the_chart_are_named_beside_it() {
+    let mut named = std::collections::BTreeMap::new();
+    for scenario in &grid().scenarios {
+        let rust = scenario.rust.as_ref().unwrap();
+        let mut by_bot = vec![];
+        for (id, bot) in rust["bots"].as_object().unwrap() {
+            let Some(list) = bot["chart_omitted"].as_array().filter(|list| !list.is_empty()) else { continue };
+            named.insert(format!("{} {id}", scenario.name), Value::Array(list.clone()).to_string());
+            by_bot.extend(list.iter().map(|u| serde_json::json!([id.parse::<i64>().unwrap(), u[0], u[1]])));
+        }
+        // The account's list is the same, by bot, wherever the totals are computed.
+        if let Some(listed) = rust["chart_omitted"].as_array() { assert_eq!(listed, &by_bot, "{}", scenario.name); }
+    }
+    let expected: std::collections::BTreeMap<String, String> = [
+        // Delisted while held: the live pass names them too.
+        ("delisted_member 1", r#"[["BBB","delisted"]]"#),
+        ("index_rotation 1", r#"[["LLL","delisted"]]"#),
+        ("unpriceable_first 1", r#"[["LLL","delisted"]]"#),
+        ("old_rows 1", r#"[["ZZZ","no_ticker"],["aaa","no_ticker"]]"#),
+        // Sold out, then delisted: nothing of it is held, so only the chart leaves it out.
+        ("sold_out_then_delisted 1", r#"[["AAA","delisted"]]"#),
+        // all_delisted is not here: with no ticker at all there are no candles, and the chart is the walk's own.
+    ].into_iter().map(|(bot, list)| (bot.to_string(), list.to_string())).collect();
+    assert_eq!(named, expected);
+}

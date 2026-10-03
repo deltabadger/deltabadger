@@ -8,6 +8,7 @@
 pub mod at;
 pub mod books;
 pub mod budget;
+pub mod chart;
 pub mod db;
 pub mod dec;
 pub mod json;
