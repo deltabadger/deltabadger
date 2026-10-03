@@ -4,9 +4,13 @@
 {{ v.stream_from(bot_updates)|safe }}
 
   <section class="dash-intro{% if pnl_pass %} dash-intro--plotted{% endif %}"{% if pnl_pass %} data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="global_pnl_update" data-broadcast--on-connect-retry-while-value="#global-pnl .dash-intro__loading"{% endif %}>
+{% if let Some(headline) = headline %}
+{{ headline|safe }}
+{% else %}
     <div id="global-pnl">{% if pnl_pass %}
     <div class="dash-intro__loading"></div>
 {% endif %}</div>
+{% endif %}
 </section>
   <div data-controller="bots-merge" data-bots-merge-split-url-value="{{ v.path("/bots/split/new") }}" data-bots-merge-split-label-value="{{ v.t("button.split")|safe }}" data-bots-merge-connected-value="{{ connected }}" data-bots-merge-names-value="{{ names }}" data-bots-merge-no-partner-value="{{ no_partner }}" data-bots-merge-no-shared-exchange-value="{{ no_shared_exchange }}" data-bots-merge-other-exchange-value="{{ other_exchange }}">
   <div class="page-head page-head--bots">

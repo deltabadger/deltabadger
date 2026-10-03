@@ -39,6 +39,9 @@
           {{ settings|safe }}
       </div>
       <div class="column gap-1">
+{% if let Some(metrics) = metrics %}
+{{ metrics|safe }}
+{% else %}
           <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
 {% if !hide_money %}
     <div class="widget data-grid data-grid--two-columns">
@@ -57,6 +60,7 @@
     </div>
 {% endif %}
 </div>
+{% endif %}
 
         
 <div data-controller="order-filter" data-order-filter-current-value="{{ order_filter }}" style="gap: 1rem; display: flex; flex-direction: column">

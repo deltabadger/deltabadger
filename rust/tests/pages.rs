@@ -863,3 +863,6 @@ impl ActionObserver {
         self.receive(false).await
     }
 }
+
+#[path = "support/page_figures_grid.rs"]
+mod page_figures_grid;

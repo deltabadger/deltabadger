@@ -395,7 +395,7 @@ fn members_shaped(settings: &Value) -> bool {
 /// Which request asks: the feed answers many times for one page, and so is not made to walk a
 /// bot's whole history each time.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum For { Page, Feed }
+pub enum For { Page, Feed, FiguresPage }
 
 /// Why a bot's pages are not served by this build. Rails serves each of these; porting what
 /// a line names removes it.
@@ -448,9 +448,9 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let other_type = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') \
                                         OR EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type > 'REGULAR')", [bot_id], |r| r.get(0))?;
     let sold = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND side IS NOT 0)", [bot_id], |r| r.get(0))?;
-    if other_type || sold { return Ok(Some(BEYOND_BUYS)); }
+    if (other_type || sold) && asked != For::FiguresPage { return Ok(Some(BEYOND_BUYS)); }
     match wash_sale_enabled {
-        Some(true) => return Ok(Some("the wash-sale rule")),
+        Some(true) if asked != For::FiguresPage => return Ok(Some("the wash-sale rule")),
         // The question's modal opens once the bot holds something, which only the metrics walk knows.
         None if c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
             return Ok(Some("the wash-sale question not answered yet"));

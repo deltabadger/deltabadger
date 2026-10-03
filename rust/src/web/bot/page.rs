@@ -61,6 +61,7 @@ struct Show<'a> {
     working: bool,
     settings: String,
     hide_money: bool,
+    metrics: Option<String>,
     order_filter: String,
     order_filters_id: String,
     default_filter: &'static str,
@@ -180,7 +181,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     let feed = turbo_stream_format(extension, &headers) && ctx.turbo_frame.as_deref() == Some("orders_pagination");
     // Whose bot it is comes first: neither a redirect nor a refusal renders a form, so neither gives the session a token.
     let (inner, owner, id_part) = (app.clone(), user.clone(), id_part.to_string());
-    let asked = if feed { super::For::Feed } else { super::For::Page };
+    let asked = if feed { super::For::Feed } else if matches!(app.figure_source, crate::web::figure::loading::Source::Disabled) { super::For::Page } else { super::For::FiguresPage };
     let (bot, configured) = match app.db(move |c| find(c, &inner, &owner, &id_part, false, asked)).await {
         Ok((Found::Bot(bot), configured)) => (*bot, configured),
         Ok((Found::Missing, _)) => return Ok(not_found(&ctx)),
@@ -196,6 +197,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         };
         return Ok((StatusCode::OK, [(axum::http::header::CONTENT_TYPE, crate::web::turbo::CONTENT_TYPE)], body).into_response());
     }
+    let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
     let csrf = ctx.csrf_token();
     let (inner, view, token, owner) = (app.clone(), ctx.clone(), csrf.clone(), user.clone());
     let page = app.db(move |c| {
@@ -206,6 +208,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let other_bots = others.query_map([user.id, bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
             .map(|row| row.map(|(id, label)| (ctx.path(&format!("/bots/{id}")), label.unwrap_or_default()))).collect::<Result<Vec<_>, _>>()?;
         let hide_money = user.hide_balances;
+        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str());
+        let metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
         // BotHelper#order_filter_tabs: [value, available?], and the tab the log opens on.
@@ -230,7 +234,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
             menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
             status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, columns_id: bot.dom_id("columns"), working: bot.working(),
-            settings: settings::column(c, &forms)?, hide_money, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
+            settings: settings::column(c, &forms)?, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
             bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !bot.has_orders && !activities,
         }.render()?;
@@ -245,14 +249,18 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
 pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let (inner, owner) = (app.clone(), user.clone());
-    let bot = match app.db(move |c| find(c, &inner, &owner, &segment, true, super::For::Page)).await {
+    let bot = match app.db(move |c| find(c, &inner, &owner, &segment, true, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { super::For::Page } else { super::For::FiguresPage })).await {
         Ok((Found::Bot(bot), _)) => *bot,
         Ok((Found::Missing, _)) => return Ok(layout::missing()),
         Ok((Found::NotPorted(reason), _)) => return Ok(layout::refused(&ctx, reason)),
         Err(error) => return layout::or_refused(&ctx, error),
     };
     let csrf = ctx.csrf_token();
-    let chart = chart(&ctx, &bot, user.hide_balances)?;
+    let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
+    let (view,owner,id,token)=(ctx.clone(),user.clone(),bot.id,csrf.clone());
+    let ready = app.db(move|c|Ok(crate::web::figure::loading::render(c,owner.id,&snapshot,view.locale,&token,&view.path(""))
+        .and_then(|v|v["bots"][id.to_string()]["chart"].as_str().map(str::to_string)))).await?;
+    let chart = match ready { Some(ready)=>ready,None=>chart(&ctx,&bot,user.hide_balances)? };
     let body = ChartFrame { args: json(&serde_json::json!({ "bot_id": bot.id })), chart: &chart }.render()?;
     let (inner, owner) = (app.clone(), user.clone());
     let shell = match app.db(move |c| Shell::load(c, &inner, &owner)).await { Ok(shell) => shell, Err(error) => return layout::or_refused(&ctx, error) };
