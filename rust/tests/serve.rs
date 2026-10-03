@@ -2057,3 +2057,469 @@ async fn the_feed_refuses_the_page_that_holds_the_row_and_no_page_before_it() {
     for minute in 1..=10 { order(minute, 0, "0.6"); }
     two_pages("an amount that is not read, after ten buys", "<tr id=\"transaction_").await;
 }
+
+/// Compile the production CLI with just its transport factory substituted. The CLI
+/// deliberately has no runtime venue override; none is added for this test.
+fn bot_action_executable(
+    dir: &std::path::Path,
+    venue: std::net::SocketAddr,
+) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let main = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/main.rs"))?;
+    let import = "use deltabadger::venue::alpaca::{self, LiveFactory};";
+    assert_eq!(
+        main.matches(import).count(),
+        1,
+        "review the CLI transport seam if main changes"
+    );
+    let transport=r#"
+use deltabadger::venue::alpaca;
+#[derive(Clone)]
+struct LiveFactory;
+impl LiveFactory {fn new()->Self {Self}}
+impl deltabadger::venue::VenueFactory for LiveFactory {
+    type V=alpaca::AlpacaVenue<Self>;
+    fn for_bot(&self,_:&str,_:Option<deltabadger::crypto::Credentials>)->Self::V {
+        alpaca::AlpacaVenue::new(self.clone(),alpaca::Urls::for_passphrase(Some("paper")))
+    }
+}
+impl deltabadger::sync::jobs::Connect for LiveFactory {
+    type T=Self;
+    fn connect(&self,_:&deltabadger::crypto::Credentials)->alpaca::AlpacaVenue<Self> {
+        alpaca::AlpacaVenue::new(self.clone(),alpaca::Urls::for_passphrase(Some("paper")))
+    }
+}
+impl deltabadger::venue::http::Transport for LiveFactory {
+    async fn send(&self,r:&deltabadger::venue::http::HttpRequest)->Result<deltabadger::venue::http::HttpResponse,deltabadger::venue::http::TransportError> {
+        use tokio::io::{AsyncReadExt,AsyncWriteExt};
+        use deltabadger::venue::http::{HttpResponse,TransportError};
+        let result=tokio::time::timeout(std::time::Duration::from_secs(20),async {
+            let mut socket=tokio::net::TcpStream::connect("VENUE_ADDRESS").await?;
+            let request=serde_json::json!({"method":r.method,"path":r.path,"body":r.body}).to_string()+"\n";
+            socket.write_all(request.as_bytes()).await?;
+            let mut body=String::new();socket.read_to_string(&mut body).await?;
+            Ok::<_,std::io::Error>(HttpResponse {status:200,body})
+        }).await;
+        match result {Ok(Ok(r))=>Ok(r),other=>Err(TransportError::MaybeSent(format!("script: {other:?}")))}
+    }
+}
+"#.replace("VENUE_ADDRESS",&venue.to_string());
+    let source = dir.join("main.rs");
+    std::fs::write(&source, main.replacen(import, &transport, 1))?;
+    let binary = dir.join("deltabadger-scripted");
+    let deps = std::env::current_exe()?
+        .parent()
+        .ok_or("test executable directory")?
+        .to_path_buf();
+    let mut command = Command::new("rustc");
+    command
+        .arg("--edition=2021")
+        .args(["-C", "codegen-units=2"])
+        .arg(&source)
+        .arg("-o")
+        .arg(&binary)
+        .arg("-L")
+        .arg(format!("dependency={}", deps.display()))
+        .env("CARGO_PKG_VERSION", env!("CARGO_PKG_VERSION"));
+    for name in ["deltabadger", "tokio", "chrono", "rusqlite", "serde_json"] {
+        let mut candidates = std::fs::read_dir(&deps)?
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| {
+                p.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with(&format!("lib{name}-")))
+                    && p.extension().is_some_and(|e| e == "rlib")
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by_key(|p| p.metadata().and_then(|m| m.modified()).ok());
+        let library = candidates
+            .last()
+            .ok_or_else(|| format!("compiled {name} library"))?;
+        command
+            .arg("--extern")
+            .arg(format!("{name}={}", library.display()));
+    }
+    let log = std::fs::File::create(dir.join("rustc.log"))?;
+    let mut compiler = Child(command.stdout(log.try_clone()?).stderr(log).spawn()?);
+    let status = compiler
+        .ended_within(Duration::from_secs(60))
+        .ok_or("scripted CLI compilation exceeded 60 s")?;
+    assert!(
+        status.success(),
+        "{}",
+        std::fs::read_to_string(dir.join("rustc.log"))?
+    );
+    Ok(binary)
+}
+
+#[test]
+fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
+    use common::seed;
+    use serde_json::{json, Value};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    };
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    c.busy_timeout(Duration::from_secs(5))?;
+    let hash =
+        deltabadger::crypto::hash_password("Correct-horse-9").map_err(|e| format!("{e:?}"))?;
+    c.execute(
+        "UPDATE users SET encrypted_password=?1,confirmed_at=created_at,wash_sale_enabled=0",
+        [hash],
+    )?;
+    let mut spec = seed::BotSpec::weekly(5.0, "2026-09-01 10:00:00");
+    spec.status = 2;
+    let crypto = seed::insert_bot(c, &seeded, &spec);
+    let (stock_asset, _) = seed::add_eth_sol(c, &seeded);
+    c.execute(
+        "UPDATE assets SET category='Stock' WHERE id=?1",
+        [stock_asset],
+    )?;
+    let stock = seed::insert_bot(
+        c,
+        &seeded,
+        &seed::BotSpec {
+            settings: json!({"interval":"week","quote_amount":5,"allocations":{stock_asset.to_string():1.0}}),
+            ..seed::BotSpec::weekly(5.0, "2026-09-01 10:00:00")
+        },
+    );
+    let index = seed::insert_bot(
+        c,
+        &seeded,
+        &spec
+            .with("index_type", json!("top"))
+            .with("num_coins", json!(2)),
+    );
+    c.execute("UPDATE bots SET status=2,label='Smoke '||id", [])?;
+    c.execute("UPDATE bots SET type='Bots::DcaIndex' WHERE id=?1", [index])?;
+    for (key, value) in [
+        ("market_data_provider", "deltabadger"),
+        ("market_data_url", "http://example.test"),
+        ("market_data_token", "test"),
+    ] {
+        c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,seed::cipher().encrypt(value)))?;
+    }
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+    let address = listener.local_addr()?;
+    listener.set_nonblocking(true)?;
+    let scratch = tempfile::tempdir()?;
+    let binary = bot_action_executable(scratch.path(), address)?;
+    let stopping = Arc::new(AtomicBool::new(false));
+    let done = stopping.clone();
+    let submissions = Arc::new(Mutex::new(Vec::<Value>::new()));
+    let calls = submissions.clone();
+    let (entered, entry) = mpsc::channel();
+    let (release, released) = mpsc::channel();
+    let worker = std::thread::spawn(move || -> Result<(), String> {
+        while !done.load(Ordering::SeqCst) {
+            let (mut socket, _) = match listener.accept() {
+                Ok(s) => s,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(5));
+                    continue;
+                }
+                Err(e) => return Err(e.to_string()),
+            };
+            socket
+                .set_read_timeout(Some(Duration::from_secs(20)))
+                .map_err(|e| e.to_string())?;
+            socket
+                .set_write_timeout(Some(Duration::from_secs(20)))
+                .map_err(|e| e.to_string())?;
+            let mut line = String::new();
+            std::io::BufRead::read_line(&mut std::io::BufReader::new(&mut socket), &mut line)
+                .map_err(|e| e.to_string())?;
+            let r: Value = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+            let body = match (r["method"].as_str(), r["path"].as_str()) {
+                (Some("GET"), Some("/v1beta3/crypto/us/latest/quotes")) => {
+                    json!({"quotes":{"BTC/USD":{"ap":64000}}})
+                }
+                (Some("GET"), Some("/v2/account")) => {
+                    json!({"cash":"100000","non_marginable_buying_power":"100000"})
+                }
+                (Some("GET"), Some("/v2/positions")) => json!([]),
+                (Some("POST"), Some("/v2/orders")) => {
+                    calls
+                        .lock()
+                        .map_err(|e| e.to_string())?
+                        .push(r["body"].clone());
+                    entered.send(()).map_err(|e| e.to_string())?;
+                    released
+                        .recv_timeout(Duration::from_secs(20))
+                        .map_err(|e| format!("order transmitted, waiting for HTTP Stop: {e}"))?;
+                    json!({"id":"SMOKE-1","status":"pending_new"})
+                }
+                (Some("GET"), Some("/v2/orders/SMOKE-1")) => {
+                    json!({"id":"SMOKE-1","status":"filled","symbol":"BTC/USD","type":"market","side":"buy","notional":"7","qty":null,"filled_qty":"0.000109375","filled_avg_price":"64000","limit_price":null})
+                }
+                _ => return Err(format!("unscripted venue request: {r}")),
+            };
+            socket
+                .write_all(body.to_string().as_bytes())
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    });
+    struct ScriptGuard {
+        stop: Arc<AtomicBool>,
+        release: mpsc::Sender<()>,
+        thread: Option<std::thread::JoinHandle<Result<(), String>>>,
+    }
+    impl Drop for ScriptGuard {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::SeqCst);
+            let _ = self.release.send(());
+            if let Some(t) = self.thread.take() {
+                let _ = t.join();
+            }
+        }
+    }
+    let mut script = ScriptGuard {
+        stop: stopping,
+        release: release.clone(),
+        thread: Some(worker),
+    };
+    let port = free_port();
+    let log = std::fs::File::create(scratch.path().join("serve.log"))?;
+    let command = serve_command(dir.path(), port);
+    // Preserve the production command's environment sanitization and all CLI code.
+    let mut scripted = Command::new(&binary);
+    scripted.args(command.get_args());
+    for (key, value) in command.get_envs() {
+        match value {
+            Some(v) => {
+                scripted.env(key, v);
+            }
+            None => {
+                scripted.env_remove(key);
+            }
+        }
+    }
+    let mut child = Child(
+        scripted
+            .env("SECRET_KEY_BASE", "engine-test-secret")
+            .stdin(Stdio::null())
+            .stdout(log.try_clone()?)
+            .stderr(log)
+            .spawn()?,
+    );
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !up_within(port, Duration::from_secs(1)) {
+        if child.0.try_wait()?.is_some() || Instant::now() >= deadline {
+            return Err(std::fs::read_to_string(scratch.path().join("serve.log"))?.into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let (_, cookie, login) = http(port, "GET", "/login", None, None);
+    let token = web::form_token(&login, "/login").ok_or("login token")?;
+    let form = form_urlencoded::Serializer::new(String::new())
+        .append_pair("authenticity_token", &token)
+        .append_pair("user[email]", "o@example.com")
+        .append_pair("user[password]", "Correct-horse-9")
+        .finish();
+    let (status, signed_in, body) = http(port, "POST", "/login", cookie.as_deref(), Some(&form));
+    assert_eq!(status, 303, "{body}");
+    let cookie = signed_in.or(cookie).ok_or("signed-in cookie")?;
+    let (_, page_cookie, page) = http(port, "GET", &format!("/bots/{crypto}"), Some(&cookie), None);
+    let cookie = page_cookie.unwrap_or(cookie);
+    let token = web::meta_token(&page).ok_or("rotated CSRF token")?;
+    let action = |method: &str,
+                  id: i64,
+                  suffix: &str,
+                  fields: &[(&str, &str)]|
+     -> Result<(u16, String), Box<dyn std::error::Error>> {
+        let form = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(fields.iter().copied())
+            .finish();
+        let request=format!("{method} /bots/{id}{suffix} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nCookie: {cookie}\r\nX-CSRF-Token: {token}\r\nAccept: text/vnd.turbo-stream.html\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{form}",form.len());
+        let response = exchange(port, &request, Instant::now() + Duration::from_secs(20))
+            .ok_or("action HTTP deadline")?;
+        let status = response
+            .split_whitespace()
+            .nth(1)
+            .ok_or("HTTP status")?
+            .parse()?;
+        Ok((status, response))
+    };
+    let edited = action(
+        "PATCH",
+        crypto,
+        "",
+        &[("bots_dca_multi_asset[quote_amount]", "7")],
+    )?;
+    assert_eq!(edited.0, 200, "{}", edited.1);
+    assert_eq!(
+        c.query_row(
+            "SELECT json_extract(settings,'$.quote_amount') FROM bots WHERE id=?1",
+            [crypto],
+            |r| r.get::<_, f64>(0)
+        )?,
+        7.0
+    );
+    let started = action("PATCH", crypto, "/start", &[])?;
+    assert_eq!(started.0, 200, "{}", started.1);
+    entry.recv_timeout(Duration::from_secs(20)).map_err(|e| {
+        format!(
+            "HTTP Start committed; engine never submitted: {e}; {}",
+            std::fs::read_to_string(scratch.path().join("serve.log")).unwrap_or_default()
+        )
+    })?;
+    {
+        let orders = submissions.lock().map_err(|e| e.to_string())?;
+        assert_eq!(orders.len(), 1);
+        let order = orders.first().ok_or("submission")?;
+        assert_eq!(order["symbol"], "BTC/USD");
+        assert_eq!(order["notional"], "7.00");
+        assert_eq!(order["side"], "buy");
+        assert!(order["client_order_id"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()));
+    }
+    assert_eq!(action("PATCH", crypto, "/stop", &[])?.0, 200);
+    release.send(())?;
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        let rows: i64 = c.query_row(
+            "SELECT count(*) FROM transactions WHERE bot_id=?1 AND external_status=2",
+            [crypto],
+            |r| r.get(0),
+        )?;
+        if rows == 1 {
+            break;
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "Stop committed and venue released; fill did not reconcile: {}",
+                std::fs::read_to_string(scratch.path().join("serve.log"))?
+            )
+            .into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        c.query_row("SELECT status FROM bots WHERE id=?1", [crypto], |r| r
+            .get::<_, i64>(0))?,
+        2
+    );
+    let snapshot = || -> Result<Vec<String>, rusqlite::Error> {
+        let mut out = vec![];
+        for table in [
+            "bots",
+            "bot_index_assets",
+            "bot_activity_logs",
+            "transactions",
+            "api_keys",
+            "users",
+        ] {
+            let mut query = c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+            let columns = query.column_count();
+            let mut rows = query.query([])?;
+            while let Some(row) = rows.next()? {
+                let values = (0..columns)
+                    .map(|i| row.get_ref(i).map(|v| format!("{v:?}")))
+                    .collect::<Result<Vec<_>, _>>()?;
+                out.push(format!("{table}:{values:?}"));
+            }
+        }
+        Ok(out)
+    };
+    for bot in [stock, index] {
+        let before = snapshot()?;
+        let refused = action("PATCH", bot, "/start", &[])?;
+        assert_eq!(refused.0, 422, "{}", refused.1);
+        assert!(refused.1.contains("run that yet"), "{}", refused.1);
+        assert_eq!(snapshot()?, before);
+        assert!(up_within(port, Duration::from_secs(2)) && child.0.try_wait()?.is_none());
+    }
+    for (method, suffix, status) in [
+        ("POST", "/archive", 7),
+        ("DELETE", "/archive", 2),
+        ("DELETE", "/delete", 3),
+    ] {
+        let answer = action(method, crypto, suffix, &[])?;
+        assert_eq!(answer.0, 200, "{}", answer.1);
+        if suffix == "/delete" {
+            assert!(answer.1.contains("redirect") && answer.1.contains("/bots"));
+        }
+        assert_eq!(
+            c.query_row("SELECT status FROM bots WHERE id=?1", [crypto], |r| r
+                .get::<_, i64>(0))?,
+            status
+        );
+    }
+    assert_eq!(submissions.lock().map_err(|e| e.to_string())?.len(), 1);
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM transactions WHERE bot_id=?1 AND external_status=2",
+            [crypto],
+            |r| r.get::<_, i64>(0)
+        )?,
+        1
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM bot_activity_logs WHERE bot_id=?1 AND event='started'",
+            [crypto],
+            |r| r.get::<_, i64>(0)
+        )?,
+        1
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM bot_activity_logs WHERE bot_id=?1 AND event='stopped'",
+            [crypto],
+            |r| r.get::<_, i64>(0)
+        )?,
+        2
+    );
+    let check_log = std::fs::File::create(scratch.path().join("check.log"))?;
+    let mut check = Child(
+        Command::new(env!("CARGO_BIN_EXE_deltabadger"))
+            .arg("check")
+            .env("STORAGE_DIR", dir.path())
+            .stdout(check_log.try_clone()?)
+            .stderr(check_log)
+            .spawn()?,
+    );
+    assert!(!check
+        .ended_within(Duration::from_secs(20))
+        .ok_or("lease check deadline")?
+        .success());
+    assert!(std::fs::read_to_string(scratch.path().join("check.log"))?
+        .contains("another Deltabadger engine"));
+    // Merged basket support means a basket alone is no longer an engine refusal.
+    c.execute("UPDATE bots SET status=1,settings=json_set(settings,'$.weighting','market_cap') WHERE id=?1",[stock])?;
+    // A refused write cannot wake the loop; its next bounded idle pass must end both tasks.
+    assert_eq!(
+        action(
+            "PATCH",
+            index,
+            "",
+            &[("bots_dca_index[label]", "supervision")]
+        )?
+        .0,
+        422
+    );
+    let ended = child
+        .ended_within(Duration::from_secs(100))
+        .ok_or("engine supervision deadline")?;
+    assert!(!ended.success());
+    assert!(!up_within(port, Duration::from_secs(2)));
+    let supervision_log = std::fs::read_to_string(scratch.path().join("serve.log"))?;
+    assert!(
+        supervision_log.contains("a write to bots skipped eligibility::guard")
+            && supervision_log.contains("weighting market_cap"),
+        "{ended}: {supervision_log}"
+    );
+    drop(release);
+    script.stop.store(true, Ordering::SeqCst);
+    script
+        .thread
+        .take()
+        .ok_or("script worker")?
+        .join()
+        .map_err(|_| "script panic")?
+        .map_err(|e| format!("venue: {e}"))?;
+    Ok(())
+}

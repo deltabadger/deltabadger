@@ -2452,3 +2452,449 @@ async fn action_http_fragments_locales_formats_and_hostile_drafts() -> Result<()
     }
     Ok(())
 }
+
+/// Task 7: requests use the normal security pipeline, a file-backed install and a
+/// connection distinct from the engine's. No timing guesses establish an overlap.
+mod action_race {
+    use super::common;
+    use common::{seed, scripted, web::{self as harness, Browser, Csrf, TestClock}};
+    use deltabadger::{engine::{model, run, tick, Clock}, web::{App, Config}, venue::{alpaca::{AlpacaVenue, Urls}, http::{HttpRequest, HttpResponse, ScriptedTransport, Transport, TransportError}, VenueFactory}};
+    use rusqlite::Connection;
+    use serde_json::{json, Value};
+    use std::{cell::RefCell, rc::Rc, sync::{Arc, Mutex, mpsc}, time::Duration};
+    use tokio::sync::Notify;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    const NOW: &str = "2026-09-03T15:00:00Z";
+    const ANCHOR: &str = "2026-09-01 10:00:00";
+    const LIMIT: Duration = Duration::from_secs(15);
+    const HEADERS: &[(&str, &str)] = &[("accept", "text/vnd.turbo-stream.html")];
+
+    // rusqlite's safe busy-handler interface takes a function pointer. Serialize only
+    // these probes, and keep the callback bounded even if an assertion unwinds.
+    static PROBE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    static BUSY: Mutex<Option<(Arc<Notify>, mpsc::Receiver<()>)>> = Mutex::new(None);
+    fn busy(attempt: i32) -> bool {
+        if attempt != 0 { return false; }
+        let Ok(probe) = BUSY.lock() else { return false; };
+        let Some((entered, release)) = &*probe else { return false; };
+        entered.notify_one();
+        release.recv_timeout(LIMIT).is_ok()
+    }
+
+    struct Fixture {
+        dir: tempfile::TempDir, c: Connection, app: App, browser: Browser,
+        seed: seed::Seeded, id: i64, eth: i64, clock: Arc<TestClock>, wake: Arc<Notify>,
+    }
+    impl Fixture {
+        async fn new() -> Result<Self> {
+            let (dir, opened, seed) = common::install_alpaca();
+            let c = opened.primary;
+            // A real password login supplies the session and rotated CSRF token.
+            let hash = deltabadger::crypto::hash_password("Correct-horse-9").map_err(|e| format!("{e:?}"))?;
+            c.execute("UPDATE users SET encrypted_password=?1,confirmed_at=created_at,wash_sale_enabled=0", [hash])?;
+            let (eth, _) = seed::add_eth_sol(&c, &seed);
+            let mut spec = seed::BotSpec::weekly(60.0, ANCHOR).with("interval", json!("day"));
+            spec.status = 2;
+            spec.transient = json!({"private":{"null":null,"value":"keep"}});
+            let id = seed::insert_bot(&c, &seed, &spec);
+            c.execute("UPDATE bots SET label='Race' WHERE id=?1", [id])?;
+            c.execute("UPDATE exchange_assets SET updated_at=?1", ["2026-09-03 15:00:00"])?;
+            let clock = TestClock::at(NOW);
+            let own = Connection::open(dir.path().join("production.sqlite3"))?;
+            own.busy_timeout(LIMIT)?;
+            own.pragma_update(None, "foreign_keys", true)?;
+            let env = |k: &str| match k { "SECRET_KEY_BASE" => Some("engine-test-secret".into()), _ => None };
+            let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, own, clock.clone()).map_err(|e|format!("{e:?}"))?;
+            let wake = Arc::new(Notify::new()); app.attach_engine(wake.clone());
+            let mut browser = Browser::default();
+            browser.get(&app, "/login").await;
+            assert_eq!(browser.post(&app, "/login", &[("user[email]","o@example.com"),("user[password]","Correct-horse-9")]).await.status,303);
+            assert_eq!(browser.get(&app,&format!("/bots/{id}")).await.status,200);
+            Ok(Self { dir, c, app, browser, seed, id, eth, clock, wake })
+        }
+        fn path(&self, suffix: &str) -> String { format!("/bots/{}{suffix}", self.id) }
+        async fn send(&mut self, method: &str, suffix: &str, fields: &[(&str,&str)]) -> Result<harness::Answer> {
+            let path = self.path(suffix);
+            Ok(tokio::time::timeout(LIMIT,self.browser.send(&self.app,method,&path,Some(fields),Csrf::Header,HEADERS)).await?)
+        }
+        async fn ok(&mut self, method: &str, suffix: &str, fields: &[(&str,&str)]) -> Result {
+            let answer=self.send(method,suffix,fields).await?;
+            assert_eq!(answer.status,200,"{method} {suffix}: {}",answer.body); Ok(())
+        }
+        fn one<T: rusqlite::types::FromSql>(&self, sql: &str) -> Result<T> { Ok(self.c.query_row(sql,[self.id],|r|r.get(0))?) }
+        fn snapshot(&self) -> Result<Vec<String>> {
+            let mut out=vec![];
+            for table in ["bots","bot_index_assets","bot_activity_logs","transactions","api_keys","users"] {
+                let mut q=self.c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+                let columns=q.column_count(); let mut rows=q.query([])?;
+                while let Some(row)=rows.next()? {
+                    let values=(0..columns).map(|i|row.get_ref(i).map(|v|format!("{v:?}"))).collect::<std::result::Result<Vec<_>,_>>()?;
+                    out.push(format!("{table}:{values:?}"));
+                }
+            } Ok(out)
+        }
+        fn transient(&self) -> Result<Value> { Ok(serde_json::from_str(&self.one::<String>("SELECT transient_data FROM bots WHERE id=?1")?)?) }
+        async fn woke(&self, expected: bool) -> Result {
+            // Notify stores a permit; a zero-duration poll observes it without a sleep.
+            assert_eq!(tokio::time::timeout(Duration::ZERO,self.wake.notified()).await.is_ok(),expected,"post-commit wake"); Ok(())
+        }
+        async fn contended(&mut self, method: &str, suffix: &str, fields: &[(&str,&str)], edit: impl FnOnce(&Self)->Result, advance: Option<&str>) -> Result<(harness::Answer,Vec<String>)> {
+            let _serial=PROBE_LOCK.lock().await;
+            self.app.db(|c| { c.busy_handler(Some(busy))?; Ok(()) }).await.map_err(|e|format!("{e:?}"))?;
+            let hit=Arc::new(Notify::new()); let (release, receiver)=mpsc::channel();
+            *BUSY.lock().map_err(|e|e.to_string())?=Some((hit.clone(),receiver));
+            self.c.execute_batch("BEGIN IMMEDIATE")?;
+            edit(self)?;
+            let before=self.snapshot()?;
+            let path=self.path(suffix);
+            let request=self.browser.send(&self.app,method,&path,Some(fields),Csrf::Header,HEADERS);
+            tokio::pin!(request);
+            let deadline=tokio::time::Instant::now()+LIMIT;
+            tokio::select! {
+                result=&mut request => return Err(format!("request finished before SQLite contention: {} {}; writer still holds BEGIN IMMEDIATE",result.status,result.body).into()),
+                _=hit.notified()=>{},
+                _=tokio::time::sleep_until(deadline)=>return Err("request did not enter SQLite busy handler; external writer holds BEGIN IMMEDIATE".into()),
+            }
+            if let Some(now)=advance { self.clock.set(harness::at(now)); }
+            self.c.execute_batch("COMMIT")?;
+            release.send(())?;
+            let answer=tokio::time::timeout_at(deadline,&mut request).await.map_err(|_|"writer committed and released busy handler, request did not finish")?;
+            *BUSY.lock().map_err(|e|e.to_string())?=None;
+            Ok((answer,before))
+        }
+    }
+
+    #[tokio::test(flavor="current_thread")]
+    async fn start_after_delete() -> Result {
+        let mut f=Fixture::new().await?;
+        assert_eq!(f.browser.get(&f.app,&f.path("/start/edit")).await.status,200);
+        let (a,before)=f.contended("PATCH","/start?start_fresh=true",&[],|f| {f.c.execute("UPDATE bots SET status=3 WHERE id=?1",[f.id])?;Ok(())},None).await?;
+        assert_eq!((a.status,a.header("location")),(302,Some("/bots")));
+        assert_eq!(f.snapshot()?,before); f.woke(false).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn start_after_start() -> Result {
+        let mut f=Fixture::new().await?;
+        f.ok("PATCH","/start?start_fresh=true",&[]).await?; f.woke(true).await?;
+        let (a,before)=f.contended("PATCH","/start?start_fresh=true",&[], |_|Ok(()),Some("2026-09-03T16:00:00Z")).await?;
+        assert_eq!(a.status,422,"{}",a.body); assert!(a.body.contains("already running"));
+        assert_eq!(f.snapshot()?,before);
+        assert_eq!(f.one::<i64>("SELECT count(*) FROM bot_activity_logs WHERE bot_id=?1 AND event='started'")?,1);
+        f.woke(false).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn start_after_archive() -> Result {
+        let mut f=Fixture::new().await?;
+        let (a,before)=f.contended("PATCH","/start",&[],|f|{f.c.execute("UPDATE bots SET status=7 WHERE id=?1",[f.id])?;Ok(())},None).await?;
+        assert_eq!(a.status,422,"{}",a.body); assert_eq!(f.snapshot()?,before); f.woke(false).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn start_after_type_switch() -> Result {
+        let mut f=Fixture::new().await?;
+        // The stale root is a settings request: Start itself has no STI parameter root.
+        let (a,before)=f.contended("PATCH","",&[("bots_dca_multi_asset[label]","stale")],|f|{
+            f.c.execute("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.index_type','top','$.num_coins',1,'$.weighting','manual') WHERE id=?1",[f.id])?;Ok(())
+        },None).await?;
+        assert_eq!(a.status,400,"{}",a.body); assert_eq!(f.snapshot()?,before); f.woke(false).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn unarchive_after_start() -> Result {
+        let mut f=Fixture::new().await?;
+        f.c.execute("UPDATE bots SET status=7 WHERE id=?1",[f.id])?;
+        f.ok("DELETE","/archive",&[]).await?; f.woke(true).await?;
+        f.ok("PATCH","/start",&[]).await?; f.woke(true).await?;
+        let (a,before)=f.contended("DELETE","/archive",&[],|_|Ok(()),None).await?;
+        assert_eq!(a.status,200); assert_eq!(f.snapshot()?,before); f.woke(false).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn settings_after_settings() -> Result {
+        let mut f=Fixture::new().await?;
+        let (a,_)=f.contended("PATCH","",&[("bots_dca_multi_asset[label]","second tab")],|f|{
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',37.25),transient_data=json_set(transient_data,'$.missed_quote_amount','3.75') WHERE id=?1",[f.id])?;Ok(())
+        },None).await?;
+        assert_eq!(a.status,200,"{}",a.body); f.woke(true).await?;
+        assert_eq!(f.one::<f64>("SELECT json_extract(settings,'$.quote_amount') FROM bots WHERE id=?1")?,37.25);
+        assert_eq!(f.transient()?["missed_quote_amount"],"3.75");
+        let (a,_)=f.contended("PATCH","",&[("bots_dca_multi_asset[quote_amount]","42")],|_|Ok(()),None).await?;
+        assert_eq!(a.status,200); assert_eq!(f.one::<f64>("SELECT json_extract(settings,'$.quote_amount') FROM bots WHERE id=?1")?,42.0); f.woke(true).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn settings_after_engine_json() -> Result {
+        let mut f=Fixture::new().await?;
+        let (a,_)=f.contended("PATCH","",&[("bots_dca_multi_asset[label]","second tab")],|f| {
+            f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-03T10:00:00Z','$.last_failure_kind','transient','$.mail_private',json('{\"x\":null}'),'$.placement_private',json('[1,\"2\"]')) WHERE id=?1",[f.id])?;Ok(())
+        },None).await?;
+        assert_eq!(a.status,200,"{}",a.body);
+        assert_eq!(f.transient()?,json!({"private":{"null":null,"value":"keep"},"last_action_job_at":"2026-09-03T10:00:00Z","last_failure_kind":"transient","mail_private":{"x":null},"placement_private":[1,"2"]})); f.woke(true).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn composition_after_intent() -> Result {
+        let mut f=Fixture::new().await?; let eth=f.eth.to_string();
+        let (a,before)=f.contended("PATCH","",&[("bots_dca_multi_asset[add_asset_id]",&eth)],|f|{
+            f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement',json(?1)) WHERE id=?2",(json!({"allocations":{f.seed.btc.to_string():1.0},"exchange_id":f.seed.exchange_id,"quote_asset_id":f.seed.quote}).to_string(),f.id))?;Ok(())
+        },None).await?;
+        assert_eq!(a.status,422,"{}",a.body); assert_eq!(f.snapshot()?,before); f.woke(false).await
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn queued_clock() -> Result {
+        let mut f=Fixture::new().await?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','date','$.start_at','2026-09-03T15:30:00Z') WHERE id=?1",[f.id])?;
+        let (a,before)=f.contended("PATCH","/start",&[],|_|Ok(()),Some("2026-09-03T16:00:00Z")).await?;
+        assert_eq!(a.status,422,"date became past while waiting: {}",a.body); assert_eq!(f.snapshot()?,before); f.woke(false).await?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('false')),status=1,settings_changed_at=NULL WHERE id=?1",[f.id])?;
+        let (a,_)=f.contended("PATCH","",&[("bots_dca_multi_asset[quote_amount]","100")],|_|Ok(()),Some("2026-09-04T10:00:01Z")).await?;
+        assert_eq!(a.status,200,"{}",a.body);
+        assert_eq!(f.one::<String>("SELECT settings_changed_at FROM bots WHERE id=?1")?,"2026-09-04 10:00:01");
+        assert_eq!(f.one::<String>("SELECT updated_at FROM bots WHERE id=?1")?,"2026-09-04 10:00:01");
+        assert_eq!(f.transient()?["missed_quote_amount"],json!(100.0)); f.woke(true).await
+    }
+
+    type Submission=(chrono::DateTime<chrono::Utc>,Value);
+    #[derive(Clone)]
+    struct Script {
+        transport: ScriptedTransport, clock: Arc<TestClock>,
+        gate: Option<(&'static str,Rc<Notify>,Rc<Notify>)>,
+        submissions: Rc<RefCell<Vec<Submission>>>,
+    }
+    impl Script {
+        fn new(clock: Arc<TestClock>) -> Self {
+            let transport=scripted::script(json!({"GET /v2/orders/OTX-1":[scripted::ok(json!({"id":"OTX-1","status":"filled","symbol":"BTC/USD","type":"market","side":"buy","notional":"60","qty":null,"filled_qty":"0.0009375","filled_avg_price":"64000","limit_price":null}))]}));
+            Self {transport,clock,gate:None,submissions:Rc::new(RefCell::new(vec![]))}
+        }
+        fn venue(&self) -> AlpacaVenue<Self> { AlpacaVenue::new(self.clone(),Urls::for_passphrase(Some("paper"))) }
+    }
+    impl Transport for Script {
+        async fn send(&self, req: &HttpRequest) -> std::result::Result<HttpResponse,TransportError> {
+            if req.method=="POST" { self.submissions.borrow_mut().push((self.clock.now(),req.body.clone().unwrap_or(Value::Null))); }
+            if let Some((path,entered,release))=&self.gate {
+                if req.path==*path { entered.notify_one(); tokio::time::timeout(LIMIT,release.notified()).await.map_err(|_|TransportError::Permanent(format!("script held {} awaiting HTTP writer",req.path)))?; }
+            }
+            self.transport.send(req).await
+        }
+    }
+    impl VenueFactory for Script {
+        type V=AlpacaVenue<Self>;
+        fn for_bot(&self,_: &str,_: Option<deltabadger::crypto::Credentials>)->Self::V {self.venue()}
+    }
+    async fn price_race(edit: bool, restart: bool, after_send: bool) -> Result {
+        let mut f=Fixture::new().await?; f.ok("PATCH","/start",&[]).await?; f.woke(true).await?;
+        f.clock.set(harness::at("2026-09-03T15:00:00.001Z"));
+        let mut script=Script::new(f.clock.clone()); let entered=Rc::new(Notify::new()); let release=Rc::new(Notify::new());
+        script.gate=Some((if after_send {"/v2/orders"} else {"/v1beta3/crypto/us/latest/quotes"},entered.clone(),release.clone()));
+        let engine_db=Connection::open(f.dir.path().join("production.sqlite3"))?;
+        let venue=script.venue(); let mut attempts=tick::Attempts::default();
+        let clock=f.clock.clone();
+        let future=tick::tick(&engine_db,&venue,f.id,&*clock,&mut attempts); tokio::pin!(future);
+        tokio::select! {
+            _=entered.notified()=>{},
+            result=&mut future=>return Err(format!("engine ended before barrier: {result:?}").into()),
+            _=tokio::time::sleep(LIMIT)=>return Err("engine did not reach scripted barrier; HTTP writer not started".into()),
+        }
+        if !after_send {assert!(f.transient()?.get("rust_placement").is_none());}
+        f.ok("PATCH","/stop",&[]).await?;
+        if edit {
+            let eth=f.eth.to_string(); let btc=f.seed.btc.to_string();
+            f.ok("PATCH","",&[("bots_dca_multi_asset[add_asset_id]",&eth),("bots_dca_multi_asset[remove_asset_id]",&btc)]).await?;
+            if restart { f.ok("PATCH","/start",&[]).await?; f.clock.set(harness::at("2026-09-03T15:00:00.002Z")); }
+        }
+        release.notify_one();
+        let outcome=tokio::time::timeout(LIMIT,&mut future).await?.map_err(|e|format!("{e:?}"))?;
+        assert!(f.transient()?.get("rust_placement").is_none(),"{outcome:?}");
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,if restart {1} else {2});
+        assert_eq!(script.submissions.borrow().len(),usize::from(after_send));
+        assert_eq!(f.one::<i64>("SELECT count(*) FROM transactions WHERE bot_id=?1")?,i64::from(after_send));
+        if edit {
+            let settings:Value=serde_json::from_str(&f.one::<String>("SELECT settings FROM bots WHERE id=?1")?)?;
+            assert_eq!(settings["allocations"],json!({f.eth.to_string():1.0}));
+        }
+        if after_send {
+            deltabadger::engine::polling::sweep(&engine_db,&venue,&model::load_bot(&engine_db,f.id).map_err(|e|format!("{e:?}"))?,f.clock.now()).await.map_err(|e|format!("{e:?}"))?;
+            assert_eq!(f.one::<i64>("SELECT external_status FROM transactions WHERE bot_id=?1")?,2);
+        }
+        let plain=Script::new(f.clock.clone());
+        if restart {
+            tick::tick(&engine_db,&plain.venue(),f.id,&*f.clock,&mut tick::Attempts::default()).await.map_err(|e|format!("{e:?}"))?;
+            assert_eq!(plain.submissions.borrow().len(),1);
+            assert_eq!(plain.submissions.borrow().first().ok_or("new composition order")?.1["symbol"],"ETH/USD");
+        } else {
+            tick::tick(&engine_db,&plain.venue(),f.id,&*f.clock,&mut tick::Attempts::default()).await.map_err(|e|format!("{e:?}"))?;
+            assert!(plain.submissions.borrow().is_empty()); assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
+        }
+        Ok(())
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_during_price()->Result {price_race(false,false,false).await}
+    #[tokio::test(flavor="current_thread")]
+    async fn composition_during_price()->Result {price_race(true,false,false).await?;price_race(true,true,false).await}
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_during_tick()->Result {price_race(false,false,true).await}
+
+    /// Re-run only the existing recorder's basket fixture and Continue block on a
+    /// scratch Rails install. Capture the predicate before Start changes the status,
+    /// and retain the actual ActionJob timestamp as well as its decision label.
+    async fn rails_continue() -> Result<Value> {
+        tokio::task::spawn_blocking(|| -> std::result::Result<Value,String> {
+            let dir=common::rails_install();
+            let output=dir.path().join("continue.json");
+            let code=r###"
+require 'json'
+require 'active_support/testing/time_helpers'
+include ActiveSupport::Testing::TimeHelpers
+source = File.read(Rails.root.join('script/rust/record_vectors.rb'))
+fixture = source.split("# Alpaca crypto baskets (rust/src/engine/basket.rs)", 2).fetch(1)
+fixture = fixture.split("vector_row_id = 0", 2).fetch(0)
+eval("# Alpaca crypto baskets (rust/src/engine/basket.rs)" + fixture, TOPLEVEL_BINDING)
+record = source.split("continue_row = lambda", 2).fetch(1).split("# The web UI (rust/src/web).", 2).fetch(0)
+record = "vectors = {}; continue_row = lambda" + record
+record = record.sub('      raise "#{name}: Rails refused the start:', '      within = bot.restarting_within_interval?' + "\n" + '      raise "#{name}: Rails refused the start:')
+record = record.sub("'decision' => decision }", "'decision' => decision, 'within' => within, 'job_at' => at&.iso8601(6), 'checkpoint' => bot.next_interval_checkpoint_at.utc.iso8601(6) }")
+eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vectors.fetch('continue_start')))", TOPLEVEL_BINDING)
+"###;
+            let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().ok_or("repository root")?;
+            let log=std::fs::File::create(dir.path().join("recorder.log")).map_err(|e|e.to_string())?;
+            let mut command=std::process::Command::new(root.join("bin/rails"));
+            command.current_dir(root).args(["runner",code]).env_remove("DATABASE_URL")
+                .env("APP_ROOT_URL","http://localhost:3000").env("RAILS_ENV","test").env("SKIP_TEST_DATABASE","true")
+                .env("ACTION_RACE_RECORD",&output).stdout(log.try_clone().map_err(|e|e.to_string())?).stderr(log);
+            for (name,file) in [("PRIMARY","production.sqlite3"),("QUEUE","production_queue.sqlite3"),("CACHE","cache.sqlite3"),("CABLE","cable.sqlite3")] {
+                command.env(format!("{name}_DATABASE_URL"),format!("sqlite3:{}",dir.path().join(file).display()));
+            }
+            struct Child(std::process::Child);
+            impl Drop for Child { fn drop(&mut self) {let _=self.0.kill();let _=self.0.wait();} }
+            let mut child=Child(command.spawn().map_err(|e|e.to_string())?);
+            let deadline=std::time::Instant::now()+Duration::from_secs(60);
+            loop {
+                if let Some(status)=child.0.try_wait().map_err(|e|e.to_string())? {
+                    if !status.success() {return Err(std::fs::read_to_string(dir.path().join("recorder.log")).map_err(|e|e.to_string())?);}
+                    break;
+                }
+                if std::time::Instant::now()>=deadline {return Err("Rails Continue recorder exceeded its absolute 60-second deadline".into());}
+                std::thread::sleep(Duration::from_millis(10)); // child readiness, never race ordering
+            }
+            serde_json::from_str(&std::fs::read_to_string(output).map_err(|e|e.to_string())?).map_err(|e|e.to_string())
+        }).await?.map_err(Into::into)
+    }
+
+    async fn continued(name: &str, waits: bool)->Result {
+        let mut f=Fixture::new().await?;
+        let vectors=rails_continue().await?;
+        let row=vectors.as_array().ok_or("continue vectors")?.iter().find(|v|v["name"]==name).ok_or("continue case")?;
+        assert_eq!(row["decision"],if waits {"checkpoint"} else {"now"});
+        assert_eq!(row["within"],json!(waits));
+        assert_eq!(row["job_at"],if waits {json!("2026-09-04T10:00:00.000000Z")} else {Value::Null});
+        f.clock.set(harness::at(row["now"].as_str().ok_or("recorded clock")?));
+        f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.last_action_job_at',?1) WHERE id=?2",(row["last_action_job_at"].as_str().ok_or("recorded stamp")?,f.id))?;
+        for tx in row["rows"].as_array().ok_or("recorded orders")? {seed::insert_row(&f.c,&f.seed,f.id,f.seed.btc,tx);}
+        f.ok("PATCH","/start?start_fresh=false",&[]).await?;
+        let request=f.transient()?;
+        assert_eq!(request["rust_continue_start"],json!({"requested_at":"2026-09-03T15:00:00Z","was_stopped":true}));
+        f.woke(true).await?;
+        let script=Script::new(f.clock.clone());
+        let paths=deltabadger::store::Paths::from_env(&|_|None,f.dir.path());
+        let lock=deltabadger::lease::lock(&paths,f.clock.now()).map_err(|e|format!("{e:?}"))?;
+        let own=Connection::open(f.dir.path().join("production.sqlite3"))?;
+        let mut engine=run::Engine::new(own,script.clone(),seed::cipher(),lock);
+        run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
+        assert!(f.transient()?.get("rust_continue_start").is_none());
+        assert_eq!(f.transient()?["private"],request["private"]);
+        if waits {
+            assert!(script.submissions.borrow().is_empty());
+            f.clock.set(harness::at("2026-09-04T09:59:59.999999Z"));
+            run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
+            assert!(script.submissions.borrow().is_empty());
+            f.clock.set(harness::at("2026-09-04T10:00:00Z"));
+            run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
+            assert!(script.submissions.borrow().is_empty(), "a checkpoint is due strictly after its instant");
+            f.clock.set(harness::at("2026-09-04T10:00:00.000001Z"));
+            run::step(&mut engine,&*f.clock).await.map_err(|e|format!("{e:?}"))?;
+        }
+        assert_eq!(script.submissions.borrow().len(),1,"Rails recorded {name}: {}; real scheduler at {}: transient={}",row["decision"],f.clock.now(),f.transient()?);
+        assert_eq!(script.submissions.borrow().first().ok_or("submission")?.0,f.clock.now());
+        assert_eq!(f.one::<String>("SELECT started_at FROM bots WHERE id=?1")?,ANCHOR);
+        Ok(())
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn continue_owes_contribution()->Result {continued("owes_its_contribution",false).await}
+    #[tokio::test(flavor="current_thread")]
+    async fn continue_within_interval()->Result {continued("nothing_owed",true).await}
+    /// Every new route uses the same authentication, ownership and CSRF pipeline.
+    #[tokio::test(flavor="current_thread")]
+    async fn action_security_grid() -> Result {
+        use futures_util::{SinkExt, StreamExt};
+        use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message};
+        let f=Fixture::new().await?;
+        f.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at) VALUES('foreign@example.com','x','2026-01-01','2026-01-01')",[])?;
+        let foreign=f.c.last_insert_rowid();
+        let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let address=listener.local_addr()?;
+        let app=f.app.clone();
+        struct Server(tokio::task::JoinHandle<()>);
+        impl Drop for Server {fn drop(&mut self){self.0.abort();}}
+        let _server=Server(tokio::spawn(async move {let _=deltabadger::web::server::serve_on(listener,app,Default::default()).await;}));
+        let mut request=format!("ws://{address}/cable").into_client_request()?;
+        request.headers_mut().insert("origin",format!("http://{address}").parse()?);
+        request.headers_mut().insert("sec-websocket-protocol","actioncable-v1-json".parse()?);
+        request.headers_mut().insert("cookie",format!("_deltabadger_rust_session={}",f.browser.cookie.as_deref().ok_or("session")?).parse()?);
+        let (mut socket,_)=tokio::time::timeout(LIMIT,tokio_tungstenite::connect_async(request)).await??;
+        let streams=[format!("user_{}:bot_updates",f.seed.user_id),format!("user_{}:bot_{}",f.seed.user_id,f.id)];
+        for stream in &streams {
+            let identifier=json!({"channel":"Turbo::StreamsChannel","signed_stream_name":deltabadger::web::cable::signed_stream_name(&f.app.keys.streams,stream)}).to_string();
+            socket.send(Message::Text(json!({"command":"subscribe","identifier":identifier}).to_string().into())).await?;
+            tokio::time::timeout(LIMIT,async {
+                while let Some(message)=socket.next().await {
+                    let value:Value=serde_json::from_str(message?.to_text()?)?;
+                    if value["type"]=="confirm_subscription" {return Ok::<(),Box<dyn std::error::Error>>(());}
+                } Err("subscription closed".into())
+            }).await??;
+        }
+        let routes=[("PATCH",""),("PATCH","/start"),("PATCH","/stop"),("DELETE","/delete"),("POST","/archive"),("DELETE","/archive"),("GET","/start/edit"),("GET","/edit"),("GET","/delete/edit"),("GET","/archive/edit")];
+        for (method,suffix) in routes {
+            for prefix in ["","/de"] {
+                let mutation=method!="GET";
+                let cases=if mutation {vec!["signed_out","missing","foreign","deleted","invalid","missing_csrf","wrong_csrf","foreign_origin","header_only","override"]} else {vec!["signed_out","missing","foreign","deleted","invalid","owned"]};
+                for case in cases {
+                    f.c.execute("UPDATE bots SET status=?1,user_id=?2 WHERE id=?3",(if suffix=="/archive" && method=="DELETE" {7} else if suffix=="/stop" {1} else {2},f.seed.user_id,f.id))?;
+                    let mut browser=Browser {cookie:f.browser.cookie.clone(),page:f.browser.page.clone()};
+                    if case=="signed_out" {browser=Browser::default();browser.get(&f.app,"/login").await;}
+                    if case=="foreign" {f.c.execute("UPDATE bots SET user_id=?1 WHERE id=?2",(foreign,f.id))?;}
+                    if case=="deleted" {f.c.execute("UPDATE bots SET status=3 WHERE id=?1",[f.id])?;}
+                    let id=match case {"missing"=>"999999".to_string(),"invalid"=>"invalid".to_string(),_=>f.id.to_string()};
+                    let path=format!("{prefix}/bots/{id}{suffix}");
+                    let label=format!("{prefix}-{case}");
+                    let mut fields=vec![("bots_dca_multi_asset[label]",label.as_str())];
+                    let mut headers=HEADERS.to_vec();
+                    let csrf=if !mutation || matches!(case,"missing_csrf"|"wrong_csrf") {Csrf::None} else {Csrf::Header};
+                    if case=="wrong_csrf" {headers.push(("x-csrf-token","wrong"));}
+                    if case=="foreign_origin" {headers.push(("origin","https://foreign.example"));}
+                    if case=="override" {fields.push(("_method",method));}
+                    let before=f.snapshot()?;
+                    let answer=tokio::time::timeout(LIMIT,browser.send(&f.app,if case=="override" {"POST"} else {method},&path,Some(&fields),csrf,&headers)).await?;
+                    let expected=match case {"signed_out"|"missing"|"foreign"|"deleted"|"invalid"=>302,"missing_csrf"|"wrong_csrf"|"foreign_origin"=>302,_=>200};
+                    assert_eq!(answer.status,expected,"{method} {path} {case}: {}",answer.body);
+                    if matches!(case,"missing_csrf"|"wrong_csrf"|"foreign_origin") {assert_eq!(answer.header("location"),Some("/"));}
+                    if matches!(case,"missing"|"foreign"|"deleted"|"invalid") {assert_eq!(answer.header("location"),Some(format!("{prefix}/bots").as_str()));}
+                    let changed=expected==200 && mutation;
+                    if !changed {assert_eq!(f.snapshot()?,before,"{method} {path} {case}");}
+                    else {assert_ne!(f.snapshot()?,before,"successful write {method} {path} {case}");}
+                    f.woke(changed).await?;
+                    let mut messages=vec![];
+                    f.app.hub.broadcast(&streams[0],"security-grid-marker");
+                    tokio::time::timeout(LIMIT,async {
+                        while let Some(message)=socket.next().await {
+                            let value:Value=serde_json::from_str(message?.to_text()?)?;
+                            if let Some(body)=value["message"].as_str() {
+                                if body=="security-grid-marker" {return Ok::<(),Box<dyn std::error::Error>>(());}
+                                messages.push(body.to_string());
+                            }
+                        } Err("broadcast socket closed".into())
+                    }).await??;
+                    if !changed {assert!(messages.is_empty(),"{method} {path} {case}: {messages:?}");}
+                    if changed && matches!(suffix,"/start"|"/stop"|"/archive") {assert!(!messages.is_empty(),"committed status broadcast {method} {path} {case}");}
+                }
+            }
+        }
+        socket.close(None).await?;
+        Ok(())
+    }
+
+}
