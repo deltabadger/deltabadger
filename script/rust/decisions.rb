@@ -162,7 +162,7 @@ module Decisions
     # Members an earlier tick exited (in_index false, still holdings), written as update_bot_index_assets writes them
     # (update_all, so updated_at stays).
     (sc['exited'] || []).each do |sym|
-      bot.bot_index_assets.where(asset_id: assets.fetch(sym).id).update_all(in_index: false, exited_at: Time.iso8601(sc['started_at']) + 3600)
+      bot.bot_index_assets.where(asset_id: assets.fetch(sym).id).update_all(in_index: false, exited_at: Time.iso8601(sc['started_at']) + 600)
     end
     bot
   end
@@ -457,7 +457,7 @@ module Decisions
       'GET /v2/positions' => [ok([])], 'GET /v2/clock' => [clock(true)] }
   end
 
-  # One basket scenario: daily, 60 USD, started like the 2b grids, `members` in settings order (nil: the one-asset BTC bot).
+  # One basket scenario: daily, 60 USD, started as the one-asset grids are, `members` in settings order (nil: the one-asset BTC bot).
   def basket(name, members, at:, quote_amount: 60.0, settings: {}, transient: {}, transactions: [], http: {}, **extra)
     { 'name' => name, 'venue' => 'alpaca', 'interval' => 'day', 'quote_amount' => quote_amount, 'started_at' => BASKET_STARTED,
       'settings' => settings, 'settings_changed_at' => nil, 'transient' => transient, 'transactions' => transactions,
@@ -622,11 +622,12 @@ module Decisions
     # SOL's leg is ambiguous on the first tick; before the next, Rails' sync delists SOL and the member is exited while its
     # intent is unresolved. The engine still settles the intent by client order id (it landed) and records the fill against
     # SOL; the next checkpoint buys BTC and ETH only, and Rails, with no row for the landed 24, buys that much more.
+    # The exit is stamped as `exited:` stamps it (started_at + 10 min), so the member rows compare with the reference's.
     sol_landed = filled_leg('OTX-L', 'SOL', '24').tap { |r| r['body'] = r['body'].merge('client_order_id' => '$client_order_id') }
     list << basket('basket-exited-intent-tiers-k3-landed', WEIGHTS['tiers'], at: basket_first, quote_amount: 120.0,
                    recover_at: (Time.iso8601(basket_first) + 1201).iso8601(6), next_at: basket_at(1),
                    between: ["UPDATE tickers SET trading_enabled = 0 WHERE ticker = 'SOL/USD'",
-                             "UPDATE bot_index_assets SET in_index = 0, exited_at = '2026-09-01 10:10:00' " \
+                             "UPDATE bot_index_assets SET in_index = 0, exited_at = '2026-09-01 10:10:00.123456' " \
                              "WHERE asset_id = (SELECT base_asset_id FROM tickers WHERE ticker = 'SOL/USD')"],
                    http: { 'POST /v2/orders' => [placed(1, 'BTC'), placed(2, 'ETH'), POST_SEND, placed(4, 'BTC'), placed(5, 'ETH')],
                            'GET /v2/orders/OTX-1' => [filled_leg('OTX-1', 'BTC', '60')], 'GET /v2/orders/OTX-2' => [filled_leg('OTX-2', 'ETH', '36')],
