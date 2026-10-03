@@ -309,3 +309,16 @@ fn run_and_serve_send_the_mail_a_bot_is_owed_and_neither_send_nor_print_a_creden
         assert_eq!(plain.sessions().last().unwrap().lines[..2], ["EHLO localhost", "AUTH PLAIN AAA="], "{command}");
     }
 }
+
+#[test]
+fn check_reports_each_jobs_last_run_and_each_reference_sources_age() {
+    let (dir, o, _s) = common::install_alpaca();
+    deltabadger::jobs::state::record_success(&o.primary, "sync_alpaca_crypto_from_deltabadger_job", None, "2026-09-01T10:15:04Z".parse().unwrap()).unwrap();
+    drop(o);
+    let out = cli(dir.path(), &["check"]).env_remove("SECRET_KEY_BASE").output().unwrap(); // check needs no keys, job state included
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert!(stdout.contains("job sync_alpaca_crypto_from_deltabadger_job: last success 2026-09-01T10:15:04Z"), "{stdout}");
+    assert!(stdout.contains("reference Alpaca crypto tickers"), "{stdout}");
+    assert!(stdout.contains("reference Indices: no row"), "{stdout}");
+}

@@ -33,6 +33,9 @@ fn main() {
             if let Err(e) = store::check(&paths) { fail(&explain(e)); }
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
+            // Every background job's last run and every reference source's age (informational, no keys needed).
+            for (name, s) in deltabadger::jobs::state::all(&c).unwrap_or_default() { println!("job {name}: {}", s.describe()); }
+            for line in deltabadger::engine::staleness::report(&c, chrono::Utc::now()).unwrap_or_default() { println!("reference {line}"); }
             // The words `serve` refuses with too (Refusal::message). A source with no stamp is noted, never refused.
             match check_install_at(&c, chrono::Utc::now()).map_err(Refusal::Failed) {
                 Ok(report) => {
