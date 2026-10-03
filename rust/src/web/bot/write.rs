@@ -133,7 +133,7 @@ fn settings_inner<T>(
     if draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed) {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
-    if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, id) {
+    if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, Some(id)) {
         let reason = refusal.reason();
         draft.errors.push(FieldError { field: "base".into(), message: i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]) });
         // Build while the same lock still owns the observation, then roll everything back.
@@ -431,7 +431,7 @@ fn lifecycle_inner<T>(
         Action::Delete => one(tx.execute(WEB_DELETE,(id,owner,&class,&at))?)?,
         Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
     }
-    if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,id) {
+    if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
         let reason=refusal.reason();
         view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
         if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
