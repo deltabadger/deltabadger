@@ -159,13 +159,18 @@ class Exchanges::Kraken < Exchange
       return Result::Failure.new(*error) if error.any?
 
       prices_hash = {}
-      result.data['result'].each do |data|
-        ticker = data[0]
-        price = Utilities::Hash.dig_or_raise(data[1], 'c')[0].to_d
+      returned_tickers = result.data['result']
+      returned_tickers.each do |ticker, data|
+        next if wanted && !wanted.include?(ticker)
+
+        price = parse_venue_number(Utilities::Hash.dig_or_raise(data, 'c')[0])
         prices_hash[ticker] = price
+      rescue ArgumentError
+        next
       end
 
-      missing_tickers = (wanted || tickers.available.pluck(:ticker)) - prices_hash.keys
+      # Retry pairs absent from the batch; unreadable returned prices stay omitted for this fetch.
+      missing_tickers = (wanted || tickers.available.pluck(:ticker)) - returned_tickers.keys
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
@@ -179,8 +184,10 @@ class Exchanges::Kraken < Exchange
         asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
         return Result::Failure.new("Failed to get #{name} tickers prices (ticker: #{ticker})") if asset_ticker_info.nil?
 
-        price = Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0].to_d
+        price = parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0])
         prices_hash[ticker] = price
+      rescue ArgumentError
+        next
       end
 
       prices_hash
@@ -603,6 +610,14 @@ class Exchanges::Kraken < Exchange
 
   private
 
+  # Venue numbers must never become zero through to_d or reach persistence as NaN/Infinity.
+  def parse_venue_number(value)
+    number = BigDecimal(value.to_s)
+    raise ArgumentError, "Unreadable #{name} number: #{value.inspect}" unless number.finite?
+
+    number
+  end
+
   def normalize_kraken_ledger_entry(ledger_id, entry)
     type = entry['type']
     entry_type = KRAKEN_LEDGER_TYPES[type]
@@ -707,40 +722,40 @@ class Exchanges::Kraken < Exchange
 
       formatted_get_ticker_information = {
         ask: {
-          price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[0].to_d,
-          whole_lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[1].to_d,
-          lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[2].to_d
+          price: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[0]),
+          whole_lot_volume: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[1]),
+          lot_volume: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[2])
         },
         bid: {
-          price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'b')[0].to_d,
-          whole_lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'b')[1].to_d,
-          lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'b')[2].to_d
+          price: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'b')[0]),
+          whole_lot_volume: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'b')[1]),
+          lot_volume: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'b')[2])
         },
         last_trade_closed: {
-          price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0].to_d,
-          lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[1].to_d
+          price: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0]),
+          lot_volume: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[1])
         },
         volume: {
-          today: Utilities::Hash.dig_or_raise(asset_ticker_info, 'v')[0].to_d,
-          last_24_hours: Utilities::Hash.dig_or_raise(asset_ticker_info, 'v')[1].to_d
+          today: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'v')[0]),
+          last_24_hours: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'v')[1])
         },
         volume_weighted_average_price: {
-          today: Utilities::Hash.dig_or_raise(asset_ticker_info, 'p')[0].to_d,
-          last_24_hours: Utilities::Hash.dig_or_raise(asset_ticker_info, 'p')[1].to_d
+          today: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'p')[0]),
+          last_24_hours: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'p')[1])
         },
         number_of_trades: {
           today: Utilities::Hash.dig_or_raise(asset_ticker_info, 't')[0].to_i,
           last_24_hours: Utilities::Hash.dig_or_raise(asset_ticker_info, 't')[1].to_i
         },
         low: {
-          today: Utilities::Hash.dig_or_raise(asset_ticker_info, 'l')[0].to_d,
-          last_24_hours: Utilities::Hash.dig_or_raise(asset_ticker_info, 'l')[1].to_d
+          today: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'l')[0]),
+          last_24_hours: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'l')[1])
         },
         high: {
-          today: Utilities::Hash.dig_or_raise(asset_ticker_info, 'h')[0].to_d,
-          last_24_hours: Utilities::Hash.dig_or_raise(asset_ticker_info, 'h')[1].to_d
+          today: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'h')[0]),
+          last_24_hours: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'h')[1])
         },
-        todays_opening_price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'o').to_d
+        todays_opening_price: parse_venue_number(Utilities::Hash.dig_or_raise(asset_ticker_info, 'o'))
       }
       Result::Success.new(formatted_get_ticker_information)
     end
@@ -831,11 +846,11 @@ class Exchanges::Kraken < Exchange
     {
       order_id: aggregate[:order_id],
       ticker: tickers.find_by(ticker: aggregate[:pair]),
-      price: aggregate[:price],
+      price: parse_venue_number(aggregate[:price]),
       amount: nil,
       quote_amount: nil,
-      amount_exec: aggregate[:amount_exec],
-      quote_amount_exec: aggregate[:quote_amount_exec],
+      amount_exec: parse_venue_number(aggregate[:amount_exec]),
+      quote_amount_exec: parse_venue_number(aggregate[:quote_amount_exec]),
       side: aggregate[:side],
       order_type: TRADE_ORDER_TYPE[aggregate[:order_type]],
       error_messages: [],
@@ -848,18 +863,18 @@ class Exchanges::Kraken < Exchange
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
     ticker = tickers.find_by(ticker: pair)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
-    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
+    price = parse_venue_number(Utilities::Hash.dig_or_raise(order_data, 'price'))
+    price = parse_venue_number(Utilities::Hash.dig_or_raise(order_data, 'descr', 'price')) if price.zero? && order_type == :limit_order
     price = nil if price.zero?
-    quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
-    amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
+    quote_amount_exec = parse_venue_number(Utilities::Hash.dig_or_raise(order_data, 'cost'))
+    amount_exec = parse_venue_number(Utilities::Hash.dig_or_raise(order_data, 'vol_exec'))
 
     order_flags = Utilities::Hash.dig_or_raise(order_data, 'oflags').split(',')
     if order_flags.include?('viqc')
       amount = nil
-      quote_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
+      quote_amount = parse_venue_number(Utilities::Hash.dig_or_raise(order_data, 'vol'))
     else
-      amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
+      amount = parse_venue_number(Utilities::Hash.dig_or_raise(order_data, 'vol'))
       quote_amount = nil
     end
 

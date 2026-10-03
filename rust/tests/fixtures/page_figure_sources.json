@@ -1,0 +1,17 @@
+{
+  "app/models/exchanges/alpaca.rb": "58793d3062328cf7dc327216316fd93d697868ca66155639b3da1c959992e372",
+  "app/models/candle_series_cache.rb": "5cc0d060f7a4f4caaa634949b4c22123896674267ed236dd40f862623ca9cc89",
+  "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+  "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
+  "app/models/bot/composition/redeployable.rb": "bdc27932a55195d18fd5f8b84a5e4ac7325bf920938f1e70f4d9dc9cc8b9f513",
+  "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
+  "app/helpers/bot_helper.rb": "07c18a1356ba75618d7290e207716d08fb3dd2007a3d1c00642055dc87e55b01",
+  "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",
+  "app/views/bots/composition/_assets_table.html.erb": "a1e65803c32f640a9b88cbbed11238de3941f095368424b0f15745e0a220e0e4",
+  "app/views/bots/composition/_locked_table.html.erb": "912c722a2c595e315bfaf98635eeab7adb7d8977521a200ecfca0af924a37065",
+  "app/views/bots/_assets_table.html.erb": "abfbcbe1bf982556f8b1f0663d59e4e70863eb52112d222afe061916e78ce827",
+  "app/views/bots/bot_tile/_bot_tile_pnl.html.erb": "b6f8ad6668ca4ca197b97e1d412e12d3d6cfc54a3bf7a66cd6f335e3a5e1367d",
+  "app/views/bots/_chart.html.erb": "927f06ca3147dbddd2839c843213b28e297af1b876d1763a29a740b9634cceac",
+  "app/views/bots/_global_pnl.html.erb": "975007c015d02ff90dbac5a4a4711c470a1085c76aa9fd3fa708be4b39bfa23d",
+  "app/views/bots/_pnl_spark.html.erb": "4379f023d1ee5df1372ef077569592f029f1f1402e1d8aa21cda522b02fe5f27"
+}

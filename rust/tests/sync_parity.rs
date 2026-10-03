@@ -34,6 +34,31 @@ fn copy_dir(from: &Path, to: &Path) {
     for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
 }
 
+/// Exercise unreadable prices against the same Rails-built install that already has a stale AAPL price.
+fn add_unreadable_price_scenarios(root: &Path) {
+    let source = root.join("balances-no_trade_keeps_last_price");
+    for value in ["NaN", "Infinity", "-Infinity", "garbage"] {
+        for fallback in ["market", "stale"] {
+            let dir = root.join(format!("balances-unreadable_price_{value}_{fallback}"));
+            copy_dir(&source, &dir);
+            let path = dir.join("scenario.json");
+            let mut scenario: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            let step = &mut scenario["steps"][0];
+            step["alpaca"]["GET /v2/positions"][0]["body"] = json!([
+                { "symbol": "AAPL", "qty": "3", "asset_class": "us_equity" },
+                { "symbol": "KLAC", "qty": "2", "asset_class": "us_equity" }
+            ]);
+            step["alpaca"]["GET /v2/stocks/snapshots"][0]["body"] = json!({
+                "AAPL": { "latestTrade": { "p": value } }, "KLAC": { "latestTrade": { "p": 200 } }
+            });
+            step["market"]["GET /api/v1/prices"][0]["body"] = if fallback == "market" {
+                json!({ "data": { "AAPL.US": { "usd": 221 } } })
+            } else { json!({ "data": {} }) };
+            std::fs::write(path, serde_json::to_string_pretty(&scenario).unwrap()).unwrap();
+        }
+    }
+}
+
 fn cipher() -> Arc<deltabadger::crypto::Cipher> {
     Arc::new(deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "sync-parity").unwrap()))
 }
@@ -214,10 +239,11 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let rust_root = tempfile::tempdir().unwrap();
     let handback = tempfile::tempdir().unwrap();
     rails(&["grid", rails_root.path().to_str().unwrap()]);
+    add_unreadable_price_scenarios(rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), dirs.len()), (58, 27, 85), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), dirs.len()), (58, 35, 93), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -249,6 +275,20 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    for value in ["NaN", "Infinity", "-Infinity", "garbage"] {
+        for fallback in ["market", "stale"] {
+            let out = rails_of(&format!("balances-unreadable_price_{value}_{fallback}"));
+            let balances = rows(&out, "account_balances");
+            let row = |id| balances.iter().find(|r| r["after"]["asset_id"] == id).unwrap()["after"].clone();
+            assert_eq!((num(&row(1)["usd_value"]), num(&row(3)["usd_value"])), (Some(100.0), Some(400.0)), "cash and the healthy stock are freshly valued");
+            let aapl = row(2);
+            assert_eq!(num(&aapl["free"]), Some(3.0), "the unreadable price does not prevent a holding update");
+            let (price, at) = if fallback == "market" { (221.0, "2026-09-20 02:30:00.750000") } else { (220.5, "2026-09-10 02:30:00") };
+            assert_eq!((num(&aapl["usd_price"]), num(&aapl["usd_value"]), aapl["priced_at"].as_str()), (Some(price), Some(3.0 * price), Some(at)));
+            assert_eq!(out["steps"][0]["raised"], false);
+            assert!(key_error(&out).is_null());
+        }
+    }
     assert_eq!(rows(&rails_of("ledger-fills"), "account_transactions").len(), 9);
     assert_eq!(rows(&rails_of("ledger-pages_three"), "account_transactions").len(), 205);
     assert_eq!(rails_of("ledger-pages_three")["steps"][0]["requests"].as_array().unwrap().len(), 3);

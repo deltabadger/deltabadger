@@ -79,17 +79,23 @@ fn status(s: Option<&str>) -> OrderStatus {
 /// `Err` names the first number it cannot read: the answer is unreadable, never a zero fill.
 pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
     let d = |field: &str| ruby_opt_to_d(&o[field]).map_err(|raw| format!("Alpaca order {id}: unreadable {field} {raw}"));
-    let filled_qty = d("filled_qty")?.unwrap_or_else(BigDec::zero);
+    let required = |field: &str| d(field)?.ok_or_else(|| format!("Alpaca order {id}: unreadable {field} null"));
+    let filled_qty = required("filled_qty")?;
     let filled_avg_price = d("filled_avg_price")?;
+    if filled_qty.is_positive() && filled_avg_price.is_none() { required("filled_avg_price")?; }
+    // Rails parses every supplied number, even when a positive fill price takes precedence.
+    let notional = d("notional")?;
+    let qty = d("qty")?;
+    let limit_price = d("limit_price")?;
     // `filled_avg_price.positive? ? it : (limit_price || 0)`: an unfilled market order reports price 0, and
     // Transaction#update_with_order_data writes it (0 is not nil, so `.compact` keeps it).
     let price = match &filled_avg_price {
         Some(p) if p.is_positive() => p.clone(),
-        _ => d("limit_price")?.unwrap_or_else(BigDec::zero),
+        _ => limit_price.unwrap_or_else(BigDec::zero),
     };
     Ok(OrderState {
         txid: id.to_string(), status: status(o["status"].as_str()), price: Some(price),
-        amount: d("qty")?, quote_amount: d("notional")?,
+        amount: qty, quote_amount: notional,
         quote_amount_exec: &filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero), amount_exec: filled_qty,
         limit: o["type"] == "limit", sell: o["side"] == "sell", pair: o["symbol"].as_str().map(str::to_string),
     })
@@ -176,18 +182,23 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
 
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
         let label = match side { PriceSide::Ask => "ask", PriceSide::Last => "last" };
-        let price = if ticker.crypto {
+        let raw = if ticker.crypto {
             let (path, key, field) = match side {
                 PriceSide::Ask => ("/v1beta3/crypto/us/latest/quotes", "quotes", "ap"),
                 PriceSide::Last => ("/v1beta3/crypto/us/latest/trades", "trades", "p"),
             };
             let body = self.get(self.request("GET", true, path.into(), vec![("symbols", ticker.ticker.clone())], None)).await?;
-            ruby_to_d(&body[key][ticker.ticker.as_str()][field])
+            body[key][ticker.ticker.as_str()][field].clone()
         } else {
             let (path, key, field) = match side { PriceSide::Ask => ("quotes", "quote", "ap"), PriceSide::Last => ("trades", "trade", "p") };
             let body = self.get(self.request("GET", true, format!("/v2/stocks/{}/{path}/latest", ticker.base_code), vec![], None)).await?;
-            ruby_to_d(&body[key][field])
-        }.map_err(|raw| VenueError::Rejected(vec![format!("unreadable {label} price for {}: {raw}", ticker.base_code)]))?;
+            body[key][field].clone()
+        };
+        // An unreadable price is an unreadable answer (Rejected, as `get` reads one): the tick retries and places nothing.
+        // parse_venue_number(nil) is BigDecimal(""), an ArgumentError: a missing price is unreadable, never zero.
+        let price = ruby_opt_to_d(&raw)
+            .map_err(|raw| VenueError::Rejected(vec![format!("unreadable {label} price for {}: {raw}", ticker.base_code)]))?
+            .ok_or_else(|| VenueError::Rejected(vec![r#"invalid value for BigDecimal(): """#.to_string()]))?;
         if price.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.base_code, price.to_s_f())])); }
         Ok(price)
     }
@@ -219,8 +230,12 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
                 let id = v["id"].as_str().filter(|s| !s.is_empty()).map(str::to_string)
                     .ok_or_else(|| VenueError::Ambiguous(format!("Alpaca accepted the order without a readable id: {}", error_message(&r, &resp))))?;
                 // A number in the answer it cannot read (a fill of "NaN") makes the whole answer unreadable: the order is
-                // resolved by its client order id, never recorded from an answer that may carry a wrong fill.
-                parse_order(&id, &v).map(|_| id).map_err(|e| VenueError::Ambiguous(format!("Alpaca accepted the order with an unreadable answer: {e}")))
+                // resolved by its client order id, never recorded from an answer that may carry a wrong fill. Placement
+                // only needs the accepted id; required fill fields belong to the subsequent poll, not this response.
+                for field in ["filled_qty", "filled_avg_price", "notional", "qty", "limit_price"] {
+                    ruby_opt_to_d(&v[field]).map_err(|raw| VenueError::Ambiguous(format!("Alpaca accepted the order with an unreadable answer: Alpaca order {id}: unreadable {field} {raw}")))?;
+                }
+                Ok(id)
             }
             Ok(resp) if (400..500).contains(&resp.status) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
             Ok(resp) => Err(VenueError::Ambiguous(error_message(&r, &resp))),

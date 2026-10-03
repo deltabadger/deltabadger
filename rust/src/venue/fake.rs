@@ -56,14 +56,16 @@ fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
     }
     let viqc = o["oflags"].as_str().is_some_and(|f| f.split(',').any(|x| x == "viqc"));
     let limit = o["descr"]["ordertype"] == "limit";
-    let vol = dec(&o["vol"])?;
-    let mut price = dec(&o["price"])?.unwrap_or_else(BigDec::zero);
-    if price.is_zero() && limit { price = dec(&o["descr"]["price"])?.unwrap_or_else(BigDec::zero); }
+    // Kraken's parse_venue_number requires every order number; absent fills never mean zero.
+    let required = |value: &Value| dec(value)?.ok_or_else(unreadable);
+    let vol = Some(required(&o["vol"])?);
+    let mut price = required(&o["price"])?;
+    if price.is_zero() && limit { price = required(&o["descr"]["price"])?; }
     Ok(OrderState {
         txid: txid.into(),
         status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
-        amount_exec: dec(&o["vol_exec"])?.unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"])?.unwrap_or_else(BigDec::zero), limit,
+        amount_exec: required(&o["vol_exec"])?, quote_amount_exec: required(&o["cost"])?, limit,
         sell: o["descr"]["type"] == "sell",
         pair: o["descr"]["pair"].as_str().map(str::to_string),
     })

@@ -18,6 +18,7 @@ pub mod lots;
 pub mod market;
 pub mod num;
 pub mod parity;
+pub mod page_market;
 pub mod scripted;
 pub mod splits;
 pub mod totals;

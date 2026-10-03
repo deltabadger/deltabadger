@@ -583,11 +583,10 @@ module Figures
       scenario('price_missing', NOW, basket(two, WEEKLY), TWO.merge(market(prices: { 'AAA' => 104.52 }).slice(STOCK_PRICES))),
       scenario('price_untraded', NOW, basket(two, WEEKLY), TWO.merge(market(prices: { 'AAA' => 104.52, 'BBB' => nil }).slice(STOCK_PRICES))),
       scenario('price_whole_number', NOW, basket(two, WEEKLY), TWO.merge(market(prices: { 'AAA' => 105, 'BBB' => 0.1 + 0.2 }).slice(STOCK_PRICES))),
-      # A price that is a number to Ruby and no figure: "NaN".to_d and "Infinity".to_d are BigDecimals, and Rails writes
-      # them, and everything computed from them, as null. One per place a venue's number comes in (alpaca.rb:210, 223, 379).
+      # Alpaca omits unreadable batch prices, keeping the other members available to value.
       scenario('price_nan', NOW, basket(two, WEEKLY), TWO.merge(market(prices: { 'AAA' => 104.52, 'BBB' => 'NaN' }).slice(STOCK_PRICES))),
       scenario('price_infinity', NOW, basket(%w[BTC ETH], crypto_orders), crypto_market('USD').merge(CRYPTO_PRICES => ok('trades' => { 'BTC/USD' => { 'p' => 'Infinity' }, 'ETH/USD' => { 'p' => 3020 } }))),
-      # A price Ruby reads a number off the front of ("12abc".to_d is 12): Rails values the holding at 12.
+      # Strict venue parsing rejects a numeric prefix followed by garbage too.
       scenario('price_unreadable', NOW, basket(two, WEEKLY), TWO.merge(market(prices: { 'AAA' => 104.52, 'BBB' => '12abc' }).slice(STOCK_PRICES))),
       scenario('candle_nan', NOW, basket(two, WEEKLY),
                market(prices: { 'AAA' => 104.52, 'BBB' => 53.9 }, stock_bars: { 'AAA' => AAA_BARS, 'BBB' => BBB_BARS.first(5) + [[BBB_BARS[5][0], 'NaN']] + BBB_BARS.drop(6) })),
@@ -747,12 +746,14 @@ module Figures
   end
 end
 
-command, root = ARGV
-Rails.logger.level = :warn # a run reads and writes some 100,000 rows; development would log every one
-raise ArgumentError, 'usage: grid <root> | record <root>' unless root
+unless defined?(FIGURES_LIBRARY)
+  command, root = ARGV
+  Rails.logger.level = :warn # a run reads and writes some 100,000 rows; development would log every one
+  raise ArgumentError, 'usage: grid <root> | record <root>' unless root
 
-case command
-when 'grid' then Figures.grid(root)
-when 'record' then Figures.record(root)
-else raise ArgumentError, 'usage: grid <root> | record <root>'
+  case command
+  when 'grid' then Figures.grid(root)
+  when 'record' then Figures.record(root)
+  else raise ArgumentError, 'usage: grid <root> | record <root>'
+  end
 end

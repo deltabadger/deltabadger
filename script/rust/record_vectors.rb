@@ -675,6 +675,32 @@ vectors['alpaca_orders'] = order_statuses.product(order_shapes).map do |status, 
            'quote_amount' => dec_s.(parsed[:quote_amount]), 'amount_exec' => dec_s.(parsed[:amount_exec]),
            'quote_amount_exec' => dec_s.(parsed[:quote_amount_exec]), 'order_type' => parsed[:order_type].to_s, 'side' => parsed[:side].to_s }]
 end
+# Numeric acceptance is part of the venue port too: missing fills must not become zero, and an
+# unused limit price still has to parse. Keep optional nulls and legitimate unfilled orders accepted.
+vectors['venue_order_numbers'] = {
+  'alpaca' => [alpaca_parser, order_shapes[1].merge('id' => 'O1', 'symbol' => 'BTC/USD', 'status' => 'filled'),
+               %w[filled_qty filled_avg_price notional qty limit_price]],
+  'kraken' => [kraken, { 'status' => 'closed', 'price' => '50000', 'cost' => '60', 'vol' => '0.0012', 'vol_exec' => '0.0012',
+                        'oflags' => '', 'descr' => { 'pair' => 'XBTEUR', 'type' => 'buy', 'ordertype' => 'market', 'price' => '0' } },
+               %w[price cost vol vol_exec]]
+}.flat_map do |venue, (exchange, original, fields)|
+  bodies = [original]
+  bodies << original.merge('filled_qty' => '0', 'filled_avg_price' => nil) if venue == 'alpaca'
+  fields.each do |field|
+    [nil, '', 'garbage', 'NaN', 'Infinity', '-Infinity', '0', '1.25'].each { |value| bodies << original.merge(field => value) }
+    bodies << original.except(field)
+  end
+  bodies.map do |body|
+    begin
+      args = venue == 'alpaca' ? [body] : ['O1', body]
+      exchange.send(:parse_order_data, *args)
+      accepted = true
+    rescue ArgumentError, KeyError
+      accepted = false
+    end
+    { 'venue' => venue, 'body' => body, 'accepted' => accepted }
+  end
+end
 # Bot::Accountable#pending_quote_amount with Rails' fill-credit fix: a cancelled or abandoned REGULAR
 # buy counts what it filled, nothing in polling moves the carry, and every counted row comes from one read. Generated rows on a
 # bot inserted directly, inside a transaction that is rolled back, so the development database keeps nothing.

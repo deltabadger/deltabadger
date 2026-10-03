@@ -28,9 +28,13 @@
             {{ tile.exchange_svg|safe }}
         </div>
       </div>
+{% if let Some(pnl) = tile.pnl %}
+{{ pnl|safe }}
+{% else %}
         <div id="{{ tile.pnl_id }}">
     <div class="loader--small" style="position: unset;"></div>
 </div>
+{% endif %}
 
     </div>
     <div class="bot-tile__subtitle">

@@ -14,6 +14,7 @@ pub mod consent;
 pub mod colors;
 pub mod csrf;
 pub mod flash;
+pub mod figure;
 pub mod format;
 pub mod headers;
 pub mod i18n;
@@ -302,6 +303,8 @@ fn derive(secret: &str, label: &str) -> Result<[u8; 32], WebError> {
 }
 
 pub struct Inner {
+    pub figure_service: figure::service::Service,
+    pub figure_source: figure::loading::Source,
     pub mcp_instructions: String,
     pub config: Config,
     pub keys: Keys,
@@ -354,6 +357,7 @@ impl App {
         let cipher = Cipher::new(&encryption);
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
         Ok(Self(Arc::new(Inner {
+            figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
@@ -367,6 +371,12 @@ impl App {
     pub fn with_cable_timing(self, ping: Duration, recheck: Duration) -> Result<Self, WebError> {
         let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
         (inner.cable_ping, inner.cable_recheck) = (ping, recheck);
+        Ok(Self(Arc::new(inner)))
+    }
+
+    pub fn with_figure_source(self, source: figure::loading::Source) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        inner.figure_source = source;
         Ok(Self(Arc::new(inner)))
     }
 
