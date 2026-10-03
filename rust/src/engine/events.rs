@@ -1,7 +1,7 @@
 //! What the engine tells other modules, without calling into them. Each event is sent after the write it
 //! reports has committed. Delivery is in memory and at most once: a crash or stop before a consumer runs loses it. The
-//! nightly ledger sync covers a lost OrderRecorded; a lost FundsLow is one unsent mail, which Rails' stamp-then-deliver_later
-//! can lose the same way.
+//! nightly ledger sync covers a lost OrderRecorded. A lost FundsLow only delays the mail: the funds marker is written with
+//! the stamp, and the mail service finds it on its next poll.
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10,8 +10,9 @@ pub enum EngineEvent {
     /// after_create_commit hears, which enqueues AccountTransaction::SyncJob for the bot's trading key
     /// (app/models/transaction.rb:17-21).
     OrderRecorded { bot_id: i64, transaction_id: i64 },
-    /// The engine stamped `bots.last_end_of_funds_notification` where Rails sends BotAlertsMailer#end_of_funds: the daily
-    /// budget per (user, quote asset) was free and is now spent (Bot::Fundable, Bot::Failable#record_failure!).
+    /// The engine stamped `bots.last_end_of_funds_notification` where Rails sends BotAlertsMailer#end_of_funds and left the
+    /// funds mail marker with it: the daily budget per (user, quote asset) was free and is now spent (Bot::Fundable,
+    /// Bot::Failable#record_failure!). The mail service's wake.
     FundsLow { bot_id: i64, user_id: i64, quote_asset_id: Option<i64> },
 }
 

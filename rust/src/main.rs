@@ -133,9 +133,11 @@ fn mail_sender(env: &dyn Fn(&str) -> Option<String>, cipher: &Cipher) -> deltaba
     deltabadger::mail::sender::Sender::new(own, cipher.clone(), env, SystemClock)
 }
 
-/// The sender as the supervisor runs it: stopped by the one stop signal. No engine event wakes it yet; it looks every few seconds.
-fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: &deltabadger::engine::run::Shutdown) -> supervisor::Service<'a> {
-    supervisor::Service { name: "mail", run: Box::pin(mail.run(stop.subscribe(), None::<tokio::sync::mpsc::UnboundedReceiver<()>>)) }
+/// The sender as the supervisor runs it: stopped by the one stop signal, woken by any engine event (a spent funds
+/// budget), and looking every few seconds besides.
+fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: &deltabadger::engine::run::Shutdown,
+                    wake: tokio::sync::mpsc::UnboundedReceiver<deltabadger::engine::events::EngineEvent>) -> supervisor::Service<'a> {
+    supervisor::Service { name: "mail", run: Box::pin(mail.run(stop.subscribe(), Some(wake))) }
 }
 
 /// The takeover `run` and `serve` share. Refusals exit 1 before anything is claimed; a takeover that fails after the
@@ -164,9 +166,9 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let code = rt.block_on(async move {
-        let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
+        let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
-        let services = vec![mail_service(mail, &engine.stop_handle())];
+        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe())];
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
         match supervisor::serve(engine, None, &SystemClock, services).await {
@@ -208,11 +210,11 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let mail = mail_sender(env, &cipher);
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let code = rt.block_on(async move {
-        let engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
+        let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
         // Background services: each built here with a clone of `engine.stop_handle()`. A scheduler would be one
         // more element; nothing else changes.
-        let services: Vec<supervisor::Service> = vec![mail_service(mail, &engine.stop_handle())];
+        let services: Vec<supervisor::Service> = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe())];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {
