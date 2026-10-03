@@ -682,6 +682,17 @@ module OauthParity
 
   def resolved(step)
     result = OauthBearerTokenResolver.call(authorization_header: step['authorization'], required_scope: step['scope'])
+    if step['do'] == 'use'
+      ActionMCP.configuration.authentication_methods = ['bearer_token']
+      session = ActionDispatch::Integration::Session.new(Rails.application)
+      session.host! 'localhost:3000'
+      payload = { jsonrpc: '2.0', id: 1, method: 'initialize',
+                  params: { protocolVersion: '2025-11-25', clientInfo: { name: 'oauth-cross', version: '1' }, capabilities: {} } }
+      headers = { 'Authorization' => step['authorization'], 'Content-Type' => 'application/json',
+                  'Accept' => 'application/json, text/event-stream' }
+      session.post('/mcp', params: payload.to_json, headers: headers)
+      raise "OAuth token did not reach MCP: #{session.response.status}" unless session.response.status == (result.success? ? 200 : 401)
+    end
     { 'resolved' => { 'error' => result.error&.to_s, 'user_id' => result.user&.id, 'application_id' => result.access_token&.application_id,
                       'token_id' => result.access_token&.id } }
   end

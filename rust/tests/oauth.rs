@@ -174,7 +174,15 @@ async fn play_leg(dir: &Path, leg: usize) {
                 let before = table(dir, "oauth_access_tokens");
                 let presented = header.clone();
                 let at_now = clock.clone(); // set to this step's time above
-                let resolved = app.db(move |c| if retire { bearer::authenticate(c, header.as_deref(), &scope, &*at_now) } else { bearer::resolve(c, header.as_deref(), &scope, &*at_now) }).await.unwrap();
+                let mcp_status = if retire {
+                    let body = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","clientInfo":{"name":"oauth-cross","version":"1"},"capabilities":{}}});
+                    let mut request = Request::builder().method("POST").uri("/mcp").header("host",web::HOST)
+                        .header("content-type","application/json").header("accept","application/json, text/event-stream");
+                    if let Some(value)=header.as_deref(){request=request.header("authorization",value);}
+                    Some(deltabadger::web::router(app.clone()).oneshot(request.body(Body::from(body.to_string())).unwrap()).await.unwrap().status().as_u16())
+                } else { None };
+                let resolved = app.db(move |c| bearer::resolve(c, header.as_deref(), &scope, &*at_now)).await.unwrap();
+                if let Some(status)=mcp_status{assert_eq!(status,if resolved.is_ok(){200}else{401},"OAuth token must reach the real MCP endpoint");}
                 let mut answer = json!({ "resolved": match resolved {
                     Ok(bearer) => json!({ "error": null, "user_id": bearer.user_id, "application_id": bearer.application_id, "token_id": bearer.token_id }),
                     Err(refusal) => json!({ "error": refusal.name(), "user_id": null, "application_id": null, "token_id": null }),
