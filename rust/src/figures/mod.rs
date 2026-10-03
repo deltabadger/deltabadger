@@ -20,6 +20,7 @@ pub mod num;
 pub mod parity;
 pub mod scripted;
 pub mod splits;
+pub mod totals;
 pub mod walk;
 
 #[derive(Debug)]

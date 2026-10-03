@@ -256,3 +256,91 @@ fn holdings_left_out_of_the_chart_are_named_beside_it() {
     ].into_iter().map(|(bot, list)| (bot.to_string(), list.to_string())).collect();
     assert_eq!(named, expected);
 }
+
+/// The figures the bots list is made of, for the scenarios whose every bot is computed.
+fn totals(out: &Value) -> Value {
+    serde_json::json!({ "profit_in_usd": of_bots(&["profit_in_usd"])(out), "global_pnl": out["global_pnl"], "global_pnl_snapshot": out["global_pnl_snapshot"],
+                        "pnl_history": out["pnl_history"], "denomination": out["denomination"] })
+}
+
+#[test]
+fn the_accounts_totals_match_rails_in_every_scenario() {
+    compare("totals", |out| if out["bots"].as_object().is_some_and(|bots| bots.values().all(|bot| bot.get("metrics").is_some())) { totals(out) } else { Value::Null });
+}
+
+#[test]
+fn the_market_is_asked_for_exactly_what_rails_asks_it() {
+    // Where a figure is not computed the library stops asking, so those scenarios are left out here.
+    let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
+    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 5);
+    for scenario in grid().scenarios.iter().filter(whole) {
+        assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
+    }
+    let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
+    assert_eq!(asked, 621, "requests on the Rails side");
+}
+
+/// The one scenario with a bot this library does not compute (a pair bot beside a basket).
+const NOT_COMPUTED: &str = "account_pair_bot";
+
+#[test]
+fn a_bot_of_another_type_is_not_computed_and_neither_is_a_total_that_needs_it() {
+    let scenario = grid().scenarios.iter().find(|s| s.name == NOT_COMPUTED).unwrap();
+    let rust = scenario.rust.as_ref().unwrap();
+    assert_eq!(scenario.rails["bots"]["2"], serde_json::json!({ "type": "Bots::DcaSingleAsset" }));
+    let reason = "bot 2 is a Bots::DcaSingleAsset: only baskets and index bots are computed";
+    assert_eq!(rust["bots"]["2"], serde_json::json!({ "not_computed": reason }));
+    for total in ["global_pnl", "global_pnl_snapshot", "pnl_history"] {
+        assert_eq!(rust[total], serde_json::json!({ "not_computed": reason }), "{total}");
+        assert!(scenario.rails[total].as_str().is_some_and(|text| text.contains("percent")), "Rails has a {total} here");
+    }
+    // The basket beside it is computed as in any other scenario (the three tests above compare it).
+    assert!(rust["bots"]["1"]["metrics"].is_string());
+}
+
+/// Beside the account's totals: the same holdings, by bot. A deleted bot is in no total and in no list.
+#[test]
+fn the_accounts_totals_name_what_they_leave_out() {
+    for scenario in &grid().scenarios {
+        let rust = scenario.rust.as_ref().unwrap();
+        let Some(listed) = rust["unpriced"].as_array() else { continue };
+        let by_bot: Vec<Value> = rust["bots"].as_object().unwrap().iter()
+            .flat_map(|(id, bot)| bot["unpriced"].as_array().into_iter().flatten().map(move |u| serde_json::json!([id.parse::<i64>().unwrap(), u[0], u[1]]))).collect();
+        assert_eq!(listed, &by_bot, "{}", scenario.name);
+    }
+    let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap().rust.as_ref().unwrap()["unpriced"].to_string();
+    assert_eq!(of("all_delisted"), r#"[[1,"AAA","delisted"],[1,"BBB","delisted"]]"#);
+    assert_eq!(of("basket_buys"), "[]");
+}
+
+/// Everything this library returns as "not computed", figure by figure, with what Rails has in its place.
+#[test]
+fn what_is_not_computed_is_named() {
+    fn collect(name: &str, path: &str, rails: &Value, rust: &Value, out: &mut Vec<(String, String, String)>) {
+        match rust {
+            Value::Object(b) if b.contains_key("not_computed") => out.push((format!("{name}{path}"), b["not_computed"].as_str().unwrap().to_string(), rails.to_string())),
+            Value::Object(b) => for (key, value) in b { collect(name, &format!("{path}.{key}"), &rails[key], value, out); },
+            _ => {}
+        }
+    }
+    let mut found = vec![];
+    for scenario in &grid().scenarios { collect(&scenario.name, "", &scenario.rails, scenario.rust.as_ref().unwrap(), &mut found); }
+    let listed: Vec<String> = found.iter().map(|(place, reason, _)| format!("{place}: {reason}")).collect();
+    let pair = "bot 2 is a Bots::DcaSingleAsset: only baskets and index bots are computed";
+    let number = deltabadger::figures::NOT_A_NUMBER;
+    let mut expected: Vec<String> = [".bots.2", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("account_pair_bot{place}: {pair}")).collect();
+    // A candle that is no number: the walk and the live figures stand, the chart and what is drawn from it do not.
+    expected.extend([".bots.1.marked", ".bots.1.chart", ".pnl_history"].iter().map(|place| format!("candle_nan{place}: {number}")));
+    // A price that is no number: only the walk stands.
+    for scenario in ["price_infinity", "price_nan", "price_unreadable"] {
+        expected.extend([".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("{scenario}{place}: {number}")));
+    }
+    assert_eq!(listed, expected);
+    // What Rails has in their place: figures made of nulls where the value was NaN or Infinity, and a figure like
+    // any other where it read a number off the front of a text (BBB at 12 where it trades at 53.90).
+    for (place, reason, rails) in &found {
+        if reason == number && !place.starts_with("price_unreadable") { assert!(rails.contains("null"), "{place}: Rails has {rails}"); }
+    }
+    let unreadable = found.iter().find(|(place, _, _)| place == "price_unreadable.bots.1.live").unwrap();
+    assert!(unreadable.2.contains(r#"\"current_price\":\"12.0\""#) && !unreadable.2.contains("null,"), "{}", unreadable.2);
+}

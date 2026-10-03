@@ -350,3 +350,89 @@ fn a_chart_is_marked_at_market_point_for_point_as_rails_marks_it() {
     }
     assert!(kept > 200 && dropped > kept / 2 && unpriced > 20, "{kept} points kept of {dropped} grid marks, {unpriced} left on their fill mark");
 }
+
+// ---- User::PnlHistory: the account's history ----
+
+use deltabadger::figures::totals;
+
+fn bits(f: f64) -> String { format!("{:016x}", f.to_bits()) }
+
+#[test]
+fn the_accounts_history_is_resampled_column_for_column_as_rails_resamples_it() {
+    let v = vectors();
+    let cases = v["pnl_history"].as_array().unwrap();
+    assert_eq!(cases.len(), 53);
+    let mut drawn = 0;
+    for c in cases {
+        let tracks: Vec<totals::Track> = c[0].as_array().unwrap().iter().map(|track| track.as_array().unwrap().iter().map(|r| (At(r[0].as_i64().unwrap()), dec(&r[1]), dec(&r[2]))).collect()).collect();
+        let got = totals::merge(&tracks).unwrap().map(|h| serde_json::json!({
+            "percent": h.percent.iter().map(|f| bits(*f)).collect::<Vec<_>>(), "profit_usd": h.profit_usd.iter().map(|f| bits(*f)).collect::<Vec<_>>(),
+            "at": h.at, "days": bits(h.days),
+        }));
+        if got.is_some() { drawn += 1; }
+        assert_eq!(got.unwrap_or(Value::Null), c[1], "{}", c[0]);
+    }
+    assert_eq!(drawn, 46, "the rest have nothing to draw: one reading, or none");
+    assert!(cases.iter().any(|c| c[1]["at"].as_array().is_some_and(|at| at.len() == totals::MAX_POINTS)), "one history is long enough to be capped");
+}
+
+/// The totals are of the whole account or of nothing: at their own API, not only through the harness. A bot that
+/// has traded and brought no figures, or whose figures this library does not compute, leaves no number behind.
+#[test]
+fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
+    use deltabadger::figures::market::{Failure, Fetch, MarketData, Member, Quoted, Venue};
+    use deltabadger::figures::totals::{Part, Rates};
+    use deltabadger::figures::{Absent, FiguresError};
+    /// Bots quoted in USD need no market data; any read is a mistake.
+    struct NoMarket;
+    impl MarketData for NoMarket {
+        fn prices(&self, _: &Venue, _: &[String]) -> Fetch<Vec<(String, Member<Dec>)>> { Err(Failure::Failed("no read expected".into())) }
+        fn candles(&self, _: &Venue, _: &deltabadger::figures::db::Ticker, _: At, _: i64, _: bool) -> Fetch<Vec<(At, Dec)>> { Err(Failure::Failed("no read expected".into())) }
+        fn exchange_rates(&self) -> Fetch<Vec<(String, Member<Num>)>> { Err(Failure::Failed("no read expected".into())) }
+        fn coin_price(&self, _: &str, _: &str) -> Fetch<Quoted> { Err(Failure::Failed("no read expected".into())) }
+    }
+    let c = rusqlite::Connection::open_in_memory().unwrap();
+    let mut figures = walk::Metrics::empty();
+    figures.total_quote_amount_invested = Num::Dec(Dec::from_i64(100));
+    figures.total_amount_value_in_quote = Num::Dec(Dec::from_i64(110));
+    figures.chart.labels = vec![At(1_772_461_800_000_000_000), At(1_773_000_000_000_000_000)];
+    figures.chart.value = vec![Num::Dec(Dec::from_i64(100)), Num::Dec(Dec::from_i64(110))];
+    figures.chart.invested = vec![Num::Dec(Dec::from_i64(100)), Num::Dec(Dec::from_i64(100))];
+    fn part<'a>(bot_id: i64, figures: Result<Option<&'a walk::Metrics>, &'a Absent>) -> Part<'a> { Part { bot_id, quote: Some("USD"), traded: true, figures } }
+    let all = |parts: &[Part<'_>]| (
+        totals::global_pnl(&c, &NoMarket, &mut Rates::default(), parts).map(|pnl| pnl.map(|pnl| pnl.to_json().write())),
+        totals::global_pnl_snapshot(&c, &NoMarket, &mut Rates::default(), parts).map(|s| (s.result.map(|pnl| pnl.to_json().write()), s.loading)),
+        totals::pnl_history(&c, &NoMarket, &mut Rates::default(), parts).map(|s| (s.result.map(|h| h.profit_usd), s.loading)),
+    );
+    let not_computed = |result: &dyn std::fmt::Debug, reason: &str| assert_eq!(format!("{result:?}"), format!("Err(NotComputed({reason:?}))"));
+
+    // One bot, figures and all: a total.
+    let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures)))]);
+    assert_eq!(pnl.unwrap().as_deref(), Some(r#"{"percent":"0.1","profit_usd":"10.0"}"#));
+    assert_eq!(snapshot.unwrap(), (Some(r#"{"percent":"0.1","profit_usd":"10.0"}"#.to_string()), false));
+    assert!(history.unwrap().0.is_some_and(|profit| profit.last() == Some(&10.0)));
+
+    // A second bot that has traded and brought no figures: the total is not computed, never the first bot's alone.
+    // The snapshot reads it as Rails reads a bot with nothing cached yet: loading.
+    let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Ok(None))]);
+    not_computed(&pnl, "bot 2 has traded and has no figures");
+    assert_eq!(snapshot.unwrap(), (None, true));
+    not_computed(&history, "bot 2 has traded and has no figures");
+
+    // A bot whose figures this library does not compute: all three not computed, with its reason, wherever it stands.
+    let absent = Absent::NotComputed("a value that is not a finite decimal number".into());
+    for parts in [[part(1, Ok(Some(&figures))), part(2, Err(&absent))], [part(2, Err(&absent)), part(1, Ok(Some(&figures)))]] {
+        let (pnl, snapshot, history) = all(&parts);
+        for result in [&pnl as &dyn std::fmt::Debug, &snapshot, &history] { not_computed(result, "a value that is not a finite decimal number"); }
+    }
+
+    // A bot whose figures Rails raised computing: the total raises it, the snapshot is loading, as in Rails.
+    let raised = Absent::Raised("Client::TransientNetworkError: refused".into());
+    let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Err(&raised))]);
+    assert!(matches!(pnl, Err(FiguresError::Raised(_))) && matches!(history, Err(FiguresError::Raised(_))));
+    assert_eq!(snapshot.unwrap(), (None, true));
+
+    // A bot that never traded and has no figures adds nothing, and takes nothing away.
+    let untraded = Part { bot_id: 3, quote: Some("USD"), traded: false, figures: Ok(None) };
+    assert_eq!(all(&[part(1, Ok(Some(&figures))), untraded]).0.unwrap().as_deref(), Some(r#"{"percent":"0.1","profit_usd":"10.0"}"#));
+}
