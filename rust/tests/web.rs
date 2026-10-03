@@ -2898,3 +2898,233 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
     }
 
 }
+
+mod auth_decision_clock {
+    use super::common::{self, seed, web::{self as harness, Browser, Csrf, TestClock}};
+    use deltabadger::{codec::format_time, crypto::totp_at, engine::Clock, web::{App, Config, session}};
+    use rusqlite::Connection;
+    use std::sync::{Arc, Mutex, mpsc};
+    use std::time::Duration;
+    use tokio::sync::Notify;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    const LIMIT: Duration = Duration::from_secs(15);
+    const NOW: &str = "2026-09-10T12:00:00Z";
+    const LATER: &str = "2026-09-10T12:01:01Z";
+    const OTP: &str = "JBSWY3DPEHPK3PXP";
+    const PASSWORD: &str = "Correct-horse-9";
+
+    struct ArrivalClock { clock: Arc<TestClock>, arrived: Arc<Notify> }
+    impl Clock for ArrivalClock {
+        fn now(&self) -> chrono::DateTime<chrono::Utc> {
+            let now = self.clock.now();
+            self.arrived.notify_one();
+            now
+        }
+    }
+    struct Fixture {
+        _dir: tempfile::TempDir, path: std::path::PathBuf, c: Connection,
+        app: App, browser: Browser, clock: Arc<TestClock>, arrived: Arc<Notify>,
+    }
+    impl Fixture {
+        async fn new(otp: bool) -> Result<Self> {
+            let (dir, opened, _) = common::install_alpaca();
+            let c = opened.primary;
+            let hash = deltabadger::crypto::hash_password(PASSWORD).map_err(|e| format!("{e:?}"))?;
+            c.execute("UPDATE users SET encrypted_password=?1,confirmed_at=created_at,otp_module=?2,otp_secret_key=?3", rusqlite::params![hash, otp, seed::cipher().encrypt(OTP)])?;
+            let path = dir.path().join("production.sqlite3");
+            let clock = TestClock::at(NOW);
+            let arrived = Arc::new(Notify::new());
+            let env = harness::env("engine-test-secret");
+            let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, Connection::open(&path)?, Arc::new(ArrivalClock {clock:clock.clone(),arrived:arrived.clone()})).map_err(|e|format!("{e:?}"))?;
+            let mut browser = Browser::default();
+            browser.get(&app,"/login").await;
+            Ok(Self {_dir:dir,path,c,app,browser,clock,arrived})
+        }
+        fn pending(&mut self, started: i64) -> Result {
+            let cookie = self.browser.cookie.as_deref().ok_or("cookie")?;
+            let mut data = session::open(&self.app.keys.session,cookie,self.clock.now()).ok_or("session")?;
+            let id = self.c.query_row("SELECT id FROM users",[],|r|r.get(0))?;
+            data.pending=Some(session::Pending {user_id:id,started_at:started});
+            self.browser.cookie=Some(session::seal(&self.app.keys.session,&data,self.clock.now()));
+            Ok(())
+        }
+        fn state(&self) -> Result<(i64,Option<String>,Option<String>,String)> {
+            Ok(self.c.query_row("SELECT failed_attempts,locked_at,last_otp_at,updated_at FROM users",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?)
+        }
+        fn session(&self) -> Result<session::SessionData> {
+            session::open(&self.app.keys.session,self.browser.cookie.as_deref().ok_or("cookie")?,self.clock.now()).ok_or("session".into())
+        }
+        // The request's arrival clock is observed while another worker owns App's mutex.
+        async fn mutex_wait(&mut self, method: &str, path: &str, fields: &[(&str,&str)], later: &str) -> Result<harness::Answer> {
+            let deadline=tokio::time::Instant::now()+LIMIT;
+            let held=Arc::new(Notify::new()); let signal=held.clone();
+            let (release,rx)=mpsc::channel(); let app=self.app.clone();
+            let holder=tokio::spawn(async move {app.db(move |_| {
+                signal.notify_one(); rx.recv_timeout(LIMIT).map_err(|e|deltabadger::web::WebError::Task(e.to_string()))?; Ok(())
+            }).await});
+            tokio::time::timeout_at(deadline,held.notified()).await?;
+            // Drain notifications from fixture setup.
+            let _=tokio::time::timeout(Duration::ZERO,self.arrived.notified()).await;
+            let request=self.browser.send(&self.app,method,path,Some(fields),Csrf::Header,&[]);
+            tokio::pin!(request);
+            tokio::select! {
+                answer=&mut request => return Err(format!("request escaped held mutex: {}",answer.status).into()),
+                _=self.arrived.notified()=>{},
+                _=tokio::time::sleep_until(deadline)=>return Err("no arrival".into()),
+            }
+            self.clock.set(harness::at(later)); release.send(())?;
+            holder.await?.map_err(|e|format!("{e:?}"))?;
+            Ok(tokio::time::timeout_at(deadline,request).await?)
+        }
+    }
+
+    #[tokio::test(flavor="current_thread")]
+    async fn bcrypt_slot() -> Result {
+        let mut f=Fixture::new(false).await?;
+        f.c.execute("UPDATE users SET failed_attempts=4",[])?;
+        let (release,rx)=mpsc::channel(); let rx=Mutex::new(rx);
+        let entered=Arc::new(Notify::new()); let hit=entered.clone();
+        f.app=f.app.with_password_hook(Arc::new(move || {
+            hit.notify_one();
+            if let Ok(rx)=rx.lock() { let _=rx.recv_timeout(LIMIT); }
+        })).map_err(|e|format!("{e:?}"))?;
+        let deadline=tokio::time::Instant::now()+LIMIT;
+        let mut workers=Vec::new();
+        for _ in 0..2 {
+            let app=f.app.clone();
+            let mut browser=Browser {cookie:f.browser.cookie.clone(),page:f.browser.page.clone()};
+            workers.push(tokio::spawn(async move {browser.post(&app,"/login",&[("user[email]","missing@example.com"),("user[password]","wrong")]).await}));
+            tokio::time::timeout_at(deadline,entered.notified()).await?;
+        }
+        let fields=[("user[email]","o@example.com"),("user[password]","wrong")];
+        {
+        let request=f.browser.post(&f.app,"/login",&fields); tokio::pin!(request);
+        tokio::select! {
+            answer=&mut request=>return Err(format!("not queued: {}",answer.status).into()),
+            _=async { while f.app.password_checks_waiting()!=1 {tokio::task::yield_now().await;} }=>{},
+            _=tokio::time::sleep_until(deadline)=>return Err("no bcrypt waiter".into()),
+        }
+        f.clock.set(harness::at(LATER));
+        for _ in 0..3 {release.send(())?;}
+        assert_eq!(tokio::time::timeout_at(deadline,request).await?.status,422);
+        }
+        for worker in workers {tokio::time::timeout_at(deadline,worker).await??;}
+        let state=f.state()?; assert_eq!(state.0,5);
+        assert_eq!(state.1,Some(format_time(harness::at(LATER))));
+        assert_eq!(state.3,format_time(harness::at(LATER))); Ok(())
+    }
+
+    #[tokio::test(flavor="current_thread")]
+    async fn password_database_expiry() -> Result {
+        let mut f=Fixture::new(false).await?;
+        f.c.execute("UPDATE users SET failed_attempts=5,locked_at='2026-09-10 11:45:30'",[])?;
+        let a=f.mutex_wait("POST","/login",&[("user[email]","o@example.com"),("user[password]",PASSWORD)],LATER).await?;
+        assert_eq!(a.status,303); assert!(f.session()?.user.is_some());
+        let state=f.state()?; assert_eq!((state.0,state.1),(0,None)); assert_eq!(state.3,format_time(harness::at(LATER))); Ok(())
+    }
+
+    #[tokio::test(flavor="current_thread")]
+    async fn otp_database_expiry_and_replay() -> Result {
+        let mut f=Fixture::new(true).await?;
+        f.pending(harness::at(NOW).timestamp())?;
+        f.c.execute("UPDATE users SET failed_attempts=5,locked_at='2026-09-10 11:45:30'",[])?;
+        let code=totp_at(OTP,harness::at(LATER).timestamp() as u64).ok_or("OTP")?;
+        let a=f.mutex_wait("POST","/verify_two_factor",&[("user[otp_code_token]",&code)],LATER).await?;
+        assert_eq!(a.status,303);
+        let state=f.state()?; assert_eq!((state.0,state.1),(0,None));
+        assert_eq!(state.2,Some("2026-09-10 12:01:00".into())); assert_eq!(state.3,format_time(harness::at(LATER)));
+        // A separate pending browser reuses the consumed code, never an authenticated session.
+        f.browser=Browser::default(); f.browser.get(&f.app,"/login").await; f.pending(harness::at(LATER).timestamp())?;
+        let a=f.browser.send(&f.app,"POST","/verify_two_factor",Some(&[("user[otp_code_token]",&code)]),Csrf::Header,&[]).await;
+        assert_eq!(a.status,422); assert_eq!(f.state()?.0,1); assert_eq!(f.state()?.2,state.2); Ok(())
+    }
+
+    #[tokio::test(flavor="current_thread")]
+    async fn pending_ttl_and_password_start() -> Result {
+        let mut f=Fixture::new(true).await?;
+        let a=f.mutex_wait("POST","/login",&[("user[email]","o@example.com"),("user[password]",PASSWORD)],LATER).await?;
+        assert_eq!(a.status,302); assert_eq!(f.session()?.pending.ok_or("pending")?.started_at,harness::at(LATER).timestamp());
+        for method in ["GET","POST"] {
+            f.clock.set(harness::at(NOW));
+            f.browser=Browser::default(); f.browser.get(&f.app,"/login").await;
+            f.pending(harness::at(NOW).timestamp()-299)?;
+            let before=f.state()?;
+            let code=totp_at(OTP,harness::at(NOW).timestamp() as u64).ok_or("OTP")?;
+            let a=f.mutex_wait(method,"/verify_two_factor",&[("user[otp_code_token]",&code)],"2026-09-10T12:00:01Z").await?;
+            assert_eq!((a.status,a.header("location")),(302,Some("/login")));
+            assert!(f.session()?.pending.is_none()); assert_eq!(f.state()?,before);
+        } Ok(())
+    }
+
+    static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    static BUSY: Mutex<Option<(Arc<Notify>,mpsc::Receiver<()>)>> = Mutex::new(None);
+    fn busy(attempt: i32) -> bool {
+        if attempt!=0 {return false;}
+        let Ok(probe)=BUSY.lock() else {return false;};
+        let Some((hit,rx))=&*probe else {return false;};
+        hit.notify_one(); rx.recv_timeout(LIMIT).is_ok()
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn external_sqlite_contention() -> Result {
+        let _serial=SERIAL.lock().await;
+        for case in ["wrong","expiry","GET","POST"] {
+            let mut f=Fixture::new(matches!(case,"GET"|"POST")).await?;
+            match case {
+                "wrong"=>{f.c.execute("UPDATE users SET failed_attempts=4",[])?;},
+                "expiry"=>{f.c.execute("UPDATE users SET failed_attempts=5,locked_at='2026-09-10 11:45:30'",[])?;},
+                _=>{f.pending(harness::at(NOW).timestamp()-299)?; f.c.execute("UPDATE users SET failed_attempts=3,locked_at='2026-09-10 11:45:30'",[])?;},
+            }
+            let before=f.state()?;
+            f.app.db(|c| {c.busy_handler(Some(busy))?;Ok(())}).await.map_err(|e|format!("{e:?}"))?;
+            let hit=Arc::new(Notify::new()); let (retry,rx)=mpsc::channel();
+            *BUSY.lock().map_err(|e|e.to_string())?=Some((hit.clone(),rx));
+            let (start,start_rx)=mpsc::channel(); let (release,release_rx)=mpsc::channel();
+            let held=Arc::new(Notify::new()); let held_worker=held.clone();
+            let (ready,ready_rx)=mpsc::channel(); let path=f.path.clone();
+            let writer=tokio::task::spawn_blocking(move || -> std::result::Result<(),String> {
+                start_rx.recv_timeout(LIMIT).map_err(|e|e.to_string())?;
+                let c=Connection::open(path).map_err(|e|e.to_string())?;
+                c.busy_timeout(LIMIT).map_err(|e|e.to_string())?;
+                c.execute_batch("BEGIN IMMEDIATE").map_err(|e|e.to_string())?;
+                held_worker.notify_one(); ready.send(()).map_err(|e|e.to_string())?;
+                let released=release_rx.recv_timeout(LIMIT);
+                c.execute_batch("ROLLBACK").map_err(|e|e.to_string())?;
+                released.map_err(|e|e.to_string())
+            });
+            if matches!(case,"wrong"|"expiry") {
+                let ready_rx=Mutex::new(ready_rx);
+                // Existing hook runs after hash read and before bcrypt; the lock is held
+                // through bcrypt, so only the subsequent decision transaction contends.
+                f.app=f.app.with_password_hook(Arc::new(move || {
+                    let _=start.send(());
+                    if let Ok(rx)=ready_rx.lock() {let _=rx.recv_timeout(LIMIT);}
+                })).map_err(|e|format!("{e:?}"))?;
+            } else {start.send(())?; tokio::time::timeout(LIMIT,held.notified()).await?;}
+            let code=totp_at(OTP,harness::at(LATER).timestamp() as u64).ok_or("OTP")?;
+            let fields=if case=="wrong" {vec![("user[email]","o@example.com"),("user[password]","wrong")]} else if case=="expiry" {vec![("user[email]","o@example.com"),("user[password]",PASSWORD)]} else {vec![("user[otp_code_token]",code.as_str())]};
+            let path=if matches!(case,"wrong"|"expiry") {"/login"} else {"/verify_two_factor"};
+            let method=if case=="GET" {"GET"} else {"POST"};
+            let deadline=tokio::time::Instant::now()+LIMIT;
+            let a = {
+            let request=f.browser.send(&f.app,method,path,Some(&fields),Csrf::Header,&[]); tokio::pin!(request);
+            let waiting=tokio::select! {
+                answer=&mut request=>Err(format!("{case}: decision escaped SQLite write lock: {}",answer.status)),
+                _=hit.notified()=>Ok(()),
+                _=tokio::time::sleep_until(deadline)=>Err(format!("{case}: no SQLite busy callback")),
+            };
+            f.clock.set(harness::at(LATER)); release.send(())?;
+            tokio::time::timeout_at(deadline,writer).await??.map_err(|e|format!("writer: {e}"))?;
+            retry.send(()).ok();
+            waiting?;
+            tokio::time::timeout_at(deadline,request).await?
+            };
+            *BUSY.lock().map_err(|e|e.to_string())?=None;
+            let after=f.state()?;
+            match case {
+                "wrong"=>{assert_eq!(a.status,422); assert_eq!(after.0,5); assert_eq!(after.1,Some(format_time(harness::at(LATER)))); assert_eq!(after.3,format_time(harness::at(LATER)));},
+                "expiry"=>{assert_eq!(a.status,303); assert!(f.session()?.user.is_some()); assert_eq!((after.0,after.1),(0,None)); assert_eq!(after.3,format_time(harness::at(LATER)));},
+                _=>{assert_eq!((a.status,a.header("location")),(302,Some("/login"))); assert_eq!(after,before); assert!(f.session()?.pending.is_none()); assert!(f.session()?.user.is_none());},
+            }
+        } Ok(())
+    }
+}
