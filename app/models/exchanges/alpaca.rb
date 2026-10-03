@@ -207,7 +207,7 @@ class Exchanges::Alpaca < Exchange
       result = market_data_client.get_snapshots(symbols: sorted)
       return result if result.failure?
 
-      result.data.transform_values { |snapshot| snapshot.dig('latestTrade', 'p').to_d }
+      result.data.transform_values { |snapshot| parse_venue_number(snapshot.dig('latestTrade', 'p')) }
     end
 
     Result::Success.new(tickers_prices)
@@ -220,7 +220,7 @@ class Exchanges::Alpaca < Exchange
       result = market_data_client.get_crypto_latest_trade(symbols: sorted)
       return result if result.failure?
 
-      result.data.fetch('trades', {}).transform_values { |trade| trade['p'].to_d }
+      result.data.fetch('trades', {}).transform_values { |trade| parse_venue_number(trade['p']) }
     end
 
     Result::Success.new(tickers_prices)
@@ -277,12 +277,12 @@ class Exchanges::Alpaca < Exchange
                 result = market_data_client.get_crypto_latest_trade(symbols: [ticker.ticker])
                 return result if result.failure?
 
-                result.data.dig('trades', ticker.ticker, 'p').to_d
+                parse_venue_number(result.data.dig('trades', ticker.ticker, 'p'))
               else
                 result = market_data_client.get_latest_trade(symbol: ticker.base)
                 return result if result.failure?
 
-                result.data.dig('trade', 'p').to_d
+                parse_venue_number(result.data.dig('trade', 'p'))
               end
       raise "Wrong last price for #{ticker.base}: #{price}" if price.zero?
 
@@ -299,12 +299,12 @@ class Exchanges::Alpaca < Exchange
                 result = market_data_client.get_crypto_latest_quote(symbols: [ticker.ticker])
                 return result if result.failure?
 
-                result.data.dig('quotes', ticker.ticker, 'bp').to_d
+                parse_venue_number(result.data.dig('quotes', ticker.ticker, 'bp'))
               else
                 result = market_data_client.get_latest_quote(symbol: ticker.base)
                 return result if result.failure?
 
-                result.data.dig('quote', 'bp').to_d
+                parse_venue_number(result.data.dig('quote', 'bp'))
               end
       raise "Wrong bid price for #{ticker.base}: #{price}" if price.zero?
 
@@ -321,12 +321,12 @@ class Exchanges::Alpaca < Exchange
                 result = market_data_client.get_crypto_latest_quote(symbols: [ticker.ticker])
                 return result if result.failure?
 
-                result.data.dig('quotes', ticker.ticker, 'ap').to_d
+                parse_venue_number(result.data.dig('quotes', ticker.ticker, 'ap'))
               else
                 result = market_data_client.get_latest_quote(symbol: ticker.base)
                 return result if result.failure?
 
-                result.data.dig('quote', 'ap').to_d
+                parse_venue_number(result.data.dig('quote', 'ap'))
               end
       raise "Wrong ask price for #{ticker.base}: #{price}" if price.zero?
 
@@ -564,6 +564,14 @@ class Exchanges::Alpaca < Exchange
   end
 
   private
+
+  # Venue numbers must never become zero through to_d or reach persistence as NaN/Infinity.
+  def parse_venue_number(value)
+    number = BigDecimal(value.to_s)
+    raise ArgumentError, "Unreadable #{name} number: #{value.inspect}" unless number.finite?
+
+    number
+  end
 
   # Market data (data.alpaca.markets) requires auth but is read-only and host-separate
   # from trading. Build a throwaway client so these reads never mutate @client/@api_key —
@@ -929,6 +937,7 @@ class Exchanges::Alpaca < Exchange
              end
     return result if result.failure?
 
+    validate_placement_numbers(result.data)
     data = { order_id: result.data['id'] }
     Result::Success.new(data)
   end
@@ -956,19 +965,26 @@ class Exchanges::Alpaca < Exchange
     )
     return result if result.failure?
 
+    validate_placement_numbers(result.data)
     data = { order_id: result.data['id'] }
     Result::Success.new(data)
+  end
+
+  def validate_placement_numbers(order_data)
+    %w[filled_qty filled_avg_price notional qty limit_price].each do |field|
+      parse_venue_number(order_data[field]) unless order_data[field].nil?
+    end
   end
 
   def parse_order_data(order_data)
     ticker_record = tickers.find_by(ticker: order_data['symbol'])
     order_type = order_data['type'] == 'limit' ? :limit_order : :market_order
     side = order_data['side']&.to_sym
-    filled_qty = order_data['filled_qty'].to_d
-    filled_avg_price = order_data['filled_avg_price']&.to_d
-    notional = order_data['notional']&.to_d
-    qty = order_data['qty']&.to_d
-    limit_price = order_data['limit_price']&.to_d
+    filled_qty = parse_venue_number(order_data['filled_qty'])
+    filled_avg_price = parse_venue_number(order_data['filled_avg_price']) unless order_data['filled_avg_price'].nil?
+    notional = parse_venue_number(order_data['notional']) unless order_data['notional'].nil?
+    qty = parse_venue_number(order_data['qty']) unless order_data['qty'].nil?
+    limit_price = parse_venue_number(order_data['limit_price']) unless order_data['limit_price'].nil?
     price = filled_avg_price.present? && filled_avg_price.positive? ? filled_avg_price : (limit_price || 0)
 
     {
