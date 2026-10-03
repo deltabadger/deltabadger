@@ -190,7 +190,11 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
                 }result(id,json!({"tools":all}))
             }}
         },
-        "tools/call"=>error(id,-32602,&format!("Tool '{}' not found or not registered for this session",p["name"].as_str().unwrap_or(""))),
+        "tools/call"=>{
+            let name=p["name"].as_str().unwrap_or("");
+            if !names.iter().any(|n|n==name){error(id,-32602,&format!("Tool '{name}' not found or not registered for this session"))}
+            else{result(id,tools::call(c,who,name,p.get("arguments").unwrap_or(&json!({})))?)}
+        },
         m if m.starts_with("tools/")=>error(id,-32601,&format!("Unknown tools method: {m}")),
         m if m.starts_with("resources/")=>error(id,-32601,"Resources are not available for this session"),
         m if m.starts_with("tasks/")=>error(id,-32601,"Tasks are not available for this session"),
