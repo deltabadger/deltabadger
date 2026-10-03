@@ -1,6 +1,6 @@
 mod common;
 use chrono::{DateTime, Duration, Utc};
-use common::scripted::{not_found, ok, script, venue, POST_SEND};
+use common::scripted::{accepted, not_found, ok, script, venue, POST_SEND};
 use common::seed::{self, BotSpec, TxSpec};
 use deltabadger::engine::tick::{self, Attempts, TickOutcome};
 use deltabadger::engine::{amount, model, placement, polling, FixedClock};
@@ -251,4 +251,68 @@ async fn a_basket_whose_swept_fill_spends_the_cap_places_no_leg_and_stops_once_a
     assert!(t.posted_orders().is_empty(), "the 0.005 the cap leaves buys no leg");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 1);
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
+}
+
+/// Accepted divergence: an unresolved leg's intent counts as spent. A fill that brings the tally to the cap with that intent
+/// stops the bot, and when the leg later proves never placed the bot stays stopped below its cap. Rails has no row for the
+/// leg, so its fill leaves the cap unreached and it keeps buying.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_that_counted_an_intent_later_proved_never_placed_stays_a_stop() {
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.0)).weights(&[(s.btc, 0.5), (eth, 0.5)]));
+    let t = script(json!({ "POST /v2/orders": [accepted("OTX-1"), { "network": "post_send", "message": POST_SEND }],
+                           "GET /v2/orders/OTX-1": [filled("OTX-1", "0.00046875")], "GET /v2/orders:by_client_order_id": [not_found()] }));
+    let v = venue(&t);
+    let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::AwaitingReconciliation), "{out:?}");
+    let leg: i64 = one(&o, "SELECT id FROM transactions WHERE external_id = 'OTX-1'");
+    // Leg 1's 30 filled plus leg 2's unresolved 30 reach the 60 cap.
+    polling::follow_up(&o.primary, &v, id, leg, at(T0) + Duration::seconds(6)).await.unwrap();
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
+    assert_eq!(one::<String>(&o, "SELECT stop_message_key FROM bots"), tick::AMOUNT_SPENT);
+    // Leg 2 never reached the venue: the intent goes, the stop stays, 30 of the cap is left unspent.
+    let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0) + Duration::minutes(21)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "settled as not placed");
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped, "the stop is not undone");
+    assert_eq!(available(&o, id), Some(bd("30")));
+    assert_eq!(t.posted_orders().len(), 2);
+}
+
+/// A tick that fails with a plain database error after its sweep spent the cap still runs the stop the sweep counted, as
+/// Rails' Bot::StopJob runs whatever the run's own outcome.
+#[tokio::test(flavor = "current_thread")]
+async fn a_swept_stop_lands_when_the_tick_then_fails_on_the_database() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.005)).transient("last_failure_kind", json!("insufficient_funds")));
+    seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-S"), 0, None, Some("60"), Some("64000"), None, None, IN));
+    let t = script(json!({ "GET /v2/orders/OTX-S": [filled("OTX-S", "0.0009375")] }));
+    // Clearing the failure state fails as a busy database would.
+    o.primary.execute_batch("CREATE TEMP TRIGGER busy BEFORE UPDATE OF transient_data ON bots \
+        WHEN json_extract(OLD.transient_data, '$.last_failure_kind') IS NOT NULL AND json_extract(NEW.transient_data, '$.last_failure_kind') IS NULL \
+        BEGIN SELECT RAISE(ABORT, 'database is locked'); END").unwrap();
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await;
+    assert!(out.is_err(), "{out:?}");
+    let (status, key, pending): (i64, String, Option<i64>) = o.primary.query_row(
+        "SELECT status, stop_message_key, json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots WHERE id = ?1", [id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    assert_eq!((status, key.as_str(), pending), (BotStatus::Stopped as i64, tick::AMOUNT_SPENT, None));
+}
+
+/// A stop an earlier tick counted but could not run (its database error outlasted the tick) lands before the next tick sizes
+/// anything: Rails' Bot::StopJob ran long before that checkpoint, which therefore writes no skipped row.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_left_pending_by_an_earlier_tick_lands_before_the_next_tick_sizes() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.005)).transient("rust_amount_limit_stops_pending", json!(1)));
+    seed::insert_tx(&o.primary, &s, id, &closed("OC", "60"));
+    let t = script(json!({}));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), 0, "the 0.005 left is never sized");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'order_skipped'"), 0);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 1);
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
+    assert!(one::<Option<i64>>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending') FROM bots").is_none());
 }

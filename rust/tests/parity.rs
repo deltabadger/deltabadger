@@ -544,3 +544,82 @@ async fn a_basket_copy_is_planned_with_every_members_prices() {
     assert_eq!(rust_out["sent"].as_array().unwrap().len(), 2, "the 70/30 basket buys both members: {rust_out}");
     assert_eq!(ids.len(), 2, "one transaction per accepted leg: {ids:?}");
 }
+
+/// Amount-limit scenarios in which Rails mails stopped_by_amount_limit (Bot::Notifyable, deliver_later on every qualifying fill,
+/// no dedupe): a paused Rails-only side effect, since the engine sends no mail yet. Archived: Rails mails although
+/// Bot::Lifecycle#stop changes nothing.
+const LIMIT_MAILS: [&str; 10] = ["limit-poll-reaches", "limit-poll-reaches-limit_order", "limit-poll-stopped_bot", "limit-poll-archived",
+                                 "limit-sweep-reaches", "limit-sweep-reaches-under_floor", "limit-sweep-reaches-twice", "limit-poll-cancelled_partial_reaches",
+                                 "limit-poll-cancelled_fractional_reaches", "limit-tick_then_poll"];
+
+/// An unresolved intent counts as spent. Rails writes no row for the ambiguous 60 USD order that in fact landed, so its next
+/// checkpoint spends the whole 100 USD cap again (160 sent against the cap); Rust recovers the order by its client order id,
+/// counts it, and spends the 40 left (100 sent).
+fn overspend_prevented(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value, reference: Option<&serde_json::Value>) -> Result<(), String> {
+    landed_matches_reference(dir, rails_out, rust_out, reference, &Landed { k: 1, pair: "BTC/USD", quote: 60.0, base: 0.0009375, gap: 60.0 })?;
+    let total = |out: &serde_json::Value| notional_sum(out["sent"].as_array().unwrap());
+    if total(rails_out) <= 100.0 { return Err(format!("Rails no longer overspends the cap ({:.2} sent): drop the listed divergence", total(rails_out))); }
+    if total(rust_out) > 100.0 { return Err(format!("Rust sent {:.2} against a 100 cap", total(rust_out))); }
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
+    let (_copies, outputs) = grid_outputs("grid-limit", 45).await;
+    let reference = |name: &str| outputs.iter().find(|(n, ..)| *n == format!("{name}-reference")).map(|(_, _, r, _)| r);
+    let mut failures = vec![];
+    for (name, dir, rails_out, rust_out) in &outputs {
+        let mut rails_out = rails_out.clone();
+        let mails = rails_out.as_object_mut().unwrap().remove("mails").unwrap_or_else(|| panic!("{name}: Rails reported no mails"));
+        let mailed = if name == "limit-sweep-reaches-twice" {
+            serde_json::json!(["BotAlertsMailer#stopped_by_amount_limit", "BotAlertsMailer#stopped_by_amount_limit"]) // one per callback
+        } else if LIMIT_MAILS.contains(&name.as_str()) {
+            serde_json::json!(["BotAlertsMailer#stopped_by_amount_limit"])
+        } else if name.ends_with("-5xx") {
+            // Rails' failed row for the 5xx leg mails its error (Bot::Notifyable#notify_about_error); paused in Rust like every mail.
+            serde_json::json!(["BotAlertsMailer#notify_about_error"])
+        } else {
+            serde_json::json!([])
+        };
+        if mails != mailed { failures.push(format!("{name}: Rails mailed {mails}, expected {mailed}")); }
+        let listed = if name == "limit-ambiguous_overspend" {
+            Some(overspend_prevented(dir, &rails_out, rust_out, reference(name)))
+        } else if name.ends_with("-landed") {
+            Some(landed_matches_reference(dir, &rails_out, rust_out, reference(name), &Landed { k: 2, pair: "ETH/USD", quote: 36.0, base: 0.0144, gap: 36.0 }))
+        } else if (name.starts_with("limit-recover-") && !name.ends_with("-reference")) || name == "limit-ambiguous_not_placed" {
+            Some(settled_like_rails(&rails_out, rust_out, name.ends_with("-5xx")))
+        } else {
+            None
+        };
+        match listed {
+            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}")),
+            Some(Ok(())) => {}
+            None if rails_out == *rust_out => {}
+            None => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
+        }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
+    for (name, _, rails_out, _) in &outputs {
+        let bot = rails_out["changes"]["bots"].as_array().unwrap().first().map(|b| b["after"].clone()).unwrap_or_default();
+        let sent: Vec<&str> = rails_out["sent"].as_array().unwrap().iter().filter_map(|o| o["notional"].as_str()).collect();
+        let skipped = rails_out["changes"]["transactions"].as_array().unwrap().iter().filter(|r| r["after"]["status"] == 2).count();
+        if LIMIT_MAILS.contains(&name.as_str()) && name != "limit-poll-archived" {
+            assert_eq!((bot["status"].clone(), bot["stop_message_key"].clone()), (serde_json::json!(2), serde_json::json!("bot.settings.extra_amount_limit.amount_spent")), "{name}");
+        }
+        match name.as_str() {
+            "limit-poll-short" => assert_ne!(bot["status"], 2, "{name}: 40 left, not reached"),
+            "limit-state-exact" | "limit-state-overspent" => assert!(sent.is_empty() && rails_out["changes"]["bot_activity_logs"].as_array().unwrap().is_empty(), "{name}: no order, no log"),
+            "limit-cut-market" | "limit-tally-closed" => assert_eq!(sent, vec!["40.00"], "{name}: cut to what is left"),
+            "limit-tally-cancelled_partial" => assert_eq!(sent, vec!["80.00"], "{name}: the 20 filled counts in pending and in the cap"),
+            "limit-sweep-reaches-under_floor" => assert_eq!((sent.len(), skipped), (0, 1), "{name}: the run sizes the 0.005 left before Bot::StopJob runs"),
+            "limit-sweep-reaches-twice" => assert_eq!(rails_out["changes"]["bot_activity_logs"].as_array().unwrap().iter()
+                .filter(|l| l["after"]["event"] == "stopped").count(), 2, "{name}: one StopJob, and one stopped line, per qualifying fill"),
+            "limit-state-under_floor" | "limit-under_minimum-market" | "limit-under_minimum-limit" => {
+                assert_eq!((sent.len(), skipped), (0, 1), "{name}: skipped, and the bot keeps running");
+                assert_ne!(bot["status"], 2, "{name}");
+            }
+            _ => {}
+        }
+    }
+}

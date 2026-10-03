@@ -128,6 +128,19 @@ pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn 
 /// `tick`, also reporting the transaction a persisted intent was settled into this tick (its row carries the intent's
 /// earlier `created_at`, so the caller cannot find it by time and must queue its follow-up poll itself).
 pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
+    // A stop an earlier tick counted but could not run (an error outlasted it): Rails' Bot::StopJob ran long before now.
+    run_pending_amount_limit_stops(c, bot_id, clock.now())?;
+    let outcome = tick_inner(c, venue, bot_id, clock, attempts, recovered, cx).await;
+    // The Bot::StopJobs this tick's sweep enqueued run after the run, whatever its outcome (polling::apply_committed counted
+    // them), unless the engine itself can no longer write.
+    if let Err(EngineError::Lease(_) | EngineError::Store(_)) = outcome { return outcome; }
+    let drained = run_pending_amount_limit_stops(c, bot_id, clock.now());
+    let outcome = outcome?;
+    drained?;
+    Ok(outcome)
+}
+
+async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
     let settled = match placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
@@ -181,8 +194,6 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
             outcome
         }
     };
-    // The Bot::StopJobs this tick's sweep enqueued run now, after the run (polling::apply_committed counted them).
-    run_pending_amount_limit_stops(c, bot_id, clock.now())?;
     Ok(outcome)
 }
 

@@ -367,7 +367,8 @@ impl deltabadger::venue::Venue for Hooked {
     async fn balance(&self, a: &str) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(a).await }
 }
 
-/// A stop always wins over a tick in progress: the order in hand finishes, nothing more is placed.
+/// A stop always wins over a tick in progress: the order in hand finishes, nothing more is placed. A listed divergence:
+/// Rails' leg loop never re-reads the bot's status, so it places the remaining legs.
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_stop_between_legs_places_nothing_more() {
     let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.3, 0.2]);

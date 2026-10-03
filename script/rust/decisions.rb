@@ -2,6 +2,7 @@
 #   bin/rails runner script/rust/decisions.rb grid <root>    # one install per scenario, built with Rails' own models
 #   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
+#   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -634,6 +635,113 @@ module Decisions
                              landed: %w[SOL 24], quote_amount: 120.0, exited: ['SOL'], tickers_after: { 'SOL' => off })
   end
 
+  LIMIT_STAMP = '2026-09-01T10:00:00.123Z' # Time#as_json of the bot's start, to the millisecond: when its limit was switched on
+
+  def limit_row(id, ext, **cols)
+    { 'status' => 0, 'external_status' => ext, 'external_id' => id, 'order_type' => 0, 'price' => '64150',
+      'created_at' => '2026-09-01 10:00:01' }.merge(cols.transform_keys(&:to_s))
+  end
+
+  def limit_closed(id, value) = limit_row(id, 2, quote_amount: value, quote_amount_exec: value, amount_exec: (value.to_d / 64_150).round(9).to_s('F'))
+
+  # One amount-limit scenario: the daily 60 USD BTC bot with `limit` switched on at its start (the stamp can be overridden).
+  def limited(name, at:, limit: 100.0, settings: {}, transient: {}, **rest)
+    basket("limit-#{name}", nil, at:, settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => limit }.merge(settings),
+           transient: { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }.merge(transient), report_mails: true, **rest)
+  end
+
+  def limit_scenarios
+    limit_order = { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 }
+    waiting_market = ->(id) { limit_row(id, 0, quote_amount: '60') }
+    waiting_limit = ->(id) { limit_row(id, 1, order_type: 1, amount: '0.000935', amount_exec: '0', quote_amount_exec: '0') }
+    resting = ->(id) { { "GET /v2/orders/#{id}" => [ok(alpaca_order(id, 'accepted'))] } }
+    resting_limit = ->(id) { { "GET /v2/orders/#{id}" => [ok(alpaca_order(id, 'new', type: 'limit', notional: nil, qty: '0.000935', limit_price: '64150'))] } }
+    fill = lambda do |id, status, qty, price, limit: false|
+      body = limit ? alpaca_order(id, status, type: 'limit', notional: nil, qty: '0.000935', filled_qty: qty, filled_avg_price: price, limit_price: '64150')
+                   : alpaca_order(id, status, filled_qty: qty, filled_avg_price: price)
+      { "GET /v2/orders/#{id}" => [ok(body)] }
+    end
+    list = []
+    # The tally (10): one row of each kind in the cap's window, at the second checkpoint (120 owed).
+    tally = {
+      'closed' => [[limit_closed('OC-1', '60')], {}],
+      'open_limit' => [[waiting_limit.('OO-1')], resting_limit.('OO-1')],
+      'unknown_market' => [[waiting_market.('OU-1')], resting.('OU-1')],
+      'cancelled_partial' => [[limit_row('OX-1', 3, quote_amount: '60', quote_amount_exec: '20', amount_exec: '0.000311769')], {}],
+      'cancelled_unfilled' => [[limit_row('OX-2', 3, quote_amount: '60', quote_amount_exec: '0', amount_exec: '0')], {}],
+      'abandoned' => [[limit_row('OA-1', 4, quote_amount: '60')], {}],
+      'failed' => [[limit_row(nil, nil, status: 1, quote_amount: '60', quote_amount_exec: '0', amount_exec: '0')], {}],
+      'skipped' => [[limit_row(nil, nil, status: 2, quote_amount: '0.4', quote_amount_exec: '0', amount_exec: '0')], {}],
+      'before_stamp' => [[limit_closed('OB-1', '100')], {}]
+    }
+    tally.each do |kind, (rows, http)|
+      transient = kind == 'before_stamp' ? { 'quote_amount_limit_enabled_at' => '2026-09-01T12:00:00.000Z' } : {}
+      list << limited("tally-#{kind}", at: basket_at(1), transient:, transactions: rows, http:)
+    end
+    list << limited('tally-closed-limit_order', at: basket_at(1), settings: limit_order, transactions: [limit_closed('OC-1', '60')])
+    # The limit's states (6).
+    list << limited('state-off', at: basket_at(1), limit: 50.0, settings: { 'quote_amount_limited' => false }, transactions: [limit_closed('OC-1', '60')])
+    list << limited('state-unspent', at: basket_at(1), limit: 500.0)
+    list << limited('state-exact', at: basket_at(1), transactions: [limit_closed('OC-1', '60'), limit_closed('OC-2', '40')])
+    list << limited('state-overspent', at: basket_at(3), transactions: [limit_closed('OC-1', '60'), limit_closed('OC-2', '60')])
+    list << limited('state-nil_stamp', at: basket_at(1), limit: 50.0, transient: { 'quote_amount_limit_enabled_at' => nil },
+                    transactions: [limit_closed('OC-1', '60')])
+    list << limited('state-under_floor', at: basket_at(1), limit: 60.005, transactions: [limit_closed('OC-1', '60')])
+    # Sizing under the cap (6).
+    list << limited('cut-market', at: basket_at(3), transactions: [limit_closed('OC-1', '60')])
+    list << limited('cut-limit', at: basket_at(3), settings: limit_order, transactions: [limit_closed('OC-1', '60')])
+    list << limited('owed_equals_available', at: basket_at(1), limit: 120.0, transactions: [limit_closed('OC-1', '60')])
+    list << limited('under_minimum-market', at: basket_at(1), limit: 60.4, transactions: [limit_closed('OC-1', '60')])
+    list << limited('under_minimum-limit', at: basket_at(1), limit: 60.4, settings: limit_order, transactions: [limit_closed('OC-1', '60')])
+    list << limited('smart-cut', at: basket_at(1), limit: 70.0, settings: { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 },
+                    transactions: [limit_closed('OC-1', '60')])
+    # The stop on a fill.
+    stopped_bot = { 'status' => Bot.statuses[:stopped], 'stopped_at' => Time.utc(2026, 8, 1), 'stop_message_key' => 'bot.status.stopped_by_user' }
+    list << limited('poll-reaches', at: basket_at(1), limit: 60.0, tick: false, poll: 'OMKT-P', transactions: [waiting_market.('OMKT-P')],
+                    http: fill.('OMKT-P', 'filled', '0.0009375', '64000'))
+    list << limited('poll-reaches-limit_order', at: basket_at(1), limit: 59.99, settings: limit_order, tick: false, poll: 'OLIM-P',
+                    transactions: [waiting_limit.('OLIM-P')], http: fill.('OLIM-P', 'filled', '0.000935', '64150', limit: true))
+    list << limited('poll-short', at: basket_at(1), tick: false, poll: 'OMKT-P', transactions: [waiting_market.('OMKT-P')],
+                    http: fill.('OMKT-P', 'filled', '0.0009375', '64000'))
+    list << limited('poll-stopped_bot', at: basket_at(1), limit: 60.0, tick: false, poll: 'OMKT-P', bot_columns: stopped_bot,
+                    transactions: [waiting_market.('OMKT-P')], http: fill.('OMKT-P', 'filled', '0.0009375', '64000'))
+    list << limited('poll-archived', at: basket_at(1), limit: 60.0, tick: false, poll: 'OMKT-P',
+                    bot_columns: stopped_bot.merge('status' => Bot.statuses[:archived]),
+                    transactions: [waiting_market.('OMKT-P')], http: fill.('OMKT-P', 'filled', '0.0009375', '64000'))
+    list << limited('poll-cancelled_partial_reaches', at: basket_at(1), limit: 20.0, tick: false, poll: 'OMKT-C',
+                    transactions: [waiting_market.('OMKT-C')], http: fill.('OMKT-C', 'canceled', '0.0003125', '64000'))
+    list << limited('sweep-reaches', at: basket_at(1), limit: 60.0, transactions: [waiting_market.('OMKT-S')],
+                    http: fill.('OMKT-S', 'filled', '0.0009375', '64000'))
+    list << limited('tick_then_poll', at: basket_first, limit: 60.0, poll: 'OTX-1', http: { 'GET /v2/orders/OTX-1' => [filled_leg('OTX-1', 'BTC', '60')] })
+    # The sweep's fill leaves 0.005, under the 0.01 floor: Rails' StopJob runs after the run, which first sizes the 0.005 (a
+    # skipped row); the engine stops the bot at the end of its tick for the same reason.
+    list << limited('sweep-reaches-under_floor', at: basket_at(1), limit: 60.005, transactions: [waiting_market.('OMKT-S')],
+                    http: fill.('OMKT-S', 'filled', '0.0009375', '64000'))
+    # Two swept fills, each finding the cap spent: two Bot::StopJobs, two `stopped` lines, two mails.
+    list << limited('sweep-reaches-twice', at: basket_at(1), limit: 60.0,
+                    transactions: [limit_row('OMKT-A', 0, quote_amount: '40'), limit_row('OMKT-B', 0, quote_amount: '30')],
+                    http: fill.('OMKT-A', 'filled', '0.000625', '64000').merge(fill.('OMKT-B', 'filled', '0.00046875', '64000')))
+    # A cancelled part-fill of 60.02 under a 60.03 cap: Rails' COALESCE bucket is a Float, so 0.0099...98 is left, under the
+    # 0.01 floor, and the bot is stopped.
+    list << limited('poll-cancelled_fractional_reaches', at: basket_at(1), limit: 60.03, tick: false, poll: 'OMKT-F',
+                    transactions: [limit_row('OMKT-F', 0, quote_amount: '61')], http: fill.('OMKT-F', 'canceled', '0.0009378125', '64000'))
+    # Ambiguous placements (3): pending; landed (Rails overspends the cap, Rust does not); proven absent.
+    recover = (Time.iso8601(basket_first) + 1201).iso8601(6)
+    landed = filled_leg('OTX-L', 'BTC', '60').tap { |r| r['body'] = r['body'].merge('client_order_id' => '$client_order_id') }
+    list << limited('ambiguous_pending', at: basket_first, http: { 'POST /v2/orders' => [POST_SEND] })
+    list << limited('ambiguous_overspend', at: basket_first, recover_at: recover, next_at: basket_at(1),
+                    http: { 'POST /v2/orders' => [POST_SEND, placed(2, 'BTC')], 'GET /v2/orders:by_client_order_id' => [landed] })
+    # The reference answers the next checkpoint's POST as the scenario does (OTX-2), so the two ledgers compare row for row.
+    list << landed_reference('limit-ambiguous_overspend', nil, legs: [], landed: %w[BTC 60], quote_amount: 60.0,
+                             http: { 'POST /v2/orders' => [placed(2, 'BTC')] },
+                             settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => 100.0 },
+                             transient: { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }, report_mails: true)
+    list << limited('ambiguous_not_placed', at: basket_first, recover_at: recover, next_at: basket_at(1),
+                    http: { 'POST /v2/orders' => [POST_SEND, placed(2, 'BTC')], 'GET /v2/orders:by_client_order_id' => [NOT_FOUND] })
+    # The recovery scenarios under a cap.
+    list.concat(recover_scenarios(prefix: 'limit', limit_for: ->(members) { members ? 200.0 : 100.0 }, stamp: LIMIT_STAMP))
+  end
+
   def grid(root, list)
     list.each do |sc|
       dir = File.join(root, sc['name'])
@@ -672,7 +780,8 @@ module Decisions
     Honeymaker::Clients::Kraken.prepend(ScriptedKraken::Http)
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedAlpaca::Adapter)
     Bot.prepend(Module.new do # broadcasts are UI side effects outside the comparison
-      %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel].each { |m| define_method(m) { |*| nil } }
+      %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel
+         broadcast_quote_amount_limit_update broadcast_replace_to].each { |m| define_method(m) { |*, **| nil } }
     end)
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
@@ -686,7 +795,22 @@ module Decisions
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       before = snapshot
-      tick_at(sc, Time.iso8601(sc['at'])) if sc.fetch('tick', true)
+      mails = []
+      # What Transaction's after_commit enqueues for the amount limit (quote_amount_limitable.rb:94-106): Bot::StopJob runs at
+      # once, at the moment of the phase that enqueued it (the engine stops in the fill's own transaction), and each mail is
+      # listed, never delivered. With no limit nothing is enqueued, and the other grids are unchanged.
+      settle = lambda do |time|
+        jobs = ActiveJob::Base.queue_adapter.enqueued_jobs
+        # deliver_later enqueues the app's ApplicationMailDeliveryJob (config/initializers/active_job.rb), not ActionMailer::MailDeliveryJob.
+        mails.concat(jobs.select { |j| j['job_class'] == ActionMailer::Base.delivery_job.name }.map { |j| j['arguments'].first(2).join('#') })
+        stops = jobs.select { |j| j['job_class'] == 'Bot::StopJob' }
+        jobs.clear
+        travel_to(time, with_usec: true) { stops.each { |j| ActiveJob::Base.execute(j.stringify_keys) } }
+      end
+      if sc.fetch('tick', true)
+        tick_at(sc, Time.iso8601(sc['at']))
+        settle.(Time.iso8601(sc['at']))
+      end
       poll_error = nil
       if sc['poll'] # the follow-up poll Transaction enqueues for one order; its retries are not replayed
         order = Transaction.find_by!(bot_id: sc['bot_id'], external_id: sc['poll'])
@@ -697,6 +821,7 @@ module Decisions
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
+        settle.(Time.iso8601(sc['at']) + 5)
       end
       # What changes between the first tick and the next, outside both engines (Rails' own sync delisting a member, the
       # member exited meanwhile). The same SQL runs on Rust's copy (parity::play).
@@ -706,8 +831,10 @@ module Decisions
       if sc['next_at']
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         tick_at(sc, Time.iso8601(sc['next_at']))
+        settle.(Time.iso8601(sc['next_at']))
       end
       out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot) }
+      out['mails'] = mails if sc['report_mails']
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
       out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
@@ -718,13 +845,14 @@ module Decisions
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | record <root>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | record <root>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
 when 'grid' then Decisions.grid(root, Decisions.scenarios)
 when 'grid-alpaca' then Decisions.grid(root, Decisions.alpaca_scenarios)
 when 'grid-basket' then Decisions.grid(root, Decisions.basket_scenarios)
+when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'record' then Decisions.record(root)
 else raise ArgumentError, USAGE
 end
