@@ -1566,3 +1566,165 @@ mod action_transport {
         }
     }
 }
+
+mod action_draft {
+    use super::common;
+    use deltabadger::web::bot::{draft::{Draft, ValidationContext}, action_params::ActionParams, Kind};
+    use deltabadger::web::Params;
+    use serde_json::{json, Value};
+    use rusqlite::{Connection, params_from_iter};
+
+    fn field<'a>(value: &'a Value, key: &str) -> &'a Value {
+        value.get(key).unwrap_or_else(|| panic!("missing {key}"))
+    }
+
+    #[test]
+    fn action_draft_rails_vectors() -> Result<(), Box<dyn std::error::Error>> {
+        let vectors = common::vectors();
+        let group = field(&vectors, "bot_actions");
+        let cases = field(group, "cases").as_array().ok_or("cases are not an array")?;
+        assert_eq!(cases.len(), 5562, "pin the implementation-base inventory");
+        assert_eq!(cases.len(), field(group, "count").as_u64().ok_or("count")? as usize);
+        let dir = common::rails_install();
+        let c = Connection::open(dir.path().join("production.sqlite3"))?;
+        c.execute_batch("PRAGMA foreign_keys = OFF")?;
+        for (table, rows) in field(group, "rows").as_object().ok_or("rows")? {
+            // Table and column names are generated fixture data, never request input.
+            for row in rows.as_array().ok_or("table rows")? {
+                let row = row.as_object().ok_or("row")?;
+                let columns = row.keys().map(|key| format!("\"{key}\"")).collect::<Vec<_>>().join(",");
+                let values = row.values().map(|value| match value {
+                    Value::Null => rusqlite::types::Value::Null,
+                    Value::Number(n) => n.as_i64().map(rusqlite::types::Value::Integer)
+                        .unwrap_or_else(|| rusqlite::types::Value::Real(n.as_f64().unwrap_or_default())),
+                    Value::Bool(b) => rusqlite::types::Value::Integer(i64::from(*b)),
+                    Value::String(s) => rusqlite::types::Value::Text(s.clone()),
+                    other => rusqlite::types::Value::Text(other.to_string()),
+                }).collect::<Vec<_>>();
+                let binds = vec!["?"; values.len()].join(",");
+                c.execute(&format!("INSERT INTO {table} ({columns}) VALUES ({binds})"), params_from_iter(values))?;
+            }
+        }
+        let now = field(group, "now").as_str().ok_or("now")?.parse()?;
+        let mut failures = Vec::new();
+        macro_rules! compare {
+            ($left:expr, $right:expr, $($message:tt)*) => {
+                if $left != $right && failures.len() < 40 {
+                    failures.push(format!("{}: left={:?}, right={:?}", format!($($message)*), $left, $right));
+                }
+            };
+        }
+        let ctx = deltabadger::web::layout::Ctx {
+            app: common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(field(group, "now").as_str().ok_or("now")?)),
+            params: std::sync::Arc::new(Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+            session: deltabadger::web::session::Session::new(Default::default()),
+            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None,
+        };
+        for recorded in cases {
+            let mut resolved = recorded.clone();
+            for key in ["raw", "baseline", "candidate", "save_settings", "save_transient"] {
+                if let Some(index) = recorded.get(key).and_then(Value::as_u64) {
+                    let state = field(group, "states").as_array().and_then(|s| s.get(index as usize)).ok_or("snapshot reference")?.clone();
+                    resolved.as_object_mut().ok_or("case object")?.insert(key.into(), state);
+                }
+            }
+            let case = &resolved;
+            let name = field(case, "name");
+            let id = field(case, "bot_id").as_i64().ok_or("bot_id")?;
+            c.execute("UPDATE bots SET settings = ?1, status = ?2 WHERE id = ?3",
+                (field(case, "raw").to_string(), field(case, "persisted_status").as_i64(), id))?;
+            c.execute("UPDATE tickers SET available = ?1 WHERE exchange_id = 1 AND base = 'QQQM'", [!case.get("delisted").and_then(Value::as_bool).unwrap_or(false)])?;
+            let provider = case.get("provider").and_then(Value::as_bool).unwrap_or(true);
+            let before: String = c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
+            let mut draft = Draft::load(&c, 1, id).map_err(|e| format!("{e:?}"))?.ok_or("owned bot")?;
+            compare!(json!(draft.baseline), *field(case, "baseline"), "{name}: default-filled baseline");
+            draft.candidate.settings.extend(field(case, "stored").as_object().ok_or("stored")?.clone());
+            draft.candidate.transient.extend(field(case, "transient").as_object().ok_or("transient")?.clone());
+            let root = if draft.candidate.kind == Kind::Basket { "bots_dca_multi_asset" } else { "bots_dca_index" };
+            let mut submitted = field(case, "submitted").as_object().ok_or("submitted")?.clone();
+            submitted.insert("unknown".into(), json!("ignored"));
+            let transport = Params { json: Some(json!({root: submitted})), full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![] };
+            let parsed = ActionParams::parse(&transport).map_err(|_| "transport")?;
+            let permitted = parsed.permitted(draft.candidate.kind).map_err(|_| "strong parameters")?;
+            compare!(permitted, *field(case, "permitted"), "{name}: permitted");
+            let parse = draft.parse(&c, &permitted, field(case, "zone").as_str().ok_or("zone")?, now);
+            let overflow = case.get("parsed").is_some_and(|p| p.to_string().contains("nonfinite"))
+                || field(case, "submitted").get("allocations").is_some_and(|p| p.to_string().contains("1e999"));
+            if overflow {
+                assert!(parse.is_err() || !draft.errors.is_empty(), "{name}: overflow is a 422, never zero");
+                if let Err(error) = parse { assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY); }
+                if name == "1/quote_amount/overflow/update" {
+                    let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
+                    assert!(html.contains("value=\"1e999\""), "{html}");
+                }
+                continue;
+            }
+            if case.get("exception").is_some() {
+                // Rails exceptions are explicitly refused without writing. No panic or HTTP 500.
+                if parse.is_ok() {
+                    let context = if field(case, "context") == "start" { ValidationContext::Start } else { ValidationContext::Update };
+                    { if context == ValidationContext::Start { draft.candidate.status = deltabadger::enums::BotStatus::Scheduled; } draft.validate(&c, context, now, provider, "en") }.map_err(|e| format!("{name}: {e:?}"))?;
+                    assert!(!draft.errors.is_empty(), "{name}: Rails exception must produce field errors");
+                    if name == "1/interval/normal/update" {
+                        let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
+                        assert!(html.contains("is-invalid") && html.contains("value=\"12.5\""), "{html}");
+                        for error in draft.errors.iter().filter(|e| e.field == "interval") {
+                            // The existing form helper capitalizes field messages.
+                            assert!(html.to_lowercase().contains(&error.message.to_lowercase()), "{html}");
+                        }
+                    }
+                }
+                continue;
+            }
+            parse.map_err(|e| format!("{name}: {e:?}"))?;
+            compare!(json!(draft.parsed), *field(case, "parsed"), "{name}: parse chain");
+            let context = if field(case, "context") == "start" { ValidationContext::Start } else { ValidationContext::Update };
+            { if context == ValidationContext::Start { draft.candidate.status = deltabadger::enums::BotStatus::Scheduled; } draft.validate(&c, context, now, provider, "en") }.map_err(|e| format!("{name}: {e:?}"))?;
+            compare!(json!(draft.candidate.settings), *field(case, "candidate"), "{name}: candidate");
+            let errors = draft.errors.iter().map(|e| json!({"field":e.field,"message":e.message})).collect::<Vec<_>>();
+            let mut expected_errors = field(case, "errors").as_array().ok_or("errors")?.clone();
+            if let Some(lock) = case.get("rust_lock_error") { expected_errors.push(lock.clone()); }
+            compare!(json!(errors), json!(expected_errors), "{name}: ordered errors");
+            compare!(draft.error_sentence("en"), case.get("rust_sentence").unwrap_or(field(case, "sentence")).as_str().ok_or("sentence")?, "{name}: sentence");
+            compare!(draft.errors.is_empty(), field(case, "valid").as_bool().ok_or("valid")? && case.get("rust_lock_error").is_none(), "{name}: valid");
+            if name == "1/quote_asset_id/upper/update" || name == "1/exchange_id/upper/update" {
+                let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
+                assert!(html.contains("100: is invalid"), "{name}: {html}");
+            }
+            if name == "1/quote_amount/lower/update" {
+                let html = deltabadger::web::bot::settings::draft_column(&c, &ctx, "csrf", &draft, "UTC", false).map_err(|e| format!("{e:?}"))?;
+                assert!(html.contains("is-invalid") && html.contains("value=\"0\""), "{html}");
+                assert!(html.contains("The invested amount must be greater than 0"), "{html}");
+            }
+            let effects = draft.save_effects(&c, now).map_err(|e| format!("{e:?}"))?;
+            compare!(effects.settings_changed, field(case, "settings_changed").as_bool().ok_or("settings_changed")?, "{name}: defaults are separate");
+            if let Some(saved) = case.get("save_settings") {
+                let mut settings = draft.raw_settings.clone();
+                for key in &effects.settings.remove { settings.shift_remove(key); }
+                settings.extend(effects.settings.set.clone());
+                compare!(json!(settings), *saved, "{name}: save settings callbacks");
+                let mut transient = draft.raw_transient.clone();
+                for key in &effects.transient.remove { transient.shift_remove(key); }
+                transient.extend(effects.transient.set.clone());
+                compare!(json!(transient), *field(case, "save_transient"), "{name}: save transient callbacks");
+            }
+            compare!(draft.candidate.label, field(case, "label").as_str().ok_or("label")?, "{name}: label");
+            let after: String = c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
+            compare!(before, after, "{name}: a draft never writes");
+        }
+        // The documented HTTP work bound is a 501 divergence, checked on both sides without
+        // replacing the actual cap aggregation or collecting an unbounded history in memory.
+        c.execute("DELETE FROM transactions", [])?;
+        c.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x + 1 FROM n WHERE x < 100000) INSERT INTO transactions(bot_id, exchange_id, side, status, external_status, quote_amount_exec, created_at, updated_at) SELECT 3, 1, 0, 0, 2, 0, '2026-09-09 00:00:00', '2026-09-09 00:00:00' FROM n")?;
+        let budget = Draft::load(&c, 1, 3).map_err(|e| format!("{e:?}"))?.ok_or("budget bot")?;
+        assert!(deltabadger::web::bot::start::amount_limit(&c, &budget.candidate).is_ok());
+        c.execute("INSERT INTO transactions(bot_id, exchange_id, side, status, external_status, quote_amount_exec, created_at, updated_at) VALUES(3, 1, 0, 0, 2, 0, '2026-09-09 00:00:00', '2026-09-09 00:00:00')", [])?;
+        let error = match deltabadger::web::bot::start::amount_limit(&c, &budget.candidate) {
+            Err(error) => error, Ok(_) => return Err("100001 relevant rows must be refused".into()),
+        };
+        let response = deltabadger::web::layout::or_refused(&ctx, error).map_err(|e| format!("{e:?}"))?;
+        assert_eq!(response.status(), axum::http::StatusCode::NOT_IMPLEMENTED);
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+        Ok(())
+    }
+}

@@ -348,3 +348,52 @@ mod flag_tests {
         }
     }
 }
+
+/// Submitted numeric failures are 422 field errors, unlike malformed Rack transport (400).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NumericError { Shape, Bound }
+impl NumericError {
+    pub fn status(self) -> StatusCode { StatusCode::UNPROCESSABLE_ENTITY }
+}
+/// MRI String#to_f / #to_i consume a prefix, including digit-separated underscores. All
+/// arithmetic stays finite and bounded; overflow is an explicit submitted-value error, never 0.
+pub fn numeric(value: &Value, integer: bool) -> Result<Value, NumericError> {
+    if value.is_boolean() || value.is_array() || value.is_object() { return Err(NumericError::Shape); }
+    let input = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
+    if input.len() > crate::ruby::MAX_INPUT_LEN { return Err(NumericError::Bound); }
+    let s = input.trim_start_matches([' ', '\t', '\n', '\r', '\u{000b}', '\u{000c}']);
+    let mut chars = s.chars().peekable();
+    let mut prefix = String::new();
+    if let Some(sign @ ('+' | '-')) = chars.peek().copied() { prefix.push(sign); chars.next(); }
+    let mut digits = 0;
+    let mut previous_digit = false;
+    let mut dot = false;
+    while let Some(ch) = chars.peek().copied() {
+        if ch.is_ascii_digit() { prefix.push(ch); chars.next(); digits += 1; previous_digit = true; }
+        else if ch == '_' && previous_digit {
+            chars.next();
+            if !chars.peek().is_some_and(|c| c.is_ascii_digit()) { break; }
+            previous_digit = false;
+        } else if ch == '.' && !integer && !dot {
+            prefix.push(ch); chars.next(); dot = true; previous_digit = false;
+        } else { break; }
+    }
+    if digits == 0 { return Ok(if integer { serde_json::json!(0) } else { serde_json::json!(0.0) }); }
+    if !integer && chars.peek().is_some_and(|c| matches!(c, 'e' | 'E')) {
+        chars.next();
+        let mut exponent = String::from("e");
+        if let Some(sign @ ('+' | '-')) = chars.peek().copied() { exponent.push(sign); chars.next(); }
+        let mut count = 0;
+        while let Some(ch) = chars.next() {
+            if ch.is_ascii_digit() { exponent.push(ch); count += 1; }
+            else if ch != '_' || count == 0 || !chars.peek().is_some_and(|c| c.is_ascii_digit()) { break; }
+        }
+        if count > 0 { prefix.push_str(&exponent); }
+    }
+    if integer {
+        prefix.parse::<i64>().map(|n| serde_json::json!(n)).map_err(|_| NumericError::Bound)
+    } else {
+        let n = prefix.parse::<f64>().map_err(|_| NumericError::Shape)?;
+        serde_json::Number::from_f64(n).map(Value::Number).ok_or(NumericError::Bound)
+    }
+}

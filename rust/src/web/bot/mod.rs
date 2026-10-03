@@ -2,6 +2,7 @@
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
 //! Read-only: nothing here writes.
 pub mod action_params;
+pub mod draft;
 pub mod orders;
 pub mod page;
 pub mod settings;
@@ -15,7 +16,14 @@ use crate::engine::schedule::{self, Checkpoints, Effective, Interval, Unrounded}
 use crate::engine::EngineError;
 use crate::enums::{ApiKeyStatus, BotStatus, BOT_WORKING};
 use crate::ruby::{scale, BigDec};
-pub use super::format::{stored, unreadable, Stored, Unreadable, UNREADABLE};
+pub use super::format::{stored, Stored, Unreadable, UNREADABLE};
+
+/// Both numeric bounds and the action validator's history budget use the existing 501 read
+/// refusal path. This preserves main's response policy without turning a work bound into a 500.
+pub fn unreadable(error: &WebError) -> bool {
+    super::format::unreadable(error)
+        || matches!(error, WebError::Engine(EngineError::Data(reason)) if reason == start::HISTORY_BOUND)
+}
 use chrono::{DateTime, Utc};
 use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
 use rusqlite::{Connection, OptionalExtension};

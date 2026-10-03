@@ -82,13 +82,312 @@ def action_transport_vectors
   }
 end
 
+# Replace one top-level pretty-printed object while preserving every other group's bytes,
+# including randomized ciphertexts and JSON number classes from earlier recorders.
+def write_vector_group(path, key, group)
+  previous = File.read(path)
+  JSON.parse(previous)
+  encoded = JSON.pretty_generate(group).lines.each_with_index.map { |line, index| index.zero? ? line : "  #{line}" }.join
+  marker = "\n  #{key.to_json}: "
+  start = previous.index(marker)
+  if start
+    start += marker.length
+    depth = 0
+    quoted = false
+    escaped = false
+    finish = nil
+    previous.each_char.with_index do |char, index|
+      next if index < start
+
+      if quoted
+        if escaped
+          escaped = false
+        elsif char == '\\'
+          escaped = true
+        elsif char == '"'
+          quoted = false
+        end
+      elsif char == '"'
+        quoted = true
+      elsif ['{', '['].include?(char)
+        depth += 1
+      elsif ['}', ']'].include?(char)
+        depth -= 1
+        if depth.zero?
+          finish = index + 1
+          break
+        end
+      end
+    end
+    raise "unterminated vector group #{key}" unless finish
+
+    File.write(path, previous[0...start] + encoded + previous[finish..])
+  else
+    File.write(path, "#{previous.sub(/\n}\s*\z/, '')},#{marker}#{encoded}\n}\n")
+  end
+end
+
+# Task 3 records through the real decorator chain and validation callbacks, on scratch rows only.
+require 'active_support/testing/time_helpers'
+
+module BotActionVectors
+  extend ActiveSupport::Testing::TimeHelpers
+
+  def self.record
+    require_relative 'pages_bots'
+    raise 'bot_actions needs an empty scratch database' unless Bot.count.zero? && User.count.zero?
+
+    ActiveJob::Base.queue_adapter = :test
+    now = Time.utc(2026, 9, 10, 12, 0, 30, 123_456)
+    result = nil
+    travel_to(now, with_usec: true) do
+      ActiveRecord::Base.transaction(requires_new: true) do
+        User.create!(name: 'Fixture Owner', email: 'owner@example.com', password: 'Password-Fixture1!', time_zone: 'Eastern Time (US & Canada)',
+                     wash_sale_enabled: false)
+        Pages.alpaca({})
+        basket = Pages.bot('kind' => 'basket', 'columns' => { 'status' => 'stopped' })
+        index = Pages.bot('kind' => 'index', 'columns' => { 'status' => 'stopped' })
+        single = Pages.bot('kind' => 'single', 'columns' => { 'status' => 'stopped' }, 'orders' => 'one_fill')
+        Pages.orders(single, 'open')
+        single.update_columns(transient_data: single.transient_data.merge('quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z'))
+        crypto = Pages.bot('kind' => 'coins', 'settings' => { 'allocations' => { Pages.asset_id('BTC').to_s => 1.0 } },
+                           'columns' => { 'status' => 'stopped' })
+        rows = %w[users exchanges assets exchange_assets tickers indices bots bot_index_assets transactions].to_h do |table|
+          [table, ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a]
+        end
+        cases = []
+        samples = { 'absent' => :absent, 'empty' => '', 'space' => '  ', 'normal' => '12.5', 'lower' => '0', 'upper' => '100',
+                    'below' => '-0.0001', 'above' => '100.0001', 'object' => { 'bad' => '1' }, 'array' => ['1'],
+                    'prefix' => '12.5abc', 'underscore' => '1_000', 'exponent' => '1e2', 'comma' => '12,5',
+                    'infinity' => 'Infinity', 'nan' => 'NaN', 'overflow' => '1e999', 'true' => 'true', 'TRUE' => 'TRUE',
+                    'false' => false, 'null' => nil }
+        emit = lambda do |fixture, name, submitted, context, overrides = {}|
+          record = Bot.find(fixture.id)
+          record.assign_attributes(overrides.fetch(:original, {}))
+          # Preserve the original status in ActiveRecord's dirty tracking, including archived Start.
+          if overrides[:status]
+            record.update_columns(status: overrides[:status])
+            record = Bot.find(record.id)
+          end
+          raw = record.settings_in_database.deep_dup
+          baseline = record.settings.deep_dup
+          record.settings = record.settings.merge(overrides.fetch(:stored, {}))
+          record.transient_data = record.transient_data.merge(overrides.fetch(:transient, {}))
+          controller = BotsController.new
+          controller.instance_variable_set(:@bot, record)
+          controller.params = ActionController::Parameters.new(record.model_name.param_key => submitted.merge('unknown' => 'ignored'))
+          row = { 'name' => name, 'bot_id' => fixture.id, 'context' => context.to_s, 'raw' => raw, 'baseline' => baseline,
+                  'submitted' => submitted, 'stored' => overrides.fetch(:stored, {}), 'transient' => overrides.fetch(:transient, {}),
+                  'persisted_status' => record.status_before_type_cast, 'zone' => record.user.time_zone,
+                  'provider' => MarketData.configured?, 'delisted' => overrides.fetch(:delisted, false) }
+          begin
+            permitted = controller.send(record.is_a?(Bots::DcaIndex) ? :dca_index_bot_params : :dca_multi_asset_bot_params)
+            row['permitted'] = permitted.to_h
+            row['parsed'] = record.parse_params(permitted).stringify_keys
+            record.assign_attributes(controller.send(:update_params))
+            record.status = :scheduled if context == :start
+            row['valid'] = record.valid?(context)
+            row['candidate'] = record.settings.deep_dup
+            row['candidate_status'] = record.status_before_type_cast
+            row['label'] = record.label
+            row['exchange_id'] = record.exchange_id
+            row['errors'] = record.errors.messages.flat_map do |field, messages|
+              messages.map do |message|
+                { 'field' => field.to_s, 'message' => message }
+              end
+            end
+            row['sentence'] = record.errors.messages.values.flatten.to_sentence
+            row['settings_changed'] = record.settings_changed_since_load?
+            if row['valid']
+              record.send(:set_tickers) if record.will_save_change_to_exchange_id?
+              %w[quote_amount_limit base_amount_limit price_limit price_drop_limit moving_average_limit indicator_limit].each do |prefix|
+                if record.will_save_change_to_settings? && record.respond_to?("set_#{prefix}_enabled_at", true)
+                  record.send("set_#{prefix}_enabled_at")
+                  record.send("set_#{prefix}_condition_met_at") if record.respond_to?("set_#{prefix}_condition_met_at", true)
+                end
+                if record.will_save_change_to_exchange_id? && record.respond_to?("set_#{prefix}_in_ticker_id", true)
+                  record.send("set_#{prefix}_in_ticker_id")
+                end
+              end
+              record.send(:set_price_limit_value_condition) if record.will_save_change_to_settings? && record.respond_to?(
+                :set_price_limit_value_condition, true
+              )
+              row['save_settings'] = (record.will_save_change_to_settings? ? record.settings : raw).deep_dup
+              row['save_transient'] = record.transient_data.as_json
+            end
+          rescue StandardError => e
+            row['exception'] = e.class.name
+          end
+          clean = lambda do |value|
+            case value
+            when Hash then value.transform_values { |child| clean.call(child) }
+            when Array then value.map { |child| clean.call(child) }
+            when Float then value.finite? ? value : { 'nonfinite' => value.to_s }
+            else value
+            end
+          end
+          cases << clean.call(row)
+          fixture.update_columns(status: :stopped) if overrides[:status]
+        end
+        [basket, index].each do |fixture|
+          keys = Object.new.send(:action_transport_vectors).fetch('allowlists').fetch(fixture.model_name.param_key)
+          keys += ['allocations'] if fixture == basket
+          keys.each do |key|
+            samples.each do |sample, value|
+              input = value == :absent ? {} : { key => value }
+              input = { key => { '2' => value, '3' => '50' } } if key == 'allocations' && !%w[absent object array null].include?(sample)
+              %i[update start].each { |context| emit.call(fixture, "#{fixture.id}/#{key}/#{sample}/#{context}", input, context) }
+            end
+          end
+          # Each default validator also runs with the field unsubmitted. This records real grouping,
+          # duplicate messages and the model's effective readers, rather than hand-written messages.
+          fixture.class.validators.flat_map(&:attributes).uniq.each do |key|
+            next unless fixture.class.stored_attributes[:settings].include?(key)
+
+            %i[update start].each do |context|
+              emit.call(fixture, "#{fixture.id}/stored/#{key}/#{context}", {}, context, stored: { key.to_s => 'invalid' })
+            end
+          end
+          %w[created scheduled stopped executing waiting retrying archived].each do |status|
+            %i[update start].each do |context|
+              emit.call(fixture, "#{fixture.id}/status/#{status}/#{context}",
+                        { 'interval' => 'week', 'exchange_id' => '2', 'weighting' => 'market_cap' }, context, status:)
+            end
+          end
+        end
+        %w[2026-03-08T02:30 2026-11-01T01:30 2026-12-01T15:00:00+02:00 2026-99-99T00:00].each do |date|
+          %i[update start].each do |context|
+            emit.call(basket, "date/#{date}/#{context}", { 'start_time_enabled' => 'true', 'start_time_mode' => 'date', 'start_at' => date }, context)
+          end
+        end
+        %i[update start].each do |context|
+          emit.call(basket, "pending/#{context}", { 'allocations' => { '2' => '20', '3' => '80' } }, context,
+                    transient: { 'rebalance_pending' => { 'phase' => 'buying' } })
+          emit.call(basket, "structural/#{context}",
+                    { 'allocations' => { '2' => '20', '3' => '20' }, 'add_asset_id' => '4', 'remove_asset_id' => '3',
+                      'normalize_allocations' => 'true' }, context)
+        end
+        numeric_rules = {
+          'limit_order_pcnt_distance' => 'limit_ordered', 'quote_amount_limit' => 'quote_amount_limited',
+          'price_limit' => 'price_limited', 'price_limit_range_lower_bound' => 'price_limited',
+          'price_limit_range_upper_bound' => 'price_limited',
+          'price_drop_limit' => 'price_drop_limited', 'moving_average_limit_in_period' => 'moving_average_limited',
+          'indicator_limit' => 'indicator_limited'
+        }
+        numeric_rules.merge!(numeric_rules.except('limit_order_pcnt_distance', 'quote_amount_limit').transform_keys { |key| "sell_#{key}" }
+                                         .transform_values { |key| "sell_#{key}" })
+        numeric_rules.each do |field, flag|
+          %w[-1 0 0.0001 1 100 100.01 invalid].each do |value|
+            %i[update start].each do |context|
+              emit.call(basket, "enabled/#{field}/#{value}/#{context}", { field => value, flag => 'true' }, context)
+            end
+          end
+        end
+        [basket, single, crypto, index].each do |fixture|
+          [0.000001, 0.01, 1, 10_000].each do |amount|
+            %i[update start].each do |context|
+              emit.call(fixture, "floor/#{fixture.id}/#{amount}/#{context}",
+                        { 'smart_intervaled' => 'true', 'smart_interval_quote_amount' => amount.to_s }, context)
+            end
+          end
+        end
+        %i[update start].each do |context|
+          emit.call(single, "orders/quote/#{context}", { 'quote_asset_id' => '2' }, context)
+          emit.call(single, "orders/exchange/#{context}", { 'exchange_id' => '2' }, context)
+          emit.call(single, "cap/spent/#{context}", { 'quote_amount_limit' => '1' }, context)
+          emit.call(single, "cap/remaining/#{context}", { 'quote_amount_limit' => '1000' }, context)
+          emit.call(basket, "members/empty/#{context}", {}, context, stored: { 'allocations' => {} })
+          emit.call(basket, "members/too_many/#{context}", {}, context, stored: { 'allocations' => (1..101).to_h { |id| [id.to_s, 1.0 / 101] } })
+          emit.call(basket, "subject/removed/#{context}", { 'remove_asset_id' => '3', 'price_limited' => 'true', 'price_limit_in_ticker_id' => '3' },
+                    context)
+          emit.call(basket, "pending/exchange/#{context}", { 'exchange_id' => '2' }, context,
+                    transient: { 'rebalance_pending' => { 'phase' => 'buying' } })
+          emit.call(basket, "normalize/tie/#{context}",
+                    { 'allocations' => { '4' => '20', '3' => '20', '2' => '20' }, 'normalize_allocations' => 'true' }, context)
+          emit.call(basket, "weighting/derived/#{context}", {}, context,
+                    stored: { 'weighting' => 'market_cap', 'allocations' => { '2' => 0.0, '3' => 0.0 } })
+          %w[hour monday date invalid].each do |mode|
+            %w[09:30 25:60].each do |time|
+              emit.call(basket, "starting/#{mode}/#{time}/#{context}",
+                        { 'start_time_enabled' => 'true', 'start_time_mode' => mode, 'start_time_of_day' => time }, context)
+            end
+          end
+          %w[quote base].each do |denomination|
+            [nil, 0, 0.0000000001, 1].each do |amount|
+              emit.call(crypto, "selling/#{denomination}/#{amount}/#{context}", {}, context,
+                        stored: { 'direction' => 'selling', 'sell_denomination' => denomination, 'sell_amount' => amount,
+                                  'smart_intervaled' => true, 'base_amount_limited' => true, 'base_amount_limit' => 0.0 })
+            end
+          end
+          emit.call(index, "index/working_composition/#{context}", { 'num_coins' => '5' }, context, status: 'waiting')
+          emit.call(index, "index/pending_composition/#{context}", { 'allocation_flattening' => '0.5' }, context,
+                    transient: { 'rebalance_pending' => { 'phase' => 'buying' } })
+        end
+        # Delist after the baseline fixtures: both a persisted page and a Start see the changed row.
+        Ticker.where(exchange_id: basket.exchange_id, base: 'QQQM').update_all(available: false)
+        %i[update start].each { |context| emit.call(basket, "delisted/#{context}", {}, context, delisted: true) }
+        Ticker.where(exchange_id: basket.exchange_id, base: 'QQQM').update_all(available: true)
+        AppConfig.set('market_data_token', '')
+        %i[update start].each { |context| emit.call(index, "provider/#{context}", {}, context, provider: false) }
+        AppConfig.set('market_data_token', 'token')
+        basket.update_columns(settings: basket.settings.except('smart_intervaled', 'quote_amount_limited', 'price_limited', 'limit_ordered'))
+        %i[update start].each { |context| emit.call(basket, "defaults/#{context}", {}, context) }
+        raise 'empty bot_actions vectors' if cases.empty?
+
+        # Main's index model permits these changes; the plan deliberately freezes them. Reuse
+        # the actual basket field error rather than writing a Rust expected message by hand.
+        lock_error = cases.find { |row| row['name'] == '1/status/scheduled/update' }.fetch('errors')
+                          .find { |error| error['field'] == 'allocations' }
+        raise 'missing Rails composition lock error' unless lock_error
+
+        cases.each do |row|
+          next unless row['bot_id'] == index.id && row['context'] == 'update' && row['candidate']
+          next unless %w[scheduled executing waiting
+                         retrying].include?(Bot.statuses.key(row['persisted_status'])) || row['transient']['rebalance_pending'].present?
+
+          changed = %w[num_coins hold_all index_type index_category_id quote_asset_id allocation_flattening]
+                    .any? { |key| row['raw'][key] != row['candidate'][key] }
+          next unless changed || row['exchange_id'] != index.exchange_id
+
+          row['rust_lock_error'] = lock_error.deep_dup
+          row['rust_sentence'] = (row['errors'].map { |error| error['message'] } + [lock_error['message']]).to_sentence
+        end
+        # Intern complete settings snapshots by their JSON bytes (not Hash equality: 1 and 1.0
+        # compare equal in Ruby). Cases still reference exact raw, loaded and candidate snapshots.
+        states = []
+        state_ids = {}
+        cases.each do |row|
+          %w[raw baseline candidate save_settings save_transient].each do |key|
+            next unless row.key?(key)
+
+            bytes = JSON.generate(row.fetch(key))
+            row[key] = state_ids.fetch(bytes) do
+              id = states.size
+              states << row.fetch(key)
+              state_ids[bytes] = id
+            end
+          end
+        end
+        result = { 'now' => now.iso8601(6), 'rows' => rows, 'count' => cases.size, 'states' => states, 'cases' => cases }
+        raise ActiveRecord::Rollback
+      end
+    end
+    result
+  end
+end
+
+# The task's no-argument command adds only the new group. Earlier recordings contain random
+# encryption material; preserve their bytes and avoid writing unrelated generated zone files.
+if ARGV.empty?
+  path = Rails.root.join('rust/tests/fixtures/ruby_vectors.json')
+  group = BotActionVectors.record
+  write_vector_group(path, 'bot_actions', group)
+  puts "wrote #{group.fetch('count')} bot_actions vectors in #{path}"
+  exit
+end
+
 if ENV['ACTION_TRANSPORT_ONLY'] == 'true'
-  # Keep the existing bytes, including Rails' raw-JSON enum formatting and random ciphertexts.
-  previous = File.read(ARGV.fetch(0))
-  JSON.parse(previous) # refuse a malformed input fixture
-  prefix = previous.sub(/,\n  "action_transport":.*\z/m, "\n}\n").sub(/\n}\s*\z/, '')
-  recorded = JSON.pretty_generate('action_transport' => action_transport_vectors).delete_prefix("{\n")
-  File.write(ARGV.fetch(0), "#{prefix},\n#{recorded}\n")
+  write_vector_group(ARGV.fetch(0), 'action_transport', action_transport_vectors)
   puts "wrote action_transport in #{ARGV.fetch(0)}"
   exit
 end

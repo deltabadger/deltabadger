@@ -46,6 +46,15 @@ fn disabled(on: bool) -> &'static str {
 }
 
 impl Forms<'_> {
+    fn rejected(&self, field: &str) -> Option<String> {
+        self.check?.rejected.get(field).map(rejected_value)
+    }
+
+    fn field_error(&self, field: &str) -> Option<String> {
+        let errors: Vec<&str> = self.check?.errors.iter().filter(|e| e.field == field).map(|e| e.message.as_str()).collect();
+        (!errors.is_empty()).then(|| errors.join(", "))
+    }
+
     fn key(&self) -> &'static str {
         self.bot.param_key()
     }
@@ -75,6 +84,7 @@ impl Forms<'_> {
 
     /// `f.select name, options, { selected: }, data: { action: … }, disabled: bot.working?`.
     fn select(&self, name: &str, options: &[(String, String)], selected: &str) -> String {
+        if let Some(error) = self.field_error(name) { return self.invalid_select(name, options, selected, &error); }
         let key = self.key();
         let options: Vec<String> = options.iter().map(|(label, value)| {
             format!("<option{} value=\"{}\">{}</option>", if value == selected { " selected=\"selected\"" } else { "" }, escape(value), escape(label))
@@ -101,15 +111,21 @@ impl Forms<'_> {
     /// `f.number_field name, value:, class: 'sinput numeric-input', step:, size: 2, …`.
     fn number(&self, name: &str, value: Option<&str>, step: &str, extra: &str, locked: bool) -> String {
         let key = self.key();
-        let value = value.map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
-        format!("<input {value}{extra}class=\"sinput numeric-input\" step=\"{step}\" size=\"2\" {AUTOWIDTH} {NARROW}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />", disabled(locked))
+        let rejected = self.rejected(name);
+        let value = rejected.as_deref().or(value).map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
+        let error = self.field_error(name);
+        let class = if error.is_some() { " is-invalid" } else { "" };
+        let mut out = format!("<input {value}{extra}class=\"sinput numeric-input{class}\" step=\"{step}\" size=\"2\" {AUTOWIDTH} {NARROW}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />", disabled(locked));
+        if let Some(error) = error { out.push_str(&error_line(&error)); }
+        out
     }
 
     /// BotHelper#amount_field: a number field, or with balances hidden a hidden field that still posts the value.
     fn amount(&self, name: &str, value: Option<&str>, extra: &str) -> String {
         if !self.hide_balances { return self.number(name, value, "any", extra, self.locked()); }
         let key = self.key();
-        let value = value.map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
+        let rejected = self.rejected(name);
+        let value = rejected.as_deref().or(value).map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
         format!("<input {value}type=\"hidden\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />")
     }
 
@@ -131,7 +147,7 @@ impl Forms<'_> {
         let minimum = start::smart_interval_minimum(bot);
         let stored = bot.number("smart_interval_quote_amount");
         // `[amount, min_amount].max.to_d`: the stored amount unless the floor is above it.
-        let value = stored.as_ref().and_then(|amount| input_value(if minimum.value.to_f() > amount.to_f() { &minimum.value } else { amount }));
+        let value = self.rejected("smart_interval_quote_amount").or_else(|| stored.as_ref().and_then(|amount| input_value(if minimum.value.to_f() > amount.to_f() { &minimum.value } else { amount })));
         let message = start::smart_interval_minimum_message(bot, &minimum, self.ctx.locale)
             .map(|message| format!(" data-html5-range-underflow-message=\"{}\"", escape(&message))).unwrap_or_default();
         let error = self.check.and_then(|check| check.smart_interval_quote_amount.as_deref());
@@ -148,7 +164,7 @@ impl Forms<'_> {
         let sentence = self.t("bot.settings.smart_intervals.sentence_html", &[("amount_html", Arg::Html(&format!("<div>              {field}\n</div>"))), ("quote", Arg::Text(self.quote()))]);
         let active = bot.on("smart_intervaled");
         let mut info = String::new();
-        if let (false, true, Some(amount), Some(quote_amount), Some(effective)) = (self.hide_balances, active, stored.filter(Num::is_positive), bot.number("quote_amount").filter(Num::is_positive), bot.effective()) {
+        if let (false, true, Some(amount), Some(quote_amount), Some(effective)) = (self.hide_balances, active, stored.filter(Num::is_positive), bot.number("quote_amount").filter(Num::is_positive), bot.effective().filter(|e| e.seconds().is_finite() && (0.0..=super::MAX_SPAN_SECONDS).contains(&e.seconds()))) {
             let decimals = bot.quote_decimals().unwrap_or(2);
             let interval = i18n::text(self.ctx.locale, &format!("bot.{}", bot.text("interval").unwrap_or("")), &[]);
             let words = format::distance_of_time_in_words(effective.seconds(), self.ctx.now, self.ctx.locale);
@@ -502,15 +518,27 @@ fn shown_coins(bot: &Bot) -> i64 {
 /// `div#settings`: the whole column of one bot.
 pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let (bot, ctx) = (forms.bot, forms.ctx);
-    let quote = bot.quote_symbol().unwrap_or("USD");
-    let quote_asset_id = bot.quote_asset.as_ref().map(|asset| asset.id);
-    let amount = bot.number("quote_amount").as_ref().and_then(input_value).unwrap_or_else(|| "100".to_string());
-    let amount_field = if forms.hide_balances { forms.amount("quote_amount", Some(&amount), "") } else {
+    let rejected_quote = bot.setting("quote_asset_id").map(rejected_value).unwrap_or_default();
+    let quote = bot.quote_symbol().unwrap_or(&rejected_quote);
+    let quote_asset_id = bot.setting("quote_asset_id").and_then(Value::as_i64);
+    let amount = forms.rejected("quote_amount").or_else(|| bot.number("quote_amount").as_ref().and_then(input_value)).unwrap_or_else(|| "100".to_string());
+    let mut amount_field = if forms.hide_balances { forms.amount("quote_amount", Some(&amount), "") } else {
         format!("<input value=\"{}\" class=\"numeric-input\" step=\"any\" size=\"2\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[quote_amount]\" id=\"{key}_quote_amount\" />", escape(&amount), disabled(bot.working()), key = bot.param_key())
     };
-    let interval = bot.text("interval").unwrap_or("");
-    let interval_words = i18n::text(ctx.locale, &format!("bot.{interval}"), &[]);
-    let interval_select = forms.select("interval", &intervals(ctx.locale), interval);
+    if let Some(error) = forms.field_error("quote_amount") {
+        amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"");
+        amount_field.push_str(&error_line(&error));
+    }
+    let interval_value = bot.setting("interval").map(rejected_value).unwrap_or_default();
+    let interval = interval_value.as_str();
+    let mut options = intervals(ctx.locale);
+    let interval_words = if options.iter().any(|(_, value)| value == interval) {
+        i18n::text(ctx.locale, &format!("bot.{interval}"), &[])
+    } else {
+        options.push((interval_value.clone(), interval_value.clone()));
+        interval_value.clone()
+    };
+    let interval_select = forms.select("interval", &options, interval);
     let mut out = String::from("<div id=\"settings\" class=\"column gap-1\">\n  ");
     match bot.kind {
         Kind::Basket => {
@@ -579,4 +607,28 @@ fn market_cap_rule(forms: &Forms) -> String {
              <div class=\"bot-option-info hidden\" data-class-toggle-target=\"togglable\">\n        {text}\n      </div>\n    </div>\n  </div>\n</form>\n",
             path = escape(&forms.path), csrf = escape(forms.csrf), locked = disabled(forms.locked()), label = forms.t("bot.utils.mkt_cap_adjusted_html", &[]),
             info = include_str!("../../../templates/svg/_24x24_info.html"), filled = include_str!("../../../templates/svg/_24x24_info_filled.html"), text = forms.t("bot.utils.mkt_cap_adjusted_info_html", &[]))
+}
+
+/// A rejected proposal is rendered directly; it never goes back through Bot::unrendered or the
+/// persisted-row refusal. Dynamic arithmetic below already uses fallible interval/number reads.
+pub fn draft_column(c: &Connection, ctx: &Ctx, csrf: &str, draft: &super::draft::Draft, time_zone: &str, hide_balances: bool) -> Result<String, WebError> {
+    let check = draft.check();
+    let forms = Forms { ctx, csrf, bot: &draft.candidate, path: crate::web::locale::path(ctx.locale, &format!("/bots/{}", draft.candidate.id)),
+        hide_balances, time_zone, check: Some(&check) };
+    let mut html = column(c, &forms)?;
+    for field in ["quote_asset_id", "exchange"] {
+        if let Some(error) = forms.field_error(field) {
+            let value = if field == "exchange" { draft.submitted_exchange_id.as_ref() } else { draft.candidate.setting(field) };
+            let value = value.map(rejected_value).unwrap_or_default();
+            let content = format!("<div class=\"form__info form__info--invalid\" data-field=\"{field}\">{}: {}</div>", escape(&value), escape(&error));
+            // Insert before the outer column closes, keeping the regular settings stream target.
+            if let Some(end) = html.rfind("</div>") { html.insert_str(end, &content); }
+        }
+    }
+    Ok(html)
+}
+
+fn rejected_value(value: &Value) -> String {
+    let text = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
+    text.chars().take(128).collect()
 }
