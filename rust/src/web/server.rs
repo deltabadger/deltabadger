@@ -7,6 +7,7 @@ use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioIo, TokioTimer};
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -25,13 +26,17 @@ pub struct Limits {
     pub header_read_timeout: Duration,
     /// How long a client may take to send a form's body, once its head is in.
     pub body_read_timeout: Duration,
+    /// How long a write may wait for the kernel to accept any of it. A client that asks for a large
+    /// answer and stops reading is closed then, and its place is free; so is one that reads on, but
+    /// less than a socket buffer's worth in this time (see `Counted`).
+    pub write_stall_timeout: Duration,
     /// Connections open at once, WebSockets included.
     pub max_connections: usize,
 }
 
 impl Default for Limits {
     fn default() -> Self {
-        Self { header_read_timeout: Duration::from_secs(10), body_read_timeout: super::BODY_READ_TIMEOUT, max_connections: 1024 }
+        Self { header_read_timeout: Duration::from_secs(10), body_read_timeout: super::BODY_READ_TIMEOUT, write_stall_timeout: Duration::from_secs(30), max_connections: 1024 }
     }
 }
 
@@ -50,9 +55,39 @@ pub async fn bind(app: &App, port: u16) -> Result<TcpListener, WebError> {
 
 /// A connection that holds one of the server's places for as long as it is open. The place is part
 /// of the stream, so it also stays taken after an upgrade: a WebSocket on /cable is still a connection.
+///
+/// It also watches its own writes. A write the socket takes nothing of starts a clock; a write it
+/// takes any part of stops it; a write still waiting when the clock runs out fails, which ends the
+/// connection and gives the place back. A connection with no write waiting has no clock: an idle
+/// keep-alive connection and a quiet WebSocket are not touched.
+///
+/// What the clock measures is the local write, not the reader. Nothing else writes to this socket,
+/// so while the clock runs the kernel has accepted nothing more for it: its send buffer has stayed
+/// full. The kernel accepts more only when the peer has acknowledged enough to free a share of that
+/// buffer, and a peer acknowledges in steps of its own (a receive window opens by segments, not by
+/// bytes). So a client that stopped reading is closed, and so is one that still reads but drains
+/// less than those steps within the timeout: a byte now and then is not progress here. A reader
+/// that takes a socket buffer's worth in the timeout, however slowly, is served to the end.
 struct Counted {
     stream: TcpStream,
     _place: OwnedSemaphorePermit,
+    write_stall_timeout: Duration,
+    stalled: Option<Pin<Box<tokio::time::Sleep>>>,
+}
+
+impl Counted {
+    fn watched<T>(&mut self, cx: &mut Context<'_>, written: Poll<io::Result<T>>) -> Poll<io::Result<T>> {
+        if written.is_ready() {
+            self.stalled = None;
+            return written;
+        }
+        let timeout = self.write_stall_timeout;
+        let clock = self.stalled.get_or_insert_with(|| Box::pin(tokio::time::sleep(timeout)));
+        match clock.as_mut().poll(cx) {
+            Poll::Ready(()) => Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, "no part of a write was accepted in time"))),
+            Poll::Pending => Poll::Pending,
+        }
+    }
 }
 
 impl AsyncRead for Counted {
@@ -63,7 +98,8 @@ impl AsyncRead for Counted {
 
 impl AsyncWrite for Counted {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.stream).poll_write(cx, buf)
+        let written = Pin::new(&mut self.stream).poll_write(cx, buf);
+        self.watched(cx, written)
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_flush(cx)
@@ -72,7 +108,8 @@ impl AsyncWrite for Counted {
         Pin::new(&mut self.stream).poll_shutdown(cx)
     }
     fn poll_write_vectored(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[io::IoSlice<'_>]) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.stream).poll_write_vectored(cx, bufs)
+        let written = Pin::new(&mut self.stream).poll_write_vectored(cx, bufs);
+        self.watched(cx, written)
     }
     fn is_write_vectored(&self) -> bool {
         self.stream.is_write_vectored()
@@ -80,10 +117,14 @@ impl AsyncWrite for Counted {
 }
 
 /// Serves `app` on `listener` until the process is stopped. This is hyper's HTTP/1 connection, run
-/// here instead of through `axum::serve`, which offers neither of the two limits:
+/// here instead of through `axum::serve`, which offers none of the three limits:
 /// - a client has `header_read_timeout` to send a request's head, or the connection is closed
 ///   (hyper's `http1::Builder::header_read_timeout`). There is no deadline on a whole request: a
 ///   WebSocket on /cable stays open for as long as its page does;
+/// - a write of which the kernel accepts nothing for `write_stall_timeout` ends the connection
+///   (`Counted`): a client that stopped reading, or reads less than a socket buffer's worth in that
+///   time. A slower reader than that would need hours for one page's script. /cable has its own,
+///   shorter deadline for each message (`cable::SEND_DEADLINE`), so there this is the second line;
 /// - at most `max_connections` connections are open. One more is not accepted until a place is
 ///   free: it waits in the listener's backlog.
 ///
@@ -125,7 +166,7 @@ pub async fn serve_on(listener: TcpListener, app: App, limits: Limits) -> Result
             }
         });
         tokio::spawn(async move {
-            let io = TokioIo::new(Counted { stream, _place: place });
+            let io = TokioIo::new(Counted { stream, _place: place, write_stall_timeout: limits.write_stall_timeout, stalled: None });
             // An error here is one client's broken connection; there is nobody to tell.
             let connection = http1::Builder::new().timer(TokioTimer::new()).header_read_timeout(limits.header_read_timeout)
                 .serve_connection(io, service).with_upgrades();

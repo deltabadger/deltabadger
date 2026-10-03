@@ -778,6 +778,158 @@ async fn connections_beyond_the_cap_wait_for_a_place() {
     assert!(served.starts_with("HTTP/1.1 200"), "{served}");
 }
 
+/// The script every page loads: over a megabyte, the largest answer this server gives.
+fn large_asset() -> &'static deltabadger::web::assets::Embedded {
+    let script = deltabadger::web::assets::find(deltabadger::web::assets::path("application.js")).expect("the script is embedded");
+    assert!(script.body.len() > 1_000_000, "the script is {} bytes: no longer a large answer", script.body.len());
+    script
+}
+
+/// A client that asks for a large answer and then reads nothing must not keep its connection:
+/// 1,024 of those would be every place the server has. A write of which the client takes nothing
+/// for `write_stall_timeout` (thirty seconds outside tests) ends the connection, and its place is free.
+#[tokio::test(flavor = "current_thread")]
+async fn a_client_that_stops_reading_its_answer_loses_its_connection() {
+    use deltabadger::web::server::Limits;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    assert_eq!(Limits::default().write_stall_timeout, Duration::from_secs(30));
+    let script = large_asset();
+    let stall = Duration::from_millis(500);
+    // One place: /up below is served only once the stalled connection has given its place back.
+    let (_dir, _app, address) = served_under(Limits { write_stall_timeout: stall, max_connections: 1, ..Limits::default() }).await;
+    let started = Instant::now();
+    // Sixty-four answers of a megabyte each are far more than the buffers between the two ends hold.
+    let asked = 64;
+    let mut stuck = tokio::net::TcpStream::connect(address).await.unwrap();
+    stuck.write_all(format!("GET {} HTTP/1.1\r\nHost: localhost\r\n\r\n", script.url).repeat(asked).as_bytes()).await.unwrap();
+    let up = b"GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+    let waiting = web::until_closed(address, up, stall / 2).await;
+    assert!(waiting.is_err(), "a second connection was served while the stalled one held the only place: {waiting:?}");
+    let served = web::until_closed(address, up, Duration::from_secs(10)).await;
+    let served = served.unwrap_or_else(|e| panic!("a client that reads nothing still holds the only place after 10 s: {e}"));
+    assert!(served.starts_with("HTTP/1.1 200"), "{served}");
+    assert!(started.elapsed() >= stall, "freed by the timeout, not before: {:?}", started.elapsed());
+    // What the kernel had already taken still arrives; then the stream ends, far short of what was asked for.
+    let mut received = 0;
+    let mut buffer = vec![0; 1 << 16];
+    let drained = async {
+        loop {
+            match stuck.read(&mut buffer).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => received += n,
+            }
+        }
+    };
+    assert!(tokio::time::timeout(Duration::from_secs(10), drained).await.is_ok(), "the stalled connection was not closed");
+    assert!(received < asked * script.body.len(), "all {asked} answers arrived: the connection was never cut");
+}
+
+/// The timeout is for a write that makes no progress, not for a slow one. A client that takes
+/// four timeouts to read sixteen megabytes, a little at a time, gets every byte: in each timeout
+/// it drains many times what the buffers between the two ends hold.
+#[tokio::test(flavor = "current_thread")]
+async fn a_slow_reader_that_keeps_reading_is_not_cut() {
+    use deltabadger::web::server::Limits;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let script = large_asset();
+    let stall = Duration::from_secs(1);
+    let (_dir, _app, address) = served_under(Limits { write_stall_timeout: stall, ..Limits::default() }).await;
+    // More than the buffers between the two ends hold, so the server's writes do wait for this reader.
+    let asked = 16;
+    let bodies = asked * script.body.len();
+    let mut slow = tokio::net::TcpStream::connect(address).await.unwrap();
+    let request = |last: bool| format!("GET {} HTTP/1.1\r\nHost: localhost\r\n{}\r\n", script.url, if last { "Connection: close\r\n" } else { "" });
+    slow.write_all((request(false).repeat(asked - 1) + &request(true)).as_bytes()).await.unwrap();
+    let (started, pace) = (Instant::now(), stall * 4);
+    let mut received = 0;
+    let mut buffer = vec![0; 1 << 16];
+    loop {
+        // No further ahead than a reader that takes `pace` for everything.
+        let allowed = (bodies as f64 * started.elapsed().as_secs_f64() / pace.as_secs_f64()) as usize;
+        if received < bodies && received > allowed {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            continue;
+        }
+        match slow.read(&mut buffer).await {
+            Ok(0) => break,
+            Ok(n) => received += n,
+            Err(e) => panic!("cut after {received} of {bodies} bytes and {:?}: {e}", started.elapsed()),
+        }
+    }
+    assert!(received > bodies, "{received} of {bodies} bytes arrived before the server closed the connection");
+    assert!(started.elapsed() >= stall * 3, "the reader was not slow: {:?}", started.elapsed());
+}
+
+/// What the clock measures is the server's own write, not the reader: the kernel accepts more of a
+/// waiting write only when the peer has acknowledged enough to free a share of the send buffer. A
+/// client with a small receive window that never stops reading, a byte every tenth of a second,
+/// frees nothing of that size within the timeout, and is closed like one that stopped.
+#[tokio::test(flavor = "current_thread")]
+async fn a_reader_that_takes_a_byte_now_and_then_is_cut_like_one_that_stopped() {
+    use deltabadger::web::server::Limits;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let script = large_asset();
+    let stall = Duration::from_millis(1500);
+    let (_dir, _app, address) = served_under(Limits { write_stall_timeout: stall, ..Limits::default() }).await;
+    let socket = tokio::net::TcpSocket::new_v4().unwrap();
+    socket.set_recv_buffer_size(4096).unwrap();
+    let mut trickle = socket.connect(address).await.unwrap();
+    let asked = 64;
+    trickle.write_all(format!("GET {} HTTP/1.1\r\nHost: localhost\r\n\r\n", script.url).repeat(asked).as_bytes()).await.unwrap();
+    let started = Instant::now();
+    // One byte at a time, ten a second: this client is reading the whole time.
+    let (mut received, mut buffer) = (0usize, vec![0u8; 1 << 16]);
+    let mut slowly = true;
+    let ended = loop {
+        let take = if slowly { 1 } else { buffer.len() };
+        match tokio::time::timeout(Duration::from_secs(20), trickle.read(&mut buffer[..take])).await {
+            Err(_) => break None,
+            Ok(Ok(0)) | Ok(Err(_)) => break Some(started.elapsed()),
+            Ok(Ok(n)) => received += n,
+        }
+        // Slowly until the server has had its timeout twice over; then whatever is left in the buffers, at once.
+        slowly = slowly && started.elapsed() < stall * 2;
+        if slowly { tokio::time::sleep(Duration::from_millis(100)).await; }
+    };
+    let ended = ended.unwrap_or_else(|| panic!("still open after {received} bytes: a byte now and then kept the connection"));
+    assert!(received < asked * script.body.len(), "all {asked} answers arrived: the connection was never cut");
+    assert!(ended >= stall, "closed after {ended:?}, before the timeout");
+}
+
+/// A slow reader on a real line: twenty kilobytes a second, with the server's own thirty seconds.
+/// That is six hundred kilobytes in every timeout, several times what the kernel wants freed
+/// before it accepts more, so the write keeps making progress and the connection stays. Run for
+/// longer than the timeout, with far more asked for than the buffers hold.
+#[tokio::test(flavor = "current_thread")]
+async fn a_reader_at_twenty_kilobytes_a_second_is_not_cut() {
+    use deltabadger::web::server::Limits;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let script = large_asset();
+    let limits = Limits::default();
+    let (_dir, _app, address) = served_under(limits).await;
+    let mut slow = tokio::net::TcpStream::connect(address).await.unwrap();
+    slow.write_all(format!("GET {} HTTP/1.1\r\nHost: localhost\r\n\r\n", script.url).repeat(64).as_bytes()).await.unwrap();
+    let (started, rate) = (Instant::now(), 20_000.0);
+    let run = limits.write_stall_timeout + Duration::from_secs(5);
+    let mut received = 0usize;
+    let mut buffer = vec![0; 2_000];
+    while started.elapsed() < run {
+        if received as f64 > rate * started.elapsed().as_secs_f64() {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            continue;
+        }
+        match slow.read(&mut buffer).await {
+            Ok(0) => panic!("closed after {received} bytes and {:?}", started.elapsed()),
+            Ok(n) => received += n,
+            Err(e) => panic!("cut after {received} bytes and {:?}: {e}", started.elapsed()),
+        }
+    }
+    assert!(received as f64 >= rate * limits.write_stall_timeout.as_secs_f64(), "{received} bytes in {:?}: the reader was not held to its rate", started.elapsed());
+    assert!(received < 2 * script.body.len(), "{received} bytes: the reader was not slow");
+    // Past the timeout and still served: the next read brings more.
+    assert!(matches!(tokio::time::timeout(Duration::from_secs(5), slow.read(&mut buffer)).await, Ok(Ok(n)) if n > 0), "nothing more arrived after {:?}", started.elapsed());
+}
+
 /// An install with two confirmed accounts that share the password "Correct-horse-9": the owner
 /// (o@example.com), with two-factor on when `owner_two_factor`, and second@example.com without.
 /// Returns the ids of both.
