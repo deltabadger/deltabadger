@@ -88222,5 +88222,1023 @@
         "integer": "-9223372036854775809"
       }
     ]
+  },
+  "action_transport": {
+    "allowlists": {
+      "bots_dca_multi_asset": [
+        "quote_asset_id",
+        "quote_amount",
+        "interval",
+        "weighting",
+        "smart_intervaled",
+        "smart_interval_quote_amount",
+        "smart_interval_base_amount",
+        "limit_ordered",
+        "limit_order_pcnt_distance",
+        "quote_amount_limited",
+        "quote_amount_limit",
+        "base_amount_limited",
+        "base_amount_limit",
+        "price_limited",
+        "price_limit",
+        "price_limit_range_lower_bound",
+        "price_limit_range_upper_bound",
+        "price_limit_timing_condition",
+        "price_limit_value_condition",
+        "price_limit_in_ticker_id",
+        "price_limit_action",
+        "sell_price_limited",
+        "sell_price_limit",
+        "sell_price_limit_range_lower_bound",
+        "sell_price_limit_range_upper_bound",
+        "sell_price_limit_timing_condition",
+        "sell_price_limit_value_condition",
+        "sell_price_limit_in_ticker_id",
+        "sell_price_limit_action",
+        "price_drop_limited",
+        "price_drop_limit",
+        "price_drop_limit_time_window_condition",
+        "price_drop_limit_in_ticker_id",
+        "price_drop_limit_action",
+        "sell_price_drop_limited",
+        "sell_price_drop_limit",
+        "sell_price_drop_limit_time_window_condition",
+        "sell_price_drop_limit_in_ticker_id",
+        "sell_price_drop_limit_action",
+        "moving_average_limited",
+        "moving_average_limit_timing_condition",
+        "moving_average_limit_value_condition",
+        "moving_average_limit_in_ticker_id",
+        "moving_average_limit_in_ma_type",
+        "moving_average_limit_in_timeframe",
+        "moving_average_limit_in_period",
+        "moving_average_limit_action",
+        "sell_moving_average_limited",
+        "sell_moving_average_limit_timing_condition",
+        "sell_moving_average_limit_value_condition",
+        "sell_moving_average_limit_in_ticker_id",
+        "sell_moving_average_limit_in_ma_type",
+        "sell_moving_average_limit_in_timeframe",
+        "sell_moving_average_limit_in_period",
+        "sell_moving_average_limit_action",
+        "indicator_limited",
+        "indicator_limit",
+        "indicator_limit_timing_condition",
+        "indicator_limit_value_condition",
+        "indicator_limit_in_ticker_id",
+        "indicator_limit_in_indicator",
+        "indicator_limit_in_timeframe",
+        "indicator_limit_action",
+        "sell_indicator_limited",
+        "sell_indicator_limit",
+        "sell_indicator_limit_timing_condition",
+        "sell_indicator_limit_value_condition",
+        "sell_indicator_limit_in_ticker_id",
+        "sell_indicator_limit_in_indicator",
+        "sell_indicator_limit_in_timeframe",
+        "sell_indicator_limit_action",
+        "start_time_enabled",
+        "start_time_mode",
+        "start_time_of_day",
+        "start_at",
+        "rebalance_enabled",
+        "rebalance_threshold",
+        "direction",
+        "sell_amount",
+        "sell_interval",
+        "sell_denomination",
+        "sell_quote_amount",
+        "label",
+        "exchange_id",
+        "add_asset_id",
+        "remove_asset_id",
+        "normalize_allocations",
+        "price_limit_mode",
+        "price_drop_limit_mode",
+        "moving_average_limit_mode",
+        "indicator_limit_mode",
+        "sell_price_limit_mode",
+        "sell_price_drop_limit_mode",
+        "sell_moving_average_limit_mode",
+        "sell_indicator_limit_mode"
+      ],
+      "bots_dca_index": [
+        "quote_asset_id",
+        "quote_amount",
+        "interval",
+        "num_coins",
+        "allocation_flattening",
+        "index_type",
+        "index_category_id",
+        "index_name",
+        "index_name_prefix",
+        "hold_all",
+        "smart_intervaled",
+        "smart_interval_quote_amount",
+        "smart_interval_base_amount",
+        "limit_ordered",
+        "limit_order_pcnt_distance",
+        "start_time_enabled",
+        "start_time_mode",
+        "start_time_of_day",
+        "start_at",
+        "rebalance_enabled",
+        "rebalance_threshold",
+        "label",
+        "exchange_id",
+        "num_coins_ceiling",
+        "num_coins_rendered"
+      ]
+    },
+    "cases": [
+      {
+        "name": "query_body_precedence",
+        "query": "bots_dca_multi_asset[label]=query&bots_dca_multi_asset[interval]=day",
+        "form": "bots_dca_multi_asset[label]=body",
+        "json": null,
+        "rack_body": {
+          "bots_dca_multi_asset": {
+  "label": "body"
+}
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "label": "query",
+    "interval": "day"
+  }
+},
+        "permitted": {
+  "label": "query",
+  "interval": "day"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          },
+          "label": "query"
+        }
+      },
+      {
+        "name": "nested_merge",
+        "query": "bots_dca_multi_asset[allocations][2]=20&bots_dca_multi_asset[allocations][1]=80",
+        "form": "bots_dca_multi_asset[allocations][2]=30",
+        "json": null,
+        "rack_body": {
+          "bots_dca_multi_asset": {
+  "allocations": {
+    "2": "30"
+  }
+}
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "allocations": {
+      "2": "20",
+      "1": "80"
+    }
+  }
+},
+        "permitted": {
+  "allocations": {
+    "2": "20",
+    "1": "80"
+  }
+},
+        "updated": {
+          "settings": {
+            "allocations": {
+  "2": 0.2,
+  "1": 0.8
+},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "checkbox_forward",
+        "query": "",
+        "form": "bots_dca_multi_asset[smart_intervaled]=0&bots_dca_multi_asset[smart_intervaled]=1",
+        "json": null,
+        "rack_body": {
+          "bots_dca_multi_asset": {
+  "smart_intervaled": "1"
+}
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "smart_intervaled": "1"
+  }
+},
+        "permitted": {
+  "smart_intervaled": "1"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": true,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "checkbox_reverse",
+        "query": "",
+        "form": "bots_dca_multi_asset[smart_intervaled]=1&bots_dca_multi_asset[smart_intervaled]=0",
+        "json": null,
+        "rack_body": {
+          "bots_dca_multi_asset": {
+  "smart_intervaled": "0"
+}
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "smart_intervaled": "0"
+  }
+},
+        "permitted": {
+  "smart_intervaled": "0"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "allocation_order",
+        "query": "",
+        "form": "bots_dca_multi_asset[allocations][2]=20&bots_dca_multi_asset[allocations][1]=80&bots_dca_multi_asset[allocations][2]=30",
+        "json": null,
+        "rack_body": {
+          "bots_dca_multi_asset": {
+  "allocations": {
+    "2": "30",
+    "1": "80"
+  }
+}
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "allocations": {
+      "2": "30",
+      "1": "80"
+    }
+  }
+},
+        "permitted": {
+  "allocations": {
+    "2": "30",
+    "1": "80"
+  }
+},
+        "updated": {
+          "settings": {
+            "allocations": {
+  "2": 0.3,
+  "1": 0.8
+},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "missing_root",
+        "query": "",
+        "form": "",
+        "json": null,
+        "rack_body": {},
+        "merged": {},
+        "exception": "ActionController::ParameterMissing"
+      },
+      {
+        "name": "empty_root",
+        "query": "",
+        "form": "bots_dca_multi_asset=",
+        "json": null,
+        "rack_body": {
+          "bots_dca_multi_asset": ""
+        },
+        "merged": {
+  "bots_dca_multi_asset": ""
+},
+        "exception": "ActionController::ParameterMissing"
+      },
+      {
+        "name": "wrong_root",
+        "query": "",
+        "form": "bots_dca_index[quote_amount]=1",
+        "json": null,
+        "rack_body": {
+          "bots_dca_index": {
+  "quote_amount": "1"
+}
+        },
+        "merged": {
+  "bots_dca_index": {
+    "quote_amount": "1"
+  }
+},
+        "exception": "ActionController::ParameterMissing"
+      },
+      {
+        "name": "scalar_then_hash",
+        "query": "",
+        "form": "a=1&a[b]=2",
+        "json": null,
+        "rack_exception": "Rack::QueryParser::ParameterTypeError",
+        "exception": "ActionController::BadRequest",
+        "bounded_input_divergence": true
+      },
+      {
+        "name": "hash_then_scalar",
+        "query": "",
+        "form": "a[b]=2&a=1",
+        "json": null,
+        "rack_body": {
+          "a": "1"
+        },
+        "merged": {
+  "a": "1"
+},
+        "exception": "ActionController::ParameterMissing"
+      },
+      {
+        "name": "array_then_hash",
+        "query": "",
+        "form": "a[]=1&a[b]=2",
+        "json": null,
+        "rack_exception": "Rack::QueryParser::ParameterTypeError",
+        "exception": "ActionController::BadRequest",
+        "bounded_input_divergence": true
+      },
+      {
+        "name": "hash_then_array",
+        "query": "",
+        "form": "a[b]=1&a[]=2",
+        "json": null,
+        "rack_exception": "Rack::QueryParser::ParameterTypeError",
+        "exception": "ActionController::BadRequest",
+        "bounded_input_divergence": true
+      },
+      {
+        "name": "array_of_hashes",
+        "query": "",
+        "form": "a[][x]=1&a[][y]=2&a[][x]=3&bots_dca_multi_asset[label]=ok",
+        "json": null,
+        "rack_body": {
+          "a": [
+            {
+  "x": "1",
+  "y": "2"
+},
+            {
+  "x": "3"
+}
+          ],
+          "bots_dca_multi_asset": {
+  "label": "ok"
+}
+        },
+        "merged": {
+  "a": [
+    {
+      "x": "1",
+      "y": "2"
+    },
+    {
+      "x": "3"
+    }
+  ],
+  "bots_dca_multi_asset": {
+    "label": "ok"
+  }
+},
+        "permitted": {
+  "label": "ok"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          },
+          "label": "ok"
+        }
+      },
+      {
+        "name": "nested_arrays",
+        "query": "",
+        "form": "a[][]=1&bots_dca_multi_asset[label]=ok",
+        "json": null,
+        "rack_body": {
+          "a": [
+            [
+              "1"
+            ]
+          ],
+          "bots_dca_multi_asset": {
+  "label": "ok"
+}
+        },
+        "merged": {
+  "a": [
+    [
+      "1"
+    ]
+  ],
+  "bots_dca_multi_asset": {
+    "label": "ok"
+  }
+},
+        "permitted": {
+  "label": "ok"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          },
+          "label": "ok"
+        }
+      },
+      {
+        "name": "strong_shapes",
+        "query": "",
+        "form": null,
+        "json": {
+          "bots_dca_multi_asset": {
+            "label": [
+              "bad"
+            ],
+            "quote_amount": {
+              "x": 1
+            },
+            "allocations": {
+              "2": 20
+            },
+            "unknown": "ignored"
+          }
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "label": [
+      "bad"
+    ],
+    "quote_amount": {
+      "x": 1
+    },
+    "allocations": {
+      "2": 20
+    },
+    "unknown": "ignored"
+  }
+},
+        "permitted": {
+  "allocations": {
+    "2": 20
+  }
+},
+        "updated": {
+          "settings": {
+            "allocations": {
+  "2": 0.2
+},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "typed_scalars",
+        "query": "",
+        "form": null,
+        "json": {
+          "bots_dca_multi_asset": {
+            "smart_intervaled": true,
+            "quote_amount": 12.5,
+            "label": false
+          }
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "smart_intervaled": true,
+    "quote_amount": 12.5,
+    "label": false
+  }
+},
+        "permitted": {
+  "label": false,
+  "quote_amount": 12.5,
+  "smart_intervaled": true
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 12.5,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "string_scalars",
+        "query": "",
+        "form": null,
+        "json": {
+          "bots_dca_multi_asset": {
+            "smart_intervaled": "true",
+            "quote_amount": "12.5",
+            "label": "false"
+          }
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "smart_intervaled": "true",
+    "quote_amount": "12.5",
+    "label": "false"
+  }
+},
+        "permitted": {
+  "label": "false",
+  "quote_amount": "12.5",
+  "smart_intervaled": "true"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 12.5,
+            "smart_intervaled": true,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          },
+          "label": "false"
+        }
+      },
+      {
+        "name": "null_scalar",
+        "query": "",
+        "form": null,
+        "json": {
+          "bots_dca_multi_asset": {
+            "label": null,
+            "quote_amount": null
+          }
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "label": null,
+    "quote_amount": null
+  }
+},
+        "permitted": {
+  "label": null,
+  "quote_amount": null
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          }
+        }
+      },
+      {
+        "name": "allocations_array",
+        "query": "",
+        "form": null,
+        "json": {
+          "bots_dca_multi_asset": {
+            "allocations": [
+              20,
+              80
+            ],
+            "label": "ok"
+          }
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "allocations": [
+      20,
+      80
+    ],
+    "label": "ok"
+  }
+},
+        "permitted": {
+  "label": "ok"
+},
+        "updated": {
+          "settings": {
+            "allocations": {},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          },
+          "label": "ok"
+        }
+      },
+      {
+        "name": "allocations_nested",
+        "query": "",
+        "form": null,
+        "json": {
+          "bots_dca_multi_asset": {
+            "allocations": {
+              "2": {
+                "x": 20
+              },
+              "1": [
+                80
+              ]
+            },
+            "label": "ok"
+          }
+        },
+        "merged": {
+  "bots_dca_multi_asset": {
+    "allocations": {
+      "2": {
+        "x": 20
+      },
+      "1": [
+        80
+      ]
+    },
+    "label": "ok"
+  }
+},
+        "permitted": {
+  "label": "ok",
+  "allocations": {
+    "2": {
+      "x": 20
+    },
+    "1": [
+      80
+    ]
+  }
+},
+        "updated": {
+          "settings": {
+            "allocations": {
+  "2": 0.0,
+  "1": 0.0
+},
+            "interval": "day",
+            "quote_amount": 60,
+            "smart_intervaled": false,
+            "limit_ordered": false,
+            "limit_order_pcnt_distance": 0.001,
+            "quote_amount_limited": false,
+            "quote_amount_limit": 1000,
+            "price_limited": false,
+            "price_limit": 1000000,
+            "price_limit_range_lower_bound": 0,
+            "price_limit_range_upper_bound": 1000000,
+            "price_limit_timing_condition": "while",
+            "price_limit_value_condition": "below",
+            "price_drop_limited": false,
+            "price_drop_limit": 0.2,
+            "price_drop_limit_time_window_condition": "ath",
+            "moving_average_limited": false,
+            "moving_average_limit_timing_condition": "while",
+            "moving_average_limit_value_condition": "below",
+            "moving_average_limit_in_ma_type": "sma",
+            "moving_average_limit_in_timeframe": "one_day",
+            "moving_average_limit_in_period": 9,
+            "indicator_limited": false,
+            "indicator_limit": 30,
+            "indicator_limit_timing_condition": "while",
+            "indicator_limit_value_condition": "below",
+            "indicator_limit_in_indicator": "rsi",
+            "indicator_limit_in_timeframe": "one_day"
+          },
+          "label": "ok"
+        }
+      },
+      {
+        "name": "invalid_json",
+        "query": "",
+        "form": "{",
+        "json": null,
+        "exception": "ActionDispatch::Http::Parameters::ParseError",
+        "bounded_input_divergence": true
+      }
+    ]
   }
 }

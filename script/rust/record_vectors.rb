@@ -5,6 +5,94 @@
 require 'json'
 require 'bcrypt'
 
+def action_transport_vectors
+  # The real Rack parser, Rails request merge, controller allowlist and decorator chain.
+  # ACTION_TRANSPORT_ONLY updates only this deterministic section; older encrypted vectors contain
+  # random IVs and must not be churned by a transport-only recording.
+  transport_cases = [
+    ['query_body_precedence', 'bots_dca_multi_asset[label]=query&bots_dca_multi_asset[interval]=day', 'bots_dca_multi_asset[label]=body', nil],
+    ['nested_merge', 'bots_dca_multi_asset[allocations][2]=20&bots_dca_multi_asset[allocations][1]=80', 'bots_dca_multi_asset[allocations][2]=30',
+     nil],
+    ['checkbox_forward', '', 'bots_dca_multi_asset[smart_intervaled]=0&bots_dca_multi_asset[smart_intervaled]=1', nil],
+    ['checkbox_reverse', '', 'bots_dca_multi_asset[smart_intervaled]=1&bots_dca_multi_asset[smart_intervaled]=0', nil],
+    ['allocation_order', '',
+     'bots_dca_multi_asset[allocations][2]=20&bots_dca_multi_asset[allocations][1]=80&bots_dca_multi_asset[allocations][2]=30', nil],
+    ['missing_root', '', '', nil],
+    ['empty_root', '', 'bots_dca_multi_asset=', nil],
+    ['wrong_root', '', 'bots_dca_index[quote_amount]=1', nil],
+    ['scalar_then_hash', '', 'a=1&a[b]=2', nil],
+    ['hash_then_scalar', '', 'a[b]=2&a=1', nil],
+    ['array_then_hash', '', 'a[]=1&a[b]=2', nil],
+    ['hash_then_array', '', 'a[b]=1&a[]=2', nil],
+    ['array_of_hashes', '', 'a[][x]=1&a[][y]=2&a[][x]=3&bots_dca_multi_asset[label]=ok', nil],
+    ['nested_arrays', '', 'a[][]=1&bots_dca_multi_asset[label]=ok', nil],
+    ['strong_shapes', '', nil,
+     { 'bots_dca_multi_asset' => { 'label' => ['bad'], 'quote_amount' => { 'x' => 1 }, 'allocations' => { '2' => 20 }, 'unknown' => 'ignored' } }],
+    ['typed_scalars', '', nil, { 'bots_dca_multi_asset' => { 'smart_intervaled' => true, 'quote_amount' => 12.5, 'label' => false } }],
+    ['string_scalars', '', nil, { 'bots_dca_multi_asset' => { 'smart_intervaled' => 'true', 'quote_amount' => '12.5', 'label' => 'false' } }],
+    ['null_scalar', '', nil, { 'bots_dca_multi_asset' => { 'label' => nil, 'quote_amount' => nil } }],
+    ['allocations_array', '', nil, { 'bots_dca_multi_asset' => { 'allocations' => [20, 80], 'label' => 'ok' } }],
+    ['allocations_nested', '', nil, { 'bots_dca_multi_asset' => { 'allocations' => { '2' => { 'x' => 20 }, '1' => [80] }, 'label' => 'ok' } }],
+    ['invalid_json', '', '{', :raw_json]
+  ]
+  {
+    'allowlists' => [Bots::DcaMultiAsset, Bots::DcaIndex].to_h do |klass|
+      root = klass.model_name.param_key
+      keys = klass.stored_attributes[:settings].map(&:to_s)
+      keys += %w[label exchange_id]
+      keys += if klass == Bots::DcaMultiAsset
+                %w[add_asset_id remove_asset_id
+                   normalize_allocations] + BotsController::BUY_TRIGGER_MODE_KEYS + BotsController::SELL_TRIGGER_MODE_KEYS
+              else
+                %w[
+                  num_coins_ceiling num_coins_rendered
+                ]
+              end
+      keys -= %w[allocations base_asset_ids] if klass == Bots::DcaMultiAsset
+      [root, keys.uniq]
+    end,
+    'cases' => transport_cases.map do |name, query, form, json|
+      row = { 'name' => name, 'query' => query, 'form' => form, 'json' => json == :raw_json ? nil : json }
+      unless json
+        begin
+          row['rack_body'] = Rack::Utils.parse_nested_query(form)
+        rescue Rack::QueryParser::ParameterTypeError => e
+          row['rack_exception'] = e.class.name
+        end
+      end
+      begin
+        media = json ? 'application/json' : 'application/x-www-form-urlencoded'
+        input = json == :raw_json ? form : json&.to_json || form
+        env = Rack::MockRequest.env_for("http://localhost/bots/1?#{query}", method: 'PATCH', input:, 'CONTENT_TYPE' => media)
+        request = ActionDispatch::Request.new(env)
+        merged = request.parameters
+        row['merged'] = merged
+        controller = BotsController.new
+        controller.params = ActionController::Parameters.new(merged)
+        controller.instance_variable_set(:@bot, Bots::DcaMultiAsset.new(settings: { 'allocations' => {}, 'interval' => 'day', 'quote_amount' => 60 }))
+        row['permitted'] = controller.send(:dca_multi_asset_bot_params).to_h
+        row['updated'] = controller.send(:update_params)
+      rescue StandardError => e
+        row['exception'] = e.class.name
+        row['bounded_input_divergence'] = true if e.is_a?(ActionController::BadRequest) ||
+                                                  e.is_a?(ActionDispatch::Http::Parameters::ParseError)
+      end
+      row
+    end
+  }
+end
+
+if ENV['ACTION_TRANSPORT_ONLY'] == 'true'
+  # Keep the existing bytes, including Rails' raw-JSON enum formatting and random ciphertexts.
+  previous = File.read(ARGV.fetch(0))
+  JSON.parse(previous) # refuse a malformed input fixture
+  prefix = previous.sub(/,\n  "action_transport":.*\z/m, "\n}\n").sub(/\n}\s*\z/, '')
+  recorded = JSON.pretty_generate('action_transport' => action_transport_vectors).delete_prefix("{\n")
+  File.write(ARGV.fetch(0), "#{prefix},\n#{recorded}\n")
+  puts "wrote action_transport in #{ARGV.fetch(0)}"
+  exit
+end
+
 SECRET = 'rust-fixture-secret-key-base'.freeze
 
 # The key Rails derives from a primary key + salt, computed explicitly so no global encryption
@@ -1116,6 +1204,7 @@ vectors['bot_pages'] = {
   # String#to_i itself, as a string: Ruby has no largest Integer.
   'string_to_i' => integer_texts.map { |text| { 'text' => text, 'integer' => text.to_i.to_s } }
 }
+vectors['action_transport'] = action_transport_vectors
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
 File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")

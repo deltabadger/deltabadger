@@ -931,6 +931,7 @@ async fn a_request_body_that_never_arrives_does_not_keep_its_connection() {
         &b"POST /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\na=1"[..],
         b"POST /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nTransfer-Encoding: chunked\r\n\r\n3\r\na=1\r\n",
         b"POST /csp-report HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\n",
+        b"PUT /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 500\r\n\r\n",
     ] {
         let started = Instant::now();
         let answer = web::until_closed(address, stalled, patience).await;
@@ -942,7 +943,6 @@ async fn a_request_body_that_never_arrives_does_not_keep_its_connection() {
         (&b"POST /csp-report HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/csp-report\r\nContent-Length: 100000\r\n\r\n{"[..], "204"),
         (b"POST /nothing-here HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: 500\r\n\r\n", "302"), // no CSRF token: refused before any route
         (b"GET /up HTTP/1.1\r\nHost: localhost\r\nContent-Length: 500\r\n\r\n", "200"),
-        (b"PUT /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 500\r\n\r\n", "302"),
         (b"POST /cable HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n", "501"),
     ] {
         let answer = web::until_closed(address, unread, patience).await;

@@ -1250,3 +1250,319 @@ mod status_bar {
         assert!(cases.len() > 300 && off_grid > 30 && early > 30, "{} cases, {off_grid} where the rounded checkpoint would be held elsewhere, {early} held before it", cases.len());
     }
 }
+
+/// The transport can be observed without installing any bot mutation handler.
+mod action_transport {
+    use super::common;
+    use axum::{body::{Body, to_bytes}, extract::Request, response::{IntoResponse, Response}, Router};
+    use deltabadger::web::{self, Params, bot::{Kind, action_params::{self, ActionParams}}};
+    use serde_json::{json, Value};
+    use std::{sync::Arc, time::Duration};
+    use tower::ServiceExt;
+
+    async fn probe(request: Request) -> Response {
+        let Some(params) = request.extensions().get::<Arc<Params>>() else { panic!("entry supplies params") };
+        let Some(action) = action_params::action(&params.route_path, request.method()) else {
+            return axum::http::StatusCode::NOT_IMPLEMENTED.into_response();
+        };
+        if !action_params::format_allowed(action, &params.route_path, request.headers()) {
+            return axum::http::StatusCode::NOT_ACCEPTABLE.into_response();
+        }
+        let parsed = match ActionParams::parse(params) { Ok(p) => p, Err(e) => return e.status().into_response() };
+        let permitted = if action == action_params::Action::Update {
+            match parsed.permitted(Kind::Basket) { Ok(p) => p, Err(e) => return e.status().into_response() }
+        } else { Value::Null };
+        let value = json!({"permitted": permitted, "merged": parsed.value(), "method": request.method().as_str(), "form": params.form,
+            "json": params.json, "query": params.query, "locale": params.path_locale,
+            "path": params.route_path});
+        (axum::http::StatusCode::OK, value.to_string()).into_response()
+    }
+
+    struct Harness { _dir: tempfile::TempDir, app: web::App, token: String }
+    impl Harness {
+        fn new() -> Self {
+            let (dir, opened, seeded) = common::install_alpaca();
+            common::seed::insert_bot(&opened.primary, &seeded,
+                &common::seed::BotSpec::weekly(60.0, "2026-01-01T00:00:00Z").weights(&[(seeded.btc, 1.0)]));
+            assert!(opened.primary.execute("UPDATE users SET confirmed_at = created_at", []).is_ok());
+            drop(opened);
+            let app = common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at("2026-09-10T12:00:30Z"));
+            Self { _dir: dir, app, token: web::csrf::new_token() }
+        }
+        async fn snapshot(&self) -> String {
+            match self.app.db(|c| {
+                let mut out = String::new();
+                for table in ["bots", "bot_index_assets", "bot_activity_logs", "transactions", "api_keys", "users"] {
+                    let mut stmt = c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+                    let columns = stmt.column_count();
+                    let mut rows = stmt.query([])?;
+                    while let Some(row) = rows.next()? {
+                        for i in 0..columns { out.push_str(&format!("{:?}|", row.get_ref(i)?)); }
+                    }
+                }
+                Ok(out)
+            }).await { Ok(v) => v, Err(e) => panic!("snapshot: {e:?}") }
+        }
+        async fn send(&self, method: &str, path: &str, media: &str, body: Body) -> (u16, Value) {
+            self.send_accept(method, path, media, body, "text/vnd.turbo-stream.html").await
+        }
+        async fn send_accept(&self, method: &str, path: &str, media: &str, body: Body, accept: &str) -> (u16, Value) {
+            let before = self.snapshot().await;
+            let router = web::router_with_routes(self.app.clone(), Router::new().fallback(probe), Duration::from_millis(20));
+            let request = match Request::builder().method(method).uri(path).header("content-type", media).header("accept", accept).body(body) {
+                Ok(r) => r, Err(e) => panic!("request: {e}")
+            };
+            let response = match router.oneshot(request).await { Ok(r) => r, Err(e) => match e {} };
+            let status = response.status().as_u16();
+            if status == 408 { assert_eq!(response.headers().get("connection").and_then(|v| v.to_str().ok()), Some("close")); }
+            let bytes = match to_bytes(response.into_body(), 200_000).await { Ok(b) => b, Err(e) => panic!("body: {e}") };
+            let value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+            assert_eq!(before, self.snapshot().await, "transport never writes primary rows");
+            (status, value)
+        }
+        async fn live(&self, method: &str, path: &str, media: &str, body: &str, headers: &[(&str,&str)]) -> u16 {
+            let before = self.snapshot().await;
+            let user = match self.app.db(|c| Ok(c.query_row("SELECT id, encrypted_password FROM users ORDER BY id LIMIT 1", [], |r| Ok((r.get::<_,i64>(0)?, r.get::<_,String>(1)?)))?)).await {
+                Ok((id,hash)) => (id,hash.chars().take(29).collect()), Err(e) => panic!("user: {e:?}")
+            };
+            let session = web::session::SessionData { user: Some(user), csrf: Some(self.token.clone()), ..Default::default() };
+            let cookie = web::session::seal(&self.app.keys.session, &session, self.app.now());
+            let mut request = Request::builder().method(method).uri(path).header("host","localhost:3000")
+                .header("cookie",format!("{}={cookie}",web::session::COOKIE)).header("content-type",media);
+            for (key,value) in headers { request = request.header(*key,*value); }
+            let request = match request.body(Body::from(body.replace("TOKEN", &web::csrf::masked(&self.token)))) { Ok(r) => r, Err(e) => panic!("request: {e}") };
+            let response = match web::router(self.app.clone()).oneshot(request).await { Ok(r) => r, Err(e) => match e {} };
+            let status = response.status().as_u16();
+            assert_eq!(before,self.snapshot().await,"real routes do not write");
+            status
+        }
+        async fn form(&self, method: &str, text: &str) -> (u16, Value) {
+            self.send(method, "/bots/1", "application/x-www-form-urlencoded", Body::from(text.to_string())).await
+        }
+    }
+    fn rails_vectors() {
+        let vectors = common::vectors();
+        let Some(cases) = vectors["action_transport"]["cases"].as_array() else { panic!("recorded transport cases") };
+        let decode = |v: &Value| form_urlencoded::parse(v.as_str().unwrap_or("").as_bytes()).map(|(k,v)| (k.into_owned(),v.into_owned())).collect();
+        for case in cases {
+            if case["name"] == "invalid_json" { assert!(action_params::json(b"{").is_err()); continue; }
+            let params = Params { full_path: "/bots/1".into(), fullpath: "/bots/1".into(), route_path: "/bots/1".into(), path_locale: None,
+                query: decode(&case["query"]), form: decode(&case["form"]), json: (!case["json"].is_null()).then(|| case["json"].clone()) };
+            let parsed = ActionParams::parse(&params);
+            if case.get("merged").is_none() {
+                assert!(parsed.is_err(), "{case}"); assert_eq!(case["bounded_input_divergence"], true); continue;
+            }
+            let parsed = match parsed { Ok(p) => p, Err(e) => panic!("{}: {e:?}", case["name"]) };
+            // Task 2 explicitly requires body precedence and nested merging. Installed Rails
+            // instead shallow-merges query over body. Pin BOTH results; do not pretend parity.
+            let divergence = match case["name"].as_str() {
+                Some("query_body_precedence") => Some((json!({ROOT:{"label":"query","interval":"day"}}),json!({ROOT:{"label":"body","interval":"day"}}))),
+                Some("nested_merge") => Some((json!({ROOT:{"allocations":{"2":"20","1":"80"}}}),json!({ROOT:{"allocations":{"2":"30","1":"80"}}}))),
+                _ => None,
+            };
+            if let Some((rails, rust)) = divergence {
+                assert_eq!(case["merged"],rails,"Rails request merge changed");
+                assert_eq!(case["permitted"],rails[ROOT]);
+                assert_eq!(parsed.value(),&rust,"plan_body_precedence: {}",case["name"]);
+                assert_eq!(parsed.permitted(Kind::Basket),Ok(rust[ROOT].clone()));
+            } else {
+                assert_eq!(parsed.value(), &case["merged"], "{}", case["name"]);
+                let permitted = parsed.permitted(Kind::Basket);
+                if let Some(expected) = case.get("permitted") { assert_eq!(permitted, Ok(expected.clone()), "{}", case["name"]); }
+                else { assert!(permitted.is_err(), "{case}"); }
+            }
+        }
+        for (root, keys, kind) in [("bots_dca_multi_asset",action_params::BASKET_SCALARS,Kind::Basket),("bots_dca_index",action_params::INDEX_SCALARS,Kind::Index)] {
+            assert_eq!(json!(keys), vectors["action_transport"]["allowlists"][root]);
+            let fields: serde_json::Map<String,Value> = keys.iter().map(|k| (k.to_string(), json!("value"))).collect();
+            let params = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
+                query: vec![], form: vec![], json: Some(json!({root:fields})) };
+            let parsed = match ActionParams::parse(&params) { Ok(p) => p, Err(e) => panic!("{e:?}") };
+            assert_eq!(parsed.permitted(kind), Ok(json!(fields)));
+        }
+        // The recorder invokes update_params, proving typed presence/in? differs from form strings.
+        let case = |name: &str| cases.iter().find(|c| c["name"] == name).unwrap_or_else(|| panic!("missing {name}"));
+        assert_eq!(case("typed_scalars")["updated"]["settings"]["smart_intervaled"], false);
+        assert_eq!(case("string_scalars")["updated"]["settings"]["smart_intervaled"], true);
+    }
+
+    const ROOT: &str = "bots_dca_multi_asset";
+    const VALID: &str = "bots_dca_multi_asset[quote_amount]=12.5";
+
+    #[tokio::test]
+    async fn native_patch_form() {
+        let h = Harness::new(); let (status, got) = h.form("PATCH", VALID).await;
+        assert_eq!(status, 200); assert_eq!(got["form"], json!([[format!("{ROOT}[quote_amount]"), "12.5"]]));
+        assert_eq!(h.form("PATCH", "a=1&a[b]=2").await.0, 400);
+    }
+    #[tokio::test]
+    async fn post_patch_override() {
+        let h = Harness::new(); let (_, got) = h.form("POST", &format!("{VALID}&_method=patch")).await;
+        assert_eq!(got["method"], "PATCH"); assert!(got["form"].as_array().is_some_and(|v| v.len() == 2));
+        assert_eq!(h.form("POST", "_method=patch&a=1&a[b]=2").await.0, 400);
+    }
+    #[tokio::test]
+    async fn native_method_not_overridden() {
+        let h = Harness::new(); let (_, got) = h.form("PATCH", &format!("{VALID}&_method=delete")).await;
+        assert_eq!(got["method"], "PATCH"); assert!(got["form"].as_array().is_some_and(|v| v.len() == 2));
+        assert_eq!(h.form("PATCH", "_method=delete&a=1&a[b]=2").await.0, 400);
+    }
+    #[tokio::test]
+    async fn native_patch_json() {
+        let h = Harness::new(); let value = json!({ROOT: {"quote_amount":12.5,"smart_intervaled":true,"allocations":{"2":20,"1":80}}});
+        let (status, got) = h.send("PATCH", "/bots/1", "application/json", Body::from(value.to_string())).await;
+        assert_eq!(status, 200); assert_eq!(got["json"], value);
+        assert_eq!(got["permitted"]["smart_intervaled"], true);
+        for (flag, expected) in [(json!(true),Ok(true)),(json!(false),Ok(false)),(json!(1),Ok(true)),(json!(0),Ok(false)),(json!({}),Err(action_params::StartFlagError::Invalid)),(json!([]),Err(action_params::StartFlagError::Invalid)),(Value::Null,Err(action_params::StartFlagError::Invalid)),(json!(1.0),Err(action_params::StartFlagError::Invalid))] {
+            let params = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
+                query: vec![("start_fresh".into(),"true".into())], form: vec![], json: Some(json!({"start_fresh":flag})) };
+            let parsed = match ActionParams::parse(&params) { Ok(p) => p, Err(e) => panic!("{e:?}") };
+            assert_eq!(parsed.start_fresh(),expected);
+        }
+        assert_eq!(h.send("PATCH", "/bots/1", "application/json", Body::from("{")).await.0, 400);
+    }
+    #[tokio::test]
+    async fn query_body_precedence() {
+        let h = Harness::new(); let (status, got) = h.send("PATCH", "/bots/1?bots_dca_multi_asset[label]=query&bots_dca_multi_asset[interval]=day", "application/x-www-form-urlencoded", Body::from("bots_dca_multi_asset[label]=body")).await;
+        assert_eq!(status, 200); assert_eq!(got["form"], json!([["bots_dca_multi_asset[label]","body"]]));
+        assert_eq!(got["query"].as_array().map(Vec::len), Some(2));
+        assert_eq!(got["permitted"], json!({"label":"body","interval":"day"}));
+        assert_eq!(h.send("PATCH", "/bots/1?a=1&a[b]=2", "application/x-www-form-urlencoded", Body::from(VALID)).await.0, 400);
+    }
+    #[tokio::test]
+    async fn checkbox_duplicate() {
+        let h = Harness::new();
+        for (a,b) in [("0","1"),("1","0")] {
+            let (_, got) = h.form("PATCH", &format!("{ROOT}[smart_intervaled]={a}&{ROOT}[smart_intervaled]={b}")).await;
+            assert_eq!(got["form"], json!([[format!("{ROOT}[smart_intervaled]"),a],[format!("{ROOT}[smart_intervaled]"),b]]));
+            assert_eq!(got["permitted"]["smart_intervaled"], b);
+        }
+        assert_eq!(h.form("PATCH", "a[]=0&a[b]=1").await.0, 400);
+    }
+    #[tokio::test]
+    async fn allocation_order() {
+        let h = Harness::new(); let (_, got) = h.form("PATCH", &format!("{ROOT}[allocations][2]=20&{ROOT}[allocations][1]=80&{ROOT}[allocations][2]=30")).await;
+        assert_eq!(got["form"].as_array().map(Vec::len), Some(3));
+        assert_eq!(got["permitted"]["allocations"], json!({"2":"30","1":"80"}));
+        assert_eq!(got["permitted"]["allocations"].as_object().map(|v| v.keys().map(String::as_str).collect::<Vec<_>>()), Some(vec!["2","1"]));
+        assert_eq!(h.form("PATCH", &format!("{ROOT}[allocations]=x&{ROOT}[allocations][2]=20")).await.0, 400);
+    }
+    #[tokio::test]
+    async fn missing_root() {
+        let h = Harness::new(); assert_eq!(h.form("PATCH", VALID).await.0, 200);
+        for body in ["", "bots_dca_index[quote_amount]=1", "bots_dca_multi_asset=", "bots_dca_multi_asset[]="] {
+            assert_eq!(h.form("PATCH", body).await.0, 400, "{body}");
+        }
+    }
+    #[tokio::test]
+    async fn strong_scalar_shape() {
+        let h = Harness::new();
+        let value = json!({ROOT:{"label":["bad"],"quote_amount":{"x":1},"allocations":{"2":20}}});
+        let (status, got) = h.send("PATCH", "/bots/1", "application/json", Body::from(value.to_string())).await;
+        assert_eq!(status, 200); assert_eq!(got["permitted"], json!({"allocations":{"2":20}}));
+        rails_vectors();
+        assert_eq!(h.form("PATCH", "a[]=1&a[b]=2").await.0, 400);
+    }
+    #[tokio::test]
+    async fn malformed_nested_shape() {
+        let h = Harness::new(); assert_eq!(h.form("PATCH", VALID).await.0, 200);
+        for body in ["a=1&a[b]=2", "a[]=1&a[b]=2", "a[b]=1&a[]=2"] { assert_eq!(h.form("PATCH", body).await.0, 400, "{body}"); }
+        for body in ["{", "[]", "true"] { assert_eq!(h.send("PATCH", "/bots/1", "application/json", Body::from(body)).await.0, 400); }
+    }
+    #[tokio::test]
+    async fn body_size() {
+        let h = Harness::new(); let prefix = format!("{ROOT}[label]=");
+        for (size,status) in [(web::FORM_LIMIT,200),(web::FORM_LIMIT+1,413)] {
+            assert_eq!(h.form("PATCH", &(prefix.clone()+&"x".repeat(size-prefix.len()))).await.0, status);
+        }
+    }
+    #[tokio::test]
+    async fn field_count() {
+        let h = Harness::new();
+        for (n,status) in [(1000,200),(1001,400)] {
+            let body = (0..n).map(|i| format!("{ROOT}[x{i}]=1")).collect::<Vec<_>>().join("&");
+            assert_eq!(h.form("PATCH", &body).await.0, status);
+            let fields: serde_json::Map<String,Value> = (0..n).map(|i| (format!("x{i}"), json!(1))).collect();
+            assert_eq!(h.send("PATCH", "/bots/1", "application/json", Body::from(json!({ROOT:fields}).to_string())).await.0, status);
+        }
+    }
+    #[tokio::test]
+    async fn depth() {
+        let h = Harness::new(); assert_eq!(h.form("PATCH", &format!("{ROOT}[allocations][1]=100")).await.0, 200);
+        assert_eq!(h.form("PATCH", &format!("{ROOT}{}=1", "[a]".repeat(100))).await.0, 400);
+        assert_eq!(h.send("PATCH", "/bots/1", "application/json", Body::from(format!("{}0{}", "{\"a\":".repeat(100), "}".repeat(100)))).await.0, 400);
+    }
+    #[tokio::test]
+    async fn body_deadline() {
+        let h = Harness::new();
+        for (method,path) in [("PATCH","/bots/1"),("DELETE","/bots/1/delete")] {
+            let body = Body::from_stream(futures_util::stream::pending::<Result<axum::body::Bytes,std::io::Error>>());
+            assert_eq!(h.send(method,path,"application/x-www-form-urlencoded",body).await.0, 408);
+        }
+        assert_eq!(h.form("PATCH", VALID).await.0, 200);
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = match tokio::net::TcpListener::bind("127.0.0.1:0").await { Ok(v) => v, Err(e) => panic!("bind: {e}") };
+        let address = match listener.local_addr() { Ok(v) => v, Err(e) => panic!("address: {e}") };
+        let before = h.snapshot().await;
+        let limits = web::server::Limits { body_read_timeout: Duration::from_millis(20), ..Default::default() };
+        let server = tokio::spawn(web::server::serve_on(listener,h.app.clone(),limits));
+        let result = tokio::time::timeout(Duration::from_secs(3), async {
+            for (method,path) in [("PATCH","/bots/1"),("DELETE","/bots/1/delete")] {
+                let mut stream = tokio::net::TcpStream::connect(address).await?;
+                stream.write_all(format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\nx").as_bytes()).await?;
+                let mut response = String::new(); stream.read_to_string(&mut response).await?;
+                assert!(response.starts_with("HTTP/1.1 408"),"{response}");
+                assert!(response.to_ascii_lowercase().contains("connection: close"));
+            }
+            Ok::<_,std::io::Error>(())
+        }).await;
+        server.abort(); let _ = server.await;
+        assert!(matches!(result,Ok(Ok(()))),"server must close stalled requests: {result:?}");
+        assert_eq!(before,h.snapshot().await);
+    }
+    #[tokio::test]
+    async fn format_before_write() {
+        let h = Harness::new();
+        for (method,path) in [("PATCH","/bots/1"),("PATCH","/bots/1/start"),("PATCH","/bots/1/stop"),("POST","/bots/1/archive")] {
+            for accept in ["text/html", "text/html, text/vnd.turbo-stream.html;q=0.000"] {
+                assert_eq!(h.send_accept(method,path,"application/x-www-form-urlencoded",Body::from(VALID),accept).await.0, 406);
+            }
+            assert_eq!(h.send_accept(method,path,"application/x-www-form-urlencoded",Body::from(VALID),"text/html, text/vnd.turbo-stream.html;q=0.9").await.0, 200);
+        }
+        for path in ["/bots/1/delete", "/bots/1/archive"] {
+            assert_eq!(h.send_accept("DELETE",path,"application/x-www-form-urlencoded",Body::empty(),"text/html").await.0, 200);
+        }
+        assert_eq!(h.send_accept("PATCH","/bots/1.turbo_stream","application/x-www-form-urlencoded",Body::from(VALID),"text/html").await.0, 200);
+        assert_eq!(h.form("PATCH", VALID).await.0, 200);
+        for (method,path) in [("PATCH","/bots/1"),("PUT","/bots/1/start"),("PATCH","/bots/1/stop"),("POST","/bots/1/archive")] {
+            let body = format!("{VALID}&authenticity_token=TOKEN");
+            assert_eq!(h.live(method,path,"application/x-www-form-urlencoded",&body,&[("accept","text/html")]).await,406);
+            assert_eq!(h.live(method,path,"application/x-www-form-urlencoded",&body,&[("accept","text/vnd.turbo-stream.html")]).await,501);
+        }
+        for path in ["/bots/1/delete","/bots/1/archive"] {
+            assert_eq!(h.live("DELETE",path,"application/x-www-form-urlencoded","authenticity_token=TOKEN",&[("accept","text/html")]).await,501);
+        }
+    }
+    #[tokio::test]
+    async fn localized_paths() {
+        let h = Harness::new(); let (_, got) = h.send("POST", "/de/bots/1.turbo_stream?locale=pl", "application/x-www-form-urlencoded", Body::from(format!("{VALID}&_method=patch"))).await;
+        assert_eq!(got["locale"], "de"); assert_eq!(got["method"], "PATCH");
+        assert_eq!(h.send("PATCH", "/de/bots/1.turbo_stream", "application/json", Body::from("{")).await.0, 400);
+        assert_eq!(h.live("POST","/de/bots/1.turbo_stream?locale=pl","application/x-www-form-urlencoded",&format!("{VALID}&_method=patch&authenticity_token=TOKEN"),&[("accept","text/html")]).await,501);
+        for token in [json!("TOKEN"),json!(["TOKEN"]),json!({"x":"TOKEN"}),json!(true),Value::Null] {
+            let expected = if token.is_string() {501} else {302};
+            let body = json!({ROOT:{"quote_amount":12.5},"authenticity_token":token}).to_string();
+            assert_eq!(h.live("PATCH","/de/bots/1.turbo_stream","application/json",&body,&[]).await,expected);
+        }
+        assert_eq!(h.live("PATCH","/de/bots/1","application/json",&json!({ROOT:{"quote_amount":12.5},"authenticity_token":"TOKEN"}).to_string(),&[("origin","https://foreign.example")]).await,302);
+        // JSON remains unparsed on login and on wrong bot action verbs/paths.
+        for (method,path) in [("POST","/login"),("GET","/bots/1"),("POST","/bots/1/start"),("PATCH","/bots/1/chart"),("PATCH","/bots/new")] {
+            let token = web::csrf::masked(&h.token);
+            let status = h.live(method,path,"application/json","{",&[("x-csrf-token",&token)]).await;
+            assert_ne!(status,400,"{method} {path} is not a JSON action");
+        }
+        for (method,path) in [("PATCH","/bots/1"),("PUT","/bots/1"),("PATCH","/bots/1/start"),("PUT","/bots/1/stop"),("POST","/bots/1/archive"),("DELETE","/bots/1/archive"),("DELETE","/bots/1/delete")] {
+            assert_eq!(h.live(method,path,"application/json","{",&[]).await,400,"{method} {path}");
+        }
+    }
+}
