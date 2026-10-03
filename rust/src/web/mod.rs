@@ -14,6 +14,7 @@ pub mod consent;
 pub mod colors;
 pub mod csrf;
 pub mod flash;
+pub mod figure;
 pub mod format;
 pub mod headers;
 pub mod i18n;
