@@ -136,3 +136,62 @@ fn the_rails_sources_of_the_page_figures_are_pinned() {
         assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())),hash.as_str().unwrap(),"{file}: record the page parity grid after checking its port");
     }
 }
+
+struct Reply(Result<HttpResponse, TransportError>);
+impl Transport for Reply {
+    async fn send(&self, _: &HttpRequest) -> Result<HttpResponse, TransportError> { self.0.clone() }
+}
+
+#[tokio::test]
+async fn candle_failures_mark_the_reader_failed_without_pending_demands() {
+    use deltabadger::figures::at::At;
+    for reply in [
+        Ok(HttpResponse { status: 503, body: "secret echo".into() }),
+        Err(TransportError::NotSent("connect timeout secret echo".into())),
+        Err(TransportError::MaybeSent("read timeout secret echo".into())),
+        Err(TransportError::Permanent("secret echo".into())),
+        Ok(HttpResponse { status: 200, body: "unreadable secret echo".into() }),
+    ] {
+        for crypto in [false, true] {
+            let mut cache = Cache::default();
+            let reader = Reader::new(&cache, 120);
+            assert!(reader.candles(&venue(), &ticker(crypto), At(0), 60, true).is_err());
+            cache.fill(&Reply(reply.clone()), reader.demands(), 120).await;
+            let reader = Reader::new(&cache, 120);
+            let error = reader.candles(&venue(), &ticker(crypto), At(0), 60, true).unwrap_err();
+            assert!(reader.failed(), "candle failure escaped publication guard: {error:?}");
+            assert!(reader.demands().is_empty());
+            assert!(!format!("{error:?}").contains("secret echo"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn closed_candle_prices_must_be_present_and_readable_but_may_be_zero() {
+    use deltabadger::figures::at::At;
+    for price in [None, Some(json!(null)), Some(json!("NaN")), Some(json!("Infinity")),
+                  Some(json!("12garbage")), Some(json!("")), Some(json!(true)), Some(json!({})),
+                  Some(json!(0)), Some(json!("12.5"))] {
+        for crypto in [false, true] {
+            let mut bar = json!({"t":"1970-01-01T00:00:00Z"});
+            if let Some(price) = &price { bar["o"] = price.clone(); }
+            let body = if crypto { json!({"bars":{"BTC/USD":[bar]}}) } else { json!({"bars":[bar]}) };
+            let mut cache = Cache::default();
+            let reader = Reader::new(&cache, 120);
+            let _ = reader.candles(&venue(), &ticker(crypto), At(0), 60, true);
+            cache.fill(&Reply(Ok(HttpResponse { status: 200, body: body.to_string() })), reader.demands(), 120).await;
+            let reader = Reader::new(&cache, 120);
+            let result = reader.candles(&venue(), &ticker(crypto), At(0), 60, true);
+            if price == Some(json!(0)) || price == Some(json!("12.5")) {
+                let bars = result.unwrap();
+                assert_eq!(bars.len(), 1);
+                assert_eq!(bars[0].1.to_s_f(), if price == Some(json!(0)) { "0.0" } else { "12.5" });
+                assert!(!reader.failed());
+            } else {
+                assert!(result.is_err(), "unreadable candle became a price: {price:?}");
+                assert!(reader.failed(), "unreadable candle escaped publication guard: {price:?}");
+            }
+            assert!(reader.demands().is_empty());
+        }
+    }
+}

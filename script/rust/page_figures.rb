@@ -9,7 +9,7 @@ module PageFigures
   module_function
 
   NAMES = %w[no_orders basket_buys row_readings smart_slices index_rotation liquidations tax_lots old_rows sold_out crypto_basket split
-             price_untraded].freeze
+             split_fresh split_unsized price_untraded].freeze
   def run(root)
     Rails.logger.level = :warn
     Rails.cache = ActiveSupport::Cache::MemoryStore.new
@@ -25,7 +25,7 @@ module PageFigures
     raise 'missing scenario' unless list.size == NAMES.size
 
     list << list.find { |s| s['name'] == 'basket_buys' }.merge('name' => 'hidden', 'hide_balances' => true)
-    %w[locked locked_sold locked_gb locked_sold_gb stranded_offset no_composition].each do |name|
+    %w[locked locked_sold locked_gb locked_sold_gb locked_blank locked_whitespace locked_unicode stranded_offset no_composition].each do |name|
       source = name.start_with?('locked_sold') ? 'sold_out' : 'basket_buys'
       list << list.find { |s| s['name'] == source }.merge('name' => name)
     end
@@ -49,6 +49,7 @@ module PageFigures
       user.update_columns(wash_sale_enabled: false)
       if sc['name'].start_with?('locked')
         jurisdiction = sc['name'].end_with?('_gb') ? 'GB' : 'US'
+        jurisdiction = { 'locked_blank' => '', 'locked_whitespace' => " \t\n", 'locked_unicode' => "\u00a0\u3000" }.fetch(sc['name'], jurisdiction)
         user.update_columns(wash_sale_enabled: true, wash_sale_jurisdiction: jurisdiction)
         user.wash_sale_locks.create!(asset_id: assets['AAA'], buy_locked_until: Figures.time(sc['at']) + 10.days, source: 'ledger')
       end

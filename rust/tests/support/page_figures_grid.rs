@@ -106,6 +106,33 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let refused=loading::Snapshot::Ready(refused,at,revision);
                 let refused=app.db(move|c| Ok(loading::render(c,user,&refused,"en","token",""))).await.unwrap().unwrap();
                 assert_eq!(refused,failed,"failed demand published a ledger figure or account total");
+                // Keep successful prices, but replace every candle response with a failure or unreadable bar.
+                for body in [serde_json::json!({"status":503,"body":{}}),
+                             serde_json::json!({"body":"not JSON"}),
+                             serde_json::json!({"body":{"bars":[{"t":"2026-03-02T00:00:00Z","o":null}]}})] {
+                    let mut script = sc["script"].clone();
+                    for (key, reply) in script.as_object_mut().unwrap() {
+                        if key.contains("/bars") { *reply = body.clone(); }
+                    }
+                    let wire = Wire { script, calls: RefCell::default() };
+                    let names = loading::symbols(&c,user).unwrap();
+                    let mut cache = Cache::default();
+                    for _ in 0..4 {
+                        let reader = Reader::new(&cache, at.utc().timestamp()).with_symbols(names.clone());
+                        let _ = deltabadger::web::figure::account(&c,user,&reader,at,"en","token","");
+                        let demands = reader.demands();
+                        if demands.is_empty() { break; }
+                        cache.fill(&wire,demands,at.utc().timestamp()).await;
+                    }
+                    assert!(wire.calls.borrow().iter().any(|key| key.contains("/bars")));
+                    let reader = Reader::new(&cache, at.utc().timestamp()).with_symbols(names);
+                    let _ = deltabadger::web::figure::account(&c,user,&reader,at,"en","token","");
+                    assert!(reader.demands().is_empty(), "publication must fail on cached candles, not pending reads");
+                    assert!(reader.failed(), "cached candle failure escaped publication guard");
+                    let snapshot = loading::Snapshot::Ready(cache,at,revision);
+                    let rendered = app.db(move|c| Ok(loading::render(c,user,&snapshot,"en","token",""))).await.unwrap().unwrap();
+                    assert_eq!(rendered,failed,"failed candles published a chart or account sparkline");
+                }
                 // Index tickers use the venue's entire symbol union. Synchronization inserts
                 // another listing after prepare; all dependent targets must lose their numbers.
                 app.db(|c| {
@@ -139,6 +166,28 @@ async fn figures_fragments_match_the_rails_page_partials() {
         }
         let reader = Reader::new(&cache, now.utc().timestamp());
         let actual = deltabadger::web::figure::account(&c, sc["user_id"].as_i64().unwrap(), &reader, now, "en", "token", "").unwrap();
+        if ["split_fresh", "split_unsized"].contains(&name) {
+            for parts in actual["bots"].as_object().unwrap().values() {
+                for part in ["tile", "metrics", "chart"] {
+                    let html = parts[part].as_str().unwrap();
+                    assert!(html.contains("no-value"), "{name}: stale {part} published");
+                    assert!(!html.contains("data-bot--chart-series"));
+                    assert!(!html.contains("rbutton--success"));
+                }
+            }
+            let metrics = scraper::Html::parse_fragment(actual["bots"]["1"]["metrics"].as_str().unwrap());
+            let rows = metrics.select(&scraper::Selector::parse("tr[data-symbol]").unwrap()).collect::<Vec<_>>();
+            assert!(!rows.is_empty(), "{name}: known quantities disappeared");
+            for row in rows {
+                assert_eq!(row.select(&scraper::Selector::parse(".no-value").unwrap()).count(), 2, "{name}: stale holding value or P/L published");
+            }
+            assert!(actual["account"].as_str().unwrap().contains("no-value"), "{name}: stale account published");
+            assert!(!actual["account"].as_str().unwrap().contains("<svg"), "{name}: stale sparkline published");
+            continue; // Deliberate unavailable state; Rails retains stale ledger figures here.
+        }
+        if name.starts_with("locked_") {
+            assert!(expected["bots"]["1"]["metrics"].as_str().unwrap().contains("wash_sale_table"), "{name}: Rails did not record a lock");
+        }
         if name == "price_untraded" {
             let document=scraper::Html::parse_fragment(actual["bots"]["1"]["metrics"].as_str().unwrap());
             let row=document.select(&scraper::Selector::parse("tr[data-symbol=BBB]").unwrap()).next().unwrap();

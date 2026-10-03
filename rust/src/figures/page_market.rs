@@ -38,6 +38,10 @@ fn seconds(request: &HttpRequest) -> i64 {
 fn bar_time(bar: &Value) -> Option<i64> {
     bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.timestamp())
 }
+fn bar_price(bar: &Value) -> Fetch<Dec> {
+    let price = bar.get("o").filter(|p| !p.is_null()).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+    Ok(Dec::to_d(price)?)
+}
 async fn fetch(wire: &impl Transport, request: &HttpRequest) -> Fetch<Value> {
     match wire.send_limited(request, MAX_BYTES).await {
         Ok(reply) if (200..300).contains(&reply.status) => crate::venue::http::decode_json(&reply.body)
@@ -55,15 +59,19 @@ fn closed(body: Value, request: &HttpRequest, now: i64) -> Fetch<Vec<Value>> {
     let mut out = vec![];
     for bar in bars {
         let time = bar_time(bar).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
-        if time.saturating_add(seconds(request)) <= now { out.push(bar.clone()); }
+        if time.saturating_add(seconds(request)) <= now {
+            // Validate even overlapping bars before a merge can discard them.
+            bar_price(bar)?;
+            out.push(bar.clone());
+        }
     }
     Ok(out)
 }
 fn rewritten(old: &Value, tail: &[Value], adjusted: bool) -> Fetch<bool> {
     let Some(overlap) = tail.iter().find(|bar| bar_time(bar) == bar_time(old)) else { return Ok(adjusted) };
     // Decimals are local to this call and never survive an await or move to another thread.
-    let before = Dec::to_d(&old["o"])?;
-    let after = Dec::to_d(&overlap["o"])?;
+    let before = bar_price(old)?;
+    let after = bar_price(overlap)?;
     if before.is_zero() || after.is_zero() { return Ok(false); }
     let ratio = (&after - &before)?.div(&before)?;
     Ok(ratio > Dec::to_d(&serde_json::json!("0.001"))? || ratio < Dec::to_d(&serde_json::json!("-0.001"))?)
@@ -164,26 +172,30 @@ impl MarketData for Reader<'_> {
         match failed { Some(error) => { self.failed.set(true); Err(error) }, None => Ok(prices) }
     }
     fn candles(&self, venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
-        if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
-        let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
-        let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };
-        let crypto = ticker.base_category.as_deref() == Some("Cryptocurrency");
-        let (path, query) = if crypto {
-            ("/v1beta3/crypto/us/bars".to_string(), vec![("start", start), ("symbols", ticker.ticker.clone()), ("timeframe", name.into())])
-        } else {
-            let code: String = form_urlencoded::byte_serialize(ticker.base.as_bytes()).collect();
-            let mut query = vec![];
-            if restated { query.push(("adjustment", "split".into())); }
-            query.extend([("limit", "10000".into()), ("start", start), ("timeframe", name.into())]);
-            (format!("/v2/stocks/{code}/bars"), query)
-        };
-        let body = self.get(request(&path, query))?;
-        let bars = body.as_array().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
-        bars.iter().map(|bar| {
-            let at = bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).and_then(|t| At::from_utc(t.to_utc()))
-                .ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
-            Ok((at, Dec::to_d(&bar["o"])?))
-        }).collect()
+        let result = (|| {
+            if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
+            let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+            let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };
+            let crypto = ticker.base_category.as_deref() == Some("Cryptocurrency");
+            let (path, query) = if crypto {
+                ("/v1beta3/crypto/us/bars".to_string(), vec![("start", start), ("symbols", ticker.ticker.clone()), ("timeframe", name.into())])
+            } else {
+                let code: String = form_urlencoded::byte_serialize(ticker.base.as_bytes()).collect();
+                let mut query = vec![];
+                if restated { query.push(("adjustment", "split".into())); }
+                query.extend([("limit", "10000".into()), ("start", start), ("timeframe", name.into())]);
+                (format!("/v2/stocks/{code}/bars"), query)
+            };
+            let body = self.get(request(&path, query))?;
+            let bars = body.as_array().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+            bars.iter().map(|bar| {
+                let at = bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).and_then(|t| At::from_utc(t.to_utc()))
+                    .ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+                Ok((at, bar_price(bar)?))
+            }).collect()
+        })();
+        if result.is_err() { self.failed.set(true); }
+        result
     }
     fn exchange_rates(&self) -> Fetch<Vec<(String, Member<Num>)>> { Err(Failure::Failed("Currency conversion unavailable".into())) }
     fn coin_price(&self, _: &str, _: &str) -> Fetch<Quoted> { Err(Failure::Failed("Currency conversion unavailable".into())) }

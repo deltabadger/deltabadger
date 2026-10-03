@@ -94,7 +94,9 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     }
     let (enabled, jurisdiction): (Option<bool>,Option<String>) = c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[s.bot.user_id],|r| Ok((r.get(0)?,r.get(1)?)))?;
     let mut locked_keys = HashSet::new();
-    if enabled == Some(true) && jurisdiction.as_deref().is_none_or(|j| ["US","GB","IE"].contains(&j)) {
+    // User#wash_sale_jurisdiction uses presence, then the first wash-sale option (US).
+    let jurisdiction = jurisdiction.as_deref().filter(|j| !j.trim().is_empty()).unwrap_or("US");
+    if enabled == Some(true) && ["US","GB","IE"].contains(&jurisdiction) {
         let locks = c.prepare("SELECT l.asset_id,a.symbol,l.buy_locked_until,l.source FROM wash_sale_locks l JOIN assets a ON a.id=l.asset_id WHERE l.user_id=?1 AND l.asset_id IN (SELECT asset_id FROM bot_index_assets WHERE bot_id=?2) ORDER BY l.id")?
             .query_map([s.bot.user_id,s.bot.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
         let live: Vec<_> = locks.into_iter().filter_map(|(id,symbol,until,source)| {
@@ -127,7 +129,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     if m.prices_stale { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
     if !hidden {
         out.push_str(&format!("<div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
-        for (label, value) in [("total_invested", Some(&m.total_quote_amount_invested)), ("portfolio_value", missing.is_empty().then_some(&m.total_amount_value_in_quote))] {
+        for (label, value) in [("total_invested", Some(&m.total_quote_amount_invested)), ("portfolio_value", (!m.prices_stale && missing.is_empty()).then_some(&m.total_amount_value_in_quote))] {
             let value = value.map(|n| money(n).map(|v| quoted(v, quote))).transpose()?.unwrap_or(NO_VALUE.into());
             out.push_str(&format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label\">{}</div>\n<div class=\"data-grid__item__value\">\n{value}\n</div>\n</div>\n", t(locale, &format!("bot.details.stats.{label}"))));
         }

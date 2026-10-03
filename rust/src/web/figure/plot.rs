@@ -22,7 +22,7 @@ fn toggles(locale: &str) -> String {
 pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, zone: &str) -> Result<String, FiguresError> {
     let charted:bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1)",[s.bot.id],|r|r.get(0))?;
     if !charted { return Ok("<div id=\"chart\" hidden=\"hidden\">\n</div>\n".into()); }
-    if !missing.is_empty() || !m.chart_omitted.is_empty() {
+    if m.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() {
         return Ok(format!("<div id=\"chart\" class=\"widget widget--chart\">\n{NO_VALUE}\n</div>\n"));
     }
     let Some(page) = chart::page(c,s,m,hidden)? else {

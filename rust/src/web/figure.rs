@@ -48,6 +48,11 @@ fn tile(s: &Subject, m: &Metrics, unavailable: bool, hidden: bool) -> Result<Str
 }
 fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Result<Vec<String>, FiguresError> {
     if m.asset_breakdown.is_empty() { return Ok(vec![]); }
+    // Quarantined or unresolved splits leave ledger prices in the core result. Keep known
+    // quantities and costs, but withhold every price-dependent value as for a missing price.
+    if m.prices_stale {
+        return Ok(m.asset_breakdown.iter().filter(|(_, holding)| holding.amount.is_positive()).map(|(key, _)| key.clone()).collect());
+    }
     let symbols = s.tickers.iter().map(|t| t.ticker.clone()).collect::<Vec<_>>();
     let prices = market.prices(&live::venue(s)?, &symbols);
     let mut keys = vec![];
@@ -72,10 +77,10 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
             let marked_live = live::live(c, &subject, &walked, market, now)?;
             let missing = missing(&subject, &marked_live, market)?;
             let marked = chart::marked(c, &subject, &marked_live, market, now)?;
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
+            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
             computed.push((subject, marked_live, marked, missing));
         }
-        let unavailable = computed.iter().any(|(s,_,m,missing)| !missing.is_empty() || !m.chart_omitted.is_empty() || s.quote.as_deref() != Some("USD"));
+        let unavailable = computed.iter().any(|(s,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() || s.quote.as_deref() != Some("USD"));
         let parts = |marked: bool| computed.iter().map(|(s,live,chart,_)| totals::Part { bot_id:s.bot.id, quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(if marked { chart } else { live })) }).collect::<Vec<_>>();
         let pnl = totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false))?;
         let history = totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true))?;
