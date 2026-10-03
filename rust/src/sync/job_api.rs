@@ -12,8 +12,9 @@
 //! `supervisor::serve(.., services)` (its S-6a), the engine's `Shutdown::subscribe` (its N1) and `eligibility::guard`
 //! (its S-7.3), which `sync::write` calls. Everything in this file (S-2, S-5, S-10) exists only in that plan's text.
 //!
-//! Additions, for building one without the scheduler: `Db::new` (2f builds its `Db` inside `Scheduler::new`), and
-//! the derives the tests compare with. Left out: `CHUNK`, `Scheduler`, `Wakers`, `DataApi` and `ApiError::rate_limited`,
+//! Additions, for building one without the scheduler: `Db::new` (2f builds its `Db` inside `Scheduler::new`), the
+//! longest write hold of this `Db`'s sync units (`note_write_hold`, `longest_write_hold`), and the derives the tests
+//! compare with. Left out: `CHUNK`, `Scheduler`, `Wakers`, `DataApi` and `ApiError::rate_limited`,
 //! which no job here names.
 use crate::crypto::Cipher;
 use crate::engine::Clock;
@@ -21,6 +22,7 @@ use rusqlite::Connection;
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -39,10 +41,17 @@ pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock }
 
 /// The scheduler's own connection and the instance's cipher, used on tokio's blocking pool.
 #[derive(Clone)]
-pub struct Db { connection: Arc<Mutex<Connection>>, cipher: Arc<Cipher> }
+pub struct Db { connection: Arc<Mutex<Connection>>, cipher: Arc<Cipher>, longest_hold_us: Arc<AtomicU64> }
 
 impl Db {
-    pub fn new(connection: Connection, cipher: Arc<Cipher>) -> Self { Self { connection: Arc::new(Mutex::new(connection)), cipher } }
+    pub fn new(connection: Connection, cipher: Arc<Cipher>) -> Self {
+        Self { connection: Arc::new(Mutex::new(connection)), cipher, longest_hold_us: Arc::new(AtomicU64::new(0)) }
+    }
+    /// The longest any sync write transaction on this `Db` (and its clones) has held SQLite's write lock, from the lock
+    /// being taken to the commit returning: `sync::commit_bots` notes each one. Scoped to the `Db`, so one install's
+    /// measurement never includes another's units.
+    pub fn longest_write_hold(&self) -> Duration { Duration::from_micros(self.longest_hold_us.load(Ordering::Relaxed)) }
+    pub fn note_write_hold(&self, held: Duration) { self.longest_hold_us.fetch_max(u64::try_from(held.as_micros()).unwrap_or(u64::MAX), Ordering::Relaxed); }
     /// Runs `f` on the blocking pool (as the web's App::db). Every SQLite statement and every large JSON walk of a job goes
     /// through here, never on the runtime thread. One call is one bounded unit (a read, or one chunk's transaction).
     pub async fn run<R: Send + 'static>(&self, f: impl FnOnce(&Connection, &Cipher) -> Result<R, String> + Send + 'static) -> Result<R, String> {

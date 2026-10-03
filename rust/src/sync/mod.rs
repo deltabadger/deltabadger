@@ -29,7 +29,6 @@ use crate::codec::{format_time, parse_time};
 use crate::crypto::{Cipher, Credentials};
 use crate::venue::alpaca::Body;
 use crate::venue::VenueError;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use job_api::Db;
@@ -63,11 +62,6 @@ pub const GUARD_REFUSED: &str = "the engine's guard refused this write";
 /// engine, on the runtime thread, runs in it.
 pub const WRITE_GAP: Duration = Duration::from_millis(110);
 
-/// The longest any sync write transaction of this process has held SQLite's write lock, in microseconds: measured
-/// from the lock being taken to the commit returning (tests assert it over a large history).
-static LONGEST_WRITE_HOLD_US: AtomicU64 = AtomicU64::new(0);
-pub fn longest_write_hold() -> Duration { Duration::from_micros(LONGEST_WRITE_HOLD_US.load(Ordering::Relaxed)) }
-
 /// One write transaction, the only place a sync commits: the write lock is taken up front, the statements run, and it
 /// commits. `f` says whether it wrote `bots` (a split's `restatement_generation`: the one write of a sync that can
 /// change a bot's eligibility); if it did, `eligibility::guard` has its say first, as for every writer of `bots`
@@ -75,6 +69,11 @@ pub fn longest_write_hold() -> Duration { Duration::from_micros(LONGEST_WRITE_HO
 /// `check`'s words, never a secret). Every other unit writes only tables eligibility does not read, and does not pay
 /// for the guard (20 to 45 ms a call on a mid-sized install).
 pub fn write<T>(c: &Connection, cipher: &Cipher, f: impl FnOnce(&Connection) -> Result<(T, bool), SyncError>) -> Result<T, SyncError> {
+    write_timed(c, cipher, f).map(|(out, _)| out)
+}
+
+/// `write`, and how long its transaction held the write lock (from the lock being taken to the commit returning).
+fn write_timed<T>(c: &Connection, cipher: &Cipher, f: impl FnOnce(&Connection) -> Result<(T, bool), SyncError>) -> Result<(T, Duration), SyncError> {
     let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?;
     let held = Instant::now();
     let (out, wrote_bots) = f(&tx)?;
@@ -83,8 +82,7 @@ pub fn write<T>(c: &Connection, cipher: &Cipher, f: impl FnOnce(&Connection) -> 
         crate::engine::eligibility::guard(&tx, cipher, 0).map_err(|refusal| SyncError(format!("{GUARD_REFUSED}: {}", refusal.reason())))?;
     }
     tx.commit()?;
-    LONGEST_WRITE_HOLD_US.fetch_max(held.elapsed().as_micros() as u64, Ordering::Relaxed);
-    Ok(out)
+    Ok((out, held.elapsed()))
 }
 
 /// One write phase of a sync that writes no bot: `write`, on the blocking pool, then `WRITE_GAP` with nothing held.
@@ -94,7 +92,8 @@ pub async fn commit<T: Send + 'static>(db: &Db, work: impl FnOnce(&Connection) -
 
 /// One write phase that may write `bots`: `work` says whether it did, and then the engine's guard is asked.
 pub async fn commit_bots<T: Send + 'static>(db: &Db, work: impl FnOnce(&Connection) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
-    let out = db.run(move |c, cipher| write(c, cipher, work).map_err(|e| e.0)).await.map_err(SyncError)?;
+    let (out, held) = db.run(move |c, cipher| write_timed(c, cipher, work).map_err(|e| e.0)).await.map_err(SyncError)?;
+    db.note_write_hold(held);
     tokio::time::sleep(WRITE_GAP).await;
     Ok(out)
 }
