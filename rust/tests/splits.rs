@@ -144,3 +144,35 @@ fn long_split_walks_refuse_both_numeric_growth_and_cumulative_work() {
     assert!((900..=1000).contains(&used.steps),"cumulative split charges, before work: {used:?}");
     assert!(budget::scope(budget::Limits{steps:1000,held:1000},||basket::walk_with(&o.primary,&bot,&events[..20])).0.is_ok());
 }
+
+#[test]
+fn an_archived_account_history_exhausts_one_budget_and_visibly_stands_down() {
+    use deltabadger::{figures::budget, engine::{tick, FixedClock}, venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport}};
+    use futures_util::FutureExt;
+    use serde_json::json;
+    let (_d, o, s) = common::install_alpaca();
+    let (asset, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    let spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(asset,1.0)]);
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    let archived = seed::insert_bot(&o.primary, &s, &spec);
+    o.primary.execute("UPDATE bots SET status=7 WHERE id=?1", [archived]).unwrap();
+    let mut tx = seed::TxSpec {status:0,external_status:Some(2),external_id:Some("old-fill".into()),order_type:0,amount:Some("10"),quote_amount:Some("1000"),price:Some("100"),amount_exec:Some("10"),quote_amount_exec:Some("1000"),created_at:"2026-09-01 14:00:01".into()};
+    seed::insert_stock_tx(&o.primary,&s,id,asset,"AAPL",&tx);
+    let row = seed::insert_split(&o.primary,&s,"AAPL","2026-09-02 00:00:00",Some("2:1"));
+    o.primary.execute("UPDATE account_transactions SET base_amount=10,raw_data=?1 WHERE id=?2",params![json!({"corporate_action":"split","qty":"-10","split_ratio":"2:1","merged_activity_ids":["a","b"]}).to_string(),row]).unwrap();
+    o.primary.execute_batch("BEGIN").unwrap();
+    for i in 0..5000 { tx.external_id = Some(format!("archived-{i}")); seed::insert_stock_tx(&o.primary,&s,archived,asset,"AAPL",&tx); }
+    o.primary.execute_batch("COMMIT").unwrap();
+    let now = "2026-09-08T14:00:00.5Z".parse().unwrap();
+    seed::fresh_stock_jobs(&o.primary,now);
+    let t = ScriptedTransport::from_script(&json!({"GET /v2/clock":[{"status":200,"body":{"timestamp":"2026-09-08T14:00:00Z","is_open":true,"next_open":"2026-09-09T13:30:00Z","next_close":"2026-09-08T20:00:00Z"}}]}));
+    let v = AlpacaVenue::new(t.clone(),Urls::for_passphrase(Some("paper")));
+    let (out, used) = budget::scope(budget::Limits {steps:20000,held:64000000}, || {
+        tick::tick(&o.primary,&v,id,&FixedClock(now),&mut tick::Attempts::default()).now_or_never().expect("scripted replies are ready")
+    });
+    assert!(matches!(out.unwrap(), tick::TickOutcome::Done {placed:false}));
+    let bot = model::load_bot(&o.primary,id).unwrap();
+    assert!(bot.transient["rust_split_hold"]["reason"].as_str().unwrap().contains("budget"), "{:?}",bot.transient);
+    assert!(used.steps <= 20000);
+    assert!(t.posted_orders().is_empty());
+}

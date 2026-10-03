@@ -357,3 +357,18 @@ fn encrypted_provider_configuration_and_environment_precedence_match_rails() {
     app_config::set(&o.primary,&seed::cipher(),"market_data_token","",at(T0)).unwrap();
     assert!(provider::config(&o.primary).unwrap().is_none(),"a blank db token does not fall back to environment");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
+    let (_d, o, _s, id, _) = universe(3, 0.0, false);
+    let old = at(T0) - Duration::days(7);
+    for job in [deltabadger::jobs::reference::ALPACA_CRYPTO, deltabadger::jobs::reference::ASSETS] {
+        deltabadger::app_config::set_plain(&o.primary,
+            &deltabadger::jobs::state::key(job, None),
+            &json!({"last_success_at":old.to_rfc3339(),"rails_at":old.to_rfc3339()}).to_string(), old).unwrap();
+    }
+    let t = script([100.0; 5]);
+    let out = tick_until_settled(&o, &t, id, at(T0)).await;
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(posted_symbols(&t), ["AAA", "BBB", "CCC"]);
+}

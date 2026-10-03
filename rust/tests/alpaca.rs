@@ -66,8 +66,9 @@ async fn one_side_per_call_and_a_zero_or_missing_price_is_rails_error() {
     let r = &t.requests()[0];
     assert_eq!((r.base.as_str(), r.query.clone()), (DATA_URL, vec![("symbols", "BTC/USD".to_string())]));
     for body in [json!({ "quotes": { "BTC/USD": { "ap": 0 } } }), json!({ "quotes": {} }), json!({})] {
-        let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(body) }));
-        assert_eq!(v.price(&btc_usd(), PriceSide::Ask).await, Err(VenueError::Rejected(vec!["Wrong ask price for BTC: 0.0".into()])));
+        let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(body.clone()) }));
+        let message = if body["quotes"]["BTC/USD"]["ap"] == 0 { "Wrong ask price for BTC: 0.0" } else { r#"invalid value for BigDecimal(): """# };
+        assert_eq!(v.price(&btc_usd(), PriceSide::Ask).await, Err(VenueError::Rejected(vec![message.into()])));
     }
     let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/trades": status(401, json!("<html><body>401 Authorization Required</body></html>")) }));
     assert_eq!(v.price(&btc_usd(), PriceSide::Last).await, Err(VenueError::Rejected(vec!["HTTP 401".into()])));
@@ -255,11 +256,11 @@ async fn a_stock_is_priced_by_its_base_in_the_path_with_no_feed() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_zero_or_missing_stock_quote_is_rails_wrong_price_error() {
+async fn a_zero_or_missing_stock_quote_is_rails_error() {
     let (_t, v) = venue(json!({ "GET /v2/stocks/AAPL/quotes/latest": ok(json!({ "quote": { "ap": 0, "bp": 0 } })),
                                 "GET /v2/stocks/AAPL/trades/latest": ok(json!({ "trade": null })) }));
     assert_eq!(v.price(&aapl(), PriceSide::Ask).await, Err(VenueError::Rejected(vec!["Wrong ask price for AAPL: 0.0".into()])));
-    assert_eq!(v.price(&aapl(), PriceSide::Last).await, Err(VenueError::Rejected(vec!["Wrong last price for AAPL: 0.0".into()])));
+    assert_eq!(v.price(&aapl(), PriceSide::Last).await, Err(VenueError::Rejected(vec![r#"invalid value for BigDecimal(): """#.into()])));
 }
 
 #[tokio::test(flavor = "current_thread")]

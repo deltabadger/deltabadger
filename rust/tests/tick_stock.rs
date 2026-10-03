@@ -230,3 +230,78 @@ async fn a_parked_bot_is_not_ticked_before_next_open_and_buys_at_it() {
 }
 
 use deltabadger::enums::BotStatus;
+
+#[tokio::test(flavor = "current_thread")]
+async fn clock_reschedule_survives_restart_until_the_rails_checkpoint() {
+    let (dir, o, id, _, _) = setup(weekly());
+    let failed = script(json!({ "GET /v2/clock": [{ "network": "post_send", "message": "Faraday::TimeoutError: Net::ReadTimeout" }] }));
+    assert!(matches!(tick_until_settled(&o, &failed, id, at(T0)).await, TickOutcome::Rescheduled));
+    assert_eq!(clock_reads(&failed), 4);
+    drop(o);
+    let paths = store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, at("2026-09-01T15:00:00Z")).unwrap();
+    let o = store::open(&paths).unwrap();
+    let t = script(json!({}));
+    let mut e = Engine::new(o.primary, Scripted(t.clone()), seed::cipher(), lock);
+    run::step(&mut e, &FixedClock(at("2026-09-01T15:00:00Z"))).await.unwrap();
+    assert!(t.posted_orders().is_empty(), "a recovered clock must still wait for Rails' next checkpoint");
+    seed::fresh_stock_jobs(&e.primary, at("2026-09-08T14:00:00Z"));
+    run::step(&mut e, &FixedClock(at("2026-09-08T14:00:00Z"))).await.unwrap();
+    assert!(t.posted_orders().is_empty(), "checkpoints are strictly after their instant");
+    run::step(&mut e, &FixedClock(at("2026-09-08T14:00:00.5Z"))).await.unwrap();
+    assert_eq!(t.posted_orders().len(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_weekend_stock_wait_is_discarded_when_restarted_as_crypto() {
+    let (dir, o, id, s, _) = setup(weekly());
+    let now = at("2026-09-05T14:00:00Z");
+    seed::fresh_stock_jobs(&o.primary, now);
+    let lock = deltabadger::lease::lock(&store::Paths::from_env(&|_| None, dir.path()), now).unwrap();
+    let t = script(json!({
+        "GET /v2/clock": ok(clock_body(false, "2026-09-08T09:30:00-04:00", "2026-09-08T16:00:00-04:00")),
+        "GET /v1beta3/crypto/us/latest/quotes": ok(json!({"quotes":{"BTC/USD":{"ap":60000,"bp":60000}}}))
+    }));
+    let mut e = Engine::new(o.primary, Scripted(t.clone()), seed::cipher(), lock);
+    run::step(&mut e, &FixedClock(now)).await.unwrap();
+    assert_eq!(clock_reads(&t), 1);
+    assert!(t.posted_orders().is_empty());
+    e.primary.execute("UPDATE bots SET status=2, stopped_at='2026-09-05 14:01:00' WHERE id=?1", [id]).unwrap();
+    run::step(&mut e, &FixedClock(now + Duration::minutes(1))).await.unwrap();
+    e.primary.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)), status=1, started_at='2026-09-05 14:02:00' WHERE id=?2",
+        rusqlite::params![json!({s.btc.to_string():1.0}).to_string(),id]).unwrap();
+    run::step(&mut e, &FixedClock(now + Duration::minutes(2) + Duration::milliseconds(500))).await.unwrap();
+    assert_eq!(t.posted_orders().len(), 1, "Rails buys crypto over the weekend");
+    assert_eq!(t.posted_orders()[0]["symbol"], "BTC/USD");
+    assert_eq!(clock_reads(&t), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_parked_wait_is_invalidated_by_each_lifecycle_or_composition_change() {
+    for change in ["stop", "start", "composition", "crypto"] {
+        let (dir, o, id, s, _) = setup(weekly());
+        let now = at(T0);
+        seed::fresh_stock_jobs(&o.primary, now);
+        let lock = deltabadger::lease::lock(&store::Paths::from_env(&|_| None, dir.path()), now).unwrap();
+        let t = script(json!({
+            "GET /v2/clock": [closed_clock()[0].clone(), open_clock()[0].clone()],
+            "GET /v1beta3/crypto/us/latest/quotes": ok(json!({"quotes":{"BTC/USD":{"ap":60000,"bp":60000}}}))
+        }));
+        let mut e = Engine::new(o.primary, Scripted(t.clone()), seed::cipher(), lock);
+        run::step(&mut e, &FixedClock(now)).await.unwrap();
+        assert_eq!(clock_reads(&t), 1);
+        match change {
+            // Both actions between passes: the loop never sees status=stopped.
+            "stop" => { e.primary.execute("UPDATE bots SET stopped_at='2026-09-01 14:01:00' WHERE id=?1", [id]).unwrap(); }
+            "start" => { e.primary.execute("UPDATE bots SET started_at='2026-09-01 14:01:00' WHERE id=?1", [id]).unwrap(); }
+            "composition" => { e.primary.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)) WHERE id=?2",
+                rusqlite::params![json!({s.btc.to_string():0.5, model::load_bot(&e.primary,id).unwrap().asset_ids()[0].to_string():0.5}).to_string(),id]).unwrap(); }
+            "crypto" => { e.primary.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1)) WHERE id=?2",
+                rusqlite::params![json!({s.btc.to_string():1.0}).to_string(),id]).unwrap(); }
+            _ => unreachable!(),
+        }
+        run::step(&mut e, &FixedClock(now + Duration::minutes(2))).await.unwrap();
+        assert!(!t.posted_orders().is_empty(), "{change}: the old wait is discarded");
+        assert_eq!(clock_reads(&t), if change == "crypto" {1} else {2}, "{change}");
+    }
+}

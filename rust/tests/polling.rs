@@ -128,7 +128,7 @@ async fn imported_rows_are_never_polled_and_a_follow_up_ignores_unknown() {
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions", [], |r| r.get(0)).unwrap();
     assert_eq!(ext, 0, "not abandoned either");
     let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-6"));
-    let v = FakeVenue::new().order("OTX-6", json!({ "status": "pending", "vol": "60", "oflags": "viqc", "descr": { "ordertype": "market" } }));
+    let v = FakeVenue::new().order("OTX-6", json!({ "status": "pending", "vol": "60", "price": "0", "vol_exec": "0", "cost": "0", "oflags": "viqc", "descr": { "ordertype": "market" } }));
     polling::follow_up(&o.primary, &v, b, tx, now()).await.unwrap(); // `unknown` is skipped; nothing changes
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE external_id = 'OTX-6'", [], |r| r.get(0)).unwrap();
     assert_eq!(ext, 0);

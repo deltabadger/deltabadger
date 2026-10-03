@@ -88,29 +88,14 @@ fn row_refusal(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<S
 /// Account positions must be compared to account holdings, never to one bot's share alone.
 /// Shared/manual or unsupported histories fail closed if the account cannot be reconciled.
 pub async fn refusal<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, now: DateTime<Utc>) -> Result<Option<String>, EngineError> {
-    if let Some(reason) = row_refusal(c, bot, now)? { return Ok(Some(reason)); }
-    if untrusted(c, bot, now)? { return Ok(Some("split unresolved or within the two-day price quarantine".into())); }
-    let own = basket::walk(c, bot, now)?;
-    if own.restated_at_us.is_none() { return Ok(None); }
-    let s = splits(c, bot, now)?;
-    let assets: std::collections::BTreeSet<i64> = s.events.iter().map(|e| e.asset_id).collect();
-    let mut expected: HashMap<String, BigDec> = HashMap::new();
-    let mut stmt = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 ORDER BY id")?;
-    let ids = stmt.query_map(params![bot.user_id,bot.exchange_id], |r| r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
-    for id in ids {
-        let other = model::load_bot(c,id)?;
-        if other.rust_placement().is_some() { return Ok(Some("an account order is still being reconciled".into())); }
-        let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1))", [id], |r| r.get(0))?;
-        if waiting { return Ok(Some("an account order can still fill; waiting for settled quantities".into())); }
-        if row_refusal(c,&other,now)?.is_some() || untrusted(c,&other,now)? { return Ok(Some("another account holding has an unresolved split".into())); }
-        let walk = match basket::walk(c,&other,now) { Ok(w) => w, Err(_) => return Ok(Some("account history cannot be reconciled".into())) };
-        for asset in &assets {
-            let Some(t) = model::ticker_for_asset(c,bot,*asset)? else { return Ok(Some("split symbol is no longer uniquely listed".into())); };
-            let held = walk.amounts.get(asset).cloned().unwrap_or_else(BigDec::zero);
-            let total = expected.entry(t.base_code).or_insert_with(BigDec::zero);
-            *total = &*total + &held;
-        }
-    }
+    // All synchronous history reads, grouping and walks share one cumulative scope. End it before venue I/O.
+    let expected = match figures::budget::within(|| expected_positions(c, bot, now)) {
+        Ok(Ok(expected)) => expected,
+        Ok(Err(reason)) => return Ok(Some(reason)),
+        Err(EngineError::Data(reason)) => return Ok(Some(format!("account history cannot be reconciled within its budget: {reason}"))),
+        Err(err) => return Err(err),
+    };
+    if expected.is_empty() { return Ok(None); }
     let actual = match venue.positions().await { Ok(p) => p, Err(_) => return Ok(Some("venue positions unavailable or unreadable; retry after a complete refresh".into())) };
     for (symbol, held) in expected {
         let actual = actual.get(&symbol).cloned().unwrap_or_else(BigDec::zero);
@@ -119,4 +104,33 @@ pub async fn refusal<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bo
         }
     }
     Ok(None)
+}
+
+fn expected_positions(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Result<HashMap<String, BigDec>, String>, EngineError> {
+    if let Some(reason) = row_refusal(c, bot, now)? { return Ok(Err(reason)); }
+    if untrusted(c, bot, now)? { return Ok(Err("split unresolved or within the two-day price quarantine".into())); }
+    let own = basket::walk(c, bot, now)?;
+    if own.restated_at_us.is_none() { return Ok(Ok(HashMap::new())); }
+    let s = splits(c, bot, now)?;
+    let assets: std::collections::BTreeSet<i64> = s.events.iter().map(|e| e.asset_id).collect();
+    let mut expected: HashMap<String, BigDec> = HashMap::new();
+    let mut stmt = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 ORDER BY id")?;
+    let mut ids = stmt.query(params![bot.user_id,bot.exchange_id])?;
+    while let Some(row) = ids.next()? {
+        figures::budget::charge(1, 0).map_err(data)?;
+        let id = row.get(0)?;
+        let other = model::load_bot(c,id)?;
+        if other.rust_placement().is_some() { return Ok(Err("an account order is still being reconciled".into())); }
+        let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1))", [id], |r| r.get(0))?;
+        if waiting { return Ok(Err("an account order can still fill; waiting for settled quantities".into())); }
+        if row_refusal(c,&other,now)?.is_some() || untrusted(c,&other,now)? { return Ok(Err("another account holding has an unresolved split".into())); }
+        let walk = basket::walk(c,&other,now)?;
+        for asset in &assets {
+            let Some(t) = model::ticker_for_asset(c,bot,*asset)? else { return Ok(Err("split symbol is no longer uniquely listed".into())); };
+            let held = walk.amounts.get(asset).cloned().unwrap_or_else(BigDec::zero);
+            let total = expected.entry(t.base_code).or_insert_with(BigDec::zero);
+            *total = &*total + &held;
+        }
+    }
+    Ok(Ok(expected))
 }

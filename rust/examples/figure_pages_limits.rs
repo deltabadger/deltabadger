@@ -14,7 +14,7 @@ const SCHEMA: &str = "
     CREATE TABLE transactions (id integer PRIMARY KEY, bot_id integer, status integer, created_at datetime(6), exchange_id integer, price decimal, amount decimal,
                                amount_exec decimal, quote_amount_exec decimal, base varchar, base_asset_id integer, side integer, external_status integer,
                                transaction_type varchar);
-    CREATE TABLE account_transactions (user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6));
+    CREATE TABLE account_transactions (id integer PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6));
     INSERT INTO users(id,time_zone,display_currency,hide_balances) VALUES (1, 'UTC', 'USD', 0);
     INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca');
     INSERT INTO assets(id,symbol,name,category,external_id) VALUES (1, 'USD', 'USD', 'Fiat', 'usd'), (2, 'AAA', 'AAA Inc.', 'Stock', 'stock-aaa'), (3, 'BBB', 'BBB Inc.', 'Stock', 'stock-bbb');

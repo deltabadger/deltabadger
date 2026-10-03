@@ -247,13 +247,18 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(vec![]); }
     let index = bot.bot_type == "Bots::DcaIndex";
     let mut sources = vec![];
-    if !model::all_crypto(c, bot)? { sources.push(&ALPACA_STOCK_TICKERS); }
-    let crypto: bool = if index {
-        c.query_row("SELECT EXISTS (SELECT 1 FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 AND a.category='Cryptocurrency')", rusqlite::params![bot.exchange_id, bot.quote_asset_id()], |r| r.get(0))?
+    let (stocks, crypto): (bool, bool) = if index {
+        let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
+        c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
+                     FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 \
+                     AND t.ticker IN (SELECT value FROM json_each(?3)) AND t.available=1 AND t.trading_enabled=1",
+            rusqlite::params![bot.exchange_id, bot.quote_asset_id(), pairs], |r| Ok((r.get(0)?, r.get(1)?)))?
     } else {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
-        c.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE category='Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))", [ids], |r| r.get(0))?
+        c.query_row("SELECT coalesce(max(category != 'Cryptocurrency'),0), coalesce(max(category = 'Cryptocurrency'),0) \
+                     FROM assets WHERE id IN (SELECT value FROM json_each(?1))", [ids], |r| Ok((r.get(0)?, r.get(1)?)))?
     };
+    if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
     if index { sources.push(&INDICES); if crypto { sources.push(&CRYPTO_ASSETS); } }
     Ok(sources)

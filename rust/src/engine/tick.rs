@@ -308,10 +308,7 @@ async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dy
             if model::transition_working(c, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped }
         }
         Err(fail) => {
-            let outcome = handle_failure(c, bot_id, fail, clock, attempts, venue.rules())?;
-            // Every rescheduled run waits for the next checkpoint, across a restart too.
-            if matches!(outcome, TickOutcome::Rescheduled) { placement::defer_to_next_checkpoint(c, &model::load_bot(c, bot_id)?, clock.now())?; }
-            outcome
+            handle_failure(c, bot_id, fail, clock, attempts, venue.rules())?
         }
     };
     Ok(outcome)
@@ -521,6 +518,15 @@ fn notified_in_last_day(c: &Connection, bot: &model::Bot, clock: &dyn Clock) -> 
 }
 
 fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts, rules: &VenueRules) -> Result<TickOutcome, EngineError> {
+    let outcome = handle_failure_inner(c, bot_id, fail, clock, attempts, rules)?;
+    // Clock failures and execution failures share the same durable checkpoint wait.
+    if matches!(outcome, TickOutcome::Rescheduled) {
+        placement::defer_to_next_checkpoint(c, &model::load_bot(c, bot_id)?, clock.now())?;
+    }
+    Ok(outcome)
+}
+
+fn handle_failure_inner(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts, rules: &VenueRules) -> Result<TickOutcome, EngineError> {
     let now = clock.now();
     if !model::transition_working(c, bot_id, BotStatus::Retrying, now)? { return Ok(TickOutcome::Skipped); }
     match fail {

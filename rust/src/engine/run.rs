@@ -30,7 +30,7 @@ pub struct Engine<F: VenueFactory> {
     started: bool,
     attempts: HashMap<i64, Attempts>,
     retry_at: HashMap<i64, i64>,
-    closed_until: HashMap<i64, i64>,
+    closed_until: HashMap<i64, (i64, serde_json::Value)>,
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
     polls: HashMap<i64, (i64, i64, Attempts)>,
     reconcile_at: HashMap<i64, i64>,
@@ -167,6 +167,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     // ponytail: a stop and a start that both land inside one pass keep the counters; key them by stopped_at if that matters.
     e.attempts.retain(|id, _| report.eligible.contains(id));
     e.retry_at.retain(|id, _| report.eligible.contains(id));
+    e.closed_until.retain(|id, _| report.eligible.contains(id));
 
     if !e.started {
         // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
@@ -289,10 +290,20 @@ fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), Eng
     Ok(())
 }
 
+// A stop/start between loop passes also invalidates a wait, as does a changed index definition.
+fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value, EngineError> {
+    let stopped: Option<String> = c.query_row("SELECT stopped_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
+    let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
+        [bot.index_category_id()], |r| r.get(0))?;
+    Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
+        "started":bot.started_at_us, "stopped":stopped, "changed":bot.settings_changed_at_us}))
+}
+
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let now_us = clock.now().timestamp_micros();
     let mut bot = model::load_bot(&e.primary, id)?;
     if bot.transient.get("rust_continue_start").is_some() {
+        e.closed_until.remove(&id);
         match continue_start(&e.primary, id, clock.now()) {
             Ok(()) => bot = model::load_bot(&e.primary, id)?,
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
@@ -304,6 +315,11 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
     let venue = e.venue_for(&bot)?;
+    if let Some((until, key)) = e.closed_until.get(&id) {
+        if *until <= now_us || model::all_crypto(&e.primary, &bot)? || *key != market_wait_key(&e.primary, &bot)? {
+            e.closed_until.remove(&id);
+        }
+    }
 
     let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
     let eff = effective(interval, quote, bot.smart_quote_amount());
@@ -318,13 +334,13 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             None
         }
     };
-    let deferred = defer.flatten().filter(|&t| t > now_us);
+    let deferred = defer.flatten().filter(|&t| t >= now_us);
     let on_schedule = || -> Result<bool, EngineError> {
         Ok(anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000))) // stored value is ms-truncated
     };
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
-    } else if e.closed_until.get(&id).is_some_and(|&t| t > now_us) || deferred.is_some() {
+    } else if e.closed_until.get(&id).is_some_and(|(t, _)| *t > now_us) || deferred.is_some() {
         false
     } else if defer.flatten().is_some_and(|t| t < now_us) {
         true // the wait has ended (strictly after it, as a checkpoint is): a continue start Rails runs at once (placement::run_now)
@@ -380,7 +396,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
         match outcome {
             TickOutcome::MarketClosed { until } => {
-                e.closed_until.insert(id, until.timestamp_micros());
+                e.closed_until.insert(id, (until.timestamp_micros(), market_wait_key(&e.primary, &model::load_bot(&e.primary, id)?)?));
                 e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id);
             }
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, clock.now().timestamp_micros() + d.as_micros() as i64); }
@@ -396,7 +412,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     // Only entries that still apply count: a stale one (bot stopped and restarted) would spin the loop.
     if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
-    for at in [e.retry_at.get(&id), e.reconcile_at.get(&id), e.closed_until.get(&id).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
+    for at in [e.retry_at.get(&id), e.reconcile_at.get(&id), e.closed_until.get(&id).map(|(t, _)| t).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
     if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
     let next = checkpoints(anchor, clock.now().timestamp_micros(), eff).next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
