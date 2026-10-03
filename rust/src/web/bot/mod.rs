@@ -1,6 +1,7 @@
 //! A bot as the bot list and the bot page read it: the row, what Rails' model derives from it
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
 //! Read-only: nothing here writes.
+pub mod orders;
 pub mod page;
 pub mod settings;
 pub mod start;

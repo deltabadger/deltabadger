@@ -1,5 +1,5 @@
 //! `bots#show` and `bots/charts#show`: the page of one bot, and the frame its chart arrives in.
-use super::{exchange_svg, refusal, settings, status, Bot, Kind};
+use super::{exchange_svg, orders, refusal, settings, status, Bot, Kind};
 use crate::enums::BotStatus;
 use crate::web::auth::{self, User};
 use crate::web::bots::{json, market_data, Segmented, SegmentedOption};
@@ -9,7 +9,7 @@ use crate::web::{flash, header_text, i18n, App, WebError};
 use askama::Template;
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rusqlite::{Connection, OptionalExtension};
 
@@ -192,14 +192,22 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     let feed = turbo_stream_format(extension, &headers) && ctx.turbo_frame.as_deref() == Some("orders_pagination");
     // Whose bot it is comes first: neither a redirect nor a refusal renders a form, so neither gives the session a token.
     let (inner, owner, id_part) = (app.clone(), user.clone(), id_part.to_string());
-    let (bot, configured) = match app.db(move |c| find(c, &inner, &owner, &id_part, false, super::For::Page)).await {
+    let asked = if feed { super::For::Feed } else { super::For::Page };
+    let (bot, configured) = match app.db(move |c| find(c, &inner, &owner, &id_part, false, asked)).await {
         Ok((Found::Bot(bot), configured)) => (*bot, configured),
         Ok((Found::Missing, _)) => return Ok(not_found(&ctx)),
         Ok((Found::NotPorted(reason), _)) => return Ok(layout::refused(&ctx, reason)),
         Err(error) => return layout::or_refused(&ctx, error),
     };
-    // The rows of the feed are the next task.
-    if feed { return Ok(layout::refused(&ctx, "the orders feed")); }
+    if feed {
+        let (view, owner) = (ctx.clone(), user.clone());
+        let body = match app.db(move |c| orders::feed(c, &view, &bot, &owner)).await {
+            Ok(Ok(body)) => body,
+            Ok(Err(reason)) => return Ok(layout::refused(&ctx, reason)),
+            Err(error) => return layout::or_refused(&ctx, error),
+        };
+        return Ok((StatusCode::OK, [(axum::http::header::CONTENT_TYPE, crate::web::turbo::CONTENT_TYPE)], body).into_response());
+    }
     let csrf = ctx.csrf_token();
     let (inner, view, token, owner) = (app.clone(), ctx.clone(), csrf.clone(), user.clone());
     let page = app.db(move |c| {

@@ -1684,3 +1684,187 @@ async fn the_exchange_menu_of_a_large_catalogue_is_counted_by_the_database() {
     assert_eq!(page.body.matches("name=\"bots_dca_multi_asset[exchange_id]\"").count(), 7, "bots {basket} and {other}");
     assert!(took < Duration::from_secs(5), "a page over 150,000 listings took {took:?}");
 }
+
+/// The orders feed prints what the venue and the engine wrote: an order's symbols and its error, an
+/// event's message and its details. None of it is markup.
+#[tokio::test(flavor = "current_thread")]
+async fn no_text_from_the_database_is_markup_in_the_orders_feed() {
+    use serde_json::json;
+    let (_dir, opened, app, mut browser, [lone, _pair]) = hostile_install();
+    let c = &opened.primary;
+    let (exchange, base, quote): (i64, i64, i64) = c.query_row("SELECT exchange_id, base_asset_id, quote_asset_id FROM transactions LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    // A filled order and a resting one beside the failed one of the fixture, and an event of every kind that prints a detail.
+    for (external_status, at) in [(2, "2026-09-08 11:00:00"), (1, "2026-09-08 12:00:00")] {
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, transaction_type, base, quote, base_asset_id, quote_asset_id, price, amount, amount_exec, \
+                   quote_amount, quote_amount_exec, bot_interval, bot_quote_amount, error_messages, created_at, updated_at) \
+                   VALUES (?1, ?2, 0, ?3, 0, 'REGULAR', ?4, ?4, ?5, ?6, '100', '0.6', '0.6', '60', '60', 'week', 60, '[]', ?7, ?7)", (lone, exchange, external_status, HOSTILE, base, quote, at)).unwrap();
+    }
+    let details = json!({ "error": HOSTILE, "reason": HOSTILE, "bases": HOSTILE, "base": HOSTILE, "until": HOSTILE, "order_id": HOSTILE, "ratio": HOSTILE, "limit_type": HOSTILE,
+                          "source_label": HOSTILE, "source_labels": [HOSTILE, HOSTILE], "stop_message_key": HOSTILE, "next_market_open_at": HOSTILE, "count": 2 }).to_string();
+    for (second, event) in ["market_closed", "merged", "split", "limit_paused", "execution_failed", "stopped", "liquidation_failed", HOSTILE].into_iter().enumerate() {
+        c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, ?2, 0, ?3, ?4)", (lone, event, &details, format!("2026-09-09 10:00:0{second}"))).unwrap();
+    }
+    c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, message, details, created_at) VALUES (?1, 'started', 0, ?2, '{}', '2026-09-09 11:00:00')", (lone, HOSTILE)).unwrap();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let frame = [("turbo-frame", "orders_pagination")];
+    let first = browser.send(&app, "GET", &format!("/bots/{lone}.turbo_stream"), None, web::Csrf::None, &frame).await;
+    assert_eq!(first.status, 200, "{}", first.body);
+    assert_escaped("the first ten rows", &first.body);
+    // The frame's next address carries the cursor, and with it the rest of the twelve rows.
+    let next = first.body.split("src=\"").nth(1).and_then(|rest| rest.split('"').next()).expect("more rows than one page").replace("&amp;", "&");
+    let second = browser.send(&app, "GET", &next, None, web::Csrf::None, &frame).await;
+    assert_eq!(second.status, 200, "{next}: {}", second.body);
+    assert_escaped("the rest", &second.body);
+    assert!(escaped(&first.body) + escaped(&second.body) >= 14, "every row prints the text: {} and {}", escaped(&first.body), escaped(&second.body));
+}
+
+/// A number in a row that this build does not read refuses the pages that would print or add it
+/// (501), and nothing else: not the other bot's page, not the server. Rails reads such a row and
+/// writes the number out; here its length is what an allocation would be sized by, inside the one
+/// database call every request shares. Each is written past the models, by SQL.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_only_those() {
+    let (_dir, opened, seeded, app, mut browser, [working, stopped]) = two_plain_bots().await;
+    let c = &opened.primary;
+    let frame = [("turbo-frame", "orders_pagination")];
+    let paths = [format!("/bots/{working}"), format!("/bots/{stopped}"), "/bots".to_string(), format!("/bots/{working}/chart"), format!("/bots/{stopped}/chart")];
+    let statuses = async |browser: &mut Browser| {
+        let mut statuses = vec![];
+        for path in &paths { statuses.push(browser.get(&app, path).await.status); }
+        for bot in [working, stopped] { statuses.push(browser.send(&app, "GET", &format!("/bots/{bot}.turbo_stream"), None, web::Csrf::None, &frame).await.status); }
+        statuses
+    };
+    assert_eq!(statuses(&mut browser).await, [200; 7], "as the install stands, everything is served");
+    let order = |bot: i64, external_status: i64, column: &str, value: &dyn rusqlite::ToSql| {
+        c.execute(&format!("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, transaction_type, base, quote, base_asset_id, quote_asset_id, {column}, bot_interval, \
+                            bot_quote_amount, error_messages, created_at, updated_at) VALUES (?1, ?2, 0, ?3, 0, 'REGULAR', 'BTC', 'USD', ?4, ?5, ?6, 'week', 60, '[]', '2026-09-08 10:00:00', '2026-09-08 10:00:00')"),
+                  rusqlite::params![bot, seeded.exchange_id, external_status, seeded.btc, seeded.quote, value]).unwrap();
+    };
+    // What the stopped bot spent under its cap: its page and the list add it up, its feed prints it, its chart reads no amount.
+    // A closed order (2) at what it cost, and a cancelled (3) and an abandoned one (4) at what they filled before: Rails adds the
+    // last two as SQLite's own numbers, and each is read as a stored number first, whatever SQLite holds it as: a text it could
+    // not read as a number, or the infinity it makes of a literal too large for a Float.
+    let infinity = f64::INFINITY;
+    let unread: [(&str, &dyn rusqlite::ToSql); 3] = [("a text with an underscore", &"1_0e1000000000"), ("a text beyond a Float", &"1e1000000000"), ("the Float infinity", &infinity)];
+    for external_status in [2, 3, 4] {
+        for (what, value) in unread {
+            order(stopped, external_status, "quote_amount_exec", value);
+            assert_eq!(statuses(&mut browser).await, [200, 501, 501, 200, 200, 200, 501], "{what}, external status {external_status}");
+            // Beside an order that filled what a decimal says: the sum is not attempted either.
+            order(stopped, 2, "quote_amount_exec", &"10.5");
+            assert_eq!(statuses(&mut browser).await, [200, 501, 501, 200, 200, 200, 501], "{what}, external status {external_status}, beside a fill");
+            c.execute("DELETE FROM transactions", []).unwrap();
+        }
+    }
+    // A cancelled order that filled a number SQLite holds as an Integer or a Float is added as that, and the page is served.
+    for filled in [&7_i64 as &dyn rusqlite::ToSql, &7.25_f64] {
+        order(stopped, 3, "quote_amount_exec", filled);
+        assert_eq!(statuses(&mut browser).await, [200; 7]);
+        c.execute("DELETE FROM transactions", []).unwrap();
+    }
+    // A price of the working bot's order, as the Float SQLite makes of a literal too large for one: only its feed prints it.
+    order(working, 2, "price", &f64::INFINITY);
+    assert_eq!(statuses(&mut browser).await, [200, 200, 200, 200, 200, 501, 200]);
+    c.execute("DELETE FROM transactions", []).unwrap();
+    // The venue's ticker, which both bots read: every page of both, and nothing is rounded or sized by it.
+    for (column, value, was) in [("minimum_quote_size", "1_0e1000000000", "1"), ("base_decimals", "41", "9"), ("quote_decimals", "255", "2")] {
+        c.execute(&format!("UPDATE tickers SET {column} = ?1"), [value]).unwrap();
+        assert_eq!(statuses(&mut browser).await, [501; 7], "{column} = {value}");
+        c.execute(&format!("UPDATE tickers SET {column} = ?1"), [was]).unwrap();
+    }
+    assert_eq!(statuses(&mut browser).await, [200; 7], "and with the rows as they were, everything is served again");
+    assert_eq!(browser.get(&app, "/up").await.status, 200);
+}
+
+/// A page of the feed costs what its ten rows cost, however long the bot's history is. The refusal
+/// that runs before every page finds an order of another type through an index and leaves a sell
+/// to the page of rows that holds one; the bot is loaded without the facts about its orders that
+/// walk the history. Measured as a ratio, on one machine at one time: thirty pages of a history of
+/// 300,000 orders against thirty pages of a history of 400. A walk of the history for every page
+/// makes the long one many times slower; the bound is four times and a fifth of a second.
+#[tokio::test(flavor = "current_thread")]
+async fn a_page_of_the_feed_costs_the_same_however_long_the_history_is() {
+    let (_dir, opened, seeded, app, mut browser, [long, _]) = two_plain_bots().await;
+    let c = &opened.primary;
+    let short = common::seed::insert_bot(c, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("UPDATE bots SET label = 'Bitcoin ' || id", []).unwrap();
+    // Buys only, a minute apart, all closed: the history in which no order answers the refusal's questions early.
+    for (bot, orders) in [(long, 300_000), (short, 400)] {
+        c.execute("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?3) \
+                   INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, transaction_type, base, quote, base_asset_id, quote_asset_id, price, amount, amount_exec, \
+                   quote_amount, quote_amount_exec, bot_interval, bot_quote_amount, error_messages, created_at, updated_at) \
+                   SELECT ?1, ?2, 0, 2, 0, 'REGULAR', 'BTC', 'USD', ?4, ?5, '100', '0.6', '0.6', '60', '60', 'week', 60, '[]', datetime('2025-01-01', '+' || i || ' minutes'), '2026-01-01 00:00:00' FROM n",
+                  (bot, seeded.exchange_id, orders, seeded.btc, seeded.quote)).unwrap();
+    }
+    let frame = [("turbo-frame", "orders_pagination")];
+    // Thirty pages from the newest order on, each asked for at the address the page before it gave.
+    let mut walk = async |bot: i64| {
+        let (mut next, mut rows, started) = (format!("/bots/{bot}.turbo_stream"), 0, Instant::now());
+        for _ in 0..30 {
+            let page = browser.send(&app, "GET", &next, None, web::Csrf::None, &frame).await;
+            assert_eq!(page.status, 200, "{next}: {}", page.body);
+            rows += page.body.matches("<tr id=\"transaction_").count();
+            next = page.body.split("src=\"").nth(1).and_then(|rest| rest.split('"').next()).expect("a next page").replace("&amp;", "&");
+        }
+        assert_eq!(rows, 300, "ten orders a page");
+        started.elapsed()
+    };
+    // The better of two walks each, so that one stall of a busy machine is not the measurement.
+    let (mut quick, mut slow) = (Duration::MAX, Duration::MAX);
+    for _ in 0..2 {
+        quick = quick.min(walk(short).await);
+        slow = slow.min(walk(long).await);
+    }
+    assert!(slow < quick * 4 + Duration::from_millis(200), "thirty pages of 300,000 orders took {slow:?}, of 400 orders {quick:?}");
+    // And a sell at the far end of the history is found by the page of rows that holds it, not before.
+    c.execute("UPDATE transactions SET side = 1 WHERE bot_id = ?1 AND created_at = datetime('2025-01-01', '+5 minutes')", [short]).unwrap();
+    assert_eq!(browser.send(&app, "GET", &format!("/bots/{short}.turbo_stream"), None, web::Csrf::None, &frame).await.status, 200);
+    let cursor = "2025-01-01T00:10:30.000000Z%7Ctransaction%7C0";
+    assert_eq!(browser.send(&app, "GET", &format!("/bots/{short}.turbo_stream?before={cursor}"), None, web::Csrf::None, &frame).await.status, 501, "the page of rows with the sell");
+    assert_eq!(browser.get(&app, &format!("/bots/{short}")).await.status, 501, "and the bot's page, which asks once");
+}
+
+/// The feed refuses the page of rows that holds an order it does not render or cannot read, and no
+/// page before it. Each table is asked for eleven rows and ten are shown (Rails picks the merged
+/// page first: BotActivityFeed#page), so the row that only says "there is a next page" must not
+/// decide anything about this one.
+#[tokio::test(flavor = "current_thread")]
+async fn the_feed_refuses_the_page_that_holds_the_row_and_no_page_before_it() {
+    let (_dir, opened, seeded, app, mut browser, [bot, _]) = two_plain_bots().await;
+    let c = &opened.primary;
+    let frame = [("turbo-frame", "orders_pagination")];
+    let typed = |minute: u32, side: i64, kind: &str, amount: &str| {
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, transaction_type, base, quote, base_asset_id, quote_asset_id, price, amount, amount_exec, \
+                   quote_amount, quote_amount_exec, bot_interval, bot_quote_amount, error_messages, created_at, updated_at) \
+                   VALUES (?1, ?2, 0, 2, ?3, ?4, 'BTC', 'USD', ?5, ?6, '100', ?7, ?7, '60', '60', 'week', 60, '[]', ?8, ?8)",
+                  rusqlite::params![bot, seeded.exchange_id, side, kind, seeded.btc, seeded.quote, amount, format!("2026-09-08 10:{minute:02}:00")]).unwrap();
+    };
+    let order = |minute: u32, side: i64, amount: &str| typed(minute, side, "REGULAR", amount);
+    let event = |minute: u32| {
+        c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'started', 0, '{}', ?2)", (bot, format!("2026-09-08 10:{minute:02}:00"))).unwrap();
+    };
+    let mut two_pages = async |what: &str, rows: &str| {
+        let first = browser.send(&app, "GET", &format!("/bots/{bot}.turbo_stream"), None, web::Csrf::None, &frame).await;
+        assert_eq!((first.status, first.body.matches(rows).count()), (200, 10), "{what}: the first page shows its ten rows");
+        let next = first.body.split("src=\"").nth(1).and_then(|rest| rest.split('"').next()).expect("a next page").replace("&amp;", "&");
+        assert_eq!(browser.send(&app, "GET", &next, None, web::Csrf::None, &frame).await.status, 501, "{what}: the page that holds the row");
+        c.execute_batch("DELETE FROM transactions; DELETE FROM bot_activity_logs;").unwrap();
+    };
+    // Ten buys, and a sell before them: the eleventh order.
+    order(0, 1, "0.6");
+    for minute in 1..=10 { order(minute, 0, "0.6"); }
+    two_pages("a sell after ten buys", "<tr id=\"transaction_").await;
+    // Ten events, and a sell before them: the first order, and on the next page.
+    order(0, 1, "0.6");
+    for minute in 1..=10 { event(minute); }
+    two_pages("a sell after ten events", "<tr id=\"bot_activity_log_").await;
+    // Ten buys, and before them a liquidation that completed: an order of another type, which only the bot's page asks about beforehand.
+    typed(0, 0, "LIQUIDATION", "0.6");
+    for minute in 1..=10 { order(minute, 0, "0.6"); }
+    two_pages("an older liquidation after ten buys", "<tr id=\"transaction_").await;
+    // Ten buys, and before them a buy whose amount this build does not read.
+    order(0, 0, "1_0e1000000000");
+    for minute in 1..=10 { order(minute, 0, "0.6"); }
+    two_pages("an amount that is not read, after ten buys", "<tr id=\"transaction_").await;
+}

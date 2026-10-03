@@ -219,7 +219,7 @@ module Pages
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
 
   # Bot ids follow the order of 'bots'.
-  def bot_scenarios = list_scenarios.merge(page_scenarios)
+  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios)
 
   # The same three at work: a history of orders and events on the first, a spending cap that has seen one
   # buy on the second, an order resting on the third.
@@ -428,6 +428,34 @@ module Pages
       # tick never began, which is what a bot whose tick is due looks like: the engine of this build would tick at once.
       'countdown_restarted_late' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z')), { 'kind' => 'basket' }],
                                               signed_in(get('/bots/1'), get('/bots')))
+    }
+  end
+
+  # What the orders_pagination frame sends when it asks for the next rows of the feed.
+  FEED = { 'Turbo-Frame' => 'orders_pagination', 'Accept' => 'text/html, application/xhtml+xml' }.freeze
+
+  # GET /bots/:id.turbo_stream for the orders_pagination frame.
+  def feed_scenarios
+    by_accept = { 'Turbo-Frame' => 'orders_pagination', 'Accept' => 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml' }
+    {
+      # Fourteen orders and eight events, ten rows at a time: the cursor between an event and an order of the same instant, at the end, and unreadable.
+      'bot_feed' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/bots/1.turbo_stream?before=zz', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Cactivity%7C3', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C10', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-01T09%3A00%3A00.000000Z%7Cactivity%7C1', FEED),
+                                                # The cursor's id is read as String#to_i reads it: `+10` and `1_0` are 10, a no-break space is no space,
+                                                # and a number past the column's range is still a number.
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C%2B10', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C1_0', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C%C2%A010', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C99999999999999999999', FEED),
+                                                get('/bots/2.turbo_stream', FEED), get('/bots/3.turbo_stream', FEED), get('/bots/1', by_accept),
+                                                get('/bots/1.turbo_stream', 'Turbo-Frame' => 'bot'))),
+      'bot_feed_hidden' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/de/bots/2.turbo_stream', FEED), get('/bots/3.turbo_stream', FEED)),
+                                     'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'bot_feed_empty' => with_bots(three, signed_in(get('/bots/1.turbo_stream', FEED))),
+      'bot_feed_of_another_user' => two_users.merge('steps' => signed_in(get('/bots/3.turbo_stream', FEED), get('/bots'))),
+      'bot_feed_signed_out' => with_bots(three, [get('/bots/1.turbo_stream', FEED)])
     }
   end
 
