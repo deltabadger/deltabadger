@@ -285,7 +285,7 @@ async fn a_stop_drops_the_delivery_in_hand_and_leaves_the_marker() {
 }
 
 #[tokio::test]
-async fn a_wake_makes_the_sender_look_at_once_and_a_day_old_marker_is_given_up() {
+async fn a_wake_makes_the_sender_look_at_once_and_a_week_old_marker_is_given_up() {
     // The sender's future is not Send (it is polled on the engine's thread), so it runs on a LocalSet here.
     tokio::task::LocalSet::new().run_until(async {
         let mut i = install();
@@ -297,25 +297,26 @@ async fn a_wake_makes_the_sender_look_at_once_and_a_day_old_marker_is_given_up()
         s.poll = Duration::from_secs(3600); // only a wake can make it look
         let run = tokio::task::spawn_local(s.run(stopped, Some(woken)));
         tokio::time::sleep(Duration::from_millis(100)).await; // the first look found nothing
-        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now() - chrono::Duration::hours(25)));
-        mark(&i, notice::FUNDS, notice::funds_marker(Some(i.quote), chrono::Utc::now()));
+        // The boundary: seven days old is given up; six days and 23 hours old is still sent (a weekend's outage outlasted).
+        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now() - chrono::Duration::days(7)));
+        mark(&i, notice::FUNDS, notice::funds_marker(Some(i.quote), chrono::Utc::now() - chrono::Duration::days(6) - chrono::Duration::hours(23)));
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert!(server.sessions().is_empty(), "nothing woke it");
         wake.send("any engine event").unwrap();
-        until("the fresh marker was sent and the stale one cleared", || server.messages().len() == 1 && markers(&i).is_empty()).await;
-        assert!(server.messages()[0].contains("running out of USD"), "the day-old stop mail is not sent");
+        until("the six-day marker was sent and the week-old one cleared", || server.messages().len() == 1 && markers(&i).is_empty()).await;
+        assert!(server.messages()[0].contains("running out of USD"), "the week-old stop mail is not sent");
         stop.send(true).unwrap();
         run.await.unwrap().unwrap();
     }).await;
 }
 
 #[tokio::test]
-async fn with_no_smtp_settings_nothing_is_tried_and_a_marker_waits_for_settings_or_for_its_day_to_end() {
+async fn with_no_smtp_settings_nothing_is_tried_and_a_marker_waits_for_settings_or_for_its_week_to_end() {
     // The sender's future is not Send (it is polled on the engine's thread), so it runs on a LocalSet here.
     tokio::task::LocalSet::new().run_until(async {
         let mut i = install();
-        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now() - chrono::Duration::hours(25)));
-        mark(&i, notice::FUNDS, notice::funds_marker(Some(i.quote), chrono::Utc::now()));
+        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now() - chrono::Duration::days(7)));
+        mark(&i, notice::FUNDS, notice::funds_marker(Some(i.quote), chrono::Utc::now() - chrono::Duration::days(6) - chrono::Duration::hours(23)));
         // Nothing in the environment, nothing saved in Settings: Rails would deliver to localhost:25 (a listed divergence).
         let db = Connection::open(i.o.primary.path().unwrap()).unwrap();
         store::configure(&db).unwrap();
@@ -323,9 +324,9 @@ async fn with_no_smtp_settings_nothing_is_tried_and_a_marker_waits_for_settings_
         unconfigured.poll = Duration::from_millis(30);
         let (stop, stopped) = watch::channel(false);
         let run = tokio::task::spawn_local(unconfigured.run(stopped, None::<mpsc::UnboundedReceiver<()>>));
-        until("the day-old marker was given up", || markers(&i).len() == 1).await;
+        until("the week-old marker was given up", || markers(&i).len() == 1).await;
         tokio::time::sleep(Duration::from_millis(200)).await; // several looks later
-        assert_eq!(markers(&i).iter().map(|p| p.notice.mail()).collect::<Vec<_>>(), ["end_of_funds"], "the fresh marker waits");
+        assert_eq!(markers(&i).iter().map(|p| p.notice.mail()).collect::<Vec<_>>(), ["end_of_funds"], "the six-day-old marker waits");
         stop.send(true).unwrap();
         assert_eq!(run.await.unwrap(), Ok(()));
 
@@ -400,8 +401,8 @@ const REFUSE_THE_CLEAR: &str = "CREATE TRIGGER refuse_the_clear BEFORE UPDATE OF
 async fn a_clear_that_fails_is_a_failed_attempt_it_backs_off_and_the_mail_is_not_sent_again() {
     // The sender's future is not Send (it is polled on the engine's thread), so it runs on a LocalSet here.
     tokio::task::LocalSet::new().run_until(async {
-        // Twice: a mail the server accepted, and a marker that is only to be given up (a day old). Neither may spin.
-        for (age_hours, mails) in [(0, 1), (25, 0)] {
+        // Twice: a mail the server accepted, and a marker that is only to be given up (seven days old). Neither may spin.
+        for (age_hours, mails) in [(0, 1), (7 * 24, 0)] {
             let mut i = install();
             mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now() - chrono::Duration::hours(age_hours)));
             i.o.primary.execute_batch(REFUSE_THE_CLEAR).unwrap();

@@ -242,5 +242,5 @@ fn the_first_retries_wait_as_long_as_the_delivery_job_does() {
     let s = sender::Sender::new(db, cipher, &|_| None, deltabadger::engine::SystemClock);
     let ours: Vec<u64> = s.waits.iter().map(|w| w.as_secs()).collect();
     assert_eq!(ours[..4], ruby[..], "ApplicationMailDeliveryJob: polynomially_longer, attempts 2 to 5");
-    assert_eq!(ours[4..], [3600], "then hourly, until the marker is a day old");
+    assert_eq!(ours[4..], [3600], "then hourly, until the marker is seven days old");
 }

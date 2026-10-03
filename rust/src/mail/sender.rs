@@ -7,15 +7,17 @@
 //!   sender's own connection (as the web's `App::db` does): a locked database makes a pool thread wait, not the runtime.
 //!   A look reads the markers of at most `batch` bots and goes round; between two mails the sender yields.
 //! - With no usable SMTP settings (smtp::Settings::current is Err) it says so once, with the reason, and sends nothing:
-//!   the markers stay, and wait out their day. Settings are read again for every mail, so mail configured later goes out.
+//!   the markers stay, and wait out their week. Settings are read again for every mail, so mail configured later goes out.
 //! - At least once: a mail whose delivery was cut off after the server had it is sent again. Never zero, while the
-//!   marker is under a day old.
+//!   marker is under seven days old.
 //! - Anything that fails is tried again after 3, 18, 83 and 258 s (ApplicationMailDeliveryJob's waits), then hourly: a
 //!   delivery, a mail that could not be built for now, and a clear the database or `eligibility::guard` refused. A
 //!   marker whose mail was accepted but whose clear failed is remembered: the retry only clears, it does not send again
-//!   (a restart forgets that, and sends once more).
-//! - A marker a day old is cleared unsent: the news is stale, and the daily budget that raised it is open again. So is
-//!   one whose mail cannot be sent as it stands (its bot's user is gone; a header value holds a control character).
+//!   (a restart forgets that, and sends once more). A mail that could not be rendered is logged once a day, not at
+//!   every hourly retry.
+//! - A marker seven days old is cleared unsent, delivered or not, rendered or not: long enough to outlast a weekend's
+//!   SMTP outage or broken configuration (a stop notice never recurs), short enough that the news is not stale. One whose
+//!   mail cannot be sent as it stands (its bot's user is gone; a header value holds a control character) is cleared at once.
 //! - A stop drops whatever is in hand, a delivery included, and records nothing: the marker is still there at the next start.
 //! - Nothing here can fail a tick or end the process: an error is logged and tried again.
 //! - A log line names a bot, a mail and a `smtp::Failure`: never an address, a credential, or a word the server wrote.
@@ -31,7 +33,10 @@ use std::time::Duration;
 use tokio::sync::{mpsc::UnboundedReceiver, watch};
 use tokio::time::Instant;
 
-const MAX_AGE_HOURS: i64 = 24;
+/// How long a marker waits for its mail to be delivered (or rendered) before it is given up.
+const MAX_AGE_HOURS: i64 = 7 * 24;
+/// How often a mail that keeps failing to render is logged.
+const RENDER_LOG_EVERY: Duration = Duration::from_secs(24 * 3600);
 
 pub struct Sender<C: Clock> {
     db: Arc<Mutex<Connection>>,
@@ -49,9 +54,10 @@ pub struct Sender<C: Clock> {
     pub trust_root: Option<Vec<u8>>,
 }
 
-/// Per marker: failures so far, when to look at it next, and whether its mail has already been accepted (then only the
-/// clear is still owed). Keyed by the marker itself, so a marker raised again starts afresh.
-type Attempts = HashMap<Pending, (usize, Instant, bool)>;
+/// Per marker: failures so far, when to look at it next, whether its mail has already been accepted (then only the
+/// clear is still owed), and when a failure to render it was last logged. Keyed by the marker itself, so a marker raised
+/// again starts afresh.
+type Attempts = HashMap<Pending, (usize, Instant, bool, Option<Instant>)>;
 
 /// What the blocking pool hands back for one marker.
 enum Prepared {
@@ -101,11 +107,11 @@ impl<C: Clock> Sender<C> {
                 Ok(Ok((markers, next))) => {
                     after = next;
                     let now = Instant::now();
-                    attempts.retain(|_, (_, due, _)| *due + Duration::from_secs(3600) > now); // nobody else clears a marker; this only bounds the map
+                    attempts.retain(|_, (_, due, _, _)| *due + Duration::from_secs(3600) > now); // nobody else clears a marker; this only bounds the map
                     let mut wait = self.poll;
                     for marker in markers {
                         match attempts.get(&marker) {
-                            Some((_, due, _)) if *due > Instant::now() => wait = wait.min(*due - Instant::now()),
+                            Some((_, due, _, _)) if *due > Instant::now() => wait = wait.min(*due - Instant::now()),
                             _ => { self.attempt(marker, &mut attempts, &mut said).await; tokio::task::yield_now().await; }
                         }
                     }
@@ -127,33 +133,49 @@ impl<C: Clock> Sender<C> {
 
     fn not_configured(&self, reason: &str, said: &mut Option<String>) {
         if said.as_deref() == Some(reason) { return; }
-        log(&format!("[mail] mail is not configured ({reason}): nothing is sent; what a bot is owed stays on its row for a day"));
+        log(&format!("[mail] mail is not configured ({reason}): nothing is sent; what a bot is owed stays on its row for seven days"));
         *said = Some(reason.to_string());
     }
 
     /// Tried again, by the same schedule whatever failed.
     fn later(&self, marker: Pending, tried: usize, accepted: bool, why: &str, attempts: &mut Attempts) {
-        let wait = self.waits.get(tried).or(self.waits.last()).copied().unwrap_or(self.poll);
+        let wait = self.wait(tried);
         log(&format!("[mail] {} for bot {}: {why}; trying again in {} s", marker.notice.mail(), marker.bot_id, wait.as_secs()));
-        attempts.insert(marker, (tried + 1, Instant::now() + wait, accepted));
+        attempts.insert(marker, (tried + 1, Instant::now() + wait, accepted, None));
     }
 
+    /// A mail that could not be rendered: the same waits, but logged once a day, not at every retry.
+    fn unrendered(&self, marker: Pending, tried: usize, why: &str, attempts: &mut Attempts) {
+        let wait = self.wait(tried);
+        let last = attempts.get(&marker).and_then(|(.., logged)| *logged);
+        let logged = match last {
+            Some(at) if at.elapsed() < RENDER_LOG_EVERY => at,
+            _ => {
+                log(&format!("[mail] {} for bot {}: not sent: {why}; trying again in {} s (said once a day)", marker.notice.mail(), marker.bot_id, wait.as_secs()));
+                Instant::now()
+            }
+        };
+        attempts.insert(marker, (tried + 1, Instant::now() + wait, false, Some(logged)));
+    }
+
+    fn wait(&self, tried: usize) -> Duration { self.waits.get(tried).or(self.waits.last()).copied().unwrap_or(self.poll) }
+
     async fn attempt(&self, marker: Pending, attempts: &mut Attempts, said: &mut Option<String>) {
-        let (tried, accepted) = attempts.get(&marker).map_or((0, false), |(n, _, accepted)| (*n, *accepted));
+        let (tried, accepted) = attempts.get(&marker).map_or((0, false), |(n, _, accepted, _)| (*n, *accepted));
         let now = self.clock.now();
         let (outcome, accepted) = if accepted {
             ("sent".to_string(), true)
-        } else if marker.raised_at().is_none_or(|at| now - at > chrono::Duration::hours(MAX_AGE_HOURS)) {
-            ("given up: raised more than a day ago".to_string(), false)
+        } else if marker.raised_at().is_none_or(|at| now - at >= chrono::Duration::hours(MAX_AGE_HOURS)) {
+            ("given up: raised seven days ago or more".to_string(), false)
         } else {
             let (m, env, urls, trust) = (marker.clone(), self.env.clone(), self.urls.clone(), self.trust_root.clone());
             match self.db(move |c, cipher| prepare(c, cipher, &m, &env, &urls, trust, now)).await {
                 Err(e) => return self.later(marker, tried, false, &format!("not sent: {e}"), attempts),
-                Ok(Prepared::Later(why)) => return self.later(marker, tried, false, &format!("not sent: {why}"), attempts),
+                Ok(Prepared::Later(why)) => return self.unrendered(marker, tried, &why, attempts),
                 Ok(Prepared::NotConfigured(reason)) => {
-                    // Said once. The marker waits, quietly, for settings or for its day to end.
+                    // Said once. The marker waits, quietly, for settings or for its seven days to end.
                     self.not_configured(&reason, said);
-                    attempts.insert(marker, (tried, Instant::now() + self.poll, false));
+                    attempts.insert(marker, (tried, Instant::now() + self.poll, false, None));
                     return;
                 }
                 Ok(Prepared::Unsendable(why)) => (format!("not sent: {why}"), false),
