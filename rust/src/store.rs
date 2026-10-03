@@ -110,12 +110,27 @@ const PRIMARY: &[TableContract] = &[
         ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
         ("trading_enabled", "boolean", true), ("available", "boolean", false),
     ], unique_indexes: &[] },
-    TableContract { name: "assets", columns: &[("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false)], unique_indexes: &[] },
+    TableContract { name: "assets", columns: &[("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false),
+                                               ("external_id", "varchar", true)], unique_indexes: &[] },
     TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false)], unique_indexes: &[] },
     TableContract { name: "api_keys", columns: &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
         ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
+        // The tracker's syncs (src/sync): the ledger's watermark and error, the balances' clock.
+        ("last_synced_at", "datetime(6)", false), ("last_sync_error", "varchar", false), ("balances_synced_at", "datetime(6)", false),
+        ("updated_at", "datetime", true),
     ], unique_indexes: &[] },
+    // What the ledger sync writes (src/sync/ledger.rs). Its dedup also relies on the partial unique index on
+    // (user_id, exchange_id, tx_id), which this check cannot name (it lists unconditional indexes only).
+    TableContract { name: "account_transactions", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("api_key_id", "integer", false), ("exchange_id", "integer", true),
+        ("entry_type", "integer", true), ("base_currency", "varchar", true), ("base_amount", "decimal", true),
+        ("quote_currency", "varchar", false), ("quote_amount", "decimal", false), ("fee_currency", "varchar", false), ("fee_amount", "decimal", false),
+        ("tx_id", "varchar", false), ("group_id", "varchar", false), ("description", "varchar", false), ("transacted_at", "datetime(6)", true),
+        ("raw_data", "json", false), ("manual_values", "json", false), ("base_asset_id", "integer", false), ("transaction_id", "integer", false),
+        ("linked_transaction_id", "integer", false), ("transfer_link_rejected", "boolean", true),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["linked_transaction_id"]] },
     // The web UI's sign-in (src/web/auth.rs) reads and writes the Devise columns; its layouts read the preferences.
     TableContract { name: "users", columns: &[
         ("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true), ("email", "varchar", true), ("name", "varchar", false),
@@ -147,10 +162,15 @@ const PRIMARY: &[TableContract] = &[
         ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
     TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
-    // The bots page refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
+    // The balance sync writes every column and upserts on the unique index (src/sync/balances.rs); the bots page
+    // refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[
-        ("user_id", "integer", true), ("asset_id", "integer", true), ("usd_value", "decimal(20,8)", false),
-    ], unique_indexes: &[] },
+        ("id", "integer", true), ("user_id", "integer", true), ("exchange_id", "integer", true), ("asset_id", "integer", true),
+        ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false),
+        ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["user_id", "exchange_id", "asset_id"]] },
+    // `exchange.assets`: what the venue lists, and the order balance rows are written in.
+    TableContract { name: "exchange_assets", columns: &[("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true)], unique_indexes: &[] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),

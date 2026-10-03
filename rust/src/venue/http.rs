@@ -51,8 +51,20 @@ pub enum TransportError {
     Permanent(String),
 }
 
+/// The most a response body may hold unless the caller states less (`Transport::send_limited`): far above any order,
+/// quote or account answer, so no existing caller meets it.
+pub const MAX_BODY: usize = 16 * 1024 * 1024;
+
+fn over_limit(limit: usize) -> TransportError { TransportError::MaybeSent(format!("the response body is over {limit} bytes")) }
+
 pub trait Transport {
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
+    /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
+    /// that has the whole answer in hand (the scripted one, a test wrapper) is checked after the fact.
+    async fn send_limited(&self, req: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
+        let resp = self.send(req).await?;
+        if resp.body.len() > limit { Err(over_limit(limit)) } else { Ok(resp) }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -141,7 +153,9 @@ impl ReqwestTransport {
 }
 
 impl Transport for ReqwestTransport {
-    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, MAX_BODY).await }
+
+    async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
         let mut b = self.client.request(method, r.url())
@@ -165,11 +179,16 @@ impl Transport for ReqwestTransport {
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
             }
         }
-        let resp = b.send().await.map_err(classify)?;
+        let mut resp = b.send().await.map_err(classify)?;
         let status = resp.status().as_u16();
-        // The status line has arrived: the request was sent, so losing the body leaves the outcome open.
-        let body = resp.text().await.map_err(|e| TransportError::MaybeSent(describe(&e)))?;
-        Ok(HttpResponse { status, body })
+        // The status line has arrived: the request was sent, so losing the body leaves the outcome open. The body is
+        // read chunk by chunk and never past `limit`: a response of any size holds at most that much memory.
+        let mut body: Vec<u8> = Vec::new();
+        while let Some(chunk) = resp.chunk().await.map_err(|e| TransportError::MaybeSent(describe(&e)))? {
+            if body.len() + chunk.len() > limit { return Err(over_limit(limit)); }
+            body.extend_from_slice(&chunk);
+        }
+        Ok(HttpResponse { status, body: String::from_utf8_lossy(&body).into_owned() })
     }
 }
 

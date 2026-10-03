@@ -1,9 +1,10 @@
-//! `deltabadger check | run | handback | serve | resolve-placement | decide`.
+//! `deltabadger check | run | handback | serve | sync | resolve-placement | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
 //! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
 //!   serving the UI, until SIGTERM/SIGINT stops both. Like `run`, it needs a `handback` before Rails starts again.
+//! - sync ledger|balances [<api_key_id>]: one tracker sync by hand, under the engine lock, and exit.
 //!
 //! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
@@ -40,6 +41,7 @@ fn main() {
         }
         Some("run") => std::process::exit(run_engine(&env)),
         Some("handback") => std::process::exit(hand_back(&env)),
+        Some("sync") => std::process::exit(sync_by_hand(&env)),
         Some("serve") => std::process::exit(serve(&env)),
         Some("resolve-placement") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
@@ -74,7 +76,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | serve | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | sync ledger|balances [<api_key_id>] | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }
@@ -233,6 +235,48 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
                        then run `deltabadger resolve-placement <bot_id> --placed <order_id>` or `--not-placed`, and run handback again.");
         }
         Err(e) => eprintln!("deltabadger: handback failed: {e:?}"),
+    }
+    code
+}
+
+/// One ledger or balance sync by hand, for one Alpaca key or for every key the nightly jobs read, exactly as the
+/// scheduler's job runs it. It holds the exclusive engine lock from before it opens a database until it exits, so it
+/// runs only while neither the Rails app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
+/// can never run against an install Rails is also syncing. It claims nothing and writes no lease: an install Rails
+/// owns stays Rails' (the rows are the ones Rails' own job would write). A split that moves a bot's counter passes
+/// `eligibility::guard`, as under the scheduler; nothing else it writes is the engine's business. Balances by hand
+/// have no market-data source, so coins keep their last price; stocks and cash are priced. A run is held to the
+/// deadline its job declares, as the scheduler's runner would hold it.
+fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
+    use deltabadger::sync::balances::NoPrices;
+    use deltabadger::sync::job_api::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
+    const USAGE: &str = "usage: deltabadger sync ledger|balances [<api_key_id>]";
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    let kind = match args.first().map(String::as_str) { Some(kind @ ("ledger" | "balances")) if args.len() <= 2 => kind, _ => fail(USAGE) };
+    let key = args.get(1).map(|k| k.parse::<i64>().unwrap_or_else(|_| fail(USAGE)));
+    let (_lock, o, cipher) = open_install(env);
+    let keys = match key {
+        Some(key) => vec![key],
+        None => deltabadger::sync::reading_keys(&o.primary).unwrap_or_else(|e| fail(&e.0)),
+    };
+    if keys.is_empty() { println!("no Alpaca key to sync"); return 0; }
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
+    let db = Db::new(o.primary, std::sync::Arc::new(cipher));
+    let mut code = 0;
+    for key in keys {
+        let job: Box<dyn Job> = match kind {
+            "ledger" => Box::new(LedgerSync::new(LiveFactory::new(), key)),
+            _ => Box::new(BalanceSync::new(LiveFactory::new(), std::rc::Rc::new(NoPrices), key)),
+        };
+        let spec = job.spec();
+        let name = format!("{}:{}", spec.name, spec.scope.unwrap_or_default());
+        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)])) {
+            Outcome::Done => println!("{name}: done"),
+            // An import larger than one run reads: what was read is stored, and the next run continues.
+            Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),
+            Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => { eprintln!("deltabadger: {name} failed: {m}"); code = EXIT_ENGINE_ERROR; }
+        }
     }
     code
 }

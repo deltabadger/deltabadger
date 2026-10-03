@@ -95,6 +95,19 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
     })
 }
 
+/// An answer `AlpacaVenue::read` fetched and did not parse.
+#[derive(Clone, Debug)]
+pub struct Body { request: HttpRequest, response: HttpResponse }
+
+impl Body {
+    /// The body of a 2xx answer; else Rails' message for the failed request, as `get` gives it.
+    pub fn text(&self) -> Result<&str, VenueError> {
+        if (200..300).contains(&self.response.status) { Ok(&self.response.body) } else { Err(self.unreadable()) }
+    }
+    /// What Clients::Alpaca#with_rescue reports for an answer it could not read.
+    pub fn unreadable(&self) -> VenueError { VenueError::Rejected(vec![error_message(&self.request, &self.response)]) }
+}
+
 #[derive(Clone)]
 pub struct AlpacaVenue<T: Transport> { transport: T, urls: Urls }
 
@@ -104,6 +117,18 @@ impl<T: Transport> AlpacaVenue<T> {
 
     fn request(&self, method: &'static str, data_host: bool, path: String, query: Vec<(&'static str, String)>, body: Option<Value>) -> HttpRequest {
         HttpRequest { method, base: if data_host { self.urls.data.clone() } else { self.urls.trading.clone() }, path, query, body, not_after: None }
+    }
+
+    /// One authenticated GET on the trading host, or the market-data host, for the tracker's syncs (activities, account,
+    /// positions, stock snapshots): the answer of at most `limit` body bytes, unparsed. The caller reads it off the
+    /// runtime thread (`Body::text`). `Err` is a transport failure, as `get` maps it; an answer over the limit is one.
+    pub async fn read(&self, data_host: bool, path: &str, query: Vec<(&'static str, String)>, limit: usize) -> Result<Body, VenueError> {
+        let request = self.request("GET", data_host, path.into(), query, None);
+        match self.transport.send_limited(&request, limit).await {
+            Err(TransportError::Permanent(m)) => Err(VenueError::Rejected(vec![m])),
+            Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
+            Ok(response) => Ok(Body { request, response }),
+        }
     }
 
     /// A read as Clients::Alpaca#with_rescue answers it: a 2xx body that parses; else Rejected with Rails' message (an

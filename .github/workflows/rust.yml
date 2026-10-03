@@ -44,6 +44,19 @@ on:
       - 'app/models/smtp_settings.rb'
       - 'config/initializers/smtp_settings.rb'
       - 'app/jobs/application_mail_delivery_job.rb'
+      # The tracker's syncs (rust/src/sync) port these; rust/tests/sync_vectors.rs hashes them (sync_vectors.json "ported_sources").
+      - 'app/services/account_transaction_sync.rb'
+      - 'app/services/account_balance/sync.rb'
+      - 'app/services/transfer_matcher.rb'
+      - 'app/jobs/account_transaction/sync_job.rb'
+      - 'app/jobs/account_transaction/sync_all_job.rb'
+      - 'app/jobs/account_balance/sync_job.rb'
+      - 'app/jobs/account_balance/sync_all_job.rb'
+      - 'app/models/api_key.rb'
+      - 'app/models/concerns/api_key_failure_handling.rb'
+      - 'app/models/ticker.rb'
+      - 'app/models/account_transaction.rb'
+      - 'config/initializers/oj.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -87,6 +100,19 @@ on:
       - 'app/models/smtp_settings.rb'
       - 'config/initializers/smtp_settings.rb'
       - 'app/jobs/application_mail_delivery_job.rb'
+      # The tracker's syncs (rust/src/sync) port these; rust/tests/sync_vectors.rs hashes them (sync_vectors.json "ported_sources").
+      - 'app/services/account_transaction_sync.rb'
+      - 'app/services/account_balance/sync.rb'
+      - 'app/services/transfer_matcher.rb'
+      - 'app/jobs/account_transaction/sync_job.rb'
+      - 'app/jobs/account_transaction/sync_all_job.rb'
+      - 'app/jobs/account_balance/sync_job.rb'
+      - 'app/jobs/account_balance/sync_all_job.rb'
+      - 'app/models/api_key.rb'
+      - 'app/models/concerns/api_key_failure_handling.rb'
+      - 'app/models/ticker.rb'
+      - 'app/models/account_transaction.rb'
+      - 'config/initializers/oj.rb'
 
 permissions:
   contents: read
@@ -154,4 +180,4 @@ jobs:
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
           --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc
-          --test mail --test smtp
+          --test mail --test smtp --test sync_vectors
