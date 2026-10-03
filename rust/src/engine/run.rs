@@ -163,7 +163,14 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
         let mut s = e.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
         let pending = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
-        for id in pending { tick::run_pending_amount_limit_stops(&e.primary, id, clock.now())?; }
+        for id in pending {
+            // Per bot: one this build cannot read (eligibility lists it as unreadable) is skipped here as everywhere else.
+            match tick::run_pending_amount_limit_stops(&e.primary, id, clock.now()) {
+                Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+                Err(err) => super::log(&format!("[engine] bot {id}: its counted amount-limit stops could not run: {err:?}; skipped")),
+                Ok(()) => {}
+            }
+        }
         e.started = true;
     }
 
@@ -249,8 +256,9 @@ fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), Eng
     if request.get("requested_at").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {
         super::log(&format!("[engine] warning: bot {id}: rust_continue_start {request} is malformed; removed, and the bot continues as Rails would"));
     }
-    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending', \
-                '$.rust_defer_until') WHERE id = ?1", [id])?;
+    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending') \
+                WHERE id = ?1", [id])?;
+    placement::remove_wait(&tx, Some(id))?;
     let decision = if bot.started_at_us.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
         "never ticks" // step_bot skips it as before
     } else if amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
@@ -269,8 +277,15 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     let now_us = clock.now().timestamp_micros();
     let mut bot = model::load_bot(&e.primary, id)?;
     if bot.transient.get("rust_continue_start").is_some() {
-        continue_start(&e.primary, id, clock.now())?;
-        bot = model::load_bot(&e.primary, id)?;
+        match continue_start(&e.primary, id, clock.now()) {
+            Ok(()) => bot = model::load_bot(&e.primary, id)?,
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            // The request stays: the bot is skipped this pass and decided again on the next one, never left silently.
+            Err(err) => {
+                super::log(&format!("[engine] warning: bot {id}: its continue could not be decided: {err:?}; skipped this pass, retried on the next"));
+                return Ok(());
+            }
+        }
     }
     let venue = e.venue_for(&bot)?;
 
@@ -283,7 +298,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         Ok(d) => d.map(|(t, schedule)| (Some(schedule) == bot.schedule_key()).then_some(t)),
         Err(err) => {
             super::log(&format!("[engine] warning: bot {id}: {err:?}; ignored and removed"));
-            e.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') WHERE id = ?1", [id])?;
+            placement::remove_wait(&e.primary, Some(id))?;
             None
         }
     };

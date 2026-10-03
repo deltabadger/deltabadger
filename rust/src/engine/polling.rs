@@ -120,12 +120,18 @@ fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64
 /// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
 /// fill's own transaction, so a crash before the tick ends loses nothing: tick::run_pending_amount_limit_stops runs them at
 /// the tick's end, at the next start (run::step), or at the handback.
+/// notify_stopped_by_amount_limit runs in the fill callback that spends the cap, whatever the stop then does: the mail
+/// (notice::LIMIT) is owed in that fill's own transaction, on every path that applies a fill (here and placement's recovery).
+pub(crate) fn owe_limit_mail(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+              params![format!("$.{}", notice::LIMIT), notice::limit_marker(now).to_string(), bot_id])?;
+    Ok(())
+}
+
 fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
     if apply_in(&tx, bot_id, tx_id, s, true, now)? {
-        // notify_stopped_by_amount_limit runs in the same callback, whatever the stop then does: the mail is owed here.
-        tx.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
-                   params![format!("$.{}", notice::LIMIT), notice::limit_marker(now).to_string(), bot_id])?;
+        owe_limit_mail(&tx, bot_id, now)?;
         if stop_now {
             tick::stop_for_amount_limit(&tx, bot_id, now)?;
         } else {

@@ -397,3 +397,22 @@ async fn a_lease_or_store_error_leaves_the_counted_stop_unrun() {
         assert_eq!(one::<i64>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots"), 1);
     }
 }
+
+/// A lost reply, then the recovery finds the order filled and its fill spends the cap: the bot is stopped in the recovery's
+/// transaction, and the stopped_by_amount_limit mail is owed there too, as on the poll and the sweep.
+#[tokio::test(flavor = "current_thread")]
+async fn a_recovered_fill_that_spends_the_cap_owes_the_limit_mail_with_its_stop() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.0)));
+    let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+    let v = venue(&t);
+    tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap(); // 60 sent, reply lost
+    let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+    t.reply("GET /v2/orders:by_client_order_id", 200, json!({ "id": "OTX-9", "client_order_id": cl, "status": "filled", "symbol": "BTC/USD", "type": "market",
+        "side": "buy", "notional": "60", "qty": null, "filled_qty": "0.0009375", "filled_avg_price": "64000", "limit_price": null }));
+    let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(5))).await.unwrap();
+    assert!(matches!(recovered, placement::Recovery::Recorded(_)), "{recovered:?}");
+    let b = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(b.status, BotStatus::Stopped);
+    assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "the limit mail is owed: {}", b.transient);
+}

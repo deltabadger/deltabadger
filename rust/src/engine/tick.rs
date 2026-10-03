@@ -63,12 +63,18 @@ pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<U
 /// The stop (with its marker) and its activity-log row are one transaction on every path: the caller's when it has one,
 /// else this call's own. A log row that cannot be written leaves the bot working and nothing owed, so a retry writes all three.
 pub fn stop_owing_mail(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    stop_if(c, bot_id, stop_message_key, mail, &format!("status IN ({})", model::working_list()), now)
+}
+
+/// The one stop write: status, stopped_at, stop_message_key and the optional mail marker where `condition` holds, then its
+/// `stopped` log, in one transaction. Returns whether it stopped the bot.
+fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, condition: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
     let (path, marker) = match &mail { Some((key, marker)) => (format!("$.{key}"), marker.to_string()), None => ("$".into(), String::new()) };
     model::locked(c, |c| {
         // Without a mail the CASE leaves transient_data exactly as stored.
         let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2, \
                                     transient_data = CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END \
-                                    WHERE id = ?4 AND status IN ({})", model::working_list()),
+                                    WHERE id = ?4 AND {condition}"),
                   params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id, path, marker])?;
         if n == 0 { return Ok(false); }
         model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)?;
@@ -81,7 +87,7 @@ pub fn stop_owing_mail(c: &Connection, bot_id: i64, stop_message_key: &str, mail
 /// `stopped` log). It owes no mail itself: Rails mails stopped_by_amount_limit from the fill callback, whatever the stop then
 /// does, so the marker (notice::LIMIT) is written where the stop is counted (polling::apply_committed).
 pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
-    stop_where(c, bot_id, AMOUNT_SPENT, now, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64))
+    stop_if(c, bot_id, AMOUNT_SPENT, None, &format!("status NOT IN ({}, {})", BotStatus::Deleted as i64, BotStatus::Archived as i64), now).map(|_| ())
 }
 
 /// The amount-limit stops a sweep counted (polling::apply_committed), one per qualifying fill callback, as Rails runs one
@@ -109,13 +115,6 @@ pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime
         }
         tx.commit()?;
     }
-}
-
-fn stop_where(c: &Connection, bot_id: i64, stop_message_key: &str, now: DateTime<Utc>, condition: &str) -> Result<(), EngineError> {
-    let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2 WHERE id = ?4 AND {condition}"),
-                      params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id])?;
-    if n == 0 { return Ok(()); }
-    model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)
 }
 
 enum Fail {
@@ -264,15 +263,14 @@ async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dy
     // Decide nothing from reference data past its bound.
     if let Some(s) = staleness::stale(c, &bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
 
-    // The checkpoint a settled intent deferred to (placement::defer_to_next_checkpoint) has come: this is that tick.
-    c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
-               WHERE id = ?1 AND json_extract(transient_data, '$.rust_defer_until') IS NOT NULL", [bot_id])?;
     let now = clock.now();
     // Rails' store_accessor writes a key only when the value changes, so `waiting_for_market_open: nil` touches the
     // key only where it holds something non-null; an absent key stays absent.
     let mut writes = vec![("last_action_job_at", json!(iso8601_ms(now)))];
     if bot.transient.get("waiting_for_market_open").is_some_and(|v| !v.is_null()) { writes.push(("waiting_for_market_open", Value::Null)); }
-    model::update_transient(c, bot_id, &writes, now)?;
+    // The wait this tick was due by (a deferred checkpoint, or a continue's run-now) has come. It goes with the stamp, in one
+    // transaction: a crash between the two would leave a stamped run with no wait, and a run-now one checkpoint late.
+    model::locked(c, |c| { placement::remove_wait(c, Some(bot_id))?; model::update_transient(c, bot_id, &writes, now) })?;
 
     // Anything that goes wrong inside execute_action fails this bot's tick the way a StandardError does in
     // Rails (retrying, execution_failed, next checkpoint) — it never leaves the bot `executing`.

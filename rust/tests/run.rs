@@ -329,3 +329,29 @@ async fn a_malformed_continue_request_is_removed_and_the_decision_still_runs() {
         assert!(!transient_has(&e, id, "rust_continue_start"), "{bad}");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_continue_decision_that_cannot_be_read_skips_the_bot_and_is_retried_next_pass() {
+    let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
+    // A closed row without its executed quote: pending_quote_amount cannot be read.
+    e.primary.execute("UPDATE transactions SET quote_amount_exec = NULL", []).unwrap();
+    run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
+    assert!(v.sent().is_empty());
+    assert!(transient_has(&e, id, "rust_continue_start"), "kept for the next pass");
+    e.primary.execute("UPDATE transactions SET quote_amount_exec = 60", []).unwrap();
+    run::step(&mut e, &at("2026-09-08T12:00:30Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "decided and run on the next pass");
+    assert!(!transient_has(&e, id, "rust_continue_start"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_bot_holding_a_counted_stop_does_not_stop_the_engine_at_start() {
+    let v = priced();
+    let (_d, mut e, id, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let bad = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+        .transient("rust_amount_limit_stops_pending", json!({ "count": 1, "key": "x" })));
+    e.primary.execute("UPDATE bots SET status = 99 WHERE id = ?1", [bad]).unwrap(); // a status this build cannot read
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.expect("the engine keeps running");
+    assert_eq!(v.sent().len(), 1, "the readable bot still ticks");
+    let _ = id;
+}

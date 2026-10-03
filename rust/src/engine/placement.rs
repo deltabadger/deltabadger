@@ -120,6 +120,13 @@ pub fn run_now(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), Engi
     wait_until(c, bot, now, |cps| cps.last_us)
 }
 
+/// Removes `rust_defer_until`: one bot's, or every bot's (`None`, the handback). The one statement every path uses.
+pub fn remove_wait(c: &Connection, bot_id: Option<i64>) -> Result<(), EngineError> {
+    c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
+               WHERE (?1 IS NULL OR id = ?1) AND json_type(transient_data, '$.rust_defer_until') IS NOT NULL", [bot_id])?;
+    Ok(())
+}
+
 fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::schedule::Checkpoints) -> i64) -> Result<(), EngineError> {
     let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us, bot.interval(), bot.quote_amount(), bot.schedule_key()) else { return Ok(()) };
     let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())));
@@ -129,8 +136,8 @@ fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::sch
     Ok(())
 }
 
-/// The intent for `plan`, written without the fence: for a caller that already holds the row it sized from (tests, recovery
-/// fixtures). The tick uses `begin_unless_changed`.
+/// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
+/// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
     Ok(begin_checked(c, bot, plan, clock, false)?.expect("unfenced"))
 }
@@ -250,7 +257,10 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
             // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
-            if polling::apply_in(&tx, bot.id, id, &state, true, now)? { super::tick::stop_for_amount_limit(&tx, bot.id, now)?; }
+            if polling::apply_in(&tx, bot.id, id, &state, true, now)? {
+                polling::owe_limit_mail(&tx, bot.id, now)?;
+                super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
+            }
             defer_to_next_checkpoint(&tx, bot, now)?;
             tx.commit()?;
             Ok(Recovery::Recorded(id))

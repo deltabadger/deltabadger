@@ -139,6 +139,7 @@ impl Bot {
                 .ok_or_else(|| EngineError::Data(format!("bot {}: rust_defer_until {v}", self.id))),
         }
     }
+    /// Tests only: `rust_defer`'s time.
     pub fn rust_defer_until_us(&self) -> Result<Option<i64>, EngineError> { Ok(self.rust_defer()?.map(|(t, _)| t)) }
     /// What the bot's checkpoints are computed from: its start (a fresh start moves it) and its effective interval.
     pub fn schedule_key(&self) -> Option<String> {

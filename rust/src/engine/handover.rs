@@ -90,12 +90,12 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     tx.execute(&format!("UPDATE bots SET status = ?1, updated_at = ?2 WHERE status IN ({working}) AND status <> ?1"), params![scheduled, crate::codec::format_time(now)])?;
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
-    // rust_defer_until is the engine's own key. Rails needs no translation of it: adopting a handback re-arms every scheduled
-    // bot at next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first
-    // checkpoint after the handback, which is never before the deferred one (a deferral is always the next checkpoint after
-    // the run it follows, and the handback comes later). So the key goes, and Rails' own scheduling keeps the wait.
-    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') \
-                WHERE json_extract(transient_data, '$.rust_defer_until') IS NOT NULL", [])?;
+    // rust_defer_until is the engine's own key, and it goes. Adopting a handback re-arms every scheduled bot at
+    // next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first checkpoint
+    // after the handback. For a checkpoint wait that is never before the deferred checkpoint, so Rails keeps the wait. A
+    // run-now wait (placement::run_now, a continue Rails would run at once) that has not ticked yet is dropped: the bot runs
+    // one checkpoint late, with the amount carried.
+    placement::remove_wait(&tx, None)?;
     // A continue start the engine never handled goes the same way: Rails' adoption re-arms the bot at its next checkpoint.
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
