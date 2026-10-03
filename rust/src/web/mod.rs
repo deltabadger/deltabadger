@@ -303,6 +303,8 @@ fn derive(secret: &str, label: &str) -> Result<[u8; 32], WebError> {
 }
 
 pub struct Inner {
+    pub figure_service: figure::service::Service,
+    pub figure_source: figure::loading::Source,
     pub mcp_instructions: String,
     pub config: Config,
     pub keys: Keys,
@@ -353,6 +355,7 @@ impl App {
         let encryption = EncryptionKeys::resolve(env, &config.secret_key_base).map_err(|e| WebError::Config(format!("{e:?}")))?;
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         Ok(Self(Arc::new(Inner {
+            figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             config, keys, cipher: Cipher::new(&encryption), clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
@@ -366,6 +369,12 @@ impl App {
     pub fn with_cable_timing(self, ping: Duration, recheck: Duration) -> Result<Self, WebError> {
         let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
         (inner.cable_ping, inner.cable_recheck) = (ping, recheck);
+        Ok(Self(Arc::new(inner)))
+    }
+
+    pub fn with_figure_source(self, source: figure::loading::Source) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        inner.figure_source = source;
         Ok(Self(Arc::new(inner)))
     }
 

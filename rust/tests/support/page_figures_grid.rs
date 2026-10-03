@@ -22,7 +22,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
     let scratch = tempfile::tempdir().unwrap();
     let out = std::process::Command::new(root.join("bin/rails")).current_dir(root)
         .args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()])
-        .env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
+        .env("SECRET_KEY_BASE",common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     for entry in std::fs::read_dir(scratch.path()).unwrap() {
         let dir = entry.unwrap().path();
@@ -39,6 +39,39 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let demands = reader.demands();
             if demands.is_empty() { break; }
             cache.fill(&wire, demands, now.utc().timestamp()).await;
+        }
+        if std::env::var_os("FIGURE_ROUTES").is_some() && ["basket_buys", "hidden"].contains(&name) {
+            use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
+            let env=common::web::env(common::web::SECRET);
+            let clock=common::web::TestClock::at(sc["at"].as_str().unwrap());
+            let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),clock).unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+            let user=sc["user_id"].as_i64().unwrap();
+            assert!(matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Cold));
+            tokio::time::timeout(std::time::Duration::from_secs(5),async {
+                loop {
+                    match loading::prepare(&app,user).await.unwrap() {
+                        loading::Snapshot::Ready(_,_,_)=>break,
+                        loading::Snapshot::Failed=>panic!("fill failed"),
+                        _=>tokio::task::yield_now().await,
+                    }
+                }
+            }).await.unwrap();
+            let password:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
+            let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
+            let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
+            let page=browser.get(&app,"/bots/1").await;
+            assert_eq!(page.status,200,"{name}: {}",page.body);
+            let selector=scraper::Selector::parse("#metrics").unwrap();
+            let doc=scraper::Html::parse_document(&page.body);
+            let got=doc.select(&selector).next().unwrap().html();
+            let want=scraper::Html::parse_fragment(expected["bots"]["1"]["metrics"].as_str().unwrap());
+            let want=want.select(&selector).next().unwrap().html();
+            assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"warm route {name}");
+            let chart=browser.get(&app,"/bots/1/chart").await;
+            assert_eq!(chart.status,200);
+            assert!(chart.body.contains("data-controller=\"bot--chart\""));
+            assert_eq!(browser.get(&app,"/bots/999/chart").await.status,404);
+            assert_eq!(common::web::Browser::default().get(&app,"/bots/1").await.status,302);
         }
         let reader = Reader::new(&cache, now.utc().timestamp());
         let actual = deltabadger::web::figure::account(&c, sc["user_id"].as_i64().unwrap(), &reader, now, "en", "token", "").unwrap();

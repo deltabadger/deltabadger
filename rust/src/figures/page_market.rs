@@ -6,7 +6,7 @@ use super::market::{Failure, Fetch, MarketData, Member, Quoted, Venue};
 use super::num::Num;
 use crate::venue::http::{HttpRequest, Transport, TransportError};
 use serde_json::Value;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 
 pub const PRICE_TTL: i64 = 60;
@@ -19,7 +19,7 @@ struct Entry { until: i64, value: Fetch<Value> }
 #[derive(Clone)]
 struct Head { until: i64, bars: Vec<Value> }
 #[derive(Clone, Default)]
-pub struct Cache { entries: BTreeMap<String, Entry>, heads: BTreeMap<String, Head> }
+pub struct Cache { entries: BTreeMap<String, Entry>, heads: BTreeMap<String, Head>, stamp: Option<At> }
 
 fn key(request: &HttpRequest) -> String {
     format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"))
@@ -69,6 +69,8 @@ fn rewritten(old: &Value, tail: &[Value], adjusted: bool) -> Fetch<bool> {
     Ok(ratio > Dec::to_d(&serde_json::json!("0.001"))? || ratio < Dec::to_d(&serde_json::json!("-0.001"))?)
 }
 impl Cache {
+    pub fn stamp(&self) -> Option<At> { self.stamp }
+    pub fn set_stamp(&mut self, at: At) { self.stamp = Some(at); }
     pub async fn fill(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64) {
         for request in demands {
             let cache_key = key(&request);
@@ -108,9 +110,11 @@ impl Cache {
     }
 }
 
-pub struct Reader<'a> { cache: &'a Cache, now: i64, demands: RefCell<BTreeMap<String, HttpRequest>> }
+pub struct Reader<'a> { cache: &'a Cache, now: i64, demands: RefCell<BTreeMap<String, HttpRequest>>, symbols: Option<Vec<String>>, failed: Cell<bool> }
 impl<'a> Reader<'a> {
-    pub fn new(cache: &'a Cache, now: i64) -> Self { Self { cache, now, demands: RefCell::default() } }
+    pub fn new(cache: &'a Cache, now: i64) -> Self { Self { cache, now, demands: RefCell::default(), symbols: None, failed: Cell::new(false) } }
+    pub fn failed(&self) -> bool { self.failed.get() }
+    pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
     pub fn demands(&self) -> Vec<HttpRequest> { self.demands.borrow().values().cloned().collect() }
     fn get(&self, request: HttpRequest) -> Fetch<Value> {
         let key = key(&request);
@@ -130,6 +134,7 @@ impl<'a> Reader<'a> {
 impl MarketData for Reader<'_> {
     fn prices(&self, venue: &Venue, symbols: &[String]) -> Fetch<Vec<(String, Member<Dec>)>> {
         if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        let symbols = self.symbols.as_deref().unwrap_or(symbols);
         let mut prices = vec![];
         let mut failed = None;
         for crypto in [false, true] {
@@ -150,7 +155,7 @@ impl MarketData for Reader<'_> {
                 }
             }
         }
-        match failed { Some(error) => Err(error), None => Ok(prices) }
+        match failed { Some(error) => { self.failed.set(true); Err(error) }, None => Ok(prices) }
     }
     fn candles(&self, venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
         if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }

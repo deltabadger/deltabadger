@@ -50,7 +50,7 @@ pub fn app_allowing(dir: &Path, secret: &str, allowed_hosts: Option<&str>, clock
         "ALLOWED_HOSTS" => allowed_hosts.map(str::to_string),
         _ => None,
     };
-    App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap()
+    App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap().with_figure_source(web::figure::loading::Source::Disabled).unwrap()
 }
 
 pub struct Answer {
