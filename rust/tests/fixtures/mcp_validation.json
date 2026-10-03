@@ -1,0 +1,5285 @@
+[
+  {
+    "schema": "initialize",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: protocolVersion, capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": null
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": true
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": 1
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": 1.5
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": []
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": {}
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "protocolVersion": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/protocolVersion` is not a string",
+      "object at root is missing required properties: capabilities, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": null
+    },
+    "errors": [
+      "value at `/capabilities` is not an object",
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": true
+    },
+    "errors": [
+      "value at `/capabilities` is not an object",
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": 1
+    },
+    "errors": [
+      "value at `/capabilities` is not an object",
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": 1.5
+    },
+    "errors": [
+      "value at `/capabilities` is not an object",
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": "x"
+    },
+    "errors": [
+      "value at `/capabilities` is not an object",
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": []
+    },
+    "errors": [
+      "value at `/capabilities` is not an object",
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": {}
+    },
+    "errors": [
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "capabilities": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: protocolVersion, clientInfo"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": null
+    },
+    "errors": [
+      "value at `/clientInfo` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": true
+    },
+    "errors": [
+      "value at `/clientInfo` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": 1
+    },
+    "errors": [
+      "value at `/clientInfo` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": 1.5
+    },
+    "errors": [
+      "value at `/clientInfo` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": "x"
+    },
+    "errors": [
+      "value at `/clientInfo` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": []
+    },
+    "errors": [
+      "value at `/clientInfo` is not an object",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": {}
+    },
+    "errors": [
+      "object at `/clientInfo` is missing required properties: name, version",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "initialize",
+    "value": {
+      "clientInfo": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/clientInfo/name` is not a string",
+      "object at `/clientInfo` is missing required properties: version",
+      "object at root is missing required properties: protocolVersion, capabilities"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "ping",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/list",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": null
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": true
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": 1
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": 1.5
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": []
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": {}
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/list",
+    "value": {
+      "cursor": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": null
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": true
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": 1
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": 1.5
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": []
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": {}
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/templates/list",
+    "value": {
+      "cursor": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": null
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": true
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": 1
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": 1.5
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": "x"
+    },
+    "errors": [
+      "value at `/uri` does not match format: uri"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": []
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": {}
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/read",
+    "value": {
+      "uri": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": null
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": true
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": 1
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": 1.5
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": "x"
+    },
+    "errors": [
+      "value at `/uri` does not match format: uri"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": []
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": {}
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/subscribe",
+    "value": {
+      "uri": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": null
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": true
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": 1
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": 1.5
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": "x"
+    },
+    "errors": [
+      "value at `/uri` does not match format: uri"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": []
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": {}
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "resources/unsubscribe",
+    "value": {
+      "uri": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/uri` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": null
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": true
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": 1
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": 1.5
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": []
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": {}
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/list",
+    "value": {
+      "cursor": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": null
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": true
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": 1
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": 1.5
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": []
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": {}
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "name": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": null
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": true
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": 1
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": 1.5
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": "x"
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": []
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": {}
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "prompts/get",
+    "value": {
+      "arguments": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/arguments/name` is not a string",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": null
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": true
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": 1
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": 1.5
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": []
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": {}
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/list",
+    "value": {
+      "cursor": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": null
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": true
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": 1
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": 1.5
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": []
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": {}
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "name": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/name` is not a string"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": null
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": true
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": 1
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": 1.5
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": "x"
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": []
+    },
+    "errors": [
+      "value at `/arguments` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": {}
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "arguments": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": null
+    },
+    "errors": [
+      "value at `/task` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": true
+    },
+    "errors": [
+      "value at `/task` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": 1
+    },
+    "errors": [
+      "value at `/task` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": 1.5
+    },
+    "errors": [
+      "value at `/task` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": "x"
+    },
+    "errors": [
+      "value at `/task` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": []
+    },
+    "errors": [
+      "value at `/task` is not an object",
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": {}
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tools/call",
+    "value": {
+      "task": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: name"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: taskId"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": null
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": true
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": 1
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": 1.5
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": []
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": {}
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/get",
+    "value": {
+      "taskId": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: taskId"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": null
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": true
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": 1
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": 1.5
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": []
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": {}
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/result",
+    "value": {
+      "taskId": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: taskId"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": null
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": true
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": 1
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": 1.5
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": []
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": {}
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/cancel",
+    "value": {
+      "taskId": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/taskId` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": null
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": true
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": 1
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": 1.5
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": []
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": {}
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "tasks/list",
+    "value": {
+      "cursor": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/cursor` is not a string"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: level"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": null
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": true
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": 1
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": 1.5
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": "x"
+    },
+    "errors": [
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": []
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": {}
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "logging/setLevel",
+    "value": {
+      "level": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/level` is not a string",
+      "value at `/level` is not one of: [\"alert\", \"critical\", \"debug\", \"emergency\", \"error\", \"info\", \"notice\", \"warning\"]"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": null
+    },
+    "errors": [
+      "value at `/argument` is not an object",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": true
+    },
+    "errors": [
+      "value at `/argument` is not an object",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": 1
+    },
+    "errors": [
+      "value at `/argument` is not an object",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": 1.5
+    },
+    "errors": [
+      "value at `/argument` is not an object",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": "x"
+    },
+    "errors": [
+      "value at `/argument` is not an object",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": []
+    },
+    "errors": [
+      "value at `/argument` is not an object",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": {}
+    },
+    "errors": [
+      "object at `/argument` is missing required properties: name, value",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "argument": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/argument/name` is not a string",
+      "object at `/argument` is missing required properties: value",
+      "object at root is missing required properties: ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": null
+    },
+    "errors": [
+      "value at `/context` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": true
+    },
+    "errors": [
+      "value at `/context` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": 1
+    },
+    "errors": [
+      "value at `/context` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": 1.5
+    },
+    "errors": [
+      "value at `/context` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": "x"
+    },
+    "errors": [
+      "value at `/context` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": []
+    },
+    "errors": [
+      "value at `/context` is not an object",
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": {}
+    },
+    "errors": [
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "context": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: argument, ref"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": null
+    },
+    "errors": [
+      "value at `/ref` is not an object",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": true
+    },
+    "errors": [
+      "value at `/ref` is not an object",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": 1
+    },
+    "errors": [
+      "value at `/ref` is not an object",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": 1.5
+    },
+    "errors": [
+      "value at `/ref` is not an object",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": "x"
+    },
+    "errors": [
+      "value at `/ref` is not an object",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": []
+    },
+    "errors": [
+      "value at `/ref` is not an object",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": {}
+    },
+    "errors": [
+      "object at `/ref` is missing required properties: name, type",
+      "object at `/ref` is missing required properties: type, uri",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "completion/complete",
+    "value": {
+      "ref": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/ref/name` is not a string",
+      "object at `/ref` is missing required properties: type",
+      "object at `/ref` is missing required properties: type, uri",
+      "object at root is missing required properties: argument"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": null
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": true
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": 1
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": 1.5
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": []
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": {}
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "reason": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/reason` is not a string"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": null
+    },
+    "errors": [
+      "value at `/requestId` is not one of the types: [\"string\", \"integer\"]"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": true
+    },
+    "errors": [
+      "value at `/requestId` is not one of the types: [\"string\", \"integer\"]"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": 1
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": 1.5
+    },
+    "errors": [
+      "value at `/requestId` is not one of the types: [\"string\", \"integer\"]"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": "x"
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": []
+    },
+    "errors": [
+      "value at `/requestId` is not one of the types: [\"string\", \"integer\"]"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": {}
+    },
+    "errors": [
+      "value at `/requestId` is not one of the types: [\"string\", \"integer\"]"
+    ]
+  },
+  {
+    "schema": "notifications/cancelled",
+    "value": {
+      "requestId": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/requestId` is not one of the types: [\"string\", \"integer\"]"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/initialized",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/progress",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": null
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": true
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": 1
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": 1.5
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": []
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": {}
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "message": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/message` is not a string",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": null
+    },
+    "errors": [
+      "value at `/progress` is not a number",
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": true
+    },
+    "errors": [
+      "value at `/progress` is not a number",
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": 1
+    },
+    "errors": [
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": 1.5
+    },
+    "errors": [
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": "x"
+    },
+    "errors": [
+      "value at `/progress` is not a number",
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": []
+    },
+    "errors": [
+      "value at `/progress` is not a number",
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": {}
+    },
+    "errors": [
+      "value at `/progress` is not a number",
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progress": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/progress` is not a number",
+      "object at root is missing required properties: progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": null
+    },
+    "errors": [
+      "value at `/progressToken` is not one of the types: [\"string\", \"integer\"]",
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": true
+    },
+    "errors": [
+      "value at `/progressToken` is not one of the types: [\"string\", \"integer\"]",
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": 1
+    },
+    "errors": [
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": 1.5
+    },
+    "errors": [
+      "value at `/progressToken` is not one of the types: [\"string\", \"integer\"]",
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": []
+    },
+    "errors": [
+      "value at `/progressToken` is not one of the types: [\"string\", \"integer\"]",
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": {}
+    },
+    "errors": [
+      "value at `/progressToken` is not one of the types: [\"string\", \"integer\"]",
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "progressToken": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/progressToken` is not one of the types: [\"string\", \"integer\"]",
+      "object at root is missing required properties: progress"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": null
+    },
+    "errors": [
+      "value at `/total` is not a number",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": true
+    },
+    "errors": [
+      "value at `/total` is not a number",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": 1
+    },
+    "errors": [
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": 1.5
+    },
+    "errors": [
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": "x"
+    },
+    "errors": [
+      "value at `/total` is not a number",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": []
+    },
+    "errors": [
+      "value at `/total` is not a number",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": {}
+    },
+    "errors": [
+      "value at `/total` is not a number",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/progress",
+    "value": {
+      "total": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/total` is not a number",
+      "object at root is missing required properties: progress, progressToken"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {},
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": {}
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": null
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": true
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": 1
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": 1.5
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": []
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": {}
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "createdAt": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/createdAt` is not a string",
+      "object at root is missing required properties: lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": null
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": true
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": 1
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": 1.5
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": []
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": {}
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "lastUpdatedAt": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/lastUpdatedAt` is not a string",
+      "object at root is missing required properties: createdAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": null
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": true
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": 1
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": 1.5
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": "x"
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": []
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": {}
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "pollInterval": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/pollInterval` is not an integer",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": null
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": true
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": 1
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": 1.5
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": "x"
+    },
+    "errors": [
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": []
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": {}
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "status": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/status` is not a string",
+      "value at `/status` is not one of: [\"cancelled\", \"completed\", \"failed\", \"input_required\", \"working\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": null
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": true
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": 1
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": 1.5
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": []
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": {}
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "statusMessage": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/statusMessage` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": null
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": true
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": 1
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": 1.5
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": "x"
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": []
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": {}
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "taskId": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/taskId` is not a string",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, ttl"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": null
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": true
+    },
+    "errors": [
+      "value at `/ttl` is not one of the types: [\"integer\", \"null\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": 1
+    },
+    "errors": [
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": 1.5
+    },
+    "errors": [
+      "value at `/ttl` is not one of the types: [\"integer\", \"null\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": "x"
+    },
+    "errors": [
+      "value at `/ttl` is not one of the types: [\"integer\", \"null\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": []
+    },
+    "errors": [
+      "value at `/ttl` is not one of the types: [\"integer\", \"null\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": {}
+    },
+    "errors": [
+      "value at `/ttl` is not one of the types: [\"integer\", \"null\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/tasks/status",
+    "value": {
+      "ttl": {
+        "name": 3
+      }
+    },
+    "errors": [
+      "value at `/ttl` is not one of the types: [\"integer\", \"null\"]",
+      "object at root is missing required properties: createdAt, lastUpdatedAt, status, taskId"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": null,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": true,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": 1,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": 1.5,
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": "x",
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": [],
+    "errors": [
+      "value at root is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {},
+    "errors": []
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": null
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": true
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": 1
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": 1.5
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": "x"
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": []
+    },
+    "errors": [
+      "value at `/_meta` is not an object"
+    ]
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": {}
+    },
+    "errors": []
+  },
+  {
+    "schema": "notifications/roots/list_changed",
+    "value": {
+      "_meta": {
+        "name": 3
+      }
+    },
+    "errors": []
+  }
+]

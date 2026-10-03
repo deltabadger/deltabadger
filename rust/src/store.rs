@@ -86,6 +86,47 @@ const MIGRATIONS_TABLE: &[TableContract] = &[TableContract {
 }];
 // Every table and column the engine reads or writes. Extend whenever Rust touches more.
 const PRIMARY: &[TableContract] = &[
+    TableContract { name: "action_mcp_sessions", columns: &[
+        ("id", "varchar", true),
+        ("client_capabilities", "json", false),
+        ("client_info", "json", false),
+        ("consents", "json", true),
+        ("created_at", "datetime(6)", true),
+        ("ended_at", "datetime(6)", false),
+        ("initialized", "boolean", true),
+        ("messages_count", "integer", true),
+        ("prompt_registry", "json", false),
+        ("protocol_version", "varchar", false),
+        ("resource_registry", "json", false),
+        ("role", "varchar", true),
+        ("server_capabilities", "json", false),
+        ("server_info", "json", false),
+        ("session_data", "json", true),
+        ("status", "varchar", true),
+        ("tool_registry", "json", false),
+        ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[] },
+    TableContract { name: "action_mcp_session_messages", columns: &[
+        ("id", "integer", true),
+        ("created_at", "datetime(6)", true),
+        ("direction", "varchar", true),
+        ("is_ping", "boolean", true),
+        ("jsonrpc_id", "varchar", false),
+        ("message_json", "json", false),
+        ("message_type", "varchar", true),
+        ("request_acknowledged", "boolean", true),
+        ("request_cancelled", "boolean", true),
+        ("session_id", "varchar", true),
+        ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[] },
+    TableContract { name: "action_mcp_session_subscriptions", columns: &[
+        ("id", "integer", true),
+        ("created_at", "datetime(6)", true),
+        ("last_notification_at", "datetime(6)", false),
+        ("session_id", "varchar", true),
+        ("updated_at", "datetime(6)", true),
+        ("uri", "varchar", true),
+    ], unique_indexes: &[] },
     TableContract { name: "app_configs", columns: &[("key", "varchar", true), ("value", "text", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true)], unique_indexes: &[&["key"]] },
     TableContract { name: "bots", columns: &[
         ("id", "integer", true), ("type", "varchar", false), ("status", "integer", true), ("exchange_id", "bigint", false),
@@ -150,7 +191,7 @@ const PRIMARY: &[TableContract] = &[
     TableContract { name: "oauth_applications", columns: &[
         ("id", "integer", true), ("uid", "varchar", true), ("name", "varchar", true), ("secret", "varchar", false), ("redirect_uri", "text", false),
         ("scopes", "varchar", true), ("confidential", "boolean", true), ("personal_access_token", "boolean", true),
-        ("registration_access_token", "varchar", false), ("token_endpoint_auth_method", "varchar", false), ("grant_types", "varchar", false),
+        ("personal_owner_id", "integer", false), ("registration_access_token", "varchar", false), ("token_endpoint_auth_method", "varchar", false), ("grant_types", "varchar", false),
         ("response_types", "varchar", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["uid"]] },
     TableContract { name: "oauth_access_grants", columns: &[

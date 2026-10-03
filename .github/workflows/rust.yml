@@ -206,4 +206,4 @@ jobs:
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
           --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test figures_vectors --test figures_limits
-          --test mail --test smtp --test sync_vectors
+          --test mail --test smtp --test sync_vectors --test mcp_contract
