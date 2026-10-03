@@ -56,7 +56,7 @@ fn never_negative() {
 
 fn sizing_ticker(t: &serde_json::Value) -> Ticker {
     let n = |k: &str| t[k].as_str().unwrap().parse::<i64>().unwrap();
-    Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
+    Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), quote_code: "EUR".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
              base_asset_id: 1, quote_asset_id: 2, base_decimals: n("base_decimals"), quote_decimals: n("quote_decimals"), price_decimals: n("price_decimals"),
              minimum_base_size: bd(t["minimum_base_size"].as_str().unwrap()), minimum_quote_size: bd(t["minimum_quote_size"].as_str().unwrap()),
              trading_enabled: true, available: true }
@@ -119,7 +119,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
-        let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(), ..sizing_ticker(&c["ticker"]) };
+        let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(), ..sizing_ticker(&c["ticker"]) };
         let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), ALPACA.minimum_logic).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");

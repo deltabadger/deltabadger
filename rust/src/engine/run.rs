@@ -1,6 +1,7 @@
 //! The engine loop. No job table: each pass re-reads the working bots (UI changes are seen within a minute),
 //! ticks the due ones, and sleeps until the earliest next event. What Rails would hold in Solid Queue —
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
+use super::events::{EngineEvent, EngineEvents};
 use super::schedule::{checkpoints, effective};
 use super::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use super::{amount, eligibility, model, placement, polling, Clock, EngineError};
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::Notify;
 
 const IDLE_US: i64 = 60_000_000;
@@ -45,15 +47,20 @@ pub struct Engine<F: VenueFactory> {
     pub(crate) writers_guarded: bool,
     /// Bots whose tick was refused for stale reference data, by the source named: logged once, not on every pass.
     stale_logged: HashMap<i64, &'static str>,
+    /// Told after each tick what it recorded, never called into.
+    events: EngineEvents,
 }
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
-               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new() }
+               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(),
+               events: EngineEvents::default() }
     }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
+    /// A receiver of every event this engine sends from now on. Taken before `run::run` consumes the engine.
+    pub fn subscribe(&mut self) -> UnboundedReceiver<EngineEvent> { self.events.subscribe() }
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
@@ -135,6 +142,7 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
             *wake = (*wake).min(at);
         }
         placement::Recovery::Recorded(tx) => {
+            e.events.send(EngineEvent::OrderRecorded { bot_id: id, transaction_id: tx });
             e.reconcile_at.remove(&id);
             e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default()));
         }
@@ -336,6 +344,12 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let stop = e.stop.clone();
         let stopping = move || stop.load(Ordering::SeqCst);
         let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
+        // What this tick records is announced after it returns, when its writes have committed: rows by id (every row
+        // the tick inserts, as Rails' after_create_commit hears every create), and a new funds mail marker.
+        let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;
+        let funds_marker = |c: &Connection| c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", tick::FUNDS_MAIL_PENDING),
+                                                         [id], |r| r.get::<_, Option<String>>(0));
+        let funds_before = funds_marker(&e.primary)?;
         let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await?;
         let repeat = matches!(&outcome, TickOutcome::Stale { source, .. } if e.stale_logged.get(&id) == Some(source));
         if !repeat { super::log(&format!("bot {id}: {outcome:?}")); }
@@ -350,6 +364,18 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let accepted = s.query_map(rusqlite::params![id, tick_start], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
         for tx in accepted.into_iter().chain(recovered) { e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default())); }
+        let mut s = e.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND id > ?2 ORDER BY id")?;
+        let created = s.query_map(rusqlite::params![id, last_tx], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+        drop(s);
+        for tx in created.iter().copied().chain(recovered.filter(|r| !created.contains(r))) {
+            e.events.send(EngineEvent::OrderRecorded { bot_id: id, transaction_id: tx });
+        }
+        // tick.rs leaves the funds marker with the stamp where Rails mails BotAlertsMailer#end_of_funds. The stamp alone is
+        // no signal: a failure that stops the bot stamps it too, and its mail rides the error or stopped marker instead.
+        let funds_after = funds_marker(&e.primary)?;
+        if funds_after.is_some() && funds_after != funds_before {
+            e.events.send(EngineEvent::FundsLow { bot_id: id, user_id: bot.user_id, quote_asset_id: bot.quote_asset_id() });
+        }
         match outcome {
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, clock.now().timestamp_micros() + d.as_micros() as i64); }
             TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, clock.now().timestamp_micros() + RECONCILE_EVERY_US); }

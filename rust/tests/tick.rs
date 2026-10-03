@@ -495,3 +495,21 @@ async fn an_unreadable_balance_number_after_a_placement_fails_the_tick_without_a
         assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bots WHERE last_end_of_funds_notification IS NOT NULL"), 0, "{bad}: not a zero balance");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn ticker_changes_during_price_lookup_write_no_intent_and_send_nothing() {
+    for change in ["trading_enabled = 0", "available = 0", "base_decimals = 3", "quote_decimals = 1",
+                   "price_decimals = 4", "minimum_base_size = 2", "minimum_quote_size = 100",
+                   "ticker = 'RENAMED'", "base = 'RENAMED'", "quote = 'RENAMED'"] {
+        let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        let db = o.primary.path().unwrap().to_string();
+        let v = priced().next_add(AddOutcome::Accept("OTX-F".into())).on_price(move || {
+            rusqlite::Connection::open(&db).unwrap().execute(&format!("UPDATE tickers SET {change}"), []).unwrap();
+        });
+        let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+        assert!(matches!(out, TickOutcome::Done { placed: false }), "{change}: {out:?}");
+        assert!(v.sent().is_empty(), "{change}: no send");
+        assert!(bot(&o, id).rust_placement().is_none(), "{change}: no intent");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    }
+}
