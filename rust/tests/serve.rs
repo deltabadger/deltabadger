@@ -2110,97 +2110,21 @@ async fn the_feed_refuses_the_page_that_holds_the_row_and_no_page_before_it() {
     two_pages("an amount that is not read, after ten buys", "<tr id=\"transaction_").await;
 }
 
-/// Compile the production CLI with just its transport factory substituted. The CLI
-/// deliberately has no runtime venue override; none is added for this test.
-fn bot_action_executable(
-    dir: &std::path::Path,
-    venue: std::net::SocketAddr,
-) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    let main = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/main.rs"))?;
-    let import = "use deltabadger::venue::alpaca::{self, LiveFactory};";
-    assert_eq!(
-        main.matches(import).count(),
-        1,
-        "review the CLI transport seam if main changes"
-    );
-    let transport=r#"
-use deltabadger::venue::alpaca;
-#[derive(Clone)]
-struct LiveFactory;
-impl LiveFactory {fn new()->Self {Self}}
-impl deltabadger::venue::VenueFactory for LiveFactory {
-    type V=alpaca::AlpacaVenue<Self>;
-    fn for_bot(&self,_:&str,_:Option<deltabadger::crypto::Credentials>)->Self::V {
-        alpaca::AlpacaVenue::new(self.clone(),alpaca::Urls::for_passphrase(Some("paper")))
-    }
-}
-impl deltabadger::sync::jobs::Connect for LiveFactory {
-    type T=Self;
-    fn connect(&self,_:&deltabadger::crypto::Credentials)->alpaca::AlpacaVenue<Self> {
-        alpaca::AlpacaVenue::new(self.clone(),alpaca::Urls::for_passphrase(Some("paper")))
-    }
-}
-impl deltabadger::venue::http::Transport for LiveFactory {
-    async fn send(&self,r:&deltabadger::venue::http::HttpRequest)->Result<deltabadger::venue::http::HttpResponse,deltabadger::venue::http::TransportError> {
-        use tokio::io::{AsyncReadExt,AsyncWriteExt};
-        use deltabadger::venue::http::{HttpResponse,TransportError};
-        let result=tokio::time::timeout(std::time::Duration::from_secs(20),async {
-            let mut socket=tokio::net::TcpStream::connect("VENUE_ADDRESS").await?;
-            let request=serde_json::json!({"method":r.method,"path":r.path,"body":r.body}).to_string()+"\n";
-            socket.write_all(request.as_bytes()).await?;
-            let mut body=String::new();socket.read_to_string(&mut body).await?;
-            Ok::<_,std::io::Error>(HttpResponse {status:200,body})
-        }).await;
-        match result {Ok(Ok(r))=>Ok(r),other=>Err(TransportError::MaybeSent(format!("script: {other:?}")))}
-    }
-}
-"#.replace("VENUE_ADDRESS",&venue.to_string());
-    let source = dir.join("main.rs");
-    std::fs::write(&source, main.replacen(import, &transport, 1))?;
-    let binary = dir.join("deltabadger-scripted");
-    let deps = std::env::current_exe()?
+/// The scripted CLI example, built here so a run of only this test target still has it (a no-op when it is current).
+fn bot_action_executable() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let built = std::process::Command::new(env!("CARGO"))
+        .args(["build", "--quiet", "--example", "scripted_cli", "--manifest-path", concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml")])
+        .status()?;
+    if !built.success() { return Err("cargo build --example scripted_cli failed".into()); }
+    let executable = std::env::current_exe()?;
+    let profile = executable
         .parent()
-        .ok_or("test executable directory")?
-        .to_path_buf();
-    let mut command = Command::new("rustc");
-    command
-        .arg("--edition=2021")
-        .args(["-C", "codegen-units=2"])
-        .arg(&source)
-        .arg("-o")
-        .arg(&binary)
-        .arg("-L")
-        .arg(format!("dependency={}", deps.display()))
-        .env("CARGO_PKG_VERSION", env!("CARGO_PKG_VERSION"));
-    for name in ["deltabadger", "tokio", "chrono", "rusqlite", "serde_json"] {
-        let mut candidates = std::fs::read_dir(&deps)?
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| {
-                p.file_name()
-                    .is_some_and(|n| n.to_string_lossy().starts_with(&format!("lib{name}-")))
-                    && p.extension().is_some_and(|e| e == "rlib")
-            })
-            .collect::<Vec<_>>();
-        candidates.sort_by_key(|p| p.metadata().and_then(|m| m.modified()).ok());
-        let library = candidates
-            .last()
-            .ok_or_else(|| format!("compiled {name} library"))?;
-        command
-            .arg("--extern")
-            .arg(format!("{name}={}", library.display()));
-    }
-    let log = std::fs::File::create(dir.join("rustc.log"))?;
-    let mut compiler = Child(command.stdout(log.try_clone()?).stderr(log).spawn()?);
-    let status = compiler
-        .ended_within(Duration::from_secs(60))
-        .ok_or("scripted CLI compilation exceeded 60 s")?;
-    assert!(
-        status.success(),
-        "{}",
-        std::fs::read_to_string(dir.join("rustc.log"))?
-    );
-    Ok(binary)
+        .and_then(std::path::Path::parent)
+        .ok_or("test executable profile directory")?;
+    Ok(profile.join("examples").join(format!(
+        "scripted_cli{}",
+        std::env::consts::EXE_SUFFIX
+    )))
 }
 
 #[test]
@@ -2256,7 +2180,7 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     let address = listener.local_addr()?;
     listener.set_nonblocking(true)?;
     let scratch = tempfile::tempdir()?;
-    let binary = bot_action_executable(scratch.path(), address)?;
+    let binary = bot_action_executable()?;
     let stopping = Arc::new(AtomicBool::new(false));
     let done = stopping.clone();
     let submissions = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -2338,6 +2262,7 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     // Preserve the production command's environment sanitization and all CLI code.
     let mut scripted = Command::new(&binary);
     scripted.args(command.get_args());
+    scripted.env("VENUE_ADDRESS", address.to_string());
     for (key, value) in command.get_envs() {
         match value {
             Some(v) => {
