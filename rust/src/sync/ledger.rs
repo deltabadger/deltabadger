@@ -591,11 +591,15 @@ fn bots_naming(c: &Connection, user_id: i64, exchange_id: i64, symbol: &str) -> 
 
 /// AccountTransactionSync.expire_restated_bots: every bot of the user that traded the symbol on this venue gets its
 /// `restatement_generation` moved by one (Rails' cache generation for that bot's metrics). One statement, one column.
-/// Also what the scheduler calls at the effective time of a split that was imported ahead of its date.
-pub fn expire_restated(c: &Connection, user_id: i64, exchange_id: i64, symbol: &str) -> Result<Vec<i64>, SyncError> {
-    let bots = bots_naming(c, user_id, exchange_id, symbol)?;
-    bump(c, &bots)?;
-    Ok(bots)
+/// Also what runs at the effective time of a split that was imported ahead of its date (Bot::ExpireRestatedMetricsJob).
+/// The scan is a read unit; the bump is one write unit past the engine's guard (`commit_bots`), so a refusal rolls back
+/// every counter of it. The bare bump is private: no caller writes `bots` outside a guarded transaction.
+pub async fn expire_restated(db: &Db, user_id: i64, exchange_id: i64, symbol: &str) -> Result<Vec<i64>, SyncError> {
+    let symbol = symbol.to_string();
+    let bots = Arc::new(phase(db, move |c| bots_naming(c, user_id, exchange_id, &symbol)).await?);
+    let named = bots.clone();
+    commit_bots(db, move |c| { bump(c, &named)?; Ok(((), !named.is_empty())) }).await?;
+    Ok(bots.to_vec())
 }
 
 fn bump(c: &Connection, bots: &[i64]) -> Result<(), SyncError> {

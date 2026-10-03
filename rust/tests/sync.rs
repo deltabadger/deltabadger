@@ -229,8 +229,31 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
     let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([{ "id": "later", "activity_type": "SPLIT", "symbol": "AAPL", "qty": "5", "date": "2026-10-05" }]))] }));
     let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
     assert!(out.splits[0].effective_later);
-    let bumped = db.run(move |c, _| ledger::expire_restated(c, s.user_id, s.exchange_id, "AAPL").map_err(|e| e.0)).await.unwrap();
+    let bumped = ledger::expire_restated(&db, s.user_id, s.exchange_id, "AAPL").await.unwrap();
     assert_eq!((bumped, one::<i64>(&db, "SELECT restatement_generation FROM bots").await), (vec![seeded], 3));
+}
+
+/// The deferred bump (Rails' Bot::ExpireRestatedMetricsJob) is one guarded write unit through `Db`: a refusal rolls
+/// every counter of the unit back, not only the bot the guard named.
+#[tokio::test(flavor = "current_thread")]
+async fn expire_restated_is_one_guarded_unit_and_a_refusal_rolls_all_of_it_back() {
+    let (_dir, db, s) = install();
+    let (working, stopped) = db.run(move |c, _| {
+        let working = bot_that_traded_aapl(c, s);
+        let stopped = seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [stopped]).map_err(|e| e.to_string())?;
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base, quote, amount, amount_exec, bot_interval, \
+                   bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, 'o-2', 0, 2, 0, 0, 'AAPL', 'USD', 10, 10, 'week', 60, 'REGULAR', '[]', \
+                   '2026-09-02 14:30:00', '2026-09-02 14:30:00')", [stopped, s.exchange_id]).map_err(|e| e.to_string())?;
+        Ok((working, stopped))
+    }).await.unwrap();
+    let generations = "SELECT group_concat(id || ':' || coalesce(restatement_generation, 0), ' ') FROM (SELECT * FROM bots ORDER BY id)";
+    let SyncError(refused) = ledger::expire_restated(&db, s.user_id, s.exchange_id, "AAPL").await.unwrap_err();
+    assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{refused}");
+    assert_eq!(one::<String>(&db, generations).await, format!("{working}:0 {stopped}:0"), "the stopped bot's counter rolled back with the working bot's");
+    db.run(move |c, _| c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [working]).map_err(|e| e.to_string())).await.unwrap();
+    assert_eq!(ledger::expire_restated(&db, s.user_id, s.exchange_id, "AAPL").await.unwrap(), vec![working, stopped]);
+    assert_eq!(one::<String>(&db, generations).await, format!("{working}:1 {stopped}:1"));
 }
 
 #[tokio::test(flavor = "current_thread")]
