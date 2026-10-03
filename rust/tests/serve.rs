@@ -1474,3 +1474,213 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().has_orders);
     assert!(!Bot::find(c, seeded.user_id, id, bot::For::Feed).unwrap().unwrap().has_orders);
 }
+
+/// A text that is markup if it is printed as it is, and that closes an attribute if it is printed inside one.
+const HOSTILE: &str = "<img src=x onerror=alert(1)>\" onmouseover=\"alert(2)";
+
+/// An Alpaca install in which every text the bot pages print out of the database is `HOSTILE`: the
+/// assets' symbols and names, the tickers' spellings, the venue's name, the bots' labels and stop
+/// reasons, an order's error, and the settings a page prints or looks a translation up by. Two bots,
+/// so that the list is a list: a retrying one-asset basket with every condition on (each sentence
+/// names its lone subject), and a stopped basket of two (each sentence offers a choice).
+fn hostile_install() -> (tempfile::TempDir, deltabadger::store::Opened, deltabadger::web::App, Browser, [i64; 2]) {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('ethereum', 'ETH', 'Ethereum', 'Cryptocurrency', ?1, ?1)", ["2026-01-01 00:00:00"]).unwrap();
+    let eth = c.last_insert_rowid();
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+               minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, 'ETH/USD', 'ETH', 'USD', ?2, ?3, 9, 2, 2, '0.001', '1', 1, 1, ?4, ?4)",
+              (seeded.exchange_id, eth, seeded.quote, "2026-01-01 00:00:00")).unwrap();
+    let eth_ticker = c.last_insert_rowid();
+    let rules = json!({ "price_limited": true, "price_drop_limited": true, "moving_average_limited": true, "indicator_limited": true, "smart_intervaled": true,
+                        "limit_ordered": true, "quote_amount_limited": true, "start_time_enabled": true, "start_time_mode": "friday", "start_time_of_day": HOSTILE });
+    // The settings that are free text. Those that are one of a list of words are held to the list (`bot::refusal`), so no text of theirs reaches a page.
+    let texts = json!({ "start_at": HOSTILE });
+    let spec = |status: i64, allocations: serde_json::Value| {
+        let mut spec = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("allocations", allocations);
+        spec.status = status;
+        for (key, value) in rules.as_object().unwrap().iter().chain(texts.as_object().unwrap()) { spec = spec.with(key, value.clone()); }
+        spec
+    };
+    let lone = common::seed::insert_bot(c, &seeded, &spec(5, json!({ seeded.btc.to_string(): 1.0 })));
+    let pair = common::seed::insert_bot(c, &seeded, &spec(2, json!({ seeded.btc.to_string(): 0.5, eth.to_string(): 0.5 })));
+    for (bot, asset, ticker) in [(lone, seeded.btc, seeded.ticker_id), (pair, seeded.btc, seeded.ticker_id), (pair, eth, eth_ticker)] {
+        c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 0.5, 1, ?4, ?4)",
+                  (bot, asset, ticker, "2026-01-01 00:00:00")).unwrap();
+    }
+    // The retrying bot's last order failed, and the venue's words for it are printed in the status bar and in the feed.
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, status, side, transaction_type, base, quote, base_asset_id, quote_asset_id, quote_amount, bot_interval, bot_quote_amount, \
+               error_messages, created_at, updated_at) VALUES (?1, ?2, 1, 0, 'REGULAR', ?3, ?3, ?4, ?5, '60', 'week', 60, ?6, '2026-09-08 10:00:00', '2026-09-08 10:00:00')",
+              (lone, seeded.exchange_id, HOSTILE, seeded.btc, seeded.quote, json!([HOSTILE]).to_string())).unwrap();
+    c.execute("UPDATE assets SET symbol = ?1, name = ?1", [HOSTILE]).unwrap();
+    c.execute("UPDATE tickers SET base = ?1 || id, quote = ?1, ticker = ?1 || id", [HOSTILE]).unwrap(); // a venue lists a spelling once
+    c.execute("UPDATE exchanges SET name = ?1", [HOSTILE]).unwrap();
+    c.execute("UPDATE bots SET label = ?1, stop_message_key = ?1", [HOSTILE]).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    (dir, opened, app, Browser::default(), [lone, pair])
+}
+
+/// How often the text is on a page escaped, in either spelling of the entities (the templates write `&#60;`, the code `&lt;`).
+fn escaped(body: &str) -> usize {
+    body.matches("&lt;img src=x onerror=alert(1)&gt;").count() + body.matches("&#60;img src=x onerror=alert(1)&#62;").count()
+}
+
+/// What a page must not contain, and must: the text as markup or closing an attribute, and the text escaped.
+fn assert_escaped(what: &str, body: &str) {
+    assert!(!body.contains("<img"), "{what}: a text from the database is printed as markup:\n{}", body.split("<img").next().unwrap_or_default().chars().rev().take(300).collect::<String>().chars().rev().collect::<String>());
+    assert!(!body.contains("\" onmouseover=\"alert"), "{what}: a text from the database closes an attribute");
+    assert!(escaped(body) > 0, "{what}: the text is not on the page at all, so nothing was proven");
+}
+
+/// No text out of the database is markup on the bot list or the bot page. Rails prints one as
+/// markup (the lone subject of a condition's sentence: `base_html.html_safe` in
+/// bots/settings/_price_limit.html.erb and its three siblings), so the parity grid cannot hold this:
+/// it is held here, for every text these pages print, in every place they print it.
+#[tokio::test(flavor = "current_thread")]
+async fn no_text_from_the_database_is_markup_on_the_bot_pages() {
+    let (_dir, _opened, app, mut browser, [lone, pair]) = hostile_install();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    for path in ["/bots".to_string(), format!("/bots/{lone}"), format!("/bots/{pair}"), format!("/de/bots/{lone}"), format!("/bots/{pair}/chart")] {
+        let page = browser.get(&app, &path).await;
+        assert_eq!(page.status, 200, "{path}: {}", page.body);
+        if path.ends_with("/chart") { assert!(!page.body.contains("<img"), "{path}"); } else { assert_escaped(&path, &page.body); }
+    }
+    let page = browser.get(&app, &format!("/bots/{lone}")).await.body;
+    assert!(escaped(&page) >= 10, "the symbol, the label, the venue and the settings are all on this page: {}", escaped(&page));
+    // The one text Rails hands to a sentence as markup: the lone subject of a condition. No locale's sentence
+    // for one member prints it today, so no page can show it; the function that makes it is held directly.
+    use deltabadger::web::bot::settings::lone_subject;
+    let escaped_text = "&lt;img src=x onerror=alert(1)&gt;&quot; onmouseover=&quot;alert(2)";
+    assert_eq!(lone_subject(&[(HOSTILE.to_string(), "7".to_string())]).as_deref(), Some(escaped_text));
+    assert_eq!(lone_subject(&[]).as_deref(), Some(""));
+    assert_eq!(lone_subject(&[("A".to_string(), "1".to_string()), ("B".to_string(), "2".to_string())]), None, "a choice is a select, built with its labels escaped");
+}
+
+/// An Alpaca install with two one-asset bots that have a label and an account that answered the
+/// wash-sale question, signed in: the first scheduled, the second stopped with a spending cap that
+/// counts from the first of September.
+async fn two_plain_bots() -> (tempfile::TempDir, deltabadger::store::Opened, common::seed::Seeded, deltabadger::web::App, Browser, [i64; 2]) {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let working = common::seed::insert_bot(c, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_action_job_at", json!("2026-09-08T10:00:00.250Z")));
+    let mut capped = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", json!(true)).with("quote_amount_limit", json!(1000))
+        .transient("quote_amount_limit_enabled_at", json!("2026-09-01T00:00:00.000Z"));
+    capped.status = 2;
+    let stopped = common::seed::insert_bot(c, &seeded, &capped);
+    c.execute("UPDATE bots SET label = 'Bitcoin ' || id", []).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    (dir, opened, seeded, app, browser, [working, stopped])
+}
+
+/// The span between two orders is checked before any checkpoint is computed from it. A working bot
+/// whose Smart Intervals amount is nothing, less than nothing or small enough to underflow is
+/// refused, on its page and on the list; the same row on a bot that is not working is rendered, with
+/// Rails' own error under the field (the scenario `bot_page_stored_past_forms` holds that page to Rails').
+#[tokio::test(flavor = "current_thread")]
+async fn a_span_of_nothing_between_two_orders_refuses_a_working_bot_before_any_checkpoint() {
+    use serde_json::json;
+    let (_dir, opened, _seeded, app, mut browser, [working, stopped]) = two_plain_bots().await;
+    let c = &opened.primary;
+    let set = |bot: i64, amount: serde_json::Value| {
+        let stored: String = c.query_row("SELECT settings FROM bots WHERE id = ?1", [bot], |r| r.get(0)).unwrap();
+        let mut settings: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        (settings["smart_intervaled"], settings["smart_interval_quote_amount"]) = (json!(true), amount);
+        c.execute("UPDATE bots SET settings = ?1 WHERE id = ?2", (settings.to_string(), bot)).unwrap();
+    };
+    for amount in [json!(0), json!(0.0), json!(-5), json!(1e-320), json!(0.00009)] {
+        set(working, amount.clone());
+        assert_eq!((browser.get(&app, &format!("/bots/{working}")).await.status, browser.get(&app, "/bots").await.status), (501, 501), "{amount}");
+        assert_eq!(browser.get(&app, &format!("/bots/{stopped}")).await.status, 200, "{amount}: the other bot's page is not taken along");
+    }
+    set(working, json!(6));
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
+    for amount in [json!(0), json!(-5)] {
+        set(stopped, amount.clone());
+        let page = browser.get(&app, &format!("/bots/{stopped}")).await;
+        assert_eq!(page.status, 200, "{amount}");
+        assert!(page.body.contains("form__info--invalid") && page.body.contains("data-html5-range-underflow-message"), "{amount}: the floor's message under the field");
+        assert_eq!(browser.get(&app, "/bots").await.status, 200, "{amount}");
+    }
+}
+
+/// The navbar's ring adds the account's holdings in SQL, and a value no Float holds makes the sum
+/// infinity: a user reaches it by importing a closed buy of 1e307 and syncing balances at 100 (Rails
+/// stores the product; app/services/account_balance/sync.rb). Rails raises drawing the ring
+/// (app/helpers/tracker_helper.rb:505). Every handler here that loads the navbar answers the 501
+/// page for it, never a 500; and the same pages are served again once the row is gone.
+#[tokio::test(flavor = "current_thread")]
+async fn holdings_that_add_up_to_no_number_refuse_the_pages_that_draw_the_ring() {
+    let (_dir, opened, seeded, app, mut browser, [working, stopped]) = two_plain_bots().await;
+    let c = &opened.primary;
+    let paths = ["/bots".to_string(), format!("/bots/{working}"), format!("/bots/{stopped}"), format!("/bots/{stopped}/chart")];
+    for value in [f64::INFINITY, 12.5] {
+        c.execute("INSERT INTO account_balances (asset_id, exchange_id, user_id, free, locked, usd_price, usd_value, synced_at, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, '1', '0', '100', ?4, '2026-09-10 12:00:00', '2026-09-10 12:00:00', '2026-09-10 12:00:00')",
+                  rusqlite::params![seeded.btc, seeded.exchange_id, seeded.user_id, value]).unwrap();
+        let mut statuses = vec![];
+        for path in &paths { statuses.push(browser.get(&app, path).await.status); }
+        assert_eq!(statuses, if value.is_finite() { [200; 4] } else { [501; 4] }, "{value}");
+        c.execute("DELETE FROM account_balances", []).unwrap();
+    }
+}
+
+/// The exchange menu of a basket asks which venues list every member. The database counts it
+/// (Bots::DcaMultiAsset#eligible_pairs), inside the one database call the whole server shares, so a
+/// large catalogue must not make it slow: fifteen venues of 10,000 listings each and a basket of 100.
+#[tokio::test(flavor = "current_thread")]
+async fn the_exchange_menu_of_a_large_catalogue_is_counted_by_the_database() {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    c.execute_batch("BEGIN").unwrap();
+    let mut assets = vec![seeded.btc];
+    for n in 1..10_000 {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, 'Stock', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (format!("a{n}.us"), format!("A{n}"))).unwrap();
+        assets.push(c.last_insert_rowid());
+    }
+    // Every other venue a user can pick: one row per class.
+    let mut venues = vec![seeded.exchange_id];
+    for class in ["Binance", "BinanceUs", "Bingx", "Bitget", "Bitrue", "Bitvavo", "Bybit", "Coinbase", "Gemini", "Hyperliquid", "Ibkr", "Kraken", "Kucoin", "Mexc"] {
+        c.execute("INSERT INTO exchanges (type, name, available, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, ?2, 1, '0.05', '0.05', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (format!("Exchanges::{class}"), class)).unwrap();
+        venues.push(c.last_insert_rowid());
+    }
+    for (position, venue) in venues.iter().enumerate() {
+        for (number, asset) in assets.iter().enumerate() {
+            // The bot's own venue has the first listing already. Every second other venue lacks the basket's hundredth member.
+            if (position == 0 && number == 0) || (position % 2 == 1 && number == 99) { continue; }
+            c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+                       minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, ?2, 'USD', ?3, ?4, 9, 2, 2, '0.001', '1', 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                      (venue, format!("A{number}"), asset, seeded.quote)).unwrap();
+        }
+    }
+    c.execute_batch("COMMIT").unwrap();
+    let weights: serde_json::Map<String, serde_json::Value> = assets.iter().take(100).map(|asset| (asset.to_string(), json!(0.01))).collect();
+    let mut stopped = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("allocations", json!(weights));
+    stopped.status = 2;
+    let basket = common::seed::insert_bot(c, &seeded, &stopped);
+    let other = common::seed::insert_bot(c, &seeded, &stopped);
+    c.execute("UPDATE bots SET label = 'Basket'", []).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let started = Instant::now();
+    let page = browser.get(&app, &format!("/bots/{basket}")).await;
+    let took = started.elapsed();
+    assert_eq!(page.status, 200, "{}", page.body);
+    // The venues that list all hundred: seven of the other fourteen, each with its button.
+    assert_eq!(page.body.matches("name=\"bots_dca_multi_asset[exchange_id]\"").count(), 7, "bots {basket} and {other}");
+    assert!(took < Duration::from_secs(5), "a page over 150,000 listings took {took:?}");
+}

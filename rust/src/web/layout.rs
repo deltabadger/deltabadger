@@ -174,7 +174,7 @@ pub(super) fn html(status: StatusCode, body: String) -> Response {
 
 /// A request made for a Turbo frame gets turbo-rails' frame layout: the CSRF meta tags and the view,
 /// nothing else. The flash is not rendered, so it stays for the next full page.
-pub(super) fn frame(csrf: &str, page: &Page) -> Result<Response, WebError> {
+pub(crate) fn frame(csrf: &str, page: &Page) -> Result<Response, WebError> {
     Ok(html(page.status, FrameLayout { csrf, body: &page.body }.render()?))
 }
 
@@ -196,6 +196,16 @@ pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>) -> 
         Ok(body) => html(StatusCode::NOT_IMPLEMENTED, body),
         Err(error) => WebError::from(error).into_response(),
     }
+}
+
+/// A record that is not there for this user, where Rails lets ActiveRecord::RecordNotFound through:
+/// 404 with public/404.html. (Rails in production then redirects to the root; a page that is not
+/// there is not made to look like one that is.)
+pub fn missing() -> Response {
+    let body = assets::find("/404.html").map_or(&b"Not Found"[..], |file| file.body);
+    let mut response = (StatusCode::NOT_FOUND, [(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response();
+    response.extensions_mut().insert(super::headers::BelowControllers);
+    response
 }
 
 /// The same answer from a handler that knows why it does not serve a page Rails serves. The reason

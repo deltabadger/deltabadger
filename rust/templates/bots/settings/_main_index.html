@@ -1,0 +1,105 @@
+{#- bots/dca_indexes/settings/_main.html.erb for a stored bot: the sentence, the two sliders, and the
+    index's members the page's script weights and draws.
+    Rails writes the `style` that should hide a member beyond the count (and the note) through ERB's
+    escaping, so the browser reads `style=&quot;display: none;&quot;` as two meaningless attributes
+    and hides nothing; the script hides them. Reproduced as Rails sends it. -#}
+
+<div data-controller="index-allocation" data-index-allocation-bot-id-value="{{ bot_id }}" data-index-allocation-other-label-value="{{ v.t("bot.dca_index.other")|safe }}">
+  <form class="widget main-rule main-rule--index" data-turbo-stream="true" data-controller="form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    <div class="conversational flex-justify-center">
+      {{ v.t("bot.conversational.invest")|safe }}
+      <div class="ticker-input ticker-input--autoscale">
+        {{ amount_field|safe }}
+
+          <div class="ticker"{% if let Some(id) = quote_asset_id %} data-ticker-symbol="{{ quote }}" data-ticker-asset-id="{{ id }}"{% endif %}>{{ quote }}</div>
+      </div>
+      /
+      <div class="sinput sinput--select {% if locked %}sinput--disabled{% endif %}">
+        {{ interval_words }}
+        {{ interval_select|safe }}
+      </div>
+      {{ v.t("bot.dca_index.into")|safe }}
+        {{ index_name }}
+    </div>
+
+    <div class="index-settings">
+      <div class="index-setting">
+        <div class="flex-row space-between">
+          <div class="label label--select ellipsis">{{ v.t("bot.dca_index.num_coins")|safe }}</div>
+          <div class="label label--select ellipsis" data-index-allocation-target="numCoinsValue">{{ num_coins }}</div>
+        </div>
+        <div class="slider">
+          <input type="hidden" name="bots_dca_index[num_coins_ceiling]" id="bots_dca_index_num_coins_ceiling" value="{{ max_coins }}" />
+          <input type="hidden" name="bots_dca_index[num_coins_rendered]" id="bots_dca_index_num_coins_rendered" value="{{ num_coins }}" />
+          <input type="range"
+                 name="bots_dca_index[num_coins]"
+                 min="2"
+                 max="{{ max_coins }}"
+                 value="{{ num_coins }}"
+                 class="slider__input"
+                 data-index-allocation-target="numCoins"
+                 data-action="input->index-allocation#updateNumCoins change->form--submit#submit"
+                 {% if locked %}disabled{% endif %}>
+          <div class="slider__style">
+            <div class="slider__style__track" data-index-allocation-target="numCoinsTrack" style="grid-template-columns: {{ num_coins_progress }}% auto;">
+              <div class="slider__style__progress">
+                <div class="slider__style__thumb"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="index-setting">
+        <div class="flex-row space-between">
+          <div class="label label--select ellipsis">{{ v.t("bot.dca_index.allocation_flattening")|safe }}</div>
+          <div class="label label--select ellipsis" data-index-allocation-target="flatteningValue">{{ flattening_progress }}%</div>
+        </div>
+        <div class="slider">
+          <input type="range"
+                 name="bots_dca_index[allocation_flattening]"
+                 min="0"
+                 max="1"
+                 step="0.01"
+                 value="{{ flattening }}"
+                 class="slider__input"
+                 data-index-allocation-target="flattening"
+                 data-action="input->index-allocation#updateFlattening change->form--submit#submit"
+                 {% if locked %}disabled{% endif %}>
+          <div class="slider__style">
+            <div class="slider__style__track" data-index-allocation-target="flatteningTrack" style="grid-template-columns: {{ flattening_progress }}% auto;">
+              <div class="slider__style__progress">
+                <div class="slider__style__thumb"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+{% if !coins.is_empty() %}
+      <div class="index-pie" data-index-allocation-target="pie" data-action="click->index-allocation#toggle">
+        <svg data-index-allocation-target="pieSvg" style="width: 100%; display: block; margin: -4rem auto -2rem;"></svg>
+      </div>
+      <div class="index-assets" data-index-allocation-target="assets list" data-action="click->index-allocation#toggle" data-total-available="{{ coins.len() }}">
+{% for coin in coins %}
+          <div class="index-asset" data-color="{{ coin.color }}" data-market-cap="{{ coin.market_cap }}" data-asset-id="{{ coin.asset_id }}" data-index="{{ loop.index0 }}" {% if !coin.visible %}style=&quot;display: none;&quot;{% endif %}>
+            <div class="index-asset__row">
+              <div class="ticker" style="background-color: {{ coin.color }}" data-ticker-symbol="{{ coin.symbol }}" data-ticker-asset-id="{{ coin.asset_id }}">{{ coin.symbol }}</div>
+              <div class="slider">
+                <div class="slider__style">
+                  <div class="slider__style__track" style="border-left-color: {{ coin.color }}; grid-template-columns: 0% auto;">
+                    <div class="slider__style__progress" style="background-color: {{ coin.color }};"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="allocation">0%</div>
+            </div>
+          </div>
+{% endfor %}
+      </div>
+      <p class="index-preview__note" data-index-allocation-target="note" {% if coins.len() as i64 >= num_coins %}style=&quot;display: none;&quot;{% endif %}>
+        {{ fewer_note }}
+      </p>
+{% endif %}
+</form></div>

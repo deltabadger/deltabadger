@@ -219,7 +219,7 @@ module Pages
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
 
   # Bot ids follow the order of 'bots'.
-  def bot_scenarios = list_scenarios
+  def bot_scenarios = list_scenarios.merge(page_scenarios)
 
   # The same three at work: a history of orders and events on the first, a spending cap that has seen one
   # buy on the second, an order resting on the third.
@@ -312,6 +312,122 @@ module Pages
       'bots_list_traded' => with_bots(traded, signed_in(get('/bots'), get('/de/bots'))),
       'bots_list_hidden' => with_bots(traded, signed_in(get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
       'bots_list_due' => with_bots(due, signed_in(get('/bots')))
+    }
+  end
+
+  RULE_SETTINGS = %w[smart_intervaled smart_interval_quote_amount limit_ordered limit_order_pcnt_distance quote_amount_limited quote_amount_limit
+                     price_limited price_limit price_limit_range_lower_bound price_limit_range_upper_bound price_limit_timing_condition
+                     price_limit_value_condition price_limit_in_ticker_id price_drop_limited price_drop_limit price_drop_limit_time_window_condition
+                     price_drop_limit_in_ticker_id moving_average_limited moving_average_limit_timing_condition moving_average_limit_value_condition
+                     moving_average_limit_in_ticker_id moving_average_limit_in_ma_type moving_average_limit_in_timeframe moving_average_limit_in_period
+                     indicator_limited indicator_limit indicator_limit_timing_condition indicator_limit_value_condition indicator_limit_in_ticker_id
+                     indicator_limit_in_indicator indicator_limit_in_timeframe num_coins allocation_flattening].freeze
+
+  # Rows from before the rules existed: what each rule's concern supplies on load is not in the row.
+  # The first and the last hold only what the wizard asks for. The second has its rules switched on and
+  # their values missing. The third is one asset at a whole amount, where the supplied Smart Intervals
+  # amount is an Integer's tenth (25 / 10 is 2).
+  def older
+    on = { 'smart_intervaled' => true, 'price_limited' => true, 'price_drop_limited' => true, 'moving_average_limited' => true,
+           'indicator_limited' => true, 'quote_amount_limited' => true, 'limit_ordered' => true }
+    [stopped('basket', 'without' => RULE_SETTINGS),
+     stopped('basket', 'settings' => on, 'without' => RULE_SETTINGS - on.keys),
+     stopped('single', 'settings' => { 'quote_amount' => 25, 'smart_intervaled' => true }, 'without' => RULE_SETTINGS - %w[smart_intervaled]),
+     running('index', '2026-09-07T13:30:00.5Z', { 'without' => RULE_SETTINGS }.merge(acted('2026-09-07T13:30:01.100Z')))]
+  end
+
+  # Rows no form would have saved, written past the models. A basket whose weights and rebalance
+  # threshold are texts (Rails reads them with to_f and to_d). Two stopped bots whose Smart Intervals
+  # amount is nothing and less than nothing: Rails prints the floor's error under the field and has
+  # no checkpoint to compute. And two at work whose checkpoints are not on the microsecond grid: 7 a
+  # day in slices of 1 from 11:00:30.000456 is next due at 14:26:12.857598857…, which Rails' job
+  # table holds at …598; the last one's first run is ahead, so its bar is measured from a checkpoint
+  # a seventh of a day before its start, which is on no grid either.
+  def past_forms
+    seventh = { 'quote_amount' => 7, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 1, 'quote_amount_limited' => false }
+    [stopped('basket', 'stored' => { 'allocations' => { '2' => '0.6', '3' => '0.4' }, 'rebalance_threshold' => '0.2' }),
+     stopped('basket', 'stored' => { 'smart_interval_quote_amount' => 0 }),
+     stopped('single', 'stored' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => -5 }),
+     running('single', '2026-09-10T11:00:30.000456Z', { 'settings' => seventh }.merge(acted('2026-09-10T11:00:30.000Z'))),
+     running('single', '2026-09-10T18:00:30.000456Z', 'settings' => seventh)]
+  end
+
+  # GET /bots/:id and the chart's frame.
+  def page_scenarios
+    chart = { 'Turbo-Frame' => 'bot_chart' }
+    {
+      'bot_page_created' => with_bots(three, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/de/bots/1'), get('/de/bots/3'),
+                                                       get('/bots/2', 'Turbo-Frame' => 'bot'))),
+      'bot_page_running' => with_bots(traded, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/1/chart?metrics_missing=1', chart),
+                                                       get('/bots/1/chart'), get('/bots/1.json'), get('/bots/1.turbo_stream'))),
+      'bot_page_hidden' => with_bots(traded, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/1/chart', chart)),
+                                     'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      # Exactly one bot: the navbar says "Bot" and points at it.
+      'bot_page_single_bot' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))], signed_in(get('/bots/1'), get('/de/bots/1'))),
+      'bot_page_archived' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
+                                       signed_in(get('/bots/2'))),
+      'bot_page_start_blocked' => with_bots(blocked, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/de/bots/5'),
+                                                               get('/bots/6'), get('/bots/7'), get('/bots/8'), get('/bots/9'), get('/bots/10'), get('/bots/11'))),
+      'bot_page_key_incorrect' => with_bots(three, signed_in(get('/bots/1'), get('/bots/3')), 'api_keys' => { 'alpaca' => 'incorrect', 'ibkr' => 'correct' }),
+      'bot_page_no_key' => with_bots(three, signed_in(get('/bots/2')), 'api_keys' => {}),
+      'bot_page_wide' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'coins' }, running('wide', '2026-08-31T10:00:00Z', acted('2026-08-31T10:00:00.900Z'))],
+                                   signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'))),
+      # Every rule of a stopped basket switched on, and the three ways of setting a starting time.
+      'bot_page_rules' => with_bots(
+        [stopped('basket', 'settings' => { 'price_limited' => true, 'price_limit_value_condition' => 'between', 'price_limit_range_lower_bound' => 100.5,
+                                           'price_limit_range_upper_bound' => 420, 'price_drop_limited' => true, 'price_drop_limit' => 0.15,
+                                           'price_drop_limit_time_window_condition' => 'twenty_four_hours', 'moving_average_limited' => true,
+                                           'moving_average_limit_in_ma_type' => 'ema', 'moving_average_limit_in_period' => 21,
+                                           'moving_average_limit_in_timeframe' => 'one_week', 'moving_average_limit_timing_condition' => 'after',
+                                           'indicator_limited' => true, 'indicator_limit_value_condition' => 'above', 'indicator_limit' => 70.5,
+                                           'quote_amount_limited' => true, 'quote_amount_limit' => 500.5, 'smart_intervaled' => false,
+                                           'limit_ordered' => false, 'start_time_enabled' => true, 'start_time_mode' => 'date',
+                                           'start_at' => '2026-10-01T07:15:00Z', 'price_limit_action' => 'start_selling' },
+                           'transient' => { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z', 'last_action_job_at' => '2026-09-09T12:30:00.000Z' },
+                           'orders' => 'history'),
+         stopped('single', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'hour', 'price_limited' => true, 'price_limit' => 399.99,
+                                           'price_limit_timing_condition' => 'after', 'quote_amount_limit' => 40, 'interval' => 'month',
+                                           'quote_amount' => 1000, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 950 },
+                           'orders' => 'one_fill', 'transient' => { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z' }),
+         stopped('index', 'settings' => { 'start_time_enabled' => false, 'start_time_mode' => 'date', 'smart_intervaled' => true,
+                                          'smart_interval_quote_amount' => 12.5, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0015,
+                                          'num_coins' => 3, 'allocation_flattening' => 1, 'interval' => 'hour' }),
+         stopped('index', 'settings' => { 'hold_all' => true, 'num_coins' => 12, 'start_time_enabled' => true, 'start_time_mode' => 'wednesday',
+                                          'start_time_of_day' => '07:05' })],
+        signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/pl/bots/1'), get('/ru/bots/2')),
+        'user' => owner('time_zone' => 'Hawaii')
+      ),
+      # A second broker lists the same two ETFs: a stopped basket may move there, and a broker the user has a key on is marked.
+      'bot_page_exchanges' => with_bots([stopped('basket'), stopped('index'), stopped('wide')], signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3')),
+                                        'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' }),
+      'bot_page_due' => with_bots(due, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/bots/6'), get('/bots/7'))),
+      'bot_page_defaults' => with_bots(older, signed_in(get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/de/bots/2'))),
+      'bot_page_stored_past_forms' => with_bots(past_forms, signed_in(get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'))),
+      'bot_page_ring' => with_bots(three, signed_in(get('/bots/1')), 'balances' => { 'QQQM' => 5000, 'IBIT' => 2500.5, 'USD' => 120, 'BTC' => 900 }),
+      # Another user's bot, a deleted bot and a number that is no bot's all answer as "no such bot"; `1abc` is bot 1, as Rails reads an id.
+      'bot_page_of_another_user' => two_users.merge(
+        'steps' => signed_in(get('/bots/3').merge('expect' => 302), get('/bots'), get('/de/bots/3'), get('/de/bots'), get('/bots/4').merge('expect' => 302),
+                             get('/bots/99'), get('/bots/abc'), get('/bots/1abc').merge('expect' => 200),
+                             get('/bots/%2B1').merge('expect' => 200), get('/bots/%C2%A01').merge('expect' => 302),
+                             get('/bots/4/chart', chart).merge('expect' => 200))
+      ),
+      'bot_page_signed_out' => with_bots(three, [get('/bots/1'), get('/de/bots/1/chart'), get('/login')]),
+      # The chart's frame looks its bot up with `find`, which raises for a bot that is not the user's.
+      'missing_chart_of_another_users_bot' => two_users.merge('steps' => signed_in(get('/bots/1/chart', chart), get('/bots/3/chart', chart))),
+      'missing_chart_of_no_bot' => with_bots(three, signed_in(get('/bots/99/chart'))),
+      # Three times that are in no row. Rails holds each in its job table; this build's countdown has
+      # the next checkpoint or nothing (rust/tests/pages.rs, `countdown_`).
+      'countdown_market_closed' => with_bots([running('single', '2026-09-08T13:30:00Z', 'transient' => { 'waiting_for_market_open' => true },
+                                                                                        'job' => '2026-09-10T13:30:00Z'), { 'kind' => 'basket' }],
+                                             signed_in(get('/bots/1'), get('/bots'))),
+      'countdown_retry_in_progress' => with_bots([running('single', '2026-09-08T13:30:00Z', { 'columns' => { 'status' => 5 }, 'job' => '2026-09-10T12:00:48Z' }
+                                                                                                    .merge(acted('2026-09-10T12:00:18.000Z'))),
+                                                  { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots'))),
+      # Stopped across yesterday's checkpoint and started again without a fresh start: Rails waits for the next
+      # checkpoint (Bot::Lifecycle#start, restarting_within_interval?). The row says only that the last checkpoint's
+      # tick never began, which is what a bot whose tick is due looks like: the engine of this build would tick at once.
+      'countdown_restarted_late' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z')), { 'kind' => 'basket' }],
+                                              signed_in(get('/bots/1'), get('/bots')))
     }
   end
 
