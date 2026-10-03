@@ -115,3 +115,95 @@ fn json_text_and_times_are_written_as_rails_writes_them() {
         assert_eq!(At(c[0].as_i64().unwrap()).minus(At(c[1].as_i64().unwrap())).to_bits(), float(&c[2]).to_bits(), "{c}");
     }
 }
+
+// ---- Bot::RebalanceAccounting, Bot::TaxLots, Bot::Composition::HoldingKeys: the app's own modules, replayed ----
+
+use deltabadger::figures::books::{Books, Fill, Ledger};
+use deltabadger::figures::keys::{self, Identity};
+use deltabadger::figures::lots::{self, Lot, Lots};
+
+fn dec(v: &Value) -> Dec { Dec::parse(v.as_str().unwrap()).unwrap() }
+fn opt_dec(v: &Value) -> Option<Dec> { v.as_str().map(|s| Dec::parse(s).unwrap()) }
+
+#[test]
+fn holdings_that_share_a_symbol_get_the_keys_rails_gives_them() {
+    let v = vectors();
+    let cases = v["holding_keys"].as_array().unwrap();
+    assert_eq!(cases.len(), 200);
+    let pairs = |list: &Value| -> Vec<(Identity, String)> {
+        list.as_array().unwrap().iter().map(|p| (p[0].as_i64().map_or_else(|| Identity::Text(p[0].as_str().unwrap().into()), Identity::Asset), p[1].as_str().unwrap().to_string())).collect()
+    };
+    let mut renamed = 0;
+    for c in cases {
+        let (given, want) = (pairs(&c[0]), pairs(&c[1]));
+        assert_eq!(keys::call(&given), want, "{c}");
+        if given != want { renamed += 1; }
+    }
+    assert!(renamed > 50, "only {renamed} cases had a clash to resolve");
+    assert_eq!((keys::candidate(7, Some("POR"), Some("Portal")), keys::candidate(7, Some(" "), Some("Portal")), keys::candidate(7, None, Some(""))), ("POR".into(), "Portal".into(), "#7".into()));
+}
+
+fn lot_list(v: &Value) -> Lots { v.as_array().unwrap().iter().map(|l| Lot { amount: dec(&l[0]), cost: opt_dec(&l[1]) }).collect() }
+
+#[test]
+fn tax_lots_cost_lose_shrink_and_split_as_rails_computes_them() {
+    let v = vectors();
+    let cases = v["tax_lots"].as_array().unwrap();
+    assert_eq!(cases.len(), 300);
+    let (mut unknown, mut losses) = (0, 0);
+    for c in cases {
+        let list = lot_list(&c["lots"]);
+        let (amount, proceeds) = (dec(&c["amount"]), dec(&c["proceeds"]));
+        assert_eq!(tagged(&lots::basis(&list).unwrap()), c["basis"], "basis {c}");
+        assert_eq!(tagged(&lots::units(&list).unwrap()), c["units"], "units {c}");
+        assert_eq!(lots::unknown_cost(&list), c["unknown"].as_bool().unwrap(), "unknown {c}");
+        assert_eq!(lots::cost_of(&list, &amount).unwrap().to_s_f(), c["cost_of"].as_str().unwrap(), "cost_of {c}");
+        let loss = lots::loss_in(&list, &amount, &proceeds).unwrap();
+        assert_eq!(loss, c["loss_in"].as_bool(), "loss_in {c}");
+        match loss { None => unknown += 1, Some(true) => losses += 1, Some(false) => {} }
+        let mut consumed = list.clone();
+        lots::consume(&mut consumed, &amount).unwrap();
+        assert_eq!(consumed, lot_list(&c["consumed"]), "consume {c}");
+        let mut restated = list.clone();
+        lots::split(&mut restated, &dec(&c["factor"])).unwrap();
+        assert_eq!(restated, lot_list(&c["split"]), "split {c}");
+    }
+    assert!(unknown > 10 && losses > 10, "the three verdicts are all met: {unknown} unknown, {losses} losses");
+}
+
+#[test]
+fn every_kind_of_fill_moves_the_books_as_rails_moves_them() {
+    let v = vectors();
+    let histories = v["books"].as_array().unwrap();
+    assert_eq!(histories.len(), 250);
+    let mut branches = std::collections::BTreeMap::new();
+    for steps in histories {
+        let (mut ledger, mut books) = (Ledger::default(), Books::default());
+        for (i, step) in steps.as_array().unwrap().iter().enumerate() {
+            let (sell, kind, key) = (step[0] == "sell", step[1].as_str().unwrap(), step[2].as_str().unwrap());
+            let (amount, quote) = (Num::Dec(dec(&step[3])), Num::Dec(dec(&step[4])));
+            let branch = if step[5] == true {
+                books.unpriced_sell(&mut ledger, key, &amount, &quote).unwrap();
+                "unpriced_sell"
+            } else {
+                let fill = Fill::of(sell, kind);
+                books.apply(&mut ledger, fill, key, &amount, &quote).unwrap();
+                match fill {
+                    Fill::RebalanceSell => "sell", Fill::LiquidationSell => "liquidation_sell", Fill::RegularSell => "regular_sell",
+                    Fill::RebalanceBuy => "rebalance_buy", Fill::RedeployBuy => "redeploy_buy", Fill::RegularBuy => "regular_buy",
+                }
+            };
+            assert_eq!(branch, step[6].as_str().unwrap(), "step {i} of {steps}");
+            *branches.entry(branch).or_insert(0) += 1;
+            assert_eq!(tagged(&books.uninvested_cash().unwrap()), step[7], "uninvested cash after step {i}: {step}");
+            let got = serde_json::json!({
+                "basis": tagged(&books.basis), "cash": tagged(&books.cash), "contributed": tagged(&books.contributed), "realised_cash": tagged(&books.realised_cash),
+                "realised_pnl": tagged(&books.realised_pnl), "estimated_cash": tagged(&books.estimated_cash), "divested": tagged(&books.divested),
+            });
+            assert_eq!(got, step[8], "books after step {i}: {step}");
+            let entries: Vec<Value> = ledger.0.iter().map(|(key, entry)| serde_json::json!([key, tagged(&entry.amount), tagged(&entry.invested)])).collect();
+            assert_eq!(Value::Array(entries), step[9], "ledger after step {i}: {step}");
+        }
+    }
+    assert_eq!(branches.len(), 7, "every branch is met: {branches:?}");
+}

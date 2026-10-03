@@ -6,9 +6,12 @@
 //! and `json` writes them as Rails' encoder does, so a figure can be compared with Rails' character by character
 //! (rust/tests/figures.rs, script/rust/figures.rb).
 pub mod at;
+pub mod books;
 pub mod budget;
 pub mod dec;
 pub mod json;
+pub mod keys;
+pub mod lots;
 pub mod num;
 
 #[derive(Debug)]
