@@ -28,6 +28,10 @@ module Pages
       'confirmed_at' => '2026-01-01T00:00:00Z' }.merge(attrs)
   end
 
+  # The signed-in user of a scenario with bots: the wash-sale question answered with no (an account
+  # that has not answered it gets a modal this build does not serve), and a zone that is not UTC.
+  def owner(attrs = {}) = user({ 'wash_sale_enabled' => false, 'time_zone' => 'Tallinn' }.merge(attrs))
+
   def two_factor_user(attrs = {}) = user({ 'otp_module' => 1, 'otp_secret_key' => OTP_SEED }.merge(attrs))
 
   def get(path, headers = {}) = { 'method' => 'GET', 'path' => path, 'headers' => headers }
@@ -190,10 +194,292 @@ module Pages
       'unrouted_unknown_locale_prefix' => { 'steps' => [get('/zz/login')] },
       'unrouted_locale_before_up' => { 'steps' => [get('/de/up')] },
       'not_ported_tracker' => { 'steps' => [get('/login'), login, get('/tracker')] },
-      'not_ported_bots_with_holdings' => { 'balances' => { 'BTC' => 5000, 'USD' => 120 }, 'steps' => [get('/login'), login, get('/bots')] },
-      'not_ported_bots_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
+      'bots_empty_with_holdings' => { 'balances' => { 'BTC' => 5000, 'USD' => 120 }, 'steps' => [get('/login'), login, get('/bots')] },
+      'bots_empty_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
                                         'steps' => [get('/login'), login, get('/bots')] },
       'up' => { 'steps' => [get('/up')] }
+    }.merge(bot_scenarios)
+  end
+
+  def signed_in(*steps) = [get('/login'), login] + steps
+
+  def stopped(kind, spec = {}) = { 'kind' => kind }.merge(spec).merge('columns' => { 'status' => 2 }.merge(spec.fetch('columns', {})))
+
+  # A bot that is scheduled since `started_at`, with the job Rails holds for it at its next checkpoint.
+  # A bot at work has acted at its last checkpoint: `acted` is the time Bot::ActionJob wrote then.
+  def running(kind, started_at, spec = {})
+    { 'kind' => kind, 'job' => 'checkpoint' }.merge(spec).merge('columns' => { 'status' => 1, 'started_at' => started_at }.merge(spec.fetch('columns', {})))
+  end
+
+  # The owner's three bots as the wizard leaves them.
+  def acted(at, transient = {}) = { 'transient' => { 'last_action_job_at' => at }.merge(transient) }
+
+  def three = [{ 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }, { 'kind' => 'single' }, { 'kind' => 'index' }]
+
+  def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
+
+  # Bot ids follow the order of 'bots'.
+  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios)
+
+  # The same three at work: a history of orders and events on the first, a spending cap that has seen one
+  # buy on the second, an order resting on the third.
+  def traded
+    [running('basket', '2026-09-01T12:30:00Z', 'orders' => 'history', 'logs' => 'history', 'transient' => { 'last_action_job_at' => '2026-09-10T11:55:00.250Z' }),
+     running('single', '2026-09-08T13:30:00Z', { 'orders' => 'one_fill' }.merge(acted('2026-09-09T13:30:00.800Z', 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z'))),
+     running('index', '2026-09-07T13:30:00.5Z', { 'orders' => 'open' }.merge(acted('2026-09-07T13:30:01.100Z')))]
+  end
+
+  # Stopped bots that may not be started, each for its own reason, and three (7, 8 and 10) that may.
+  def blocked
+    cap = { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z' }
+    [stopped('single', 'settings' => { 'quote_amount_limit' => 40 }, 'orders' => 'one_fill', 'transient' => cap),
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-09-10T12:00:30Z' }),
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'friday', 'start_time_of_day' => '25:00' }),
+     stopped('index', 'stored' => { 'num_coins' => 1 }),
+     stopped('basket', 'stored' => { 'smart_interval_quote_amount' => 0.5 }),
+     stopped('basket', 'stored' => { 'price_limited' => true, 'price_limit_in_ticker_id' => 5 }),
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-09-10T12:00:31Z' }),
+     stopped('single', 'settings' => { 'quote_amount_limit' => 50.01 }, 'orders' => 'one_fill', 'transient' => cap),
+     # The starting time switched on and no mode ever chosen (9): the mode is the error, and the clock time is not looked at.
+     stopped('basket', 'settings' => { 'start_time_enabled' => true, 'start_time_of_day' => '25:00' }),
+     # A switch that is null is off (10), whatever the rest says.
+     stopped('basket', 'settings' => { 'start_time_mode' => 'friday', 'start_time_of_day' => '25:00' }, 'stored' => { 'start_time_enabled' => nil }),
+     stopped('single', 'settings' => { 'allocations' => { '3' => 1.0 } }, 'delist' => 'IBIT')]
+  end
+
+  # Bots whose tick is due: the checkpoint has come, and Rails' job is no longer scheduled but ready,
+  # or blocked behind another job of the venue. Neither side has a time to count down to. The first
+  # is at its checkpoint to the microsecond; the fifth was started this second and has not acted yet.
+  # The sixth has not acted either, but its first run is still ahead: both sides count down to it.
+  # The seventh began its tick within its checkpoint's millisecond. The time it wrote then is cut to
+  # the millisecond and so reads as before the checkpoint; it has acted, and both sides count down.
+  def due
+    [running('single', '2026-09-09T12:00:30.123456Z', { 'job' => 'ready' }.merge(acted('2026-09-09T12:00:30.500Z'))),
+     running('index', '2026-09-03T12:00:29Z', { 'job' => 'blocked' }.merge(acted('2026-09-03T12:00:29.400Z'))),
+     running('basket', '2026-09-09T12:00:30Z', { 'job' => 'blocked' }.merge(acted('2026-09-10T09:36:30.200Z'))),
+     running('single', '2026-09-09T12:00:00Z', { 'job' => 'blocked', 'columns' => { 'status' => 5 }, 'orders' => 'failed' }.merge(acted('2026-09-09T12:00:00.300Z'))),
+     running('single', '2026-09-10T12:00:30Z', 'job' => 'blocked'),
+     running('single', '2026-09-11T06:30:00Z'),
+     running('single', '2026-09-09T12:00:30.000456Z', acted('2026-09-10T12:00:30.000Z'))]
+  end
+
+  # A second user with a bot of their own (3), beside the owner's two and one the owner deleted (4).
+  def two_users
+    { 'user' => owner, 'install' => 'alpaca', 'extra_users' => [owner('email' => 'second@example.com', 'admin' => false)],
+      'bots' => [{ 'kind' => 'basket' }, { 'kind' => 'single' }, { 'kind' => 'index', 'owner' => 'second@example.com' },
+                 { 'kind' => 'single', 'columns' => { 'status' => 3 } }] }
+  end
+
+  # GET /bots with bots.
+  def list_scenarios
+    holdings = { 'QQQM' => 5000, 'IBIT' => 2500.5, 'USD' => 120, 'NVDA' => 30, 'MSFT' => 20, 'BTC' => 900 }
+    {
+      'bots_list' => with_bots(three, signed_in(get('/bots'), get('/de/bots'), get('/bots', 'Turbo-Frame' => 'modal'))),
+      # One bot in every state the status bar and the button can show, and the four filters over them.
+      'bots_list_statuses' => with_bots(
+        [running('basket', '2026-09-09T12:30:00Z', 'transient' => { 'last_action_job_at' => '2026-09-10T11:55:00.250Z' }),
+         { 'kind' => 'single', 'columns' => { 'status' => 2, 'stop_message_key' => 'bot.settings.extra_amount_limit.amount_spent' },
+           'transient' => { 'last_action_job_at' => '2026-09-09T12:30:00.000Z' } },
+         running('index', '2026-09-07T13:30:00.5Z', acted('2026-09-07T13:30:01.100Z')),
+         { 'kind' => 'basket', 'columns' => { 'status' => 4, 'started_at' => '2026-09-09T12:30:00Z' } },
+         running('single', '2026-09-09T12:30:00Z', { 'columns' => { 'status' => 5 }, 'orders' => 'failed' }.merge(acted('2026-09-09T12:30:00.700Z'))),
+         { 'kind' => 'single', 'columns' => { 'status' => 6, 'started_at' => '2026-09-09T12:30:00Z' } },
+         { 'kind' => 'basket', 'columns' => { 'status' => 7 } },
+         { 'kind' => 'index', 'columns' => { 'status' => 3 } },
+         { 'kind' => 'basket', 'columns' => { 'status' => 2 } },
+         running('single', '2026-09-10T11:59:00Z', { 'columns' => { 'status' => 5 } }.merge(acted('2026-09-10T11:59:00.600Z'))),
+         { 'kind' => 'basket', 'settings' => { 'allocations' => { '2' => 0.5, '3' => 0.4 } } }],
+        signed_in(get('/bots'), get('/bots?filter=active'), get('/bots?filter=inactive'), get('/bots?filter=archived'), get('/bots?filter=all'),
+                  get('/bots?filter=zz'), get('/de/bots?filter=active'))
+      ),
+      # Exactly one bot: the list is its page.
+      'bots_list_single' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))],
+                                      signed_in(get('/bots').merge('expect' => 302), get('/de/bots'), get('/bots?filter=archived'))),
+      'bots_list_archived_only' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
+                                             signed_in(get('/bots'), get('/bots?filter=archived'))),
+      'bots_list_start_blocked' => with_bots(blocked, signed_in(get('/bots'))),
+      'bots_list_key_incorrect' => with_bots(three, signed_in(get('/bots')), 'api_keys' => { 'alpaca' => 'incorrect', 'ibkr' => 'correct' }),
+      'bots_list_no_key' => with_bots(three, signed_in(get('/bots')), 'api_keys' => {}),
+      'bots_list_of_another_user' => two_users.merge('steps' => signed_in(get('/bots'))),
+      # The navbar's tracker icon as a ring of the account's holdings.
+      'bots_list_ring' => with_bots(three, signed_in(get('/bots')), 'balances' => holdings),
+      'bots_list_ring_with_cash' => with_bots(three, signed_in(get('/bots')), 'user' => owner('tracker_settings' => { 'show_cash' => true }),
+                                                                             'balances' => { 'QQQM' => 50, 'USD' => 120 }),
+      # A basket of four (its tile names three while they fit) and a basket of coins.
+      'bots_list_wide' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'coins' }, running('wide', '2026-08-31T10:00:00Z', acted('2026-08-31T10:00:00.900Z'))],
+                                    signed_in(get('/bots'))),
+      # Bots that have traded: the account's total is on its way, and a tile says whether orders are resting.
+      'bots_list_traded' => with_bots(traded, signed_in(get('/bots'), get('/de/bots'))),
+      'bots_list_hidden' => with_bots(traded, signed_in(get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'bots_list_due' => with_bots(due, signed_in(get('/bots')))
+    }
+  end
+
+  RULE_SETTINGS = %w[smart_intervaled smart_interval_quote_amount limit_ordered limit_order_pcnt_distance quote_amount_limited quote_amount_limit
+                     price_limited price_limit price_limit_range_lower_bound price_limit_range_upper_bound price_limit_timing_condition
+                     price_limit_value_condition price_limit_in_ticker_id price_drop_limited price_drop_limit price_drop_limit_time_window_condition
+                     price_drop_limit_in_ticker_id moving_average_limited moving_average_limit_timing_condition moving_average_limit_value_condition
+                     moving_average_limit_in_ticker_id moving_average_limit_in_ma_type moving_average_limit_in_timeframe moving_average_limit_in_period
+                     indicator_limited indicator_limit indicator_limit_timing_condition indicator_limit_value_condition indicator_limit_in_ticker_id
+                     indicator_limit_in_indicator indicator_limit_in_timeframe num_coins allocation_flattening].freeze
+
+  # Rows from before the rules existed: what each rule's concern supplies on load is not in the row.
+  # The first and the last hold only what the wizard asks for. The second has its rules switched on and
+  # their values missing. The third is one asset at a whole amount, where the supplied Smart Intervals
+  # amount is an Integer's tenth (25 / 10 is 2).
+  def older
+    on = { 'smart_intervaled' => true, 'price_limited' => true, 'price_drop_limited' => true, 'moving_average_limited' => true,
+           'indicator_limited' => true, 'quote_amount_limited' => true, 'limit_ordered' => true }
+    [stopped('basket', 'without' => RULE_SETTINGS),
+     stopped('basket', 'settings' => on, 'without' => RULE_SETTINGS - on.keys),
+     stopped('single', 'settings' => { 'quote_amount' => 25, 'smart_intervaled' => true }, 'without' => RULE_SETTINGS - %w[smart_intervaled]),
+     running('index', '2026-09-07T13:30:00.5Z', { 'without' => RULE_SETTINGS }.merge(acted('2026-09-07T13:30:01.100Z')))]
+  end
+
+  # Rows no form would have saved, written past the models. A basket whose weights and rebalance
+  # threshold are texts (Rails reads them with to_f and to_d). Two stopped bots whose Smart Intervals
+  # amount is nothing and less than nothing: Rails prints the floor's error under the field and has
+  # no checkpoint to compute. And two at work whose checkpoints are not on the microsecond grid: 7 a
+  # day in slices of 1 from 11:00:30.000456 is next due at 14:26:12.857598857…, which Rails' job
+  # table holds at …598; the last one's first run is ahead, so its bar is measured from a checkpoint
+  # a seventh of a day before its start, which is on no grid either.
+  def past_forms
+    seventh = { 'quote_amount' => 7, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 1, 'quote_amount_limited' => false }
+    [stopped('basket', 'stored' => { 'allocations' => { '2' => '0.6', '3' => '0.4' }, 'rebalance_threshold' => '0.2' }),
+     stopped('basket', 'stored' => { 'smart_interval_quote_amount' => 0 }),
+     stopped('single', 'stored' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => -5 }),
+     running('single', '2026-09-10T11:00:30.000456Z', { 'settings' => seventh }.merge(acted('2026-09-10T11:00:30.000Z'))),
+     running('single', '2026-09-10T18:00:30.000456Z', 'settings' => seventh)]
+  end
+
+  # GET /bots/:id and the chart's frame.
+  def page_scenarios
+    chart = { 'Turbo-Frame' => 'bot_chart' }
+    {
+      'bot_page_created' => with_bots(three, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/de/bots/1'), get('/de/bots/3'),
+                                                       get('/bots/2', 'Turbo-Frame' => 'bot'))),
+      'bot_page_running' => with_bots(traded, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/1/chart?metrics_missing=1', chart),
+                                                       get('/bots/1/chart'), get('/bots/1.json'), get('/bots/1.turbo_stream'))),
+      'bot_page_hidden' => with_bots(traded, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/1/chart', chart)),
+                                     'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      # Exactly one bot: the navbar says "Bot" and points at it.
+      'bot_page_single_bot' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))], signed_in(get('/bots/1'), get('/de/bots/1'))),
+      'bot_page_archived' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
+                                       signed_in(get('/bots/2'))),
+      'bot_page_start_blocked' => with_bots(blocked, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/de/bots/5'),
+                                                               get('/bots/6'), get('/bots/7'), get('/bots/8'), get('/bots/9'), get('/bots/10'), get('/bots/11'))),
+      'bot_page_key_incorrect' => with_bots(three, signed_in(get('/bots/1'), get('/bots/3')), 'api_keys' => { 'alpaca' => 'incorrect', 'ibkr' => 'correct' }),
+      'bot_page_no_key' => with_bots(three, signed_in(get('/bots/2')), 'api_keys' => {}),
+      'bot_page_wide' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'coins' }, running('wide', '2026-08-31T10:00:00Z', acted('2026-08-31T10:00:00.900Z'))],
+                                   signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'))),
+      # A four-member basket as the Rust engine leaves it mid-run: a leg per member, an unresolved intent on its own
+      # ticker, and the engine's own transient_data keys.
+      'bot_page_engine_basket' => with_bots([running('wide', '2026-08-31T10:00:00Z', acted('2026-09-09T13:30:00.900Z')).merge('orders' => 'engine_legs')],
+                                            signed_in(get('/bots/1'), get('/bots/1.turbo_stream', FEED))),
+      # Every rule of a stopped basket switched on, and the three ways of setting a starting time.
+      'bot_page_rules' => with_bots(
+        [stopped('basket', 'settings' => { 'price_limited' => true, 'price_limit_value_condition' => 'between', 'price_limit_range_lower_bound' => 100.5,
+                                           'price_limit_range_upper_bound' => 420, 'price_drop_limited' => true, 'price_drop_limit' => 0.15,
+                                           'price_drop_limit_time_window_condition' => 'twenty_four_hours', 'moving_average_limited' => true,
+                                           'moving_average_limit_in_ma_type' => 'ema', 'moving_average_limit_in_period' => 21,
+                                           'moving_average_limit_in_timeframe' => 'one_week', 'moving_average_limit_timing_condition' => 'after',
+                                           'indicator_limited' => true, 'indicator_limit_value_condition' => 'above', 'indicator_limit' => 70.5,
+                                           'quote_amount_limited' => true, 'quote_amount_limit' => 500.5, 'smart_intervaled' => false,
+                                           'limit_ordered' => false, 'start_time_enabled' => true, 'start_time_mode' => 'date',
+                                           'start_at' => '2026-10-01T07:15:00Z', 'price_limit_action' => 'start_selling' },
+                           'transient' => { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z', 'last_action_job_at' => '2026-09-09T12:30:00.000Z' },
+                           'orders' => 'history'),
+         stopped('single', 'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'hour', 'price_limited' => true, 'price_limit' => 399.99,
+                                           'price_limit_timing_condition' => 'after', 'quote_amount_limit' => 40, 'interval' => 'month',
+                                           'quote_amount' => 1000, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 950 },
+                           'orders' => 'one_fill', 'transient' => { 'quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z' }),
+         stopped('index', 'settings' => { 'start_time_enabled' => false, 'start_time_mode' => 'date', 'smart_intervaled' => true,
+                                          'smart_interval_quote_amount' => 12.5, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0015,
+                                          'num_coins' => 3, 'allocation_flattening' => 1, 'interval' => 'hour' }),
+         stopped('index', 'settings' => { 'hold_all' => true, 'num_coins' => 12, 'start_time_enabled' => true, 'start_time_mode' => 'wednesday',
+                                          'start_time_of_day' => '07:05' })],
+        signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/pl/bots/1'), get('/ru/bots/2')),
+        'user' => owner('time_zone' => 'Hawaii')
+      ),
+      # A second broker lists the same two ETFs: a stopped basket may move there, and a broker the user has a key on is marked.
+      'bot_page_exchanges' => with_bots([stopped('basket'), stopped('index'), stopped('wide')], signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3')),
+                                        'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' }),
+      'bot_page_due' => with_bots(due, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/bots/6'), get('/bots/7'))),
+      'bot_page_defaults' => with_bots(older, signed_in(get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/de/bots/2'))),
+      'bot_page_stored_past_forms' => with_bots(past_forms, signed_in(get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'))),
+      'bot_page_ring' => with_bots(three, signed_in(get('/bots/1')), 'balances' => { 'QQQM' => 5000, 'IBIT' => 2500.5, 'USD' => 120, 'BTC' => 900 }),
+      # Another user's bot, a deleted bot and a number that is no bot's all answer as "no such bot"; `1abc` is bot 1, as Rails reads an id.
+      'bot_page_of_another_user' => two_users.merge(
+        'steps' => signed_in(get('/bots/3').merge('expect' => 302), get('/bots'), get('/de/bots/3'), get('/de/bots'), get('/bots/4').merge('expect' => 302),
+                             get('/bots/99'), get('/bots/abc'), get('/bots/1abc').merge('expect' => 200),
+                             get('/bots/%2B1').merge('expect' => 200), get('/bots/%C2%A01').merge('expect' => 302),
+                             get('/bots/4/chart', chart).merge('expect' => 200))
+      ),
+      'bot_page_signed_out' => with_bots(three, [get('/bots/1'), get('/de/bots/1/chart'), get('/login')]),
+      # The chart's frame looks its bot up with `find`, which raises for a bot that is not the user's.
+      'missing_chart_of_another_users_bot' => two_users.merge('steps' => signed_in(get('/bots/1/chart', chart), get('/bots/3/chart', chart))),
+      'missing_chart_of_no_bot' => with_bots(three, signed_in(get('/bots/99/chart'))),
+      # Three times that are in no row. Rails holds each in its job table; this build's countdown has
+      # the next checkpoint or nothing (rust/tests/pages.rs, `countdown_`).
+      'countdown_market_closed' => with_bots([running('single', '2026-09-08T13:30:00Z', 'transient' => { 'waiting_for_market_open' => true },
+                                                                                        'job' => '2026-09-10T13:30:00Z'), { 'kind' => 'basket' }],
+                                             signed_in(get('/bots/1'), get('/bots'))),
+      'countdown_retry_in_progress' => with_bots([running('single', '2026-09-08T13:30:00Z', { 'columns' => { 'status' => 5 }, 'job' => '2026-09-10T12:00:48Z' }
+                                                                                                    .merge(acted('2026-09-10T12:00:18.000Z'))),
+                                                  { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots'))),
+      # Stopped across yesterday's checkpoint and started again without a fresh start: Rails waits for the next
+      # checkpoint (Bot::Lifecycle#start, restarting_within_interval?). The row says only that the last checkpoint's
+      # tick never began, which is what a bot whose tick is due looks like: the engine of this build would tick at once.
+      'countdown_restarted_late' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z')), { 'kind' => 'basket' }],
+                                              signed_in(get('/bots/1'), get('/bots')))
+    }
+  end
+
+  # What the orders_pagination frame sends when it asks for the next rows of the feed.
+  FEED = { 'Turbo-Frame' => 'orders_pagination', 'Accept' => 'text/html, application/xhtml+xml' }.freeze
+
+  # GET /bots/:id.turbo_stream for the orders_pagination frame.
+  def feed_scenarios
+    by_accept = { 'Turbo-Frame' => 'orders_pagination', 'Accept' => 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml' }
+    {
+      # Fourteen orders and eight events, ten rows at a time: the cursor between an event and an order of the same instant, at the end, and unreadable.
+      'bot_feed' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/bots/1.turbo_stream?before=zz', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Cactivity%7C3', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C10', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-01T09%3A00%3A00.000000Z%7Cactivity%7C1', FEED),
+                                                # The cursor's id is read as String#to_i reads it: `+10` and `1_0` are 10, a no-break space is no space,
+                                                # and a number past the column's range is still a number.
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C%2B10', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C1_0', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C%C2%A010', FEED),
+                                                get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A09.000000Z%7Ctransaction%7C99999999999999999999', FEED),
+                                                get('/bots/2.turbo_stream', FEED), get('/bots/3.turbo_stream', FEED), get('/bots/1', by_accept),
+                                                get('/bots/1.turbo_stream', 'Turbo-Frame' => 'bot'))),
+      'bot_feed_hidden' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/de/bots/2.turbo_stream', FEED), get('/bots/3.turbo_stream', FEED)),
+                                     'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'bot_feed_empty' => with_bots(three, signed_in(get('/bots/1.turbo_stream', FEED))),
+      'bot_feed_of_another_user' => two_users.merge('steps' => signed_in(get('/bots/3.turbo_stream', FEED), get('/bots'))),
+      'bot_feed_signed_out' => with_bots(three, [get('/bots/1.turbo_stream', FEED)])
+    }
+  end
+
+  # Bots Rails serves and this build does not yet: each needs something that is not ported yet.
+  def refused_scenarios
+    selling = [stopped('single', 'stored' => { 'direction' => 'selling' }), { 'kind' => 'basket' }]
+    # 50 a day in slices of 20,000,000: one order every 1,095 years. Rails says so in words; here the calendar is not asked.
+    ages = [stopped('basket', 'settings' => { 'smart_interval_quote_amount' => 20_000_000 }), { 'kind' => 'single' }]
+    {
+      'not_ported_bot_selling' => with_bots(selling, signed_in(get('/bots/2'), get('/bots/1'))),
+      'not_ported_bots_list_selling' => with_bots(selling, signed_in(get('/bots'))),
+      'not_ported_bot_rebalancing' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => true }), { 'kind' => 'single' }], signed_in(get('/bots/1'))),
+      'not_ported_bot_market_cap_weights' => with_bots([stopped('coins', 'settings' => { 'weighting' => 'market_cap' }), { 'kind' => 'single' }],
+                                                       signed_in(get('/bots/1'))),
+      'not_ported_bot_that_sold' => with_bots([stopped('single', 'orders' => 'sold'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
+      'not_ported_bot_wash_sale_rule' => with_bots(three, signed_in(get('/bots/1')), 'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US')),
+      'not_ported_bot_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1')),
+                                                       'user' => owner('wash_sale_enabled' => nil)),
+      'not_ported_bot_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots/2'), get('/bots/1'))),
+      'not_ported_bots_list_a_thousand_years_apart' => with_bots(ages, signed_in(get('/bots')))
     }
   end
 
@@ -216,15 +502,19 @@ module Pages
     FileUtils.mkdir_p(dir)
     %w[production.sqlite3 production_queue.sqlite3].each { |file| FileUtils.cp(File.join(template, file), File.join(dir, file)) }
     connect(dir)
+    jobs = {}
     travel_to(Time.iso8601('2026-01-01T00:00:00Z')) do # created_at and updated_at of the seeded rows
       ([scenario['user'] || user] + scenario.fetch('extra_users', [])).each do |attrs|
         times = %w[confirmed_at locked_at last_otp_at remember_created_at].to_h { |column| [column, attrs[column] && Time.iso8601(attrs[column])] }
         User.new(attrs.merge(times).merge('password' => PASSWORD)).save!(validate: false)
       end
       scenario.fetch('app_configs', {}).each { |key, value| AppConfig.set(key, value) }
+      alpaca(scenario) if scenario['install'] == 'alpaca'
       balances(scenario.fetch('balances', {}))
+      jobs = scenario.fetch('bots', []).to_h { |spec| [bot(spec).id, spec['job']] }.compact
     end
     ActiveRecord::Base.connection_pool.disconnect!
+    jobs
   end
 
   # Priced balances of the first user: symbol => USD value (what the navbar's tracker ring is drawn from).
@@ -233,7 +523,7 @@ module Pages
 
     exchange = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
     by_symbol.each do |symbol, usd_value|
-      asset = Asset.create!(external_id: symbol.downcase, symbol:, name: symbol, category: 'Cryptocurrency')
+      asset = Asset.find_by(symbol:) || Asset.create!(external_id: symbol.downcase, symbol:, name: symbol, category: 'Cryptocurrency')
       AccountBalance.create!(user: User.first, exchange:, asset:, free: 1, locked: 0, usd_price: usd_value, usd_value:,
                              priced_at: Time.current, synced_at: Time.current)
     end
@@ -248,11 +538,11 @@ module Pages
     template = template(root)
     selected.each do |name, scenario|
       dir = File.join(root, name)
-      build(dir, template, scenario)
+      jobs = build(dir, template, scenario)
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate(
                                                     'page_parity_scratch' => true, 'at' => AT,
                                                     'secret_key_base' => Rails.application.secret_key_base, 'steps' => scenario['steps'],
-                                                    'expect_users' => scenario.fetch('expect_users', {})
+                                                    'expect_users' => scenario.fetch('expect_users', {}), 'jobs' => jobs
                                                   ))
     end
     FileUtils.rm_rf(template)
@@ -308,9 +598,24 @@ module Pages
     end
   end
 
+  # No page of the grid may reach the network: a page that did would be compared on whatever the
+  # network said that minute. Every attempt is refused, as an unreachable network refuses it, and
+  # written down; rust/tests/pages.rs fails a scenario that made one.
+  module NoNetwork
+    def initialize(host = nil, *)
+      Pages::NETWORK << host.to_s
+      raise SocketError, "page parity: no network (#{host})"
+    end
+  end
+  NETWORK = [] # rubocop:disable Style/MutableConstant
+
+  BOT_COLUMNS = %w[id status label position settings transient_data stop_message_key started_at updated_at].freeze
+
   def record(root)
     ActionController::Base.allow_forgery_protection = true # config/environments/test.rb turns it off
     Rack::Attack.enabled = true
+    Rails.configuration.dry_run = false # the test environment's stand-in for an API key: always correct
+    TCPSocket.prepend(NoNetwork)
     Dir[File.join(root, '*/scenario.json')].each do |path|
       dir = File.dirname(path)
       scenario = JSON.parse(File.read(path))
@@ -322,6 +627,8 @@ module Pages
         hash[name] = { session:, page: nil, content: {} }
       end
       now = Time.iso8601(scenario['at'])
+      NETWORK.clear
+      travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
         client = clients[step['client'] || 'main']
         now += step['advance'].to_i
@@ -350,13 +657,20 @@ module Pages
       end
       travel_back
       users = ActiveRecord::Base.connection.select_all("SELECT #{USER_COLUMNS.join(', ')} FROM users ORDER BY id").to_a
-      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate('responses' => responses, 'users' => users))
+      bots = ActiveRecord::Base.connection.select_all("SELECT #{BOT_COLUMNS.join(', ')} FROM bots ORDER BY id").to_a
+      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate('responses' => responses, 'users' => users, 'bots' => bots,
+                                                                    'network' => NETWORK.dup))
       ActiveRecord::Base.connection_pool.disconnect!
     end
   end
 end
 
-command, root = ARGV
-raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
+require_relative 'pages_bots'
 
-Pages.public_send(command, root)
+# script/rust/oauth.rb loads this file for its helpers and runs its own command.
+unless defined?(OAUTH_PARITY)
+  command, root = ARGV
+  raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
+
+  Pages.public_send(command, root)
+end

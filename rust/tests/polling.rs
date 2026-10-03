@@ -156,3 +156,38 @@ async fn an_unreadable_created_at_fails_the_sweep_and_abandons_nothing() {
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     assert_eq!(ext, 0);
 }
+
+#[test]
+fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() {
+    use deltabadger::ruby::BigDec;
+    use deltabadger::venue::{OrderState, OrderStatus};
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").weights(&[(s.btc, 0.7), (eth, 0.3)]));
+    o.primary.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, quote_amount, bot_interval, \
+                       bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
+                       VALUES (?1, ?2, 'OLEGACY', 0, 0, 0, 0, 18, 'week', 60, 'REGULAR', '[]', '2026-09-01 10:00:01', '2026-09-01 10:00:01')",
+                      rusqlite::params![id, s.exchange_id]).unwrap();
+    let tx = o.primary.last_insert_rowid();
+    let state = |pair: &str| OrderState { txid: "OLEGACY".into(), status: OrderStatus::Open, price: Some(BigDec::from_i64(2500)), amount: None,
+        quote_amount: Some(BigDec::from_i64(18)), amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: false, sell: false, pair: Some(pair.into()) };
+    let row = || -> (Option<String>, Option<String>, Option<i64>, Option<i64>) { o.primary.query_row(
+        "SELECT base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap() };
+    polling::apply_in(&o.primary, id, tx, &state("XRP/USD"), true, now()).unwrap();
+    assert_eq!(row(), (None, None, None, None), "a pair this venue does not list fills nothing (order_data[:ticker] is nil)");
+    polling::apply_in(&o.primary, id, tx, &state("ETH/USD"), true, now()).unwrap();
+    assert_eq!(row(), (Some("ETH".into()), Some("USD".into()), Some(eth), Some(s.quote)), "the order's own pair, not BTC");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_kraken_fill_fails_the_sweep_and_records_no_zero_fill() {
+    for bad in ["NaN", "Infinity", "garbage"] {
+        let (_d, o, s, b) = setup(json!({ "missed_quote_amount": "100.0" }));
+        let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-NAN"));
+        let v = FakeVenue::new().order("OTX-NAN", closed_raw("50010.5", bad, "60.0"));
+        assert!(polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.is_err(), "{bad}");
+        let (ext, exec): (i64, Option<f64>) = o.primary.query_row("SELECT external_status, amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((ext, exec), (0, None), "{bad}: the row is untouched");
+        assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "{bad}: the carry is untouched");
+    }
+}

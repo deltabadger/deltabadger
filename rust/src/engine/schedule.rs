@@ -31,7 +31,8 @@ pub enum Effective {
 }
 
 impl Effective {
-    fn seconds(&self) -> f64 { match self { Self::Month => MONTH_SECONDS, Self::Seconds(s) | Self::MonthSeconds(s) => *s } }
+    /// `effective_interval_duration.to_f`.
+    pub fn seconds(&self) -> f64 { match self { Self::Month => MONTH_SECONDS, Self::Seconds(s) | Self::MonthSeconds(s) => *s } }
 }
 
 /// `effective_interval_duration`. Smart intervals divide the interval by quote/smart as floats, then `.seconds`.
@@ -48,15 +49,34 @@ pub struct Checkpoints { pub next_us: i64, pub last_us: i64 }
 
 fn at(us: i64) -> DateTime<Utc> { DateTime::from_timestamp_micros(us).expect("time in range") }
 
+/// A checkpoint as Rails holds it before any rounding: a time on the microsecond grid plus Floats added to it, each
+/// `k` times. `Time + Float` adds the Float's exact binary value, so the sum is exact and is kept as its parts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unrounded { pub base_us: i64, pub terms: Vec<(f64, i64)> }
+
+impl Unrounded {
+    /// `.round(6)`, in microseconds.
+    pub fn rounded(&self) -> i64 { round6_micros(self.base_us, &self.terms) }
+}
+
 /// `next_interval_checkpoint_at` and `last_interval_checkpoint_at`, both `.round(6)`.
 pub fn checkpoints(anchor_us: i64, now_us: i64, eff: Effective) -> Checkpoints {
+    let (next, last) = unrounded(anchor_us, now_us, eff);
+    Checkpoints { next_us: next.rounded(), last_us: last.rounded() }
+}
+
+/// The same two checkpoints before `.round(6)`: what Rails hands on when it enqueues the next job
+/// (`wait_until: next_interval_checkpoint_at`) and measures the progress bar from.
+pub fn unrounded(anchor_us: i64, now_us: i64, eff: Effective) -> (Unrounded, Unrounded) {
+    let grid = |us: i64| Unrounded { base_us: us, terms: vec![] };
+    let sum = |terms: &[(f64, i64)]| Unrounded { base_us: anchor_us, terms: terms.to_vec() };
     if anchor_us > now_us {
         // checkpoint.future? → the anchor itself; last steps back one interval the usual way.
-        let last_us = match eff {
-            Effective::Month => at(anchor_us).checked_sub_months(Months::new(1)).unwrap().timestamp_micros(),
-            Effective::Seconds(d) | Effective::MonthSeconds(d) => round6_micros(anchor_us, &[(d, -1)]),
+        let last = match eff {
+            Effective::Month => grid(at(anchor_us).checked_sub_months(Months::new(1)).unwrap().timestamp_micros()),
+            Effective::Seconds(d) | Effective::MonthSeconds(d) => sum(&[(d, -1)]),
         };
-        return Checkpoints { next_us: anchor_us, last_us };
+        return (grid(anchor_us), last);
     }
     match eff {
         Effective::Month => {
@@ -66,20 +86,20 @@ pub fn checkpoints(anchor_us: i64, now_us: i64, eff: Effective) -> Checkpoints {
                 if checkpoint.timestamp_micros() > now_us { break; }
             }
             let last = checkpoint.checked_sub_months(Months::new(1)).unwrap();
-            Checkpoints { next_us: checkpoint.timestamp_micros(), last_us: last.timestamp_micros() }
+            (grid(checkpoint.timestamp_micros()), grid(last.timestamp_micros()))
         }
         Effective::Seconds(d) => {
             let elapsed = (now_us - anchor_us) as f64 / 1_000_000.0;
             let n = (elapsed / d).ceil();
             let step = n * d; // Ruby: intervals_since_checkpoint * duration.to_f, a float product
-            Checkpoints { next_us: round6_micros(anchor_us, &[(step, 1)]), last_us: round6_micros(anchor_us, &[(step, 1), (d, -1)]) }
+            (sum(&[(step, 1)]), sum(&[(step, 1), (d, -1)]))
         }
         Effective::MonthSeconds(d) => {
             // loop { checkpoint += d; return checkpoint if checkpoint > now }: the first k with anchor + k·d > now, exactly.
             let mut k = (((now_us - anchor_us) as f64 / 1_000_000.0) / d).floor() as i64;
             while exceeds(anchor_us, (d, k), now_us) { k -= 1; }
             while !exceeds(anchor_us, (d, k), now_us) || k < 1 { k += 1; }
-            Checkpoints { next_us: round6_micros(anchor_us, &[(d, k)]), last_us: round6_micros(anchor_us, &[(d, k - 1)]) }
+            (sum(&[(d, k)]), sum(&[(d, k - 1)]))
         }
     }
 }

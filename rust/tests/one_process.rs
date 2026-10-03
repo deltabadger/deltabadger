@@ -268,9 +268,9 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
     let supervised = local.spawn_local(async move { supervisor::serve(engine, Some((app, listener)), &SystemClock, vec![]).await });
     local.run_until(async {
         tokio::time::sleep(Duration::from_millis(300)).await;
-        // What the guard refuses (Task 2a), committed without it.
+        // What the guard refuses, committed without it.
         web.db(move |c| {
-            c.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true')) WHERE id = ?1", [bot])?;
+            c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = ?1", [bot])?;
             Ok(())
         }).await.unwrap();
         web.wake_engine();
@@ -278,11 +278,11 @@ async fn a_web_write_that_skips_the_guard_trips_the_debug_assertion_naming_the_b
     let joined = tokio::time::timeout(Duration::from_secs(20), local.run_until(supervised)).await.expect("the woken pass ran");
     let panic = joined.expect_err("the pass must panic").into_panic();
     let message = panic.downcast_ref::<String>().cloned().unwrap_or_default();
-    assert!(message.contains("skipped eligibility::guard") && message.contains(&format!("bot {bot} (scheduled): quote_amount_limited")), "{message}");
+    assert!(message.contains("skipped eligibility::guard") && message.contains(&format!("bot {bot} (scheduled): price_limited")), "{message}");
 }
 
-/// The guard's second refusal: a write that skips it and moves a bot with an unresolved order onto another asset
-/// strands that order (the install stays eligible). The engine's next pass names the bot all the same.
+/// The guard's second refusal: a write that skips it and changes the composition of a bot with an unresolved order (here
+/// BTC's weight, which recovery could still cope with) breaks the rule all the same. The engine's next pass names the bot.
 #[cfg(debug_assertions)]
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_naming_the_bot() {
@@ -293,17 +293,9 @@ async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_
     let c = rusqlite::Connection::open(&db).unwrap();
     let b = model::load_bot(&c, bot).unwrap();
     let ticker = model::ticker_for(&c, &b).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&b, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), venue_rules::KRAKEN.minimum_logic)
+    let amount::Sizing::Place(plan) = amount::size(&b, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), venue_rules::KRAKEN.minimum_logic).unwrap()
         else { panic!("sized") };
     placement::begin(&c, &b, &plan, &FixedClock(chrono::Utc::now())).unwrap();
-    // Another plain cryptocurrency on the same venue.
-    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) \
-               VALUES ('ethereum', 'ETH', 'Ethereum', 'Cryptocurrency', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
-    let eth = c.last_insert_rowid();
-    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
-               minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
-               VALUES (?1, 'ETHEUR', 'ETH', 'EUR', ?2, ?3, 8, 5, 2, '0.002', '0.5', 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
-              rusqlite::params![s.exchange_id, eth, s.quote]).unwrap();
     drop(c);
     let web = app.clone();
     let local = tokio::task::LocalSet::new();
@@ -311,7 +303,7 @@ async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_
     local.run_until(async {
         tokio::time::sleep(Duration::from_millis(300)).await; // the first pass ran and found the order pending
         // What the guard refuses as Reconciling, committed without it.
-        let allocations = json!({ eth.to_string(): 1.0 }).to_string();
+        let allocations = json!({ s.btc.to_string(): 0.9995 }).to_string();
         web.db(move |c| {
             c.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json(?1)) WHERE id = ?2", rusqlite::params![allocations, bot])?;
             Ok(())

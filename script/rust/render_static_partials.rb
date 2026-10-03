@@ -10,8 +10,19 @@ PARTIALS = {
   'svg/24x24_withdrawal' => 'svg/_24x24_withdrawal.html',
   'svg/16x16_down' => 'svg/_16x16_down.html',
   'layouts/svg_mi_visibility' => 'svg/_mi_visibility.html',
-  'layouts/svg_mi_visibility-off' => 'svg/_mi_visibility_off.html'
-}.freeze
+  'layouts/svg_mi_visibility-off' => 'svg/_mi_visibility_off.html',
+  'svg/24x24_dot_menu' => 'svg/_24x24_dot_menu.html',
+  'svg/24x24_reverse' => 'svg/_24x24_reverse.html',
+  'svg/24x24_info' => 'svg/_24x24_info.html',
+  'svg/24x24_info-filled' => 'svg/_24x24_info_filled.html',
+  'svg/landscape_empty' => 'svg/_landscape_empty.html'
+}.merge(
+  # One mark per exchange class (Exchange#name_id), for the tiles and the exchange menu.
+  Dir[Rails.root.join('app/views/svg/_exchange-*.html.erb')].sort.to_h do |path|
+    name = File.basename(path, '.html.erb').delete_prefix('_')
+    ["svg/#{name}", "svg/_#{name.tr('-', '_')}.html"]
+  end
+).freeze
 
 PARTIALS.each do |partial, file|
   path = Rails.root.join('rust/templates', file)

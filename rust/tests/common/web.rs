@@ -39,8 +39,18 @@ pub fn env(secret: &str) -> impl Fn(&str) -> Option<String> + '_ {
 
 /// The app on the install in `dir`, as `deltabadger serve` builds it, with the test's clock.
 pub fn app(dir: &Path, secret: &str, clock: Arc<TestClock>) -> App {
+    app_allowing(dir, secret, None, clock)
+}
+
+/// `app` on a deployment whose ALLOWED_HOSTS is `allowed_hosts`.
+pub fn app_allowing(dir: &Path, secret: &str, allowed_hosts: Option<&str>, clock: Arc<TestClock>) -> App {
     let opened = store::open(&Paths::from_env(&|_| None, dir)).expect("the install passes store::check");
-    App::new(Config::from_env(&env(secret)).unwrap(), &env(secret), opened.primary, clock).unwrap()
+    let env = |name: &str| match name {
+        "SECRET_KEY_BASE" => Some(secret.to_string()),
+        "ALLOWED_HOSTS" => allowed_hosts.map(str::to_string),
+        _ => None,
+    };
+    App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap()
 }
 
 pub struct Answer {

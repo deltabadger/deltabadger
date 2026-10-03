@@ -1,0 +1,60 @@
+{#- bots/index.html.erb with bots, and bots/_global_pnl.html.erb in its two states without figures:
+    waiting for them (some bot has traded) and nothing to show. -#}
+{{ v.stream_from(preferences)|safe }}
+{{ v.stream_from(bot_updates)|safe }}
+
+  <section class="dash-intro{% if pnl_pass %} dash-intro--plotted{% endif %}"{% if pnl_pass %} data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="global_pnl_update" data-broadcast--on-connect-retry-while-value="#global-pnl .dash-intro__loading"{% endif %}>
+    <div id="global-pnl">{% if pnl_pass %}
+    <div class="dash-intro__loading"></div>
+{% endif %}</div>
+</section>
+  <div data-controller="bots-merge" data-bots-merge-split-url-value="{{ v.path("/bots/split/new") }}" data-bots-merge-split-label-value="{{ v.t("button.split")|safe }}" data-bots-merge-connected-value="{{ connected }}" data-bots-merge-names-value="{{ names }}" data-bots-merge-no-partner-value="{{ no_partner }}" data-bots-merge-no-shared-exchange-value="{{ no_shared_exchange }}" data-bots-merge-other-exchange-value="{{ other_exchange }}">
+  <div class="page-head page-head--bots">
+    <div class="filters">
+{% if let Some(filters) = filters %}
+        {{ filters|safe }}
+{% endif %}
+    </div>
+
+    <div class="page-head__actions">
+{% if select_mode %}
+        <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+          {% include "svg/_24x24_dot_menu.html" %}
+          <div class="dropdown">
+{% if can_merge %}
+              <button name="button" type="button" class="dropdown__item" data-action="bots-merge#enter">{{ v.t("button.merge")|safe }}</button>
+{% endif %}
+{% if can_split %}
+              <button name="button" type="button" class="dropdown__item" data-action="bots-merge#enter" data-bots-merge-mode-param="split">{{ v.t("button.split")|safe }}</button>
+{% endif %}
+          </div>
+        </div>
+{% endif %}
+      <form class="button_to" method="get" action="{{ v.path("/bots/new") }}"><button class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" type="submit">
+        <span class="d-none d-sm-inline">{{ v.t("bot.new")|safe }}</span>
+        {% include "svg/_24x24_plus.html" %}
+</button></form>    </div>
+  </div>
+
+  <div class="itiles" data-controller="bots-reorder{% if refresh.is_some() %} broadcast--on-connect{% endif %}" data-bots-reorder-url-value="{{ v.path("/bots/reorder") }}" data-action="pointerdown->bots-reorder#pointerdown dragstart->bots-reorder#dragstart drag->bots-reorder#drag dragover->bots-reorder#dragover drop->bots-reorder#drop dragend->bots-reorder#dragend"{% if let Some(args) = refresh %} data-broadcast--on-connect-method-value="pnl_update" data-broadcast--on-connect-method-args-value="{{ args }}"{% endif %}>
+{% for tile in tiles %}
+    {% include "bots/_tile.html" %}
+{% endfor %}
+</div>
+{% if select_mode %}
+    <div class="merge-bar" data-bots-merge-target="bar" hidden>
+      <div class="merge-bar__assets">
+        <span class="merge-bar__hint" data-bots-merge-target="hint">{{ v.t("bot.merge.pick_hint")|safe }}</span>
+        <span class="merge-bar__hint text-danger" data-bots-merge-target="alone" hidden></span>
+        <div class="ticker-group ticker-group--fold" data-controller="ticker-fold" data-bots-merge-target="stack" hidden></div>
+        <span class="merge-bar__warning" data-bots-merge-target="warning" hidden></span>
+      </div>
+      <div class="merge-bar__actions">
+        <button name="button" type="button" class="rbutton" data-action="bots-merge#cancel">{{ v.t("button.cancel")|safe }}</button>
+        <form data-turbo-frame="modal" data-bots-merge-target="form" action="{{ v.path("/bots/merge/new") }}" accept-charset="UTF-8" method="get">
+          <span data-bots-merge-target="ids" hidden></span>
+          <button name="button" type="submit" class="rbutton rbutton--primary" disabled="disabled" data-bots-merge-target="confirm">{{ v.t("button.merge")|safe }}</button>
+</form>      </div>
+    </div>
+{% endif %}
+</div>

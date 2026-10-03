@@ -150,3 +150,39 @@ fn a_reply_without_a_status_fails_loudly() {
 fn futures_lite_block<F: std::future::Future>(f: F) -> F::Output {
     tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(f)
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_scripted_lookup_answers_for_the_client_order_id_asked_for() {
+    use deltabadger::venue::Venue;
+    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders:by_client_order_id": [{ "status": 200, "body": {
+        "id": "OTX-L", "client_order_id": "$client_order_id", "status": "filled", "symbol": "ETH/USD", "type": "market", "side": "buy",
+        "notional": "36", "qty": null, "filled_qty": "0.0144", "filled_avg_price": "2500", "limit_price": null } }] }));
+    let v = deltabadger::venue::alpaca::AlpacaVenue::new(t, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
+    let found = v.order_by_client_id("9b1d2c3e-1111-4000-8000-000000000001", "2026-09-01T10:00:00Z".parse().unwrap()).await;
+    assert_eq!(found.unwrap().expect("found").txid, "OTX-L", "a recorded answer cannot know the engine's UUID");
+}
+
+const SEVENTY: &str = "1234567890123456789012345678901234567890123456789012345678901234567890";
+
+#[test]
+fn a_bare_number_outside_the_venue_caps_makes_the_whole_body_unreadable() {
+    for bad in ["1e-350", "1e400", SEVENTY, "-1e-350", "0.5e-40", "1.5E+41", "1e99999999999999999999"] {
+        for body in [format!(r#"{{"filled_qty":{bad}}}"#), format!(r#"[1, {{"a": [{bad}]}}]"#), bad.to_string()] {
+            assert!(decode_json(&body).is_err(), "{body}");
+        }
+    }
+}
+
+#[test]
+fn numbers_inside_strings_and_realistic_bodies_decode_exactly_as_serde_does() {
+    let quoted = format!(r#"{{"message":"1e-350 and {SEVENTY} \"1e400\" \\\" 1e-999","code":40410000}}"#);
+    let alpaca_order = r#"{"id":"61e69015-8549-4bfd-b9c3-01e75843f47d","client_order_id":"eb9e2aaa-f71a-4f51-b5b4-52a6c565dad4","created_at":"2026-09-01T10:00:00.534227Z","symbol":"BTC/USD","notional":"60","qty":null,"filled_qty":"0.000932719","filled_avg_price":"64328.1","type":"market","side":"buy","time_in_force":"gtc","limit_price":null,"status":"filled","extended_hours":false,"legs":null,"trail_percent":null}"#;
+    let quotes = r#"{"quotes":{"BTC/USD":{"ap":64321.479,"as":0.5,"bp":64300.25,"bs":0.4,"t":"2026-09-01T10:00:00Z"}}}"#;
+    let account = r#"{"id":"x","cash":"100000","buying_power":"200000","non_marginable_buying_power":"100000","multiplier":"2","daytrade_count":0,"equity":-0.0,"sma":1E+2}"#;
+    let kraken = r#"{"error":[],"result":{"XXBTZEUR":{"a":["50000.2","1","1.000"],"c":["49995.3","0.00100000"],"t":[100,250],"o":"49995.3"}}}"#;
+    let zero = r#"{"filled_qty":0,"x":0.0,"y":0e-500,"z":-0}"#; // a true zero stays zero, whatever its exponent
+    for body in [quoted.as_str(), alpaca_order, quotes, account, kraken, zero] {
+        assert_eq!(decode_json(body).unwrap(), serde_json::from_str::<serde_json::Value>(body).unwrap(), "{body}");
+    }
+    assert!(decode_json("upstream connect error").is_err(), "not JSON is still unreadable");
+}

@@ -89,9 +89,10 @@ const PRIMARY: &[TableContract] = &[
     TableContract { name: "app_configs", columns: &[("key", "varchar", true), ("value", "text", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true)], unique_indexes: &[&["key"]] },
     TableContract { name: "bots", columns: &[
         ("id", "integer", true), ("type", "varchar", false), ("status", "integer", true), ("exchange_id", "bigint", false),
-        ("user_id", "bigint", false), ("settings", "json", true), ("transient_data", "json", true),
+        ("user_id", "bigint", false), ("label", "varchar", false), ("settings", "json", true), ("transient_data", "json", true),
         ("started_at", "datetime", false), ("stopped_at", "datetime", false), ("stop_message_key", "varchar", false),
         ("settings_changed_at", "datetime", false), ("last_end_of_funds_notification", "datetime", false),
+        ("label", "varchar", false), ("position", "integer", true),
         ("updated_at", "datetime", true), ("restatement_generation", "integer", true),
     ], unique_indexes: &[] },
     TableContract { name: "transactions", columns: &[
@@ -112,16 +113,22 @@ const PRIMARY: &[TableContract] = &[
         ("trading_enabled", "boolean", true), ("available", "boolean", false),
         ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["exchange_id", "base_asset_id", "quote_asset_id"], &["exchange_id", "ticker"], &["exchange_id", "base", "quote"]] },
+    // The bot pages (src/web/bot) also read an asset's name, colour, market cap and external id, and an exchange's fee and availability.
     TableContract { name: "assets", columns: &[
         ("id", "integer", true), ("external_id", "varchar", true), ("symbol", "varchar", false), ("name", "varchar", false),
         ("category", "varchar", false), ("instrument_type", "varchar", false), ("image_url", "varchar", false), ("color", "varchar", false),
         ("market_cap_rank", "integer", false), ("market_cap", "bigint", false), ("circulating_supply", "decimal(30,8)", false),
         ("url", "varchar", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["external_id"]] },
-    TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false), ("available", "boolean", false)], unique_indexes: &[] },
-    // The reference-data jobs (rust/src/jobs/import.rs).
+    TableContract { name: "exchanges", columns: &[
+        ("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false), ("maker_fee", "varchar", false), ("available", "boolean", false),
+    ], unique_indexes: &[] },
+    // The reference-data jobs (rust/src/jobs/import.rs) write exchange_assets and indices. `exchange.assets` is also what the
+    // venue lists and the order balance rows are written in; staleness::ALPACA_CRYPTO_TICKERS reads updated_at: the catalog
+    // sync's own stamp (MarketData.import_tickers!' ExchangeAsset upsert). An index bot's page draws the members of the
+    // index it follows (src/web/bot/settings.rs).
     TableContract { name: "exchange_assets", columns: &[
-        ("asset_id", "bigint", true), ("exchange_id", "bigint", true), ("available", "boolean", false),
+        ("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true), ("available", "boolean", false),
         ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["asset_id", "exchange_id"]] },
     TableContract { name: "indices", columns: &[
@@ -133,21 +140,64 @@ const PRIMARY: &[TableContract] = &[
     TableContract { name: "api_keys", columns: &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
         ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
+        // The tracker's syncs (src/sync): the ledger's watermark and error, the balances' clock.
+        ("last_synced_at", "datetime(6)", false), ("last_sync_error", "varchar", false), ("balances_synced_at", "datetime(6)", false),
+        ("updated_at", "datetime", true),
     ], unique_indexes: &[] },
+    // What the ledger sync writes (src/sync/ledger.rs). Its dedup also relies on the partial unique index on
+    // (user_id, exchange_id, tx_id), which this check cannot name (it lists unconditional indexes only).
+    TableContract { name: "account_transactions", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("api_key_id", "integer", false), ("exchange_id", "integer", true),
+        ("entry_type", "integer", true), ("base_currency", "varchar", true), ("base_amount", "decimal", true),
+        ("quote_currency", "varchar", false), ("quote_amount", "decimal", false), ("fee_currency", "varchar", false), ("fee_amount", "decimal", false),
+        ("tx_id", "varchar", false), ("group_id", "varchar", false), ("description", "varchar", false), ("transacted_at", "datetime(6)", true),
+        ("raw_data", "json", false), ("manual_values", "json", false), ("base_asset_id", "integer", false), ("transaction_id", "integer", false),
+        ("linked_transaction_id", "integer", false), ("transfer_link_rejected", "boolean", true),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["linked_transaction_id"]] },
     // The web UI's sign-in (src/web/auth.rs) reads and writes the Devise columns; its layouts read the preferences.
     TableContract { name: "users", columns: &[
-        ("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true), ("email", "varchar", true),
+        ("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true), ("email", "varchar", true), ("name", "varchar", false),
         ("encrypted_password", "varchar", true), ("locale", "varchar", false), ("time_zone", "varchar", true),
         ("display_currency", "varchar", true), ("hide_balances", "boolean", true), ("confirmed_at", "datetime", false),
         ("failed_attempts", "integer", true), ("locked_at", "datetime(6)", false), ("otp_module", "integer", false),
         ("otp_secret_key", "varchar", false), ("last_otp_at", "datetime", false), ("remember_created_at", "datetime", false),
-        ("updated_at", "datetime", true), ("tracker_settings", "json", false),
+        ("updated_at", "datetime", true), ("tracker_settings", "json", false), ("mcp_settings", "json", false), ("rest_settings", "json", false),
     ], unique_indexes: &[&["email"]] },
-    TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
-    // The bots page refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
+    // Doorkeeper's tables and the per-client grant (src/web/oauth.rs, consent.rs, bearer.rs): written as Doorkeeper writes them.
+    TableContract { name: "oauth_applications", columns: &[
+        ("id", "integer", true), ("uid", "varchar", true), ("name", "varchar", true), ("secret", "varchar", false), ("redirect_uri", "text", false),
+        ("scopes", "varchar", true), ("confidential", "boolean", true), ("personal_access_token", "boolean", true),
+        ("registration_access_token", "varchar", false), ("token_endpoint_auth_method", "varchar", false), ("grant_types", "varchar", false),
+        ("response_types", "varchar", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["uid"]] },
+    TableContract { name: "oauth_access_grants", columns: &[
+        ("id", "integer", true), ("application_id", "integer", true), ("resource_owner_id", "integer", true), ("token", "varchar", true),
+        ("expires_in", "integer", true), ("redirect_uri", "text", true), ("scopes", "varchar", true), ("code_challenge", "varchar", false),
+        ("code_challenge_method", "varchar", false), ("created_at", "datetime(6)", true), ("revoked_at", "datetime(6)", false),
+    ], unique_indexes: &[&["token"]] },
+    TableContract { name: "oauth_access_tokens", columns: &[
+        ("id", "integer", true), ("application_id", "integer", true), ("resource_owner_id", "integer", false), ("token", "varchar", true),
+        ("refresh_token", "varchar", false), ("previous_refresh_token", "varchar", true), ("scopes", "varchar", true), ("expires_in", "integer", false),
+        ("created_at", "datetime(6)", true), ("revoked_at", "datetime(6)", false),
+    ], unique_indexes: &[&["token"], &["refresh_token"]] },
+    TableContract { name: "connected_clients", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("oauth_application_id", "integer", true), ("mcp_tools", "json", true),
+        ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
+    // The tick reads and writes a basket's members exactly as Bot::Composition::Allocatable does.
+    TableContract { name: "bot_index_assets", columns: &[
+        ("id", "integer", true), ("bot_id", "integer", true), ("asset_id", "integer", true), ("ticker_id", "integer", true),
+        ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false), ("entered_at", "datetime(6)", false),
+        ("exited_at", "datetime(6)", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["bot_id", "asset_id"]] },
+    // The balance sync writes every column and upserts on the unique index (src/sync/balances.rs); the bots page
+    // refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[
-        ("user_id", "integer", true), ("asset_id", "integer", true), ("usd_value", "decimal(20,8)", false),
-    ], unique_indexes: &[] },
+        ("id", "integer", true), ("user_id", "integer", true), ("exchange_id", "integer", true), ("asset_id", "integer", true),
+        ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false),
+        ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["user_id", "exchange_id", "asset_id"]] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),

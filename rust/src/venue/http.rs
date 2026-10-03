@@ -59,8 +59,72 @@ pub enum TransportError {
     Permanent(String),
 }
 
+/// The most a response body may hold unless the caller states less (`Transport::send_limited`): far above any order,
+/// quote or account answer, so no existing caller meets it.
+pub const MAX_BODY: usize = 16 * 1024 * 1024;
+
+fn over_limit(limit: usize) -> TransportError { TransportError::MaybeSent(format!("the response body is over {limit} bytes")) }
+
 pub trait Transport {
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
+    /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
+    /// that has the whole answer in hand (the scripted one, a test wrapper) is checked after the fact.
+    async fn send_limited(&self, req: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
+        let resp = self.send(req).await?;
+        if resp.body.len() > limit { Err(over_limit(limit)) } else { Ok(resp) }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DecodeError {
+    /// A bare number outside the venue caps: serde would turn it into 0.0 (1e-350), ±Inf or an error (1e400), or round it.
+    OutOfRange(String),
+    /// Not JSON at all.
+    NotJson,
+}
+
+/// Every venue response body is decoded here, never with serde_json directly. serde_json reads a bare JSON number as an
+/// f64, so `1e-350` would arrive as 0.0 before any cap could see it. The raw text is scanned first: every bare number
+/// (string contents skipped, escapes honoured) must be within the venue caps (ruby::VENUE_MAX_EXPONENT for the effective
+/// exponent, mantissa included; ruby::VENUE_MAX_DIGITS significant digits), or the whole answer is unreadable.
+pub fn decode_json(body: &str) -> Result<Value, DecodeError> {
+    let b = body.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'"' => {
+                i += 1;
+                while i < b.len() && b[i] != b'"' { i += if b[i] == b'\\' { 2 } else { 1 }; }
+                i += 1;
+            }
+            b'-' | b'0'..=b'9' => {
+                let start = i;
+                while i < b.len() && matches!(b[i], b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E') { i += 1; }
+                number_in_caps(&body[start..i])?;
+            }
+            _ => i += 1,
+        }
+    }
+    serde_json::from_str(body).map_err(|_| DecodeError::NotJson)
+}
+
+/// Over borrowed slices only: a hostile token of any length costs no allocation, and its diagnostic quotes a short prefix.
+fn number_in_caps(token: &str) -> Result<(), DecodeError> {
+    use crate::ruby::{VENUE_MAX_DIGITS, VENUE_MAX_EXPONENT};
+    // The scanner only takes ASCII bytes into a token, so any byte index is a char boundary.
+    let bad = || DecodeError::OutOfRange(format!("unreadable number {}{} ({} characters) in the venue's answer",
+        &token[..token.len().min(32)], if token.len() > 32 { "…" } else { "" }, token.len()));
+    let t = token.strip_prefix('-').unwrap_or(token);
+    let (mantissa, exp) = t.split_once(['e', 'E']).unwrap_or((t, "0"));
+    let exp = i128::from(exp.parse::<i64>().map_err(|_| bad())?);
+    let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let digits = || int.bytes().chain(frac.bytes());
+    if int.is_empty() || !digits().all(|d| d.is_ascii_digit()) { return Err(bad()); }
+    let Some(first) = digits().position(|d| d != b'0') else { return Ok(()) }; // a true zero
+    let last = int.len() + frac.len() - 1 - digits().rev().position(|d| d != b'0').unwrap_or(0);
+    let exponent = int.len() as i128 - 1 - first as i128 + exp; // the most significant digit's power of ten
+    if (last - first + 1) as i64 > VENUE_MAX_DIGITS || exponent.abs() > i128::from(VENUE_MAX_EXPONENT) { return Err(bad()); }
+    Ok(())
 }
 
 pub fn client() -> reqwest::Client { client_with(CONNECT_TIMEOUT, READ_TIMEOUT, TOTAL_TIMEOUT) }
@@ -97,7 +161,9 @@ impl ReqwestTransport {
 }
 
 impl Transport for ReqwestTransport {
-    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, MAX_BODY).await }
+
+    async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
         let mut b = self.client.request(method, r.url())
@@ -121,11 +187,16 @@ impl Transport for ReqwestTransport {
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
             }
         }
-        let resp = b.send().await.map_err(classify)?;
+        let mut resp = b.send().await.map_err(classify)?;
         let status = resp.status().as_u16();
-        // The status line has arrived: the request was sent, so losing the body leaves the outcome open.
-        let body = resp.text().await.map_err(|e| TransportError::MaybeSent(describe(&e)))?;
-        Ok(HttpResponse { status, body })
+        // The status line has arrived: the request was sent, so losing the body leaves the outcome open. The body is
+        // read chunk by chunk and never past `limit`: a response of any size holds at most that much memory.
+        let mut body: Vec<u8> = Vec::new();
+        while let Some(chunk) = resp.chunk().await.map_err(|e| TransportError::MaybeSent(describe(&e)))? {
+            if body.len() + chunk.len() > limit { return Err(over_limit(limit)); }
+            body.extend_from_slice(&chunk);
+        }
+        Ok(HttpResponse { status, body: String::from_utf8_lossy(&body).into_owned() })
     }
 }
 
@@ -210,7 +281,7 @@ impl Transport for ScriptedTransport {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         // A key with its query is answered first, then the bare path: two data-api GETs of one path differ by query.
         let full = request_key(r);
-        let reply = {
+        let mut reply = {
             let mut s = self.s.borrow_mut();
             s.requests.push(r.clone());
             let key = if s.replies.contains_key(&full) { full.clone() } else { format!("{} {}", r.method, r.path) };
@@ -218,6 +289,11 @@ impl Transport for ScriptedTransport {
             if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
         };
         let key = full;
+        // A body naming its client order id "$client_order_id" answers for the one the request asked for: a recorded answer
+        // cannot know the UUID the engine generated (the grids' landed-recovery scenarios).
+        if reply["body"]["client_order_id"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "client_order_id") { reply["body"]["client_order_id"] = Value::String(cl.clone()); }
+        }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
             Some("pre_send") => Err(TransportError::NotSent(message)),

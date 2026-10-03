@@ -67,6 +67,7 @@ async fn trades_history_pages_until_its_count() {
     let v = FakeVenue::from_script(&json!({ "http": { "/0/private/TradesHistory": [page(&[("T1", "30")], 2), page(&[("T2", "30.5")], 2)] } }));
     let fills = v.fills_from_trades(&["OTX-9".into()], at()).await.unwrap();
     assert_eq!(fills[0].quote_amount_exec.to_s_f(), "60.5", "both pages");
+    assert_eq!(fills[0].pair, None, "trades without a pair name none");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -77,6 +78,9 @@ async fn trades_history_recovers_fills_per_order() {
     let fills = v.fills_from_trades(&["OTX-5".into()], at()).await.unwrap();
     assert_eq!((fills[0].status, fills[0].amount_exec.to_s_f(), fills[0].quote_amount_exec.to_s_f()), (OrderStatus::Closed, "0.0012".into(), "60.012".into()));
     assert_eq!(fills[0].price, BigDec::parse("60.012").unwrap().div(&bd("0.0012")));
+    // The aggregate names its first trade's pair (honeymaker's aggregate_trades); Rails looks it up as a ticker, so a pair
+    // spelled like the ticker (SOLEUR) resolves and Kraken's own spelling (XXBTZEUR) does not.
+    assert_eq!(fills[0].pair.as_deref(), Some("XXBTZEUR"));
 }
 
 fn raw(status: &str, ordertype: &str) -> serde_json::Value {
@@ -137,4 +141,42 @@ async fn balance_splits_dotted_codes_and_the_last_row_wins() {
     let v = FakeVenue::from_script(&json!({ "http": { "/0/private/BalanceEx": [{ "error": [], "result": {
         "ZEUR": { "balance": "100", "hold_trade": "0" }, "EUR.HOLD": { "balance": "7", "hold_trade": "2" } } }] } }));
     assert_eq!(v.balance("EUR").await.unwrap(), bd("5"));
+}
+
+// Kraken sends decimals as strings. One this build cannot read (non-finite, garbage, out of BigDec's range) is Kraken's
+// unreadable answer, never zero: Ruby's String#to_d would give 0 for garbage and NaN/Infinity for those words.
+const UNREADABLE: [&str; 5] = ["NaN", "Infinity", "garbage", "-Infinity", "1e-1000000000"];
+
+fn unreadable(r: Result<impl std::fmt::Debug, VenueError>) -> bool { matches!(r, Err(VenueError::Ambiguous(m)) if m.contains("unreadable")) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_kraken_price_is_an_unreadable_answer_not_a_zero_book() {
+    for bad in UNREADABLE {
+        let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", bad, bad);
+        assert!(unreadable(v.price(&xbteur(), PriceSide::Ask).await), "{bad}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_kraken_fill_is_an_unreadable_answer_not_a_zero_fill() {
+    for field in ["vol_exec", "cost", "price", "vol"] {
+        for bad in UNREADABLE {
+            let mut raw = json!({ "status": "closed", "price": "50010.5", "vol": "60", "vol_exec": "0.00119975", "cost": "60.0", "oflags": "viqc",
+                                  "descr": { "type": "buy", "ordertype": "market", "price": "0" } });
+            raw[field] = json!(bad);
+            let v = FakeVenue::new().order("OTX-1", raw);
+            assert!(unreadable(v.orders(&["OTX-1".into()]).await), "{field}={bad}");
+        }
+    }
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/private/TradesHistory": [{ "error": [], "result": { "count": 1, "trades": {
+        "T1": { "ordertxid": "OTX-1", "vol": "NaN", "cost": "60", "ordertype": "market", "type": "buy" } } } }] } }));
+    assert!(unreadable(v.fills_from_trades(&["OTX-1".into()], at()).await));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_kraken_balance_is_an_unreadable_answer_not_a_zero_balance() {
+    for bad in UNREADABLE {
+        let v = FakeVenue::new().balance_body("ZEUR", bad, "0");
+        assert!(unreadable(v.balance("EUR").await), "{bad}");
+    }
 }

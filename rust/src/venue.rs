@@ -45,6 +45,9 @@ pub struct OrderState {
     pub amount_exec: BigDec, pub quote_amount_exec: BigDec, pub limit: bool,
     /// The side as the exchange reports it (a buying bot can still hold an old sell).
     pub sell: bool,
+    /// The pair as the venue names it in this order (Alpaca `symbol`, Kraken `descr.pair`): Rails backfills a row's blank
+    /// asset fields from this pair's ticker (`order_data[:ticker]`), never from the bot. None where the venue gives none.
+    pub pair: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

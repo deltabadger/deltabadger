@@ -1,0 +1,43 @@
+{#- bots/bot_tile/_bot_tile.html.erb with _bot_tile_pnl: the figures are not computed in this build
+    yet, so every tile waits for them as Rails' does on a cold cache. -#}
+<div class="widget bot-tile" id="{{ tile.id }}" data-bot-id="{{ tile.bot_id }}" draggable="true"
+     data-merge-ok="{{ tile.mergeable }}" data-split-ok="{{ tile.splittable }}" data-merge-exchange="{{ tile.exchange_id }}"
+     data-merge-quote="{{ tile.quote_id }}" data-merge-quote-symbol="{{ tile.quote_symbol }}"
+     data-merge-open-orders="{{ tile.open_orders }}">
+{% if tile.mergeable || tile.splittable %}
+    <template data-merge-chips>
+{% for chip in tile.chips %}
+        <div class="{{ chip.class }}" style="background: {{ chip.color }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.asset_id }}" data-exchanges="{{ chip.exchanges }}">{{ chip.symbol }}</div>
+{% endfor %}
+    </template>
+{% endif %}
+  <a draggable="false" href="{{ tile.href }}">
+    <div class="bot-tile__header">
+      <div class="bot-tile__hgroup">
+        <div class="bot-tile__title">
+{% match tile.title %}
+{% when Title::None %}
+{% when Title::Text with (text) %}
+            <span>{{ text }}</span>
+{% when Title::Fit with (three, two) %}
+              <span data-controller="title-fit">
+                <span>{{ three }}</span>
+                <span hidden>{{ two }}</span>
+              </span>
+{% endmatch %}
+            {{ tile.exchange_svg|safe }}
+        </div>
+      </div>
+        <div id="{{ tile.pnl_id }}">
+    <div class="loader--small" style="position: unset;"></div>
+</div>
+
+    </div>
+    <div class="bot-tile__subtitle">
+      {{ tile.label }}
+    </div>
+</a>  <div class="bot-control">
+    {{ tile.bar|safe }}
+    {{ tile.button|safe }}
+  </div>
+</div>

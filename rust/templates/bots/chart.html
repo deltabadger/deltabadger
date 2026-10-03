@@ -1,0 +1,6 @@
+{#- bots/charts/show.html.erb: the chart's own frame. With no figures computed it always asks for
+    them once the page's streams are connected. -#}
+<turbo-frame id="bot_chart">
+  <div data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="metrics_update" data-broadcast--on-connect-method-args-value="{{ args }}"></div>
+  {{ chart|safe }}
+</turbo-frame>

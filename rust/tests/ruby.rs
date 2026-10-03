@@ -105,3 +105,24 @@ fn exceeds_matches_ruby_on_the_boundary_and_either_side() {
         assert_eq!(got, p[4].as_bool().unwrap(), "{p}");
     }
 }
+
+#[test]
+fn float_sum_is_rubys_compensated_sum() {
+    let cases = common::vectors()["float_sum"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 22);
+    for c in cases {
+        let values: Vec<f64> = c[0].as_array().unwrap().iter().map(bits).collect();
+        assert_eq!(float_sum(&values).to_bits(), bits(&c[1]).to_bits(), "{values:?}");
+    }
+    assert_ne!(float_sum(&[0.1, 0.2, 0.3]).to_bits(), (0.1f64 + 0.2 + 0.3).to_bits(), "not a plain left fold");
+}
+
+#[test]
+fn a_decimal_10_6_column_reads_and_writes_as_activemodel_does() {
+    let cases = common::vectors()["decimal_10_6"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 61);
+    for c in cases {
+        let f = bits(&c[0]);
+        assert_eq!(decimal_column(f, 10, 6).unwrap().to_s_f(), c[1].as_str().unwrap(), "{f:e}");
+    }
+}

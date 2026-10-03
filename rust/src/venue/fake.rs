@@ -23,6 +23,7 @@ struct State {
     on_add: Option<Rc<dyn Fn()>>,   // runs while AddOrder "awaits its reply": a test's concurrent writer
     on_query: Option<Rc<dyn Fn()>>, // the same, while QueryOrders does (the pre-tick sweep)
     on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
+    on_price: Option<Rc<dyn Fn()>>,  // the same, while a price read does
     hold_add: Option<Rc<tokio::sync::Notify>>, // AddOrder's reply waits for it: a tick held in hand while a test acts
     latency: Option<std::time::Duration>,      // every call first awaits this much timer: a slow venue whose await yields
 }
@@ -33,7 +34,10 @@ pub struct FakeVenue { s: Rc<RefCell<State>> }
 const ASSET_MAP: [(&str, &str); 10] = [("ZUSD", "USD"), ("ZEUR", "EUR"), ("ZGBP", "GBP"), ("ZJPY", "JPY"), ("ZCHF", "CHF"),
     ("ZCAD", "CAD"), ("ZAUD", "AUD"), ("XXBT", "XBT"), ("XETH", "ETH"), ("XXDG", "XDG")];
 
-fn dec(v: &Value) -> Option<BigDec> { v.as_str().and_then(|s| BigDec::parse(s).ok()) }
+/// A Kraken decimal: absent or null is None (Ruby's nil). Anything present must be a finite decimal within BigDec's
+/// bounds, or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from Ruby on purpose
+/// (ruby::json_to_d): Rails' `.to_d` reads "garbage" as 0 and "NaN" as NaN.
+fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::ruby::json_to_d(v).map_err(|_| unreadable()) }
 
 /// A raw Kraken QueryOrders/ClosedOrders order, parsed as Exchanges::Kraken#parse_order_data does.
 pub fn kraken_order(txid: &str, o: &Value) -> OrderState {
@@ -52,15 +56,16 @@ fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
     }
     let viqc = o["oflags"].as_str().is_some_and(|f| f.split(',').any(|x| x == "viqc"));
     let limit = o["descr"]["ordertype"] == "limit";
-    let vol = dec(&o["vol"]);
-    let mut price = dec(&o["price"]).unwrap_or_else(BigDec::zero);
-    if price.is_zero() && limit { price = dec(&o["descr"]["price"]).unwrap_or_else(BigDec::zero); }
+    let vol = dec(&o["vol"])?;
+    let mut price = dec(&o["price"])?.unwrap_or_else(BigDec::zero);
+    if price.is_zero() && limit { price = dec(&o["descr"]["price"])?.unwrap_or_else(BigDec::zero); }
     Ok(OrderState {
         txid: txid.into(),
         status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
-        amount_exec: dec(&o["vol_exec"]).unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"]).unwrap_or_else(BigDec::zero), limit,
+        amount_exec: dec(&o["vol_exec"])?.unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"])?.unwrap_or_else(BigDec::zero), limit,
         sell: o["descr"]["type"] == "sell",
+        pair: o["descr"]["pair"].as_str().map(str::to_string),
     })
 }
 
@@ -88,6 +93,7 @@ impl FakeVenue {
     pub fn on_add(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_add = Some(Rc::new(f)); self }
     pub fn on_query(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_query = Some(Rc::new(f)); self }
     pub fn on_lookup(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_lookup = Some(Rc::new(f)); self }
+    pub fn on_price(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_price = Some(Rc::new(f)); self }
     /// AddOrder records the order and runs `on_add`, then waits for `gate.notify_one()` before it answers: a tick held
     /// in hand at an await point while a test stops the process or writes as the web does.
     pub fn hold_add(self, gate: Rc<tokio::sync::Notify>) -> Self { self.s.borrow_mut().hold_add = Some(gate); self }
@@ -125,11 +131,13 @@ impl Venue for FakeVenue {
 
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
         self.wait().await;
+        let hook = self.s.borrow().on_price.clone();
+        if let Some(f) = hook { f(); }
         let body = self.body("/0/public/Ticker").ok_or_else(|| VenueError::Transient("no scripted Ticker".into()))?;
         check(&body)?;
         let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;
         let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Last => ("c", "last") };
-        let p = dec(&t[key][0]).unwrap_or_else(BigDec::zero);
+        let p = dec(&t[key][0])?.unwrap_or_else(BigDec::zero);
         // Exchanges::Kraken#get_ask_price / #get_last_price raise on a zero book, naming the pair (kraken.rb:225, :255).
         if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
         Ok(p)
@@ -210,6 +218,7 @@ impl Venue for FakeVenue {
             None => OrderState {
                 txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
                 amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
+                pair: Some(order.pair.clone()),
             },
         }))
     }
@@ -227,17 +236,19 @@ impl Venue for FakeVenue {
             for (id, t) in page { if seen.insert(id) { trades.push(t); } }
             if seen.len() as u64 >= body["result"]["count"].as_u64().unwrap_or(0) { break; }
         }
-        let mut by: Vec<(String, BigDec, BigDec, bool, bool)> = vec![];
+        let mut by: Vec<(String, BigDec, BigDec, bool, bool, Option<String>)> = vec![];
         for trade in trades.iter() {
             let Some(o) = trade["ordertxid"].as_str().filter(|o| txids.iter().any(|t| t == o)) else { continue };
-            let (vol, cost) = (dec(&trade["vol"]).unwrap_or_else(BigDec::zero), dec(&trade["cost"]).unwrap_or_else(BigDec::zero));
+            let (vol, cost) = (dec(&trade["vol"])?.unwrap_or_else(BigDec::zero), dec(&trade["cost"])?.unwrap_or_else(BigDec::zero));
             match by.iter_mut().find(|(t, ..)| t == o) {
                 Some(e) => { e.1 = &e.1 + &vol; e.2 = &e.2 + &cost; }
-                None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell")),
+                None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell", trade["pair"].as_str().map(str::to_string))),
             }
         }
-        Ok(by.into_iter().map(|(txid, vol, cost, limit, sell)| OrderState {
-            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell,
+        // The aggregate names its first trade's pair (honeymaker's aggregate_trades), which Rails looks up as a ticker
+        // (kraken.rb:833): a pair spelled like the ticker (SOLEUR) resolves, Kraken's own spelling (XXBTZEUR) does not.
+        Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
+            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair,
         }).collect())
     }
 
@@ -251,7 +262,7 @@ impl Venue for FakeVenue {
             let head = code.split('.').next().unwrap_or(code);
             let name = ASSET_MAP.iter().find(|(k, _)| *k == head).map(|(_, v)| *v).unwrap_or(head);
             if name == asset_symbol {
-                free = &dec(&b["balance"]).unwrap_or_else(BigDec::zero) - &dec(&b["hold_trade"]).unwrap_or_else(BigDec::zero);
+                free = &dec(&b["balance"])?.unwrap_or_else(BigDec::zero) - &dec(&b["hold_trade"])?.unwrap_or_else(BigDec::zero);
             }
         }
         Ok(free)

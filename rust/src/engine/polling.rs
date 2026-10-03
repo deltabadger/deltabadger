@@ -2,7 +2,7 @@
 //! lenient poll after a placement), and Transaction#update_with_order_data.
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
-use super::EngineError;
+use super::{amount, notice, tick, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::enums::TxExternalStatus;
 use crate::ruby::{from_sql, inspect, to_sentence, to_sql, BigDec};
@@ -43,15 +43,19 @@ fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
 
 /// Transaction#update_with_order_data for one row. `_update_missed` is Rails' `update_missed_quote_amount:` keyword, inert
 /// since Rails' fill-credit fix (#448): a fill is credited once, by its own row (amount::pending_quote_amount), and a poll
-/// never moves the carry. Kept, as Rails keeps the keyword, until Rails removes it.
-pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
+/// never moves the carry. Kept, as Rails keeps the keyword, until Rails removes it. Returns whether this fill spent the
+/// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
+/// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
+pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
     let status = match s.status {
         OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
-        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(()),
+        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(false),
     };
     let row = load(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
-    let ticker = model::ticker_for(c, &bot)?;
+    // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
+    // order's pair (Exchanges::*#parse_order_data `tickers.find_by(ticker:)`), never the bot's first member.
+    let ticker = match &s.pair { Some(pair) => model::ticker_for_pair(c, bot.exchange_id, pair)?, None => None };
 
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
     let mut sets: Vec<(&str, Sql)> = vec![];
@@ -75,6 +79,7 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update
         if row.base_asset_id.is_none() { sets.push(("base_asset_id", Sql::Integer(t.base_asset_id))); }
         if row.quote_asset_id.is_none() { sets.push(("quote_asset_id", Sql::Integer(t.quote_asset_id))); }
     }
+    let exec_changed = sets.iter().any(|(col, _)| *col == "quote_amount_exec");
     if !sets.is_empty() {
         let assignments: Vec<String> = sets.iter().enumerate().map(|(i, (col, _))| format!("{col} = ?{}", i + 1)).collect();
         let sql = format!("UPDATE transactions SET {}, status = 0, updated_at = ?{} WHERE id = ?{}", assignments.join(", "), sets.len() + 1, sets.len() + 2);
@@ -84,7 +89,10 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update
         c.execute(&sql, rusqlite::params_from_iter(values))?;
     }
 
-    Ok(())
+    // Transaction's after_commit (transaction.rb:31-33) → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
+    // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
+    // the job that committed the fill.
+    Ok(exec_changed && side == 0 && s.quote_amount_exec.is_positive() && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
 }
 
 fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
@@ -105,9 +113,35 @@ fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64
     rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect()
 }
 
-fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>) -> Result<(), EngineError> {
+/// One fill, committed. A fill that spends the amount limit enqueues one Rails Bot::StopJob per qualifying callback
+/// (quote_amount_limitable.rb:104), and mails stopped_by_amount_limit: its marker (notice::LIMIT) is written in the fill's
+/// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. With `stop_now` (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
+/// has nothing left to do) the stop lands in the fill's own transaction. Without it (the tick's sweep: the job runs after the
+/// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
+/// fill's own transaction, so a crash before the tick ends loses nothing: tick::run_pending_amount_limit_stops runs them at
+/// the tick's end, at the next start (run::step), or at the handback.
+/// notify_stopped_by_amount_limit runs in the fill callback that spends the cap, whatever the stop then does: the mail
+/// (notice::LIMIT) is owed in that fill's own transaction, on every path that applies a fill (here and placement's recovery).
+pub(crate) fn owe_limit_mail(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3",
+              params![format!("$.{}", notice::LIMIT), notice::limit_marker(now).to_string(), bot_id])?;
+    Ok(())
+}
+
+fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
-    apply_in(&tx, bot_id, tx_id, s, true, now)?;
+    if apply_in(&tx, bot_id, tx_id, s, true, now)? {
+        owe_limit_mail(&tx, bot_id, now)?;
+        if stop_now {
+            tick::stop_for_amount_limit(&tx, bot_id, now)?;
+        } else {
+            // Counted under the bot's start and limit (Bot::amount_limit_key); a stale count from before a restart restarts at 1.
+            let bot = model::load_bot(&tx, bot_id)?;
+            let n = match bot.pending_amount_limit_stops() { Some((n, true)) => n + 1, _ => 1 };
+            tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', json(?1)) WHERE id = ?2",
+                       params![serde_json::json!({ "count": n, "key": bot.amount_limit_key() }).to_string(), bot_id])?;
+        }
+    }
     tx.commit()?;
     Ok(())
 }
@@ -115,16 +149,12 @@ fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now:
 /// Bot::FetchAndUpdateOpenOrdersJob for one bot. Errors carry Rails' messages; orders updated before an
 /// error stay updated, as each Rails update! commits on its own.
 pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>) -> Result<(), PollFailure> {
-    poll(c, venue, bot, now, true).await
+    let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
+    poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, true).await
 }
 
 /// Both Rails polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
 /// the given waiting rows. `strict` (the sweep) fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
-async fn poll<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>, strict: bool) -> Result<(), PollFailure> {
-    let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
-    poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, strict).await
-}
-
 async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, strict: bool) -> Result<(), PollFailure> {
     let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
     if rows.is_empty() { return Ok(()); }
@@ -154,7 +184,7 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
             if strict { return Err(PollFailure::General(format!("Order {} status is unknown.", state.txid))); }
             continue;
         }
-        apply_committed(c, bot.id, *id, state, now).map_err(db)?;
+        apply_committed(c, bot.id, *id, state, now, !strict).map_err(db)?;
     }
     Ok(())
 }
@@ -186,5 +216,5 @@ async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot,
         Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(PollFailure::Transient(m)),
     };
     if state.status == OrderStatus::Unknown { return Err(PollFailure::General(format!("Order {ext} status is unknown."))); }
-    apply_committed(c, bot.id, id, &state, now).map_err(|e| PollFailure::General(format!("{e:?}")))
+    apply_committed(c, bot.id, id, &state, now, true).map_err(|e| PollFailure::General(format!("{e:?}")))
 }

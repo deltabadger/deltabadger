@@ -6,15 +6,22 @@
 //! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
 pub mod assets;
 pub mod auth;
+pub mod bearer;
+pub mod bot;
 pub mod bots;
 pub mod cable;
+pub mod consent;
+pub mod colors;
 pub mod csrf;
 pub mod flash;
+pub mod format;
 pub mod headers;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
+pub mod oauth;
 pub mod rate_limit;
+pub mod ring;
 pub mod server;
 pub mod session;
 pub mod shell;
@@ -28,7 +35,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post, MethodRouter};
+use axum::routing::{any, delete, get, post, MethodRouter};
 use axum::Router;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -68,7 +75,7 @@ impl IntoResponse for WebError {
 }
 
 /// config/application.rb `env_boolean`: the spellings an operator may have written; anything else is no answer.
-fn env_boolean(value: Option<String>) -> Option<bool> {
+pub(crate) fn env_boolean(value: Option<String>) -> Option<bool> {
     match value?.trim().to_ascii_lowercase().as_str() {
         "1" | "t" | "true" | "y" | "yes" | "on" => Some(true),
         "0" | "f" | "false" | "n" | "no" | "off" => Some(false),
@@ -151,6 +158,48 @@ pub struct Config {
     pub own_origin: Option<String>,
     /// MarketDataSettings.deltabadger_available?: a hosted install, where stock trading is always on.
     pub market_data_url: bool,
+    /// production.rb's `config.hosts`: the hosts a request may name, from ALLOWED_HOSTS. Empty when
+    /// that is not set, and then every host is served, as in Rails (`config.hosts.clear`).
+    pub allowed_hosts: Vec<String>,
+}
+
+/// `config.hosts` as config/environments/production.rb builds it: nothing when ALLOWED_HOSTS is
+/// blank; else its comma-separated entries, each stripped (String#split drops empty entries at the
+/// end, and keeps one in the middle), and then `localhost` and `127.0.0.1`.
+pub fn allowed_hosts(value: Option<&str>) -> Vec<String> {
+    let Some(value) = value.filter(|value| !value.trim().is_empty()) else { return Vec::new() };
+    let mut entries: Vec<&str> = value.split(',').collect();
+    while entries.last().is_some_and(|entry| entry.is_empty()) {
+        entries.pop();
+    }
+    entries.into_iter().map(|entry| entry.trim_matches([' ', '\t', '\n', '\x0B', '\x0C', '\r', '\0']).to_string())
+        .chain(["localhost".to_string(), "127.0.0.1".to_string()]).collect()
+}
+
+/// ActionDispatch::HostAuthorization::Permissions#allows? for one entry that is a string, which is
+/// all ALLOWED_HOSTS can give: the host is the entry, in any case, and may add a port unless the
+/// entry names its own; an entry that starts with a dot also takes one label in front of it.
+/// (Rails builds `/\A<entry>(?::\d+)?\z/i`. The same is decided here without a pattern.)
+pub fn host_allowed(entry: &str, host: &str) -> bool {
+    let port = |text: &str| text.rsplit_once(':').filter(|(_, digits)| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())).map(|(before, _)| before.len());
+    let host = if port(entry).is_some() { host } else { port(host).map_or(host, |length| &host[..length]) };
+    let Some(domain) = entry.strip_prefix('.') else { return host.eq_ignore_ascii_case(entry) };
+    if host.eq_ignore_ascii_case(domain) {
+        return true;
+    }
+    // One label of letters, digits and hyphens, and its dot.
+    let label = host.len().checked_sub(domain.len() + 1).filter(|&length| length > 0);
+    // The dot is looked at first: a byte that is a dot has a character boundary on either side.
+    label.is_some_and(|length| host.as_bytes()[length] == b'.' && host[length + 1..].eq_ignore_ascii_case(domain)
+        && host[..length].bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'))
+}
+
+/// The last entry of `X-Forwarded-Host`, as Rails takes it (`split(/,\s?/).last`: one space after a
+/// comma belongs to the comma, and empty entries at the end are dropped). `None` without the header
+/// or with a blank one; `Some(None)` when it names nothing.
+fn last_forwarded_host(headers: &HeaderMap) -> Option<Option<String>> {
+    let hosts = joined(headers, "x-forwarded-host").filter(|hosts| !hosts.trim().is_empty())?;
+    Some(hosts.split(',').map(|host| host.strip_prefix([' ', '\t']).unwrap_or(host)).rfind(|host| !host.is_empty()).map(str::to_string))
 }
 
 impl Config {
@@ -170,6 +219,7 @@ impl Config {
             behind_proxy: env_boolean(env("BEHIND_PROXY")).unwrap_or(force_ssl),
             own_origin,
             market_data_url: present("MARKET_DATA_URL").is_some(),
+            allowed_hosts: allowed_hosts(env("ALLOWED_HOSTS").as_deref()),
         })
     }
 
@@ -199,14 +249,36 @@ impl Config {
     /// the host is the last entry of `X-Forwarded-Host` when a proxy sent one, else the `Host` header
     /// (ActionDispatch::Http::URL#raw_host_with_port).
     pub fn request_origin(&self, headers: &HeaderMap) -> Option<String> {
-        let forwarded = joined(headers, "x-forwarded-host").filter(|hosts| !hosts.trim().is_empty());
-        // Ruby's `split(/,\s?/).last`: one space after a comma belongs to the comma, and empty entries at the end are dropped.
-        let forwarded = forwarded.as_deref().map(|hosts| hosts.split(',').map(|host| host.strip_prefix([' ', '\t']).unwrap_or(host)).rfind(|host| !host.is_empty()));
-        let host = match forwarded {
-            Some(host) => host?,
+        let forwarded = last_forwarded_host(headers);
+        let host = match &forwarded {
+            Some(host) => host.as_deref()?,
             None => header_text(headers, "host")?,
         };
         Some(canonical_origin(self.request_scheme(headers), host))
+    }
+
+    /// ActionDispatch::HostAuthorization, the first middleware of the Rails app when ALLOWED_HOSTS is
+    /// set: the hosts of this request that are not allowed, which are its `Host` and the last entry
+    /// of its `X-Forwarded-Host`. Both are checked because Rails builds URLs from the second when it
+    /// is there. A request with any is answered by `blocked_host` and reaches nothing else.
+    pub fn blocked_hosts(&self, headers: &HeaderMap) -> Vec<String> {
+        if self.allowed_hosts.is_empty() {
+            return Vec::new();
+        }
+        let allowed = |host: &str| self.allowed_hosts.iter().any(|entry| host_allowed(entry, host));
+        let mut blocked = Vec::new();
+        // Rack's HTTP_HOST: no header is no host, and two lines are one value that matches nothing.
+        let host = joined(headers, "host");
+        if !host.as_deref().is_some_and(allowed) {
+            blocked.push(host.unwrap_or_default());
+        }
+        match last_forwarded_host(headers) {
+            Some(Some(forwarded)) if !forwarded.trim().is_empty() && !allowed(&forwarded) => blocked.push(forwarded),
+            // A header that names no host at all (`,`): Rails fails on it with a 500. Refused here.
+            Some(None) => blocked.push(String::new()),
+            _ => {}
+        }
+        blocked
     }
 
     /// The origin this deployment's pages have: APP_ROOT_URL's when it is set, else the request's.
@@ -392,6 +464,23 @@ fn only(route: MethodRouter<App>) -> MethodRouter<App> {
     route.fallback(layout::not_ported)
 }
 
+/// What an OAuth client calls on its own (web::oauth). These routes are outside the pipeline: they
+/// never read the session and take no CSRF token, because nothing in them acts for a signed-in
+/// browser. That holds for exactly these paths and methods; any other method on them is the 501.
+fn oauth_api(app: App) -> Router<App> {
+    Router::new()
+        .route("/.well-known/oauth-authorization-server", only(get(oauth::authorization_server)))
+        .route("/.well-known/oauth-protected-resource", only(get(oauth::protected_resource)))
+        .route("/.well-known/{*document}", any(oauth::absent))
+        .route("/oauth/register", only(post(oauth::register)))
+        .route("/oauth/token", only(post(oauth::token)))
+        .route("/oauth/revoke", only(post(oauth::revoke)))
+        // Doorkeeper also routes these two. The metadata does not advertise them and no client is told of them: not served.
+        .route("/oauth/introspect", any(layout::not_ported))
+        .route("/oauth/token/info", any(layout::not_ported))
+        .layer(middleware::from_fn_with_state(app, oauth::api))
+}
+
 fn routes(app: App) -> Router {
     Router::new()
         .route("/", only(get(bots::home)))
@@ -399,8 +488,14 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
+        // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
+        .route("/bots/new", axum::routing::any(layout::not_ported))
+        .route("/bots/{id}", only(get(bot::page::show)))
+        .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
+        .merge(oauth_api(app.clone()))
         // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
         .route("/up", only(get(up)))
         .route("/csp-report", only(post(csp_report)))
@@ -420,6 +515,8 @@ pub struct Params {
     pub query: Vec<(String, String)>,
     /// The fields of an `application/x-www-form-urlencoded` POST body, by their literal names (`user[email]`).
     pub form: Vec<(String, String)>,
+    /// The object in an `application/json` POST body, on the three paths that take one (`JSON_PATHS`).
+    pub json: Option<serde_json::Value>,
 }
 
 impl Params {
@@ -472,8 +569,20 @@ pub fn method_override(form: &[(String, String)]) -> Option<Method> {
 
 #[derive(Clone)]
 struct Entry {
+    app: App,
     routes: Router,
     body_read_timeout: Duration,
+}
+
+/// HostAuthorization's DefaultResponseApp as production runs it: 403 with no body, `text/plain` to
+/// an XMLHttpRequest and `text/html` to anything else, and one line in the log. Nothing else of the
+/// app has seen the request: there are no other headers and no cookie.
+pub fn blocked_host(headers: &HeaderMap, hosts: &[String]) -> Response {
+    // The hosts are the request's own text: shortened, and escaped, before they are printed.
+    let named: Vec<String> = hosts.iter().map(|host| host.chars().take(100).flat_map(char::escape_default).collect()).collect();
+    eprintln!("deltabadger: blocked hosts: {}", named.join(", "));
+    let xhr = header_text(headers, "x-requested-with").is_some_and(|with| with.to_ascii_lowercase().contains("xmlhttprequest"));
+    (StatusCode::FORBIDDEN, [(header::CONTENT_TYPE, if xhr { "text/plain; charset=UTF-8" } else { "text/html; charset=UTF-8" })], "").into_response()
 }
 
 /// The largest form body `entry` reads, and the most fields it may hold. A form is read before any
@@ -486,10 +595,14 @@ pub const FORM_FIELDS: usize = 1000;
 /// kept as `return_to` is 2 KiB) and as many fields as a form.
 pub const QUERY_LIMIT: usize = 8 * 1024;
 pub const QUERY_FIELDS: usize = FORM_FIELDS;
+/// The paths whose POST may carry `application/json` instead of a form: what an OAuth client sends
+/// on its own (web::oauth). The body is read under the form's limit and deadline.
+pub const JSON_PATHS: [&str; 3] = ["/oauth/register", "/oauth/token", "/oauth/revoke"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Everything that has to happen before a route is chosen:
+/// - a request for a host this deployment does not allow is refused, before anything reads it;
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
 /// - a form POST is parsed, and its `_method` field (how Turbo and `button_to` send PATCH, PUT and
 ///   DELETE) replaces the method, as Rack::MethodOverride does;
@@ -497,6 +610,10 @@ pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 ///   and `/de/login`.
 async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let (mut parts, body) = request.into_parts();
+    let blocked = entry.app.config.blocked_hosts(&parts.headers);
+    if !blocked.is_empty() {
+        return blocked_host(&parts.headers, &blocked);
+    }
     let raw_query = parts.uri.query().unwrap_or("");
     if raw_query.len() > QUERY_LIMIT {
         return (StatusCode::URI_TOO_LONG, "Query string too long\n").into_response();
@@ -511,8 +628,12 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         }
     }
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
-    let form_post = parts.method == Method::POST && header_text(&parts.headers, "content-type").is_some_and(|t| t.starts_with("application/x-www-form-urlencoded"));
-    let (form, body) = if form_post {
+    let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
+    let form_post = parts.method == Method::POST && content_type.starts_with("application/x-www-form-urlencoded");
+    let json_post = parts.method == Method::POST && JSON_PATHS.contains(&full_path.as_str())
+        && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
+    let mut json = None;
+    let (form, body) = if form_post || json_post {
         // The one place a request body is read. It has a deadline for the whole of it: a client that
         // declares a body and stops sending gets a 408, and `connection: close` makes hyper drop the
         // connection, so it does not keep its place. (A body no handler reads is not waited for: hyper
@@ -522,6 +643,13 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             Err(_) => return (StatusCode::REQUEST_TIMEOUT, [(header::CONNECTION, "close")], "The form did not arrive in time\n").into_response(),
         };
         match read {
+            // A JSON body that is not JSON is Rails' 400, answered before any controller. One that is not
+            // an object names no parameter, and neither does an empty one.
+            Ok(bytes) if json_post => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(value) => { json = value.is_object().then_some(value); (Vec::new(), Body::empty()) }
+                Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => (Vec::new(), Body::empty()),
+                Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
+            },
             Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Ok(bytes) => (pairs(&bytes), Body::empty()),
             Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
@@ -538,7 +666,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let route_path = route_path.to_string();
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
-    parts.extensions.insert(Arc::new(Params { full_path, fullpath, route_path, path_locale, query, form }));
+    parts.extensions.insert(Arc::new(Params { full_path, fullpath, route_path, path_locale, query, form, json }));
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
         Err(never) => match never {},
@@ -552,7 +680,7 @@ pub fn router(app: App) -> Router {
 
 /// `router`, with another deadline for a form's body (`server::Limits`).
 pub(crate) fn router_with(app: App, body_read_timeout: Duration) -> Router {
-    Router::new().fallback(entry).with_state(Entry { routes: routes(app), body_read_timeout })
+    Router::new().fallback(entry).with_state(Entry { app: app.clone(), routes: routes(app), body_read_timeout })
 }
 
 /// What goes onto every response of the app: the session cookie when it has to be written, the

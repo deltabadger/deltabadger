@@ -2,6 +2,8 @@
 
 pub mod html;
 pub mod seed;
+pub mod scripted;
+pub mod smtp;
 pub mod web;
 
 use std::path::{Path, PathBuf};

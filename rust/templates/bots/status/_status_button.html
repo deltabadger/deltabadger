@@ -1,0 +1,28 @@
+{#- bots/status/_status_button.html.erb. The hint for an unavailable ticker never renders for these
+    bot types: both answer an empty `tickers_for_start`. -#}
+<div id="{{ id }}">
+{% match button %}
+{% when Button::Reactivate %}
+    <form class="button_to" method="post" action="{{ path }}/archive"><input type="hidden" name="_method" value="delete" /><button class="sbutton sbutton--success" data-turbo-frame="_top" type="submit">{{ v.t("button.reactivate")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% when Button::Stop %}
+      <form class="button_to" method="post" action="{{ path }}/stop"><input type="hidden" name="_method" value="patch" /><button class="sbutton sbutton--sky sbutton--outline" data-hw-animate-out="animate-button-to-start-shape" data-turbo-frame="_top" aria-label="{{ v.t("button.stop")|safe }}" type="submit">
+        <div class="animicon animicon--stop">
+          <div class="animicon__a"></div>
+          <div class="animicon__b"></div>
+        </div>
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{%- when Button::Restart with (disabled) %}
+        <form class="button_to" method="get" action="{{ path }}/start/edit"><button class="sbutton sbutton--success" data-hw-animate-out="animate-button-to-stop-shape" data-turbo-frame="modal"{% if *disabled %} disabled="disabled"{% endif %} aria-label="{{ v.t("button.start")|safe }}" type="submit">
+          <div class="animicon animicon--start">
+            <div class="animicon__a"></div>
+            <div class="animicon__b"></div>
+          </div>
+</button></form>
+{%- when Button::Start with (disabled) %}
+        <form class="button_to" method="post" action="{{ path }}/start?start_fresh=true"><input type="hidden" name="_method" value="patch" /><button class="sbutton sbutton--success" data-hw-animate-out="animate-button-to-stop-shape" data-turbo-frame="_top"{% if *disabled %} disabled="disabled"{% endif %} aria-label="{{ v.t("button.start")|safe }}" type="submit">
+          <div class="animicon animicon--start">
+            <div class="animicon__a"></div>
+            <div class="animicon__b"></div>
+          </div>
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{%- endmatch %}</div>

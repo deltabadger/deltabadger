@@ -217,7 +217,7 @@ async fn a_stop_during_recovery_starts_no_new_placement() {
     // An intent left by a crash before its send; at 10:05 the lookup proves it absent and the bot would tick next.
     let bot = model::load_bot(&e.primary, id).unwrap();
     let ticker = model::ticker_for(&e.primary, &bot).unwrap().unwrap();
-    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic) else { panic!() };
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic).unwrap() else { panic!() };
     placement::begin(&e.primary, &bot, &plan, &at("2026-09-01T10:00:00.5Z")).unwrap();
     let stop = e.stop_handle();
     let _ = v.clone().on_lookup(move || stop.request()); // SIGTERM lands while the venue answers the lookup
@@ -264,4 +264,94 @@ async fn a_bot_stopped_while_retrying_and_started_again_retries_from_its_first_a
     let wake = run::step(&mut e, &at("2026-09-01T10:00:06Z")).await.unwrap();
     assert_eq!(model::load_bot(&e.primary, id).unwrap().status, deltabadger::enums::BotStatus::Retrying);
     assert!(wake <= us("2026-09-01T10:00:09Z"), "a fresh job: its first failure waits 3 s, not the third attempt's 83 s");
+}
+
+/// A bot the web continued (Lifecycle#start(start_fresh: false)): working again, its last tick stamped at the second checkpoint,
+/// `weeks` of 60 bought, and the web's request in `rust_continue_start`.
+fn continued(weeks: &[&str], continue_start: serde_json::Value) -> (tempfile::TempDir, Engine<FakeFactory>, i64, FakeVenue) {
+    let v = priced().next_add(AddOutcome::Accept("OTX-C".into()));
+    let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_action_job_at", json!("2026-09-08T10:00:00.500Z"))
+        .transient("rust_continue_start", continue_start);
+    let (d, e, id, s) = engine(spec, v.clone());
+    for (i, created) in weeks.iter().enumerate() {
+        seed::insert_tx(&e.primary, &s, id, &TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("OW{i}")), order_type: 0,
+            amount: None, quote_amount: Some("60"), price: Some("50000"), quote_amount_exec: Some("60"), amount_exec: Some("0.0012"), created_at: (*created).into() });
+    }
+    (d, e, id, v)
+}
+fn requested() -> serde_json::Value { json!({ "requested_at": "2026-09-08T12:00:00Z" }) }
+fn transient_has(e: &Engine<FakeFactory>, id: i64, key: &str) -> bool { model::load_bot(&e.primary, id).unwrap().transient.get(key).is_some() }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_continued_bot_that_still_owes_its_contribution_runs_at_once() {
+    // Stamped at the second checkpoint and stopped before it placed: 2 × 60 − 60 = 60 owed, not under 60 (Rails: now).
+    let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
+    run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "the owed contribution is bought now, not at the next checkpoint");
+    assert_eq!(v.sent()[0].volume, "0.0012");
+    assert!(!transient_has(&e, id, "rust_continue_start"), "the request is handled once");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_continued_bot_with_nothing_owed_waits_for_its_next_checkpoint() {
+    let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01", "2026-09-08 10:00:01"], requested());
+    let wake = run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
+    assert!(v.sent().is_empty(), "nothing owed: Rails waits for the checkpoint");
+    assert!(!transient_has(&e, id, "rust_continue_start"));
+    assert_eq!(model::load_bot(&e.primary, id).unwrap().rust_defer_until_us().unwrap(), Some(us("2026-09-15T10:00:00Z")), "the wait is persisted");
+    assert!(wake <= us("2026-09-15T10:00:00.001Z"));
+    run::step(&mut e, &at("2026-09-15T10:00:00.001Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "and runs at it");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_continue_discards_a_pending_amount_limit_stop_and_an_old_wait() {
+    let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
+    // A stop counted under the bot's current fingerprint before the user's resume, and a wait for a later checkpoint.
+    let key = model::load_bot(&e.primary, id).unwrap().amount_limit_key();
+    let schedule = model::load_bot(&e.primary, id).unwrap().schedule_key().unwrap();
+    e.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', json(?1), '$.rust_defer_until', json(?2)) WHERE id = ?3",
+        rusqlite::params![json!({ "count": 1, "key": key }).to_string(), json!({ "until": "2026-09-15T10:00:00.000000Z", "schedule": schedule }).to_string(), id]).unwrap();
+    run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
+    let b = model::load_bot(&e.primary, id).unwrap();
+    assert_eq!(b.status, deltabadger::enums::BotStatus::Scheduled, "the resume wins over the stop counted before it");
+    assert_eq!(e.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(v.sent().len(), 1, "Rails' decision replaces the old wait");
+    for k in ["rust_continue_start", "rust_amount_limit_stops_pending", "rust_defer_until"] { assert!(!transient_has(&e, id, k), "{k} removed"); }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_malformed_continue_request_is_removed_and_the_decision_still_runs() {
+    for bad in [json!("yesterday"), json!({ "requested_at": 7 }), json!({})] {
+        let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], bad.clone());
+        run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
+        assert_eq!(v.sent().len(), 1, "{bad}: owed, so it runs now");
+        assert!(!transient_has(&e, id, "rust_continue_start"), "{bad}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_continue_decision_that_cannot_be_read_skips_the_bot_and_is_retried_next_pass() {
+    let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
+    // A closed row without its executed quote: pending_quote_amount cannot be read.
+    e.primary.execute("UPDATE transactions SET quote_amount_exec = NULL", []).unwrap();
+    run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
+    assert!(v.sent().is_empty());
+    assert!(transient_has(&e, id, "rust_continue_start"), "kept for the next pass");
+    e.primary.execute("UPDATE transactions SET quote_amount_exec = 60", []).unwrap();
+    run::step(&mut e, &at("2026-09-08T12:00:30Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "decided and run on the next pass");
+    assert!(!transient_has(&e, id, "rust_continue_start"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_bot_holding_a_counted_stop_does_not_stop_the_engine_at_start() {
+    let v = priced();
+    let (_d, mut e, id, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let bad = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+        .transient("rust_amount_limit_stops_pending", json!({ "count": 1, "key": "x" })));
+    e.primary.execute("UPDATE bots SET status = 99 WHERE id = ?1", [bad]).unwrap(); // a status this build cannot read
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.expect("the engine keeps running");
+    assert_eq!(v.sent().len(), 1, "the readable bot still ticks");
+    let _ = id;
 }

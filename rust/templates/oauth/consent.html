@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authorize - Deltabadger</title>
+  <meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="{{ csrf }}" />
+  <link rel="stylesheet" href="{{ v.asset("application.css") }}" media="all" />
+</head>
+<body>
+  <div class="consent">
+    <img src="{{ logo }}" style="width:68px; height: 68px; padding: 4px 0 0 4px">
+    <h4 class="consent__title">{{ title|safe }}</h4>
+
+    <p class="text-center">{{ description|safe }}</p>
+
+    <p class="consent__warning">{{ warning|safe }}</p>
+
+    <form id="consent_approve" action="/oauth/authorize" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      {% include "oauth/_fields.html" %}
+
+      <div class="consent__section">
+        <p class="consent__label">{{ scopes_label|safe }}</p>
+        <ul class="consent__scopes">
+          {% for line in scope_lines %}
+            <li>{{ line|safe }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      {% for section in sections %}
+        <div class="consent__section">
+          <p class="consent__label">{{ section.label|safe }}</p>
+          {% for group in section.groups %}
+            <label class="consent__group">
+              <input type="checkbox" name="{{ section.field }}[]" id="{{ section.field }}_{{ group.name }}" value="{{ group.name }}"{% if group.checked %} checked="checked"{% endif %} />
+              <span>{{ group.label|safe }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      {% endfor %}
+
+      <p class="consent__label">
+        {{ redirect_label|safe }}
+        <code>{{ redirect_host }}</code>
+      </p>
+</form>
+    <div class="buttons buttons--row--2" style="margin-top: 1rem;">
+      <form action="/oauth/authorize" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="delete" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        {% include "oauth/_fields.html" %}
+        <input type="submit" name="commit" value="{{ cancel|safe }}" class="button button--outline button--large" data-disable-with="{{ cancel|safe }}" />
+</form>
+      <input type="submit" name="commit" value="{{ connect|safe }}" form="consent_approve" class="button button--sky button--large" data-disable-with="{{ connect|safe }}" />
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{#- bots/status/_status_bar.html.erb: the first state that applies. -#}
+<div id="{{ id }}" class="bot-control__status {% if active %}active{% endif %}" data-controller="marquee" style="display: flex;">
+{% if let Some(text) = text %}
+    <div class="bot-control__status__text" data-marquee-target="text">
+      {{ text }}{% if dots %}
+      <span class="bot-control__status__text__three-dots" data-three-dots-target="dots" data-controller="three-dots"></span>{% endif %}
+    </div>
+{% endif %}
+{% if let Some(countdown) = countdown %}
+{% if let Some(width) = countdown.width %}
+      <div class="bot-control__status__bar" style="min-width:0.5rem; width: {{ width }}%" data-controller="progress-bar"{% if let Some(start) = countdown.start %} data-progress-bar-start-time-value="{{ start }}"{% endif %}{% if let Some(end) = countdown.end %} data-progress-bar-end-time-value="{{ end }}"{% endif %}></div>
+{% endif %}
+
+    <div class="bot-control__status__text {% if countdown.width.is_some() %}text-success{% endif %}" data-controller="countdown"{% if let Some(end) = countdown.end %} data-countdown-end-time-value="{{ end }}"{% endif %} data-countdown-hide-if-zero-value="true" data-countdown-days-label-value="{{ v.t("utils.days_short")|safe }}" data-countdown-hours-label-value="{{ v.t("utils.hours_short")|safe }}" data-countdown-minutes-label-value="{{ v.t("utils.minutes_short")|safe }}" data-countdown-seconds-label-value="{{ v.t("utils.seconds_short")|safe }}" data-marquee-target="text">
+{% if let Some(prefix) = countdown.prefix %}
+        {{ prefix }}
+{% endif %}
+      <div style="display: inline-block; min-width: 9em;">
+        <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
+        <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
+        <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
+        <span data-countdown-target="seconds"></span><span data-countdown-target="secondsLabel"></span>
+      </div>
+</div>{% endif %}</div>

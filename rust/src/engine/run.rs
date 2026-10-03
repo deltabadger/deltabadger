@@ -3,7 +3,7 @@
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
 use super::schedule::{checkpoints, effective};
 use super::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
-use super::{eligibility, model, placement, polling, Clock, EngineError};
+use super::{amount, eligibility, model, placement, polling, Clock, EngineError};
 use crate::crypto::Cipher;
 use crate::lease::EngineLock;
 use crate::venue::VenueFactory;
@@ -19,6 +19,9 @@ const IDLE_US: i64 = 60_000_000;
 const AFTER_CHECKPOINT_US: i64 = 1_000;
 const POLL_AFTER_US: i64 = 5_000_000;
 const RECONCILE_EVERY_US: i64 = 30_000_000;
+/// How long a bot refused for stale reference data waits before it is ticked again. Rails' catalog sync runs once a day and the
+/// bound is 49 h, so 5 minutes delays the first tick after a refresh by at most 5 minutes for 12 staleness reads an hour.
+pub const STALE_RECHECK_US: i64 = 300_000_000;
 
 pub struct Engine<F: VenueFactory> {
     pub primary: Connection, pub factory: F, pub cipher: Cipher, pub lock: EngineLock,
@@ -40,13 +43,15 @@ pub struct Engine<F: VenueFactory> {
     /// Set by `supervisor::serve`: every other writer of `bots` in this process runs `eligibility::guard` before it
     /// commits, so a pass that finds the install ineligible means one skipped it.
     pub(crate) writers_guarded: bool,
+    /// Bots whose tick was refused for stale reference data, by the source named: logged once, not on every pass.
+    stale_logged: HashMap<i64, &'static str>,
 }
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
-               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false }
+               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new() }
     }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
@@ -157,6 +162,18 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
         // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
         let now_us = clock.now().timestamp_micros();
         for (tx, bot) in outstanding_orders(&e.primary)? { e.polls.entry(tx).or_insert((bot, now_us, Attempts::default())); }
+        // Amount-limit stops a swept fill committed before a crash (polling::apply_committed): Rails' StopJobs would have run.
+        let mut s = e.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
+        let pending = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+        drop(s);
+        for id in pending {
+            // Per bot: one this build cannot read (eligibility lists it as unreadable) is skipped here as everywhere else.
+            match tick::run_pending_amount_limit_stops(&e.primary, id, clock.now()) {
+                Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+                Err(err) => super::log(&format!("[engine] bot {id}: its counted amount-limit stops could not run: {err:?}; skipped")),
+                Ok(()) => {}
+            }
+        }
         e.started = true;
     }
 
@@ -188,7 +205,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
 }
 
 /// Every bot a write that skipped `eligibility::guard` left behind, as the guard would have refused it: outside the
-/// slice, unreadable, or with an unresolved order its row no longer matches (stranded). Release builds skip the last two
+/// slice, unreadable, or changed under an unresolved order (stranded). Release builds skip the last two
 /// as before (unreadable rows are logged and skipped; a stranded intent waits for `resolve-placement`).
 #[cfg(debug_assertions)]
 fn assert_guarded(c: &Connection, report: &eligibility::Report) {
@@ -196,7 +213,7 @@ fn assert_guarded(c: &Connection, report: &eligibility::Report) {
     named.extend(report.unreadable.iter().map(|(id, err)| format!("bot {id}: unreadable ({err})")));
     // An error here (a row it cannot load) is an unreadable bot, named above.
     let stranded = placement::stranded(c).unwrap_or_default();
-    named.extend(stranded.iter().map(|id| format!("bot {id}: stranded: its unresolved order no longer matches its asset, exchange or quote")));
+    named.extend(stranded.iter().map(|id| format!("bot {id}: stranded: its composition, asset, exchange or quote changed while its order is unresolved")));
     assert!(named.is_empty(), "a write to bots skipped eligibility::guard: {}", named.join("; "));
 }
 
@@ -230,20 +247,80 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     for (_, at, _) in e.polls.values() { *wake = (*wake).min(*at); }
 }
 
+/// The web continued this bot (Bot::Lifecycle#start(start_fresh: false)) and left `rust_continue_start` for the engine.
+/// Rails' decision (amount::continue_runs_now) becomes a persisted wait: one that has ended (run now) or one for the next
+/// checkpoint. In the same transaction the request goes, with any amount-limit stop still counted (the user's resume
+/// overrides a stop Rails would already have run) and the old wait (the decision replaces it). A request whose value is not
+/// `{"requested_at": ISO 8601}` is logged; the decision still runs.
+fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let tx = model::immediate(c)?;
+    let bot = model::load_bot(&tx, id)?;
+    let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(()) };
+    if request.get("requested_at").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {
+        super::log(&format!("[engine] warning: bot {id}: rust_continue_start {request} is malformed; removed, and the bot continues as Rails would"));
+    }
+    tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending') \
+                WHERE id = ?1", [id])?;
+    placement::remove_wait(&tx, Some(id))?;
+    let decision = if bot.started_at_us.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
+        "never ticks" // step_bot skips it as before
+    } else if amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
+        placement::run_now(&tx, &bot, now)?;
+        "runs now"
+    } else {
+        placement::defer_to_next_checkpoint(&tx, &bot, now)?;
+        "waits for its next checkpoint"
+    };
+    tx.commit()?;
+    super::log(&format!("[engine] bot {id}: continued; {decision}"));
+    Ok(())
+}
+
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let now_us = clock.now().timestamp_micros();
-    let bot = model::load_bot(&e.primary, id)?;
+    let mut bot = model::load_bot(&e.primary, id)?;
+    if bot.transient.get("rust_continue_start").is_some() {
+        match continue_start(&e.primary, id, clock.now()) {
+            Ok(()) => bot = model::load_bot(&e.primary, id)?,
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            // The request stays: the bot is skipped this pass and decided again on the next one, never left silently.
+            Err(err) => {
+                super::log(&format!("[engine] warning: bot {id}: its continue could not be decided: {err:?}; skipped this pass, retried on the next"));
+                return Ok(());
+            }
+        }
+    }
     let venue = e.venue_for(&bot)?;
 
     let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
     let eff = effective(interval, quote, bot.smart_quote_amount());
     let cps = checkpoints(anchor, now_us, eff);
+    // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
+    // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.
+    let defer = match bot.rust_defer() {
+        Ok(d) => d.map(|(t, schedule)| (Some(schedule) == bot.schedule_key()).then_some(t)),
+        Err(err) => {
+            super::log(&format!("[engine] warning: bot {id}: {err:?}; ignored and removed"));
+            placement::remove_wait(&e.primary, Some(id))?;
+            None
+        }
+    };
+    let deferred = defer.flatten().filter(|&t| t > now_us);
+    let on_schedule = || -> Result<bool, EngineError> {
+        Ok(anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000))) // stored value is ms-truncated
+    };
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
+    } else if deferred.is_some() {
+        false
+    } else if defer.flatten().is_some_and(|t| t < now_us) {
+        true // the wait has ended (strictly after it, as a checkpoint is): a continue start Rails runs at once (placement::run_now)
+    } else if defer == Some(None) {
+        on_schedule()? // a retrying bot too: its in-memory wait was computed under the old schedule
     } else if bot.status == crate::enums::BotStatus::Retrying {
         e.retry_at.get(&id).is_none_or(|&t| t <= now_us) // no in-memory state (a restart): due at once
     } else {
-        anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000)) // stored value is ms-truncated
+        on_schedule()?
     };
 
     if due {
@@ -257,7 +334,12 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let stopping = move || stop.load(Ordering::SeqCst);
         let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
         let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await?;
-        super::log(&format!("bot {id}: {outcome:?}"));
+        let repeat = matches!(&outcome, TickOutcome::Stale { source, .. } if e.stale_logged.get(&id) == Some(source));
+        if !repeat { super::log(&format!("bot {id}: {outcome:?}")); }
+        match &outcome {
+            TickOutcome::Stale { source, .. } => { e.stale_logged.insert(id, *source); }
+            _ => { e.stale_logged.remove(&id); }
+        }
         // An order accepted this tick gets one follow-up poll shortly after (a deliberate small delay; Rails enqueues
         // FetchAndUpdateOrderJob at placement), whatever the tick's final outcome.
         let mut s = e.primary.prepare(
@@ -271,6 +353,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             TickOutcome::Done { .. } => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); }
             // Rescheduled: `retrying` until the next checkpoint, as Rails' reschedule leaves it.
             TickOutcome::Rescheduled => { e.retry_at.insert(id, cps.next_us + AFTER_CHECKPOINT_US); e.reconcile_at.remove(&id); }
+            // The bot stays due and is rechecked after a bounded wait: an expired retry time left here would pull every wake to now.
+            TickOutcome::Stale { .. } => { e.retry_at.insert(id, clock.now().timestamp_micros() + STALE_RECHECK_US); }
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
         }
     }
@@ -278,6 +362,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
     for at in [e.retry_at.get(&id), e.reconcile_at.get(&id)].into_iter().flatten() { *wake = (*wake).min(*at); }
+    if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
     let next = checkpoints(anchor, clock.now().timestamp_micros(), eff).next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
     Ok(())

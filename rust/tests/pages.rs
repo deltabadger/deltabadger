@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 const HEADERS: [&str; 11] = ["location", "content-type", "cache-control", "x-frame-options", "x-xss-protection", "x-content-type-options",
                              "x-permitted-cross-domain-policies", "referrer-policy", "content-security-policy-report-only", "retry-after", "set-cookie"];
 const USER_COLUMNS: [&str; 6] = ["id", "failed_attempts", "locked_at", "last_otp_at", "remember_created_at", "updated_at"];
+/// The bot pages are read-only so far: both sides must leave every bot as the grid built it.
+const BOT_COLUMNS: [&str; 9] = ["id", "status", "label", "position", "settings", "transient_data", "stop_message_key", "started_at", "updated_at"];
 
 fn masked_nonce(policy: &str) -> (String, Option<String>) {
     let Some(start) = policy.find("'nonce-") else { return (policy.to_string(), None) };
@@ -44,7 +46,8 @@ fn comparable(status: u64, headers: &BTreeMap<String, Vec<String>>, body: &str) 
         };
         out.insert(name, value);
     }
-    let html_body = headers.get("content-type").is_some_and(|v| v[0].starts_with("text/html"));
+    // A Turbo stream is markup too: `<turbo-stream>` elements around `<template>`s.
+    let html_body = headers.get("content-type").is_some_and(|v| v[0].starts_with("text/html") || v[0].starts_with("text/vnd.turbo-stream.html"));
     json!({ "status": status, "headers": out, "body": if html_body { json!(html::normalize(body)) } else { json!(body) } })
 }
 
@@ -63,6 +66,37 @@ fn without_wizard(body: &mut Value) -> bool {
     lines[frame] = json!(format!("{}<turbo-frame id=\"modal\">", indent(&lines[frame])));
     lines[hidden] = json!(text(&lines[hidden]).replacen(" class=\"hide-chrome\"", "", 1).replacen("class=\"hide-chrome ", "class=\"", 1));
     true
+}
+
+/// A listed divergence of the `countdown_*` scenarios: when a bot acts next. Rails reads it from its
+/// job table. This build has no job table and derives it from the bot's row (the next interval
+/// checkpoint), which is the same instant after every completed tick; three times are in no row: when
+/// a closed market opens, when a retry the engine has in hand fires, and the checkpoint Rails waits
+/// for after a restart that was not a fresh start. There the countdown's end,
+/// and with it the progress bar's end and width, differ: Rails has the job's time, this build the
+/// checkpoint or nothing. The three values are taken out of both pages, and what they were is
+/// returned, so the caller can hold the two sides to differing exactly there.
+fn without_countdown(body: &mut Value) -> Vec<String> {
+    let mut taken = vec![];
+    let Value::Array(lines) = body else { return taken };
+    for line in lines.iter_mut() {
+        let mut text = line.as_str().unwrap_or_default().to_string();
+        if !text.contains("data-controller=\"countdown\"") && !text.contains("data-controller=\"progress-bar\"") { continue; }
+        for attribute in [" data-countdown-end-time-value=\"", " data-progress-bar-end-time-value=\""] {
+            if let Some(start) = text.find(attribute) {
+                let end = start + attribute.len() + text[start + attribute.len()..].find('"').unwrap() + 1;
+                taken.push(text[start..end].trim().to_string());
+                text.replace_range(start..end, "");
+            }
+        }
+        if let Some(start) = text.find("width: ") {
+            let end = start + text[start..].find('%').unwrap();
+            taken.push(text[start..end].to_string());
+            text.replace_range(start..end, "width: [progress]");
+        }
+        *line = json!(text);
+    }
+    taken
 }
 
 /// Rails writes its session cookie on every response, this crate only when the request changed the
@@ -109,10 +143,14 @@ fn assert_genuine(app: &App, browser: &Browser, answer: &Answer, now: chrono::Da
 }
 
 fn users(dir: &Path) -> Value {
+    rows(dir, "users", &USER_COLUMNS)
+}
+
+fn rows(dir: &Path, table: &str, columns: &[&str]) -> Value {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
-    let mut statement = c.prepare(&format!("SELECT {} FROM users ORDER BY id", USER_COLUMNS.join(", "))).unwrap();
+    let mut statement = c.prepare(&format!("SELECT {} FROM {table} ORDER BY id", columns.join(", "))).unwrap();
     let rows = statement.query_map([], |r| {
-        Ok(Value::Object(USER_COLUMNS.iter().enumerate().map(|(i, name)| {
+        Ok(Value::Object(columns.iter().enumerate().map(|(i, name)| {
             let value = match r.get_ref(i)? {
                 rusqlite::types::ValueRef::Null => Value::Null,
                 rusqlite::types::ValueRef::Integer(n) => json!(n),
@@ -173,7 +211,7 @@ async fn run(dir: &Path) -> Value {
         responses.push(rust_answer(&answer));
     }
     drop(app);
-    json!({ "responses": responses, "users": users(dir) })
+    json!({ "responses": responses, "users": users(dir), "bots": rows(dir, "bots", &BOT_COLUMNS) })
 }
 
 fn copy_scenario(from: &Path, to: &Path) {
@@ -184,6 +222,9 @@ fn copy_scenario(from: &Path, to: &Path) {
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     if rails["users"] != rust["users"] {
         return Some(format!("{name}: users rows differ\n  rails: {}\n  rust:  {}", rails["users"], rust["users"]));
+    }
+    if rails["bots"] != rust["bots"] {
+        return Some(format!("{name}: bots rows differ\n  rails: {}\n  rust:  {}", rails["bots"], rust["bots"]));
     }
     let (ours, theirs) = (rust["responses"].as_array().unwrap(), rails["responses"].as_array().unwrap());
     if ours.len() != theirs.len() {
@@ -243,14 +284,18 @@ fn recorded_grid() -> (tempfile::TempDir, tempfile::TempDir, Vec<PathBuf>) {
 ///   The status and the body are what the refusal replaces. Every header is compared with Rails',
 ///   except Rails' `Set-Cookie`: the page Rails rendered may have changed its session, and a refusal
 ///   changes nothing, so this crate must set none.
+/// - `missing_*`: a record that is not this user's, looked up where Rails lets
+///   ActiveRecord::RecordNotFound through. Rails answers 404; in the test environment the body is its
+///   debugging page, in production its exceptions app redirects to the root. This crate answers 404
+///   with public/404.html and the headers of a response made below the controllers.
 /// - `stricter_*`: only the `Location` may differ. Rails sends the browser back to a referer on its
 ///   host whatever the scheme; this crate requires its own origin and otherwise goes to `/`.
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    let kind = ["unrouted_", "not_ported_", "stricter_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
     let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
-    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"] }), &json!({ "responses": ours, "users": rust["users"] })) {
+    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails["bots"] }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
         return Some(Err(format!("before its last response: {message}")));
     }
     let step = scenario["steps"].as_array().unwrap().last().unwrap().clone();
@@ -263,6 +308,16 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             Err(format!("expected Rails to go back to the referer and this crate to `/`: rails {}, rust {}", rails_last["headers"]["location"], rust_last["headers"]["location"]))
         }
         "stricter_" => Ok(()),
+        "missing_" => {
+            let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/404.html").expect("public/404.html is embedded").body));
+            let expected = json!({ "status": 404, "body": page, "headers": {
+                "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
+                "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
+            } });
+            if rails_last["status"] != 404 { Err(format!("Rails now answers {}: drop or rename this scenario", rails_last["status"])) }
+            else if rust_last != expected { Err(format!("expected 404 with public/404.html:\n  expected: {expected}\n  rust:     {rust_last}")) }
+            else { Ok(()) }
+        }
         _ if rails_last["status"] != if kind == "unrouted_" { 404 } else { 200 } => Err(format!("Rails now answers {}: drop or rename this scenario", rails_last["status"])),
         _ if rust_last["status"] != 501 || !named => Err(format!("expected 501 naming `{method} {}`, got {} {}", step["path"], rust_last["status"], rust_last["body"])),
         "not_ported_" => {
@@ -300,16 +355,32 @@ fn refusal_headers(signed_in: bool) -> Value {
 async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
-    let (mut failures, mut wizard_pages) = (vec![], 0);
+    let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         let scenario = scenario(dir);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().map(rails_answer).collect();
         wizard_pages += answers.iter_mut().filter_map(|answer| without_wizard(&mut answer["body"]).then_some(())).count();
-        let rails = json!({ "responses": answers, "users": recorded["users"] });
+        let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
+        let rails = json!({ "responses": answers, "users": recorded["users"], "bots": recorded["bots"] });
         if let Some(message) = unmet_expectation(&name, &scenario, &rails) { failures.push(message); }
-        let rust = run(&rust_root.path().join(&name)).await;
+        // A page that reached the network in Rails was compared on whatever the network said: no scenario may.
+        let network = recorded["network"].as_array().expect("pages.rb records the network calls a scenario made");
+        if !network.is_empty() { failures.push(format!("{name}: Rails reached the network: {network:?}")); }
+        // Rails must leave the bots as the grid built them (the copy this crate runs on was taken before Rails' requests).
+        let built = rows(&rust_root.path().join(&name), "bots", &BOT_COLUMNS);
+        if recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
+        let mut rust = run(&rust_root.path().join(&name)).await;
+        if name.starts_with("countdown_") {
+            let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
+            // Rails knows a time on every page of these scenarios, and this build must not claim the same one.
+            for (index, (theirs, ours)) in rails_countdowns.iter().zip(&ours).enumerate().skip(2) {
+                let end = |values: &Vec<String>| values.iter().find(|value| value.starts_with("data-countdown-end-time-value")).cloned();
+                if end(theirs).is_none() || end(theirs) == end(ours) { failures.push(format!("{name} step {index}: expected Rails to know the time and this build not to: {theirs:?} / {ours:?}")); }
+                countdown_pages += 1;
+            }
+        }
         match listed_divergence(&name, &scenario, &rails, &rust) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name} (listed divergence): {message}")),
@@ -317,9 +388,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages", dirs.len());
+    println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.len(), 98, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 149, "a scenario was dropped or added without this count");
+        assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
 }

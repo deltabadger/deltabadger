@@ -1,4 +1,4 @@
-//! The bot engine: one-asset DCA baskets (Kraken, Alpaca paper), decided exactly as Rails decides them.
+//! The bot engine: DCA baskets of one or more assets (Kraken one-asset, Alpaca paper), decided exactly as Rails decides them.
 use chrono::{DateTime, Utc};
 
 pub trait Clock {
@@ -47,10 +47,13 @@ pub mod schedule;
 pub mod model;
 pub mod eligibility;
 pub mod events;
+pub mod staleness;
 pub mod amount;
+pub mod basket;
 pub mod placement;
 pub mod polling;
 pub mod venue_rules;
 pub mod tick;
 pub mod handover;
+pub mod notice;
 pub mod run;
