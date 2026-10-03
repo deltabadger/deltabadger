@@ -348,7 +348,7 @@ async fn prune(cx: &Cx<'_>) -> Outcome {
         let cutoff = cutoff.clone();
         let deleted = cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "prune", |c| {
             c.execute(&format!("DELETE FROM bot_activity_logs WHERE id IN (SELECT id FROM bot_activity_logs WHERE created_at < ?1 ORDER BY id LIMIT {})", super::CHUNK),
-                      [cutoff]).map_err(|e| e.to_string())
+                      [cutoff]).map(|n| (n, import::Touched::None)).map_err(|e| e.to_string())
         })).await;
         match deleted {
             Ok(n) if n < super::CHUNK => return Outcome::Done,

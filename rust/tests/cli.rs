@@ -322,3 +322,78 @@ fn check_reports_each_jobs_last_run_and_each_reference_sources_age() {
     assert!(stdout.contains("reference Alpaca crypto tickers"), "{stdout}");
     assert!(stdout.contains("reference Indices: no row"), "{stdout}");
 }
+
+
+async fn scheduler_process(command: &str, restart: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use rusqlite::OptionalExtension;
+    use wiremock::matchers::{method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v2/listings")).and(query_param("venue", "alpaca_crypto"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "data": [] })))
+        .expect(1..).mount(&server).await;
+    let (dir, o, s) = common::install_alpaca();
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+    if restart {
+        let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
+        let lock = deltabadger::lease::lock(&paths, chrono::Utc::now()).map_err(|e| format!("{e:?}"))?;
+        deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "test", chrono::Utc::now()).map_err(|e| format!("{e:?}"))?;
+        o.primary.execute("UPDATE app_configs SET value = json_set(value, '$.last_success_at', '2020-01-01T00:00:00Z', '$.rails_at', NULL, '$.incomplete_since', '2020-01-01T00:00:00Z') WHERE key = ?1",
+            ["rust_job.sync_alpaca_crypto_from_deltabadger_job"])?;
+        assert!(deltabadger::engine::eligibility::check_install_at(&o.primary, chrono::Utc::now())
+            .map_err(|e| format!("{e:?}"))?.problems.iter().any(|m| m.contains("reference data stale")));
+    }
+    drop(o);
+    let mut child = Running(cli(dir.path(), &[command]).env("MARKET_DATA_URL", server.uri()).env("MARKET_DATA_TOKEN", "tok")
+        .env("PORT", free_port().to_string()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn()?);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    let state = loop {
+        assert!(child.0.try_wait()?.is_none(), "{command} exited before the scheduler ran (restart={restart})");
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3"))?;
+        let row: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1",
+            ["rust_job.sync_alpaca_crypto_from_deltabadger_job"], |r| r.get(0)).optional()?;
+        if let Some(v) = row.filter(|v| serde_json::from_str::<serde_json::Value>(v).is_ok_and(|j| j["last_error"].is_string())) { break v; }
+        assert!(std::time::Instant::now() < deadline, "the crypto job never recorded its run");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
+    assert!(state.contains("degraded listings payload"), "{state}");
+    assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status()?.success());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let status = loop {
+        if let Some(st) = child.0.try_wait()? { break st; }
+        assert!(std::time::Instant::now() < deadline, "{command} did not exit on SIGTERM");
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    };
+    assert_eq!(status.code(), Some(0), "the scheduler stops and the engine drains");
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn run_pulls_reference_data_at_start_records_each_jobs_state_and_stops_on_sigterm() -> Result<(), Box<dyn std::error::Error>> {
+    scheduler_process("run", false).await
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn serve_pulls_reference_data_at_start_and_stops_on_sigterm() -> Result<(), Box<dyn std::error::Error>> {
+    scheduler_process("serve", false).await
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn run_and_serve_restart_a_stale_engine_owned_install_and_start_the_scheduler() -> Result<(), Box<dyn std::error::Error>> {
+    for command in ["run", "serve"] { scheduler_process(command, true).await?; }
+    Ok(())
+}
+
+#[test]
+fn run_and_serve_refuse_stale_reference_data_while_rails_owns_the_install() -> Result<(), Box<dyn std::error::Error>> {
+    for command in ["run", "serve"] {
+        let (dir, o, s) = common::install_alpaca();
+        seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
+        o.primary.execute("UPDATE exchange_assets SET updated_at = '2020-01-01 00:00:00'", [])?;
+        let out = finished(cli(dir.path(), &[command]).env("PORT", free_port().to_string()));
+        assert_eq!(out.status.code(), Some(1), "{command}: {}", stderr(&out));
+        assert!(stderr(&out).contains("reference data stale"));
+        assert!(deltabadger::lease::read(&o.primary, &seed::cipher()).map_err(|e| format!("{e:?}"))?.is_none());
+    }
+    Ok(())
+}

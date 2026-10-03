@@ -21,8 +21,18 @@ fn first_gid(arguments: &str) -> Option<String> {
     first.get("_aj_globalid").and_then(Value::as_str).or_else(|| first.as_str()).map(str::to_string)
 }
 
+/// An engine-owned install must start its scheduler to refresh stale reference data. Keep structural refusals on
+/// restart; a takeover from Rails also checks freshness. Per-tick staleness checks remain active in both cases.
+pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<eligibility::Report, EngineError> {
+    if lease::read(c, cipher)?.is_some_and(|v| v["engine"] == "rust") {
+        eligibility::check_install(c)
+    } else {
+        eligibility::check_install_at(c, now)
+    }
+}
+
 pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Takeover, EngineError> {
-    let report = eligibility::check_install_at(&o.primary, now)?;
+    let report = startup_report(&o.primary, cipher, now)?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }

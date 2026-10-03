@@ -542,3 +542,68 @@ async fn empty_assets_and_indices_payloads_refresh_nothing() {
         assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "{job}: not even an incomplete mark");
     }
 }
+
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_reference_write_that_would_stop_a_running_bot_is_rolled_back_and_names_the_bot() -> Result<(), Box<dyn std::error::Error>> {
+    let (d, o, s) = common::install_alpaca();
+    let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/assets", 200, json!({ "data": [{ "external_id": "bitcoin", "symbol": "BTC", "name": "Bitcoin",
+        "category": "Cryptocurrency", "instrument_type": "tokenized" }] }));
+    let out = run(reference::ASSETS, scripted(&t), o.primary, "2026-10-02T00:20:00Z").await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("rolled back") && m.contains(&format!("bot {bot}"))), "{out:?}");
+    let c = Connection::open(d.path().join("production.sqlite3"))?;
+    assert_eq!(c.query_row("SELECT instrument_type FROM assets WHERE external_id = 'bitcoin'", [], |r| r.get::<_, Option<String>>(0))?, None);
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn reference_ticker_units_guard_members_but_skip_unrelated_rows_without_caching() -> Result<(), Box<dyn std::error::Error>> {
+    let (d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_alpaca_crypto(&o.primary, &s, "ETH", &json!({ "base_decimals": 8, "quote_decimals": 2,
+        "price_decimals": 2, "minimum_base_size": "0.001", "minimum_quote_size": "1" }));
+    let bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").weights(&[(s.btc, 0.5), (eth, 0.5)]));
+    let row = |ext: &str, symbol: &str, decimals: i64| json!({ "base_external_id": ext, "quote_external_id": "usd",
+        "ticker": format!("{symbol}/USD"), "base": symbol, "quote": "USD", "base_decimals": decimals, "quote_decimals": 2,
+        "price_decimals": 2, "minimum_base_size": "0.001", "minimum_quote_size": "1" });
+    let db = Db::new(o.primary, seed::cipher());
+    import_tickers(&db, s.exchange_id, vec![row("seed-eth", "ETH", 8)], "2026-10-02T10:15:00Z").await?;
+    let out = import_tickers(&db, s.exchange_id, vec![row("seed-eth", "ETH", -1)], "2026-10-02T10:15:00Z").await;
+    assert!(matches!(&out, Err(m) if m.contains("rolled back") && m.contains(&format!("bot {bot}"))), "{out:?}");
+    let c = Connection::open(d.path().join("production.sqlite3"))?;
+    assert_eq!(c.query_row("SELECT base_decimals FROM tickers WHERE base_asset_id = ?1", [eth], |r| r.get::<_, i64>(0))?, 8);
+    // Live trading credentials make any full guard refuse. An unrelated unit must still commit: this proves the skip path.
+    c.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")])?;
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('other', 'OTHER', 'Other', 'Cryptocurrency', '2026-01-01', '2026-01-01')", [])?;
+    import_tickers(&db, s.exchange_id, vec![row("other", "OTHER", 8)], "2026-10-02T10:15:00Z").await?;
+    let out = import_tickers(&db, s.exchange_id, vec![row("seed-eth", "ETH", 8)], "2026-10-02T10:15:00Z").await;
+    assert!(matches!(&out, Err(m) if m.contains("rolled back")), "a prior accepted unit cannot cache its verdict: {out:?}");
+    // Eligibility also reads every venue spelling of a member when checking its split history, even at another quote.
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('eur', 'EUR', 'Euro', 'Fiat', '2026-01-01', '2026-01-01')", [])?;
+    let mut other_quote = row("seed-eth", "ETH", 8);
+    other_quote["quote_external_id"] = json!("eur");
+    other_quote["quote"] = json!("EUR");
+    other_quote["ticker"] = json!("ETH/EUR");
+    let out = import_tickers(&db, s.exchange_id, vec![other_quote], "2026-10-02T10:15:00Z").await;
+    assert!(matches!(&out, Err(m) if m.contains("rolled back")), "a member's other venue spelling is eligibility-relevant: {out:?}");
+    assert!(import::shortest_gap(c.path().ok_or("missing database path")?).is_some_and(|g| g >= import::CHUNK_GAP));
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn reference_assets_guard_a_stopped_bot_with_an_outstanding_order() -> Result<(), Box<dyn std::error::Error>> {
+    let (d, o, s) = common::install_alpaca();
+    let bot = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    seed::insert_tx(&o.primary, &s, bot, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("open-order".into()),
+        order_type: 1, amount: Some("0.001"), quote_amount: Some("60"), price: Some("60000"), quote_amount_exec: None,
+        amount_exec: None, created_at: "2026-09-01 10:00:00".into() });
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/assets", 200, json!({ "data": [{ "external_id": "bitcoin", "symbol": "BTC", "name": "Bitcoin",
+        "category": "Cryptocurrency", "instrument_type": "tokenized" }] }));
+    let out = run(reference::ASSETS, scripted(&t), o.primary, "2026-10-02T00:20:00Z").await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("rolled back") && m.contains(&format!("bot {bot}"))), "{out:?}");
+    let c = Connection::open(d.path().join("production.sqlite3"))?;
+    assert_eq!(c.query_row("SELECT instrument_type FROM assets WHERE external_id = 'bitcoin'", [], |r| r.get::<_, Option<String>>(0))?, None);
+    Ok(())
+}

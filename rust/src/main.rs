@@ -14,7 +14,8 @@
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
-use deltabadger::engine::{handover, log, EngineError, SystemClock};
+use deltabadger::engine::{handover, log, Clock, EngineError, SystemClock};
+use deltabadger::jobs;
 use deltabadger::lease::{self, EngineLock, LeaseError};
 use deltabadger::store::{self, Paths, StoreError};
 use deltabadger::supervisor::{self, Ended};
@@ -143,6 +144,19 @@ fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: 
     supervisor::Service { name: "mail", run: Box::pin(mail.run(stop.subscribe(), Some(wake))) }
 }
 
+/// The scheduler owns its connection, cipher and event subscription and follows the supervisor's one stop signal.
+/// Construction logs nothing, preserving the takeover and running lines before any service starts.
+fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, engine: &mut Engine<LiveFactory>, clock: &'a dyn Clock)
+    -> Result<supervisor::Service<'a>, String> {
+    let secret = env("SECRET_KEY_BASE").unwrap_or_default();
+    let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
+    let own = store::open(paths).map_err(explain)?;
+    let cipher = Cipher::new(&keys);
+    let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(jobs::data_api::DataApi::live);
+    let scheduler = jobs::Scheduler::new(own.primary, cipher, jobs::reference::jobs(api), Some(engine.subscribe()));
+    Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
+}
+
 /// The takeover `run` and `serve` share. Refusals exit 1 before anything is claimed; a takeover that fails after the
 /// claim exits 2.
 fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), i32> {
@@ -171,7 +185,11 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let code = rt.block_on(async move {
         let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
-        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe())];
+        let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
+        };
+        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
         log("running: SIGTERM finishes the tick in hand and stops; then run `deltabadger handback` before starting Rails");
         // `serve`'s supervisor without the web: one "ended" rule for both commands.
         match supervisor::serve(engine, None, &SystemClock, services).await {
@@ -197,7 +215,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let _held = lock.clone();
     // In `check`'s words, and before anything else prints: each line names the bot and the reason. Venue and key
     // problems stay `preflight`'s (`claim_install`, below).
-    if let Err(refusal) = check_install_at(&o.primary, chrono::Utc::now()).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
+    if let Err(refusal) = handover::startup_report(&o.primary, &cipher, chrono::Utc::now()).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
         fail(&refusal.message());
     }
     let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
@@ -215,9 +233,11 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let code = rt.block_on(async move {
         let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
-        // Background services: each built here with a clone of `engine.stop_handle()`. A scheduler would be one
-        // more element; nothing else changes.
-        let services: Vec<supervisor::Service> = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe())];
+        let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
+        };
+        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {

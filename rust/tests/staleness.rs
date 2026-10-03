@@ -177,14 +177,12 @@ async fn only_a_refresh_inside_rails_last_ownership_window_counts_through_a_late
         assert!(staleness::report(c, now).unwrap().iter().any(|l| l.starts_with("Alpaca crypto tickers:") && l.contains("STALE")), "check, {when}");
     };
     stale_everywhere(&o.primary, "after the partial import");
-    // Another restart after a crash: the door refuses the stale install before any claim, so the window stays closed at
-    // 10-02 01:00 and the partial stamp still counts for nothing.
+    // A restart starts the scheduler despite staleness. The ownership window stays closed at 10-02 01:00,
+    // and the partial stamp still counts for nothing at the tick or in the report.
     drop((lock, o));
     let (lock, o) = (lease::lock(&p, now).unwrap(), store::open(&p).unwrap());
-    match handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", now) {
-        Err(deltabadger::engine::EngineError::Ineligible(problems)) => assert!(problems.iter().any(|m| m.contains("Alpaca crypto tickers")), "{problems:?}"),
-        other => panic!("the restart must refuse the stale install: {:?}", other.map(|t| t.eligible)),
-    }
+    let restarted = handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", now).map_err(|e| format!("{e:?}"));
+    assert!(restarted.is_ok(), "the engine must start to refresh its own catalog");
     assert_eq!(deltabadger::app_config::get_plain(&o.primary, staleness::TAKEN_OVER_AT).unwrap().as_deref(), Some("2026-10-02T01:00:00.000Z"));
     stale_everywhere(&o.primary, "after the restart");
 }

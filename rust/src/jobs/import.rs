@@ -62,10 +62,35 @@ pub fn present(v: &Value) -> bool {
     }
 }
 
-/// One `BEGIN IMMEDIATE` around `f`: committed when it returns Ok, rolled back otherwise. Its hold of the write lock is
-/// recorded under `phase` (`holds`). `_cipher`: the instance's, for the eligibility check a write that
-/// can change an install's eligibility runs before the commit.
-pub fn in_transaction<X>(c: &Connection, _cipher: &Cipher, phase: &'static str, f: impl FnOnce(&Connection) -> R<X>) -> R<X> {
+/// Rows actually written by a unit. These ids are checked inside its transaction, never cached across units.
+pub enum Touched { None, Assets(Vec<i64>), Tickers(Vec<i64>) }
+
+impl Touched {
+    fn relevant(&self, c: &Connection) -> R<bool> {
+        let (ids, predicate) = match self {
+            Self::None => return Ok(false),
+            Self::Assets(ids) => (ids, "t.base_asset_id IN (SELECT value FROM json_each(?1)) OR t.quote_asset_id IN (SELECT value FROM json_each(?1))"),
+            Self::Tickers(ids) => (ids, "t.id IN (SELECT value FROM json_each(?1))"),
+        };
+        if ids.is_empty() { return Ok(false); }
+        // settings.allocations is authoritative, including members without a bot_index_assets row yet. The pair lookup
+        // uses the exchange/base prefix of tickers' unique pair index. Every quote counts: the split-history check
+        // reads all venue spellings of a member, including tickers outside the bot's own quote.
+        // Pending intents and open orders count in every status: stopping a bot does not settle an order already sent.
+        let query = format!("SELECT EXISTS(SELECT 1 FROM bots b, json_each(b.settings, '$.allocations') a \
+            JOIN tickers t ON t.exchange_id = b.exchange_id AND t.base_asset_id = CAST(a.key AS INTEGER) \
+            WHERE (b.status IN ({}) OR json_extract(b.transient_data, '$.rust_placement') IS NOT NULL \
+                OR EXISTS(SELECT 1 FROM transactions orders WHERE orders.bot_id = b.id AND orders.status = 0 AND orders.external_status IN (0, 1))) \
+                AND ({predicate}))",
+            crate::engine::model::working_list());
+        c.query_row(&query, [serde_json::to_string(ids).map_err(|e| e.to_string())?], |r| r.get(0)).map_err(sql)
+    }
+}
+
+/// One `BEGIN IMMEDIATE` around `f`: its value and affected ids are returned together. A unit touching a working bot's
+/// reference rows must pass the eligibility guard before COMMIT. Unrelated units skip the full install check. Both
+/// commits and rollbacks record the write-lock hold and keep the gap before the next unit.
+pub fn in_transaction<X>(c: &Connection, cipher: &Cipher, phase: &'static str, f: impl FnOnce(&Connection) -> R<(X, Touched)>) -> R<X> {
     // CHUNK_GAP since the last unit on this file, whatever its phase (phase boundaries and single-unit phases
     // too). On the blocking pool, so the runtime thread does not wait; a stop or a deadline lands at most this gap later.
     let path = c.path().unwrap_or_default().to_string();
@@ -75,7 +100,11 @@ pub fn in_transaction<X>(c: &Connection, _cipher: &Cipher, phase: &'static str, 
     let started = Instant::now();
     let result = (|| {
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate).map_err(sql)?;
-        let x = f(&tx)?;
+        let (x, touched) = f(&tx)?;
+        if touched.relevant(&tx)? {
+            crate::engine::eligibility::guard(&tx, cipher, None)
+                .map_err(|refusal| format!("rolled back ({phase}): this write would stop a running bot: {}", refusal.reason()))?;
+        }
         tx.commit().map_err(sql)?;
         Ok(x)
     })(); // committed, or rolled back as the transaction dropped: either way the write lock is released here
@@ -97,10 +126,10 @@ pub fn chunks<T: Clone>(items: &[T]) -> Vec<Vec<T>> { items.chunks(CHUNK).map(<[
 /// last unit on the file, across phases too). Between two units the job's future awaits, so the runner's deadline and the
 /// stop signal take effect there, and the unit in hand is the only work a dropped run leaves behind.
 pub async fn publish<U, F>(db: &Db, phase: &'static str, units: Vec<U>, write: F) -> R<()>
-where U: Send + 'static, F: Fn(&Connection, U) -> R<()> + Clone + Send + 'static {
+where U: Send + 'static, F: Fn(&Connection, U) -> R<Touched> + Clone + Send + 'static {
     for unit in units {
         let write = write.clone();
-        db.run(move |c, cipher| in_transaction(c, cipher, phase, |c| write(c, unit))).await?;
+        db.run(move |c, cipher| in_transaction(c, cipher, phase, |c| write(c, unit).map(|touched| ((), touched)))).await?;
     }
     Ok(())
 }
@@ -233,15 +262,16 @@ pub fn plan_assets(rows: &[Value], public_url: &str) -> R<AssetsPlan> {
 pub async fn import_assets(db: &Db, plan: AssetsPlan, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
     publish(db, "assets", chunks(&plan.rows), move |c, rows: Vec<Vec<Sql>>| {
+        let mut ids = vec![];
         for r in rows {
-            c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, image_url, color, market_cap_rank, market_cap, circulating_supply, url, created_at, updated_at) \
+            ids.push(c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, image_url, color, market_cap_rank, market_cap, circulating_supply, url, created_at, updated_at) \
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11) ON CONFLICT (external_id) DO UPDATE SET symbol = excluded.symbol, \
                        name = excluded.name, category = excluded.category, image_url = excluded.image_url, color = excluded.color, \
                        market_cap_rank = excluded.market_cap_rank, market_cap = excluded.market_cap, circulating_supply = excluded.circulating_supply, \
-                       url = excluded.url, created_at = excluded.created_at, updated_at = excluded.updated_at").map_err(sql)?
-                .execute(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())]))).map_err(sql)?;
+                       url = excluded.url, created_at = excluded.created_at, updated_at = excluded.updated_at RETURNING id").map_err(sql)?
+                .query_row(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())])), |r| r.get(0)).map_err(sql)?);
         }
-        Ok(())
+        Ok(Touched::Assets(ids))
     }).await?;
     let units: Vec<(Option<String>, Vec<String>)> = plan.types.into_iter().flat_map(|(ty, ids)| chunks(&ids).into_iter().map(move |part| (ty.clone(), part))).collect();
     publish(db, "instrument types", units, |c, (ty, ids): (Option<String>, Vec<String>)| {
@@ -250,17 +280,20 @@ pub async fn import_assets(db: &Db, plan: AssetsPlan, now: DateTime<Utc>) -> R<(
             // NULL-safe: `where.not(instrument_type: x)` would skip the NULL rows.
             Some(t) => {
                 let binds: Vec<String> = std::iter::once(t.clone()).chain(ids).chain(std::iter::once(t)).collect();
-                c.execute(&format!("UPDATE assets SET instrument_type = ? WHERE external_id IN ({marks}) AND (instrument_type IS NULL OR instrument_type != ?)"),
-                          params_from_iter(&binds)).map_err(sql)?;
+                returning_assets(c, &format!("UPDATE assets SET instrument_type = ? WHERE external_id IN ({marks}) AND (instrument_type IS NULL OR instrument_type != ?) RETURNING id"), params_from_iter(&binds))
             }
             None => {
-                c.execute(&format!("UPDATE assets SET instrument_type = NULL WHERE external_id IN ({marks}) AND instrument_type IS NOT NULL"),
-                          params_from_iter(&ids)).map_err(sql)?;
+                returning_assets(c, &format!("UPDATE assets SET instrument_type = NULL WHERE external_id IN ({marks}) AND instrument_type IS NOT NULL RETURNING id"), params_from_iter(&ids))
             }
         }
-        Ok(())
     }).await?;
     mark_tokenized(db).await
+}
+
+fn returning_assets(c: &Connection, statement: &str, params: impl rusqlite::Params) -> R<Touched> {
+    let mut s = c.prepare_cached(statement).map_err(sql)?;
+    let ids = s.query_map(params, |r| r.get(0)).map_err(sql)?.collect::<Result<Vec<_>, _>>().map_err(sql)?;
+    Ok(Touched::Assets(ids))
 }
 
 /// Asset.mark_tokenized! (app/models/asset.rb:25-39), the wrapper registry, update_all (updated_at stays): the rows to
@@ -275,7 +308,7 @@ pub async fn mark_tokenized(db: &Db) -> R<()> {
     }).await?;
     publish(db, "tokenized", chunks(&ids), |c, ids: Vec<i64>| {
         let marks = vec!["?"; ids.len()].join(", ");
-        c.execute(&format!("UPDATE assets SET instrument_type = 'tokenized' WHERE id IN ({marks})"), params_from_iter(&ids)).map(|_| ()).map_err(sql)
+        returning_assets(c, &format!("UPDATE assets SET instrument_type = 'tokenized' WHERE id IN ({marks}) RETURNING id"), params_from_iter(&ids))
     }).await
 }
 
@@ -293,14 +326,15 @@ pub fn plan_stock_assets(rows: &[Value], public_url: &str) -> Vec<Vec<Sql>> {
 pub async fn import_stock_assets(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) -> R<()> {
     let t = format_time(now);
     publish(db, "stock assets", chunks(&rows), move |c, rows: Vec<Vec<Sql>>| {
+        let mut ids = vec![];
         for r in rows {
-            c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, instrument_type, color, image_url, created_at, updated_at) \
+            ids.push(c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, instrument_type, color, image_url, created_at, updated_at) \
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8) ON CONFLICT (external_id) DO UPDATE SET symbol = excluded.symbol, \
                        name = excluded.name, category = excluded.category, instrument_type = excluded.instrument_type, color = excluded.color, \
-                       image_url = excluded.image_url, created_at = excluded.created_at, updated_at = excluded.updated_at").map_err(sql)?
-                .execute(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())]))).map_err(sql)?;
+                       image_url = excluded.image_url, created_at = excluded.created_at, updated_at = excluded.updated_at RETURNING id").map_err(sql)?
+                .query_row(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())])), |r| r.get(0)).map_err(sql)?);
         }
-        Ok(())
+        Ok(Touched::Assets(ids))
     }).await
 }
 
@@ -310,15 +344,17 @@ const USD_COLOR: &str = "#355E3B";
 /// The local `usd` row both Alpaca syncs anchor every quote to. `reassign`: the stock sync assigns symbol,
 /// name and category on every run and saves a changed row with updated_at (:484-490); the crypto sync only creates it
 /// (:630-636). A blank colour takes Fiat's USD colour in both. In the caller's transaction (`in_transaction`).
-pub fn ensure_usd(c: &Connection, reassign: bool, now: DateTime<Utc>) -> R<()> {
+pub fn ensure_usd(c: &Connection, reassign: bool, now: DateTime<Utc>) -> R<((), Touched)> {
     let t = format_time(now);
     type Usd = (i64, Option<String>, Option<String>, Option<String>, Option<String>);
     let row: Option<Usd> = c.query_row("SELECT id, symbol, name, category, color FROM assets WHERE external_id = 'usd' LIMIT 1", [],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).optional().map_err(sql)?;
+    let mut ids = vec![];
     match row {
         None => {
             c.execute("INSERT INTO assets (external_id, symbol, name, category, color, created_at, updated_at) VALUES ('usd', 'USD', 'US Dollar', 'Fiat', ?1, ?2, ?2)",
                       params![USD_COLOR, t]).map_err(sql)?;
+            ids.push(c.last_insert_rowid());
         }
         Some(_) if !reassign => {}
         Some((id, symbol, name, category, color)) => {
@@ -333,10 +369,11 @@ pub fn ensure_usd(c: &Connection, reassign: bool, now: DateTime<Utc>) -> R<()> {
                 binds.push(t);
                 binds.push(id.to_string());
                 c.execute(&format!("UPDATE assets SET {cols}, updated_at = ? WHERE id = ?"), params_from_iter(&binds)).map_err(sql)?;
+                ids.push(id);
             }
         }
     }
-    Ok(())
+    Ok(((), Touched::Assets(ids)))
 }
 
 /// `Asset.where(external_id: ids).pluck(:external_id, :id)`: the same query, so SQLite returns the same order.
@@ -579,9 +616,13 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
                        ON CONFLICT (asset_id, exchange_id) DO UPDATE SET available = excluded.available, created_at = excluded.created_at, \
                        updated_at = excluded.updated_at").map_err(sql)?.execute(params![id, exchange_id, t]).map_err(sql)?;
         }
-        Ok(())
+        Ok(Touched::None)
     }).await?;
     publish(db, "tickers", plan.units, move |c, unit: TickerUnit| {
+        let ids = unit.writes.iter().map(|w| match w {
+            TickerWrite::Tombstone { id, .. } => *id,
+            TickerWrite::Upsert { existing, id, .. } => existing.unwrap_or(*id),
+        }).collect();
         for id in &unit.moving {
             c.execute("UPDATE tickers SET ticker = '__moving_' || id, base = '__moving_' || id WHERE id = ?1", [id]).map_err(sql)?;
         }
@@ -616,12 +657,13 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
                 c.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('tickers', ?1)", [seq]).map_err(sql)?;
             }
         }
-        Ok(())
+        Ok(Touched::Tickers(ids))
     }).await?;
     // update_all: updated_at stays.
     publish(db, "sweep", chunks(&plan.sweep), |c, ids: Vec<i64>| {
         let marks = vec!["?"; ids.len()].join(", ");
-        c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({marks})"), params_from_iter(&ids)).map(|_| ()).map_err(sql)
+        c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({marks})"), params_from_iter(&ids)).map_err(sql)?;
+        Ok(Touched::Tickers(ids))
     }).await?;
     Ok(plan.written)
 }
@@ -659,6 +701,6 @@ pub async fn import_indices(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) ->
                        created_at = excluded.created_at, updated_at = excluded.updated_at").map_err(sql)?
                 .execute(params_from_iter(r.into_iter().chain([Sql::Text(t.clone())]))).map_err(sql)?;
         }
-        Ok(())
+        Ok(Touched::None)
     }).await
 }

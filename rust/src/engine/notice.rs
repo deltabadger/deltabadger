@@ -137,7 +137,7 @@ pub fn clear(c: &Connection, cipher: &Cipher, p: &Pending) -> Result<bool, Engin
                        params![path, p.bot_id, format!("{path}.stamped_at"), p.stamped_at])?;
     // The last kind gone: no empty object is left behind.
     tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{ERROR}') WHERE id = ?1 AND json_extract(transient_data, '$.{ERROR}') = '{{}}'"), [p.bot_id])?;
-    if let Err(refusal) = eligibility::guard(&tx, cipher, p.bot_id) { return Err(EngineError::Ineligible(vec![refusal.reason()])); } // rolled back
+    if let Err(refusal) = eligibility::guard(&tx, cipher, Some(p.bot_id)) { return Err(EngineError::Ineligible(vec![refusal.reason()])); } // rolled back
     tx.commit()?;
     Ok(n == 1)
 }
