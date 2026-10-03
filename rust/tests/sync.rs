@@ -233,6 +233,33 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
     assert_eq!((bumped, one::<i64>(&db, "SELECT restatement_generation FROM bots").await), (vec![seeded], 3));
 }
 
+/// A split imported ahead of its date bumps its bots once at import (as Rails' log_split does) and once more at its
+/// date (Rails' Bot::ExpireRestatedMetricsJob): the second bump is kept in the sync's own `app_configs` row, applied by
+/// the first ledger sync at or after the date, also after a restart, and then removed.
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_dated_ahead_bumps_again_at_the_first_sync_on_or_after_its_date_across_a_restart() {
+    let (dir, db, s) = install();
+    db.run(move |c, _| { let bot = bot_that_traded_aapl(c, s); c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [bot]).map_err(|e| e.to_string()) }).await.unwrap();
+    let generation = "SELECT restatement_generation FROM bots";
+    let pending = "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%splits%'";
+    let at = |t: &str| FixedClock(t.parse().unwrap());
+    let empty = || venue(json!({ ACTIVITIES: [ok(json!([]))] })).1;
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([{ "id": "later", "activity_type": "SPLIT", "symbol": "AAPL", "qty": "5", "date": "2026-10-05" }]))] }));
+    assert!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().splits[0].effective_later);
+    assert_eq!((one::<i64>(&db, generation).await, one::<i64>(&db, pending).await), (1, 1), "the import's own bump, and the one owed at the date");
+    ledger::sync(&db, &empty(), s.api_key_id, &paper(), &at("2026-10-04T23:59:59Z")).await.unwrap().unwrap();
+    assert_eq!((one::<i64>(&db, generation).await, one::<i64>(&db, pending).await), (1, 1), "nothing before the date");
+    // A restart: the process and its connection are gone; what is owed is in the database.
+    drop(db);
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    deltabadger::store::configure(&c).unwrap();
+    let db = Db::new(c, Arc::new(seed::cipher()));
+    ledger::sync(&db, &empty(), s.api_key_id, &paper(), &at("2026-10-05T00:00:00Z")).await.unwrap().unwrap();
+    assert_eq!((one::<i64>(&db, generation).await, one::<i64>(&db, pending).await), (2, 0), "bumped at the first sync on its date, and no longer owed");
+    ledger::sync(&db, &empty(), s.api_key_id, &paper(), &at("2026-10-06T00:00:00Z")).await.unwrap().unwrap();
+    assert_eq!(one::<i64>(&db, generation).await, 2, "once");
+}
+
 /// The deferred bump (Rails' Bot::ExpireRestatedMetricsJob) is one guarded write unit through `Db`: a refusal rolls
 /// every counter of the unit back, not only the bot the guard named.
 #[tokio::test(flavor = "current_thread")]

@@ -80,8 +80,8 @@ pub struct Split {
     pub at: DateTime<Utc>,
     /// Bots whose `restatement_generation` moved (every bot of the user that traded the symbol on this venue).
     pub restated_bots: Vec<i64>,
-    /// The split is dated ahead of now: the caller must run `expire_restated` again at `at` (Rails books
-    /// Bot::ExpireRestatedMetricsJob for that moment).
+    /// The split is dated ahead of now. Rails books Bot::ExpireRestatedMetricsJob for `at`; here the bump owed at `at`
+    /// is recorded with the row (`Owed`) and made by the first ledger sync of the key at or after it.
     pub effective_later: bool,
 }
 
@@ -150,8 +150,58 @@ fn save_import(c: &Connection, key_id: i64, import: &Import, now: DateTime<Utc>)
     let value = json!({ "cursor": import.cursor, "cursors": import.cursors, "runs": import.runs, "pages": import.pages, "after": import.after,
                         "started": import.started.timestamp_micros(), "max_seen": micros(import.max_seen), "min_skipped": micros(import.min_skipped),
                         "stored": import.stored, "watermark": import.watermark });
+    put_config(c, &import_key(key_id), &value, now)
+}
+
+fn put_config(c: &Connection, key: &str, value: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-              params![import_key(key_id), value.to_string(), sql_time(now)])?;
+              params![key, value.to_string(), sql_time(now)])?;
+    Ok(())
+}
+
+/// A bump owed at the date of a split imported ahead of it: Rails' Bot::ExpireRestatedMetricsJob, which `log_split`
+/// books in Solid Queue for the split's `transacted_at` and which then runs `expire_restated_bots(user, exchange,
+/// symbol)` once. Kept in the sync's own `app_configs` row `rust_sync.ledger_splits:<api_key_id>`, plain JSON
+/// (`{"pending":[{"symbol","exchange_id","at":<microseconds>},…]}`), written in the split row's own transaction, and
+/// made by the first ledger sync of the key at or after `at` (`expire_owed`), which removes it in the same unit. A
+/// separate row from the import record, which a completed run deletes; one entry per split row stored, as Rails books
+/// one job per row. After a handback the row is inert: Rails never reads it, and since Rust stored the split Rails'
+/// own sync reads it as a duplicate and books nothing, so a date that passes while Rails runs gets no second bump
+/// there; the first Rust ledger sync after the next takeover makes it.
+#[derive(Clone, Debug, PartialEq)]
+struct Owed { symbol: String, exchange_id: i64, at: i64 }
+
+fn splits_key(key_id: i64) -> String { format!("rust_sync.ledger_splits:{key_id}") }
+
+fn load_owed(c: &Connection, key_id: i64) -> Result<Vec<Owed>, SyncError> {
+    let raw: Option<Option<String>> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [splits_key(key_id)], |r| r.get(0)).optional()?;
+    let v = raw.flatten().and_then(|text| serde_json::from_str::<Value>(&text).ok()).unwrap_or(Value::Null);
+    Ok(v["pending"].as_array().into_iter().flatten()
+        .filter_map(|o| Some(Owed { symbol: o["symbol"].as_str()?.to_string(), exchange_id: o["exchange_id"].as_i64()?, at: o["at"].as_i64()? })).collect())
+}
+
+fn save_owed(c: &Connection, key_id: i64, owed: &[Owed], now: DateTime<Utc>) -> Result<(), SyncError> {
+    if owed.is_empty() { c.execute("DELETE FROM app_configs WHERE key = ?1", [splits_key(key_id)])?; return Ok(()); }
+    let pending: Vec<Value> = owed.iter().map(|o| json!({ "symbol": o.symbol, "exchange_id": o.exchange_id, "at": o.at })).collect();
+    put_config(c, &splits_key(key_id), &json!({ "pending": pending }), now)
+}
+
+/// Every bump owed at or before `now`, each a read unit (which bots the symbol names now, as the Rails job reads them
+/// when it runs) and one guarded write unit that bumps them and removes the entry. A refusal fails the sync and leaves
+/// the entry owed.
+async fn expire_owed(db: &Db, key_id: i64, user_id: i64, now: DateTime<Utc>) -> Result<(), SyncError> {
+    let due: Vec<Owed> = phase(db, move |c| Ok(load_owed(c, key_id)?.into_iter().filter(|o| o.at <= now.timestamp_micros()).collect())).await?;
+    for owed in due {
+        let o = owed.clone();
+        let bots = phase(db, move |c| bots_naming(c, user_id, o.exchange_id, &o.symbol)).await?;
+        commit_bots(db, move |c| {
+            bump(c, &bots)?;
+            let mut rest = load_owed(c, key_id)?;
+            if let Some(i) = rest.iter().position(|r| *r == owed) { rest.remove(i); }
+            save_owed(c, key_id, &rest, now)?;
+            Ok(((), !bots.is_empty()))
+        }).await?;
+    }
     Ok(())
 }
 
@@ -186,6 +236,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
     let (key, (_, resumed)) = phase(db, move |c| { let key = load_key(c, key_id)?; let import = load_import(c, &key)?; Ok((key, import)) }).await?;
     let key = Arc::new(key);
     let user_id = key.user_id;
+    expire_owed(db, key_id, user_id, now).await?;
     let fail = |text: String, raised: bool| {
         let (creds, now) = (credentials.clone(), clock.now());
         async move {
@@ -518,6 +569,11 @@ fn store(c: &Connection, key: &Key, batch: &[Entry], effects: Option<&Effects>, 
             let effects = effects.ok_or_else(no_effects)?;
             p.wrote_bots |= !effects.restated.is_empty();
             p.out.splits.push(apply_split(c, base_currency, at, e.raw.value["split_ratio"].as_str(), effects, now)?);
+            if at > now {
+                let mut owed = load_owed(c, key.id)?;
+                owed.push(Owed { symbol: base_currency.to_string(), exchange_id: key.exchange_id, at: at.timestamp_micros() });
+                save_owed(c, key.id, &owed, now)?;
+            }
         }
         p.out.imported += 1;
     }
