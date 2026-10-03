@@ -67,13 +67,18 @@ impl Scripted {
 
 impl MarketData for Scripted {
     /// Exchanges::Alpaca#get_tickers_prices: stocks by their snapshots' latest trade, crypto pairs (a `/` in the
-    /// code) by their latest trade; a missing figure reads as zero, as `nil.to_d` does.
+    /// code) by their latest trade; a missing figure reads as zero, and an unreadable price is omitted.
     fn prices(&self, _venue: &Venue, symbols: &[String]) -> Fetch<Vec<(String, Member<Dec>)>> {
         let mut prices: Vec<(String, Member<Dec>)> = vec![];
         let mut place: HashMap<String, usize> = HashMap::new(); // an index bot asks for every ticker of the venue
         let sorted = |crypto: bool| { let mut list: Vec<&str> = symbols.iter().filter(|s| s.contains('/') == crypto).map(String::as_str).collect(); list.sort_unstable(); list.join(",") };
         let (stocks, crypto) = (sorted(false), sorted(true));
-        let mut put = |code: &str, price: Member<Dec>| match place.get(code) { Some(&at) => prices[at].1 = price, None => { place.insert(code.to_string(), prices.len()); prices.push((code.to_string(), price)); } };
+        let mut put = |code: &str, price: Member<Dec>| {
+            // Rails omits malformed/non-finite prices. A finite number beyond Rust's bounds must
+            // still report OutOfRange when used; it must not silently reduce the portfolio value.
+            if matches!(price, Err(NumError::NotANumber)) { return; }
+            match place.get(code) { Some(&at) => prices[at].1 = price, None => { place.insert(code.to_string(), prices.len()); prices.push((code.to_string(), price)); } }
+        };
         if !stocks.is_empty() {
             let body = self.alpaca("/v2/stocks/snapshots", &[], &[("symbols", &stocks)])?;
             for (code, snapshot) in body.as_object().into_iter().flatten() { put(code, Dec::to_d(&snapshot["latestTrade"]["p"])); }

@@ -366,7 +366,8 @@ pub fn run() -> Result<usize, String> {
     }
     check("a rate of NaN for the currency that was asked about", &|| refused(&plain, &with("/GET data-api:3000~1api~1v1~1exchange_rates/body/data", "eur", json!({ "value": "NaN" })), NOT_A_NUMBER))?;
     check("a rate beyond 64 bits", &|| refused(&plain, &script(json!(104.52), json!(100.0), json!(0.9993), json!(9_223_372_036_854_775_809u64)), OUT_OF_RANGE))?;
-    check("a price of Infinity", &|| refused(&plain, &script(json!("Infinity"), json!(100.0), json!(0.9993), json!(64000.5)), NOT_A_NUMBER))?;
+    check("a price of Infinity is omitted", &|| figures(&plain, &script(json!("Infinity"), json!(100.0), json!(0.9993), json!(64000.5)), At(1_773_000_000_000_000_000))
+        .map(|(points, _)| points == 2).map_err(|e| format!("{e:?}")))?;
     let split = install("100", Some(&format!("{ten_megabytes}:1")), 2)?;
     check("a split ratio of ten megabytes", &|| refused(&split, &fine(), OUT_OF_RANGE))?;
     let places = install("100", None, 1_000_000_000)?;

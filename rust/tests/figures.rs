@@ -208,6 +208,9 @@ fn holdings_left_out_of_the_value_are_named_beside_the_figures() {
         ("unpriceable_first 1", r#"[["LLL","delisted"]]"#),
         // It has a ticker, and the venue's answer has no price for it.
         ("price_missing 1", r#"[["BBB","no_price"]]"#),
+        ("price_nan 1", r#"[["BBB","no_price"]]"#),
+        ("price_infinity 1", r#"[["BTC","no_price"]]"#),
+        ("price_unreadable 1", r#"[["BBB","no_price"]]"#),
         ("candles_end_early 1", r#"[["BBB","no_price"]]"#),
         ("split_fill_past_the_candles 1", r#"[["AAA","no_price"]]"#),
         ("long_history 1", r#"[["BBB","no_price"]]"#),
@@ -224,7 +227,7 @@ fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
     let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
-    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (121, 10, 22, 1));
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (121, 11, 23, 1));
 }
 
 /// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
@@ -272,7 +275,7 @@ fn the_accounts_totals_match_rails_in_every_scenario() {
 fn the_market_is_asked_for_exactly_what_rails_asks_it() {
     // Where a figure is not computed the library stops asking, so those scenarios are left out here.
     let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
-    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 5);
+    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 2);
     for scenario in grid().scenarios.iter().filter(whole) {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
@@ -331,16 +334,10 @@ fn what_is_not_computed_is_named() {
     let mut expected: Vec<String> = [".bots.2", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("account_pair_bot{place}: {pair}")).collect();
     // A candle that is no number: the walk and the live figures stand, the chart and what is drawn from it do not.
     expected.extend([".bots.1.marked", ".bots.1.chart", ".pnl_history"].iter().map(|place| format!("candle_nan{place}: {number}")));
-    // A price that is no number: only the walk stands.
-    for scenario in ["price_infinity", "price_nan", "price_unreadable"] {
-        expected.extend([".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("{scenario}{place}: {number}")));
-    }
     assert_eq!(listed, expected);
-    // What Rails has in their place: figures made of nulls where the value was NaN or Infinity, and a figure like
-    // any other where it read a number off the front of a text (BBB at 12 where it trades at 53.90).
+    // Unreadable batch prices are omitted by Rails and named as no_price above; an unreadable candle
+    // still prevents the chart from being computed.
     for (place, reason, rails) in &found {
-        if reason == number && !place.starts_with("price_unreadable") { assert!(rails.contains("null"), "{place}: Rails has {rails}"); }
+        if reason == number { assert!(rails.contains("null"), "{place}: Rails has {rails}"); }
     }
-    let unreadable = found.iter().find(|(place, _, _)| place == "price_unreadable.bots.1.live").unwrap();
-    assert!(unreadable.2.contains(r#"\"current_price\":\"12.0\""#) && !unreadable.2.contains("null,"), "{}", unreadable.2);
 }

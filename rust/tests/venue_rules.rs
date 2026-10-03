@@ -38,3 +38,23 @@ fn the_ported_ruby_is_the_ruby_that_was_recorded() {
         assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record script/rust/record_vectors.rb and re-check the Alpaca port against it");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() {
+    use deltabadger::venue::{alpaca, fake::FakeVenue, Venue};
+    use serde_json::json;
+    let vectors = common::vectors();
+    let cases = vectors["venue_order_numbers"].as_array().unwrap();
+    assert_eq!(cases.len(), 84);
+    for case in cases {
+        let accepted = if case["venue"] == "alpaca" {
+            alpaca::parse_order("O1", &case["body"]).is_ok()
+        } else {
+            let venue = FakeVenue::from_script(&json!({ "http": {
+                "/0/private/QueryOrders": [{ "error": [], "result": { "O1": case["body"] } }]
+            } }));
+            venue.orders(&["O1".into()]).await.is_ok()
+        };
+        assert_eq!(accepted, case["accepted"].as_bool().unwrap(), "{case}");
+    }
+}
