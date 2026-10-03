@@ -20,6 +20,8 @@ module Harness
 end
 
 Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real connection to #{address}:#{port}") })
+# No CoinGecko key from a local .env: with one, Clients::Coingecko.detect_plan probes pro-api before any scripted call.
+ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
   mattr_accessor :alpaca, :market, :requests, :filters_after
