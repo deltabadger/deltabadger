@@ -45,7 +45,7 @@
                    class="slider__input"
                    data-bot--allocation-target="input"
                    data-action="input->bot--allocation#update change->form--submit#submit"
-                   {% if locked %}disabled{% endif %}>
+                   {% if weights_locked %}disabled{% endif %}>
             <div class="slider__style">
               <div class="slider__style__track"
                    data-bot--allocation-target="track"
@@ -63,9 +63,9 @@
                    data-bot--allocation-target="percent"
                    data-action="input->bot--allocation#type change->form--submit#submit"
                    aria-label="{{ slider.pill.symbol }}"
-                   {% if locked %}disabled{% endif %}>%
+                   {% if weights_locked %}disabled{% endif %}>%
           </div>
-{% if !locked && several %}
+{% if !composition_locked && several %}
             <button name="bots_dca_multi_asset[remove_asset_id]" type="submit" value="{{ slider.pill.asset_id }}" class="rbutton rbutton--small asset-allocation__remove" title="{{ v.t("bot.dca_multi_asset.remove_asset")|safe }}">×</button>
 {% endif %}
         </div>
@@ -79,7 +79,7 @@
       {{ v.t("bot.dca_multi_asset.allocation_sum")|safe }}
       <span data-bot--allocation-target="total">{{ total }}%</span>
     </span>
-{% if !locked %}
+{% if !weights_locked %}
       <button name="bots_dca_multi_asset[normalize_allocations]" type="submit" value="1" class="rbutton rbutton--small rbutton--primary asset-allocations__normalize"{% if balanced %} hidden="hidden"{% endif %}>{{ v.t("bot.dca_multi_asset.normalize")|safe }}</button>
 {% endif %}
   </div>

@@ -1327,7 +1327,10 @@ mod action_transport {
             };
             let session = web::session::SessionData { user: Some(user), csrf: Some(self.token.clone()), ..Default::default() };
             let cookie = web::session::seal(&self.app.keys.session, &session, self.app.now());
-            let mut request = Request::builder().method(method).uri(path).header("host","localhost:3000")
+            // Implemented actions now perform writes. A missing id exercises the real transport
+            // and ownership lookup while keeping this transport-only fixture read-only.
+            let live_path = path.replace("/bots/1", "/bots/999");
+            let mut request = Request::builder().method(method).uri(&live_path).header("host","localhost:3000")
                 .header("cookie",format!("{}={cookie}",web::session::COOKIE)).header("content-type",media);
             for (key,value) in headers { request = request.header(*key,*value); }
             let request = match request.body(Body::from(body.replace("TOKEN", &web::csrf::masked(&self.token)))) { Ok(r) => r, Err(e) => panic!("request: {e}") };
@@ -1537,10 +1540,10 @@ mod action_transport {
         for (method,path) in [("PATCH","/bots/1"),("PUT","/bots/1/start"),("PATCH","/bots/1/stop"),("POST","/bots/1/archive")] {
             let body = format!("{VALID}&authenticity_token=TOKEN");
             assert_eq!(h.live(method,path,"application/x-www-form-urlencoded",&body,&[("accept","text/html")]).await,406);
-            assert_eq!(h.live(method,path,"application/x-www-form-urlencoded",&body,&[("accept","text/vnd.turbo-stream.html")]).await,501);
+            assert_eq!(h.live(method,path,"application/x-www-form-urlencoded",&body,&[("accept","text/vnd.turbo-stream.html")]).await,if method=="PUT" {501}else{302});
         }
         for path in ["/bots/1/delete","/bots/1/archive"] {
-            assert_eq!(h.live("DELETE",path,"application/x-www-form-urlencoded","authenticity_token=TOKEN",&[("accept","text/html")]).await,501);
+            assert_eq!(h.live("DELETE",path,"application/x-www-form-urlencoded","authenticity_token=TOKEN",&[("accept","text/html")]).await,302);
         }
     }
     #[tokio::test]
@@ -1548,9 +1551,9 @@ mod action_transport {
         let h = Harness::new(); let (_, got) = h.send("POST", "/de/bots/1.turbo_stream?locale=pl", "application/x-www-form-urlencoded", Body::from(format!("{VALID}&_method=patch"))).await;
         assert_eq!(got["locale"], "de"); assert_eq!(got["method"], "PATCH");
         assert_eq!(h.send("PATCH", "/de/bots/1.turbo_stream", "application/json", Body::from("{")).await.0, 400);
-        assert_eq!(h.live("POST","/de/bots/1.turbo_stream?locale=pl","application/x-www-form-urlencoded",&format!("{VALID}&_method=patch&authenticity_token=TOKEN"),&[("accept","text/html")]).await,501);
+        assert_eq!(h.live("POST","/de/bots/1.turbo_stream?locale=pl","application/x-www-form-urlencoded",&format!("{VALID}&_method=patch&authenticity_token=TOKEN"),&[("accept","text/html")]).await,302);
         for token in [json!("TOKEN"),json!(["TOKEN"]),json!({"x":"TOKEN"}),json!(true),Value::Null] {
-            let expected = if token.is_string() {501} else {302};
+            let expected = 302;
             let body = json!({ROOT:{"quote_amount":12.5},"authenticity_token":token}).to_string();
             assert_eq!(h.live("PATCH","/de/bots/1.turbo_stream","application/json",&body,&[]).await,expected);
         }
@@ -2402,4 +2405,50 @@ mod action_write {
         Ok(())
     }
 
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn action_http_fragments_locales_formats_and_hostile_drafts() -> Result<(),Box<dyn std::error::Error>> {
+    use common::{seed,web::{Browser,Csrf}};
+    use deltabadger::web::session::{self,SessionData};
+    let (dir,opened,seeded) = common::install_alpaca();
+    let hash = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=0",[hash])?;
+    let mut spec=seed::BotSpec::weekly(5.0,"2026-09-10 12:00:00"); spec.status=2;
+    let id=seed::insert_bot(&opened.primary,&seeded,&spec);
+    opened.primary.execute("UPDATE bots SET label='Original' WHERE id=?1",[id])?;
+    let app=common::web::app(dir.path(),"engine-test-secret",common::web::TestClock::at("2026-09-10T12:00:30Z"));
+    let mut browser=Browser { cookie:Some(session::seal(&app.keys.session,&SessionData { user:Some((seeded.user_id,hash.get(..29).ok_or("salt")?.into())),..Default::default() },app.now())),page:None };
+    let empty=browser.get(&app,&format!("/bots/{id}/start/edit")).await;
+    assert_eq!(empty.status,200);
+    assert_eq!(empty.body,"<turbo-frame id=\"modal\"></turbo-frame>");
+    assert_eq!(empty.header("set-cookie"),None,"an empty modal has no forms and must not create a CSRF token");
+    for prefix in ["","/de"] {
+        let path=format!("{prefix}/bots/{id}");
+        assert_eq!(browser.get(&app,&path).await.status,200);
+        let before:String=opened.primary.query_row("SELECT settings FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        let headers=[("accept","text/vnd.turbo-stream.html")];
+        let rejected=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[quote_amount]","0"),("bots_dca_multi_asset[label]","<script>alert(1)</script>")]),Csrf::Header,&headers).await;
+        assert_eq!(rejected.status,422,"{}",rejected.body);
+        assert_eq!(rejected.body.matches("<turbo-stream ").count(),6);
+        assert!(rejected.body.contains("value=\"0\"") && rejected.body.contains("is-invalid"));
+        assert!(!rejected.body.contains("<script>alert(1)</script>"));
+        assert!(rejected.body.contains("&lt;script&gt;"));
+        let after:String=opened.primary.query_row("SELECT settings FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        assert_eq!(before,after);
+        let hostile=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[interval]","<img src=x onerror=alert(1)>")]),Csrf::Header,&headers).await;
+        assert_eq!(hostile.status,422,"{}",hostile.body);
+        assert!(hostile.body.contains("&lt;img") && !hostile.body.contains("<img src=x"));
+        let bad=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[quote_amount]","7")]),Csrf::Header,&[("accept","text/html")]).await;
+        assert_eq!(bad.status,406);
+        let accepted=browser.send(&app,"POST",&format!("{path}.turbo_stream"),Some(&[("_method","patch"),("bots_dca_multi_asset[label]","Renamed")]),Csrf::Header,&[("accept","text/html")]).await;
+        assert_eq!(accepted.status,200,"{}",accepted.body);
+        assert_eq!(accepted.body.matches("<turbo-stream ").count(),6);
+        for suffix in ["/edit","/delete/edit","/archive/edit","/start/edit"] {
+            let modal=browser.send(&app,"GET",&format!("{path}{suffix}"),None,Csrf::None,&[("turbo-frame","modal")]).await;
+            assert_eq!(modal.status,200,"{}",modal.body);
+            assert!(modal.body.contains("id=\"modal\""));
+        }
+    }
+    Ok(())
 }

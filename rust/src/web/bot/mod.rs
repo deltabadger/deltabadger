@@ -2,6 +2,8 @@
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
 //! Page readers share their model with the guarded settings writer in `write`.
 pub mod action_params;
+pub mod actions;
+pub mod action_view;
 pub mod draft;
 pub mod write;
 pub mod composition;
@@ -683,6 +685,11 @@ impl Bot {
     pub fn last_action_job_at(&self) -> Option<DateTime<Utc>> {
         let text = self.transient.get("last_action_job_at")?.as_str()?;
         DateTime::parse_from_rfc3339(text).ok().map(|time| time.with_timezone(&Utc))
+    }
+
+    /// Bot::Rebalanceable#rebalance_pending?: only a nonempty stored Hash is pending.
+    pub fn rebalance_pending(&self) -> bool {
+        self.transient.get("rebalance_pending").and_then(Value::as_object).is_some_and(|value| !value.is_empty())
     }
 
     /// Bot::Lifecycle#restarting?

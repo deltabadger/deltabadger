@@ -28,6 +28,9 @@ module Pages
                    when 'archive' then ['/bots/1/archive', 'POST']
                    when 'unarchive' then ['/bots/1/archive', 'DELETE']
                    when 'modal' then ['/bots/1/start/edit', 'GET']
+                   when 'rename_modal' then ['/bots/1/edit', 'GET']
+                   when 'delete_modal' then ['/bots/1/delete/edit', 'GET']
+                   when 'archive_modal' then ['/bots/1/archive/edit', 'GET']
                    else ["/bots/1/#{action}", 'PATCH']
                    end
     root = kind == 'index' ? 'bots_dca_index' : 'bots_dca_multi_asset'
@@ -43,7 +46,7 @@ module Pages
     end
     headers = TURBO.merge('Referer' => 'http://localhost:3000/bots/1')
     headers['Accept'] = 'text/html' if extra['html']
-    headers['Accept'] = 'text/html' if action == 'modal'
+    headers['Accept'] = 'text/html' if action == 'modal' || action.end_with?('_modal')
     { 'method' => method, 'path' => path, 'form' => fields, 'csrf' => 'header',
       'headers' => headers, 'action_snapshot' => true }
   end
@@ -123,7 +126,13 @@ module Pages
     add.call('extra_hour','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'hour','start_time_of_day'=>'13:00'}})
     add.call('extra_date_past','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'date','start_at'=>'2026-09-09T10:00:00Z'}})
 
-    raise "expected 145 bot action cases" unless cases.size == 145
+    %w[single basket index].each do |kind|
+      %w[rename_modal delete_modal archive_modal].each do |action|
+        add.call("extra_form_#{kind}_#{action}", action, {}, { 'kind' => kind })
+      end
+    end
+
+    raise "expected 154 bot action cases" unless cases.size == 154
     cases
   end
 end
@@ -159,10 +168,52 @@ module Pages
         'install' => 'alpaca', 'user' => owner('wash_sale_enabled' => nil),
         'bots' => [{ 'kind' => 'basket' }.merge(spec), { 'kind' => 'basket', 'columns' => { 'status' => 7 } }],
         'action_extra' => extra,
-        'steps' => signed_in(get('/bots?filter=archived').merge('expect' => 200), request)
+        'steps' => signed_in(get('/bots/2').merge('expect' => 200), request)
       }
+      if action.end_with?('_modal')
+        scenario['steps'] += [request.deep_dup.tap { |r| r['headers']['Turbo-Frame'] = 'modal' }]
+        [false, true].each do |frame|
+          scenario['steps'] << request.deep_dup.tap do |r|
+            r['path'] = "/de#{r['path']}"
+            r['headers']['Turbo-Frame'] = 'modal' if frame
+          end
+        end
+      end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 145 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 154 }
+  end
+end
+
+# Locale variants are independent installs within the same named scenario. Replaying a Start or
+# Delete on its already-mutated row would test a different action rather than its translation.
+module Pages
+  class << self
+    alias_method :grid_without_action_locales, :grid
+    alias_method :record_without_action_locales, :record
+
+    def grid(root)
+      grid_without_action_locales(root)
+      Dir[File.join(root, 'actions_*/scenario.json')].each do |path|
+        dir = File.dirname(path)
+        localized = File.join(dir, 'de')
+        FileUtils.mkdir_p(localized)
+        %w[production.sqlite3 production_queue.sqlite3].each { |file| FileUtils.cp(File.join(dir, file), localized) }
+        scenario = JSON.parse(File.read(path))
+        scenario['steps'].each do |step|
+          next unless step['action_snapshot']
+
+          step['path'] = "/de#{step['path']}" unless step['path'].start_with?('/de/')
+        end
+        File.write(File.join(localized, 'scenario.json'), JSON.pretty_generate(scenario))
+      end
+    end
+
+    def record(root)
+      record_without_action_locales(root)
+      Dir[File.join(root, 'actions_*/de/scenario.json')].each do |path|
+        record_without_action_locales(File.dirname(File.dirname(path)))
+      end
+    end
   end
 end

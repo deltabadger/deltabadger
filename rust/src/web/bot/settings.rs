@@ -431,6 +431,8 @@ struct BasketMain<'a> {
     csrf: &'a str,
     path: &'a str,
     locked: bool,
+    composition_locked: bool,
+    weights_locked: bool,
     quote: &'a str,
     quote_asset_id: Option<i64>,
     amount_field: String,
@@ -550,16 +552,18 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
                 }).collect::<Result<Vec<_>, WebError>>()?
             };
             let total = format::number_with_precision(&Num::Float(bot.allocations_total() * 100.0), 1, false).unwrap_or_default();
+            let composition_locked = bot.working() || bot.rebalance_pending();
             out.push_str(&BasketMain {
-                v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
+                v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), composition_locked,
+                weights_locked: composition_locked || bot.text("weighting") == Some("market_cap"), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
                 reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])),
                 several: bot.base_assets.len() > 1, sliders, balanced: bot.allocations_balanced(), total,
-                can_add: !bot.working() && bot.base_assets.len() < super::MAX_ASSETS,
+                can_add: !composition_locked && bot.base_assets.len() < super::MAX_ASSETS,
                 add_path: format!("{}?asset_field=add_asset_id", ctx.path(&format!("/bots/{}/asset_search/edit", bot.id))),
             }.render()?);
             out.push('\n');
             // The market-cap rule is offered only where every member has a market cap to be weighted by.
-            if !bot.one_asset() && !bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)) {
+            if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || (!bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)))) {
                 out.push_str(&market_cap_rule(forms));
             }
             out.push_str(&format!("    {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()));
@@ -598,14 +602,16 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
 /// bots/dca_multi_assets/settings/_marketcap_allocation.html.erb, switched off (market-cap weights are not served yet).
 fn market_cap_rule(forms: &Forms) -> String {
     let key = forms.key();
-    format!("<form class=\"widget main-rule main-rule--multi-asset rule--inactive\" data-controller=\"class-toggle form--submit\" data-class-toggle-target=\"togglable\" \
+    format!("<form class=\"widget main-rule main-rule--multi-asset {active}\" data-controller=\"class-toggle form--submit\" data-class-toggle-target=\"togglable\" \
              data-class-toggle-toggle-classes-value=\"[&quot;rule--active&quot;,&quot;rule--inactive&quot;]\" data-turbo-stream=\"true\" action=\"{path}\" accept-charset=\"UTF-8\" method=\"post\">\
              <input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />\n  <div class=\"toggle-group\">\n    <div class=\"toggle\">\n      \
-             <input name=\"{key}[weighting]\"{locked} type=\"hidden\" value=\"manual\" /><input data-action=\"change-&gt;form--submit#submit change-&gt;class-toggle#toggle\"{locked} type=\"checkbox\" value=\"market_cap\" name=\"{key}[weighting]\" id=\"{key}_weighting\" />\n      \
+             <input name=\"{key}[weighting]\"{locked} type=\"hidden\" value=\"manual\" /><input data-action=\"change-&gt;form--submit#submit change-&gt;class-toggle#toggle\"{locked} type=\"checkbox\" value=\"market_cap\"{checked} name=\"{key}[weighting]\" id=\"{key}_weighting\" />\n      \
              <div class=\"toggle__style\"></div>\n    </div>\n    <div class=\"toggle-group__info\" data-controller=\"class-toggle\" data-class-toggle-toggle-classes-value='[\"hidden\"]'>\n      <div class=\"toggle-group__info__label\">\n        \
              <label class=\"conversational conversational--small\" for=\"{key}_weighting\">{label}</label>\n        <div class=\"tooltip-info-icon\" data-controller=\"tooltip\" data-action=\"click->tooltip#toggle click->class-toggle#toggle\">\n          {info}\n          {filled}\n        </div>\n      </div>\n      \
              <div class=\"bot-option-info hidden\" data-class-toggle-target=\"togglable\">\n        {text}\n      </div>\n    </div>\n  </div>\n</form>\n",
-            path = escape(&forms.path), csrf = escape(forms.csrf), locked = disabled(forms.locked()), label = forms.t("bot.utils.mkt_cap_adjusted_html", &[]),
+            path = escape(&forms.path), csrf = escape(forms.csrf), locked = disabled(forms.locked() || forms.bot.rebalance_pending()), label = forms.t("bot.utils.mkt_cap_adjusted_html", &[]),
+            active = if forms.bot.text("weighting") == Some("market_cap") { "rule--active" } else { "rule--inactive" },
+            checked = if forms.bot.text("weighting") == Some("market_cap") { " checked=\"checked\"" } else { "" },
             info = include_str!("../../../templates/svg/_24x24_info.html"), filled = include_str!("../../../templates/svg/_24x24_info_filled.html"), text = forms.t("bot.utils.mkt_cap_adjusted_info_html", &[]))
 }
 

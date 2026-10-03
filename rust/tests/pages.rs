@@ -325,6 +325,7 @@ async fn run(dir: &Path) -> Value {
 fn copy_scenario(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for file in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(file), to.join(file)).unwrap(); }
+    if from.join("de").is_dir() { copy_scenario(&from.join("de"), &to.join("de")); }
 }
 
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
@@ -473,9 +474,14 @@ fn refusal_headers(signed_in: bool) -> Value {
 async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
+    if std::env::var("PAGES").ok().as_deref() == Some("actions") {
+        assert_eq!(dirs.len(), 154, "all action scenarios must remain selected");
+    }
     let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        for scope in if name.starts_with("actions_") { vec!["", "de"] } else { vec![""] } {
+        let dir = &dir.join(scope);
         let scenario = scenario(dir);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().map(rails_answer).collect();
@@ -487,9 +493,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         let network = recorded["network"].as_array().expect("pages.rb records the network calls a scenario made");
         if !network.is_empty() { failures.push(format!("{name}: Rails reached the network: {network:?}")); }
         // Rails must leave the bots as the grid built them (the copy this crate runs on was taken before Rails' requests).
-        let built = rows(&rust_root.path().join(&name), "bots", &BOT_COLUMNS);
+        let built = rows(&rust_root.path().join(&name).join(scope), "bots", &BOT_COLUMNS);
         if !name.starts_with("actions_") && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
-        let mut rust = run(&rust_root.path().join(&name)).await;
+        let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
             // Rails knows a time on every page of these scenarios, and this build must not claim the same one.
@@ -499,16 +505,17 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
                 countdown_pages += 1;
             }
         }
-        match listed_divergence(&name, &scenario, &rails, &rust) {
+        match action_divergence(&name, &scenario, &rails, &rust).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name} (listed divergence): {message}")),
             None => if let Some(message) = difference(&name, &rails, &rust) { failures.push(message); },
         }
     }
+    }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.len(), 149 + 145, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 149 + 154, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -589,4 +596,175 @@ fn action_snapshot_forbids_other_primary_writes() {
     let message = action_snapshot_difference("actions_forbidden", &response, &response)
         .unwrap_or_else(|| panic!("transaction insert passed"));
     assert!(message.contains("transactions") && message.contains("forbidden write"), "{message}");
+}
+
+/// The explicitly different action contracts still assert both databases, including Rails' writes.
+/// Only the named action response is adapted; authentication and every other fragment stay compared.
+fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(),String>> {
+    if !name.starts_with("actions_") { return None }
+    Some((|| {
+        let mut expected = rails.clone();
+        let steps = scenario["steps"].as_array().ok_or("missing steps")?;
+        let responses = expected["responses"].as_array_mut().ok_or("missing responses")?;
+        let ours = rust["responses"].as_array().ok_or("missing Rust responses")?;
+        if responses.len()!=ours.len() { return Err("response count differs".into()) }
+        for (index,(a,b)) in responses.iter_mut().zip(ours).enumerate() {
+            let step = steps.get(index).ok_or("missing step")?;
+            if step["action_snapshot"] != true { continue }
+            for (side,value) in [("Rails",&*a),("Rust",b)] {
+                if let Some(error)=action_snapshot_difference(side,value,value) { return Err(error) }
+            }
+            if let Some(error)=row_difference("before action",&a["rows_before"],&b["rows_before"]) { return Err(error) }
+            let path=step["path"].as_str().ok_or("missing action path")?;
+            let locale=if path.starts_with("/de/") {"de"}else{"en"};
+            let n=name.strip_prefix("actions_").ok_or("action name")?;
+            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_no_key"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
+            let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
+            let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
+            let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive");
+            let bad_render=matches!(n,"update_bad_interval"|"update_quote_bad"|"update_exchange_bad");
+            let scope=matches!(n,"start_invalid"|"modal_within_modal"|"start_within_true"|"start_within_false"|"update_exchange_ibkr");
+            let safety=matches!(n,"stop_invalid"|"archive_invalid"|"stop_archived");
+            let flag=matches!(n,"start_missing"|"start_junk");
+            let empty=n=="extra_empty_root";
+            if start_guard || working_start || working_settings || html || bad_render || scope || safety || flag || empty {
+                let rails_status=if html {if n=="extra_html_archive" {500}else{406}} else if bad_render || flag {500}
+                    else if empty {400} else if matches!(n,"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
+                let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
+                if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
+                let rails_rows=expected_action_rows(n,step,&a["rows_before"],rails_status==200 || html)?;
+                if let Some(error)=row_difference("Rails measured action",&rails_rows,&a["rows_after"]) { return Err(error) }
+                let rust_rows=if safety { expected_action_rows(if n=="archive_invalid" {"extra_html_archive"}else{"extra_html_stop"},step,&b["rows_before"],true)? } else { b["rows_before"].clone() };
+                if let Some(error)=row_difference("Rust fixed action contract",&rust_rows,&b["rows_after"]) { return Err(error) }
+                let mut headers=refusal_headers(true);
+                if html { headers.as_object_mut().ok_or("headers")?.remove("content-type"); }
+                else if !scope { headers["content-type"]=json!("text/vnd.turbo-stream.html; charset=utf-8"); }
+                if b["headers"]!=headers { return Err(format!("{n}: Rust action headers differ: {} / {headers}",b["headers"])) }
+                let body=b["body"].to_string();
+                if html {
+                    if !body.contains("Not Acceptable") && b["body"]!=json!("") && b["body"]!=json!([]) { return Err(format!("unexpected 406 body: {body}")) }
+                } else if scope {
+                    if !body.contains(path) { return Err("scope refusal does not name the request".into()) }
+                } else if safety {
+                    if n=="stop_invalid" && !body.contains("refresh") { return Err("unrenderable safety write must refresh".into()) }
+                    if n=="archive_invalid" && stream_targets(b)!=vec!["status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","menu_bots_dca_multi_asset_1","bot-count"] { return Err("safety Archive fragments differ".into()) }
+                    if n=="stop_archived" && stream_targets(b)!=vec!["settings","exchange_select","status_button_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_2"] { return Err("archived Stop fragments differ".into()) }
+                } else {
+                    let six=working_start || working_settings || bad_render || empty;
+                    let targets=stream_targets(b);
+                    let wanted=if six { vec!["label_bots_dca_multi_asset_1","settings","exchange_select","status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","flash"] } else {vec!["flash"]};
+                    if targets!=wanted { return Err(format!("{n}: stream targets {targets:?}, expected {wanted:?}")) }
+                    let key=if working_start {"engine.already_running"} else if n=="start_junk" {"engine.invalid_start_fresh"} else {"engine.write_refused"};
+                    if start_guard || working_start || working_settings || flag {
+                        let text=deltabadger::web::i18n::text(locale,key,&[("reason",deltabadger::web::i18n::Arg::Text("[reason]"))]);
+                        let needle=text.split("[reason]").next().ok_or("translation")?;
+                        if !body.contains(needle) { return Err(format!("{n}: missing {key}: {body}")) }
+                    }
+                    if working_settings {
+                        // The five shared fragments remain exact even though the guard adds a flash.
+                        if without_flash(&a["body"])!=without_flash(&b["body"]) { return Err(format!("{n}: a non-flash fragment differs")) }
+                    }
+                }
+                // These are the exact differing fields after asserting their individual contracts.
+                for key in ["status","headers","body","rows_after","exception"] {
+                    if let Some(value)=b.get(key) { a[key]=value.clone(); } else { a.as_object_mut().ok_or("response object")?.remove(key); }
+                }
+            } else if matches!(n,"single_label"|"basket_label"|"index_label") {
+                // Rails trusts its label as stream HTML. Compare the entire remainder, and require
+                // the Rust label to be a single escaped text node with the exact submitted text.
+                let mut raw=a["body"].as_array().ok_or("Rails HTML")?.clone();
+                let replacement=b["body"].as_array().ok_or("Rust HTML")?;
+                let end=raw.iter().position(|v|v.as_str().is_some_and(|s|s.trim()=="</turbo-stream>")).ok_or("label stream")?;
+                let rust_end=replacement.iter().position(|v|v.as_str().is_some_and(|s|s.trim()=="</turbo-stream>")).ok_or("Rust label stream")?;
+                if !raw[..end].iter().any(|v|v.as_str().is_some_and(|s|s.trim()=="<b>")) { return Err("Rails label is no longer unescaped: retire divergence".into()) }
+                if replacement[..rust_end].iter().any(|v|v.as_str().is_some_and(|s|s.trim()=="<b>")) || !b["body"].to_string().contains("A <b>&") { return Err("unsafe or changed label".into()) }
+                raw.splice(..=end,replacement[..=rust_end].iter().cloned());
+                a["body"]=json!(raw);
+            }
+        }
+        difference(name,&expected,rust).map_or(Ok(()),Err)
+    })())
+}
+
+fn stream_targets(response: &Value) -> Vec<&str> {
+    response["body"].as_array().into_iter().flatten().filter_map(|v| {
+        let s=v.as_str()?.trim();
+        if !s.starts_with("<turbo-stream ") { return None }
+        s.split("target=\"").nth(1)?.split('"').next()
+    }).collect()
+}
+fn without_flash(body: &Value) -> Value {
+    let mut out=vec![];
+    let mut flash=false;
+    for line in body.as_array().into_iter().flatten() {
+        let text=line.as_str().unwrap_or("");
+        if text.contains("<turbo-stream action=\"prepend\" target=\"flash\">") { flash=true; }
+        if !flash { out.push(line.clone()); }
+        if flash && text.trim()=="</turbo-stream>" { flash=false; }
+    }
+    json!(out)
+}
+
+fn expected_action_rows(name: &str, step: &Value, before: &Value, writes: bool) -> Result<Value,String> {
+    let mut rows=before.clone();
+    if !writes { return Ok(rows) }
+    if matches!(name,"modal_within_modal"|"stop_archived") { return Ok(rows) }
+    let at="2026-09-10 12:00:30.123456";
+    let bots=rows["bots"].as_array_mut().ok_or("bots snapshot")?;
+    let bot=bots.iter_mut().find(|r|r["id"]==1).ok_or("bot 1")?;
+    let mut event=None;
+    if name=="update_exchange_ibkr" {
+        bot["exchange_id"]=json!(2); bot["updated_at"]=json!(at); bot["settings_changed_at"]=json!(at);
+        for key in ["price_limit_in_ticker_id","price_drop_limit_in_ticker_id","moving_average_limit_in_ticker_id","indicator_limit_in_ticker_id","sell_price_limit_in_ticker_id","sell_price_drop_limit_in_ticker_id","sell_moving_average_limit_in_ticker_id","sell_indicator_limit_in_ticker_id"] {bot["settings"][key]=json!(4);}
+        for member in rows["bot_index_assets"].as_array_mut().ok_or("members")? {
+            if member["bot_id"]==1 { member["ticker_id"]=json!(if member["asset_id"]==2 {2}else{4});member["updated_at"]=json!(at); }
+        }
+        return Ok(rows)
+    }
+    if name.starts_with("working_") || name=="extra_html_update" {
+        if name=="extra_html_update" { bot["label"]=json!("Renamed"); }
+        else {
+            let form=step["form"].as_object().ok_or("working form")?;
+            for (key,value) in form {
+                let field=key.strip_prefix("bots_dca_multi_asset[").and_then(|s|s.strip_suffix(']')).ok_or("working field")?;
+                let text=value.as_str().ok_or("working value")?;
+                bot["settings"][field]=match field {
+                    "limit_ordered"|"smart_intervaled" => json!(text=="1"),
+                    "limit_order_pcnt_distance" => json!(0.04),
+                    _ => json!(text.parse::<f64>().map_err(|e|e.to_string())?),
+                };
+            }
+            bot["settings_changed_at"]=json!(at);
+            bot["transient_data"]["missed_quote_amount"]=if name=="working_smart" {json!(10.0)}else{json!(5)};
+            bot["transient_data"]["missed_quote_amount_was_set"]=Value::Null;
+        }
+        bot["updated_at"]=json!(at);
+    } else if matches!(name,"extra_html_stop"|"extra_html_archive") {
+        bot["status"]=json!(if name=="extra_html_archive" {7}else{2});bot["stopped_at"]=json!(at);bot["updated_at"]=json!(at);bot["stop_message_key"]=Value::Null;
+        event=Some(("stopped",json!({})));
+    } else {
+        let path=step["path"].as_str().ok_or("start path")?;
+        let fresh=!(path.ends_with("=false") || path.ends_with("=0"));
+        bot["status"]=json!(1);bot["updated_at"]=json!(at);bot["stop_message_key"]=Value::Null;
+        if fresh {
+            bot["started_at"]=json!(match name {"start_future"=>"2026-09-12 10:00:00","extra_hour"=>"2026-09-11 10:00:00",_=>at});
+            if bot["transient_data"].get("last_action_job_at").is_some() { bot["transient_data"]["last_action_job_at"]=Value::Null; }
+            bot["transient_data"]["missed_quote_amount"]=Value::Null;
+        }
+        if name=="extra_hour" {
+            bot["settings"]["start_at"]=json!("2026-09-11T10:00:00Z");bot["settings_changed_at"]=json!(at);
+            bot["transient_data"]["missed_quote_amount"]=json!(0);
+            bot["transient_data"]["missed_quote_amount_was_set"]=Value::Null;
+        }
+        if name=="extra_defaults_start_start_fresh_true" {
+            for (key,value) in [("smart_interval_quote_amount",json!(10.0)),("limit_ordered",json!(false)),("quote_amount_limit",json!(1000)),("price_limit",json!(1000000))] { bot["settings"][key]=value; }
+        }
+        event=Some(("started",json!({"start_fresh":fresh})));
+    }
+    if let Some((event,details))=event {
+        let logs=rows["bot_activity_logs"].as_array_mut().ok_or("logs")?;
+        let id=logs.iter().filter_map(|r|r["id"].as_i64()).max().unwrap_or(0)+1;
+        logs.push(json!({"id":id,"bot_id":1,"event":event,"level":0,"message":null,"details":details,"created_at":at}));
+    }
+    Ok(rows)
 }

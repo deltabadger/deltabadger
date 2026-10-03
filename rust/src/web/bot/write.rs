@@ -114,7 +114,7 @@ fn settings_inner<T>(
             Err(e) => return Err(e),
         };
         let cap = effective_amount(&draft.candidate)?;
-        let carry = minimum(Num::Dec(old.to_d().ok_or_else(|| error("carry exceeds decimal bounds"))?), cap)?;
+        let carry = minimum(old, cap)?;
         effects.transient.set.insert("missed_quote_amount".into(), serialized(carry)?);
         effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
     }

@@ -35,7 +35,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{any, delete, get, post, MethodRouter};
+use axum::routing::{patch, any, delete, get, post, MethodRouter};
 use axum::Router;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -492,7 +492,19 @@ fn routes(app: App) -> Router {
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
         // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
         .route("/bots/new", axum::routing::any(layout::not_ported))
-        .route("/bots/{id}", only(get(bot::page::show)))
+        .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
+        .route("/bots/{id}/start", only(patch(bot::actions::start)))
+        .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
+        .route("/bots/{id}/stop", only(patch(bot::actions::stop)))
+        .route("/bots/{id}/delete", only(delete(bot::actions::delete)))
+        .route("/bots/{id}/archive", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
+        .route("/bots/{id}/edit", only(get(bot::actions::edit)))
+        .route("/bots/{id}/delete/edit", only(get(bot::actions::delete_edit)))
+        .route("/bots/{id}/archive/edit", only(get(bot::actions::archive_edit)))
+        .route("/bots/{id}/start.turbo_stream", only(patch(bot::actions::start)))
+        .route("/bots/{id}/stop.turbo_stream", only(patch(bot::actions::stop)))
+        .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
+        .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
