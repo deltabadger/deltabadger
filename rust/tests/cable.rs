@@ -268,6 +268,30 @@ async fn an_open_websocket_keeps_its_place_among_the_servers_connections() {
     assert!(web::until_closed(address, request, Duration::from_secs(5)).await.unwrap().starts_with("HTTP/1.1 200"));
 }
 
+/// The server's write-stall timeout ends a connection whose client takes nothing of a write. A
+/// socket that is quiet has no such write: it lives across any number of timeouts, whether its
+/// client reads the pings as they come or leaves them lying for a while, and it still answers.
+#[tokio::test(flavor = "current_thread")]
+async fn a_healthy_websocket_outlives_the_write_stall_timeout() {
+    let stall = Duration::from_millis(300);
+    let limits = server::Limits { write_stall_timeout: stall, ..server::Limits::default() };
+    let (_dir, app, address, _clock) = served_under(Duration::from_millis(100), limits, Some("http://localhost:3000")).await;
+    let (mut socket, _) = open(address, "http://localhost:3000").await.unwrap();
+    assert_eq!(next(&mut socket).await["type"], "welcome");
+    let started = std::time::Instant::now();
+    let mut pings = 0;
+    while started.elapsed() < stall * 4 {
+        assert_eq!(next(&mut socket).await["type"], "ping");
+        pings += 1;
+    }
+    assert!(pings >= 4, "{pings} pings in four timeouts, at one every 50 ms");
+    tokio::time::sleep(stall * 4).await; // the pings of these timeouts wait in the socket's buffers
+    let id = identifier(&app, "user_1:bot_updates");
+    command(&mut socket, "subscribe", &id).await;
+    assert_eq!(next_event(&mut socket).await, json!({ "identifier": id, "type": "confirm_subscription" }));
+    assert_eq!(app.hub.open(OWNER), 1, "the same connection, still open after eight timeouts");
+}
+
 /// Whether the server ends the connection within three seconds: pings may still arrive, then a
 /// close, an error or the end of the stream.
 async fn closed(socket: &mut Socket) -> bool {

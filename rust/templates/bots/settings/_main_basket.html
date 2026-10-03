@@ -1,0 +1,91 @@
+{#- bots/dca_multi_assets/settings/_main.html.erb for a buying basket, with settings/_reverse_toggle. -#}
+
+<form class="widget main-rule main-rule--multi-asset" data-turbo-stream="true" data-controller="form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations{% if lone.is_none() %} bot--allocation{% endif %}" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    <div class="conversational flex-justify-center">
+      {{ v.t("bot.conversational.invest")|safe }}
+      <div class="ticker-input ticker-input--autoscale">
+        {{ amount_field|safe }}
+        <div class="ticker"{% if let Some(id) = quote_asset_id %} data-ticker-symbol="{{ quote }}" data-ticker-asset-id="{{ id }}"{% endif %}>{{ quote }}</div>
+      </div>
+      /
+      <div class="sinput sinput--select {% if locked %}sinput--disabled{% endif %}">
+        {{ interval_words }}
+        {{ interval_select|safe }}
+      </div>
+{% if let Some(lone) = lone %}
+        {{ v.t("bot.conversational.into")|safe }}
+        <div class="{{ lone.class }}" style="background: {{ lone.color }}" data-ticker-symbol="{{ lone.symbol }}" data-ticker-asset-id="{{ lone.asset_id }}">{{ lone.symbol }}</div>
+{% endif %}
+{% if locked %}
+          <span class="reverse-toggle reverse-toggle--disabled" aria-label="{{ v.t("bot.conversational.reverse")|safe }}" aria-disabled="true" title="{{ v.t("bot.conversational.reverse")|safe }}">
+      {% include "svg/_24x24_reverse.html" %}
+</span>
+{% else %}
+          <a class="reverse-toggle" data-turbo-method="post" data-turbo-stream="true"{% if let Some(confirm) = reverse_confirm %} data-turbo-confirm="{{ confirm }}"{% endif %} aria-label="{{ v.t("bot.conversational.reverse")|safe }}" title="{{ v.t("bot.conversational.reverse")|safe }}" href="{{ path }}/reverse">
+      {% include "svg/_24x24_reverse.html" %}
+</a>
+{% endif %}
+    </div>
+
+{% if lone.is_none() %}
+  <div class="asset-allocations">
+{% for slider in sliders %}
+      <div class="index-asset asset-allocation"
+           data-bot--allocation-target="row"
+           style="--slider-progress: {{ slider.pill.color }}">
+        <div class="index-asset__row">
+          <div class="{{ slider.pill.class }}" style="background-color: {{ slider.pill.color }}" data-ticker-symbol="{{ slider.pill.symbol }}" data-ticker-asset-id="{{ slider.pill.asset_id }}">{{ slider.pill.symbol }}</div>
+          <div class="slider">
+            <input type="range"
+                   name="bots_dca_multi_asset[allocations][{{ slider.pill.asset_id }}]"
+                   min="0"
+                   max="100"
+                   step="0.1"
+                   value="{{ slider.percent }}"
+                   class="slider__input"
+                   data-bot--allocation-target="input"
+                   data-action="input->bot--allocation#update change->form--submit#submit"
+                   {% if locked %}disabled{% endif %}>
+            <div class="slider__style">
+              <div class="slider__style__track"
+                   data-bot--allocation-target="track"
+                   style="border-left-color: {{ slider.pill.color }}; grid-template-columns: {{ slider.percent }}% auto;">
+                <div class="slider__style__progress" style="background-color: {{ slider.pill.color }};">
+                  <div class="slider__style__thumb"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="allocation">
+            <input type="number" min="0" max="100" step="0.1" inputmode="decimal"
+                   value="{{ slider.percent }}"
+                   class="allocation__input"
+                   data-bot--allocation-target="percent"
+                   data-action="input->bot--allocation#type change->form--submit#submit"
+                   aria-label="{{ slider.pill.symbol }}"
+                   {% if locked %}disabled{% endif %}>%
+          </div>
+{% if !locked && several %}
+            <button name="bots_dca_multi_asset[remove_asset_id]" type="submit" value="{{ slider.pill.asset_id }}" class="rbutton rbutton--small asset-allocation__remove" title="{{ v.t("bot.dca_multi_asset.remove_asset")|safe }}">×</button>
+{% endif %}
+        </div>
+      </div>
+{% endfor %}
+  </div>
+
+  <div class="asset-allocations__total{% if !balanced %} asset-allocations__total--off{% endif %}"
+       data-bot--allocation-target="totalRow">
+    <span>
+      {{ v.t("bot.dca_multi_asset.allocation_sum")|safe }}
+      <span data-bot--allocation-target="total">{{ total }}%</span>
+    </span>
+{% if !locked %}
+      <button name="bots_dca_multi_asset[normalize_allocations]" type="submit" value="1" class="rbutton rbutton--small rbutton--primary asset-allocations__normalize"{% if balanced %} hidden="hidden"{% endif %}>{{ v.t("bot.dca_multi_asset.normalize")|safe }}</button>
+{% endif %}
+  </div>
+{% endif %}
+
+{% if can_add %}
+    <a class="sbutton sbutton--link asset-allocation__add" data-turbo-frame="modal" href="{{ add_path }}">+ {{ v.t("bot.dca_multi_asset.add_asset")|safe }}</a>
+{% endif %}
+</form>

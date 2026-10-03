@@ -642,6 +642,7 @@ ActiveJob::Base.queue_adapter = adapter
 
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
+include ActiveSupport::Testing::TimeHelpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe
 i18n_calls = [
   ['en', 'devise.sessions.new.title', {}], ['de', 'devise.sessions.new.title', {}],
@@ -955,6 +956,165 @@ vectors['oauth_basic'] = {
                     'Basic YWJjOnM= trailing', 'Basic YTpiIGM='].map do |header|
     { 'authorization' => header, 'credentials' => oauth_basic.send(:credentials_from, Struct.new(:authorization).new(header)) }
   end
+}
+# What the bot list and the bot page print (rust/src/web/format.rs, colors.rs, ring.rs,
+# engine/schedule.rs). Floats travel as JSON numbers, BigDecimals as strings.
+helpers = ApplicationController.helpers
+strip = ->(decimal) { decimal.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') }
+bot_floats = [0.0, 1.0, 60.0, 0.6 * 100, 0.07 * 100, 100.0, 12.345678901234567, 1e-5, 0.0001, 0.00012345, 1e15, 1e16, 123_456_789_012_345_680.0,
+              1.5e-7, -2.5, 0.1 + 0.2, 33.333333333333336, 2_629_746.0 / 3, 1e22, 0.3, -0.0, 56.548667764616276, 1234.5,
+              999_999_999_999_999.0, 1_234_567_890_123_456.0, 100_000_000_000_000.0, 123_456_789_012_345.6, 0.001, 0.00099]
+stored_numbers = [50, 25.5, 0.01, 0.005, 1000, 5.0, 1e-7, 123_456.789, 0.1 + 0.2, 1_000_000, 0, 2.0]
+zone_names = ActiveSupport::TimeZone::MAPPING.keys
+instants = %w[2026-09-10T12:00:30Z 2026-01-15T03:04:05Z 2026-03-29T00:59:59Z 2026-03-29T01:00:00Z 2026-11-01T05:59:00Z]
+ring_sets = [[['5000', '#F7931A'], ['120', nil]], [['100', '#1A2B3C'], ['1', '#FFFFFF'], ['1', '#000000'], ['0.5', nil]],
+             [['50', '#76B900'], ['50.5', '#0668E1'], ['0.9', '#E31837']], [['10', nil]], [['0', '#111111']],
+             (1..40).map { |n| [(41 - n).to_s, format('#%06x', n * 400_000)] }, [['97', '#ED1C24'], ['3', '#050505']],
+             [['1234.56789', '#abcdef'], ['987.654321', '#123456'], ['12.5', '#FEDCBA'], ['12.25', '#777777'], ['7', '#00ff00']]]
+progress_cases = [['2026-09-10T09:00:00Z', '2026-09-11T09:00:00Z'], ['2026-09-09T12:00:30.123456Z', '2026-09-10T12:00:31Z'],
+                  ['2026-09-10T11:55:30.5Z', '2026-09-10T12:25:30Z'], ['2026-09-03T12:00:30.123456Z', '2026-09-17T12:00:30.123456Z'],
+                  ['2026-09-10T12:00:30.123456Z', '2026-09-10T13:00:00Z'], ['2026-09-10T12:00:31Z', '2026-09-10T13:00:00Z'],
+                  ['2026-09-10T11:00:00Z', '2026-09-10T11:00:00Z'], ['2026-08-10T12:00:30.123Z', '2026-09-10T12:00:30.124Z']]
+progress_now = Time.iso8601('2026-09-10T12:00:30.123456Z')
+dotiw_seconds = [0, 29, 30, 89, 90, 300, 2640, 5399, 5400, 8640.0, 86_399, 86_400, 90_000, 151_199, 604_800, 1_296_000, 2_419_199, 2_419_200,
+                 2_591_999, 2_592_000, 2_629_746, 2_629_745.9, 262_974.6, 60_480.0, 360.0, 43_200, 172_800.0, 3661, 7322, 2_500_000.5]
+dotiw_nows = %w[2026-09-10T12:00:30Z 2026-01-31T23:30:00Z 2026-02-01T00:00:00Z 2028-02-10T05:00:00Z 2026-12-31T12:00:00Z]
+# Past a year: a monthly 100 in slices of 1,200 is one order a year, and Rails sets no upper bound on the slice.
+# The last is a thousand years, the longest span a page prints (web::bot::MAX_SPAN_SECONDS).
+dotiw_years = [31_556_952, 31_622_400.0, 40_000_000, 63_113_904, 100_000_000.5, 157_784_760, 668_000_000, 31_556_952_000]
+# What a path segment or a cursor's id may be: String#to_i reads both.
+integer_texts = ['1', '12abc', 'abc', ' 7', '1_0', '-3', '0', '007', '1.turbo_stream', '99999999999999999999', '', '+5', '3 4', '1__0', '_1',
+                 '9223372036854775807', '9223372036854775808', '12345678901234567', "\u00A01", "\t7", "\n8", "\v9", "\f3", "\r4", '+10', ' +5',
+                 '+ 5', '--5', '+-5', '-0', "\uFF11\uFF12", "1\u0663", "\u20281", '1_', '1_a', '-1_000', '-99999999999999999999', '0x1A', '1e3',
+                 '-9223372036854775808', '-9223372036854775809'].freeze
+# Checkpoints at microseconds of every kind: most are not a double's, and about half of those come back a microsecond early.
+job_checkpoints = (%w[2026-09-11T12:00:30 2026-12-31T23:59:59 2027-03-28T01:00:00 2031-07-04T08:15:42 2038-01-19T03:14:07].product(
+  %w[000000 000001 000456 000457 123456 250000 333333 499999 500000 666667 999998 999999]
+).map { |second, fraction| "#{second}.#{fraction}Z" } + %w[2026-09-11T12:00:30Z 1999-12-31T23:59:59.000456Z]).freeze
+# A Float as its exact bits: the JSON writer keeps only 16 digits of one.
+fl = ->(number) { number.is_a?(Float) ? { 'bits' => [number].pack('G').unpack1('H*') } : number }
+# Checkpoints off the microsecond grid: an anchor out of a row plus a Float, as Automation::Schedulable adds one
+# (`checkpoint + intervals * duration.to_f`, or `checkpoint += duration` over and over; `checkpoint - duration.to_f`
+# for the last one). The first is the reviewed case: 7 a day in slices of 1. Durations under 2,048 seconds, whole
+# nanoseconds, and anchors past 2038 and 2106 each take another branch of Ruby's Rational#to_f.
+exact_rng = Random.new(3_141_592)
+exact_anchors = %w[2026-10-01T12:00:30.000456Z 2026-09-10T11:00:30.000456Z 2026-09-10T12:00:30Z 2026-03-29T00:59:59.999999Z
+                   2038-01-19T03:14:07.500001Z 2110-06-01T00:00:00.123457Z].freeze
+exact_durations = [86_400.0 / (7 / 1.0), 86_400.0 / (7 / 1.0)] +
+                  [[3_600.0, 7, 1.0], [3_600.0, 11, 1.5], [86_400.0, 25.5, 2.0], [86_400.0, 100, 0.37], [604_800.0, 60, 0.03], [604_800.0, 1000, 950.0],
+                   [2_629_746.0, 1000, 333.0], [2_629_746.0, 200, 200.0], [86_400.0, 2, 1.0], [3_600.0, 3, 0.25]].map { |interval, amount, slice| interval / (amount / slice) } +
+                  [43_200.0, 100.001953125, 300.5, 0.75, 1.0000000000000002] + Array.new(12) { exact_rng.rand * [3_000.0, 90_000.0, 700_000.0].sample(random: exact_rng) + 1 }
+exact_cases = [[exact_anchors.first, exact_durations.first, 1, '2026-10-01T13:00:30Z']] +
+              exact_anchors.product(exact_durations.drop(1)).flat_map do |anchor, duration|
+                [1, -1, exact_rng.rand(2..40)].map do |times|
+                  # As Rails builds a step: one Float product for a duration in seconds, added once.
+                  float, count = times > 1 && duration != 2_629_746.0 ? [times * duration, 1] : [duration, times]
+                  [anchor, float, count, (Time.iso8601(anchor) + exact_rng.rand(-90_000.0..90_000.0)).round(6).utc.iso8601(6)]
+                end
+              end
+vectors['bot_pages'] = {
+  'float_to_s' => bot_floats.map { |float| { 'float' => fl.(float), 'text' => float.to_s } },
+  'float_round' => [[0.6 * 100, 1], [0.07 * 100, 1], [2.675, 2], [1.005, 2], [25.5, 2], [0.125, 2], [1234.5678, 2], [5.0, 2], [0.045, 2], [1e-9, 9],
+                    [123.456, 9], [-2.675, 2], [0.285, 2], [1.15, 1], [8.345, 2], [56.548667764616276, 2], [0.5, 1], [14.137166941154069, 2],
+                    [1e20, 2], [4.35, 1], [1000.4999, 2], [0.3 - 0.1, 2],
+                    # Up to 14 digits, the most a served ticker states (web::bot::MAX_DECIMALS) and the last MRI rounds by a power of ten.
+                    [0.12345678901234567, 14], [0.1 + 0.2, 14], [1234.5678901234567, 12], [2.5e-14, 14], [100.0 / 3, 14], [1e-15, 14],
+                    [0.000123456789012345, 14], [5.0e-15, 14], [0.123456789012345, 14], [987_654.32109876543, 10], [7.5e-12, 11],
+                    [-0.98765432109876543, 13], [49.999999999999995, 14]].map do |float, digits|
+    { 'float' => fl.(float), 'digits' => digits, 'rounded' => fl.(float.round(digits)) }
+  end,
+  'float_round_whole' => [0.5, 1.5, 2.5, -0.5, 24.999, 25.0, 49.5, 99.99999].map { |float| { 'float' => fl.(float), 'rounded' => float.round } },
+  'input_value' => stored_numbers.map { |number| { 'number' => fl.(number), 'text' => strip.(number.to_d) } },
+  'times_100' => [0.01, 0.005, 0.001, 0.2, 0.07, 0.15, 1, 0.0015].map { |number| { 'number' => fl.(number), 'text' => strip.(number.to_d * 100) } },
+  'to_s' => (stored_numbers + [BigDecimal('50'), BigDecimal('0.121250333'), BigDecimal('1E-9'), BigDecimal('123456789.5')]).map do |number|
+    { 'number' => number.is_a?(BigDecimal) ? number.to_s('F') : fl.(number), 'decimal' => number.is_a?(BigDecimal), 'text' => number.to_s,
+      'rounded' => number.round(2).to_s }
+  end,
+  'number_with_precision' => [[100.0, 1, false], [60.00000000000001, 1, false], [1_234_567.891, 2, true], [0.005, 2, true], [49.999999, 2, false],
+                              [BigDecimal('49.999999'), 2, false], [BigDecimal('412.37'), 2, false], [BigDecimal('1234.005'), 2, true],
+                              [BigDecimal('0.4'), 2, false], [-1234.5, 1, true], [99.95, 1, false], [50, 2, false], [0.6 + 0.4, 1, false],
+                              [BigDecimal('50'), 2, false], [1e-7, 2, false]].map do |number, precision, delimited|
+    { 'number' => number.is_a?(BigDecimal) ? number.to_s('F') : fl.(number), 'decimal' => number.is_a?(BigDecimal), 'precision' => precision,
+      'delimited' => delimited,
+      'text' => delimited ? helpers.number_with_precision(number, precision:, delimiter: ',') : helpers.number_with_precision(number, precision:) }
+  end,
+  # quote_amount_limit - what was spent, then `[it, 0].max` and `.round(2)`, as the amount-limit info prints it.
+  'limit_left' => [[1000, 0], [1000, BigDecimal('49.999999')], [1000.5, 0], [1000.5, BigDecimal('49.999999')], [100, BigDecimal('150')],
+                   [0.1, BigDecimal('0.03')], [1000, BigDecimal('0')], [250.75, BigDecimal('250.75')]].map do |limit, spent|
+    left = [limit - spent, 0].max
+    { 'limit' => fl.(limit), 'spent' => spent.is_a?(BigDecimal) ? spent.to_s('F') : nil, 'text' => left.round(2).to_s, 'reached' => left < 0.01 }
+  end,
+  # The dotiw gem replaces Rails' distance_of_time_in_words. Up to four weeks the words depend on the
+  # seconds alone; from there on dotiw counts calendar months from the present moment.
+  'distance_of_time' => (dotiw_nows.product(dotiw_seconds, %w[en de pl ru cs]) +
+                         dotiw_nows.first(2).product(dotiw_years, I18n.available_locales.map(&:to_s))).map do |now, seconds, locale|
+    text = travel_to(Time.iso8601(now)) { I18n.with_locale(locale) { helpers.distance_of_time_in_words(seconds.seconds) } }
+    { 'now' => now, 'seconds' => fl.(seconds), 'locale' => locale, 'text' => text }
+  end,
+  # Its unit names, from the gem's own locale files: the crate pins them (web::i18n FROM_GEMS).
+  'dotiw' => I18n.available_locales.flat_map do |locale|
+    units = I18n.backend.send(:translations).dig(locale, :datetime, :dotiw) || {}
+    units.slice(:seconds, :minutes, :hours, :days, :weeks, :months, :years).flat_map do |unit, forms|
+      # A locale may give a unit one text for every count (the gem's Danish year).
+      forms.is_a?(Hash) ? forms.map { |form, text| ["#{locale}.datetime.dotiw.#{unit}.#{form}", text] } : [["#{locale}.datetime.dotiw.#{unit}", forms]]
+    end + (units[:less_than_x] ? [["#{locale}.datetime.dotiw.less_than_x", units[:less_than_x]]] : [])
+  end.to_h,
+  'zones' => instants.to_h { |at| [at, zone_names.to_h { |name| [name, Time.iso8601(at).in_time_zone(name).strftime('%Z')] }] },
+  'table_when' => instants.product(%w[UTC Tallinn Warsaw Hawaii Kathmandu], %w[en de]).map do |at, zone, locale|
+    time = Time.iso8601(at)
+    { 'at' => at, 'zone' => zone, 'locale' => locale, 'date' => helpers.table_date(time, zone),
+      'clock' => I18n.with_locale(locale) { helpers.table_clock(time, zone) }, 'iso8601' => time.utc.iso8601,
+      'datetime_local' => time.in_time_zone(zone).strftime('%Y-%m-%dT%H:%M') }
+  end,
+  'iso8601' => %w[2026-09-10T12:00:30.999999Z 2026-09-10T12:00:30Z].map { |at| { 'at' => at, 'text' => Time.iso8601(at).utc.iso8601 } },
+  'start_default' => (instants + %w[2026-09-14T13:29:59Z 2026-09-14T13:30:00Z 2026-09-13T03:59:59Z 2026-09-13T04:00:00Z]).product(
+    ['UTC', 'Tallinn', 'Hawaii', 'Tokyo', 'Eastern Time (US & Canada)', 'Sydney']
+  ).map do |at, zone|
+    mode, time = Bots::DcaMultiAsset.new(user: User.new(time_zone: zone)).default_start_time_selection(now: Time.iso8601(at))
+    { 'at' => at, 'zone' => zone, 'mode' => mode, 'time' => time }
+  end,
+  'ensure_contrast' => %w[#1A2B3C #76B900 #F5F5F7 #0668E1 #050505 #E31837 #ED1C24 #8A9BA8 #FFFFFF #000000 #7f7f7f #abcdef #ABCDEF 808080 #0a0a0a
+                          #101010 #c8c8c8 #d9d9d9 #zzzzzz #12345 #1234567].map do |color|
+    { 'color' => color, 'contrast' => helpers.ensure_contrast(color) }
+  end + [{ 'color' => '', 'contrast' => helpers.ensure_contrast('') }],
+  'ticker_class' => [['Stock', nil], ['Stock', '#111111'], ['Stock', ''], ['Cryptocurrency', nil], [nil, nil], ['ETF', nil]].map do |category, color|
+    { 'category' => category, 'color' => color, 'class' => helpers.ticker_class_for(category:, color:) }
+  end,
+  'ring' => ring_sets.map do |pairs|
+    { 'values' => pairs, 'arcs' => helpers.send(:icon_arcs, pairs.map { |value, color| [BigDecimal(value), color] }).map { |arc| arc.slice(:color, :dash, :offset).transform_values(&:to_s) } }
+  end,
+  # Automation::Schedulable#progress_percentage, and the width the status bar prints from it.
+  'progress' => progress_cases.map do |from, to|
+    start_time, end_time = Time.iso8601(from), Time.iso8601(to)
+    share = start_time.present? && end_time > start_time ? (progress_now - start_time) / (end_time - start_time) : 0
+    { 'now' => progress_now.iso8601(6), 'from' => from, 'to' => to, 'width' => "#{share * 100}" }
+  end,
+  # The time a job enqueued for a checkpoint is held at: ActiveJob gives the adapter `wait_until.to_f`, Solid Queue reads
+  # it with Time.at, and the column cuts it to six decimals (web::bot::status::job_time_us).
+  'job_time' => job_checkpoints.map do |text|
+    held = SolidQueue::Job.type_for_attribute(:scheduled_at).serialize(Time.at(Time.iso8601(text).to_f))
+    { 'checkpoint' => text, 'job' => held.utc.iso8601(6) }
+  end,
+  # A checkpoint off the microsecond grid (`Time + Float` is exact): the time its job is held at, the second `iso8601`
+  # prints, Time#to_f, and Time#- from another time and to it (web::bot::status::Instant). MRI's Rational#to_f is not
+  # the nearest Float; these hold the port to its own steps.
+  'exact_times' => exact_cases.map do |anchor, float, times, other|
+    at = times.abs.times.reduce(Time.iso8601(anchor)) { |time, _| times.negative? ? time - float : time + float }
+    held = SolidQueue::Job.type_for_attribute(:scheduled_at).serialize(Time.at(at.to_f))
+    now = Time.iso8601(other)
+    { 'anchor' => anchor, 'float' => fl.(float), 'times' => times, 'other' => other, 'job' => held.utc.iso8601(6), 'second' => at.utc.iso8601,
+      'to_f' => fl.(at.to_f), 'since' => fl.(now - at), 'until' => fl.(at - now) }
+  end,
+  'string_to_id' => integer_texts.map do |text|
+    id = begin
+      Bot.type_for_attribute(:id).serialize(text) # what `find` binds; out of the column's range it raises, and `find` finds nothing
+    rescue ActiveModel::RangeError
+      nil
+    end
+    { 'text' => text, 'id' => id }
+  end,
+  # String#to_i itself, as a string: Ruby has no largest Integer.
+  'string_to_i' => integer_texts.map { |text| { 'text' => text, 'integer' => text.to_i.to_s } }
 }
 # users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
 time_zones = ActiveSupport::TimeZone::MAPPING
