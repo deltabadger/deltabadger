@@ -621,3 +621,352 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
         assert_eq!((names.len(), crossed), (125, 18), "a scenario was dropped or added without this count");
     }
 }
+
+/// An install with an owner, a registered public client (`client-uid`) and one unspent code for it
+/// (`the-code`, issued at `AT` for `VERIFIER`'s S256 challenge).
+const AT: &str = "2026-09-10T12:00:30.123456Z";
+const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+
+fn seeded() -> (tempfile::TempDir, App) {
+    let (dir, app, _) = seeded_with_clock();
+    (dir, app)
+}
+
+fn seeded_with_clock() -> (tempfile::TempDir, App, std::sync::Arc<TestClock>) {
+    let dir = common::rails_install();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01', '2026-01-01');
+                     INSERT INTO oauth_applications (name, uid, redirect_uri, scopes, confidential, created_at, updated_at) VALUES ('Client', 'client-uid', 'https://client.example/callback', 'mcp', 0, '2026-01-01', '2026-01-01');
+                     INSERT INTO oauth_access_grants (application_id, resource_owner_id, token, expires_in, redirect_uri, scopes, code_challenge, code_challenge_method, created_at)
+                       VALUES (1, 1, 'the-code', 600, 'https://client.example/callback', 'mcp', 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', 'S256', '2026-09-10 12:00:30.123456');").unwrap();
+    let clock = TestClock::at(AT);
+    let app = web::app(dir.path(), web::SECRET, clock.clone());
+    (dir, app, clock)
+}
+
+struct Sent {
+    status: u16,
+    headers: Vec<(String, String)>,
+    body: String,
+}
+
+async fn send(app: &App, method: &str, path: &str, content_type: &str, body: &str, cookie: Option<&str>) -> Sent {
+    let mut request = Request::builder().method(method).uri(path).header(header::HOST, web::HOST).header(header::CONTENT_TYPE, content_type);
+    if let Some(cookie) = cookie { request = request.header(header::COOKIE, cookie); }
+    let mut request = request.body(Body::from(body.to_string())).unwrap();
+    request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
+    let response = deltabadger::web::router(app.clone()).oneshot(request).await.unwrap();
+    let status = response.status().as_u16();
+    let headers = response.headers().iter().map(|(n, v)| (n.as_str().to_string(), v.to_str().unwrap().to_string())).collect();
+    Sent { status, headers, body: String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap()).into_owned() }
+}
+
+const FORM: &str = "application/x-www-form-urlencoded";
+
+fn exchange_form() -> String {
+    format!("grant_type=authorization_code&code=the-code&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&code_verifier={VERIFIER}&client_id=client-uid")
+}
+
+fn count(dir: &Path, table: &str) -> i64 {
+    rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0)).unwrap()
+}
+
+/// The routes a client calls on its own are outside the session and the CSRF check. That is true of
+/// POST on exactly these three paths: under any other method they are not served, the request's
+/// cookie is never answered, and nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn the_client_routes_are_exempt_for_their_one_method_and_never_touch_the_session() {
+    let (dir, app) = seeded();
+    for path in ["/oauth/register", "/oauth/token", "/oauth/revoke"] {
+        for method in ["GET", "PUT", "PATCH", "DELETE"] {
+            let answer = send(&app, method, path, FORM, &exchange_form(), None).await;
+            assert_eq!(answer.status, 501, "{method} {path}");
+        }
+        // A form may ask for another method (Rack::MethodOverride): then it is that method that is not served.
+        let overridden = send(&app, "POST", path, FORM, &format!("_method=delete&{}", exchange_form()), None).await;
+        assert_eq!(overridden.status, 501, "POST {path} with _method=delete");
+    }
+    assert_eq!((count(dir.path(), "oauth_access_tokens"), count(dir.path(), "oauth_applications")), (0, 1), "none of them did anything");
+
+    // A browser's session: the login page gives it one, with a CSRF token.
+    let page = send(&app, "GET", "/login", FORM, "", None).await;
+    let cookie = page.headers.iter().find(|(name, _)| name == "set-cookie").map(|(_, value)| value.split(';').next().unwrap().to_string()).expect("the login page sets the session cookie");
+    for cookie in [cookie.as_str(), "_deltabadger_rust_session=garbage"] {
+        let registered = send(&app, "POST", "/oauth/register", "application/json", r#"{"redirect_uris":["https://client.example/callback"]}"#, Some(cookie)).await;
+        let refused = send(&app, "POST", "/oauth/token", FORM, "grant_type=refresh_token&refresh_token=nothing&client_id=client-uid", Some(cookie)).await;
+        let revoked = send(&app, "POST", "/oauth/revoke", FORM, "token=nothing&client_id=client-uid", Some(cookie)).await;
+        let document = send(&app, "GET", "/.well-known/oauth-authorization-server", FORM, "", Some(cookie)).await;
+        for (answer, status) in [(&registered, 201), (&refused, 400), (&revoked, 200), (&document, 200)] {
+            assert_eq!(answer.status, status, "{}", answer.body);
+            assert!(!answer.headers.iter().any(|(name, _)| name == "set-cookie"), "no cookie is ever sent from these routes");
+        }
+    }
+    // The pages are not exempt: approving without the session's token writes no code.
+    let approved = send(&app, "POST", "/oauth/authorize", FORM, "client_id=client-uid&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&response_type=code", Some(&cookie)).await;
+    assert_eq!((approved.status, count(dir.path(), "oauth_access_grants")), (302, 1), "{}", approved.body);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_code_is_exchanged_once_however_many_ask_at_once() {
+    let (dir, app) = seeded();
+    let attempts: Vec<_> = (0..8).map(|_| { let app = app.clone(); tokio::spawn(async move { send(&app, "POST", "/oauth/token", FORM, &exchange_form(), None).await.status }) }).collect();
+    let mut statuses = vec![];
+    for attempt in attempts { statuses.push(attempt.await.unwrap()); }
+    statuses.sort_unstable();
+    assert_eq!(statuses, [200, 400, 400, 400, 400, 400, 400, 400]);
+    assert_eq!(count(dir.path(), "oauth_access_tokens"), 1);
+}
+
+/// A refusal says which kind of thing was wrong and never repeats what was sent: a code, a verifier,
+/// a token or a secret in a response body or header would end up in a client's log.
+#[tokio::test(flavor = "current_thread")]
+async fn nothing_a_request_sent_comes_back_in_a_refusal() {
+    let (_dir, app) = seeded();
+    for body in ["grant_type=authorization_code&code=SENT-CODE&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&code_verifier=SENT-VERIFIER&client_id=client-uid",
+                 "grant_type=authorization_code&code=the-code&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&code_verifier=SENT-VERIFIER&client_id=client-uid",
+                 "grant_type=refresh_token&refresh_token=SENT-REFRESH&client_id=client-uid",
+                 "grant_type=refresh_token&refresh_token=SENT-REFRESH&client_id=client-uid&client_secret=SENT-SECRET",
+                 "grant_type=SENT-GRANT&client_id=SENT-CLIENT"] {
+        let answer = send(&app, "POST", "/oauth/token", FORM, body, None).await;
+        assert!((400..=401).contains(&answer.status), "{body}: {}", answer.status);
+        let everything = format!("{} {:?}", answer.body, answer.headers);
+        assert!(!everything.contains("SENT-"), "{body}: the refusal repeats the request: {everything}");
+    }
+    let revoked = send(&app, "POST", "/oauth/revoke", FORM, "token=SENT-TOKEN&client_id=SENT-CLIENT", None).await;
+    assert!(revoked.status == 403 && !revoked.body.contains("SENT-"), "{}", revoked.body);
+}
+
+/// A JSON body is read under the form's limit, and one that is not JSON is refused before any handler.
+#[tokio::test(flavor = "current_thread")]
+async fn a_json_body_is_bounded_and_must_be_json() {
+    let (dir, app) = seeded();
+    let large = format!(r#"{{"redirect_uris":["https://client.example/callback"],"client_name":"{}"}}"#, "n".repeat(deltabadger::web::FORM_LIMIT));
+    assert_eq!(send(&app, "POST", "/oauth/register", "application/json", &large, None).await.status, 413);
+    assert_eq!(send(&app, "POST", "/oauth/register", "application/json", r#"{"redirect_uris": ["#, None).await.status, 400);
+    for no_parameters in ["", "[]", "\"text\"", "null", "7"] {
+        let answer = send(&app, "POST", "/oauth/register", "application/json", no_parameters, None).await;
+        assert!(answer.status == 400 && answer.body.contains("redirect_uris is required"), "{no_parameters:?}: {} {}", answer.status, answer.body);
+    }
+    // Only the three client routes read JSON: elsewhere such a body is not read at all.
+    assert_eq!(send(&app, "POST", "/csp-report", "application/json", &large, None).await.status, 204);
+    assert_eq!(count(dir.path(), "oauth_applications"), 1);
+}
+
+/// Token rows as Rails leaves them: `(token, the token it was refreshed from)`, each with the refresh
+/// token `r<token>`, none revoked, every link kept.
+fn seed_tokens(dir: &Path, rows: &[(String, String)]) {
+    let mut seed = String::from("BEGIN;");
+    for (token, from) in rows {
+        let previous = if from.is_empty() { String::new() } else { format!("r{from}") };
+        seed.push_str(&format!("INSERT INTO oauth_access_tokens (application_id, resource_owner_id, token, refresh_token, previous_refresh_token, scopes, expires_in, created_at)
+                                VALUES (1, 1, '{token}', 'r{token}', '{previous}', 'mcp', 3600, '2026-09-10 12:00:00.000000');"));
+    }
+    rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().execute_batch(&(seed + "COMMIT;")).unwrap();
+}
+
+/// (token, revoked_at, previous_refresh_token) of every token row, in the order they were issued.
+fn token_rows(dir: &Path) -> Vec<(String, Option<String>, String)> {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let mut rows = c.prepare("SELECT token, revoked_at, previous_refresh_token FROM oauth_access_tokens ORDER BY id").unwrap();
+    rows.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+}
+
+/// Presents `token` to this crate at `time`.
+async fn present(app: &App, clock: &std::sync::Arc<TestClock>, token: &str, time: &str) -> Result<i64, bearer::Refusal> {
+    clock.set(web::at(time));
+    let (clock, header) = (clock.clone(), format!("Bearer {token}"));
+    app.db(move |c| bearer::authenticate(c, Some(&header), "mcp", &*clock)).await.unwrap().map(|bearer| bearer.user_id)
+}
+
+fn refresh_form(token: &str) -> String {
+    format!("grant_type=refresh_token&refresh_token={token}&client_id=client-uid")
+}
+
+/// An install that comes from Rails has every refresh token it ever issued still live, in chains of
+/// hundreds, and a refresh token redeemed twice has two tokens that share all of that. One
+/// presentation walks `RETIRED_AT_ONCE` rows back and leaves the presented row pointing at the
+/// next; the presentations after it finish the chain. The walk goes through rows that are revoked
+/// already, so a client that goes on with the second of two sibling tokens still reaches every
+/// ancestor the first one did not. Each ancestor is written once, with the time of the
+/// presentation that revoked it, and keeps its own link. Another chain is never touched.
+#[tokio::test(flavor = "current_thread")]
+async fn a_long_chain_shared_by_two_tokens_is_retired_to_its_end_and_no_other_chain_is_touched() {
+    let (dir, app, clock) = seeded_with_clock();
+    let chain = |family: &'static str, length: usize| (1..=length).map(move |n| (format!("{family}{n}"), if n == 1 { String::new() } else { format!("{family}{}", n - 1) }));
+    // a1 .. a250, then `first` and `second`, both refreshed from a250; and b1 .. b3.
+    let rows: Vec<(String, String)> = chain("a", 250).chain([("first".to_string(), "a250".to_string()), ("second".to_string(), "a250".to_string())]).chain(chain("b", 3)).collect();
+    seed_tokens(dir.path(), &rows);
+    let as_rails_left_them = token_rows(dir.path());
+    assert_eq!(bearer::RETIRED_AT_ONCE, 100);
+    // What must be there: a<n> revoked at the time given for the first range that holds n, and the two siblings' links.
+    let expected = |times: &[(usize, &str)], first: &str, second: &str| -> Vec<(String, Option<String>, String)> {
+        as_rails_left_them.iter().map(|(token, _, previous)| match token.strip_prefix('a').and_then(|n| n.parse::<usize>().ok()) {
+            Some(n) => (token.clone(), times.iter().find(|(from, _)| n >= *from).map(|(_, time)| time.to_string()), previous.clone()),
+            None if token == "first" => (token.clone(), None, first.to_string()),
+            None if token == "second" => (token.clone(), None, second.to_string()),
+            None => (token.clone(), None, previous.clone()),
+        }).collect()
+    };
+    // As ActiveRecord writes a time: no fraction when there is none.
+    let (one, three, four) = ("2026-09-10 12:00:10", "2026-09-10 12:00:20", "2026-09-10 12:00:25.500000");
+    assert_eq!(present(&app, &clock, "first", "2026-09-10T12:00:10Z").await, Ok(1));
+    assert_eq!(token_rows(dir.path()), expected(&[(151, one)], "ra150", "ra250"), "the first sibling: a250 to a151, each keeping its own link");
+    // The client goes on with the second sibling, for good.
+    assert_eq!(present(&app, &clock, "second", "2026-09-10T12:00:15Z").await, Ok(1));
+    assert_eq!(token_rows(dir.path()), expected(&[(151, one)], "ra150", "ra150"), "the second sibling walks through the hundred that are revoked, and changes none");
+    assert_eq!(present(&app, &clock, "second", "2026-09-10T12:00:20Z").await, Ok(1));
+    assert_eq!(token_rows(dir.path()), expected(&[(151, one), (51, three)], "ra150", "ra50"), "then a150 to a51");
+    assert_eq!(present(&app, &clock, "second", "2026-09-10T12:00:25.5Z").await, Ok(1));
+    let done = expected(&[(151, one), (51, three), (1, four)], "ra150", "");
+    assert_eq!(token_rows(dir.path()), done, "then the rest: every ancestor is retired, and the presented row names nothing more");
+    assert_eq!(present(&app, &clock, "second", "2026-09-10T12:00:26Z").await, Ok(1));
+    assert_eq!(token_rows(dir.path()), done, "one more presentation writes nothing");
+    assert_eq!(token_rows(dir.path())[252..], as_rails_left_them[252..], "the other chain is as Rails left it");
+
+    // The retired tokens are refused, the oldest and the latest of them alike; the siblings' own and the other chain's work.
+    clock.set(web::at(AT));
+    for (token, status) in [("ra1", 400), ("ra150", 400), ("ra151", 400), ("ra250", 400), ("rsecond", 200), ("rfirst", 200), ("rb1", 200)] {
+        assert_eq!(send(&app, "POST", "/oauth/token", FORM, &refresh_form(token), None).await.status, status, "{token}");
+    }
+}
+
+/// The stored links are data, and a walk along them ends whatever they say: a loop is left where it
+/// closes, a row that names itself names nothing, and the presented token is never revoked by its own walk.
+#[tokio::test(flavor = "current_thread")]
+async fn a_chain_that_loops_ends_and_the_presented_token_is_not_revoked_by_it() {
+    let (dir, app, clock) = seeded_with_clock();
+    let row = |token: &str, from: &str| (token.to_string(), from.to_string());
+    // x1 <- x2 <- x3 <- x1: a loop of three. `own` names itself. y2 comes from y1, which names the presented row.
+    seed_tokens(dir.path(), &[row("x1", "x3"), row("x2", "x1"), row("x3", "x2"), row("own", "own"), row("y1", "y2"), row("y2", "y1")]);
+    let at = "2026-09-10 12:00:10";
+    assert_eq!(present(&app, &clock, "x3", "2026-09-10T12:00:10Z").await, Ok(1));
+    assert_eq!(present(&app, &clock, "own", "2026-09-10T12:00:10Z").await, Ok(1));
+    assert_eq!(present(&app, &clock, "y2", "2026-09-10T12:00:10Z").await, Ok(1));
+    let some = |time: &str| Some(time.to_string());
+    assert_eq!(token_rows(dir.path()), [
+        ("x1".to_string(), some(at), "rx3".to_string()), ("x2".to_string(), some(at), "rx1".to_string()), ("x3".to_string(), None, String::new()),
+        ("own".to_string(), None, String::new()),
+        ("y1".to_string(), some(at), "ry2".to_string()), ("y2".to_string(), None, String::new()),
+    ]);
+    let after = token_rows(dir.path());
+    for token in ["x3", "own", "y2"] { assert_eq!(present(&app, &clock, token, "2026-09-10T12:00:20Z").await, Ok(1)); }
+    assert_eq!(token_rows(dir.path()), after, "and a second presentation of each writes nothing");
+}
+
+/// A loop longer than one walk ends too, across presentations: the place kept for the next one must
+/// name a row older than every row the walk passed, which a chain that was issued always does. The
+/// rows are inserted oldest first, as issuance writes them; only the link that closes each loop
+/// names a newer row. Without that rule a loop of 100 would be walked whole by every presentation,
+/// and a loop of 101 would move the place back one row each time, for ever.
+#[tokio::test(flavor = "current_thread")]
+async fn a_chain_that_loops_longer_than_one_walk_ends_across_presentations() {
+    let (dir, app, clock) = seeded_with_clock();
+    // p <- c1 <- ... <- c100 <- c1, and q <- d1 <- ... <- d101 <- d1; c100 and d101 the oldest rows.
+    let cycle = |family: &str, length: usize, presented: &str| -> Vec<(String, String)> {
+        (1..=length).rev().map(|n| (format!("{family}{n}"), format!("{family}{}", if n == length { 1 } else { n + 1 })))
+            .chain([(presented.to_string(), format!("{family}1"))]).collect()
+    };
+    seed_tokens(dir.path(), &[cycle("c", 100, "p"), cycle("d", 101, "q")].concat());
+    let as_seeded = token_rows(dir.path());
+    let (one, two) = ("2026-09-10 12:00:10", "2026-09-10 12:00:20");
+    // Every row of a family revoked at the time given for it, its link kept; the presented row's link as given.
+    let expected = |family: char, times: &dyn Fn(usize) -> Option<&'static str>, presented: &str, link: &str| -> Vec<(String, Option<String>, String)> {
+        as_seeded.iter().map(|(token, revoked_at, previous)| match token.strip_prefix(family).and_then(|n| n.parse::<usize>().ok()) {
+            Some(n) => (token.clone(), times(n).map(str::to_string), previous.clone()),
+            None if token == presented => (token.clone(), None, link.to_string()),
+            None => (token.clone(), revoked_at.clone(), previous.clone()),
+        }).collect()
+    };
+
+    // A loop of exactly one walk: every row revoked, and the place it closes on is not kept.
+    assert_eq!(present(&app, &clock, "p", "2026-09-10T12:00:10Z").await, Ok(1));
+    let c_done = expected('c', &|_| Some(one), "p", "");
+    assert_eq!(token_rows(dir.path()), c_done, "the loop of 100 is ended by its first presentation");
+    assert_eq!(present(&app, &clock, "p", "2026-09-10T12:00:20Z").await, Ok(1));
+    assert_eq!(token_rows(dir.path()), c_done, "a second presentation writes nothing");
+
+    // One row longer: the first walk stops at d100 and keeps d101, the oldest row, as the place.
+    assert_eq!(present(&app, &clock, "q", "2026-09-10T12:00:10Z").await, Ok(1));
+    let d_one: Vec<_> = expected('d', &|n| (n <= 100).then_some(one), "q", "rd101").into_iter().zip(&c_done)
+        .map(|(d, c)| if d.0.starts_with('c') || d.0 == "p" { c.clone() } else { d }).collect();
+    assert_eq!(token_rows(dir.path()), d_one, "the loop of 101 after one presentation");
+    // The second walk revokes d101 and comes round to rows newer than it: the loop is ended.
+    assert_eq!(present(&app, &clock, "q", "2026-09-10T12:00:20Z").await, Ok(1));
+    let d_done: Vec<_> = expected('d', &|n| Some(if n <= 100 { one } else { two }), "q", "").into_iter().zip(&c_done)
+        .map(|(d, c)| if d.0.starts_with('c') || d.0 == "p" { c.clone() } else { d }).collect();
+    assert_eq!(token_rows(dir.path()), d_done, "the loop of 101 is ended by its second presentation");
+    assert_eq!(present(&app, &clock, "q", "2026-09-10T12:00:30Z").await, Ok(1));
+    assert_eq!(token_rows(dir.path()), d_done, "a third presentation writes nothing");
+}
+
+/// A code is spent by a write, not by a comparison of times: the exchange sets `revoked_at` where
+/// it is not set and issues only if that changed the row. A second exchange whose clock is behind
+/// what the first one wrote, as a request that arrived earlier and ran later would have it, issues
+/// nothing and moves nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_spent_code_stays_spent_for_a_request_whose_clock_is_behind_the_first_ones() {
+    let (dir, app, clock) = seeded_with_clock();
+    clock.set(web::at("2026-09-10T12:00:50Z"));
+    assert_eq!(send(&app, "POST", "/oauth/token", FORM, &exchange_form(), None).await.status, 200);
+    clock.set(web::at("2026-09-10T12:00:31Z"));
+    let second = send(&app, "POST", "/oauth/token", FORM, &exchange_form(), None).await;
+    assert!(second.status == 400 && second.body.contains("invalid_grant"), "{} {}", second.status, second.body);
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let revoked_at: String = c.query_row("SELECT revoked_at FROM oauth_access_grants WHERE token = 'the-code'", [], |r| r.get(0)).unwrap();
+    assert_eq!((count(dir.path(), "oauth_access_tokens"), revoked_at.as_str()), (1, "2026-09-10 12:00:50"));
+}
+
+/// A refresh and the retirement of its token, in both orders, each with the second one's clock
+/// behind the first one's. Retired first: the refresh issues nothing. Redeemed first: the token it
+/// issued stands (the refresh token was good when it was redeemed), the retirement still happens,
+/// keeps the time it was first given, and from then on the refresh token is refused.
+#[tokio::test(flavor = "current_thread")]
+async fn a_refresh_and_a_retirement_do_not_depend_on_whose_clock_is_ahead() {
+    let row = |token: &str, from: &str| (token.to_string(), from.to_string());
+    let (early, late) = ("2026-09-10T12:00:31Z", "2026-09-10T12:00:50Z");
+
+    let (dir, app, clock) = seeded_with_clock();
+    seed_tokens(dir.path(), &[row("p1", ""), row("p2", "p1")]);
+    assert_eq!(present(&app, &clock, "p2", late).await, Ok(1));
+    clock.set(web::at(early));
+    assert_eq!(send(&app, "POST", "/oauth/token", FORM, &refresh_form("rp1"), None).await.status, 400, "retired at 12:00:50, redeemed by a clock at 12:00:31");
+    assert_eq!(token_rows(dir.path()), [("p1".to_string(), Some("2026-09-10 12:00:50".to_string()), String::new()), ("p2".to_string(), None, String::new())]);
+
+    let (dir, app, clock) = seeded_with_clock();
+    seed_tokens(dir.path(), &[row("p1", ""), row("p2", "p1")]);
+    clock.set(web::at(late));
+    let redeemed = send(&app, "POST", "/oauth/token", FORM, &refresh_form("rp1"), None).await;
+    assert_eq!(redeemed.status, 200, "{}", redeemed.body);
+    let sibling = serde_json::from_str::<Value>(&redeemed.body).unwrap()["access_token"].as_str().unwrap().to_string();
+    assert_eq!(present(&app, &clock, "p2", early).await, Ok(1));
+    let retired = |rows: &[(String, Option<String>, String)]| rows[0].1.clone();
+    assert_eq!(retired(&token_rows(dir.path())).as_deref(), Some("2026-09-10 12:00:31"));
+    // The sibling's own walk reaches the same row later, and so does a second look by a later clock: the time stays.
+    assert_eq!(present(&app, &clock, &sibling, "2026-09-10T12:00:55Z").await, Ok(1));
+    assert_eq!(retired(&token_rows(dir.path())).as_deref(), Some("2026-09-10 12:00:31"));
+    clock.set(web::at(AT)); // 12:00:30.123456: before the retirement's own time
+    assert_eq!(send(&app, "POST", "/oauth/token", FORM, &refresh_form("rp1"), None).await.status, 400);
+    assert_eq!(count(dir.path(), "oauth_access_tokens"), 3);
+}
+
+/// The moment a request is judged by, and writes, is read after it has the database, not when it
+/// arrived: a request that waited while another held the database is dated by when its turn came.
+#[tokio::test(flavor = "current_thread")]
+async fn a_request_that_waited_for_the_database_is_dated_when_its_turn_came() {
+    let (dir, app, clock) = seeded_with_clock();
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let (taken, is_taken) = tokio::sync::oneshot::channel::<()>();
+    let holder = { let app = app.clone(); tokio::spawn(async move { app.db(move |_| { let _ = taken.send(()); let _ = held.recv(); Ok(()) }).await }) };
+    is_taken.await.unwrap();
+    let waiting = { let app = app.clone(); tokio::spawn(async move { send(&app, "POST", "/oauth/token", FORM, &exchange_form(), None).await }) };
+    // The request arrives and gets as far as the database, which is held.
+    for _ in 0..50 { tokio::task::yield_now().await; }
+    clock.set(web::at("2026-09-10T12:05:00Z"));
+    release.send(()).unwrap();
+    let (answer, held_ok) = (waiting.await.unwrap(), holder.await.unwrap());
+    assert!(held_ok.is_ok() && answer.status == 200, "{}", answer.body);
+    assert_eq!(serde_json::from_str::<Value>(&answer.body).unwrap()["created_at"], web::at("2026-09-10T12:05:00Z").timestamp());
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let written: (String, String) = c.query_row("SELECT g.revoked_at, t.created_at FROM oauth_access_grants g, oauth_access_tokens t WHERE g.token = 'the-code'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(written, ("2026-09-10 12:05:00".to_string(), "2026-09-10 12:05:00".to_string()));
+}
