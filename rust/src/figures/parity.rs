@@ -2,6 +2,8 @@
 //! scenario, computed from its database copy and its scripted market, in the shape Rails reports them.
 use super::at::At;
 use super::db::Subject;
+use super::live;
+use super::scripted::Scripted;
 use super::walk::{self, Metrics};
 use super::{Absent, FiguresError};
 use rusqlite::{Connection, OpenFlags};
@@ -31,6 +33,10 @@ fn text<T>(answer: &Answer<T>, write: impl Fn(&T) -> String) -> Value {
     }
 }
 
+fn after<T, U>(earlier: &Answer<T>, next: impl FnOnce(&T) -> Result<U, FiguresError>) -> Result<Answer<U>, FiguresError> {
+    match earlier { Ok(value) => answer(next(value)), Err(error) => Ok(Err(error.clone())) }
+}
+
 /// The scenario in `dir` (scenario.json beside production.sqlite3): Rails' rails.json, computed here.
 pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
     let unreadable = |e: &dyn std::fmt::Display| FiguresError::Data(e.to_string());
@@ -41,6 +47,7 @@ pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
     let c = Connection::open_with_flags(dir.join("production.sqlite3"), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let now = scenario["at"].as_str().and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).and_then(|at| At::from_utc(at.to_utc()))
         .ok_or_else(|| FiguresError::Data("scenario.json has no `at`".into()))?;
+    let market = Scripted::new(&scenario["script"], scenario["provider"].as_str());
     let written = |m: &Metrics| m.to_json(9).write();
 
     let mut bots = Map::new();
@@ -51,12 +58,17 @@ pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
             Err(other) => return Err(other),
         };
         let metrics = answer(walk::metrics(&c, &subject, now))?;
+        let live = after(&metrics, |metrics| live::live(&c, &subject, metrics, &market, now))?;
         let mut out = Map::new();
         out.insert("metrics".into(), text(&metrics, written));
+        out.insert("live".into(), text(&live, written));
+        // Beside the figures, and no part of what is compared with Rails: the held assets the live pass left out.
+        out.insert("unpriced".into(), json!(live.iter().flat_map(|live| &live.unpriced).map(|u| json!([u.key, u.reason.as_str()])).collect::<Vec<_>>()));
         bots.insert(id.to_string(), Value::Object(out));
     }
 
     let mut out = Map::new();
     out.insert("bots".into(), Value::Object(bots));
+    if let Some(gap) = market.gaps.borrow().first() { return Err(FiguresError::Data(format!("unscripted market-data call {gap}"))); }
     Ok(Value::Object(out))
 }

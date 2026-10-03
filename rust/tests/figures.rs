@@ -180,3 +180,39 @@ fn a_long_history_is_computed_in_linear_time() {
         println!("{}: Rails {} s, this library {:?}", scenario.name, scenario.rails["seconds"], scenario.took);
     }
 }
+
+#[test]
+fn the_live_figures_match_rails_in_every_scenario() {
+    compare("live", of_bots(&["live"]));
+    let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
+    let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
+    // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
+    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (112, 7, 1), "of {} bots", lives.len());
+}
+
+/// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
+/// the library names what was left out and why. Everywhere else the list is empty.
+#[test]
+fn holdings_left_out_of_the_value_are_named_beside_the_figures() {
+    let mut named = std::collections::BTreeMap::new();
+    for scenario in &grid().scenarios {
+        for (id, bot) in scenario.rust.as_ref().unwrap()["bots"].as_object().unwrap() {
+            if bot["unpriced"].as_array().is_some_and(|list| !list.is_empty()) { named.insert(format!("{} {id}", scenario.name), bot["unpriced"].to_string()); }
+        }
+    }
+    let expected: std::collections::BTreeMap<String, String> = [
+        // The venue lists it and does not trade it: a member, both members, a quitter of an index, a member never priced.
+        ("delisted_member 1", r#"[["BBB","delisted"]]"#),
+        ("all_delisted 1", r#"[["AAA","delisted"],["BBB","delisted"]]"#),
+        ("index_rotation 1", r#"[["LLL","delisted"]]"#),
+        ("unpriceable_first 1", r#"[["LLL","delisted"]]"#),
+        // It has a ticker, and the venue's answer has no price for it.
+        ("price_missing 1", r#"[["BBB","no_price"]]"#),
+        ("candles_end_early 1", r#"[["BBB","no_price"]]"#),
+        ("split_fill_past_the_candles 1", r#"[["AAA","no_price"]]"#),
+        ("long_history 1", r#"[["BBB","no_price"]]"#),
+        // Rows recorded under a string that no listing of the venue is spelled as.
+        ("old_rows 1", r#"[["ZZZ","no_ticker"],["aaa","no_ticker"]]"#),
+    ].into_iter().map(|(bot, list)| (bot.to_string(), list.to_string())).collect();
+    assert_eq!(named, expected);
+}

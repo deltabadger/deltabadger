@@ -12,9 +12,12 @@ pub mod db;
 pub mod dec;
 pub mod json;
 pub mod keys;
+pub mod live;
 pub mod lots;
+pub mod market;
 pub mod num;
 pub mod parity;
+pub mod scripted;
 pub mod splits;
 pub mod walk;
 
