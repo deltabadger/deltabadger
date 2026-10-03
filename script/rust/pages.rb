@@ -28,6 +28,10 @@ module Pages
       'confirmed_at' => '2026-01-01T00:00:00Z' }.merge(attrs)
   end
 
+  # The signed-in user of a scenario with bots: the wash-sale question answered with no (an account
+  # that has not answered it gets a modal this build does not serve), and a zone that is not UTC.
+  def owner(attrs = {}) = user({ 'wash_sale_enabled' => false, 'time_zone' => 'Tallinn' }.merge(attrs))
+
   def two_factor_user(attrs = {}) = user({ 'otp_module' => 1, 'otp_secret_key' => OTP_SEED }.merge(attrs))
 
   def get(path, headers = {}) = { 'method' => 'GET', 'path' => path, 'headers' => headers }
@@ -194,7 +198,26 @@ module Pages
       'not_ported_bots_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
                                         'steps' => [get('/login'), login, get('/bots')] },
       'up' => { 'steps' => [get('/up')] }
-    }
+    }.merge(bot_scenarios)
+  end
+
+  def signed_in(*steps) = [get('/login'), login] + steps
+
+  def stopped(kind, spec = {}) = { 'kind' => kind }.merge(spec).merge('columns' => { 'status' => 2 }.merge(spec.fetch('columns', {})))
+
+  # A bot that is scheduled since `started_at`, with the job Rails holds for it at its next checkpoint.
+  def running(kind, started_at, spec = {})
+    { 'kind' => kind, 'job' => 'checkpoint' }.merge(spec).merge('columns' => { 'status' => 1, 'started_at' => started_at }.merge(spec.fetch('columns', {})))
+  end
+
+  # The owner's three bots as the wizard leaves them.
+  def three = [{ 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }, { 'kind' => 'single' }, { 'kind' => 'index' }]
+
+  def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
+
+  # Bot ids follow the order of 'bots'. The list itself is a later task: until then a page with bots is refused.
+  def bot_scenarios
+    { 'not_ported_bots_list' => with_bots(three, signed_in(get('/bots'))) }
   end
 
   def connect(dir) = ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
@@ -216,15 +239,19 @@ module Pages
     FileUtils.mkdir_p(dir)
     %w[production.sqlite3 production_queue.sqlite3].each { |file| FileUtils.cp(File.join(template, file), File.join(dir, file)) }
     connect(dir)
+    jobs = {}
     travel_to(Time.iso8601('2026-01-01T00:00:00Z')) do # created_at and updated_at of the seeded rows
       ([scenario['user'] || user] + scenario.fetch('extra_users', [])).each do |attrs|
         times = %w[confirmed_at locked_at last_otp_at remember_created_at].to_h { |column| [column, attrs[column] && Time.iso8601(attrs[column])] }
         User.new(attrs.merge(times).merge('password' => PASSWORD)).save!(validate: false)
       end
       scenario.fetch('app_configs', {}).each { |key, value| AppConfig.set(key, value) }
+      alpaca(scenario) if scenario['install'] == 'alpaca'
       balances(scenario.fetch('balances', {}))
+      jobs = scenario.fetch('bots', []).to_h { |spec| [bot(spec).id, spec['job']] }.compact
     end
     ActiveRecord::Base.connection_pool.disconnect!
+    jobs
   end
 
   # Priced balances of the first user: symbol => USD value (what the navbar's tracker ring is drawn from).
@@ -233,7 +260,7 @@ module Pages
 
     exchange = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
     by_symbol.each do |symbol, usd_value|
-      asset = Asset.create!(external_id: symbol.downcase, symbol:, name: symbol, category: 'Cryptocurrency')
+      asset = Asset.find_by(symbol:) || Asset.create!(external_id: symbol.downcase, symbol:, name: symbol, category: 'Cryptocurrency')
       AccountBalance.create!(user: User.first, exchange:, asset:, free: 1, locked: 0, usd_price: usd_value, usd_value:,
                              priced_at: Time.current, synced_at: Time.current)
     end
@@ -248,11 +275,11 @@ module Pages
     template = template(root)
     selected.each do |name, scenario|
       dir = File.join(root, name)
-      build(dir, template, scenario)
+      jobs = build(dir, template, scenario)
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate(
                                                     'page_parity_scratch' => true, 'at' => AT,
                                                     'secret_key_base' => Rails.application.secret_key_base, 'steps' => scenario['steps'],
-                                                    'expect_users' => scenario.fetch('expect_users', {})
+                                                    'expect_users' => scenario.fetch('expect_users', {}), 'jobs' => jobs
                                                   ))
     end
     FileUtils.rm_rf(template)
@@ -308,9 +335,24 @@ module Pages
     end
   end
 
+  # No page of the grid may reach the network: a page that did would be compared on whatever the
+  # network said that minute. Every attempt is refused, as an unreachable network refuses it, and
+  # written down; rust/tests/pages.rs fails a scenario that made one.
+  module NoNetwork
+    def initialize(host = nil, *)
+      Pages::NETWORK << host.to_s
+      raise SocketError, "page parity: no network (#{host})"
+    end
+  end
+  NETWORK = [] # rubocop:disable Style/MutableConstant
+
+  BOT_COLUMNS = %w[id status label position settings transient_data stop_message_key started_at updated_at].freeze
+
   def record(root)
     ActionController::Base.allow_forgery_protection = true # config/environments/test.rb turns it off
     Rack::Attack.enabled = true
+    Rails.configuration.dry_run = false # the test environment's stand-in for an API key: always correct
+    TCPSocket.prepend(NoNetwork)
     Dir[File.join(root, '*/scenario.json')].each do |path|
       dir = File.dirname(path)
       scenario = JSON.parse(File.read(path))
@@ -322,6 +364,8 @@ module Pages
         hash[name] = { session:, page: nil, content: {} }
       end
       now = Time.iso8601(scenario['at'])
+      NETWORK.clear
+      travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
         client = clients[step['client'] || 'main']
         now += step['advance'].to_i
@@ -350,11 +394,15 @@ module Pages
       end
       travel_back
       users = ActiveRecord::Base.connection.select_all("SELECT #{USER_COLUMNS.join(', ')} FROM users ORDER BY id").to_a
-      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate('responses' => responses, 'users' => users))
+      bots = ActiveRecord::Base.connection.select_all("SELECT #{BOT_COLUMNS.join(', ')} FROM bots ORDER BY id").to_a
+      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate('responses' => responses, 'users' => users, 'bots' => bots,
+                                                                    'network' => NETWORK.dup))
       ActiveRecord::Base.connection_pool.disconnect!
     end
   end
 end
+
+require_relative 'pages_bots'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
