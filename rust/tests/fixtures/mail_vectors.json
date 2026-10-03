@@ -1,0 +1,1930 @@
+{
+  "gems": {
+    "mail": "2.9.1",
+    "actionmailer": "8.1.4",
+    "net-smtp": "0.5.1",
+    "devise": "5.0.4",
+    "honeymaker": "0.12.3"
+  },
+  "messages": [
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Something went wrong with Long Label Long Label Long Label Long Label Long Label Long Label Long Label Long Label Long Label ",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Something went wrong with Long Label Long Label Long Label Long Label\r\n Long Label Long Label Long Label Long Label Long Label\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Ваш аккаунт Alpaca скоро исчерпает USD, пополните счёт, чтобы боты продолжали работать без перерыва",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?=D0=92=D0=B0=D1=88?=\r\n =?UTF-8?Q?_=D0=B0=D0=BA=D0=BA=D0=B0=D1=83=D0=BD=D1=82_Alpaca?=\r\n =?UTF-8?Q?_=D1=81=D0=BA=D0=BE=D1=80=D0=BE?=\r\n =?UTF-8?Q?_=D0=B8=D1=81=D1=87=D0=B5=D1=80=D0=BF=D0=B0=D0=B5=D1=82_USD,?=\r\n =?UTF-8?Q?_=D0=BF=D0=BE=D0=BF=D0=BE=D0=BB=D0=BD=D0=B8=D1=82=D0=B5?=\r\n =?UTF-8?Q?_=D1=81=D1=87=D1=91=D1=82,_=D1=87=D1=82=D0=BE=D0=B1=D1=8B?=\r\n =?UTF-8?Q?_=D0=B1=D0=BE=D1=82=D1=8B?=\r\n =?UTF-8?Q?_=D0=BF=D1=80=D0=BE=D0=B4=D0=BE=D0=BB=D0=B6=D0=B0=D0=BB=D0=B8?=\r\n =?UTF-8?Q?_=D1=80=D0=B0=D0=B1=D0=BE=D1=82=D0=B0=D1=82=D1=8C?=\r\n =?UTF-8?Q?_=D0=B1=D0=B5=D0=B7?=\r\n =?UTF-8?Q?_=D0=BF=D0=B5=D1=80=D0=B5=D1=80=D1=8B=D0=B2=D0=B0?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Coś poszło nie tak z BTC & <ETH> \"quoted\" (paren) what? under_score a=b",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Co=C5=9B_posz=C5=82o_nie_tak_z_BTC_&_<ETH>_=22quoted=22?=\r\n =?UTF-8?Q?_=28paren=29_what=3F_under=5Fscore_a=3Db?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Coś  podwójna spacja  tu",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Co=C5=9B__podw=C3=B3jna_spacja__tu?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": " leading i trailing ż ",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?_leading_i_trailing_=C5=BC?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "ascii  double  space ",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: ascii  double  space\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "żżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżż",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "SupercalifragilisticSupercalifragilisticSupercalifragilistic ż",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?SupercalifragilisticSupercalifragilisticSupercalifragili?=\r\n =?UTF-8?Q?stic_=C5=BC?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "ż aaaaaaaaaaaaaa bbbbbbbbbbbbbbb",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?=C5=BC_aaaaaaaaaaaaaa_bbbbbbbbbbbbbbb?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Ž",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?=C5=BD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "🦡 badger stopped",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?=F0=9F=A6=A1_badger_stopped?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</p>\n<p>short = line</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</p>\r\n<p>short =3D line</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>Здравствуйте,</p>\n<p>Ваш аккаунт Alpaca скоро исчерпает USD. Сделайте перевод на Alpaca, чтобы ваши боты работали непрерывно.</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nPHA+0JfQtNGA0LDQstGB0YLQstGD0LnRgtC1LDwvcD4KPHA+0JLQsNGIINCw\r\n0LrQutCw0YPQvdGCIEFscGFjYSDRgdC60L7RgNC+INC40YHRh9C10YDQv9Cw\r\n0LXRgiBVU0QuINCh0LTQtdC70LDQudGC0LUg0L/QtdGA0LXQstC+0LQg0L3Q\r\nsCBBbHBhY2EsINGH0YLQvtCx0Ysg0LLQsNGI0Lgg0LHQvtGC0Ysg0YDQsNCx\r\n0L7RgtCw0LvQuCDQvdC10L/RgNC10YDRi9Cy0L3Qvi48L3A+Cg==\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "crlf\r\nlone cr\rand lf\nż\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\ncrlf\r\nlone cr\r\nand lf\r\n=C5=BC\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "crlf\r\nlone cr\rand lf\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\ncrlf\r\nlone cr\r\nand lf\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ncccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\ndddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddż\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=\r\n\r\nccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc=\r\nc\r\nddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd=\r\ndd=C5=BC\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "żżżżżżżżżżaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BCaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaa\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "żżżżżżżżżżaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BCaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaa\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "яяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя\nяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/R\r\nj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP\r\nCtGP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP\r\n0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/Rj9GP0Y/R\r\nj9GPCg==\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaażżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżżż\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=C5=BC=C5=BC=\r\n=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=\r\n=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=\r\n=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=\r\n=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC=C5=BC\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": "noreply@deltabadger.com",
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nReply-To: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": " spaced@example.com ",
+      "to": "owner@example.com",
+      "reply_to": " spaced@example.com ",
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: spaced@example.com\r\nReply-To: spaced@example.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "spaced@example.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "MyApp <noreply@example.com>",
+      "to": "owner@example.com",
+      "reply_to": "MyApp <noreply@example.com>",
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: MyApp <noreply@example.com>\r\nReply-To: MyApp <noreply@example.com>\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "noreply@example.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "My.App <a@b.c>",
+      "to": "owner@example.com",
+      "reply_to": "My.App <a@b.c>",
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: \"My.App\" <a@b.c>\r\nReply-To: \"My.App\" <a@b.c>\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "a@b.c",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "\"Quoted, Name\" <a@b.c>",
+      "to": "owner@example.com",
+      "reply_to": "\"Quoted, Name\" <a@b.c>",
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: \"Quoted, Name\" <a@b.c>\r\nReply-To: \"Quoted, Name\" <a@b.c>\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "a@b.c",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "Deltabadger Cloud Notifications With A Long Display Name Here And More <noreply@deltabadger.com>",
+      "to": "owner@example.com",
+      "reply_to": "Deltabadger Cloud Notifications With A Long Display Name Here And More <noreply@deltabadger.com>",
+      "subject": "Twoje konto Alpaca wkrótce wyczerpie USD",
+      "html": "<p>Cześć Zażółć,</p>\n<p>trailing space \n\ttab = equals\t\n</p>\nno newline at the end",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: Deltabadger Cloud Notifications With A Long Display Name Here And More <noreply@deltabadger.com>\r\nReply-To: Deltabadger Cloud Notifications With A Long Display Name Here And More <noreply@deltabadger.com>\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: =?UTF-8?Q?Twoje_konto_Alpaca_wkr=C3=B3tce_wyczerpie_USD?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Cze=C5=9B=C4=87 Za=C5=BC=C3=B3=C5=82=C4=87,</p>\r\n<p>trailing space =\r\n\r\n\ttab =3D equals\t=\r\n\r\n</p>\r\nno newline at the end=\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "owner@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: owner@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "owner@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com"
+      ]
+    },
+    {
+      "from": "noreply@deltabadger.com",
+      "to": "o'brien+tag@example.co.uk",
+      "reply_to": null,
+      "subject": "Your Alpaca account is running out of USD",
+      "html": "<p>plain ascii</p>\n",
+      "encoded": "Date: Thu, 10 Sep 2026 12:00:30 +0000\r\nFrom: noreply@deltabadger.com\r\nTo: o'brien+tag@example.co.uk\r\nMessage-ID: <vector@deltabadger.test>\r\nSubject: Your Alpaca account is running out of USD\r\nMIME-Version: 1.0\r\nContent-Type: text/html;\r\n charset=UTF-8\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>plain ascii</p>\r\n",
+      "envelope_from": "noreply@deltabadger.com",
+      "envelope_to": [
+        "o'brien+tag@example.co.uk"
+      ]
+    }
+  ],
+  "floats": [
+    [
+      {
+        "f": "408f400000000000"
+      },
+      "1000.0"
+    ],
+    [
+      1000,
+      "1000"
+    ],
+    [
+      {
+        "f": "3fb999999999999a"
+      },
+      "0.1"
+    ],
+    [
+      {
+        "f": "4004000000000000"
+      },
+      "2.5"
+    ],
+    [
+      {
+        "f": "4059000000000000"
+      },
+      "100.0"
+    ],
+    [
+      {
+        "f": "4132d687e3d70a3d"
+      },
+      "1234567.89"
+    ],
+    [
+      {
+        "f": "3fd3333333333334"
+      },
+      "0.30000000000000004"
+    ],
+    [
+      {
+        "f": "42d6bcc41e900000"
+      },
+      "100000000000000.0"
+    ],
+    [
+      {
+        "f": "42dc12218377de66"
+      },
+      "123456789012345.6"
+    ],
+    [
+      {
+        "f": "430c6bf526340000"
+      },
+      "1.0e+15"
+    ],
+    [
+      {
+        "f": "4341c37937e07fff"
+      },
+      "9.999999999999998e+15"
+    ],
+    [
+      {
+        "f": "4341c37937e08000"
+      },
+      "1.0e+16"
+    ],
+    [
+      {
+        "f": "434aa535d3d0c000"
+      },
+      "1.5e+16"
+    ],
+    [
+      {
+        "f": "4480f0cf064dd592"
+      },
+      "1.0e+22"
+    ],
+    [
+      {
+        "f": "44b52d02c7e14af6"
+      },
+      "1.0e+23"
+    ],
+    [
+      {
+        "f": "3f1a36e2eb1c432d"
+      },
+      "0.0001"
+    ],
+    [
+      {
+        "f": "3f202e4b6ce5dc68"
+      },
+      "0.00012345"
+    ],
+    [
+      {
+        "f": "3ee4f8b588e368f1"
+      },
+      "1.0e-05"
+    ],
+    [
+      {
+        "f": "3e8421f5f40d8376"
+      },
+      "1.5e-07"
+    ],
+    [
+      {
+        "f": "0000000000000000"
+      },
+      "0.0"
+    ],
+    [
+      {
+        "f": "8000000000000000"
+      },
+      "-0.0"
+    ],
+    [
+      {
+        "f": "c004000000000000"
+      },
+      "-2.5"
+    ],
+    [
+      {
+        "f": "0000000000000001"
+      },
+      "5.0e-324"
+    ],
+    [
+      {
+        "f": "7fefffffffffffff"
+      },
+      "1.7976931348623157e+308"
+    ],
+    [
+      {
+        "f": "437b69b4ba630f35"
+      },
+      "1.2345678901234568e+17"
+    ],
+    [
+      3,
+      "3"
+    ]
+  ],
+  "ints": [
+    [
+      "587",
+      587
+    ],
+    [
+      "+587",
+      587
+    ],
+    [
+      "-25",
+      -25
+    ],
+    [
+      " 2525",
+      2525
+    ],
+    [
+      "\t25 ",
+      25
+    ],
+    [
+      "5_87",
+      587
+    ],
+    [
+      "5__87",
+      5
+    ],
+    [
+      "_587",
+      0
+    ],
+    [
+      "587_",
+      587
+    ],
+    [
+      "587abc",
+      587
+    ],
+    [
+      "abc",
+      0
+    ],
+    [
+      "",
+      0
+    ],
+    [
+      "0x1F",
+      0
+    ],
+    [
+      "1e3",
+      1
+    ],
+    [
+      "12.5",
+      12
+    ],
+    [
+      "99999999999999999999",
+      9223372036854775807
+    ],
+    [
+      "+",
+      0
+    ],
+    [
+      "-",
+      0
+    ],
+    [
+      "٣",
+      0
+    ]
+  ],
+  "humanize": [
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "Kraken restricts trading XMR in PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "Kraken restricts trading XMR in PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "Kraken rejected the request nonce. If you also use this API key in another app, increase its Nonce Window in your Kraken API settings."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions",
+      "out": "Kraken doesn't allow trading this asset from your region."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "Kraken doesn't allow trading this asset from your region."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "Kraken doesn't allow trading this asset from your region."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "Kraken doesn't allow trading this asset from your region."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAPI:Invalid nonce",
+      "out": "Kraken rejected the request nonce. If you also use this API key in another app, increase its Nonce Window in your Kraken API settings."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EService:Busy",
+      "out": "Kraken is temporarily unavailable. The bot will retry automatically."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EGeneral:Internal error",
+      "out": "Kraken is temporarily unavailable. The bot will retry automatically."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EService:Deadline elapsed",
+      "out": "Kraken is temporarily unavailable. The bot will retry automatically."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EOrder:Insufficient funds",
+      "out": "Not enough funds on your Kraken account."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAPI:Invalid key",
+      "out": "Kraken rejected the API key. Check it's still active, that trading is enabled for it, and that no IP restriction blocks it."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EGeneral:Permission denied",
+      "out": "The API key is missing a permission Kraken needs for this."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "Kraken is rate-limiting requests. The bot will retry automatically."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "insufficient buying power",
+      "out": "insufficient buying power"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "unauthorized.",
+      "out": "unauthorized."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "Kraken ogranicza handel XMR w kraju PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "Kraken ogranicza handel XMR w kraju PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "Kraken odrzucił nonce żądania. Jeśli używasz tego klucza API także w innej aplikacji, zwiększ jego Nonce Window w ustawieniach API na Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions",
+      "out": "Kraken nie pozwala handlować tym aktywem z Twojego regionu."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "Kraken nie pozwala handlować tym aktywem z Twojego regionu."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "Kraken nie pozwala handlować tym aktywem z Twojego regionu."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "Kraken nie pozwala handlować tym aktywem z Twojego regionu."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAPI:Invalid nonce",
+      "out": "Kraken odrzucił nonce żądania. Jeśli używasz tego klucza API także w innej aplikacji, zwiększ jego Nonce Window w ustawieniach API na Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EService:Busy",
+      "out": "Kraken jest chwilowo niedostępny. Bot automatycznie ponowi próbę."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EGeneral:Internal error",
+      "out": "Kraken jest chwilowo niedostępny. Bot automatycznie ponowi próbę."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EService:Deadline elapsed",
+      "out": "Kraken jest chwilowo niedostępny. Bot automatycznie ponowi próbę."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EOrder:Insufficient funds",
+      "out": "Za mało środków na Twoim koncie Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAPI:Invalid key",
+      "out": "Kraken odrzucił klucz API. Sprawdź, czy nadal jest aktywny, czy ma włączony handel i czy nie blokuje go ograniczenie IP."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EGeneral:Permission denied",
+      "out": "Kluczowi API brakuje uprawnienia, którego Kraken do tego wymaga."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "Kraken ogranicza liczbę żądań. Bot automatycznie ponowi próbę."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "insufficient buying power",
+      "out": "insufficient buying power"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "unauthorized.",
+      "out": "unauthorized."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "Kraken ограничивает торговлю XMR в стране PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "Kraken ограничивает торговлю XMR в стране PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "Kraken отклонил nonce запроса. Если вы используете этот API-ключ ещё и в другом приложении, увеличьте его Nonce Window в настройках API на Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions",
+      "out": "Kraken не разрешает торговать этим активом из вашего региона."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "Kraken не разрешает торговать этим активом из вашего региона."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "Kraken не разрешает торговать этим активом из вашего региона."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "Kraken не разрешает торговать этим активом из вашего региона."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAPI:Invalid nonce",
+      "out": "Kraken отклонил nonce запроса. Если вы используете этот API-ключ ещё и в другом приложении, увеличьте его Nonce Window в настройках API на Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EService:Busy",
+      "out": "Kraken временно недоступен. Бот повторит попытку автоматически."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EGeneral:Internal error",
+      "out": "Kraken временно недоступен. Бот повторит попытку автоматически."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EService:Deadline elapsed",
+      "out": "Kraken временно недоступен. Бот повторит попытку автоматически."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EOrder:Insufficient funds",
+      "out": "Недостаточно средств на вашем счёте Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAPI:Invalid key",
+      "out": "Kraken отклонил API-ключ. Проверьте, что он ещё активен, что для него включена торговля и что его не блокирует ограничение по IP."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EGeneral:Permission denied",
+      "out": "У API-ключа нет разрешения, которое для этого требует Kraken."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "Kraken ограничивает частоту запросов. Бот повторит попытку автоматически."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "insufficient buying power",
+      "out": "insufficient buying power"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "unauthorized.",
+      "out": "unauthorized."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions",
+      "out": "EAccount:Invalid permissions"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "EAccount:Invalid permissions: trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "EAccount:Invalid permissions:X Y trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for P-L"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAPI:Invalid nonce",
+      "out": "EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EService:Busy",
+      "out": "EService:Busy"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EGeneral:Internal error",
+      "out": "EGeneral:Internal error"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EService:Deadline elapsed",
+      "out": "EService:Deadline elapsed"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EOrder:Insufficient funds",
+      "out": "EOrder:Insufficient funds"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAPI:Invalid key",
+      "out": "EAPI:Invalid key"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EGeneral:Permission denied",
+      "out": "EGeneral:Permission denied"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "EAPI:Rate limit exceeded"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "insufficient buying power",
+      "out": "Not enough funds on your Alpaca account."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "unauthorized.",
+      "out": "Alpaca rejected the API key. Check it's still active, that trading is enabled for it, and that no IP restriction blocks it."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions",
+      "out": "EAccount:Invalid permissions"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "EAccount:Invalid permissions: trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "EAccount:Invalid permissions:X Y trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for P-L"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAPI:Invalid nonce",
+      "out": "EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EService:Busy",
+      "out": "EService:Busy"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EGeneral:Internal error",
+      "out": "EGeneral:Internal error"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EService:Deadline elapsed",
+      "out": "EService:Deadline elapsed"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EOrder:Insufficient funds",
+      "out": "EOrder:Insufficient funds"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAPI:Invalid key",
+      "out": "EAPI:Invalid key"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EGeneral:Permission denied",
+      "out": "EGeneral:Permission denied"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "EAPI:Rate limit exceeded"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "insufficient buying power",
+      "out": "Za mało środków na Twoim koncie Alpaca."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "unauthorized.",
+      "out": "Alpaca odrzucił klucz API. Sprawdź, czy nadal jest aktywny, czy ma włączony handel i czy nie blokuje go ograniczenie IP."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions",
+      "out": "EAccount:Invalid permissions"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "EAccount:Invalid permissions: trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "EAccount:Invalid permissions:X Y trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for P-L"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAPI:Invalid nonce",
+      "out": "EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EService:Busy",
+      "out": "EService:Busy"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EGeneral:Internal error",
+      "out": "EGeneral:Internal error"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EService:Deadline elapsed",
+      "out": "EService:Deadline elapsed"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EOrder:Insufficient funds",
+      "out": "EOrder:Insufficient funds"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAPI:Invalid key",
+      "out": "EAPI:Invalid key"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EGeneral:Permission denied",
+      "out": "EGeneral:Permission denied"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "EAPI:Rate limit exceeded"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "insufficient buying power",
+      "out": "Недостаточно средств на вашем счёте Alpaca."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "unauthorized.",
+      "out": "Alpaca отклонил API-ключ. Проверьте, что он ещё активен, что для него включена торговля и что его не блокирует ограничение по IP."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "",
+      "out": ""
+    }
+  ],
+  "smtp": [
+    {
+      "env": {},
+      "app_config": {},
+      "settings": null,
+      "sender": "noreply@localhost"
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "email-smtp.us-east-2.amazonaws.com",
+        "SMTP_PORT": "587",
+        "SMTP_DOMAIN": "deltabadger.com",
+        "SMTP_USER_NAME": "AKIAEXAMPLE",
+        "SMTP_PASSWORD": "env-secret",
+        "NOTIFICATIONS_SENDER": "noreply@deltabadger.com"
+      },
+      "app_config": {},
+      "settings": {
+        "address": "email-smtp.us-east-2.amazonaws.com",
+        "port": "587",
+        "domain": "deltabadger.com",
+        "user_name": "AKIAEXAMPLE",
+        "password": "env-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "noreply@deltabadger.com"
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "mail.example.com"
+      },
+      "app_config": {},
+      "settings": {
+        "address": "mail.example.com",
+        "port": "587",
+        "domain": "localhost",
+        "user_name": "",
+        "password": "",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "noreply@localhost"
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "   "
+      },
+      "app_config": {},
+      "settings": null,
+      "sender": "noreply@localhost"
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "mail.example.com",
+        "SMTP_PORT": "",
+        "SMTP_DOMAIN": "",
+        "NOTIFICATIONS_SENDER": ""
+      },
+      "app_config": {},
+      "settings": {
+        "address": "mail.example.com",
+        "port": "",
+        "domain": "",
+        "user_name": "",
+        "password": "",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": ""
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "mail.example.com",
+        "SMTP_PORT": "2525"
+      },
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret"
+      },
+      "settings": {
+        "address": "mail.example.com",
+        "port": "2525",
+        "domain": "localhost",
+        "user_name": "",
+        "password": "",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 587,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_host": "smtp.fastmail.com",
+        "smtp_port": "465"
+      },
+      "settings": {
+        "address": "smtp.fastmail.com",
+        "port": 465,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_host": "",
+        "smtp_port": "abc"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 0,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": ""
+      },
+      "settings": null,
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "",
+        "smtp_password": "app-secret"
+      },
+      "settings": null,
+      "sender": "noreply@localhost"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "env_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret"
+      },
+      "settings": null,
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret"
+      },
+      "settings": null,
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {
+        "NOTIFICATIONS_SENDER": "MyApp <noreply@example.com>"
+      },
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 587,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "MyApp <noreply@example.com>"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_port": "+587"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 587,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_port": " 2525"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 2525,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_port": "5_87"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 587,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_port": "-25"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": -25,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_port": "587abc"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 587,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    },
+    {
+      "env": {},
+      "app_config": {
+        "smtp_provider": "custom_smtp",
+        "smtp_username": "me@gmail.com",
+        "smtp_password": "app-secret",
+        "smtp_port": "0x1F"
+      },
+      "settings": {
+        "address": "smtp.gmail.com",
+        "port": 0,
+        "user_name": "me@gmail.com",
+        "password": "app-secret",
+        "authentication": "plain",
+        "enable_starttls_auto": true
+      },
+      "sender": "me@gmail.com"
+    }
+  ],
+  "smtp_defaults": {
+    "address": "localhost",
+    "port": 25,
+    "domain": "localhost.localdomain",
+    "user_name": null,
+    "password": null,
+    "authentication": null,
+    "open_timeout": 5,
+    "read_timeout": 5
+  },
+  "urls": [
+    {
+      "env": {},
+      "root": "http://localhost:3000/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "http://localhost:3000"
+      },
+      "root": "http://localhost:3000/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "https://bot.example.com"
+      },
+      "root": "https://bot.example.com/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "https://bot.example.com/"
+      },
+      "root": "https://bot.example.com/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "https://bot.example.com:8443/app/"
+      },
+      "root": "https://bot.example.com:8443/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "http://bot.example.com",
+        "FORCE_SSL": "true"
+      },
+      "root": "https://bot.example.com/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "https://bot.example.com",
+        "FORCE_SSL": "false"
+      },
+      "root": "https://bot.example.com/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "bot.example.com"
+      },
+      "root": "http://bot.example.com/"
+    },
+    {
+      "env": {
+        "APP_ROOT_URL": "HTTPS://Bot.Example.com"
+      },
+      "root": "http://HTTPS:/"
+    },
+    {
+      "env": {
+        "FORCE_SSL": "1"
+      },
+      "root": "https://localhost:3000/"
+    }
+  ],
+  "retry_waits": [
+    3,
+    18,
+    83,
+    258
+  ],
+  "ported_sources": {
+    "app/mailers/application_mailer.rb": "9c90abb241615339d9e6bc175d18d4cbfd0d77ce6d98af1f82d32b4e44336006",
+    "app/mailers/bot_alerts_mailer.rb": "c51464854f152de35833cb4b13387bb1fafec9a566b133a4594ff1402deede16",
+    "app/mailers/custom_devise_mailer.rb": "0679bd874fec06f72928b6b4f49e9fce5b13ff21d3bff3ed2f3beb17ef6ef7f2",
+    "app/mailers/test_mailer.rb": "4ed384a5039dd883d7530888996777d6d668b2deba897ae27cd2af0f99a81540",
+    "app/models/bot/notifyable.rb": "9bcceacb54f86d07b84505e9a1810286ad3305cd245663175ac52030207a77b2",
+    "app/models/bot/failable.rb": "520a31d50e1f5733454d20afb2ddb565df27c1c7a062814dace53d770559f0a8",
+    "app/models/bot/fundable.rb": "0c93f62231603005acbdff431e9d3cf64e6e83eef212298a01948e09b0dbf9e9",
+    "app/models/smtp_settings.rb": "7a91f938ac3ddfa754208fb0eb1625d161b8c8b771ca2a69d51e839a79d0eb7d",
+    "config/initializers/smtp_settings.rb": "4cf03e76fa8a93ff005c4a84724fdcdc53b8bd138d7ceab263d2666651999a80",
+    "app/jobs/application_mail_delivery_job.rb": "2dc3b95ecf910631d2972a84ab4426ab306062afa805f1ef583da2c8ac5ec75a",
+    "app/views/layouts/mailers/transactional.html.erb": "b073b6b35db63bb2812b33bb35b666cc3438d72fc47731fd897dcaba302fedea",
+    "app/views/bot_alerts_mailer/end_of_funds.html.erb": "ecab246f1517eb9f206dc390c8017a0357372ec5f39b0732a643375f9c1b9f6e",
+    "app/views/bot_alerts_mailer/notify_about_error.html.erb": "f0b12c547359f41a45af3e0c423c82bb5b4d07d700db7aa1106cede1ca8975b2",
+    "app/views/bot_alerts_mailer/stopped_by_error.html.erb": "1b483020ce859fe1f83a8d810a4c8789bdbfa5221826472ae6d2aaf1418737f3",
+    "app/views/bot_alerts_mailer/stopped_by_amount_limit.html.erb": "cf75a31f7a7d076e63dd2287f1935f56cd919d11373896daf8c025a7d705034b",
+    "app/views/test_mailer/test_email.html.erb": "f0c6530ff14a299329f216d15a665b84380a0cd53fb5238d034950fb7dfa6de9",
+    "app/views/devise/mailer/confirmation_instructions.html.erb": "85d0221f8757c697394bad3c1cb28cc8a6d0ea79164f2f6883d26d0ef6955ef5",
+    "app/views/devise/mailer/reset_password_instructions.html.erb": "c1a8b90feb4b83da4e853830a6e7cc0f5183b46954393b8af9408ff4e89d1def",
+    "app/views/devise/mailer/email_already_taken.html.erb": "cd5b3e26658da7ebca435be7012cf350c8b2dd3eb5af93758d0e9838abf32315"
+  }
+}

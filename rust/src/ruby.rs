@@ -266,3 +266,41 @@ pub fn to_sentence(items: &[String]) -> String {
 pub fn inspect(items: &[String]) -> String {
     format!("[{}]", items.iter().map(|s| format!("{s:?}")).collect::<Vec<_>>().join(", "))
 }
+
+/// `Float#to_s` (numeric.c, flo_to_s): the shortest digits that read back as the same double, in plain notation while
+/// the decimal point sits within 15 integer digits or 3 leading zeros, else `d.ddde±XX`. An integral value keeps `.0`.
+pub fn float_to_s(f: f64) -> String {
+    if f.is_nan() { return "NaN".into(); }
+    if f.is_infinite() { return if f < 0.0 { "-Infinity".into() } else { "Infinity".into() }; }
+    let sign = if f.is_sign_negative() { "-" } else { "" };
+    if f == 0.0 { return format!("{sign}0.0"); }
+    let sci = format!("{:e}", f.abs()); // "1.2345678912345679e8": the shortest round-trip digits
+    let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
+    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
+    let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (Ruby's decpt)
+    let n = digits.len() as i64;
+    if point > 15 || point <= -4 {
+        let fraction = if n > 1 { &digits[1..] } else { "0" };
+        return format!("{sign}{}.{fraction}e{}{:02}", &digits[..1], if point > 0 { '+' } else { '-' }, (point - 1).abs());
+    }
+    if point <= 0 { return format!("{sign}0.{}{digits}", "0".repeat((-point) as usize)); }
+    if point >= n { return format!("{sign}{digits}{}.0", "0".repeat((point - n) as usize)); }
+    format!("{sign}{}.{}", &digits[..point as usize], &digits[point as usize..])
+}
+
+/// `String#to_i`: leading whitespace, an optional sign, then digits (single underscores between digits allowed) up to
+/// the first character that is none of these; 0 when there are none. Numbers past i64 saturate.
+pub fn to_i(s: &str) -> i64 {
+    let s = s.trim_start_matches(|c: char| c.is_ascii_whitespace());
+    let (negative, digits) = match s.as_bytes().first() { Some(b'-') => (true, &s[1..]), Some(b'+') => (false, &s[1..]), _ => (false, s) };
+    let mut n: i64 = 0;
+    let mut previous_digit = false;
+    for b in digits.bytes() {
+        match b {
+            b'0'..=b'9' => { n = n.saturating_mul(10).saturating_add(i64::from(b - b'0')); previous_digit = true; }
+            b'_' if previous_digit => previous_digit = false,
+            _ => break,
+        }
+    }
+    if negative { -n } else { n }
+}

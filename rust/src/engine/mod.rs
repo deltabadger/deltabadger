@@ -52,4 +52,5 @@ pub mod polling;
 pub mod venue_rules;
 pub mod tick;
 pub mod handover;
+pub mod notice;
 pub mod run;
