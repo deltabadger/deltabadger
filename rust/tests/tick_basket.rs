@@ -385,3 +385,32 @@ async fn a_web_stop_between_legs_places_nothing_more() {
 async fn run_on<V: deltabadger::venue::Venue>(o: &store::Opened, v: &V, id: i64, when: DateTime<Utc>) -> TickOutcome {
     tick::tick(&o.primary, v, id, &FixedClock(when), &mut Attempts::default()).await.unwrap()
 }
+
+/// A retrying bot whose retry time has passed meets stale reference data: the engine rechecks it after a bounded wait instead
+/// of folding the expired retry time into its wake (which made every pass come back at once), and ticks it at the recheck
+/// once Rails refreshed the catalog.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_retrying_bot_is_rechecked_after_a_bounded_wait_not_in_a_tight_loop() {
+    let dir = common::rails_install();
+    let paths = store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
+    let o = store::open(&paths).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-08-30 08:00:00'", []).unwrap();
+    let t = script(json!({}));
+    let mut e = deltabadger::engine::run::Engine::new(o.primary, ScriptedFactory(t.clone()), seed::cipher(), lock);
+    e.inject_stale_retry(id, at("2026-09-01T09:59:00Z").timestamp_micros()); // its retry time has passed
+    let us = |s: &str| at(s).timestamp_micros();
+    let recheck = deltabadger::engine::run::STALE_RECHECK_US;
+    for now in ["2026-09-01T10:00:00.5Z", "2026-09-01T10:00:01.5Z"] { // two consecutive passes
+        let wake = deltabadger::engine::run::step(&mut e, &FixedClock(at(now))).await.unwrap();
+        assert!(wake >= us(now) + 60_000_000.min(recheck), "pass at {now}: wake {} µs after now, not a tight loop", wake - us(now));
+    }
+    assert!(t.posted_orders().is_empty());
+    e.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 10:01:00'", []).unwrap(); // Rails' sync ran
+    deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-01T10:02:00Z"))).await.unwrap();
+    assert!(t.posted_orders().is_empty(), "not before the recheck");
+    deltabadger::engine::run::step(&mut e, &FixedClock(DateTime::from_timestamp_micros(us("2026-09-01T10:00:00.5Z") + recheck).unwrap())).await.unwrap();
+    assert_eq!(t.posted_orders().len(), 1, "ticked at the recheck");
+}

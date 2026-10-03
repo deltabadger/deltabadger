@@ -19,6 +19,9 @@ const IDLE_US: i64 = 60_000_000;
 const AFTER_CHECKPOINT_US: i64 = 1_000;
 const POLL_AFTER_US: i64 = 5_000_000;
 const RECONCILE_EVERY_US: i64 = 30_000_000;
+/// How long a bot refused for stale reference data waits before it is ticked again. Rails' catalog sync runs once a day and the
+/// bound is 49 h, so 5 minutes delays the first tick after a refresh by at most 5 minutes for 12 staleness reads an hour.
+pub const STALE_RECHECK_US: i64 = 300_000_000;
 
 pub struct Engine<F: VenueFactory> {
     pub primary: Connection, pub factory: F, pub cipher: Cipher, pub lock: EngineLock,
@@ -350,7 +353,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             TickOutcome::Done { .. } => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); }
             // Rescheduled: `retrying` until the next checkpoint, as Rails' reschedule leaves it.
             TickOutcome::Rescheduled => { e.retry_at.insert(id, cps.next_us + AFTER_CHECKPOINT_US); e.reconcile_at.remove(&id); }
-            TickOutcome::Stale { .. } => {} // the bot stays due; its next pass checks again
+            // The bot stays due and is rechecked after a bounded wait: an expired retry time left here would pull every wake to now.
+            TickOutcome::Stale { .. } => { e.retry_at.insert(id, clock.now().timestamp_micros() + STALE_RECHECK_US); }
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
         }
     }
