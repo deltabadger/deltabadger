@@ -302,6 +302,7 @@ fn derive(secret: &str, label: &str) -> Result<[u8; 32], WebError> {
 }
 
 pub struct Inner {
+    pub mcp_instructions: String,
     pub config: Config,
     pub keys: Keys,
     pub cipher: Cipher,
@@ -351,6 +352,7 @@ impl App {
         let encryption = EncryptionKeys::resolve(env, &config.secret_key_base).map_err(|e| WebError::Config(format!("{e:?}")))?;
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         Ok(Self(Arc::new(Inner {
+            mcp_instructions: mcp::instructions(&primary)?,
             config, keys, cipher: Cipher::new(&encryption), clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
@@ -621,6 +623,12 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     }
     if form_urlencoded::parse(raw_query.as_bytes()).nth(QUERY_FIELDS).is_some() {
         return (StatusCode::BAD_REQUEST, "Too many query fields\n").into_response();
+    }
+    if parts.uri.path().starts_with("/mcp") {
+        let force_ssl = entry.app.config.force_ssl;
+        let mut response = mcp::entry(entry.app, Request::from_parts(parts, body), entry.body_read_timeout).await;
+        headers::policy(response.headers_mut(), &headers::new_nonce(), force_ssl);
+        return response;
     }
     let full_path = normalize_path(parts.uri.path());
     if matches!(parts.method, Method::GET | Method::HEAD) {
