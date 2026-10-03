@@ -115,7 +115,7 @@ impl<'a> Reader<'a> {
     fn get(&self, request: HttpRequest) -> Fetch<Value> {
         let key = key(&request);
         if request.path.ends_with("/bars") {
-            if let Some(entry) = self.cache.entries.get(&key).filter(|entry| entry.until > self.now && entry.value.as_ref().map_or(true, |v| v.as_array().is_some_and(Vec::is_empty))) {
+            if let Some(entry) = self.cache.entries.get(&key).filter(|entry| entry.until > self.now) {
                 return entry.value.clone();
             }
             if let Some(head) = self.cache.heads.get(&key).filter(|head| head.until > self.now && head.bars.last().and_then(bar_time).is_some_and(|t| self.now < t.saturating_add(2 * seconds(&request)))) {

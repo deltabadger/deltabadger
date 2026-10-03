@@ -4,6 +4,7 @@ use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
 mod holdings;
+mod plot;
 
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
 fn colour(n: &Num) -> &'static str { if n.is_negative() { "text-danger" } else if n.is_positive() { "text-success" } else { "" } }
@@ -67,7 +68,7 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
             let missing = missing(&subject, &marked_live, market)?;
             let marked = chart::marked(c, &subject, &marked_live, market, now)?;
             let _ = chart::page(c, &subject, &marked, user.hide_balances)?;
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": "", "missing": missing }));
+            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
         }
         Ok(json!({"bots": bots, "account": ""}))
     })
