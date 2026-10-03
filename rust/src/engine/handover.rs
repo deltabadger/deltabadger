@@ -21,8 +21,18 @@ fn first_gid(arguments: &str) -> Option<String> {
     first.get("_aj_globalid").and_then(Value::as_str).or_else(|| first.as_str()).map(str::to_string)
 }
 
+/// An engine-owned install must start its scheduler to refresh stale reference data. Keep structural refusals on
+/// restart; a takeover from Rails also checks freshness. Per-tick staleness checks remain active in both cases.
+pub fn startup_report(c: &rusqlite::Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<eligibility::Report, EngineError> {
+    if lease::read(c, cipher)?.is_some_and(|v| v["engine"] == "rust") {
+        eligibility::check_install(c)
+    } else {
+        eligibility::check_install_at(c, now)
+    }
+}
+
 pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Takeover, EngineError> {
-    let report = eligibility::check_install_at(&o.primary, now)?;
+    let report = startup_report(&o.primary, cipher, now)?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
@@ -33,6 +43,9 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
     // carries what it was sent under (placement::backfill_snapshots).
     placement::backfill_snapshots(&tx)?;
+    // From here on a reference source is as fresh as its job's completed runs; a job this engine has not run yet starts
+    // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
+    super::staleness::seed(&tx, now)?;
     tx.commit()?;
 
     let mut gids: Vec<String> = report.eligible.iter().map(|id| format!("gid://deltabadger/Bots::DcaMultiAsset/{id}")).collect();
@@ -100,6 +113,9 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
     lease::hand_back(lock, &tx, cipher, now)?;
+    // When this engine left, plain, so `check` reads it without keys: Rails' stamps after it are Rails' own (staleness).
+    crate::app_config::set_plain(&tx, lease::HANDED_BACK_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)
+        .map_err(EngineError::Data)?;
     tx.commit()?;
     Ok(scheduled)
 }

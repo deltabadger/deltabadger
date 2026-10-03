@@ -101,3 +101,23 @@ fn a_clone_of_the_lock_keeps_the_install_locked_until_the_last_one_drops() {
     drop(held);
     assert!(lease::lock(&p, t0()).is_ok(), "released with the last clone");
 }
+
+#[test]
+fn a_claim_stamps_a_new_ownership_and_a_restart_reopens_nothing() {
+    use rusqlite::OptionalExtension;
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    let l = lease::lock(&p, t0()).unwrap();
+    let o = store::open(&p).unwrap();
+    let taken = |o: &store::Opened| o.primary.query_row("SELECT value FROM app_configs WHERE key = ?1", [lease::TAKEN_OVER_AT], |r| r.get::<_, String>(0)).optional().unwrap();
+    let at = |s: &str| s.parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+    lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T08:00:00Z")).unwrap();
+    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "from Rails: stamped with the claim");
+    lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T09:00:00Z")).unwrap();
+    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T08:00:00.000Z"), "a restart after a crash continues this ownership");
+    // A claim by a build without the stamp crashed: the lease says rust, the window opened by the last handback is still open.
+    o.primary.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, '2026-10-01T10:00:00.000Z', '2026-10-01 10:00:00', '2026-10-01 10:00:00')",
+                      [lease::HANDED_BACK_AT]).unwrap();
+    assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", at("2026-10-01T11:00:00Z")).unwrap(), Claim::AfterCrash));
+    assert_eq!(taken(&o).as_deref(), Some("2026-10-01T11:00:00.000Z"), "the restart closes the open window");
+}

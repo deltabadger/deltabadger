@@ -235,12 +235,12 @@ fn the_guard_refuses_a_write_that_makes_the_install_ineligible_and_names_the_bot
     // A write the engine can run: the guard says commit.
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 70) WHERE id = ?1", [id]).unwrap();
-    assert!(eligibility::guard(&tx, &seed::cipher(), id).is_ok());
+    assert!(eligibility::guard(&tx, &seed::cipher(), Some(id)).is_ok());
     tx.commit().unwrap();
     // One it cannot: refused in check's words, naming the bot. The caller rolls back.
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = ?1", [id]).unwrap();
-    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    let refused = eligibility::guard(&tx, &seed::cipher(), Some(id)).unwrap_err();
     let line = format!("bot {id} (scheduled): price_limited");
     assert!(matches!(&refused, eligibility::Refusal::Ineligible(p) if p == &vec![line.clone()]), "{refused:?}");
     assert_eq!(refused.reason(), line);
@@ -272,7 +272,7 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     let start = |c: &rusqlite::Connection, id: i64| -> Result<(), eligibility::Refusal> {
         let tx = model::immediate(c).unwrap();
         tx.execute("UPDATE bots SET status = 1 WHERE id = ?1 AND status IN (0, 2)", [id]).unwrap();
-        eligibility::guard(&tx, &seed::cipher(), id)?; // Err: `tx` is dropped, rolled back
+        eligibility::guard(&tx, &seed::cipher(), Some(id))?; // Err: `tx` is dropped, rolled back
         tx.commit().unwrap();
         Ok(())
     };
@@ -282,7 +282,7 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     // A stopped Kraken bot is not traded, so the install is fine until the start.
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
-    assert!(eligibility::guard(&o.primary, &seed::cipher(), id).is_ok(), "an idle Kraken bot is not traded");
+    assert!(eligibility::guard(&o.primary, &seed::cipher(), Some(id)).is_ok(), "an idle Kraken bot is not traded");
     let refused = start(&o.primary, id).unwrap_err();
     assert!(untradable(&refused, &format!("bot {id}: Exchanges::Kraken is not connected in this build (Alpaca paper only)")), "{refused:?}");
     assert_eq!(status(&o.primary, id), 2, "rolled back");
@@ -308,7 +308,7 @@ fn a_guard_that_fails_itself_keeps_its_internal_error_out_of_the_reason() {
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("ALTER TABLE bots RENAME TO bots_gone", []).unwrap(); // the check cannot read its table
-    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    let refused = eligibility::guard(&tx, &seed::cipher(), Some(id)).unwrap_err();
     assert!(matches!(refused, eligibility::Refusal::Failed(_)), "{refused:?}");
     assert_eq!(refused.reason(), "the check could not be completed");
     let reason = refused.reason();
@@ -539,18 +539,18 @@ fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen(
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap(); // Lifecycle#stop, as the web writes it
     reweigh(&tx);
-    let refused = eligibility::guard(&tx, &seed::cipher(), id).unwrap_err();
+    let refused = eligibility::guard(&tx, &seed::cipher(), Some(id)).unwrap_err();
     assert!(matches!(&refused, eligibility::Refusal::Reconciling(_)), "{refused:?}");
     assert_eq!(refused.reason(), reconciling, "what the 422 carries");
     drop(tx); // rolled back
     // A plain stop: goes through.
     let tx = model::immediate(&o.primary).unwrap();
     tx.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
-    assert!(eligibility::guard(&tx, &seed::cipher(), id).is_ok(), "a stop goes through");
+    assert!(eligibility::guard(&tx, &seed::cipher(), Some(id)).is_ok(), "a stop goes through");
     tx.commit().unwrap();
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, deltabadger::enums::BotStatus::Stopped);
     // The weight change on the stopped bot: still refused while the order is unresolved.
     let tx = model::immediate(&o.primary).unwrap();
     reweigh(&tx);
-    assert_eq!(eligibility::guard(&tx, &seed::cipher(), id).unwrap_err().reason(), reconciling);
+    assert_eq!(eligibility::guard(&tx, &seed::cipher(), Some(id)).unwrap_err().reason(), reconciling);
 }

@@ -79,7 +79,7 @@ fn write_timed<T>(c: &Connection, cipher: &Cipher, f: impl FnOnce(&Connection) -
     let (out, wrote_bots) = f(&tx)?;
     if wrote_bots {
         // A sync writes for a key, not for one bot: 0 names none in the guard's own log line (written only when its check cannot run).
-        crate::engine::eligibility::guard(&tx, cipher, 0).map_err(|refusal| SyncError(format!("{GUARD_REFUSED}: {}", refusal.reason())))?;
+        crate::engine::eligibility::guard(&tx, cipher, None).map_err(|refusal| SyncError(format!("{GUARD_REFUSED}: {}", refusal.reason())))?;
     }
     tx.commit()?;
     Ok((out, held.elapsed()))

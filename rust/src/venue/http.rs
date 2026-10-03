@@ -37,6 +37,14 @@ impl HttpRequest {
     }
 }
 
+/// "METHOD /path?k=v&k=v", the query sorted and not encoded: how both parity harnesses name a request
+/// (script/rust/reference_data.rb ScriptedDataApi.key builds the same).
+pub fn request_key(r: &HttpRequest) -> String {
+    let mut q: Vec<String> = r.query.iter().map(|(k, v)| format!("{k}={v}")).collect();
+    q.sort();
+    if q.is_empty() { format!("{} {}", r.method, r.path) } else { format!("{} {}?{}", r.method, r.path, q.join("&")) }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct HttpResponse { pub status: u16, pub body: String }
 
@@ -179,17 +187,21 @@ impl Transport for ReqwestTransport {
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
             }
         }
-        let mut resp = b.send().await.map_err(classify)?;
-        let status = resp.status().as_u16();
-        // The status line has arrived: the request was sent, so losing the body leaves the outcome open. The body is
-        // read chunk by chunk and never past `limit`: a response of any size holds at most that much memory.
-        let mut body: Vec<u8> = Vec::new();
-        while let Some(chunk) = resp.chunk().await.map_err(|e| TransportError::MaybeSent(describe(&e)))? {
-            if body.len() + chunk.len() > limit { return Err(over_limit(limit)); }
-            body.extend_from_slice(&chunk);
-        }
-        Ok(HttpResponse { status, body: String::from_utf8_lossy(&body).into_owned() })
+        read_limited(b.send().await.map_err(classify)?, limit).await
     }
+}
+
+/// Shared bounded chunk reader for venue and reference-data responses.
+pub(crate) async fn read_limited(mut resp: reqwest::Response, limit: usize) -> Result<HttpResponse, TransportError> {
+    let status = resp.status().as_u16();
+    // The status line has arrived: the request was sent, so losing the body leaves the outcome open. The body is
+    // read chunk by chunk and never past `limit`: a response of any size holds at most that much memory.
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|e| TransportError::MaybeSent(describe(&e)))? {
+        if body.len() + chunk.len() > limit { return Err(over_limit(limit)); }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(HttpResponse { status, body: String::from_utf8_lossy(&body).into_owned() })
 }
 
 /// Client.network_failure's split, then Client.pre_transmission?:
@@ -200,7 +212,7 @@ impl Transport for ReqwestTransport {
 ///   packet on an established connection, possibly after request bytes went out, and a failed row would read as "absent".
 /// - NotSent: `is_connect` (DNS, refusal, a connect timeout): no request byte was written.
 /// - MaybeSent: anything else, as Rails rules for unknown provenance.
-fn classify(e: reqwest::Error) -> TransportError {
+pub(crate) fn classify(e: reqwest::Error) -> TransportError {
     let m = describe(&e);
     let lower = m.to_ascii_lowercase();
     let eof = lower.contains("unexpected eof") || lower.contains("end of file");
@@ -271,13 +283,16 @@ impl ScriptedTransport {
 
 impl Transport for ScriptedTransport {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
-        let key = format!("{} {}", r.method, r.path);
+        // A key with its query is answered first, then the bare path: two data-api GETs of one path differ by query.
+        let full = request_key(r);
         let mut reply = {
             let mut s = self.s.borrow_mut();
             s.requests.push(r.clone());
+            let key = if s.replies.contains_key(&full) { full.clone() } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
         };
+        let key = full;
         // A body naming its client order id "$client_order_id" answers for the one the request asked for: a recorded answer
         // cannot know the UUID the engine generated (the grids' landed-recovery scenarios).
         if reply["body"]["client_order_id"] == "$client_order_id" {

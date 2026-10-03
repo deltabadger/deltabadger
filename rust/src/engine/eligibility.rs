@@ -298,9 +298,13 @@ impl Report {
 /// the engine does not run (`check`'s words); a write that would strand an unresolved order; what this build cannot
 /// trade (`preflight`'s words: Alpaca paper only, a key present and readable). A write that skips it and makes the
 /// install ineligible is caught by the engine's pass in one process (`run::step`'s debug assertion). When the check
-/// itself fails, the real error is logged with `bot_id` and `reason()` stays generic.
-pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: i64) -> Result<(), Refusal> {
-    let failed = |e: EngineError| { crate::engine::log(&format!("guard failed for bot {bot_id}: {e:?}")); Refusal::Failed(e) };
+/// itself fails, the real error is logged with `bot_id`, or for a background job when absent; `reason()` stays generic.
+pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<(), Refusal> {
+    let failed = |e: EngineError| {
+        let writer = bot_id.map_or_else(|| "a background job's write".to_string(), |id| format!("bot {id}"));
+        crate::engine::log(&format!("guard failed for {writer}: {e:?}"));
+        Refusal::Failed(e)
+    };
     check_install(tx).map_err(failed)?.refusal()?;
     let stranded = placement::stranded(tx).map_err(failed)?;
     if !stranded.is_empty() {

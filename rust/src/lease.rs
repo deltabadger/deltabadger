@@ -82,14 +82,32 @@ pub fn read(primary: &Connection, cipher: &Cipher) -> Result<Option<Value>, Leas
     }).transpose()
 }
 
-fn write(primary: &Connection, cipher: &Cipher, value: &Value, now: DateTime<Utc>) -> Result<(), LeaseError> {
+/// When this engine last handed the install back (`handover::hand_back_since`, in the handback's transaction) and last
+/// began an ownership (`claim`, with the lease row). Plain `app_configs` rows: `check` reads them without keys
+/// (engine::staleness), and Rails never reads them (its adoption deletes only `engine_lease`).
+pub const HANDED_BACK_AT: &str = "rust_handed_back_at";
+pub const TAKEN_OVER_AT: &str = "rust_taken_over_at";
+
+fn upsert(primary: &Connection, key: &str, value: &str, now: DateTime<Utc>) -> Result<(), LeaseError> {
     primary.execute(
         "INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-        (KEY, cipher.encrypt(&value.to_string()), format_time(now)))?;
+        (key, value, format_time(now)))?;
     Ok(())
 }
 
+fn write(primary: &Connection, cipher: &Cipher, value: &Value, now: DateTime<Utc>) -> Result<(), LeaseError> {
+    upsert(primary, KEY, &cipher.encrypt(&value.to_string()), now)
+}
+
+/// A plain `app_configs` time (HANDED_BACK_AT, TAKEN_OVER_AT); unparseable reads as absent.
+pub fn plain_at(c: &Connection, key: &str) -> Result<Option<DateTime<Utc>>, LeaseError> {
+    let raw: Option<Option<String>> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [key], |r| r.get(0)).optional()?;
+    Ok(raw.flatten().and_then(|t| t.parse().ok()))
+}
+
+/// Two statements, so the takeover runs it inside its own transaction (handover::take_over): the lease row and the end of
+/// Rails' ownership window commit together, and a crash can never leave that window open.
 pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version: &str, now: DateTime<Utc>) -> Result<Claim, LeaseError> {
     let from = match read(primary, cipher)? {
         None => Claim::FromRails,
@@ -98,6 +116,16 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
         Some(_) => Claim::FromRails, // `none` written by a Rails-side tool: Rails owned it last
     };
     write(primary, cipher, &json!({ "engine": "rust", "version": version, "since": now.to_rfc3339() }), now)?;
+    // A new ownership closes Rails' window. A restart after a crash continues this engine's own, unless the window it would
+    // close is still open (a claim by a build that did not stamp).
+    let new_ownership = match from {
+        Claim::FromRails | Claim::AfterHandback => true,
+        Claim::AfterCrash => match plain_at(primary, HANDED_BACK_AT)? {
+            Some(back) => plain_at(primary, TAKEN_OVER_AT)?.is_none_or(|taken| taken < back),
+            None => false,
+        },
+    };
+    if new_ownership { upsert(primary, TAKEN_OVER_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)?; }
     Ok(from)
 }
 

@@ -150,16 +150,34 @@ const PRIMARY: &[TableContract] = &[
         ("quote", "varchar", true), ("base_asset_id", "bigint", true), ("quote_asset_id", "bigint", true),
         ("base_decimals", "integer", true), ("quote_decimals", "integer", true), ("price_decimals", "integer", true),
         ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
-        ("trading_enabled", "boolean", true), ("available", "boolean", false), ("updated_at", "datetime(6)", true),
-    ], unique_indexes: &[] },
+        ("maximum_base_size", "decimal", false), ("maximum_quote_size", "decimal", false),
+        ("trading_enabled", "boolean", true), ("available", "boolean", false),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["exchange_id", "base_asset_id", "quote_asset_id"], &["exchange_id", "ticker"], &["exchange_id", "base", "quote"]] },
     // The bot pages (src/web/bot) also read an asset's name, colour, market cap and external id, and an exchange's fee and availability.
     TableContract { name: "assets", columns: &[
-        ("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false),
-        ("name", "varchar", false), ("color", "varchar", false), ("external_id", "varchar", true), ("market_cap", "bigint", false),
-    ], unique_indexes: &[] },
+        ("id", "integer", true), ("external_id", "varchar", true), ("symbol", "varchar", false), ("name", "varchar", false),
+        ("category", "varchar", false), ("instrument_type", "varchar", false), ("image_url", "varchar", false), ("color", "varchar", false),
+        ("market_cap_rank", "integer", false), ("market_cap", "bigint", false), ("circulating_supply", "decimal(30,8)", false),
+        ("url", "varchar", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["external_id"]] },
     TableContract { name: "exchanges", columns: &[
         ("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false), ("maker_fee", "varchar", false), ("available", "boolean", false),
     ], unique_indexes: &[] },
+    // The reference-data jobs (rust/src/jobs/import.rs) write exchange_assets and indices. `exchange.assets` is also what the
+    // venue lists and the order balance rows are written in; staleness::ALPACA_CRYPTO_TICKERS reads updated_at: the catalog
+    // sync's own stamp (MarketData.import_tickers!' ExchangeAsset upsert). An index bot's page draws the members of the
+    // index it follows (src/web/bot/settings.rs).
+    TableContract { name: "exchange_assets", columns: &[
+        ("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true), ("available", "boolean", false),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["asset_id", "exchange_id"]] },
+    TableContract { name: "indices", columns: &[
+        ("id", "integer", true), ("external_id", "varchar", false), ("source", "varchar", false), ("name", "varchar", false),
+        ("description", "text", false), ("top_coins", "json", false), ("top_coins_by_exchange", "json", false), ("market_cap", "decimal", false),
+        ("available_exchanges", "json", false), ("weights", "json", false), ("weight", "integer", true),
+        ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["external_id", "source"]] },
     TableContract { name: "api_keys", columns: &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
         ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
@@ -214,10 +232,6 @@ const PRIMARY: &[TableContract] = &[
         ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false), ("entered_at", "datetime(6)", false),
         ("exited_at", "datetime(6)", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["bot_id", "asset_id"]] },
-    // An index bot's page draws the members of the index it follows (src/web/bot/settings.rs).
-    TableContract { name: "indices", columns: &[
-        ("id", "integer", true), ("external_id", "varchar", false), ("source", "varchar", false), ("top_coins", "json", false), ("weights", "json", false),
-    ], unique_indexes: &[] },
     // The balance sync writes every column and upserts on the unique index (src/sync/balances.rs); the bots page
     // refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[
@@ -225,10 +239,6 @@ const PRIMARY: &[TableContract] = &[
         ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false),
         ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "exchange_id", "asset_id"]] },
-    // `exchange.assets`: what the venue lists, and the order balance rows are written in. staleness::ALPACA_CRYPTO_TICKERS
-    // reads updated_at: the catalog sync's own stamp (MarketData.import_tickers!' ExchangeAsset upsert).
-    TableContract { name: "exchange_assets", columns: &[("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true),
-        ("updated_at", "datetime(6)", true)], unique_indexes: &[] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),
