@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 const HEADERS: [&str; 11] = ["location", "content-type", "cache-control", "x-frame-options", "x-xss-protection", "x-content-type-options",
                              "x-permitted-cross-domain-policies", "referrer-policy", "content-security-policy-report-only", "retry-after", "set-cookie"];
 const USER_COLUMNS: [&str; 6] = ["id", "failed_attempts", "locked_at", "last_otp_at", "remember_created_at", "updated_at"];
-/// The bot pages are read-only so far: both sides must leave every bot as the grid built it.
+/// Legacy read-only scenarios retain their final bot-row check; actions compare all columns per step.
 const BOT_COLUMNS: [&str; 9] = ["id", "status", "label", "position", "settings", "transient_data", "stop_message_key", "started_at", "updated_at"];
 
 fn masked_nonce(policy: &str) -> (String, Option<String>) {
@@ -113,7 +113,13 @@ fn rails_answer(recorded: &Value) -> Value {
         };
         (name.clone(), values)
     }).collect();
-    comparable(recorded["status"].as_u64().unwrap(), &headers, recorded["body"].as_str().unwrap())
+    let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
+    let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
+    let mut answer = comparable(status, &headers, body);
+    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception"] {
+        if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
+    }
+    answer
 }
 
 fn rust_answer(answer: &Answer) -> Value {
@@ -146,21 +152,112 @@ fn users(dir: &Path) -> Value {
     rows(dir, "users", &USER_COLUMNS)
 }
 
-fn rows(dir: &Path, table: &str, columns: &[&str]) -> Value {
-    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
-    let mut statement = c.prepare(&format!("SELECT {} FROM {table} ORDER BY id", columns.join(", "))).unwrap();
-    let rows = statement.query_map([], |r| {
-        Ok(Value::Object(columns.iter().enumerate().map(|(i, name)| {
-            let value = match r.get_ref(i)? {
+const ACTION_TABLES: [&str; 6] = ["bots", "bot_index_assets", "bot_activity_logs", "transactions", "api_keys", "users"];
+const ACTION_MUTATION_TABLES: [&str; 3] = ["bots", "bot_index_assets", "bot_activity_logs"];
+
+fn quoted(identifier: &str) -> String { format!("\"{}\"", identifier.replace('"', "\"\"")) }
+
+fn read_rows(c: &rusqlite::Connection, table: &str, columns: &[&str], parse_json: bool) -> Result<Value, Box<dyn std::error::Error>> {
+    let selection = if columns.is_empty() { "*".to_string() } else { columns.iter().map(|s| quoted(s)).collect::<Vec<_>>().join(", ") };
+    let mut statement = c.prepare(&format!("SELECT {selection} FROM {}", quoted(table)))?;
+    let names: Vec<String> = statement.column_names().iter().map(|s| s.to_string()).collect();
+    let order = if names.iter().any(|s| s == "id") { quoted("id") } else { names.iter().map(|s| quoted(s)).collect::<Vec<_>>().join(", ") };
+    statement = c.prepare(&format!("SELECT {selection} FROM {} ORDER BY {order}", quoted(table)))?;
+    let mut cursor = statement.query([])?;
+    let mut rows = vec![];
+    while let Some(row) = cursor.next()? {
+        let mut object = serde_json::Map::new();
+        for (index, name) in names.iter().enumerate() {
+            let mut value = match row.get_ref(index)? {
                 rusqlite::types::ValueRef::Null => Value::Null,
                 rusqlite::types::ValueRef::Integer(n) => json!(n),
-                rusqlite::types::ValueRef::Text(t) => json!(String::from_utf8_lossy(t)),
-                other => json!(format!("{other:?}")),
+                rusqlite::types::ValueRef::Real(n) => Value::Number(serde_json::Number::from_f64(n).ok_or("nonfinite SQLite REAL")?),
+                rusqlite::types::ValueRef::Text(t) => json!(std::str::from_utf8(t)?),
+                rusqlite::types::ValueRef::Blob(_) => return Err(format!("unexpected blob in {table}.{name}").into()),
             };
-            Ok((name.to_string(), value))
-        }).collect::<rusqlite::Result<_>>()?))
-    }).unwrap().collect::<rusqlite::Result<Vec<_>>>().unwrap();
-    Value::Array(rows)
+            let json_column = matches!((table, name.as_str()), ("bots", "settings" | "transient_data")
+                | ("bot_activity_logs", "details") | ("transactions", "error_messages"));
+            if parse_json && json_column {
+                if let Some(text) = value.as_str() { value = serde_json::from_str(text)?; }
+            }
+            object.insert(name.clone(), value);
+        }
+        rows.push(Value::Object(object));
+    }
+    Ok(Value::Array(rows))
+}
+
+fn rows(dir: &Path, table: &str, columns: &[&str]) -> Value {
+    let result = (|| {
+        let c = rusqlite::Connection::open(dir.join("production.sqlite3"))?;
+        read_rows(&c, table, columns, false)
+    })();
+    result.unwrap_or_else(|error| panic!("reading {table}: {error}"))
+}
+
+// Called only before send or after its awaited response. The App has no background engine/writer.
+fn action_rows(dir: &Path) -> Result<(Value, Value), Box<dyn std::error::Error>> {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3"))?;
+    let mut statement = c.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")?;
+    let tables = statement.query_map([], |row| row.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let (mut actions, mut others) = (serde_json::Map::new(), serde_json::Map::new());
+    for table in tables {
+        let value = read_rows(&c, &table, &[], true)?;
+        if ACTION_TABLES.contains(&table.as_str()) { actions.insert(table, value); }
+        else { others.insert(table, value); }
+    }
+    Ok((Value::Object(actions), Value::Object(others)))
+}
+
+// Compare row ids and every column, retaining JSON types, absent keys and array order.
+fn row_difference(context: &str, before: &Value, after: &Value) -> Option<String> {
+    let (Some(a), Some(b)) = (before.as_object(), after.as_object()) else { return Some(format!("{context}: missing row snapshot")) };
+    let tables: std::collections::BTreeSet<_> = a.keys().chain(b.keys()).collect();
+    for table in tables {
+        let (Some(left), Some(right)) = (a.get(table).and_then(Value::as_array), b.get(table).and_then(Value::as_array)) else {
+            return Some(format!("{context}: table {table} missing"));
+        };
+        let ids: std::collections::BTreeSet<_> = left.iter().chain(right).map(|row| row.get("id").unwrap_or(row).to_string()).collect();
+        for id in ids {
+            let find = |rows: &Vec<Value>| rows.iter().find(|row| { let key = row.get("id").unwrap_or(row).to_string(); key == id }).cloned();
+            let (l, r) = (find(left), find(right));
+            if l == r { continue; }
+            let (Some(l), Some(r)) = (l.as_ref().and_then(Value::as_object), r.as_ref().and_then(Value::as_object)) else {
+                return Some(format!("{context}: table {table} id={id} column <row> inserted/deleted: rails/before={l:?}, rust/after={r:?}"));
+            };
+            for column in l.keys().chain(r.keys()).collect::<std::collections::BTreeSet<_>>() {
+                if l.get(column) != r.get(column) {
+                    return Some(format!("{context}: table {table} id={id} column {column}: rails/before={:?}, rust/after={:?}", l.get(column), r.get(column)));
+                }
+            }
+        }
+        if left.len() != right.len() { return Some(format!("{context}: table {table} duplicate primary key")); }
+        if left != right { return Some(format!("{context}: table {table} row order differs")); }
+    }
+    None
+}
+
+fn action_snapshot_difference(context: &str, rails: &Value, rust: &Value) -> Option<String> {
+    for (side, response) in [("Rails", rails), ("Rust", rust)] {
+        for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
+            let Some(rows) = response.get(key).and_then(Value::as_object) else { return Some(format!("{context}: {side} missing {key}")) };
+            if key.starts_with("rows_") {
+                for table in ACTION_TABLES {
+                    if !rows.get(table).is_some_and(Value::is_array) { return Some(format!("{context}: {side} {key} missing table {table}")); }
+                }
+            }
+        }
+        let unchanged = |key: &str| -> Value {
+            Value::Object(response[key].as_object().into_iter().flatten()
+                .filter(|(table, _)| !ACTION_MUTATION_TABLES.contains(&table.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect())
+        };
+        if let Some(message) = row_difference(&format!("{context} {side} forbidden write"), &unchanged("rows_before"), &unchanged("rows_after")) { return Some(message); }
+        if let Some(message) = row_difference(&format!("{context} {side} forbidden write"), &response["other_rows_before"], &response["other_rows_after"]) { return Some(message); }
+    }
+    for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
+        if let Some(message) = row_difference(&format!("{context} {key}"), &rails[key], &rust[key]) { return Some(message); }
+    }
+    None
 }
 
 /// Things that happen to the install between two requests, outside any browser (script/rust/pages.rb BEFORE).
@@ -206,9 +303,20 @@ async fn run(dir: &Path) -> Value {
             Csrf::Both | Csrf::Header if !has_meta => Csrf::None,
             other => other,
         };
+        let snapshot = step["action_snapshot"] == true;
+        let before = snapshot.then(|| action_rows(dir).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
-        responses.push(rust_answer(&answer));
+        let mut response = rust_answer(&answer);
+        if let Some((rows_before, other_before)) = before {
+            let (rows_after, other_after) = action_rows(dir).unwrap_or_else(|error| panic!("action rows after: {error}"));
+            response["action_snapshot"] = json!(true);
+            response["rows_before"] = rows_before;
+            response["rows_after"] = rows_after;
+            response["other_rows_before"] = other_before;
+            response["other_rows_after"] = other_after;
+        }
+        responses.push(response);
     }
     drop(app);
     json!({ "responses": responses, "users": users(dir), "bots": rows(dir, "bots", &BOT_COLUMNS) })
@@ -220,10 +328,17 @@ fn copy_scenario(from: &Path, to: &Path) {
 }
 
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
+    let theirs = rails["responses"].as_array()?;
+    let ours = rust["responses"].as_array()?;
+    for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
+        if a["action_snapshot"] == true || b["action_snapshot"] == true || (name.starts_with("actions_") && index + 1 == theirs.len()) {
+            if let Some(message) = action_snapshot_difference(&format!("{name} step {index} (Rails {}, Rust {})", a["status"], b["status"]), a, b) { return Some(message); }
+        }
+    }
     if rails["users"] != rust["users"] {
         return Some(format!("{name}: users rows differ\n  rails: {}\n  rust:  {}", rails["users"], rust["users"]));
     }
-    if rails["bots"] != rust["bots"] {
+    if !name.starts_with("actions_") && rails["bots"] != rust["bots"] {
         return Some(format!("{name}: bots rows differ\n  rails: {}\n  rust:  {}", rails["bots"], rust["bots"]));
     }
     let (ours, theirs) = (rust["responses"].as_array().unwrap(), rails["responses"].as_array().unwrap());
@@ -234,6 +349,9 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
         if a == b { continue; }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
             return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
+        }
+        if a.get("exception") != b.get("exception") {
+            return Some(format!("{name} step {index}: recorded Rails exception {:?}; Rust {:?}", a.get("exception"), b.get("exception")));
         }
         let lines = |body: &Value| match body {
             Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>(),
@@ -370,7 +488,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if !network.is_empty() { failures.push(format!("{name}: Rails reached the network: {network:?}")); }
         // Rails must leave the bots as the grid built them (the copy this crate runs on was taken before Rails' requests).
         let built = rows(&rust_root.path().join(&name), "bots", &BOT_COLUMNS);
-        if recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
+        if !name.starts_with("actions_") && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
         let mut rust = run(&rust_root.path().join(&name)).await;
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
@@ -390,8 +508,85 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.len(), 149, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 149 + 145, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
+}
+
+// The response is deliberately identical: only a primary row is corrupted in each case.
+fn assert_action_snapshot_corruption(table: &str, column: &str, changed: Value) {
+    let snapshot = json!({
+        "bots": [{"id": 1, "settings_changed_at": "2026-09-10 12:00:30.123456"}],
+        "bot_index_assets": [{"id": 3, "target_allocation": 0.6}],
+        "bot_activity_logs": [{"id": 7, "event": "started"}],
+        "transactions": [], "api_keys": [], "users": []
+    });
+    let rails = json!({"responses": [{"status": 200, "headers": {}, "body": "same",
+        "action_snapshot": true, "rows_before": snapshot, "rows_after": snapshot,
+        "other_rows_before": {}, "other_rows_after": {}}]});
+    let mut rust = rails.clone();
+    rust["responses"][0]["rows_after"][table][0][column] = changed;
+    let message = difference("actions_sensitivity", &rails, &rust)
+        .unwrap_or_else(|| panic!("corruption of {table}.{column} passed"));
+    assert!(message.contains("actions_sensitivity") && message.contains(table)
+        && message.contains("id=") && message.contains(column), "{message}");
+    assert_eq!(difference("actions_sensitivity", &rails, &rails), None);
+}
+
+#[test]
+fn action_snapshot_missing_is_an_error() {
+    let answer = json!({"responses": [{"status": 200, "headers": {}, "body": "same", "action_snapshot": true}]});
+    let message = difference("actions_missing", &answer, &answer)
+        .unwrap_or_else(|| panic!("missing snapshots passed"));
+    assert!(message.contains("rows_before"), "{message}");
+}
+
+#[test]
+fn action_snapshot_allocation() {
+    assert_action_snapshot_corruption("bot_index_assets", "target_allocation", json!(0.4));
+}
+
+#[test]
+fn action_snapshot_settings_timestamp() {
+    assert_action_snapshot_corruption("bots", "settings_changed_at", json!("2026-09-10 12:00:30.123000"));
+}
+
+#[test]
+fn action_snapshot_activity_event() {
+    assert_action_snapshot_corruption("bot_activity_logs", "event", json!("stopped"));
+}
+
+#[test]
+fn action_snapshot_sqlite_types() -> Result<(), Box<dyn std::error::Error>> {
+    let c = rusqlite::Connection::open_in_memory()?;
+    c.execute_batch("CREATE TABLE bots (id INTEGER, allocation REAL, settings TEXT, transient_data TEXT, label TEXT, stopped_at TEXT);
+        INSERT INTO bots VALUES (1, 0.6, '{\"amount\":1,\"carry\":\"1\",\"null\":null,\"array\":[2,1]}', '{}', '{\"plain\":true}', NULL);")?;
+    let actual = read_rows(&c, "bots", &[], true)?;
+    assert_eq!(actual, json!([{"id": 1, "allocation": 0.6, "settings": {"amount": 1, "carry": "1", "null": null, "array": [2,1]},
+        "transient_data": {}, "label": "{\"plain\":true}", "stopped_at": null}]));
+    for value in [json!({"amount": "1", "carry": "1", "null": null, "array": [2,1]}),
+        json!({"amount": 1, "carry": "1", "array": [2,1]}),
+        json!({"amount": 1, "carry": "1", "null": null, "array": [1,2]})] {
+        let mut changed = actual.clone();
+        changed[0]["settings"] = value;
+        assert!(row_difference("actions_types", &json!({"bots": actual}), &json!({"bots": changed})).is_some());
+    }
+    Ok(())
+}
+
+#[test]
+fn action_snapshot_forbids_other_primary_writes() {
+    let rows: serde_json::Map<String, Value> = ACTION_TABLES.into_iter().map(|table| (table.to_string(), json!([]))).collect();
+    let mut response = json!({"rows_before": rows, "rows_after": rows,
+        "other_rows_before": {"app_configs": [{"id": 1, "value": "old"}]},
+        "other_rows_after": {"app_configs": [{"id": 1, "value": "new"}]}});
+    let message = action_snapshot_difference("actions_forbidden", &response, &response)
+        .unwrap_or_else(|| panic!("equal forbidden writes passed"));
+    assert!(message.contains("forbidden write") && message.contains("app_configs") && message.contains("value"), "{message}");
+    response["other_rows_after"] = response["other_rows_before"].clone();
+    response["rows_after"]["transactions"] = json!([{"id": 1}]);
+    let message = action_snapshot_difference("actions_forbidden", &response, &response)
+        .unwrap_or_else(|| panic!("transaction insert passed"));
+    assert!(message.contains("transactions") && message.contains("forbidden write"), "{message}");
 }

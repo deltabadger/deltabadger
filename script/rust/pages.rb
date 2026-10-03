@@ -198,7 +198,7 @@ module Pages
       'bots_empty_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
                                         'steps' => [get('/login'), login, get('/bots')] },
       'up' => { 'steps' => [get('/up')] }
-    }.merge(bot_scenarios)
+    }.merge(bot_scenarios).merge(action_scenarios)
   end
 
   def signed_in(*steps) = [get('/login'), login] + steps
@@ -512,6 +512,7 @@ module Pages
       alpaca(scenario) if scenario['install'] == 'alpaca'
       balances(scenario.fetch('balances', {}))
       jobs = scenario.fetch('bots', []).to_h { |spec| [bot(spec).id, spec['job']] }.compact
+      action_fixture(scenario)
     end
     ActiveRecord::Base.connection_pool.disconnect!
     jobs
@@ -628,9 +629,13 @@ module Pages
       end
       now = Time.iso8601(scenario['at'])
       NETWORK.clear
+      original_adapter = ActiveJob::Base.queue_adapter
+      action_scenario = scenario['steps'].any? { |step| step['action_snapshot'] }
+      ActiveJob::Base.queue_adapter = :test if action_scenario
       travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
         client = clients[step['client'] || 'main']
+        rows_before = other_before = request_exception = nil
         now += step['advance'].to_i
         travel_to(now, with_usec: true) do
           BEFORE.fetch(step['before']).call if step['before']
@@ -641,7 +646,16 @@ module Pages
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"
           end
           headers['X-CSRF-Token'] = meta_token(client[:page]) if %w[header both].include?(step['csrf'])
-          client[:session].process(step['method'].downcase.to_sym, step['path'], params:, headers:)
+          if step['action_snapshot']
+            rows_before = action_rows
+            other_before = action_other_rows
+            ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+          end
+          env = step['action_snapshot'] ? { 'action_dispatch.show_exceptions' => :all } : {}
+          capture = ->(*args) { request_exception = args.last[:exception_object] if args.last[:exception_object] }
+          ActiveSupport::Notifications.subscribed(capture, 'process_action.action_controller') do
+            client[:session].process(step['method'].downcase.to_sym, step['path'], params:, headers:, env:)
+          end
         end
         response = client[:session].response
         verify_rendered!("#{dir} step #{index}", client[:session])
@@ -652,9 +666,24 @@ module Pages
         content = client[:session].request.session.to_h.except('session_id')
         session_changed = content != client[:content]
         client[:content] = content
-        { 'status' => response.status, 'headers' => HEADERS.to_h { |name| [name, response.headers[name]] }.compact, 'body' => response.body,
+        answer = { 'status' => response.status, 'headers' => HEADERS.to_h { |name| [name, response.headers[name]] }.compact, 'body' => response.body,
           'session_changed' => session_changed }
+        if step['action_snapshot']
+          answer.merge!('action_snapshot' => true, 'rows_before' => rows_before, 'rows_after' => action_rows,
+                        'other_rows_before' => other_before, 'other_rows_after' => action_other_rows,
+                        'jobs' => ActiveJob::Base.queue_adapter.enqueued_jobs.map { |job| job.except(:job).merge('job_class' => job[:job].name) })
+          exception = request_exception
+          if step['rails_exception_status']
+            raise "#{dir} step #{index}: expected Rails exception #{step['rails_exception_status']}, got #{response.status}, #{exception.inspect}" unless exception && response.status == step['rails_exception_status']
+            answer['exception'] = { 'class' => exception.class.name, 'message' => exception.message }
+            answer['body'] = '' # Exception pages never enter the normal HTML comparator.
+          elsif exception
+            raise exception
+          end
+        end
+        answer
       end
+      ActiveJob::Base.queue_adapter = original_adapter if action_scenario
       travel_back
       users = ActiveRecord::Base.connection.select_all("SELECT #{USER_COLUMNS.join(', ')} FROM users ORDER BY id").to_a
       bots = ActiveRecord::Base.connection.select_all("SELECT #{BOT_COLUMNS.join(', ')} FROM bots ORDER BY id").to_a
@@ -666,6 +695,7 @@ module Pages
 end
 
 require_relative 'pages_bots'
+require_relative 'pages_actions'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
