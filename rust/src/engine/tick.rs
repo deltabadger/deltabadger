@@ -404,6 +404,7 @@ async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, 
             return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
         }
     };
+    let tickers: Vec<_> = priced.iter().map(|p| &p.member.ticker).collect();
     for leg in split {
         match amount::size(bot, &leg.ticker, &leg.quote, &leg.reference, venue.rules().minimum_logic)? {
             Sizing::Nothing => {}
@@ -416,7 +417,7 @@ async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, 
             Sizing::Place(plan) => {
                 // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
                 // sized before the change is placed (the fence is in the intent's own transaction).
-                let Some(intent) = placement::begin_unless_changed(c, bot, &plan, clock)? else { break };
+                let Some(intent) = placement::begin_unless_changed(c, bot, &plan, &tickers, clock)? else { break };
                 match placement::send(venue, &intent, clock).await {
                     Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }
                     Sent::Rejected(errs) => {

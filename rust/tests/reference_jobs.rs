@@ -607,3 +607,36 @@ async fn reference_assets_guard_a_stopped_bot_with_an_outstanding_order() -> Res
     assert_eq!(c.query_row("SELECT instrument_type FROM assets WHERE external_id = 'bitcoin'", [], |r| r.get::<_, Option<String>>(0))?, None);
     Ok(())
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn crypto_freshness_requires_written_tickers_meeting_the_baseline() {
+    for (count, usable, baseline) in [(31, 0, 0), (31, 29, 0), (40, 31, 40), (31, 31, 0)] {
+        let (d, c) = db();
+        exchange(&c, "Exchanges::Alpaca", true);
+        let old = at("2026-09-01T10:15:00Z");
+        let now = at("2026-10-02T10:15:00Z");
+        deltabadger::jobs::state::record_success(&c, reference::ALPACA_CRYPTO, None, old).unwrap();
+        deltabadger::jobs::state::mark_incomplete(&c, reference::ALPACA_CRYPTO, None, old).unwrap();
+        if baseline > 0 { deltabadger::app_config::set(&c, &seed::cipher(), "alpaca_crypto_listings_last_good_count", &baseline.to_string(), old).unwrap(); }
+        let rows: Vec<Value> = (0..count).map(|i| {
+            asset(&c, &format!("coin-{i}"), &format!("C{i}"), "Cryptocurrency");
+            json!({ "base_asset_id": format!("crypto:coin-{i}"), "symbol": format!("C{i}/USD"), "base_decimals": 8,
+                    "quote_decimals": 2, "price_decimals": if i < usable { Some(2) } else { None } })
+        }).collect();
+        let t = ScriptedTransport::default();
+        t.reply("GET /api/v2/listings?venue=alpaca_crypto", 200, json!({ "data": rows }));
+        let out = run(reference::ALPACA_CRYPTO, scripted(&t), c, "2026-10-02T10:15:00Z").await;
+        let c = reopen(&d);
+        assert_eq!(one::<i64>(&c, "SELECT count(*) FROM exchange_assets"), count + 1);
+        assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers"), usable);
+        if usable == count {
+            assert_eq!(out, Outcome::Done);
+        } else {
+            assert!(matches!(out, Outcome::Failed(_)), "{count}/{usable}/{baseline}: {out:?}");
+            let state = deltabadger::jobs::state::read(&c, reference::ALPACA_CRYPTO, None).unwrap();
+            assert_eq!(state.last_success_at, Some(old));
+            assert_eq!(state.incomplete_since, Some(old));
+            assert_ne!(state.last_success_at, Some(now));
+        }
+    }
+}

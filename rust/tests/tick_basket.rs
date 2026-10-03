@@ -443,3 +443,26 @@ async fn an_owned_restart_keeps_ticks_refused_until_a_complete_scheduler_refresh
     assert_eq!(t.posted_orders().len(), 1);
     Ok(())
 }
+
+struct ChangeDuringPrice { inner: ScriptedTransport, db: String }
+impl deltabadger::venue::http::Transport for ChangeDuringPrice {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        if r.path.ends_with("/quotes") {
+            // ETH's ticker was read with the whole basket before the first (BTC) price await.
+            rusqlite::Connection::open(&self.db).unwrap().execute("UPDATE tickers SET price_decimals = 4 WHERE ticker = 'ETH/USD'", []).unwrap();
+        }
+        self.inner.send(r).await
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_changed_other_member_ticker_fences_the_whole_sized_basket() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.7, 0.3]);
+    let t = script(json!({}));
+    let transport = ChangeDuringPrice { inner: t.clone(), db: o.primary.path().unwrap().into() };
+    let v = AlpacaVenue::new(transport, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
+    let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: false }), "{out:?}");
+    assert!(t.posted_orders().is_empty(), "even the unchanged BTC leg was sized from the changed basket");
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
+}

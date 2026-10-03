@@ -33,7 +33,7 @@ fn paper_key() -> Option<(String, String)> {
 
 fn btc_usd() -> Ticker {
     let bd = |s: &str| BigDec::parse(s).unwrap();
-    Ticker { id: 0, ticker: "BTC/USD".into(), base_code: "BTC".into(), base_symbol: "BTC".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
+    Ticker { id: 0, ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), base_symbol: "BTC".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
              base_asset_id: 0, quote_asset_id: 0, base_decimals: 9, quote_decimals: 2, price_decimals: 2,
              minimum_base_size: bd("0.000027"), minimum_quote_size: bd("1"), trading_enabled: true, available: true }
 }

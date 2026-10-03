@@ -15,6 +15,9 @@ pub const BULK_READ_TIMEOUT: Duration = Duration::from_secs(60);
 /// Faraday has no total cap; reqwest needs one. ponytail: 10 min, far above a healthy 12 MB pull; widen it if a slow link
 /// ever needs more.
 const BULK_TOTAL: Duration = Duration::from_secs(600);
+/// The 29-scenario reference grid's largest serialized body is 266,652 bytes (stock assets).
+/// Real bulk stock pulls are approximately 12 MB; 32 MiB leaves over 2.5x headroom for those too.
+pub const MAX_REFERENCE_BODY: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config { pub url: String, pub token: String }
@@ -53,21 +56,26 @@ impl ApiError {
 }
 
 /// The live transport: Clients::MarketData's connection, with a bearer token and JSON (:118-132).
-pub struct ApiTransport { client: reqwest::Client, token: String }
+pub struct ApiTransport { client: reqwest::Client, token: String, base: Result<reqwest::Url, String> }
 
 impl ApiTransport {
-    pub fn new(client: reqwest::Client, token: &str) -> Self { Self { client, token: token.into() } }
+    fn new(client: reqwest::Client, token: &str, base: Result<reqwest::Url, String>) -> Self { Self { client, token: token.into(), base } }
 }
 
 impl Transport for ApiTransport {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
-        let resp = self.client.get(r.url())
+        self.send_limited(r, MAX_REFERENCE_BODY).await
+    }
+
+    async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
+        let mut url = self.base.as_ref().map_err(|e| TransportError::Permanent(e.clone()))?.clone();
+        url.set_path(&format!("{}{}", url.path().trim_end_matches('/'), r.path));
+        if !r.query.is_empty() { url.query_pairs_mut().extend_pairs(&r.query); }
+        let resp = self.client.get(url)
             .header("Authorization", format!("Bearer {}", self.token))
             .header("Accept", "application/json")
             .send().await.map_err(http::classify)?;
-        let status = resp.status().as_u16();
-        let body = resp.text().await.map_err(|e| TransportError::MaybeSent(e.to_string()))?;
-        Ok(HttpResponse { status, body })
+        http::read_limited(resp, limit.min(MAX_REFERENCE_BODY)).await
     }
 }
 
@@ -75,8 +83,13 @@ pub struct DataApi<T: Transport> { pub config: Config, normal: T, bulk: T }
 
 impl DataApi<ApiTransport> {
     pub fn live(config: Config) -> Self {
-        let normal = ApiTransport::new(http::client(), &config.token);
-        let bulk = ApiTransport::new(http::client_with(http::CONNECT_TIMEOUT, BULK_READ_TIMEOUT, BULK_TOTAL), &config.token);
+        // Parse external configuration once, retaining the error as a value so each job records its own failure.
+        let base = reqwest::Url::parse(&config.url).map_err(|e| format!("invalid market-data URL: {e}"))
+            .and_then(|url| if matches!(url.scheme(), "http" | "https") && url.host_str().is_some() {
+                Ok(url)
+            } else { Err("market-data URL must have an HTTP(S) host".into()) });
+        let normal = ApiTransport::new(http::client(), &config.token, base.clone());
+        let bulk = ApiTransport::new(http::client_with(http::CONNECT_TIMEOUT, BULK_READ_TIMEOUT, BULK_TOTAL), &config.token, base);
         Self { config, normal, bulk }
     }
 }
@@ -101,7 +114,7 @@ impl<T: Transport> DataApi<T> {
             query: query.iter().map(|(k, v)| (*k, v.to_string())).collect(), body: None, not_after: None,
         };
         let transport = if bulk { &self.bulk } else { &self.normal };
-        let resp = match transport.send(&req).await {
+        let resp = match transport.send_limited(&req, MAX_REFERENCE_BODY).await {
             Ok(r) => r,
             Err(TransportError::Permanent(m)) => return Err(ApiError::Failed { status: None, message: m }),
             Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => return Err(ApiError::Transient(m)),
@@ -170,7 +183,11 @@ impl<T: Transport> PriceSource for DataApi<T> {
 /// with_rescue's message for an HTTP error: "HTTP <status>" for an HTML body, else the raw body, else Faraday's own.
 fn failure_message(r: &HttpRequest, resp: &HttpResponse) -> String {
     let body = resp.body.as_str();
-    if body.trim().is_empty() { return format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()); }
+    if body.trim().is_empty() {
+        let raw = format!("{}{}", r.base, r.path);
+        let url = reqwest::Url::parse_with_params(&raw, &r.query).map(|u| u.to_string()).unwrap_or(raw);
+        return format!("the server responded with status {} for {} {url}", resp.status, r.method);
+    }
     let lower = body.to_ascii_lowercase();
     if lower.match_indices('<').any(|(i, _)| lower[i + 1..].trim_start().starts_with("html")) { return format!("HTTP {}", resp.status); }
     body.to_string()

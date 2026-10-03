@@ -269,11 +269,17 @@ async fn alpaca_crypto<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         let resolved = import::count_assets(c, &bases)?;
         let last_good = app_config::get(c, cipher, ALPACA_CRYPTO_LAST_GOOD)?;
         if crypto_degraded(resolved, last_good.as_deref()) { return Ok(Err(degraded(resolved, rows.len(), last_good.as_deref()))); }
-        Ok(Ok((alpaca, resolved, import::plan_tickers(c, alpaca, &tickers, Some("Cryptocurrency"))?)))
+        let plan = import::plan_tickers(c, alpaca, &tickers, Some("Cryptocurrency"))?;
+        let written = plan.written.len() as i64;
+        let insufficient = crypto_degraded(written, last_good.as_deref())
+            .then(|| format!("degraded ticker import: {written} written from {resolved} resolved assets (last good {}); ticker freshness kept", last_good.as_deref().unwrap_or("none")));
+        Ok(Ok((alpaca, resolved, plan, insufficient)))
     }).await;
-    let (alpaca, resolved, plan) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
+    let (alpaca, resolved, plan, insufficient) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = incomplete(cx, ALPACA_CRYPTO, now).await { return Outcome::Failed(m); }
     if let Err(m) = import::publish_tickers(&cx.db, alpaca, plan, now).await { return Outcome::Failed(m); }
+    // Exchange assets may have refreshed, but only enough actually written tickers can renew ticker freshness.
+    if let Some(m) = insufficient { return Outcome::Failed(m); }
     // Ratcheted only after the sweep.
     done(cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_CRYPTO_LAST_GOOD, &resolved.to_string(), now)).await)
 }

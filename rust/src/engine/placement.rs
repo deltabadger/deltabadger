@@ -139,29 +139,38 @@ fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::sch
 /// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
 /// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    Ok(begin_checked(c, bot, plan, clock, false)?.expect("unfenced"))
+    Ok(begin_checked(c, bot, plan, clock, None)?.expect("unfenced"))
 }
 
 /// `begin`, fenced: under the same write lock, the bot must still be working and its composition (exchange, quote asset and
-/// allocations, compared by value as `stranded` compares them) must still be what `sized_from` holds. Otherwise no intent is
+/// allocations, compared by value as `stranded` compares them) must still be what `sized_from` holds. Every ticker used
+/// to size the basket must also match (names, asset ids, availability, precision and minimums). Otherwise no intent is
 /// written, nothing will be sent, and `None` is returned with one log line naming the reason; the next pass sees the new row.
 ///
 /// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
-pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
-    begin_checked(c, sized_from, plan, clock, true)
+pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
+    begin_checked(c, sized_from, plan, clock, Some(tickers))
 }
 
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: bool) -> Result<Option<Intent>, EngineError> {
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<&[&model::Ticker]>) -> Result<Option<Intent>, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }
-    if fence {
+    if let Some(tickers) = fence {
+        let mut ticker_changed = false;
+        for ticker in tickers {
+            if model::ticker_by_id(&tx, bot.exchange_id, ticker.id)?.as_ref() != Some(*ticker) {
+                ticker_changed = true;
+                break;
+            }
+        }
         let reason = if !crate::enums::BOT_WORKING.contains(&current.status) { Some("it was stopped") }
             else if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
+            else if ticker_changed { Some("its ticker data changed") }
             else { None };
         if let Some(reason) = reason {
             super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));

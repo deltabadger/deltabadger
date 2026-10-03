@@ -187,17 +187,21 @@ impl Transport for ReqwestTransport {
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
             }
         }
-        let mut resp = b.send().await.map_err(classify)?;
-        let status = resp.status().as_u16();
-        // The status line has arrived: the request was sent, so losing the body leaves the outcome open. The body is
-        // read chunk by chunk and never past `limit`: a response of any size holds at most that much memory.
-        let mut body: Vec<u8> = Vec::new();
-        while let Some(chunk) = resp.chunk().await.map_err(|e| TransportError::MaybeSent(describe(&e)))? {
-            if body.len() + chunk.len() > limit { return Err(over_limit(limit)); }
-            body.extend_from_slice(&chunk);
-        }
-        Ok(HttpResponse { status, body: String::from_utf8_lossy(&body).into_owned() })
+        read_limited(b.send().await.map_err(classify)?, limit).await
     }
+}
+
+/// Shared bounded chunk reader for venue and reference-data responses.
+pub(crate) async fn read_limited(mut resp: reqwest::Response, limit: usize) -> Result<HttpResponse, TransportError> {
+    let status = resp.status().as_u16();
+    // The status line has arrived: the request was sent, so losing the body leaves the outcome open. The body is
+    // read chunk by chunk and never past `limit`: a response of any size holds at most that much memory.
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|e| TransportError::MaybeSent(describe(&e)))? {
+        if body.len() + chunk.len() > limit { return Err(over_limit(limit)); }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(HttpResponse { status, body: String::from_utf8_lossy(&body).into_owned() })
 }
 
 /// Client.network_failure's split, then Client.pre_transmission?:

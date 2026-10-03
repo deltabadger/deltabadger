@@ -174,11 +174,11 @@ impl Bot {
     pub fn calc_since_us(&self) -> Option<i64> { [self.started_at_us, self.settings_changed_at_us].into_iter().flatten().max() }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Ticker {
     pub id: i64, pub ticker: String,
     /// tickers.base: the venue's own code for the base (Kraken "XBT", Alpaca "BTC").
-    pub base_code: String, pub base_symbol: String, pub quote_symbol: String, pub exchange_name: String,
+    pub base_code: String, pub quote_code: String, pub base_symbol: String, pub quote_symbol: String, pub exchange_name: String,
     pub base_asset_id: i64, pub quote_asset_id: i64, pub base_decimals: i64, pub quote_decimals: i64, pub price_decimals: i64,
     pub minimum_base_size: BigDec, pub minimum_quote_size: BigDec, pub trading_enabled: bool, pub available: bool,
 }
@@ -192,13 +192,13 @@ impl Ticker {
 }
 
 const TICKER_SELECT: &str = "SELECT t.id, t.ticker, b.symbol, q.symbol, e.name, t.base_asset_id, t.quote_asset_id, t.base_decimals, \
-    t.quote_decimals, t.price_decimals, t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base \
+    t.quote_decimals, t.price_decimals, t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base, t.quote \
     FROM tickers t JOIN assets b ON b.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id";
 
 fn ticker_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Ticker> {
     let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
     Ok(Ticker {
-        id: r.get(0)?, ticker: r.get(1)?, base_code: r.get(14)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+        id: r.get(0)?, ticker: r.get(1)?, base_code: r.get(14)?, quote_code: r.get(15)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
         quote_symbol: r.get::<_, Option<String>>(3)?.unwrap_or_default(), exchange_name: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
         base_asset_id: r.get(5)?, quote_asset_id: r.get(6)?, base_decimals: r.get(7)?, quote_decimals: r.get(8)?, price_decimals: r.get(9)?,
         minimum_base_size: dec(10)?.unwrap_or_else(BigDec::zero), minimum_quote_size: dec(11)?.unwrap_or_else(BigDec::zero),
