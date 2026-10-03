@@ -1,0 +1,24 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+
+  <div class="modal">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      {% include "svg/_24x24_close.html" %}
+
+</button>    <div class="modal__header">
+       <h1 class="modal__title">{{ v.t("utils.change_name")|safe }}</h1>
+    </div>
+
+    <form class="modal__form" data-controller="form--label-animations" data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <div class="form__row form__row--input">
+        <input autofocus="autofocus" data-controller="autofocus" class="form__input" type="text" value="{{ bot.label }}" name="{{ bot.param_key() }}[label]" id="{{ bot.param_key() }}_label" />
+        <label class="form__label" for="{{ bot.param_key() }}_label">{{ v.t("bot.bot_name")|safe }}</label>
+      </div>
+      <input type="submit" name="commit" value="{{ v.t("button.save")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("button.save")|safe }}" />
+</form>
+  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>

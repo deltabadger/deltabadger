@@ -355,3 +355,15 @@ async fn an_unreadable_bot_holding_a_counted_stop_does_not_stop_the_engine_at_st
     assert_eq!(v.sent().len(), 1, "the readable bot still ticks");
     let _ = id;
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn action_lifecycle_created_continue_does_not_use_stopped_only_wait() -> Result<(), Box<dyn std::error::Error>> {
+    let (_dir, mut engine, id, _) = continued(&["2026-09-01 10:00:01", "2026-09-08 10:00:01"],
+        json!({"requested_at":"2026-09-08T12:00:00Z","was_stopped":false}));
+    run::step(&mut engine, &at("2026-09-08T12:00:00Z")).await.map_err(|e|format!("{e:?}"))?;
+    let bot=model::load_bot(&engine.primary,id).map_err(|e|format!("{e:?}"))?;
+    assert!(bot.transient.get("rust_continue_start").is_none());
+    assert_ne!(bot.rust_defer_until_us().map_err(|e|format!("{e:?}"))?,Some(us("2026-09-15T10:00:00Z")),
+        "Rails' restarting? is false for a created bot, even with a paid interval and a last-action stamp");
+    Ok(())
+}

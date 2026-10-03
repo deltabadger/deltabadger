@@ -36,3 +36,6 @@ en:
     write_refused: "This app can't run that yet: %{reason}"
     # Rust only: a start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it (409).
     already_running: "This bot is already running."
+    invalid_start_fresh: "Choose whether to start fresh or continue."
+    api_key_not_ready: "A valid trading API key is required to start this bot."
+    invalid_parameter: "This setting has an invalid value."

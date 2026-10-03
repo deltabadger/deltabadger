@@ -229,7 +229,7 @@ const PRIMARY: &[TableContract] = &[
     // The tick reads and writes a basket's members exactly as Bot::Composition::Allocatable does.
     TableContract { name: "bot_index_assets", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("asset_id", "integer", true), ("ticker_id", "integer", true),
-        ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false), ("entered_at", "datetime(6)", false),
+        ("target_allocation", "decimal(10,6)", false), ("current_allocation", "decimal(10,6)", false), ("in_index", "boolean", false), ("entered_at", "datetime(6)", false),
         ("exited_at", "datetime(6)", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["bot_id", "asset_id"]] },
     // The balance sync writes every column and upserts on the unique index (src/sync/balances.rs); the bots page

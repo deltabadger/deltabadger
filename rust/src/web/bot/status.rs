@@ -298,3 +298,10 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
     let button = ButtonView { v: ctx, csrf, id: bot.dom_id("status_button"), path: ctx.path(&format!("/bots/{}", bot.id)), button }.render()?;
     Ok(Status { bar, button, check })
 }
+
+/// ActionCable rendering has no browser session. Turbo uses the receiving page's CSRF header.
+pub(super) fn broadcast(c: &Connection, ctx: &Ctx, bot: &Bot, configured: bool) -> Result<Status, WebError> {
+    let mut state = render(c, ctx, "", bot, configured)?;
+    state.button = state.button.replace("<input type=\"hidden\" name=\"authenticity_token\" value=\"\" />", "");
+    Ok(state)
+}

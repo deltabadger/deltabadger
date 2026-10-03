@@ -564,3 +564,76 @@ fn stream_names_are_signed_in_rails_shape_under_our_own_key() {
     assert_eq!(cable::verified_stream_name(&[8u8; 32], &signed), None);
     assert_eq!(cable::stream_source(&key, "user_7:bot_updates").replace(&signed, rails_signed), recorded, "the element is turbo_stream_from's");
 }
+
+/// Real HTTP writes and authenticated subscriptions share the normal pipeline.
+#[tokio::test(flavor = "current_thread")]
+async fn action_committed_fragments_are_private_and_failures_and_noops_are_silent() -> Result<(), Box<dyn std::error::Error>> {
+    use common::{seed, web::{Browser, Csrf}};
+    let (_dir, opened, seeded) = common::install_alpaca();
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=0", [HASH])?;
+    opened.primary.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at) VALUES('other@example.com',?1,?2,?2,?2)", (HASH,"2026-01-01 00:00:00"))?;
+    let mut spec = seed::BotSpec::weekly(5.0, "2026-09-10 12:00:00");
+    spec.status = 2;
+    let bot = seed::insert_bot(&opened.primary, &seeded, &spec);
+    opened.primary.execute("UPDATE bots SET label='Action test' WHERE id=?1",[bot])?;
+    let env = |name: &str| match name { "SECRET_KEY_BASE" => Some("engine-test-secret".to_string()), "APP_ROOT_URL" => Some("http://localhost:3000".to_string()), _ => None };
+    let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, opened.primary, TestClock::at("2026-09-10T12:00:30Z")).map_err(|e|format!("{e:?}"))?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let server = tokio::spawn(server::serve_on(listener,app.clone(),server::Limits::default()));
+    struct Abort(tokio::task::JoinHandle<Result<(), deltabadger::web::WebError>>);
+    impl Drop for Abort { fn drop(&mut self) { self.0.abort(); } }
+    let _server = Abort(server);
+    let (mut owner, _) = open_as(address,"http://localhost:3000",Some(&signed_in(&app,1))).await.map_err(|s|format!("owner socket {s}"))?;
+    next(&mut owner).await;
+    let stream = identifier(&app,"user_1:bot_updates");
+    command(&mut owner,"subscribe",&stream).await;
+    assert_eq!(next_event(&mut owner).await["type"],"confirm_subscription");
+    let (mut other, _) = open_as(address,"http://localhost:3000",Some(&signed_in(&app,2))).await.map_err(|s|format!("other socket {s}"))?;
+    next(&mut other).await;
+    command(&mut other,"subscribe",&stream).await;
+    assert_eq!(next_event(&mut other).await["type"],"reject_subscription");
+    let mut browser = Browser { cookie: Some(signed_in(&app,1)), page: None };
+    assert_eq!(browser.get(&app,&format!("/bots/{bot}")).await.status,200);
+    let headers = [("accept","text/vnd.turbo-stream.html")];
+    let start = browser.send(&app,"PATCH",&format!("/bots/{bot}/start?start_fresh=true"),None,Csrf::Header,&headers).await;
+    assert_eq!(start.status,200,"{}",start.body);
+    for target in ["status_bar", "status_button", "columns"] {
+        let event = next_event(&mut owner).await;
+        let body = event["message"].as_str().ok_or("missing broadcast body")?;
+        assert!(body.contains(&format!("{target}_bots_dca_multi_asset_{bot}")),"{body}");
+        if target == "columns" { assert!(body.contains("add_class") && body.contains("bot-locked")); }
+    }
+    let refused = browser.send(&app,"PATCH",&format!("/bots/{bot}/start"),None,Csrf::Header,&headers).await;
+    assert_eq!(refused.status,422);
+    let noop = browser.send(&app,"DELETE",&format!("/bots/{bot}/archive"),None,Csrf::Header,&headers).await;
+    assert_eq!(noop.status,200);
+    // A marker on the same ordered stream proves neither response queued a status fragment.
+    app.hub.broadcast("user_1:bot_updates","action-test-marker");
+    assert_eq!(next_event(&mut owner).await["message"],"action-test-marker");
+    let stopped=browser.send(&app,"PATCH",&format!("/bots/{bot}/stop"),None,Csrf::Header,&headers).await;
+    assert_eq!(stopped.status,200);
+    for target in ["status_bar", "status_button", "columns"] {
+        let event=next_event(&mut owner).await;
+        let body=event["message"].as_str().ok_or("stopped broadcast")?;
+        assert!(body.contains(&format!("{target}_bots_dca_multi_asset_{bot}")));
+        assert!(!body.contains("authenticity_token"),"broadcasts have no session token");
+    }
+    app.db(move |c| {
+        c.execute("UPDATE bots SET started_at='2026-09-10 12:00:00',settings_changed_at=NULL,transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:01Z') WHERE id=?1",[bot])?;
+        c.execute("INSERT INTO transactions(bot_id,exchange_id,side,status,external_status,order_type,transaction_type,quote_amount_exec,amount_exec,price,base_asset_id,quote_asset_id,created_at,updated_at) VALUES(?1,?2,0,0,2,1,'REGULAR','5','0.0001','50000',?3,?4,'2026-09-10 12:00:02','2026-09-10 12:00:02')",(bot,seeded.exchange_id,seeded.btc,seeded.quote))?;
+        Ok(())
+    }).await.map_err(|e|format!("{e:?}"))?;
+    let continued=browser.send(&app,"PATCH",&format!("/bots/{bot}/start?start_fresh=false"),None,Csrf::Header,&headers).await;
+    assert_eq!(continued.status,200,"{}",continued.body);
+    // Continue defers its status bar until the engine consumes the scheduling request.
+    for target in ["status_button", "columns"] {
+        let event=next_event(&mut owner).await;
+        assert!(event["message"].as_str().ok_or("continue broadcast")?.contains(&format!("{target}_bots_dca_multi_asset_{bot}")));
+    }
+    app.hub.broadcast("user_1:bot_updates","continue-marker");
+    assert_eq!(next_event(&mut owner).await["message"],"continue-marker");
+    owner.close(None).await?;
+    other.close(None).await?;
+    Ok(())
+}

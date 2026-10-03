@@ -99,6 +99,28 @@ module Pages
     record
   end
 
+  # Action-only additions run at seed time, before either browser signs in.
+  def action_fixture(scenario)
+    return unless scenario.key?('action_extra')
+
+    extra = scenario.fetch('action_extra')
+    record = Bot.find(1)
+    ApiKey.delete_all if extra['no_key']
+    record.user.update_columns(wash_sale_enabled: false) if extra['wash_off']
+    if extra['paid'] || extra['partial']
+      attrs = { price: '500', quote_amount: '5', quote_amount_exec: '5', amount: '0.01', amount_exec: '0.01' }
+      attrs.merge!(external_status: 'cancelled', price: '125', quote_amount_exec: '1.25', amount: '0.04') if extra['partial']
+      Transaction.insert_all!([order_row(record, 'QQQM', '2026-09-10T11:00:01Z', attrs)])
+    end
+    if extra['exited']
+      record.set_missed_quote_amount
+      record.update!(allocations: { '2' => 1.0 })
+      raise 're-entry fixture lost its exited member' unless BotIndexAsset.exists?(bot_id: 1, asset_id: 3, in_index: false)
+    end
+    record.update_columns(user_id: User.find_by!(email: 'other@example.com').id) if extra['foreign']
+    raise 'CSRF list needs an archived basket' unless Bot.find(2).archived?
+  end
+
   # What Bot::ResyncIndexCompositionJob leaves behind: the first ten index members that trade here,
   # weighted by the index's own weights. Written directly: the job prices every candidate on the venue.
   def index_members(record)

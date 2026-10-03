@@ -36,7 +36,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{any, delete, get, post, MethodRouter};
+use axum::routing::{patch, any, delete, get, post, MethodRouter};
 use axum::Router;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -376,8 +376,9 @@ impl App {
     }
 
     /// After a committed write the engine must act on (a bot started, stopped, deleted or archived, or its settings
-    /// saved): the engine re-reads its bots now instead of within a minute. Call it after `db` returned `Ok`, never
-    /// inside the closure. One permit is stored, so a call while the engine is mid-pass makes it pass again right after;
+    /// saved): the engine re-reads its bots now instead of within a minute. Call immediately after a successful
+    /// commit inside the `db` job, so dropping the HTTP future cannot lose the wake. One permit is stored,
+    /// so a call while the engine is mid-pass makes it pass again right after;
     /// wakes coalesce. With no engine attached it does nothing.
     pub fn wake_engine(&self) {
         if let Some(wake) = self.engine.get() {
@@ -494,7 +495,20 @@ fn routes(app: App) -> Router {
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
         // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
         .route("/bots/new", axum::routing::any(layout::not_ported))
-        .route("/bots/{id}", only(get(bot::page::show)))
+        .route("/bots/reorder", only(patch(layout::not_ported)))
+        .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
+        .route("/bots/{id}/start", only(patch(bot::actions::start)))
+        .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
+        .route("/bots/{id}/stop", only(patch(bot::actions::stop)))
+        .route("/bots/{id}/delete", only(delete(bot::actions::delete)))
+        .route("/bots/{id}/archive", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
+        .route("/bots/{id}/edit", only(get(bot::actions::edit)))
+        .route("/bots/{id}/delete/edit", only(get(bot::actions::delete_edit)))
+        .route("/bots/{id}/archive/edit", only(get(bot::actions::archive_edit)))
+        .route("/bots/{id}/start.turbo_stream", only(patch(bot::actions::start)))
+        .route("/bots/{id}/stop.turbo_stream", only(patch(bot::actions::stop)))
+        .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
+        .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
@@ -516,9 +530,9 @@ pub struct Params {
     pub route_path: String,
     pub path_locale: Option<&'static str>,
     pub query: Vec<(String, String)>,
-    /// The fields of an `application/x-www-form-urlencoded` POST body, by their literal names (`user[email]`).
+    /// The fields of an `application/x-www-form-urlencoded` write body, by their literal names (`user[email]`).
     pub form: Vec<(String, String)>,
-    /// The object in an `application/json` POST body, on the three paths that take one (`JSON_PATHS`).
+    /// A JSON object on an OAuth POST or a supported existing-bot action.
     pub json: Option<serde_json::Value>,
 }
 
@@ -531,6 +545,14 @@ impl Params {
     pub fn form(&self, name: &str) -> Option<&str> {
         // The last value of a repeated name, as Rack: `check_box` sends a hidden "0" and then the box's "1".
         self.form.iter().rfind(|(k, _)| k == name).map(|(_, v)| v.as_str())
+    }
+
+    /// Only a scalar token is considered. Structured JSON never becomes a string token.
+    pub fn authenticity_token(&self) -> Option<&str> {
+        match self.json.as_ref().and_then(|v| v.get("authenticity_token")) {
+            Some(value) => value.as_str(),
+            None => self.form("authenticity_token"),
+        }
     }
 
     /// `params[:locale].presence`: the path prefix, else the form field, else the query parameter.
@@ -607,8 +629,8 @@ pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
 /// Everything that has to happen before a route is chosen:
 /// - a request for a host this deployment does not allow is refused, before anything reads it;
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
-/// - a form POST is parsed, and its `_method` field (how Turbo and `button_to` send PATCH, PUT and
-///   DELETE) replaces the method, as Rack::MethodOverride does;
+/// - form bodies on POST/PATCH/PUT/DELETE are parsed under one byte/field/deadline bound;
+/// - only an original POST applies `_method`, as Rack::MethodOverride does;
 /// - the path is normalised and its locale prefix taken off, so one set of routes serves `/login`
 ///   and `/de/login`.
 async fn entry(State(entry): State<Entry>, request: Request) -> Response {
@@ -637,9 +659,14 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         }
     }
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
+    let original_method = parts.method.clone();
+    let (path_locale, route_path) = locale::split(&full_path);
+    let route_path = route_path.to_string();
+    let bot_json = bot::action_params::action(&route_path, &original_method).is_some();
     let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
-    let form_post = parts.method == Method::POST && content_type.starts_with("application/x-www-form-urlencoded");
-    let json_post = parts.method == Method::POST && JSON_PATHS.contains(&full_path.as_str())
+    let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
+        && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
+    let json_post = (bot_json || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
     let (form, body) = if form_post || json_post {
@@ -654,6 +681,10 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         match read {
             // A JSON body that is not JSON is Rails' 400, answered before any controller. One that is not
             // an object names no parameter, and neither does an empty one.
+            Ok(bytes) if json_post && bot_json => match bot::action_params::json(&bytes) {
+                Ok(value) => { json = Some(value); (Vec::new(), Body::empty()) }
+                Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
+            },
             Ok(bytes) if json_post => match serde_json::from_slice::<serde_json::Value>(&bytes) {
                 Ok(value) => { json = value.is_object().then_some(value); (Vec::new(), Body::empty()) }
                 Err(_) if bytes.iter().all(u8::is_ascii_whitespace) => (Vec::new(), Body::empty()),
@@ -666,16 +697,19 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     } else {
         (Vec::new(), body)
     };
-    if let Some(method) = method_override(&form) {
-        parts.method = method;
+    if original_method == Method::POST {
+        if let Some(method) = method_override(&form) { parts.method = method; }
     }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
-    let (path_locale, route_path) = locale::split(&full_path);
-    let route_path = route_path.to_string();
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
-    parts.extensions.insert(Arc::new(Params { full_path, fullpath, route_path, path_locale, query, form, json }));
+    let params = Params { full_path, fullpath, route_path, path_locale, query, form, json };
+    if bot::action_params::action(&params.route_path, &parts.method).is_some()
+        && bot::action_params::ActionParams::parse(&params).is_err() {
+        return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response();
+    }
+    parts.extensions.insert(Arc::new(params));
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
         Err(never) => match never {},
@@ -689,7 +723,12 @@ pub fn router(app: App) -> Router {
 
 /// `router`, with another deadline for a form's body (`server::Limits`).
 pub(crate) fn router_with(app: App, body_read_timeout: Duration) -> Router {
-    Router::new().fallback(entry).with_state(Entry { app: app.clone(), routes: routes(app), body_read_timeout })
+    router_with_routes(app.clone(), routes(app), body_read_timeout)
+}
+
+/// Compose the bounded transport with a router (also permits transport probes without enabling actions).
+pub fn router_with_routes(app: App, routes: Router, body_read_timeout: Duration) -> Router {
+    Router::new().fallback(entry).with_state(Entry { app, routes, body_read_timeout })
 }
 
 /// What goes onto every response of the app: the session cookie when it has to be written, the
@@ -742,6 +781,9 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         layout::unverified_request(&context, request.headers())
     } else if let Some(inactive) = auth::inactive(&context) {
         inactive
+    } else if bot::action_params::action(&context.params.route_path, request.method())
+        .is_some_and(|action| !bot::action_params::format_allowed(action, &context.params.route_path, request.headers())) {
+        StatusCode::NOT_ACCEPTABLE.into_response()
     } else {
         request.extensions_mut().insert(context);
         next.run(request).await

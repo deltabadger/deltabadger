@@ -325,19 +325,23 @@ fn continue_sign_in(ctx: &Ctx, user: &User, new_csrf_token: bool) -> Response {
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let email = ctx.params.form("user[email]").unwrap_or("").to_string();
     let password = ctx.params.form("user[password]").unwrap_or("").to_string();
-    let now = ctx.now;
     // The row under the lock, the bcrypt computation outside it, then the decision under the lock again.
     let found = { let email = email.clone(); app.db(move |c| Ok(User::find_by_email(c, &email)?.map(|user| (user.id, user.encrypted_password)))).await? };
     let Some(correct) = app.password_check(password.clone(), found.as_ref().map(|(_, hash)| hash.clone())).await? else { return Ok(busy()) };
-    let stage = match found {
-        Some((id, hash)) => app.db(move |c| password_stage(c, id, &hash, correct, &password, now)).await?,
-        None => PasswordStage::Invalid,
+    let (stage, decision_now) = match found {
+        Some((id, hash)) => {
+            let inner = app.clone();
+            app.db(move |c| super::oauth::transaction(c, &*inner.clock, |c, now| {
+                Ok((password_stage(c, id, &hash, correct, &password, now)?, now))
+            })).await?
+        }
+        None => (PasswordStage::Invalid, app.now()),
     };
     match stage {
         PasswordStage::SignedIn(user) => Ok(continue_sign_in(&ctx, &user, true)),
         PasswordStage::SecondFactor(user) => {
             // sign_out clears the whole session; only the pending sign-in survives.
-            *ctx.session.lock() = SessionData { pending: Some(Pending { user_id: user.id, started_at: now.timestamp() }), ..SessionData::default() };
+            *ctx.session.lock() = SessionData { pending: Some(Pending { user_id: user.id, started_at: decision_now.timestamp() }), ..SessionData::default() };
             // pending_sign_in_locale: the request's locale, else the account's; a prefix only for a routable, non-default one.
             let wanted = ctx.params.locale().or(user.locale.as_deref()).and_then(locale::known).unwrap_or(locale::DEFAULT);
             Ok(layout::redirect(StatusCode::FOUND, &locale::path(wanted, "/verify_two_factor")))
@@ -439,7 +443,14 @@ pub async fn two_factor(State(app): State<App>, Extension(ctx): Extension<Ctx>) 
     };
     let code = ctx.params.form("user[otp_code_token]").filter(|code| ctx.method == Method::POST && !code.trim().is_empty()).map(str::to_string);
     let inner = app.clone();
-    match app.db(move |c| code_stage(c, &inner.cipher, pending.user_id, code, now)).await? {
+    match app.db(move |c| super::oauth::transaction(c, &*inner.clock, |c, now| {
+        if pending.started_at <= 0
+            || now.timestamp().saturating_sub(pending.started_at) >= PENDING_TTL_SECONDS
+        {
+            return Ok(CodeStage::Abandon);
+        }
+        code_stage(c, &inner.cipher, pending.user_id, code, now)
+    })).await? {
         CodeStage::Abandon | CodeStage::WrongAndLocked => Ok(abandon(&ctx)),
         CodeStage::Form => two_factor_page(&ctx, StatusCode::OK, Vec::new()),
         CodeStage::Wrong => {

@@ -1,6 +1,12 @@
 //! A bot as the bot list and the bot page read it: the row, what Rails' model derives from it
 //! (Bots::DcaMultiAsset, Bots::DcaIndex and their concerns), and what this build does not render.
-//! Read-only: nothing here writes.
+//! Page readers share their model with the guarded settings writer in `write`.
+pub mod action_params;
+pub mod actions;
+pub mod action_view;
+pub mod draft;
+pub mod write;
+pub mod composition;
 pub mod orders;
 pub mod page;
 pub mod settings;
@@ -14,7 +20,14 @@ use crate::engine::schedule::{self, Checkpoints, Effective, Interval, Unrounded}
 use crate::engine::EngineError;
 use crate::enums::{ApiKeyStatus, BotStatus, BOT_WORKING};
 use crate::ruby::{scale, BigDec};
-pub use super::format::{stored, unreadable, Stored, Unreadable, UNREADABLE};
+pub use super::format::{stored, Stored, Unreadable, UNREADABLE};
+
+/// Both numeric bounds and the action validator's history budget use the existing 501 read
+/// refusal path. This preserves main's response policy without turning a work bound into a 500.
+pub fn unreadable(error: &WebError) -> bool {
+    super::format::unreadable(error)
+        || matches!(error, WebError::Engine(EngineError::Data(reason)) if reason == start::HISTORY_BOUND)
+}
 use chrono::{DateTime, Utc};
 use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
 use rusqlite::{Connection, OptionalExtension};
@@ -672,6 +685,11 @@ impl Bot {
     pub fn last_action_job_at(&self) -> Option<DateTime<Utc>> {
         let text = self.transient.get("last_action_job_at")?.as_str()?;
         DateTime::parse_from_rfc3339(text).ok().map(|time| time.with_timezone(&Utc))
+    }
+
+    /// Bot::Rebalanceable#rebalance_pending?: only a nonempty stored Hash is pending.
+    pub fn rebalance_pending(&self) -> bool {
+        self.transient.get("rebalance_pending").and_then(Value::as_object).is_some_and(|value| !value.is_empty())
     }
 
     /// Bot::Lifecycle#restarting?

@@ -1,0 +1,25 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+
+  <div class="modal">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      {% include "svg/_24x24_close.html" %}
+
+</button>    <div class="modal__header">
+      <h1 class="modal__title">{{ bot.label }}</h1>
+    </div>
+    <div class="modal__body text-center">
+    <p>
+      {{ v.t("bot.messages.do_you_want_to_delete")|safe }}
+    </p>
+    <div class="buttons buttons--row--2">
+      <button name="button" type="button" class="button button--outline button--large" data-action="modal--base#animateOutCloseAndCleanUp">
+        {{ v.t("button.cancel")|safe }}
+</button>      <form class="button_to" method="post" action="{{ path }}/delete"><input type="hidden" name="_method" value="delete" /><button class="button button--danger button--large" type="submit">{{ v.t("button.delete")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    </div>
+  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>

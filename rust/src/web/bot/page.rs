@@ -49,23 +49,11 @@ struct Show<'a> {
     page_stream: &'a str,
     /// `bot_path(bot)`.
     path: String,
-    param_key: &'static str,
     label_id: String,
     label: &'a str,
     other_bots: Vec<(String, String)>,
-    menu_id: String,
-    archived: bool,
-    index: bool,
-    /// "Follow an index": a buying basket on an install with market data.
-    follow_index: bool,
-    exchange_name_id: String,
-    exchange_svg: &'static str,
-    exchange_name: &'a str,
-    switchable: bool,
-    can_reconnect: bool,
-    exchange_note: Option<String>,
-    other_exchanges: Vec<OtherExchange>,
-    needs_key: bool,
+    menu: String,
+    exchange_select: String,
     status_bar: String,
     status_button: String,
     chart: String,
@@ -140,7 +128,7 @@ fn chart(ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<String, WebError> {
     Ok(Chart { v: ctx, charted: bot.has_orders, hide_money, modes }.render()?)
 }
 
-enum Found {
+pub(super) enum Found {
     Bot(Box<Bot>),
     /// Not this user's, or deleted: `Bots::Botable#set_bot` sends the browser to the list.
     Missing,
@@ -149,7 +137,7 @@ enum Found {
 
 /// The bot of a request: the signed-in user's and one this build renders. The page treats a deleted
 /// bot as missing (Bots::Botable#set_bot); the chart's frame finds it, as `current_user.bots.find` does.
-fn find(c: &Connection, app: &App, user: &User, segment: &str, deleted_too: bool, asked: super::For) -> Result<(Found, bool), WebError> {
+pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, deleted_too: bool, asked: super::For) -> Result<(Found, bool), WebError> {
     let (deltabadger, configured) = market_data(c, app)?;
     let Some(id) = super::id_from_path(segment) else { return Ok((Found::Missing, configured)) };
     let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2", [id, user.id], |r| r.get(0)).optional()?;
@@ -168,7 +156,7 @@ fn find(c: &Connection, app: &App, user: &User, segment: &str, deleted_too: bool
 }
 
 /// `redirect_to bots_path, alert: t('bot.not_found')`.
-fn not_found(ctx: &Ctx) -> Response {
+pub(super) fn not_found(ctx: &Ctx) -> Response {
     flash::set(&ctx.session, flash::ALERT, i18n::text(ctx.locale, "bot.not_found", &[]));
     layout::redirect(StatusCode::FOUND, &ctx.path("/bots"))
 }
@@ -217,18 +205,6 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let mut others = c.prepare("SELECT id, label FROM bots WHERE user_id = ?1 AND status NOT IN (3, 7) AND id != ?2 ORDER BY position, id")?;
         let other_bots = others.query_map([user.id, bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
             .map(|row| row.map(|(id, label)| (ctx.path(&format!("/bots/{id}")), label.unwrap_or_default()))).collect::<Result<Vec<_>, _>>()?;
-        let switchable = !bot.working();
-        let other_exchanges = if switchable { other_exchanges(c, &bot, user.id)? } else { vec![] };
-        let exchange_note = if !switchable {
-            Some(i18n::text(ctx.locale, "bot.exchange_menu.locked_while_running", &[]))
-        } else if other_exchanges.is_empty() {
-            // `bot.assets.pluck(:symbol).to_sentence`: the quote, and for a basket its members.
-            let mut symbols: Vec<String> = bot.quote_asset.iter().map(|asset| asset.symbol().to_string()).collect();
-            symbols.extend(bot.base_assets.iter().map(|asset| asset.symbol().to_string()));
-            Some(i18n::text(ctx.locale, "bot.exchange_menu.no_alternative", &[("assets", i18n::Arg::Text(&crate::ruby::to_sentence(&symbols)))]))
-        } else {
-            None
-        };
         let hide_money = user.hide_balances;
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
@@ -250,12 +226,9 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         };
         let (preferences, bot_updates, page_stream) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id), page_stream(&bot));
         let body = Show {
-            v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(), param_key: bot.param_key(),
-            label_id: bot.dom_id("label"), label: &bot.label, other_bots, menu_id: bot.dom_id("menu"), archived: bot.status == BotStatus::Archived,
-            index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && configured,
-            exchange_name_id: bot.exchange.name_id(), exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: &bot.exchange.name, switchable,
-            can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges,
-            needs_key: !bot.exchange.retired() && !bot.api_key_correct(),
+            v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(),
+            label_id: bot.dom_id("label"), label: &bot.label, other_bots,
+            menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
             status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, columns_id: bot.dom_id("columns"), working: bot.working(),
             settings: settings::column(c, &forms)?, hide_money, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
@@ -284,4 +257,81 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     let (inner, owner) = (app.clone(), user.clone());
     let shell = match app.db(move |c| Shell::load(c, &inner, &owner)).await { Ok(shell) => shell, Err(error) => return layout::or_refused(&ctx, error) };
     shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })
+}
+
+#[derive(Template)]
+#[template(path = "bots/_exchange_select.html")]
+struct ExchangeSelect<'a> {
+    v: &'a Ctx,
+    csrf: &'a str,
+    path: String,
+    param_key: &'static str,
+    exchange_name_id: String,
+    exchange_svg: &'static str,
+    exchange_name: &'a str,
+    switchable: bool,
+    can_reconnect: bool,
+    exchange_note: Option<String>,
+    other_exchanges: Vec<OtherExchange>,
+    needs_key: bool,
+}
+
+pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, owner: i64) -> Result<String, WebError> {
+        let switchable = !bot.working() && !bot.rebalance_pending();
+        let other_exchanges = if switchable { other_exchanges(c, bot, owner)? } else { vec![] };
+        let exchange_note = if bot.rebalance_pending() {
+            Some(i18n::text(ctx.locale, "bot.exchange_menu.locked_while_rebalancing", &[]))
+        } else if !switchable {
+            Some(i18n::text(ctx.locale, "bot.exchange_menu.locked_while_running", &[]))
+        } else if other_exchanges.is_empty() {
+            // `bot.assets.pluck(:symbol).to_sentence`: the quote, and for a basket its members.
+            let mut symbols: Vec<String> = bot.quote_asset.iter().map(|asset| asset.symbol().to_string()).collect();
+            symbols.extend(bot.base_assets.iter().map(|asset| asset.symbol().to_string()));
+            Some(i18n::text(ctx.locale, "bot.exchange_menu.no_alternative", &[("assets", i18n::Arg::Text(&crate::ruby::to_sentence(&symbols)))]))
+        } else {
+            None
+        };
+    Ok(ExchangeSelect { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), param_key: bot.param_key(),
+        exchange_name_id: bot.exchange.name_id(), exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: &bot.exchange.name,
+        switchable, can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges,
+        needs_key: !bot.exchange.retired() && !bot.api_key_correct() }.render()?)
+}
+
+#[derive(Template)]
+#[template(source = r##"<div class="flex-row" id="{{ menu_id }}">
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+    {% include "svg/_24x24_dot_menu.html" %}
+    <div class="dropdown">
+      <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/edit">{{ v.t("utils.change_name")|safe }}</a>
+{% if !archived %}
+{% if index %}
+          <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.change_index")|safe }}</a>
+          <div data-controller="converting" data-action="turbo:submit-start->converting#show turbo:submit-end->converting#hide">
+            <template data-converting-target="template">
+  <dialog class="dialog dialog--open">
+    <div class="dialog__vertical-center">
+      <div class="modal modal--busy">
+        <div class="loader"></div>
+        <p>{{ v.t("bot.index_switch.converting")|safe }}</p>
+      </div>
+    </div>
+  </dialog>
+</template>
+
+            <form class="button_to" method="post" action="{{ path }}/custom_allocation"><button class="dropdown__item" type="submit">{{ v.t("bot.index_switch.custom_allocation")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+</div>{% else if follow_index %}
+          <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.follow_index")|safe }}</a>
+{% endif %}
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/archive/edit">{{ v.t("button.archive")|safe }}</a>
+{% endif %}
+      <div class="dropdown__item dropdown__item--divider"></div>
+      <a class="dropdown__item dropdown__item--danger" data-turbo-frame="modal" href="{{ path }}/delete/edit">{{ v.t("button.delete")|safe }}</a>
+    </div>
+  </div>
+</div>"##, ext = "html")]
+struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, archived: bool, index: bool, follow_index: bool }
+
+pub(super) fn menu(ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool) -> Result<String, WebError> {
+    Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"),
+        archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && configured }.render()?)
 }
