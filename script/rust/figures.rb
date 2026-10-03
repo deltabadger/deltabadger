@@ -496,6 +496,8 @@ module Figures
       # The walk over the orders: Bot::Composition::Measurable#metrics.
       scenario('no_orders', T0 + (10 * D), basket(two, [], label: 'empty'), market),
       # Shown in London, which in March is at no offset from UTC and is not UTC: the chart's times end in +00:00.
+      scenario('float_quote_id', NOW, basket(two, WEEKLY, settings: { 'quote_asset_id' => 1.0 }), TWO),
+      scenario('fractional_quote_id', NOW, basket(two, WEEKLY, settings: { 'quote_asset_id' => 1.9 }), TWO),
       scenario('basket_buys', NOW, basket(two, WEEKLY, weights: [0.6, 0.4]), TWO, time_zone: 'London'),
       scenario('row_readings', NOW, basket(%w[AAA], row_readings, settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => 1000 }),
                market(prices: { 'AAA' => 104.52 }, stock_bars: { 'AAA' => AAA_BARS })),

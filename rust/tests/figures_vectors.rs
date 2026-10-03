@@ -136,7 +136,7 @@ fn holdings_that_share_a_symbol_get_the_keys_rails_gives_them() {
     let mut renamed = 0;
     for c in cases {
         let (given, want) = (pairs(&c[0]), pairs(&c[1]));
-        assert_eq!(keys::call(&given), want, "{c}");
+        assert_eq!(keys::call(&given).unwrap(), want, "{c}");
         if given != want { renamed += 1; }
     }
     assert!(renamed > 50, "only {renamed} cases had a clash to resolve");

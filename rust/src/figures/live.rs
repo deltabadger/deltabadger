@@ -36,7 +36,7 @@ fn stale(mut metrics: Metrics) -> Metrics { metrics.prices_stale = true; metrics
 /// Restatable#restated_prices_untrusted?: a split this bot can see and cannot size, or a restatement newer than
 /// the market's last chance to reprice the security.
 fn restated_prices_untrusted(c: &Connection, s: &Subject, metrics: &Metrics, now: At) -> Result<bool, FiguresError> {
-    if splits::unresolved(c, s.bot.user_id, &s.orders, &metrics.holdings(), now)? { return Ok(true); }
+    if splits::unresolved(c, s.bot.user_id, &s.orders, &metrics.holdings()?, now)? { return Ok(true); }
     let restated_at = metrics.walked.as_ref().and_then(|w| w.restated_at);
     Ok(restated_at.is_some_and(|at| now.plus_seconds(-QUARANTINE_SECONDS).is_none_or(|cutoff| at > cutoff)))
 }

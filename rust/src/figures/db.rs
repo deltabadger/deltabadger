@@ -1,5 +1,7 @@
 //! What the figures read from the database: SELECTs only, shaped as Rails' own queries are.
 use super::at::At;
+use super::{budget, num::NumError};
+use std::collections::{HashMap, HashSet};
 use super::FiguresError;
 use crate::enums::{BotStatus, TxExternalStatus, TxSide, TxStatus};
 use super::dec::Dec;
@@ -11,7 +13,10 @@ fn data(what: impl std::fmt::Debug) -> FiguresError { FiguresError::Data(format!
 fn decimal(r: &SqlRow<'_>, i: usize) -> Result<Option<Dec>, FiguresError> { Ok(Dec::from_sql(r.get_ref(i)?)?) }
 fn instant(text: &str) -> Result<At, FiguresError> { At::from_sql(text).ok_or_else(|| FiguresError::Data(format!("a time Rails did not write: {text:?}"))) }
 /// Ids as SQL literals, so each query has the shape of the one Rails sends (`IN (1, 2, 3)`); they are integers.
-fn id_list(ids: &[i64]) -> String { ids.iter().map(i64::to_string).collect::<Vec<_>>().join(", ") }
+fn id_list(ids: &[i64]) -> Result<String, FiguresError> {
+    budget::charge(ids.len() as u64, 0)?;
+    Ok(ids.iter().map(i64::to_string).collect::<Vec<_>>().join(", "))
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind { Basket, Index }
@@ -26,16 +31,56 @@ pub struct Bot {
     pub base_asset_ids: Vec<i64>,
 }
 
-/// String#to_i / Integer: the leading digits, else zero.
-fn to_i(v: &Value) -> i64 {
+/// Ruby's Integer/Float/String#to_i for the allocations keys and legacy base_asset_ids.
+/// An integer we cannot represent is refused, never silently replaced with zero.
+fn to_i(v: &Value) -> Result<i64, FiguresError> {
     match v {
-        Value::Number(n) => n.as_i64().unwrap_or(0),
-        Value::String(s) => {
-            let s = s.trim_start();
-            let end = s.char_indices().take_while(|(i, c)| c.is_ascii_digit() || (*i == 0 && (*c == '-' || *c == '+'))).count();
-            s[..end].parse().unwrap_or(0)
+        Value::Number(n) => {
+            if let Some(i) = n.as_i64() { return Ok(i); }
+            if n.is_u64() { return Err(NumError::OutOfRange.into()); }
+            let f = n.as_f64().ok_or(NumError::OutOfRange)?.trunc();
+            if !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&f) {
+                return Err(NumError::OutOfRange.into());
+            }
+            Ok(f as i64)
         }
-        _ => 0,
+        Value::String(s) => {
+            let mut bytes = s.trim_start_matches(|c: char| c.is_ascii_whitespace()).bytes().peekable();
+            let negative = match bytes.peek() { Some(b'-') => { bytes.next(); true }, Some(b'+') => { bytes.next(); false }, _ => false };
+            let mut n = 0i64;
+            let mut digit = false;
+            while let Some(b) = bytes.next() {
+                if b.is_ascii_digit() {
+                    let d = i64::from(b - b'0');
+                    n = n.checked_mul(10).and_then(|n| if negative { n.checked_sub(d) } else { n.checked_add(d) }).ok_or(NumError::OutOfRange)?;
+                    digit = true;
+                } else if b == b'_' && digit && bytes.peek().is_some_and(u8::is_ascii_digit) {
+                    digit = false;
+                } else { break; }
+            }
+            Ok(n)
+        }
+        Value::Null => Ok(0),
+        _ => Err(FiguresError::Raised("NoMethodError: undefined method 'to_i'".into())),
+    }
+}
+
+/// Asset.find_by(id: quote_asset_id) / Ticker.where(quote_asset_id:): Active Record's integer
+/// predicate truncates Floats and makes an out-of-range integer an unsatisfiable predicate.
+fn quote_id(v: &Value) -> Result<Option<i64>, FiguresError> {
+    match v {
+        Value::Null | Value::Array(_) | Value::Object(_) => Ok(None),
+        Value::Bool(b) => Ok(Some(i64::from(*b))),
+        Value::String(s) if {
+            let text = s.trim_start_matches(|c: char| c.is_ascii_whitespace());
+            let digits = text.strip_prefix(['+', '-']).unwrap_or(text);
+            !digits.starts_with(|c: char| c.is_ascii_digit())
+        } => Ok(None),
+        _ => match to_i(v) {
+            Ok(id) => Ok(Some(id)),
+            Err(FiguresError::NotComputed(reason)) if reason == super::OUT_OF_RANGE => Ok(None),
+            Err(e) => Err(e),
+        },
     }
 }
 
@@ -53,14 +98,14 @@ pub fn bot(c: &Connection, id: i64) -> Result<Bot, FiguresError> {
     let settings: Value = serde_json::from_str(&settings).map_err(data)?;
     let base_asset_ids = match (kind, settings.get("allocations").and_then(Value::as_object)) {
         (Kind::Index, _) => vec![],
-        (Kind::Basket, Some(weights)) if !weights.is_empty() => weights.keys().map(|k| to_i(&Value::String(k.clone()))).collect(),
-        (Kind::Basket, _) => settings.get("base_asset_ids").and_then(Value::as_array).map(|ids| ids.iter().map(to_i).collect()).unwrap_or_default(),
+        (Kind::Basket, Some(weights)) if !weights.is_empty() => weights.keys().map(|k| to_i(&Value::String(k.clone()))).collect::<Result<Vec<_>, _>>()?,
+        (Kind::Basket, _) => settings.get("base_asset_ids").and_then(Value::as_array).map(|ids| ids.iter().map(to_i).collect::<Result<Vec<_>, _>>()).transpose()?.unwrap_or_default(),
     };
     let exchange_type = match exchange_id {
         Some(e) => c.query_row("SELECT type FROM exchanges WHERE id = ?1", [e], |r| r.get::<_, Option<String>>(0)).optional()?.flatten(),
         None => None,
     };
-    let quote_asset_id = settings.get("quote_asset_id").filter(|v| !v.is_null()).map(to_i);
+    let quote_asset_id = settings.get("quote_asset_id").map(quote_id).transpose()?.flatten();
     Ok(Bot { id, user_id: user_id.unwrap_or(0), exchange_id: exchange_id.filter(|_| exchange_type.is_some()), kind, exchange_type, quote_asset_id, base_asset_ids })
 }
 
@@ -83,6 +128,7 @@ pub fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresError> {
     let mut rows = statement.query(params![bot_id, TxStatus::Submitted as i64])?;
     let mut out = vec![];
     while let Some(r) = rows.next()? {
+        budget::charge(1, 0)?;
         let (side, status): (Option<i64>, Option<i64>) = (r.get(9)?, r.get(10)?);
         out.push(Order {
             id: r.get(0)?, at: instant(&r.get::<_, String>(1)?)?, exchange_id: r.get(2)?,
@@ -100,8 +146,8 @@ pub type AssetName = (i64, Option<String>, Option<String>);
 
 /// `Asset.where(id: ids).pluck(:id, :symbol, :name)`.
 pub fn asset_names(c: &Connection, ids: &[i64]) -> Result<Vec<AssetName>, FiguresError> {
-    let mut statement = c.prepare(&format!("SELECT id, symbol, name FROM assets WHERE id IN ({})", id_list(ids)))?;
-    let rows = statement.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+    let mut statement = c.prepare(&format!("SELECT id, symbol, name FROM assets WHERE id IN ({})", id_list(ids)?))?;
+    let rows = statement.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?;
     Ok(rows)
 }
 
@@ -131,13 +177,13 @@ pub fn tickers(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, FiguresError> {
     let (Some(exchange_id), Some(quote)) = (bot.exchange_id, bot.quote_asset_id) else { return Ok(vec![]) };
     let live = "t.exchange_id = ?1 AND t.available = 1 AND t.trading_enabled = 1 AND t.quote_asset_id = ?2";
     let rows = match bot.kind {
-        Kind::Index => c.prepare(&format!("{TICKER} WHERE {live}"))?.query_map(params![exchange_id, quote], ticker)?.collect::<Result<Vec<_>, _>>()?,
+        Kind::Index => c.prepare(&format!("{TICKER} WHERE {live}"))?.query_map(params![exchange_id, quote], ticker)?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?,
         Kind::Basket => {
             let mut ids = bot.base_asset_ids.clone();
             let mut statement = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
-            for id in statement.query_map([bot.id], |r| r.get::<_, i64>(0))? { ids.push(id?); }
-            c.prepare(&format!("{TICKER} WHERE {live} AND t.base_asset_id IN ({})", id_list(&ids)))?
-                .query_map(params![exchange_id, quote], ticker)?.collect::<Result<Vec<_>, _>>()?
+            for id in statement.query_map([bot.id], |r| r.get::<_, i64>(0))? { budget::charge(1, 0)?; ids.push(id?); }
+            c.prepare(&format!("{TICKER} WHERE {live} AND t.base_asset_id IN ({})", id_list(&ids)?))?
+                .query_map(params![exchange_id, quote], ticker)?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?
         }
     };
     Ok(rows)
@@ -147,17 +193,21 @@ pub fn tickers(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, FiguresError> {
 /// what a basket rounds with once none of its members is tradable.
 pub fn composition_quote_decimals(c: &Connection, bot_id: i64) -> Result<Vec<Option<i64>>, FiguresError> {
     let mut statement = c.prepare("SELECT t.quote_decimals FROM bot_index_assets m INNER JOIN tickers t ON t.id = m.ticker_id WHERE m.bot_id = ?1 AND m.in_index = 1")?;
-    let rows = statement.query_map([bot_id], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = statement.query_map([bot_id], |r| r.get(0))?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?;
     Ok(rows)
 }
 
 /// `Ticker.where(exchange_id:, base_asset_id: ids)` with each base asset's symbol: every listing of these assets on
 /// the venue, tradable or not, as `(base, asset id, symbol)`.
 pub fn listings(c: &Connection, exchange_id: i64, asset_ids: &[i64]) -> Result<Vec<(String, i64, Option<String>)>, FiguresError> {
-    let mut statement = c.prepare(&format!("SELECT base, base_asset_id FROM tickers WHERE exchange_id = ?1 AND base_asset_id IN ({})", id_list(asset_ids)))?;
-    let rows = statement.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
-    let names = asset_names(c, asset_ids)?;
-    Ok(rows.into_iter().map(|(base, id)| { let symbol = names.iter().find(|(asset, _, _)| *asset == id).and_then(|(_, symbol, _)| symbol.clone()); (base, id, symbol) }).collect())
+    let mut statement = c.prepare(&format!("SELECT base, base_asset_id FROM tickers WHERE exchange_id = ?1 AND base_asset_id IN ({})", id_list(asset_ids)?))?;
+    let rows = statement.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?;
+    let mut names = HashMap::new();
+    for (id, symbol, _) in asset_names(c, asset_ids)? { budget::charge(1, 0)?; names.insert(id, symbol); }
+    rows.into_iter().map(|(base, id)| {
+        budget::charge(1, 0)?;
+        Ok((base, id, names.get(&id).cloned().flatten()))
+    }).collect()
 }
 
 /// The ids among these that are assets (`Asset.where(id: ids)`).
@@ -192,10 +242,11 @@ pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<
     let mut statement = c.prepare(&format!(
         "SELECT exchange_id, base_currency, raw_data, transacted_at FROM account_transactions \
          WHERE user_id = ?1 AND entry_type = ?2 AND exchange_id IN ({}) \
-         AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END = 'split'", id_list(exchange_ids)))?;
+         AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END = 'split'", id_list(exchange_ids)?))?;
     let mut rows = statement.query(params![user_id, ADJUSTMENT])?;
     let mut out = vec![];
     while let Some(r) = rows.next()? {
+        budget::charge(1, 0)?;
         let raw: Option<String> = r.get(2)?;
         out.push(SplitRow {
             exchange_id: r.get(0)?, base_currency: r.get(1)?,
@@ -210,21 +261,27 @@ pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<
 /// spelling there (a replaced listing's prefix removed) or by the asset's symbol. Names arrive upper-cased.
 pub fn asset_ids_by_name(c: &Connection, exchange_id: i64, wanted: &[String]) -> Result<Vec<(String, i64)>, FiguresError> {
     if wanted.is_empty() { return Ok(vec![]); }
+    budget::charge(wanted.len() as u64, 0)?;
     let names = Value::from(wanted.to_vec()).to_string();
     let mut found: Vec<(String, i64)> = vec![];
-    let mut add = |name: String, asset_id: i64| if !found.contains(&(name.clone(), asset_id)) { found.push((name, asset_id)); };
+    let mut seen = HashSet::new();
+    let mut wanted_set = HashSet::new();
+    for name in wanted { budget::charge(1, 0)?; wanted_set.insert(name.as_str()); }
+    let mut add = |name: String, asset_id: i64| if seen.insert((name.clone(), asset_id)) { found.push((name, asset_id)); };
     let mut statement = c.prepare(
         "SELECT base, base_asset_id FROM tickers WHERE exchange_id = ?1 \
          AND (upper(base) IN (SELECT value FROM json_each(?2)) OR base LIKE '\\_\\_stale\\_%' ESCAPE '\\')")?;
     for row in statement.query_map(params![exchange_id, names], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? {
+        budget::charge(1, 0)?;
         let (base, asset_id) = row?;
         let spelling = base_spelling(&base).to_uppercase();
-        if wanted.contains(&spelling) { add(spelling, asset_id); }
+        if wanted_set.contains(spelling.as_str()) { add(spelling, asset_id); }
     }
     let mut statement = c.prepare(
         "SELECT upper(a.symbol), t.base_asset_id FROM tickers t INNER JOIN assets a ON a.id = t.base_asset_id \
          WHERE t.exchange_id = ?1 AND upper(a.symbol) IN (SELECT value FROM json_each(?2))")?;
     for row in statement.query_map(params![exchange_id, names], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? {
+        budget::charge(1, 0)?;
         let (name, asset_id) = row?;
         add(name, asset_id);
     }
@@ -251,7 +308,7 @@ pub fn user(c: &Connection, id: i64) -> Result<User, FiguresError> {
 /// `user.bots.not_deleted`: the ids and types of the account's bots, archived ones included.
 pub fn account_bots(c: &Connection, user_id: i64) -> Result<Vec<(i64, Option<String>)>, FiguresError> {
     let mut statement = c.prepare("SELECT id, type FROM bots WHERE user_id = ?1 AND status != ?2")?;
-    let rows = statement.query_map(params![user_id, BotStatus::Deleted as i64], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = statement.query_map(params![user_id, BotStatus::Deleted as i64], |r| Ok((r.get(0)?, r.get(1)?)))?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?;
     Ok(rows)
 }
 
@@ -267,8 +324,10 @@ pub struct Subject {
 
 impl Subject {
     pub fn load(c: &Connection, bot_id: i64) -> Result<Subject, FiguresError> {
-        let bot = bot(c, bot_id)?;
-        Ok(Subject { orders: orders(c, bot_id)?, tickers: tickers(c, &bot)?, quote: asset_symbol(c, bot.quote_asset_id)?, bot })
+        budget::within(|| {
+            let bot = bot(c, bot_id)?;
+            Ok(Subject { orders: orders(c, bot_id)?, tickers: tickers(c, &bot)?, quote: asset_symbol(c, bot.quote_asset_id)?, bot })
+        })
     }
 
     /// Exchange#restated_candles?: whether the venue rewrites this ticker's price history behind us. Alpaca does

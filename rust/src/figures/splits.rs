@@ -2,6 +2,8 @@
 //! an `adjustment` ledger row marked `corporate_action: split`; this turns those rows into the events the walk
 //! folds in.
 use super::at::At;
+use super::budget;
+use std::collections::{HashMap, HashSet};
 use super::db::{self, Order, SplitRow};
 use super::dec::Dec;
 use super::num::NumError;
@@ -47,67 +49,83 @@ pub fn factor(raw_data: &Value) -> Result<Option<Dec>, NumError> {
 
 /// One factor, or none: a row that names no factor is silent, two rows naming different ones resolve to nothing.
 fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
-    let mut factors: Vec<Dec> = vec![];
-    for row in rows { if let Some(f) = factor(&row.raw_data)? { if !factors.contains(&f) { factors.push(f); } } }
-    Ok(if factors.len() == 1 { factors.pop() } else { None })
+    let mut first = None;
+    let mut conflict = false;
+    for row in rows {
+        budget::charge(1, 0)?;
+        if let Some(f) = factor(&row.raw_data)? {
+            match &first { Some(previous) => conflict |= *previous != f, None => first = Some(f) }
+        }
+    }
+    Ok(if conflict { None } else { first })
 }
 
 /// Bot::Restatable#grouped_split_rows: the marked rows this bot is eligible for, per holding and effective date
 /// (the UTC date of the row). Eligibility is the venues and symbols the bot actually traded.
 fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
-    let mut string_pairs: Vec<(i64, &str)> = vec![];
-    let mut asset_pairs: Vec<(i64, i64)> = vec![];
+    let mut string_pairs = HashSet::new();
+    let mut asset_pairs = HashSet::new();
+    let mut exchange_ids = vec![];
+    let mut exchanges_seen = HashSet::new();
     for order in orders {
+        budget::charge(1, 0)?;
         let Some(exchange_id) = order.exchange_id else { continue };
-        if let Some(base) = order.base.as_deref().filter(|b| !b.trim().is_empty()) {
-            if !string_pairs.contains(&(exchange_id, base)) { string_pairs.push((exchange_id, base)); }
-        }
-        if let Some(asset_id) = order.asset_id {
-            if !asset_pairs.contains(&(exchange_id, asset_id)) { asset_pairs.push((exchange_id, asset_id)); }
-        }
+        let base = order.base.as_deref().filter(|b| !b.trim().is_empty());
+        if let Some(base) = base { string_pairs.insert((exchange_id, base)); }
+        if let Some(asset_id) = order.asset_id { asset_pairs.insert((exchange_id, asset_id)); }
+        if (base.is_some() || order.asset_id.is_some()) && exchanges_seen.insert(exchange_id) { exchange_ids.push(exchange_id); }
     }
-    if string_pairs.is_empty() && asset_pairs.is_empty() { return Ok(vec![]); }
-    let mut exchange_ids: Vec<i64> = string_pairs.iter().map(|p| p.0).chain(asset_pairs.iter().map(|p| p.0)).collect();
+    if exchange_ids.is_empty() { return Ok(vec![]); }
+    budget::charge((exchange_ids.len() as u64).saturating_mul(u64::from(exchange_ids.len().ilog2()) + 1), 0)?;
     exchange_ids.sort_unstable();
-    exchange_ids.dedup();
-    let rows: Vec<SplitRow> = db::split_rows(c, user_id, &exchange_ids)?.into_iter()
-        .filter(|row| row.raw_data.get("corporate_action").and_then(Value::as_str) == Some("split")).collect();
+    let rows = db::split_rows(c, user_id, &exchange_ids)?;
     if rows.is_empty() { return Ok(vec![]); }
 
-    // The one asset each report's name stands for on its venue, by spelling or symbol; none when it names none or several.
-    let mut named: Vec<(i64, Vec<(String, i64)>)> = vec![];
-    for &exchange_id in &exchange_ids {
-        let mut wanted: Vec<String> = vec![];
-        for row in rows.iter().filter(|row| row.exchange_id == exchange_id && !row.base_currency.trim().is_empty()) {
-            let name = row.base_currency.to_uppercase();
-            if !wanted.contains(&name) { wanted.push(name); }
-        }
-        named.push((exchange_id, db::asset_ids_by_name(c, exchange_id, &wanted)?));
-    }
-    let report_asset = |row: &SplitRow| -> Option<i64> {
+    let mut wanted: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut seen = HashSet::new();
+    for row in &rows {
+        budget::charge(1, 0)?;
+        if row.base_currency.trim().is_empty() { continue; }
         let name = row.base_currency.to_uppercase();
-        let found = &named.iter().find(|(exchange_id, _)| *exchange_id == row.exchange_id)?.1;
-        let mut ids = found.iter().filter(|(n, _)| *n == name).map(|(_, id)| *id);
-        match (ids.next(), ids.next()) { (Some(id), None) => Some(id), _ => None }
-    };
-
-    let mut out: Vec<(String, i64, Group)> = vec![]; // (key, days since the epoch, group)
+        if seen.insert((row.exchange_id, name.clone())) { wanted.entry(row.exchange_id).or_default().push(name); }
+    }
+    // None means that more than one asset claims this name on the venue.
+    let mut named: HashMap<(i64, String), Option<i64>> = HashMap::new();
+    for exchange_id in exchange_ids {
+        budget::charge(1, 0)?;
+        for (name, id) in db::asset_ids_by_name(c, exchange_id, wanted.get(&exchange_id).map_or(&[], Vec::as_slice))? {
+            budget::charge(1, 0)?;
+            named.entry((exchange_id, name)).and_modify(|found| { if *found != Some(id) { *found = None; } }).or_insert(Some(id));
+        }
+    }
+    let mut holding_strings = Vec::new();
+    for holding in holdings {
+        budget::charge(1, 0)?;
+        let mut strings = HashSet::new();
+        for string in &holding.strings { budget::charge(1, 0)?; strings.insert(string.as_str()); }
+        holding_strings.push(strings);
+    }
+    let mut out: Vec<Group> = vec![];
+    let mut places = HashMap::new();
     for row in rows {
-        let reported = report_asset(&row);
+        budget::charge(1, 0)?;
+        let reported = named.get(&(row.exchange_id, row.base_currency.to_uppercase())).copied().flatten();
         let date = row.at.0.div_euclid(86_400_000_000_000);
-        for holding in holdings {
+        for (holding, strings) in holdings.iter().zip(&holding_strings) {
+            budget::charge(1, 0)?;
             let applies = match (holding.asset_id, reported) {
                 (Some(asset_id), Some(reported)) => reported == asset_id && asset_pairs.contains(&(row.exchange_id, asset_id)),
-                _ => holding.strings.contains(&row.base_currency) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str())),
+                _ => strings.contains(row.base_currency.as_str()) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str())),
             };
             if !applies { continue; }
-            match out.iter_mut().find(|(key, day, _)| *key == holding.key && *day == date) {
-                Some((_, _, group)) => group.rows.push(row.clone()),
-                None => out.push((holding.key.clone(), date, Group { key: holding.key.clone(), rows: vec![row.clone()] })),
-            }
+            let at = *places.entry((holding.key.clone(), date)).or_insert_with(|| {
+                out.push(Group { key: holding.key.clone(), rows: vec![] }); out.len() - 1
+            });
+            out[at].rows.push(row.clone());
         }
     }
-    Ok(out.into_iter().map(|(_, _, group)| group).collect())
+    budget::check()?;
+    Ok(out)
 }
 
 /// Bot::Restatable#split_events: one event per holding and date whose reports agree on a factor, timed at the
@@ -115,16 +133,20 @@ fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) 
 pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
     let mut out: Vec<Event> = vec![];
     for group in groups(c, user_id, orders, holdings)? {
+        budget::charge(1 + group.rows.len() as u64, 0)?;
         let (Some(at), Some(factor)) = (group.rows.iter().map(|row| row.at).min(), resolved_factor(&group.rows)?) else { continue };
         if at <= now { out.push(Event { at, key: group.key, factor }); }
     }
+    budget::charge((out.len() as u64).saturating_mul(u64::from(out.len().max(1).ilog2()) + 1), 0)?;
     out.sort_by(|a, b| (a.at, a.key.as_bytes()).cmp(&(b.at, b.key.as_bytes())));
+    budget::check()?;
     Ok(out)
 }
 
 /// Bot::Restatable#unresolved_split?: a split in effect that this bot can see and cannot size.
 pub fn unresolved(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
     for group in groups(c, user_id, orders, holdings)? {
+        budget::charge(1 + group.rows.len() as u64, 0)?;
         if group.rows.iter().map(|row| row.at).min().is_none_or(|at| at <= now) && resolved_factor(&group.rows)?.is_none() { return Ok(true); }
     }
     Ok(false)

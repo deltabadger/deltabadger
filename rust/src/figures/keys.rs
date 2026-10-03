@@ -6,30 +6,43 @@
 pub enum Identity { Asset(i64), Text(String) }
 
 /// `candidates` is `(identity, candidate key)` in the order the walk first met each holding.
-pub fn call(candidates: &[(Identity, String)]) -> Vec<(Identity, String)> {
+pub fn call(candidates: &[(Identity, String)]) -> Result<Vec<(Identity, String)>, super::num::NumError> {
+    use std::collections::HashMap;
+    use super::budget;
+    budget::charge(candidates.len() as u64, 0)?;
     let mut keys = candidates.to_vec();
     loop {
-        // The clashes are read off one state of the keys and then all renamed, as Ruby's group_by reads them.
-        let mut renamed = keys.clone();
+        let mut groups: Vec<Vec<usize>> = vec![];
+        let mut places = HashMap::new();
+        for (i, (_, key)) in keys.iter().enumerate() {
+            budget::charge(1, 0)?;
+            let at = *places.entry(key.as_str()).or_insert_with(|| { groups.push(vec![]); groups.len() - 1 });
+            groups[at].push(i);
+        }
         let mut clashed = false;
-        for (at, (_, key)) in keys.iter().enumerate() {
-            if keys.iter().position(|(_, other)| other == key) != Some(at) { continue; } // each key once, at its first owner
-            let owners: Vec<usize> = keys.iter().enumerate().filter(|(_, (_, other))| other == key).map(|(i, _)| i).collect();
+        for owners in groups {
+            budget::charge(1, 0)?;
             if owners.len() < 2 { continue; }
             clashed = true;
-            let mut unresolved: Vec<&String> = owners.iter().filter_map(|&i| match &keys[i].0 { Identity::Text(s) => Some(s), Identity::Asset(_) => None }).collect();
-            unresolved.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
+            let mut unresolved = vec![];
             for &i in &owners {
+                budget::charge(1, 0)?;
+                if let Identity::Text(s) = &keys[i].0 { unresolved.push(s.clone()); }
+            }
+            budget::charge((unresolved.len() as u64).saturating_mul(u64::from(unresolved.len().max(1).ilog2()) + 1), 0)?;
+            unresolved.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
+            let ranks: HashMap<_, _> = unresolved.iter().enumerate().map(|(i, s)| (s, i + 1)).collect();
+            for i in owners {
+                budget::charge(1, 0)?;
                 let tag = match &keys[i].0 {
                     Identity::Asset(id) => id.to_string(),
                     Identity::Text(_) if unresolved.len() == 1 => "?".to_string(),
-                    Identity::Text(s) => format!("?{}", unresolved.iter().position(|u| *u == s).map_or(0, |p| p + 1)),
+                    Identity::Text(s) => format!("?{}", ranks[s]),
                 };
-                renamed[i].1 = format!("{key}#{tag}");
+                keys[i].1 = format!("{}#{tag}", keys[i].1);
             }
         }
-        if !clashed { return keys; }
-        keys = renamed;
+        if !clashed { return Ok(keys); }
     }
 }
 

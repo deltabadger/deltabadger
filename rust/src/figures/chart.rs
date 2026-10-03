@@ -26,9 +26,16 @@ pub type Grids = Vec<(String, Marks)>;
 /// How finely the buy marks are worth shipping (MARK_BUCKETS).
 pub const MARK_BUCKETS: usize = 500;
 
-fn grid<'a>(grids: &'a Grids, key: &str) -> Option<&'a Marks> { grids.iter().find(|(k, _)| k == key).map(|(_, marks)| marks) }
-fn set(grids: &mut Grids, key: &str, marks: Marks) {
-    match grids.iter_mut().find(|(k, _)| k == key) { Some(entry) => entry.1 = marks, None => grids.push((key.to_string(), marks)) }
+fn grid_places(grids: &Grids) -> Result<HashMap<String, usize>, NumError> {
+    let mut places = HashMap::new();
+    for (i, (key, _)) in grids.iter().enumerate() { budget::charge(1, 0)?; places.entry(key.clone()).or_insert(i); }
+    Ok(places)
+}
+fn set(grids: &mut Grids, places: &mut HashMap<String, usize>, key: &str, marks: Marks) {
+    match places.get(key) {
+        Some(&i) => grids[i].1 = marks,
+        None => { places.insert(key.to_string(), grids.len()); grids.push((key.to_string(), marks)); }
+    }
 }
 
 /// #optimal_candles_timeframe_for_duration: about 300 points when possible. Seconds in, seconds out.
@@ -76,6 +83,7 @@ pub fn thinned_marks(marks: Vec<BuyMark>) -> Result<Vec<BuyMark>, NumError> {
     let mut sums: Vec<BuyMark> = vec![];
     let mut place: HashMap<(u64, String), usize> = HashMap::new();
     for mark in marks {
+        budget::charge(1, 0)?;
         let bucket = (mark.at.minus(first) / span * MARK_BUCKETS as f64).floor();
         match place.get(&(bucket.to_bits(), mark.key.clone())) {
             Some(&at) => {
@@ -89,16 +97,27 @@ pub fn thinned_marks(marks: Vec<BuyMark>) -> Result<Vec<BuyMark>, NumError> {
 }
 
 /// Measurable#chart_row_key: the key a row is charted under, its holding's.
-fn row_key(metrics: &Metrics, base: Option<&str>, asset_id: Option<i64>) -> String {
-    let base = base.unwrap_or_default();
-    let key = match asset_id {
-        Some(id) => metrics.key_for(id),
-        // The later of two holdings recorded under one string stands.
-        None => metrics.key_strings.iter().rev()
-            .find(|(key, strings)| metrics.key_assets.iter().any(|(k, id)| k == key && id.is_none()) && strings.iter().any(|s| s == base))
-            .map(|(key, _)| key.as_str()),
-    };
-    key.unwrap_or(base).to_string()
+struct RowKeys<'a> { assets: HashMap<i64, &'a str>, strings: HashMap<&'a str, &'a str> }
+impl<'a> RowKeys<'a> {
+    fn new(metrics: &'a Metrics) -> Result<Self, FiguresError> {
+        let mut assets = HashMap::new();
+        let mut unresolved = HashSet::new();
+        for (key, id) in &metrics.key_assets {
+            budget::charge(1, 0)?;
+            match id { Some(id) => { assets.entry(*id).or_insert(key.as_str()); }, None => { unresolved.insert(key.as_str()); } }
+        }
+        let mut strings = HashMap::new();
+        for (key, names) in &metrics.key_strings {
+            budget::charge(1, 0)?;
+            if !unresolved.contains(key.as_str()) { continue; }
+            for name in names { budget::charge(1, 0)?; strings.insert(name.as_str(), key.as_str()); }
+        }
+        Ok(Self { assets, strings })
+    }
+    fn key(&self, base: Option<&str>, asset_id: Option<i64>) -> String {
+        let base = base.unwrap_or_default();
+        match asset_id { Some(id) => self.assets.get(&id), None => self.strings.get(base) }.copied().unwrap_or(base).to_string()
+    }
 }
 
 /// #chart_buy_marks: the buys the walk counts, as executed, oldest first.
@@ -106,10 +125,13 @@ fn row_key(metrics: &Metrics, base: Option<&str>, asset_id: Option<i64>) -> Stri
 /// they come by id, which is what its index gives. Only the order of two marks of one instant could differ.
 pub fn buy_marks(s: &Subject, metrics: &Metrics) -> Result<Vec<BuyMark>, FiguresError> {
     let mut marks = vec![];
-    for order in s.orders.iter().filter(|order| order.buy && order.price.is_some()) {
+    let keys = RowKeys::new(metrics)?;
+    for order in &s.orders {
+        budget::charge(1, 0)?;
+        if !order.buy || order.price.is_none() { continue; }
         let (Some(amount), Some(quote)) = confirmed_exec_amounts(order)? else { continue };
         if amount.is_zero() || quote.is_zero() { continue; }
-        marks.push(BuyMark { at: order.at, key: row_key(metrics, order.base.as_deref(), order.asset_id), amount, quote, fills: 1 });
+        marks.push(BuyMark { at: order.at, key: keys.key(order.base.as_deref(), order.asset_id), amount, quote, fills: 1 });
     }
     Ok(thinned_marks(marks)?)
 }
@@ -118,13 +140,16 @@ pub fn buy_marks(s: &Subject, metrics: &Metrics) -> Result<Vec<BuyMark>, Figures
 /// nothing, nor does a sale whose proceeds were never reported; of two fills at one moment the later stands.
 fn fill_marks(s: &Subject, metrics: &Metrics) -> Result<Grids, FiguresError> {
     let mut out: Grids = vec![];
+    let keys = RowKeys::new(metrics)?;
+    let mut places = HashMap::new();
     for order in &s.orders {
+        budget::charge(1, 0)?;
         let Some(price) = &order.price else { continue };
         let (executed, proceeds) = confirmed_exec_amounts(order)?;
         if d(&executed).is_zero() || d(&proceeds).is_zero() { continue; }
         if order.sell && !d(&order.quote_amount_exec).is_positive() { continue; }
-        let key = row_key(metrics, order.base.as_deref(), order.asset_id);
-        let at = match out.iter().position(|(k, _)| *k == key) { Some(at) => at, None => { out.push((key, vec![])); out.len() - 1 } };
+        let key = keys.key(order.base.as_deref(), order.asset_id);
+        let at = *places.entry(key.clone()).or_insert_with(|| { out.push((key, vec![])); out.len() - 1 });
         // The orders come oldest first, so a fill of the same moment can only be the last mark so far.
         match out[at].1.last_mut().filter(|(time, _)| *time == order.at) { Some(mark) => mark.1 = price.clone(), None => out[at].1.push((order.at, price.clone())) }
     }
@@ -134,12 +159,25 @@ fn fill_marks(s: &Subject, metrics: &Metrics) -> Result<Grids, FiguresError> {
 /// #chart_backfilled_grids: what a holding's candles do not span is filled in from the bot's own fill prices. Only
 /// outside the candles' span, and only on the candles' side of any split.
 fn backfilled(mut grids: Grids, symbols: &[String], from: At, to: At, events: &[Event], s: &Subject, metrics: &Metrics) -> Result<Grids, FiguresError> {
-    let mut fills: Option<Grids> = None;
+    let mut places = grid_places(&grids)?;
+    let mut fills: Option<HashMap<String, Marks>> = None;
     for symbol in symbols {
-        let marks = grid(&grids, symbol).cloned().unwrap_or_default();
+        budget::charge(1, 0)?;
+        let marks = places.get(symbol).map(|&i| &grids[i].1);
+        budget::charge(marks.map_or(0, |marks| marks.len()) as u64, 0)?;
+        let marks = marks.cloned().unwrap_or_default();
         if let (Some(first), Some(last)) = (marks.first(), marks.last()) { if first.0 <= from && last.0 >= to { continue; } }
-        let fills = match &mut fills { Some(fills) => fills, none => none.insert(fill_marks(s, metrics)?) };
-        let Some(mut extra) = grid(fills, symbol).cloned().filter(|extra| !extra.is_empty()) else { continue };
+        let fills = match &mut fills {
+            Some(fills) => fills,
+            none => {
+                let rows = fill_marks(s, metrics)?;
+                budget::charge(rows.len() as u64, 0)?;
+                none.insert(rows.into_iter().collect())
+            }
+        };
+        let extra = fills.get(symbol);
+        budget::charge(extra.map_or(0, |marks| marks.len()) as u64 + 2 * events.len() as u64, 0)?;
+        let Some(mut extra) = extra.cloned().filter(|extra| !extra.is_empty()) else { continue };
         if let (Some(first), Some(last)) = (marks.first().map(|m| m.0), marks.last().map(|m| m.0)) {
             let cuts = || events.iter().filter(|event| event.key == *symbol).map(|event| event.at);
             let floor = cuts().filter(|at| *at <= first).max();
@@ -149,7 +187,8 @@ fn backfilled(mut grids: Grids, symbols: &[String], from: At, to: At, events: &[
         let mut all = marks;
         all.extend(extra);
         all.sort_by_key(|mark| mark.0);
-        set(&mut grids, symbol, all);
+        budget::check()?;
+        set(&mut grids, &mut places, symbol, all);
     }
     Ok(grids)
 }
@@ -157,16 +196,22 @@ fn backfilled(mut grids: Grids, symbols: &[String], from: At, to: At, events: &[
 /// #chart_split_pinned_grids: the last price before a split, pinned one second before it, and the first price
 /// after it, pinned at it, so no point is read off a line drawn between two share bases.
 fn split_pinned(mut grids: Grids, events: &[Event]) -> Result<Grids, FiguresError> {
+    let mut places = grid_places(&grids)?;
     for event in events {
-        let Some(marks) = grid(&grids, &event.key).filter(|marks| !marks.is_empty()) else { continue };
-        let (Some(before), Some(after)) = (marks.iter().rfind(|(time, _)| *time < event.at), marks.iter().find(|(time, _)| *time >= event.at)) else { continue };
+        budget::charge(1, 0)?;
+        let Some(marks) = places.get(&event.key).map(|&i| &grids[i].1).filter(|marks| !marks.is_empty()) else { continue };
+        let after_index = marks.partition_point(|(time, _)| *time < event.at);
+        budget::check()?;
+        let (Some(before), Some(after)) = (after_index.checked_sub(1).and_then(|i| marks.get(i)), marks.get(after_index)) else { continue };
         let second_before = event.at.plus_seconds(-1).ok_or_else(|| FiguresError::Data("a split at the edge of time".into()))?;
+        budget::charge(4 * marks.len() as u64, 0)?;
         let mut pinned = marks.clone();
         for pin in [(second_before, before.1.clone()), (event.at, after.1.clone())] {
             if !pinned.iter().any(|(time, _)| *time == pin.0) { pinned.push(pin); }
         }
         pinned.sort_by_key(|mark| mark.0);
-        set(&mut grids, &event.key, pinned);
+        budget::check()?;
+        set(&mut grids, &mut places, &event.key, pinned);
     }
     Ok(grids)
 }
@@ -180,6 +225,7 @@ impl Window<'_> {
         let mut grids: Grids = vec![];
         let venue = venue(self.s)?;
         for symbol in symbols {
+        budget::charge(1, 0)?;
             let Some(ticker) = ticker_for_key(self.s, self.metrics, symbol) else { continue };
             // A failure of either kind is this holding's alone: Rails' fetch threads rescue what a client raises.
             let candles = match self.market.candles(&venue, ticker, self.since, self.timeframe, restated && self.s.restated_candles(ticker)) {
@@ -192,19 +238,28 @@ impl Window<'_> {
             // would compare instants as its buckets happen to fall, and the steps would not be the same twice.
             let mut seen: HashSet<i64> = HashSet::new();
             for (time, open) in candles {
+                budget::charge(1, 0)?;
                 let closed = time.plus_seconds(self.timeframe).is_some_and(|close| close <= self.now);
                 if closed && seen.insert(time.0) { marks.push((time, open)); }
             }
             if marks.is_empty() { continue; }
             marks.sort_by_key(|mark| mark.0);
+            budget::check()?;
             if let (Some(price), Some(last)) = (self.metrics.live_prices.as_ref().and_then(|prices| prices.iter().find(|(k, _)| k == symbol)), self.metrics.chart.labels.last()) {
                 marks.push((*last, price.1.to_d()?));
                 marks.sort_by_key(|mark| mark.0);
+            budget::check()?;
             }
             grids.push((symbol.clone(), marks));
         }
         Ok(grids)
     }
+}
+
+fn charge_chart(chart: &Chart) -> Result<(), NumError> {
+    budget::charge(chart.labels.len() as u64, 0)?;
+    for row in chart.extra.iter().chain(&chart.invested_by) { budget::charge(1 + row.len() as u64, 0)?; }
+    Ok(())
 }
 
 /// #chart_marked_at_market. `priceable` are the holdings the bot can price at all; only they take part.
@@ -214,32 +269,47 @@ pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable
     if [chart.value.len(), chart.invested.len(), chart.extra.len(), chart.invested_by.len(), chart.cash.len()] != [chart.labels.len(); 5] {
         return Err(FiguresError::Data("a chart whose series are not of one length".into()));
     }
-    let transaction_times: HashSet<i64> = chart.labels.iter().map(|label| label.0).collect();
-    let mut axis: Vec<At> = chart.labels.clone();
-    axis.extend(grids.iter().flat_map(|(_, marks)| marks.iter().map(|(time, _)| *time)).filter(|time| time >= first));
+    let mut transaction_times = HashSet::new();
+    let mut axis = vec![];
+    for label in &chart.labels { budget::charge(1, 0)?; transaction_times.insert(label.0); axis.push(*label); }
+    let mut grid_lookup = HashMap::new();
+    for (key, marks) in grids {
+        budget::charge(1, 0)?;
+        grid_lookup.entry(key.as_str()).or_insert(marks);
+        for (time, _) in marks { budget::charge(1, 0)?; if time >= first { axis.push(*time); } }
+    }
     axis.sort();
     axis.dedup();
-    let slice = |row: &Row| -> Row {
-        priceable.iter().filter_map(|key| row.iter().find(|(k, _)| k == key).cloned()).collect()
+    budget::check()?;
+    let slice = |row: &Row| -> Result<Row, NumError> {
+        let mut lookup = HashMap::new();
+        for (key, value) in row { budget::charge(1, 0)?; lookup.entry(key).or_insert(value); }
+        let mut out = vec![];
+        for key in priceable {
+            budget::charge(1, 0)?;
+            if let Some(value) = lookup.get(key) { out.push((key.clone(), (*value).clone())); }
+        }
+        Ok(out)
     };
+    charge_chart(chart)?;
     let mut marked = Chart { extra: chart.extra.clone(), invested_by: chart.invested_by.clone(), cash: chart.cash.clone(), ..Chart::default() };
     let mut prices: Vec<(String, Vec<Option<Num>>)> = display.iter().map(|(key, _)| (key.clone(), vec![])).collect();
     let mut split_rows: Vec<Option<Row>> = vec![];
     let mut basis_rows: Vec<Row> = vec![];
     let mut cursor = 0;
     for time in axis {
-        budget::check()?;
+        budget::charge(1, 0)?;
         // Post-trade holdings: a transaction's own timestamp lands on that transaction, and where several share
         // one, on the last of them.
-        while cursor + 1 < chart.labels.len() && chart.labels[cursor + 1] <= time { cursor += 1; }
+        while cursor + 1 < chart.labels.len() && chart.labels[cursor + 1] <= time { budget::charge(1, 0)?; cursor += 1; }
         let mut row = cursor;
-        let mut held = slice(&chart.extra[row]);
-        if row > 0 && held.is_empty() { row -= 1; held = slice(&chart.extra[row]); }
+        let mut held = slice(&chart.extra[row])?;
+        if row > 0 && held.is_empty() { row -= 1; held = slice(&chart.extra[row])?; }
         // What each holding is worth at market, or None unless every holding has a price here.
         let mut split: Option<Row> = Some(vec![]);
         for (key, amount) in &held {
             let amount = amount.to_d()?;
-            let value = if amount.is_zero() { Some(Dec::zero()) } else { grid_price(grid(grids, key).map_or(&[][..], Vec::as_slice), time)?.map(|price| &amount * &price).transpose()? };
+            let value = if amount.is_zero() { Some(Dec::zero()) } else { grid_price(grid_lookup.get(key.as_str()).map_or(&[][..], |marks| marks.as_slice()), time)?.map(|price| &amount * &price).transpose()? };
             match (value, split.as_mut()) { (Some(value), Some(values)) => values.push((key.clone(), Num::Dec(value))), _ => { split = None; break; } }
         }
         match &split {
@@ -253,18 +323,46 @@ pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable
         }
         marked.labels.push(time);
         marked.invested.push(chart.invested[cursor].clone());
-        for ((_, serie), (_, marks)) in prices.iter_mut().zip(display) { serie.push(grid_price(marks, time)?.map(Num::Dec)); }
+        for ((_, serie), (_, marks)) in prices.iter_mut().zip(display) { budget::charge(1, 0)?; serie.push(grid_price(marks, time)?.map(Num::Dec)); }
         split_rows.push(split);
-        basis_rows.push(slice(&chart.invested_by[row]));
+        basis_rows.push(slice(&chart.invested_by[row])?);
     }
     // #chart_asset_series: the per-point splits turned into one series per holding.
-    let mut symbols: Vec<&String> = vec![];
-    for (key, _) in split_rows.iter().flatten().flatten() { if !symbols.contains(&key) { symbols.push(key); } }
-    let of = |row: &Row, key: &String| row.iter().find(|(k, _)| k == key).map_or(Num::Int(0), |(_, value)| value.clone());
-    marked.assets = Some(symbols.into_iter().map(|key| (key.clone(), AssetSeries {
-        value: split_rows.iter().map(|split| split.as_ref().map(|row| of(row, key))).collect(),
-        invested: basis_rows.iter().map(|row| of(row, key)).collect(),
-    })).collect());
+    let mut symbols = vec![];
+    let mut seen = HashSet::new();
+    let mut split_lookup = vec![];
+    for split in &split_rows {
+        budget::charge(1, 0)?;
+        let mut lookup = HashMap::new();
+        if let Some(row) = split {
+            for (key, value) in row {
+                budget::charge(1, 0)?;
+                if seen.insert(key) { symbols.push(key); }
+                lookup.entry(key).or_insert(value);
+            }
+        }
+        split_lookup.push(split.as_ref().map(|_| lookup));
+    }
+    let mut basis_lookup = vec![];
+    for row in &basis_rows {
+        budget::charge(1, 0)?;
+        let mut lookup = HashMap::new();
+        for (key, value) in row { budget::charge(1, 0)?; lookup.entry(key).or_insert(value); }
+        basis_lookup.push(lookup);
+    }
+    let mut assets = vec![];
+    for key in symbols {
+        budget::charge(1, 0)?;
+        let mut value = vec![];
+        let mut invested = vec![];
+        for (split, basis) in split_lookup.iter().zip(&basis_lookup) {
+            budget::charge(1, 0)?;
+            value.push(split.as_ref().map(|row| row.get(key).map_or(Num::Int(0), |n| (*n).clone())));
+            invested.push(basis.get(key).map_or(Num::Int(0), |n| (*n).clone()));
+        }
+        assets.push((key.clone(), AssetSeries { value, invested }));
+    }
+    marked.assets = Some(assets);
     marked.prices = Some(prices);
     Ok(marked)
 }
@@ -276,6 +374,7 @@ pub fn marked(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDa
 }
 
 fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<Metrics, FiguresError> {
+    charge_chart(&live.chart)?;
     let mut data = live.clone();
     let (Some(first), Some(last)) = (data.chart.labels.first().copied(), data.chart.labels.last().copied()) else { return Ok(data) };
     let symbols: Vec<String> = data.asset_breakdown.iter().map(|(key, _)| key.clone()).collect();
@@ -286,23 +385,35 @@ fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDat
     let window = Window { s, metrics: &data, market, since, timeframe, now };
     let grids = window.candle_grids(&symbols, false)?;
     if grids.is_empty() { return Ok(data); }
-    let events = splits::events(c, s.bot.user_id, &s.orders, &data.holdings(), now)?;
+    let events = splits::events(c, s.bot.user_id, &s.orders, &data.holdings()?, now)?;
     let grids = split_pinned(backfilled(grids, &symbols, first, last, &events, s, &data)?, &events)?;
 
     // The price overlay is read off each restating holding's history as its venue reads it today, one basis end
     // to end; everything else stays on the valuation grids.
     let restating: Vec<String> = symbols.iter().filter(|key| ticker_for_key(s, &data, key).is_some_and(|ticker| s.restated_candles(ticker))).cloned().collect();
     let mut display = grids.clone();
-    if !restating.is_empty() { for (key, marks) in window.candle_grids(&restating, true)? { set(&mut display, &key, marks); } }
+    if !restating.is_empty() {
+        let mut places = grid_places(&display)?;
+        for (key, marks) in window.candle_grids(&restating, true)? { budget::charge(1, 0)?; set(&mut display, &mut places, &key, marks); }
+    }
 
     let priceable: Vec<String> = symbols.iter().filter(|key| ticker_for_key(s, &data, key).is_some()).cloned().collect();
     // What Rails leaves out in silence is named beside the chart: a holding with no ticker today is no part of any
     // point's value, though what was paid for it stays in what went in. `live` names such a holding only while it
     // is held; one sold out since is named here.
-    for key in symbols.iter().filter(|key| !priceable.contains(key)) {
-        let held_once = data.chart.extra.iter().any(|row| row.iter().any(|(k, amount)| k == key && amount.is_positive()));
+    let priceable_set: HashSet<_> = priceable.iter().collect();
+    let mut held_once = HashSet::new();
+    for row in &data.chart.extra {
+        budget::charge(1, 0)?;
+        for (key, amount) in row { budget::charge(1, 0)?; if amount.is_positive() { held_once.insert(key); } }
+    }
+    budget::charge(data.key_assets.len() as u64, 0)?;
+    let key_assets: HashMap<_, _> = data.key_assets.iter().map(|(key, id)| (key, *id)).collect();
+    for key in symbols.iter().filter(|key| !priceable_set.contains(key)) {
+        budget::charge(1, 0)?;
+        let held_once = held_once.contains(key);
         if !held_once { continue; }
-        let asset_id = data.key_assets.iter().find(|(k, _)| k == key).and_then(|(_, id)| *id);
+        let asset_id = key_assets.get(key).copied().flatten();
         data.chart_omitted.push(Unpriced { key: key.clone(), asset_id, reason: unlisted(c, s, asset_id)? });
     }
     data.chart = marked_at_market(&data.chart, &grids, &display, &priceable)?;
@@ -354,26 +465,42 @@ fn drawn(c: &Connection, s: &Subject, marked: &Metrics, hide_balances: bool) -> 
     }
     let mut assets = vec![];
     for (key, serie) in marked.chart.assets.iter().flatten() {
+        budget::charge(1 + serie.value.len() as u64 + serie.invested.len() as u64, 0)?;
         let value = serie.value.iter().map(|amount| amount.as_ref().map(|amount| amount.round(decimals).map(|n| n.to_f())).transpose()).collect::<Result<Vec<_>, _>>()?;
         let invested = serie.invested.iter().map(|amount| Num::Dec(amount.to_d()?).round(decimals).map(|n| n.to_f())).collect::<Result<Vec<_>, _>>()?;
         assets.push((key.clone(), value, invested));
     }
+    for (_, serie) in marked.chart.prices.iter().flatten() { budget::charge(1 + serie.len() as u64, 0)?; }
     let prices: Vec<(String, Vec<Option<f64>>)> = marked.chart.prices.iter().flatten()
         .map(|(key, serie)| (key.clone(), serie.iter().map(|price| price.as_ref().map(Num::to_f)).collect())).collect();
     let marks = buy_marks(s, marked)?;
 
     // Allocatable#holding_assets, for every key bought or priced: by id, or for a holding known only by its
     // string, the asset the venue spells that way.
-    let mut keys: Vec<&String> = vec![];
-    for key in marks.iter().map(|mark| &mark.key).chain(prices.iter().map(|(key, _)| key)) { if !keys.contains(&key) { keys.push(key); } }
-    let existing = db::existing_assets(c, &marked.key_assets.iter().filter_map(|(_, id)| *id).collect::<Vec<_>>())?;
-    let logo_assets = keys.into_iter().filter_map(|key| {
-        let (_, asset_id) = marked.key_assets.iter().find(|(k, _)| k == key)?;
-        match asset_id {
-            Some(id) => existing.contains(id).then_some((key.clone(), *id)),
-            None => ticker_for_key(s, marked, key).filter(|ticker| ticker.base_asset_exists).map(|ticker| (key.clone(), ticker.base_asset_id)),
-        }
-    }).collect();
+    let mut keys = vec![];
+    let mut seen = HashSet::new();
+    for key in marks.iter().map(|mark| &mark.key).chain(prices.iter().map(|(key, _)| key)) {
+        budget::charge(1, 0)?;
+        if seen.insert(key) { keys.push(key); }
+    }
+    let mut key_assets = HashMap::new();
+    let mut ids = vec![];
+    for (key, id) in &marked.key_assets {
+        budget::charge(1, 0)?;
+        key_assets.entry(key).or_insert(id);
+        if let Some(id) = id { ids.push(*id); }
+    }
+    let existing: HashSet<_> = db::existing_assets(c, &ids)?.into_iter().collect();
+    let mut logo_assets = vec![];
+    for key in keys {
+        budget::charge(1, 0)?;
+        let Some(asset_id) = key_assets.get(key) else { continue };
+        let id = match asset_id {
+            Some(id) => existing.contains(id).then_some(*id),
+            None => ticker_for_key(s, marked, key).filter(|ticker| ticker.base_asset_exists).map(|ticker| ticker.base_asset_id),
+        };
+        if let Some(id) = id { logo_assets.push((key.clone(), id)); }
+    }
 
     Ok(Some(Page {
         bot: s.bot.id, quote, decimals, labels: marked.chart.labels.clone(), series, pnl, assets, pnl_only: hide_balances,

@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 /// The scenarios of script/rust/figures.rb: 72 written by hand, one per branch of the code they name, and 24 seeded
 /// histories that mix every kind of order with splits.
-const SCENARIOS: usize = 101;
+const SCENARIOS: usize = 103;
 
 fn rails(args: &[&str]) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
@@ -145,7 +145,7 @@ fn the_walk_over_the_orders_matches_rails_in_every_scenario() {
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
     let walked = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 130, "bots walked on the Rails side");
+    assert_eq!(walked, 132, "bots walked on the Rails side");
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn the_live_figures_match_rails_in_every_scenario() {
     let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
     let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
     // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
-    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (112, 7, 1), "of {} bots", lives.len());
+    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (114, 7, 1), "of {} bots", lives.len());
 }
 
 /// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
@@ -224,7 +224,7 @@ fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
     let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
-    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (119, 10, 22, 1));
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (121, 10, 22, 1));
 }
 
 /// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
@@ -277,7 +277,7 @@ fn the_market_is_asked_for_exactly_what_rails_asks_it() {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 621, "requests on the Rails side");
+    assert_eq!(asked, 631, "requests on the Rails side");
 }
 
 /// The one scenario with a bot this library does not compute (a pair bot beside a basket).

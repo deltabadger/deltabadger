@@ -56,9 +56,9 @@ const AT_MOST: Duration = Duration::from_secs(60);
 const LONG: i64 = 100_000;
 const SHORT: i64 = LONG / 16;
 /// The steps (`budget`) all the figures of a bot may take per order of a history of plain orders: 200 are counted
-/// for 100,000 orders and for 6,250 alike, and 172 for the holding recorded twice over. A list of the 100,000
+/// for the original arithmetic alone; charging history preparation adds about 52 per order. A list of the 100,000
 /// instants so far searched once per order would add 50,000 per order.
-const STEPS_PER_ORDER: u64 = 220;
+const STEPS_PER_ORDER: u64 = 280;
 const MEGABYTE: usize = 1 << 20;
 const NOW: At = At(1_790_000_000_000_000_000);
 

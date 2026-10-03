@@ -6,7 +6,8 @@
 //! Two meters, both in limbs of nine digits, both deterministic: a history costs the same on every machine and
 //! in every profile, so a test can hold a walk to them.
 //! - **Steps**: every decimal operation is charged the limbs it is about to touch, before it touches them, and every
-//!   comparison of two instants counts one. This is time.
+//!   comparison of two instants counts one. History preparation also charges each row or lookup before
+//!   processing it, including rows with no executed fill. This is time.
 //! - **Held**: the limbs of the numbers made in the scope and still alive. This is memory: the chart keeps a
 //!   number per holding per point.
 //!

@@ -14,6 +14,7 @@ use super::num::Num;
 use super::splits::{self, Event, Holding};
 use super::FiguresError;
 use rusqlite::Connection;
+use std::collections::{HashMap, HashSet};
 
 /// One point's reading per holding: `{ key => number }` in the ledger's order.
 pub type Row = Vec<(String, Num)>;
@@ -133,11 +134,16 @@ impl Metrics {
     }
 
     /// Measurable#split_holdings.
-    pub fn holdings(&self) -> Vec<Holding> {
-        self.key_assets.iter().map(|(key, asset_id)| Holding {
-            key: key.clone(), asset_id: *asset_id,
-            strings: self.key_strings.iter().find(|(k, _)| k == key).map(|(_, strings)| strings.clone()).unwrap_or_default(),
-        }).collect()
+    pub fn holdings(&self) -> Result<Vec<Holding>, FiguresError> {
+        let mut strings = HashMap::new();
+        for (key, names) in &self.key_strings { budget::charge(1, 0)?; strings.entry(key).or_insert(names); }
+        let mut out = vec![];
+        for (key, asset_id) in &self.key_assets {
+            let names = strings.get(key).copied();
+            budget::charge(1 + names.map_or(0, |names| names.len()) as u64, 0)?;
+            out.push(Holding { key: key.clone(), asset_id: *asset_id, strings: names.cloned().unwrap_or_default() });
+        }
+        Ok(out)
     }
 
     /// The hash as Rails' `to_json` writes it; times in UTC with `digits` fractional digits (Rails: 3).
@@ -264,8 +270,10 @@ impl Walk {
     /// what is left. A split multiplies the position and the lots, divides the last traded price, and moves no money.
     fn apply_due_splits(&mut self, pending: Vec<Event>, until: Option<At>) -> Result<Vec<Event>, FiguresError> {
         if pending.is_empty() { return Ok(pending); }
+        budget::charge(pending.len() as u64, 0)?;
         let (due, rest): (Vec<Event>, Vec<Event>) = pending.into_iter().partition(|event| until.is_none_or(|until| event.at <= until));
         for event in due {
+            budget::charge(1, 0)?;
             if let Some((_, list)) = self.lots.iter_mut().find(|(key, _)| *key == event.key) { lots::split(list, &event.factor)?; }
             let factor = Num::Dec(event.factor.clone());
             let Some((_, entry)) = self.ledger.0.iter_mut().find(|(key, _)| *key == event.key) else { continue };
@@ -283,24 +291,28 @@ impl Walk {
 /// The asset each listing of the venue stands for, by the names a row without an asset could have been recorded
 /// under (#unresolved_shadows): `{ asset id => [keys of the holdings recorded under one of its names] }`.
 fn unresolved_shadows(c: &Connection, s: &Subject, keys: &[(Identity, String)]) -> Result<Vec<(i64, Vec<String>)>, FiguresError> {
-    let mut unresolved: Vec<(String, &String)> = vec![]; // upper-cased string => key; the later of two that agree stands
+    let mut unresolved = HashMap::new();
+    let mut ids = vec![];
     for (identity, key) in keys {
-        let Identity::Text(text) = identity else { continue };
-        let upper = text.to_uppercase();
-        match unresolved.iter_mut().find(|(name, _)| *name == upper) { Some(entry) => entry.1 = key, None => unresolved.push((upper, key)) }
+        budget::charge(1, 0)?;
+        match identity {
+            Identity::Text(text) => { unresolved.insert(text.to_uppercase(), key); }
+            Identity::Asset(id) => ids.push(*id),
+        }
     }
-    let ids: Vec<i64> = keys.iter().filter_map(|(identity, _)| match identity { Identity::Asset(id) => Some(*id), Identity::Text(_) => None }).collect();
     let Some(exchange_id) = s.bot.exchange_id else { return Ok(vec![]) };
     if unresolved.is_empty() || ids.is_empty() { return Ok(vec![]); }
     let mut out: Vec<(i64, Vec<String>)> = vec![];
+    let mut places = HashMap::new();
+    let mut seen = HashSet::new();
     for (base, asset_id, symbol) in db::listings(c, exchange_id, &ids)? {
+        budget::charge(1, 0)?;
         for name in [Some(db::base_spelling(&base)), symbol.as_deref()].into_iter().flatten().filter(|name| !name.trim().is_empty()) {
-            let upper = name.to_uppercase();
-            let Some((_, key)) = unresolved.iter().find(|(wanted, _)| *wanted == upper) else { continue };
-            match out.iter_mut().find(|(id, _)| *id == asset_id) {
-                Some((_, list)) => if !list.contains(key) { list.push((*key).clone()); },
-                None => out.push((asset_id, vec![(*key).clone()])),
-            }
+            budget::charge(1, 0)?;
+            let Some(key) = unresolved.get(&name.to_uppercase()) else { continue };
+            if !seen.insert((asset_id, (*key).clone())) { continue; }
+            let at = *places.entry(asset_id).or_insert_with(|| { out.push((asset_id, vec![])); out.len() - 1 });
+            out[at].1.push((*key).clone());
         }
     }
     Ok(out)
@@ -317,27 +329,44 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
 
     // One holding per asset, whatever symbol its rows were recorded under; a row recorded before orders stored
     // their asset is its own holding, by its string.
-    let mut identities: Vec<Identity> = vec![];
-    for order in &s.orders { let id = identity(order); if !identities.contains(&id) { identities.push(id); } }
-    let asset_ids: Vec<i64> = identities.iter().filter_map(|i| match i { Identity::Asset(id) => Some(*id), Identity::Text(_) => None }).collect();
-    let names = db::asset_names(c, &asset_ids)?;
-    let candidates: Vec<(Identity, String)> = identities.iter().map(|identity| (identity.clone(), match identity {
-        Identity::Asset(id) => names.iter().find(|(asset, _, _)| asset == id)
-            .map_or_else(|| id.to_string(), |(_, symbol, name)| keys::candidate(*id, symbol.as_deref(), name.as_deref())),
-        Identity::Text(text) => text.clone(),
-    })).collect();
-    let keys = keys::call(&candidates);
-    let key_of = |order: &Order| -> String {
-        let id = identity(order);
-        keys.iter().find(|(identity, _)| *identity == id).map(|(_, key)| key.clone()).unwrap_or_default()
-    };
-    data.key_assets = keys.iter().map(|(identity, key)| (key.clone(), match identity { Identity::Asset(id) => Some(*id), Identity::Text(_) => None })).collect();
+    let mut identities = vec![];
+    let mut seen = HashSet::new();
     for order in &s.orders {
+        budget::charge(1, 0)?;
+        let id = identity(order);
+        if seen.insert(id.clone()) { identities.push(id); }
+    }
+    let mut asset_ids = vec![];
+    for id in &identities { budget::charge(1, 0)?; if let Identity::Asset(id) = id { asset_ids.push(*id); } }
+    let mut names = HashMap::new();
+    for (id, symbol, name) in db::asset_names(c, &asset_ids)? { budget::charge(1, 0)?; names.insert(id, (symbol, name)); }
+    let mut candidates = vec![];
+    for identity in identities {
+        budget::charge(1, 0)?;
+        let candidate = match &identity {
+            Identity::Asset(id) => names.get(id).map_or_else(|| id.to_string(), |(symbol, name)| keys::candidate(*id, symbol.as_deref(), name.as_deref())),
+            Identity::Text(text) => text.clone(),
+        };
+        candidates.push((identity, candidate));
+    }
+    let keys = keys::call(&candidates)?;
+    let mut key_lookup = HashMap::new();
+    for (identity, key) in &keys {
+        budget::charge(1, 0)?;
+        key_lookup.insert(identity.clone(), key.clone());
+        data.key_assets.push((key.clone(), match identity { Identity::Asset(id) => Some(*id), Identity::Text(_) => None }));
+    }
+    let key_of = |order: &Order| -> String { key_lookup[&identity(order)].clone() };
+    let mut string_places = HashMap::new();
+    let mut strings_seen = HashSet::new();
+    for order in &s.orders {
+        budget::charge(1, 0)?;
         let (key, text) = (key_of(order), order.base.clone().unwrap_or_default());
-        match data.key_strings.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, strings)) => if !strings.contains(&text) { strings.push(text); },
-            None => data.key_strings.push((key, vec![text])),
-        }
+        if !strings_seen.insert((key.clone(), text.clone())) { continue; }
+        let at = *string_places.entry(key.clone()).or_insert_with(|| {
+            data.key_strings.push((key, vec![])); data.key_strings.len() - 1
+        });
+        data.key_strings[at].1.push(text);
     }
     let shadowed_by = unresolved_shadows(c, s, &keys)?;
 
@@ -348,10 +377,10 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
     let mut tax_pnl: Vec<(i64, Dec)> = vec![];
     let mut loss_lot: Vec<(i64, Option<bool>)> = vec![];
     // Corporate actions are events in this walk like any fill: applied before the first order at or after them.
-    let mut pending = splits::events(c, s.bot.user_id, &s.orders, &data.holdings(), now)?;
+    let mut pending = splits::events(c, s.bot.user_id, &s.orders, &data.holdings()?, now)?;
 
     for order in &s.orders {
-        budget::check()?;
+        budget::charge(1, 0)?;
         let base = key_of(order);
         pending = walk.apply_due_splits(pending, Some(order.at))?;
         let (amount_exec, quote_amount_exec) = confirmed_exec_amounts(order)?;
