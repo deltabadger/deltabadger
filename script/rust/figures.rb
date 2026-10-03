@@ -746,12 +746,14 @@ module Figures
   end
 end
 
-command, root = ARGV
-Rails.logger.level = :warn # a run reads and writes some 100,000 rows; development would log every one
-raise ArgumentError, 'usage: grid <root> | record <root>' unless root
+unless defined?(FIGURES_LIBRARY)
+  command, root = ARGV
+  Rails.logger.level = :warn # a run reads and writes some 100,000 rows; development would log every one
+  raise ArgumentError, 'usage: grid <root> | record <root>' unless root
 
-case command
-when 'grid' then Figures.grid(root)
-when 'record' then Figures.record(root)
-else raise ArgumentError, 'usage: grid <root> | record <root>'
+  case command
+  when 'grid' then Figures.grid(root)
+  when 'record' then Figures.record(root)
+  else raise ArgumentError, 'usage: grid <root> | record <root>'
+  end
 end

@@ -37,6 +37,17 @@ on:
       - 'app/models/user/pnl_history.rb'
       - 'app/models/utilities/currency.rb'
       - 'app/models/denomination.rb'
+      - 'app/views/bots/_pnl_spark.html.erb'
+      - 'app/views/bots/_global_pnl.html.erb'
+      - 'app/views/bots/bot_tile/_bot_tile_pnl.html.erb'
+      - 'app/views/bots/_assets_table.html.erb'
+      - 'app/views/bots/composition/_locked_table.html.erb'
+      - 'app/views/bots/composition/_assets_table.html.erb'
+      - 'app/views/bots/composition/_metrics.html.erb'
+      - 'app/helpers/bot_helper.rb'
+      - 'app/models/bot/wash_sale_guard.rb'
+      - 'app/models/bot/composition/redeployable.rb'
+      - 'app/models/bot/composition/liquidatable.rb'
       - 'app/views/bots/_chart.html.erb'
       # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
       - 'config/environments/production.rb'
@@ -106,6 +117,17 @@ on:
       - 'app/models/user/pnl_history.rb'
       - 'app/models/utilities/currency.rb'
       - 'app/models/denomination.rb'
+      - 'app/views/bots/_pnl_spark.html.erb'
+      - 'app/views/bots/_global_pnl.html.erb'
+      - 'app/views/bots/bot_tile/_bot_tile_pnl.html.erb'
+      - 'app/views/bots/_assets_table.html.erb'
+      - 'app/views/bots/composition/_locked_table.html.erb'
+      - 'app/views/bots/composition/_assets_table.html.erb'
+      - 'app/views/bots/composition/_metrics.html.erb'
+      - 'app/helpers/bot_helper.rb'
+      - 'app/models/bot/wash_sale_guard.rb'
+      - 'app/models/bot/composition/redeployable.rb'
+      - 'app/models/bot/composition/liquidatable.rb'
       - 'app/views/bots/_chart.html.erb'
       # The web layer's host check mirrors lines of this file (rust/tests/web.rs `host_authorization`).
       - 'config/environments/production.rb'
@@ -205,5 +227,5 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test figures_vectors --test figures_limits
+          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
           --test mail --test smtp --test sync_vectors --test mcp_contract

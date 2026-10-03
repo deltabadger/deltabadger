@@ -94,6 +94,7 @@ struct Tile {
     title: Title,
     exchange_svg: &'static str,
     pnl_id: String,
+    pnl: Option<String>,
     label: String,
     bar: String,
     button: String,
@@ -107,6 +108,7 @@ struct IndexView<'a> {
     bot_updates: &'a str,
     /// Some bot has traded, so the account's total is on its way (the broadcast endpoints are not served yet).
     pnl_pass: bool,
+    headline: Option<String>,
     filters: Option<String>,
     select_mode: bool,
     can_merge: bool,
@@ -187,7 +189,7 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
         id: bot.dom_id("tile"), bot_id: bot.id, mergeable, splittable, exchange_id: bot.exchange.id,
         quote_id: quote_id.map(|id| id.to_string()).unwrap_or_default(), quote_symbol: bot.quote_symbol().unwrap_or("").to_string(),
         open_orders: mergeable && bot.has_waiting_orders, chips, href: ctx.path(&format!("/bots/{}", bot.id)), title,
-        exchange_svg: bot::exchange_svg(&bot.exchange.name_id()), pnl_id: bot.dom_id("pnl"), label: bot.label.clone(),
+        exchange_svg: bot::exchange_svg(&bot.exchange.name_id()), pnl_id: bot.dom_id("pnl"), pnl: None, label: bot.label.clone(),
         bar: status.bar, button: status.button,
     })
 }
@@ -207,6 +209,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     if let [only] = app.db(move |c| Bot::ids(c, user_id)).await?.as_slice() {
         return Ok(layout::redirect(StatusCode::FOUND, &ctx.path(&format!("/bots/{only}"))));
     }
+    let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
     let (inner, view, owner) = (app.clone(), ctx.clone(), user.clone());
     let listed = app.db(move |c| {
         let (ctx, user) = (&view, &owner);
@@ -224,7 +227,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let mut bots = vec![];
         for id in &ids {
-            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, bot::For::Page)? { return Ok((shell, Listing::NotPorted(reason))); }
+            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage })? { return Ok((shell, Listing::NotPorted(reason))); }
             if let Some(bot) = Bot::find(c, user.id, *id, bot::For::Page)? {
                 if let Some(reason) = bot.unrendered() { return Ok((shell, Listing::NotPorted(reason))); }
                 bots.push(bot);
@@ -264,10 +267,17 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
             names.insert(id.to_string(), name.map_or(Value::Null, Value::String));
         }
         let literal = |key: &str, name: &str| i18n::text(ctx.locale, key, &[(name, i18n::Arg::Text(&format!("%{{{name}}}")))]);
+        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,&ctx.path(""));
+        let headline=figures.as_ref().and_then(|v|v["account"].as_str()).map(str::to_string);
         let mut tiles = vec![];
-        for bot in &listed { tiles.push(tile(c, ctx, csrf, bot, configured)?); }
+        for bot in &listed {
+            let mut tile=tile(c,ctx,csrf,bot,configured)?;
+            tile.pnl=figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["tile"].as_str()).map(str::to_string);
+            tiles.push(tile);
+        }
         let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
         let body = IndexView {
+            headline,
             v: ctx, preferences: &preferences, bot_updates: &bot_updates,
             // User#global_pnl_snapshot with nothing computed: waiting as soon as any bot has an accepted order.
             pnl_pass: bots.iter().any(|bot| bot.has_submitted_orders),
