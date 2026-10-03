@@ -92,6 +92,7 @@ const PRIMARY: &[TableContract] = &[
         ("user_id", "bigint", false), ("label", "varchar", false), ("settings", "json", true), ("transient_data", "json", true),
         ("started_at", "datetime", false), ("stopped_at", "datetime", false), ("stop_message_key", "varchar", false),
         ("settings_changed_at", "datetime", false), ("last_end_of_funds_notification", "datetime", false),
+        ("label", "varchar", false), ("position", "integer", true),
         ("updated_at", "datetime", true), ("restatement_generation", "integer", true),
     ], unique_indexes: &[] },
     TableContract { name: "transactions", columns: &[
@@ -110,9 +111,14 @@ const PRIMARY: &[TableContract] = &[
         ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
         ("trading_enabled", "boolean", true), ("available", "boolean", false),
     ], unique_indexes: &[] },
-    TableContract { name: "assets", columns: &[("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false),
-                                               ("external_id", "varchar", true)], unique_indexes: &[] },
-    TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false)], unique_indexes: &[] },
+    // The bot pages (src/web/bot) also read an asset's name, colour, market cap and external id, and an exchange's fee and availability.
+    TableContract { name: "assets", columns: &[
+        ("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false),
+        ("name", "varchar", false), ("color", "varchar", false), ("external_id", "varchar", true), ("market_cap", "bigint", false),
+    ], unique_indexes: &[] },
+    TableContract { name: "exchanges", columns: &[
+        ("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false), ("maker_fee", "varchar", false), ("available", "boolean", false),
+    ], unique_indexes: &[] },
     TableContract { name: "api_keys", columns: &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
         ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
@@ -161,7 +167,14 @@ const PRIMARY: &[TableContract] = &[
         ("id", "integer", true), ("user_id", "integer", true), ("oauth_application_id", "integer", true), ("mcp_tools", "json", true),
         ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
-    TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
+    TableContract { name: "bot_index_assets", columns: &[
+        ("id", "integer", true), ("bot_id", "integer", true), ("asset_id", "integer", true), ("ticker_id", "integer", true),
+        ("target_allocation", "decimal(10,6)", false), ("in_index", "boolean", false),
+    ], unique_indexes: &[] },
+    // An index bot's page draws the members of the index it follows (src/web/bot/settings.rs).
+    TableContract { name: "indices", columns: &[
+        ("id", "integer", true), ("external_id", "varchar", false), ("source", "varchar", false), ("top_coins", "json", false), ("weights", "json", false),
+    ], unique_indexes: &[] },
     // The balance sync writes every column and upserts on the unique index (src/sync/balances.rs); the bots page
     // refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[

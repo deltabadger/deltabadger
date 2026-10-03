@@ -1189,3 +1189,287 @@ async fn a_request_for_a_host_that_is_not_allowed_is_refused_before_anything_rea
     let open = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     assert_eq!(ask(&open, "GET", "/up", "evil.example", Some("other.example")).await.0, 200, "no ALLOWED_HOSTS: no list");
 }
+
+/// The bot as the pages read it (web::bot), on a row the engine's fixtures write: what Rails'
+/// model derives from the row, when it may not be started, and what this build refuses to render.
+#[test]
+fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_render_it() {
+    use deltabadger::web::bot::{self, start, Bot, Kind};
+    use serde_json::json;
+    let (_dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let now: chrono::DateTime<chrono::Utc> = NOW.parse().unwrap();
+    let id = common::seed::insert_bot(c, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("UPDATE bots SET label = 'Bitcoin' WHERE id = ?1", [id]).unwrap();
+    let refusal = || bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap();
+    assert_eq!(refusal(), None, "the engine's fixture stores only what the engine reads: a row from before the rules existed");
+
+    // What each concern's after_initialize supplies on load, and the wizard then stores, for a one-asset basket.
+    let stored: String = c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    let mut settings: serde_json::Value = serde_json::from_str(&stored).unwrap();
+    let defaults = json!({
+        "smart_intervaled": false, "smart_interval_quote_amount": 6.0, "limit_ordered": false, "limit_order_pcnt_distance": 0.001,
+        "quote_amount_limited": false, "quote_amount_limit": 1000, "price_limited": false, "price_limit": 1000000, "price_limit_range_lower_bound": 0,
+        "price_limit_range_upper_bound": 1000000, "price_limit_timing_condition": "while", "price_limit_value_condition": "below",
+        "price_drop_limited": false, "price_drop_limit": 0.2, "price_drop_limit_time_window_condition": "ath", "moving_average_limited": false,
+        "moving_average_limit_timing_condition": "while", "moving_average_limit_value_condition": "below", "moving_average_limit_in_ma_type": "sma",
+        "moving_average_limit_in_timeframe": "one_day", "moving_average_limit_in_period": 9, "indicator_limited": false, "indicator_limit": 30,
+        "indicator_limit_timing_condition": "while", "indicator_limit_value_condition": "below", "indicator_limit_in_indicator": "rsi",
+        "indicator_limit_in_timeframe": "one_day",
+    });
+    // The row lacks every one of them: the bot is read with Rails' defaults, a condition watches the
+    // venue's first ticker, and nothing is written.
+    let bare = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    for (key, value) in defaults.as_object().unwrap() { assert_eq!(bare.settings.get(key), Some(value), "{key}"); }
+    for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+        assert_eq!(bare.settings.get(&format!("{rule}_in_ticker_id")), Some(&json!(seeded.ticker_id)), "{rule}");
+    }
+    assert_eq!(c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap(), stored, "a read stores nothing");
+    let store = |settings: &serde_json::Value| c.execute("UPDATE bots SET settings = ?1 WHERE id = ?2", (settings.to_string(), id)).unwrap();
+    // `||=`: null and false are missing too. A whole amount divides as an Integer in Ruby: a tenth of 25 is 2.
+    let mut whole = settings.clone();
+    (whole["quote_amount"], whole["smart_interval_quote_amount"], whole["price_limit"], whole["interval"]) = (json!(25), json!(null), json!(false), json!("day"));
+    store(&whole);
+    let filled = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    assert_eq!((filled.settings.get("smart_interval_quote_amount"), filled.settings.get("price_limit")), (Some(&json!(2.0)), Some(&json!(1000000))));
+    for (key, value) in defaults.as_object().unwrap() { settings[key] = value.clone(); }
+    store(&settings);
+    assert_eq!(refusal(), None);
+
+    let found = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    assert_eq!((found.kind, found.one_asset(), found.dom_id("tile")), (Kind::Basket, true, format!("tile_bots_dca_multi_asset_{id}")));
+    assert_eq!((found.allocations_total(), found.allocations_balanced(), found.quote_decimals(), found.api_key_correct()), (1.0, true, Some(2), true));
+    assert_eq!((found.tickers.len(), found.quote_symbol(), found.exchange.name_id().as_str()), (1, Some("USD"), "alpaca"));
+    // Weekly since 2026-09-01 10:00: the engine's schedule gives the next and the last checkpoint.
+    let checkpoints = found.checkpoints(now).unwrap();
+    assert_eq!((checkpoints.last_us, checkpoints.next_us), (web::at("2026-09-08T10:00:00Z").timestamp_micros(), web::at("2026-09-15T10:00:00Z").timestamp_micros()));
+    assert!(Bot::find(c, seeded.user_id + 1, id, bot::For::Page).unwrap().is_none(), "another user's bot is not found");
+
+    // `bot.invalid?(:start)`: valid as it stands; not while its only listing is withdrawn; not with a starting time that has passed.
+    let invalid = |settings: &serde_json::Value| {
+        store(settings);
+        start::check(c, &Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap(), now, true, "en").unwrap()
+    };
+    assert!(!invalid(&settings).invalid);
+    c.execute("UPDATE tickers SET available = 0", []).unwrap();
+    assert!(invalid(&settings).invalid, "validate_tickers_available");
+    c.execute("UPDATE tickers SET available = 1", []).unwrap();
+    let mut late = settings.clone();
+    (late["start_time_enabled"], late["start_time_mode"], late["start_at"]) = (json!(true), json!("date"), json!("2026-09-10T12:00:30Z"));
+    let check = invalid(&late);
+    assert_eq!((check.invalid, check.start_at), (true, Some("must_be_future")), "a start at this very second is not in the future");
+    // Bot::Startable#validate_starting_time_settings: the rule on with no mode, or an emptied one, is the mode's error,
+    // whatever the clock time says; a switch that is null, "0" or absent is off, and nothing of the rule is validated.
+    let starting = |enabled: serde_json::Value, mode: serde_json::Value, time: &str| {
+        let mut changed = settings.clone();
+        (changed["start_time_enabled"], changed["start_time_mode"], changed["start_time_of_day"]) = (enabled, mode, json!(time));
+        let check = invalid(&changed);
+        (check.invalid, check.start_time_mode, check.start_time_of_day)
+    };
+    assert_eq!(starting(json!(true), json!(null), "09:30"), (true, true, false));
+    assert_eq!(starting(json!(true), json!(""), "25:00"), (true, true, false));
+    assert_eq!(starting(json!("1"), json!("friday"), "25:00"), (true, false, true));
+    assert_eq!(starting(json!(true), json!("hour"), "9:5"), (false, false, false));
+    for off in [json!(null), json!(false), json!("0"), json!("off"), json!(""), json!(0)] {
+        assert_eq!(starting(off.clone(), json!(null), "25:00"), (false, false, false), "{off}");
+    }
+    let mut small = settings.clone();
+    (small["smart_intervaled"], small["smart_interval_quote_amount"]) = (json!(true), json!(0.001));
+    assert!(invalid(&small).smart_interval_quote_amount.is_some_and(|message| message.contains("0.03")), "60 a week in slices no more often than every five minutes: 0.03 at least");
+    let mut capped = settings.clone();
+    (capped["quote_amount_limited"], capped["quote_amount_limit"]) = (json!(true), json!(0));
+    assert!(invalid(&capped).invalid, "a cap with nothing left");
+    // Smart Intervals stretch the interval by slice over amount, and Rails sets the slice no upper bound: 60 a week in slices
+    // of 3,130,000 is an order every 999.8 years, which is still printed; a little more is past what the calendar here is
+    // asked to hold, and a slice the size of the largest Float is no span at all. Without the rule the span is the interval.
+    let apart = |slice: serde_json::Value| {
+        let mut slow = settings.clone();
+        (slow["smart_intervaled"], slow["smart_interval_quote_amount"]) = (json!(true), slice);
+        store(&slow);
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), None, "the row alone does not say it");
+        Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().unrendered()
+    };
+    let too_far = Some("Smart Intervals that leave more than a thousand years between two orders");
+    assert_eq!((apart(json!(3_130_000)), apart(json!(3_131_000)), apart(json!(1.7e308))), (None, too_far, too_far));
+    // And at the other end: this bot is scheduled, and a slice of nothing, of less than nothing, or small enough to
+    // underflow leaves no span to compute a checkpoint from. 60 a week is an order a second at a slice of 60/604800.
+    let no_time = Some("a working bot whose Smart Intervals leave no time between two orders");
+    assert_eq!((apart(json!(0)), apart(json!(-5)), apart(json!(1e-320)), apart(json!(0.00009))), (no_time, no_time, no_time, no_time));
+    assert_eq!(apart(json!(0.0001)), None, "a little over a second apart");
+    // A bot that is not working has no checkpoint to compute: Rails prints its own error under the field, and so does this build.
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    assert_eq!((apart(json!(0)), apart(json!(-5))), (None, None));
+    let mut nothing = settings.clone();
+    (nothing["smart_intervaled"], nothing["smart_interval_quote_amount"]) = (json!(true), json!(0));
+    assert!(invalid(&nothing).smart_interval_quote_amount.is_some(), "the floor's message, as for any amount under it");
+    c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [id]).unwrap();
+    store(&settings);
+    assert_eq!(Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().unrendered(), None);
+
+    // One thing at a time that this build does not render.
+    let refused = |change: &dyn Fn(&mut serde_json::Value), wash_sale: Option<bool>, deltabadger: bool| {
+        let mut changed = settings.clone();
+        change(&mut changed);
+        store(&changed);
+        bot::refusal(c, id, wash_sale, deltabadger, bot::For::Page).unwrap()
+    };
+    assert_eq!(refused(&|s| s["direction"] = json!("selling"), Some(false), true), Some("a selling bot"));
+    assert_eq!(refused(&|s| s["rebalance_enabled"] = json!(true), Some(false), true), Some("rebalancing"));
+    assert_eq!(refused(&|s| s["weighting"] = json!("market_cap"), Some(false), true), Some("market-cap weights"));
+    assert_eq!(refused(&|s| s["quote_amount"] = json!(0), Some(false), true), Some("settings no form would have saved"));
+    assert_eq!(refused(&|s| s["interval"] = json!("year"), Some(false), true), Some("settings no form would have saved"));
+    assert_eq!(refused(&|s| s["start_time_mode"] = json!("noon"), Some(false), true), Some("settings no form would have saved"));
+    assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("price_limit"); }, Some(false), true), None, "Rails has a default for it");
+    assert_eq!(refused(&|s| { s.as_object_mut().unwrap().remove("allocations"); }, Some(false), true), Some("settings the wizard always stores are missing"));
+    assert_eq!(refused(&|s| s["limit_order_pcnt_distance"] = json!(2), Some(false), true), Some("settings no form would have saved"));
+    assert_eq!(refused(&|s| s["smart_interval_quote_amount"] = json!("5"), Some(false), true), Some("settings no form would have saved"));
+    // A setting in a shape no form stores. Where Rails' own reader coerces a text (a weight with `to_f`, the rebalance
+    // threshold with `to_d`, an id it looks up) and the text is plainly a number, it is read as Rails reads it;
+    // everything else is refused, never read as a default or as nothing.
+    let shape = Some("a setting stored in a shape this build does not read");
+    let btc = seeded.btc.to_string();
+    let word = "<img src=x onerror=alert(1)>"; // no word of any list
+    for (key, value) in [
+        ("quote_asset_id", json!(seeded.quote.to_string())), ("allocations", json!([1.0])), ("allocations", json!({ btc.clone(): "0.6abc" })),
+        ("allocations", json!({ btc.clone(): true })), ("allocations", json!({ format!("0{btc}"): 1.0 })), ("allocations", json!({ format!("{btc}abc"): 1.0 })),
+        ("rebalance_threshold", json!("a fifth")), ("rebalance_threshold", json!(true)), ("quote_amount_limit", json!("1000")),
+        ("price_limit", json!("100")), ("price_limit_range_upper_bound", json!([1])), ("price_drop_limit", json!("0.2")), ("indicator_limit", json!("30")),
+        ("moving_average_limit_in_period", json!(9.5)), ("moving_average_limit_in_period", json!("9")), ("price_limit_in_ticker_id", json!(1.5)),
+        ("indicator_limit_in_ticker_id", json!("12abc")), ("start_at", json!(5)), ("start_time_of_day", json!(930)),
+        // The settings that are one of a list of words are held to the list: a text that is none of them reaches no page.
+        ("price_limit_timing_condition", json!(word)), ("price_limit_value_condition", json!(word)), ("price_limit_action", json!(word)),
+        ("price_drop_limit_time_window_condition", json!(word)), ("price_drop_limit_action", json!(word)),
+        ("moving_average_limit_timing_condition", json!(word)), ("moving_average_limit_value_condition", json!("between")),
+        ("moving_average_limit_in_ma_type", json!(word)), ("moving_average_limit_in_timeframe", json!(word)), ("moving_average_limit_action", json!(word)),
+        ("indicator_limit_timing_condition", json!(word)), ("indicator_limit_value_condition", json!(word)), ("indicator_limit_in_timeframe", json!(word)),
+        ("indicator_limit_action", json!(word)),
+        // What Rails validates when it is asked whether the bot may start, and no page prints: `indicator_limit_in_indicator` has one
+        // word (app/models/bot/indicator_limitable.rb:62), a switch is true or false, a weighting and a direction are of their lists.
+        ("indicator_limit_in_indicator", json!("macd")), ("indicator_limit_in_indicator", json!(["rsi"])),
+        ("smart_intervaled", json!("true")), ("limit_ordered", json!(1)), ("quote_amount_limited", json!("1")), ("price_limited", json!("on")),
+        ("price_drop_limited", json!(0)), ("moving_average_limited", json!([])), ("indicator_limited", json!("false")),
+        ("weighting", json!("equal")), ("direction", json!("sideways")), ("index_type", json!("bottom")), ("allocation_flattening", json!(2)),
+        ("rebalance_threshold", json!(0)), ("rebalance_threshold", json!(1.5)), ("rebalance_threshold", json!("0")), ("rebalance_threshold", json!("2")),
+    ] {
+        assert_eq!(refused(&|s| s[key] = value.clone(), Some(false), true), shape, "{key}: {value}");
+    }
+    for (key, value) in [("rebalance_threshold", json!("0.2")), ("rebalance_threshold", json!("")), ("rebalance_threshold", json!(false)), ("rebalance_threshold", json!(1)),
+                         ("allocations", json!({ btc.clone(): "1" })), ("price_limit_in_ticker_id", json!(seeded.ticker_id.to_string())), ("price_limit", json!(null)),
+                         ("price_limit_action", json!("start_selling")), ("indicator_limit_in_indicator", json!("rsi")), ("weighting", json!("manual")),
+                         ("direction", json!("buying")), ("smart_intervaled", json!(null)), ("allocation_flattening", json!(0.5))] {
+        assert_eq!(refused(&|s| s[key] = value.clone(), Some(false), true), None, "{key}: {value}");
+    }
+    let read = |change: &dyn Fn(&mut serde_json::Value)| {
+        assert_eq!(refused(change, Some(false), true), None);
+        Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap()
+    };
+    let texts = read(&|s| (s["allocations"], s["rebalance_threshold"]) = (json!({ btc.clone(): "0.6" }), json!("0.2")));
+    assert_eq!((texts.allocations(), texts.rebalance_threshold().map(|share| share.to_s_f())), (vec![(seeded.btc, 0.6)], Some("0.2".to_string())), "as `to_f` and `to_d` read them");
+    assert_eq!(read(&|s| s["rebalance_threshold"] = json!(0.1)).rebalance_threshold().map(|share| share.to_s_f()).as_deref(), Some("0.1"));
+    assert_eq!(read(&|s| s["rebalance_threshold"] = json!("")).rebalance_threshold().map(|share| share.to_s_f()).as_deref(), Some("0.05"), "`presence`: a blank text is the default");
+    // What Rails validates only while its rule is on: off, the row may hold anything and is rendered; on, it is an error under a field, and refused here.
+    for (switch, key, value) in [("price_limited", "price_limit", json!(-1)), ("price_limited", "price_limit_range_lower_bound", json!(-0.5)),
+                                 ("price_limited", "price_limit_range_upper_bound", json!(-1)), ("price_drop_limited", "price_drop_limit", json!(1.5)),
+                                 ("price_drop_limited", "price_drop_limit", json!(-0.1)), ("moving_average_limited", "moving_average_limit_in_period", json!(0))] {
+        assert_eq!(refused(&|s| (s[switch], s[key]) = (json!(false), value.clone()), Some(false), true), None, "{key}: {value}, off");
+        assert_eq!(refused(&|s| (s[switch], s[key]) = (json!(true), value.clone()), Some(false), true), shape, "{key}: {value}, on");
+    }
+    // A cap that is on and below the smallest amount its quote states (0.01 here) is the same kind of error; the tickers say what that is, so it is asked of the loaded bot.
+    let capped_at = |cap: serde_json::Value| read(&|s| (s["quote_amount_limited"], s["quote_amount_limit"]) = (json!(true), cap.clone())).unrendered();
+    assert_eq!((capped_at(json!(0.001)), capped_at(json!(0)), capped_at(json!(0.01))), (Some("a spending cap below the smallest amount its quote states"), Some("a spending cap below the smallest amount its quote states"), None));
+    assert_eq!(read(&|s| (s["quote_amount_limited"], s["quote_amount_limit"]) = (json!(false), json!(0))).unrendered(), None, "off, it is not validated");
+    // Rails' floor is the bot's tickers' (app/models/bot/quote_amount_limitable.rb:87): none listed, none, whatever the memberships hold.
+    c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              (id, seeded.btc, seeded.ticker_id)).unwrap();
+    c.execute("UPDATE tickers SET available = 0", []).unwrap();
+    assert_eq!(capped_at(json!(0.001)), None, "a sub-cent cap on a bot whose members are no longer listed, as Rails saves it");
+    c.execute("UPDATE tickers SET available = 1", []).unwrap();
+    c.execute("DELETE FROM bot_index_assets WHERE bot_id = ?1", [id]).unwrap();
+    // The two times the pages read out of `transient_data`, and the carry Rails validates as not negative.
+    for transient in [json!({ "last_action_job_at": 5 }), json!({ "last_action_job_at": "yesterday" }), json!({ "quote_amount_limit_enabled_at": true }),
+                      json!({ "missed_quote_amount": -1 }), json!({ "missed_quote_amount": "-0.5" }), json!({ "missed_quote_amount": "a lot" }), json!({ "missed_quote_amount": [1] }),
+                      json!({ "missed_quote_amount": "1e1000000000" })] {
+        c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (transient.to_string(), id)).unwrap();
+        assert_eq!(refused(&|_| {}, Some(false), true), shape, "{transient}");
+    }
+    c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "last_action_job_at": "", "quote_amount_limit_enabled_at": "2026-09-01T00:00:00.000Z", "missed_quote_amount": "12.5" }).to_string(), id)).unwrap();
+    assert_eq!(refused(&|_| {}, Some(false), true), None, "an empty text is no time in Rails either");
+    // The carry as Rails writes it after a budget of 1e31 and a fill of 100: a BigDecimal's text of 31 digits, read within BigDec's bounds.
+    c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "missed_quote_amount": "9999999999999999999999999999900.0" }).to_string(), id)).unwrap();
+    assert_eq!(refused(&|_| {}, Some(false), true), None, "a carry Rails persists");
+    c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
+    assert_eq!(refused(&|_| {}, Some(true), true), Some("the wash-sale rule"));
+    assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
+    store(&settings);
+    for (sql, reason) in [
+        ("UPDATE bots SET label = '  '", "a bot without a label, which Rails writes on load"),
+        ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
+        ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
+        ("UPDATE exchanges SET type = 'Exchanges::Kraken'", "a bot on an exchange other than Alpaca"),
+        // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.
+        ("UPDATE tickers SET base_decimals = 15", "a ticker with more decimals than this build rounds to"),
+        ("UPDATE tickers SET quote_decimals = -1", "a ticker with more decimals than this build rounds to"),
+        ("UPDATE tickers SET quote_decimals = 9223372036854775807", "a ticker with more decimals than this build rounds to"),
+    ] {
+        c.execute_batch(&format!("SAVEPOINT change; {sql};")).unwrap();
+        assert_eq!(refusal(), Some(reason), "{sql}");
+        c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
+    }
+    // At the bound the bot is served, and what the pages compute from the decimals is computed.
+    c.execute_batch(&format!("SAVEPOINT bound; UPDATE tickers SET base_decimals = {0}, quote_decimals = {0};", bot::MAX_DECIMALS)).unwrap();
+    assert_eq!((bot::MAX_DECIMALS, refusal()), (14, None));
+    let precise = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    assert_eq!(precise.quote_decimals(), Some(14));
+    assert!(start::smart_interval_minimum(&precise).value.to_f() > 0.0 && !start::check(c, &precise, now, true, "en").unwrap().invalid);
+    assert_eq!(deltabadger::ruby::BigDec::parse("1.23456789").unwrap().round(precise.quote_decimals().unwrap()).to_s_f(), "1.23456789");
+    c.execute_batch("ROLLBACK TO bound; RELEASE bound;").unwrap();
+    // A decimal the columns hold and `ruby::BigDec` does not read (its bounds: 256 characters, an exponent within ±400, 512
+    // digits written out). The row alone is not refused; reading it fails with the mark the handlers answer the 501 page for,
+    // and nothing is sized by it. SQLite keeps a text it cannot read as a number as the text it is.
+    for (table, column) in [("tickers", "minimum_quote_size"), ("bot_index_assets", "target_allocation")] {
+        c.execute_batch("SAVEPOINT stored;").unwrap();
+        c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  (id, seeded.btc, seeded.ticker_id)).unwrap();
+        assert!(Bot::find(c, seeded.user_id, id, bot::For::Page).is_ok());
+        for stored in ["1_0e1000000000", "1e1000000000", &"9".repeat(600)] {
+            c.execute(&format!("UPDATE {table} SET {column} = ?1"), [stored]).unwrap();
+            assert_eq!(refusal(), None, "{table}.{column} = {}", &stored[..14]);
+            let failed = Bot::find(c, seeded.user_id, id, bot::For::Page).expect_err("a number this build does not read");
+            assert!(bot::unreadable(&failed), "{table}.{column}: {failed:?}");
+        }
+        c.execute_batch("ROLLBACK TO stored; RELEASE stored;").unwrap();
+    }
+    assert!(!bot::unreadable(&deltabadger::web::WebError::Config("anything else".into())));
+    c.execute("UPDATE bots SET type = 'Bots::DcaIndex', settings = ?1 WHERE id = ?2", (json!({ "quote_asset_id": seeded.quote, "quote_amount": 100, "interval": "week", "num_coins": 10,
+        "allocation_flattening": 0.0, "index_type": "top", "smart_intervaled": false, "limit_ordered": false, "limit_order_pcnt_distance": 0.001 }).to_string(), id)).unwrap();
+    assert_eq!(bot::refusal(c, id, Some(false), false, bot::For::Page).unwrap(), Some("an index bot whose market data comes from CoinGecko"));
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), None);
+    store(&settings);
+    c.execute("UPDATE bots SET type = 'Bots::DcaMultiAsset' WHERE id = ?1", [id]).unwrap();
+
+    // An order that is not a scheduled buy needs the metrics walk; an account that has not answered the wash-sale question needs it once it has traded.
+    let order = |side: i64, kind: &str| c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, transaction_type, bot_interval, bot_quote_amount, error_messages, created_at, updated_at) \
+                                                   VALUES (?1, ?2, 0, 2, ?3, ?4, 'week', 60, '[]', '2026-09-08 10:00:00', '2026-09-08 10:00:00')", (id, seeded.exchange_id, side, kind)).unwrap();
+    order(0, "REGULAR");
+    assert_eq!(refusal(), None);
+    assert_eq!(bot::refusal(c, id, None, true, bot::For::Page).unwrap(), Some("the wash-sale question not answered yet"));
+    order(1, "REGULAR");
+    assert_eq!(refusal(), Some("orders other than scheduled buys"));
+    // The feed is asked page after page and does not walk the history for a sell: it refuses the page of rows that holds one.
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None);
+    c.execute("DELETE FROM transactions WHERE side = 1", []).unwrap();
+    // An order of another type is found by the page through an index, on either side of 'REGULAR' in its order. The feed does
+    // not ask: Rails picks its ten rows first, and the page of rows that holds such an order is the one refused (Task 8).
+    for kind in ["REBALANCE", "LIQUIDATION", "REDEPLOY"] {
+        order(0, kind);
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some("orders other than scheduled buys"), "{kind}");
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None, "{kind}");
+        c.execute("DELETE FROM transactions WHERE transaction_type = ?1", [kind]).unwrap();
+    }
+    let plan: String = c.prepare("EXPLAIN QUERY PLAN SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') OR EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type > 'REGULAR')")
+        .unwrap().query_map([id], |r| r.get::<_, String>(3)).unwrap().map(Result::unwrap).collect::<Vec<_>>().join("; ");
+    assert_eq!(plan.matches("index_bot_type_created_at (bot_id=? AND transaction_type").count(), 2, "{plan}");
+    // The feed is not given the four facts about the bot's orders either: each may walk the history.
+    assert!(Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().has_orders);
+    assert!(!Bot::find(c, seeded.user_id, id, bot::For::Feed).unwrap().unwrap().has_orders);
+}

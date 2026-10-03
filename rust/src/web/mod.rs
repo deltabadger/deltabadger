@@ -7,6 +7,7 @@
 pub mod assets;
 pub mod auth;
 pub mod bearer;
+pub mod bot;
 pub mod bots;
 pub mod cable;
 pub mod consent;

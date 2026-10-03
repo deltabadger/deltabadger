@@ -1179,3 +1179,17 @@ mod colours_and_ring {
     }
 }
 
+
+mod bot_rows {
+    use super::common;
+    use deltabadger::web::bot;
+
+    #[test]
+    fn an_id_in_a_path_is_read_as_activemodel_reads_it() {
+        for case in common::vectors()["bot_pages"]["string_to_id"].as_array().unwrap() {
+            // What `find` binds to a positive id finds a row; anything else finds none.
+            let expected = case["id"].as_i64().filter(|id| *id > 0);
+            assert_eq!(bot::id_from_path(case["text"].as_str().unwrap()), expected, "{case}");
+        }
+    }
+}
