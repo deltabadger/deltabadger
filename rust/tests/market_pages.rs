@@ -85,3 +85,20 @@ async fn closed_candles_overlap_and_rebuild_instead_of_splicing_a_split() {
     assert_eq!(got.len(), 3);
     assert_eq!(got[1].1.to_s_f(), "2.0");
 }
+
+#[test]
+fn page_loads_coalesce_and_late_results_cannot_replace_rotated_credentials() {
+    use deltabadger::web::figure::service::{Service, Load};
+    let service = Service::default();
+    let Load::Start(first, _) = service.begin(1,"key-a",1,100) else { panic!("first read starts fill") };
+    assert!(matches!(service.begin(1,"key-a",1,100),Load::Cold));
+    let Load::Start(second, _) = service.begin(1,"key-b",2,100) else { panic!("new credentials start new fill") };
+    assert!(matches!(service.begin(2,"key-c",1,100),Load::Failed));
+    first.finish(Cache::default(),true);
+    assert!(matches!(service.begin(1,"key-b",2,100),Load::Cold));
+    second.finish(Cache::default(),true);
+    assert!(matches!(service.begin(1,"key-b",2,299),Load::Ready(_,100)));
+    assert!(matches!(service.begin(1,"key-b",2,300),Load::Start(_, _)));
+    // Dropping a cancelled fill becomes a terminal state with bounded retry, not an eternal spinner.
+    assert!(matches!(service.begin(1,"key-b",2,300),Load::Failed));
+}
