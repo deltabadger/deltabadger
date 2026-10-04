@@ -1,5 +1,5 @@
 //! Ruby semantics that Rails' output depends on, each pinned by vectors recorded from Ruby
-//! (script/rust/record_vectors.rb: "bigdec", "ruby"). BigDec is Ruby's BigDecimal as bigdecimal 3.3.1
+//! (script/rust/record_vectors.rb: "bigdec", "ruby"). BigDec is Ruby's BigDecimal as bigdecimal 4.1.3
 //! computes it: exact + − ×, and division rounded half-up to a precision that depends on the operands.
 use crate::codec::CodecError;
 use bigdecimal::num_bigint::{BigInt, Sign};
