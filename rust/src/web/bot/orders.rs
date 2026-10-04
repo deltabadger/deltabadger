@@ -26,8 +26,6 @@ struct Order {
     /// 0 unknown, 1 open, 2 closed, 3 cancelled, 4 abandoned.
     external_status: Option<i64>,
     sell: bool,
-    /// A scheduled buy: `side` is 0 and `transaction_type` is REGULAR. What `bot::refusal` asks of every order of a bot whose page is served.
-    scheduled_buy: bool,
     price: Option<BigDec>,
     amount: Option<BigDec>,
     quote_amount: Option<BigDec>,
@@ -124,11 +122,11 @@ fn load(c: &Connection, bot: &Bot, cursor: Option<&Cursor>) -> Result<Vec<Item>,
     let (condition, mut values) = before(cursor, false);
     values.insert(0, rusqlite::types::Value::Integer(bot.id));
     let mut orders = c.prepare(&format!("SELECT id, created_at, status, external_status, side, price, amount, quote_amount, amount_exec, quote_amount_exec, base, quote, \
-                                         base_asset_id, quote_asset_id, error_messages, transaction_type FROM transactions WHERE bot_id = ?1{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
+                                         base_asset_id, quote_asset_id, error_messages FROM transactions WHERE bot_id = ?1{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
     let rows = orders.query_map(rusqlite::params_from_iter(values), |r| {
         let messages: Option<String> = r.get(14)?;
         Ok(Order {
-            id: r.get(0)?, created_at: time(r.get(1)?)?, status: r.get(2)?, external_status: r.get(3)?, sell: r.get::<_, Option<i64>>(4)? == Some(1), scheduled_buy: r.get::<_, Option<i64>>(4)? == Some(0) && r.get::<_, String>(15)? == "REGULAR",
+            id: r.get(0)?, created_at: time(r.get(1)?)?, status: r.get(2)?, external_status: r.get(3)?, sell: r.get::<_, Option<i64>>(4)? == Some(1),
             price: None, amount: None, quote_amount: None, amount_exec: None, quote_amount_exec: None, raw: [r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?],
             base: r.get(10)?, quote: r.get(11)?, base_asset_id: r.get(12)?, quote_asset_id: r.get(13)?,
             error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()
@@ -332,17 +330,15 @@ fn query_escape(value: &str) -> String {
 
 /// GET /bots/:id.turbo_stream for the `orders_pagination` frame: the next ten rows appended to the
 /// list, and the frame replaced by one that asks for the ten after them, while there are more.
-/// `Err` names why this page of the feed is not served: one of its rows is an order that is not a
-/// scheduled buy, which `bot::refusal` leaves to the feed to find (it would walk the whole history
-/// for it). Rails picks the merged page first (BotActivityFeed#page) and reads on from there, so
-/// only the ten rows that are shown are asked and read: the rows after them belong to a later page.
-pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<Result<String, &'static str>, WebError> {
+/// A sale, a liquidation, a redeploy or a rebalance leg is the same row as a buy: the partials read
+/// the order's status, its venue status and its side, never its type. Rails picks the merged page
+/// first (BotActivityFeed#page) and reads on from there, so only the ten rows that are shown are
+/// read: the rows after them belong to a later page.
+pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String, WebError> {
     let cursor = cursor(ctx.params.query("before"));
     let mut items = load(c, bot, cursor.as_ref())?;
     for item in items.iter_mut().take(PAGE) {
-        let Item::Order(order) = item else { continue };
-        if !order.scheduled_buy { return Ok(Err(super::BEYOND_BUYS)); }
-        order.read()?;
+        if let Item::Order(order) = item { order.read()?; }
     }
     let mut decimals = HashMap::new();
     if let (Some(quote), Some(precision)) = (bot.quote_asset.as_ref(), bot.quote_decimals()) {
@@ -375,5 +371,5 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<Result<
         let frame = format!("<turbo-frame id=\"orders_pagination\" src=\"{}.turbo_stream?before={}\"></turbo-frame>", escape(&ctx.path(&format!("/bots/{}", bot.id))), query_escape(&next));
         body.push_str(&turbo::stream("replace", "orders_pagination", &format!("\n    {frame}\n")));
     }
-    Ok(Ok(body))
+    Ok(body)
 }

@@ -2019,9 +2019,8 @@ async fn a_stored_number_this_build_does_not_read_refuses_the_bots_pages_and_onl
 }
 
 /// A page of the feed costs what its ten rows cost, however long the bot's history is. The refusal
-/// that runs before every page finds an order of another type through an index and leaves a sell
-/// to the page of rows that holds one; the bot is loaded without the facts about its orders that
-/// walk the history. Measured as a ratio, on one machine at one time: thirty pages of a history of
+/// that runs before every page asks nothing of the bot's orders, and the bot is loaded without the
+/// facts about its orders that walk the history. Measured as a ratio, on one machine at one time: thirty pages of a history of
 /// 300,000 orders against thirty pages of a history of 400. A walk of the history for every page
 /// makes the long one many times slower; the bound is four times and a fifth of a second.
 #[tokio::test(flavor = "current_thread")]
@@ -2062,14 +2061,14 @@ async fn a_page_of_the_feed_costs_the_same_however_long_the_history_is() {
     c.execute("UPDATE transactions SET side = 1 WHERE bot_id = ?1 AND created_at = datetime('2025-01-01', '+5 minutes')", [short]).unwrap();
     assert_eq!(browser.send(&app, "GET", &format!("/bots/{short}.turbo_stream"), None, web::Csrf::None, &frame).await.status, 200);
     let cursor = "2025-01-01T00:10:30.000000Z%7Ctransaction%7C0";
-    assert_eq!(browser.send(&app, "GET", &format!("/bots/{short}.turbo_stream?before={cursor}"), None, web::Csrf::None, &frame).await.status, 501, "the page of rows with the sell");
+    assert_eq!(browser.send(&app, "GET", &format!("/bots/{short}.turbo_stream?before={cursor}"), None, web::Csrf::None, &frame).await.status, 200, "a sale is a row like any other");
     assert_eq!(browser.get(&app, &format!("/bots/{short}")).await.status, 501, "and the bot's page, which asks once");
 }
 
-/// The feed refuses the page of rows that holds an order it does not render or cannot read, and no
-/// page before it. Each table is asked for eleven rows and ten are shown (Rails picks the merged
-/// page first: BotActivityFeed#page), so the row that only says "there is a next page" must not
-/// decide anything about this one.
+/// The feed refuses the page of rows that holds an order it cannot read, and no page before it; a
+/// sale or an order of another type is a row like any other. Each table is asked for eleven rows and
+/// ten are shown (Rails picks the merged page first: BotActivityFeed#page), so the row that only
+/// says "there is a next page" must not decide anything about this one.
 #[tokio::test(flavor = "current_thread")]
 async fn the_feed_refuses_the_page_that_holds_the_row_and_no_page_before_it() {
     let (_dir, opened, seeded, app, mut browser, [bot, _]) = two_plain_bots().await;
@@ -2085,29 +2084,29 @@ async fn the_feed_refuses_the_page_that_holds_the_row_and_no_page_before_it() {
     let event = |minute: u32| {
         c.execute("INSERT INTO bot_activity_logs (bot_id, event, level, details, created_at) VALUES (?1, 'started', 0, '{}', ?2)", (bot, format!("2026-09-08 10:{minute:02}:00"))).unwrap();
     };
-    let mut two_pages = async |what: &str, rows: &str| {
+    let mut two_pages = async |what: &str, rows: &str, held: u16| {
         let first = browser.send(&app, "GET", &format!("/bots/{bot}.turbo_stream"), None, web::Csrf::None, &frame).await;
         assert_eq!((first.status, first.body.matches(rows).count()), (200, 10), "{what}: the first page shows its ten rows");
         let next = first.body.split("src=\"").nth(1).and_then(|rest| rest.split('"').next()).expect("a next page").replace("&amp;", "&");
-        assert_eq!(browser.send(&app, "GET", &next, None, web::Csrf::None, &frame).await.status, 501, "{what}: the page that holds the row");
+        assert_eq!(browser.send(&app, "GET", &next, None, web::Csrf::None, &frame).await.status, held, "{what}: the page that holds the row");
         c.execute_batch("DELETE FROM transactions; DELETE FROM bot_activity_logs;").unwrap();
     };
     // Ten buys, and a sell before them: the eleventh order.
     order(0, 1, "0.6");
     for minute in 1..=10 { order(minute, 0, "0.6"); }
-    two_pages("a sell after ten buys", "<tr id=\"transaction_").await;
+    two_pages("a sell after ten buys", "<tr id=\"transaction_", 200).await;
     // Ten events, and a sell before them: the first order, and on the next page.
     order(0, 1, "0.6");
     for minute in 1..=10 { event(minute); }
-    two_pages("a sell after ten events", "<tr id=\"bot_activity_log_").await;
+    two_pages("a sell after ten events", "<tr id=\"bot_activity_log_", 200).await;
     // Ten buys, and before them a liquidation that completed: an order of another type, which only the bot's page asks about beforehand.
     typed(0, 0, "LIQUIDATION", "0.6");
     for minute in 1..=10 { order(minute, 0, "0.6"); }
-    two_pages("an older liquidation after ten buys", "<tr id=\"transaction_").await;
+    two_pages("an older liquidation after ten buys", "<tr id=\"transaction_", 200).await;
     // Ten buys, and before them a buy whose amount this build does not read.
     order(0, 0, "1_0e1000000000");
     for minute in 1..=10 { order(minute, 0, "0.6"); }
-    two_pages("an amount that is not read, after ten buys", "<tr id=\"transaction_").await;
+    two_pages("an amount that is not read, after ten buys", "<tr id=\"transaction_", 501).await;
 }
 
 /// The scripted CLI example, built here so a run of only this test target still has it (a no-op when it is current).

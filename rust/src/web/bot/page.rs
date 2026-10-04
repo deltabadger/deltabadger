@@ -191,8 +191,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     if feed {
         let (view, owner) = (ctx.clone(), user.clone());
         let body = match app.db(move |c| orders::feed(c, &view, &bot, &owner)).await {
-            Ok(Ok(body)) => body,
-            Ok(Err(reason)) => return Ok(layout::refused(&ctx, reason)),
+            Ok(body) => body,
             Err(error) => return layout::or_refused(&ctx, error),
         };
         return Ok((StatusCode::OK, [(axum::http::header::CONTENT_TYPE, crate::web::turbo::CONTENT_TYPE)], body).into_response());

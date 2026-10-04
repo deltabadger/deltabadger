@@ -441,6 +441,8 @@ module Pages
   # GET /bots/:id.turbo_stream for the orders_pagination frame.
   def feed_scenarios
     by_accept = { 'Turbo-Frame' => 'orders_pagination', 'Accept' => 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml' }
+    beyond_buys = [running('basket', '2026-09-01T12:30:00Z', 'orders' => 'beyond_buys'),
+                   running('index', '2026-09-07T13:30:00.5Z', 'orders' => 'beyond_buys')]
     {
       # Fourteen orders and eight events, ten rows at a time: the cursor between an event and an order of the same instant, at the end, and unreadable.
       'bot_feed' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/bots/1.turbo_stream?before=zz', FEED),
@@ -458,6 +460,16 @@ module Pages
       'bot_feed_hidden' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/de/bots/2.turbo_stream', FEED), get('/bots/3.turbo_stream', FEED)),
                                      'user' => owner('hide_balances' => true, 'locale' => 'de')),
       'bot_feed_empty' => with_bots(three, signed_in(get('/bots/1.turbo_stream', FEED))),
+      # Sales, liquidations, a redeploy and a rebalance leg: Rails shows them with the same rows as a buy.
+      'bot_feed_beyond_buys' => with_bots(beyond_buys, signed_in(get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
+                                                                 get('/de/bots/1.turbo_stream', FEED))),
+      'bot_feed_beyond_buys_hidden' => with_bots(beyond_buys.take(1), signed_in(get('/bots/1.turbo_stream', FEED)),
+                                                 'user' => owner('hide_balances' => true)),
+      # The feed has no figures and no modal: Rails answers it whatever the wash-sale rule says, or before it is answered.
+      'bot_feed_wash_sale_rule' => with_bots(traded, signed_in(get('/bots/1.turbo_stream', FEED), get('/bots/3.turbo_stream', FEED)),
+                                             'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US')),
+      'bot_feed_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }],
+                                                 signed_in(get('/bots/1.turbo_stream', FEED)), 'user' => owner('wash_sale_enabled' => nil)),
       'bot_feed_of_another_user' => two_users.merge('steps' => signed_in(get('/bots/3.turbo_stream', FEED), get('/bots'))),
       'bot_feed_signed_out' => with_bots(three, [get('/bots/1.turbo_stream', FEED)])
     }

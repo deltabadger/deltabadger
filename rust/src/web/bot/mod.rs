@@ -441,15 +441,17 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
         "SELECT EXISTS(SELECT 1 FROM tickers t WHERE (t.exchange_id = (SELECT exchange_id FROM bots WHERE id = ?1) OR t.id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id = ?1)) \
          AND (t.base_decimals NOT BETWEEN 0 AND ?2 OR t.quote_decimals NOT BETWEEN 0 AND ?2))", (bot_id, MAX_DECIMALS), |r| r.get(0))?;
     if unbounded { return Ok(Some("a ticker with more decimals than this build rounds to")); }
-    // The metrics walk, not ported yet, is what reads sells, swaps and corporate actions. The page asks once: an order of
+    // The metrics walk is what reads sells, swaps and corporate actions; a page without figures asks once: an order of
     // another type through index_bot_type_created_at (bot_id, transaction_type, created_at), on either side of 'REGULAR',
-    // and a sell by walking the bot's orders (no index tells one from a buy). The feed asks neither: Rails picks its ten
-    // rows first, and `orders::feed` refuses the page whose rows hold such an order, and no other.
+    // and a sell by walking the bot's orders (no index tells one from a buy). The feed asks neither, and neither does a
+    // figures page: the feed's rows read no figure, and the figures read the whole walk.
     let other_type = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') \
                                         OR EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type > 'REGULAR')", [bot_id], |r| r.get(0))?;
     let sold = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND side IS NOT 0)", [bot_id], |r| r.get(0))?;
     if (other_type || sold) && asked != For::FiguresPage { return Ok(Some(BEYOND_BUYS)); }
     match wash_sale_enabled {
+        // The feed has no figures and no modal: BotsController#show answers it whatever the rule says.
+        _ if asked == For::Feed => {}
         Some(true) if asked != For::FiguresPage => return Ok(Some("the wash-sale rule")),
         // The question's modal opens once the bot holds something, which only the metrics walk knows.
         None if c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
