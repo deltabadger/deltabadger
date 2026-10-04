@@ -288,12 +288,9 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
         let (key, batch) = (key.clone(), entries.clone());
         if split(&entries[from]) {
             let effects = { let (key, batch) = (key.clone(), batch.clone()); phase(db, move |c| split_effects(c, &key, &batch[from], now)).await? };
-            // The one unit that can write `bots`: past the engine's guard when it does.
-            progress = commit_bots(db, move |c| {
-                let mut p = store(c, &key, &batch[from..from + 1], Some(&effects), progress, now)?;
-                let wrote_bots = std::mem::take(&mut p.wrote_bots);
-                Ok((p, wrote_bots))
-            }).await?;
+            // A split's unit, alone: past the engine's guard whether or not it moves a counter, since eligibility reads the
+            // account's split rows (`eligibility::history_reasons`).
+            progress = commit_bots(db, move |c| Ok((store(c, &key, &batch[from..from + 1], Some(&effects), progress, now)?, true))).await?;
             from += 1;
         } else {
             let end = entries.len().min(from + BATCH);
@@ -511,8 +508,6 @@ struct Progress {
     /// Every leg id of every merged split stored: a standalone leg arriving later is a duplicate.
     merged: HashSet<String>,
     min_skipped: Option<DateTime<Utc>>,
-    /// Whether the unit in hand wrote `bots` (and so must pass the engine's guard).
-    wrote_bots: bool,
 }
 
 /// The read before the store: the activities as entries (#normalize_activity, #merge_split_entries), the venue's
@@ -534,7 +529,7 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Vec<
     for raw in s.query_map(params![key.user_id, key.exchange_id, ADJUSTMENT], |r| r.get::<_, Option<String>>(0))? {
         merged.extend(merged_ids(&raw?.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null)));
     }
-    Ok(Ok((entries, Progress { out: Outcome::default(), listings: Arc::new(listings(c, key.exchange_id)?), merged, min_skipped: None, wrote_bots: false })))
+    Ok(Ok((entries, Progress { out: Outcome::default(), listings: Arc::new(listings(c, key.exchange_id)?), merged, min_skipped: None })))
 }
 
 /// A split row, as everything that reacts to one tells it.
@@ -568,7 +563,6 @@ fn store(c: &Connection, key: &Key, batch: &[Entry], effects: Option<&Effects>, 
         p.merged.extend(merged_ids(&e.raw.value));
         if split(e) {
             let effects = effects.ok_or_else(no_effects)?;
-            p.wrote_bots |= !effects.restated.is_empty();
             p.out.splits.push(apply_split(c, base_currency, at, e.raw.value["split_ratio"].as_str(), effects, now)?);
             if at > now {
                 let mut owed = load_owed(c, key.id)?;

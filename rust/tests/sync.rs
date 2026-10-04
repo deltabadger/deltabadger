@@ -181,31 +181,31 @@ async fn the_engines_guard_refuses_a_split_of_a_working_bots_symbol_and_the_ledg
     assert_eq!(one::<String>(&db, state).await, "3 rows, generation 1, 1 lines, watermark 2026-09-16 00:00:00, error none");
 }
 
-/// The guard is the engine's say on writes to `bots`, and costs tens of milliseconds a call: a unit that writes no bot
-/// does not ask it. Here the install is one the guard refuses outright (a working bot with restated prices), so any
-/// unit that asked would fail.
+/// The guard is the engine's say on what eligibility reads, and costs tens of milliseconds a call: a unit that writes
+/// neither a bot nor a split row does not ask it. Here the install is one the guard refuses outright (a working bot with
+/// restated prices), so any unit that asked would fail.
 #[tokio::test(flavor = "current_thread")]
-async fn only_a_unit_that_writes_bots_asks_the_engines_guard() {
+async fn only_a_unit_that_writes_what_eligibility_reads_asks_the_engines_guard() {
     let (_dir, db, s) = install();
     db.run(move |c, _| { bot_that_traded_aapl(c, s); c.execute("UPDATE bots SET restatement_generation = 1", []).map_err(|e| e.to_string()) }).await.unwrap();
-    // Plain ledger units, a failure recorded on the key, the transfer links, the watermark; and a split of a symbol
-    // no bot traded, which writes no bot.
+    // Plain ledger units, a failure recorded on the key, the transfer links, the watermark.
     let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("i-1", "2026-09-01"), { "id": "w-1", "activity_type": "CSW", "net_amount": "-100", "date": "2026-09-02" },
-                                                      { "id": "d-1", "activity_type": "CSD", "net_amount": "100", "date": "2026-09-03" },
-                                                      { "id": "q-remove", "activity_type": "SPLIT", "symbol": "QQQ", "qty": "-1", "date": "2026-09-04" },
-                                                      { "id": "q-add", "activity_type": "SPLIT", "symbol": "QQQ", "qty": "2", "date": "2026-09-04" }]))] }));
+                                                      { "id": "d-1", "activity_type": "CSD", "net_amount": "100", "date": "2026-09-03" }]))] }));
     let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
-    assert_eq!((out.imported, out.linked, out.splits.len(), out.splits[0].restated_bots.len()), (4, 1, 1, 0));
+    assert_eq!((out.imported, out.linked, out.splits.len()), (3, 1, 0));
     let (_, v) = venue(json!({ ACTIVITIES: [json!({ "status": 500, "body": { "message": "internal server error" } })] }));
     assert_eq!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err().error, "internal server error");
     // A balance unit.
     let (_, v) = venue(balances_script());
     assert_eq!(balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().synced, 3);
-    // The unit that would move the bot's counter does ask, and is refused.
-    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([split("s-remove", "-10"), split("s-add", "100")]))] }));
-    let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
-    assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{refused}");
-    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 4);
+    // A split's unit does ask, and is refused: one that would move the bot's counter, and one of a symbol no bot traded.
+    for symbol in ["AAPL", "QQQ"] {
+        let leg = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": symbol, "qty": qty, "date": "2026-09-15" });
+        let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([leg("s-remove", "-10"), leg("s-add", "100")]))] }));
+        let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
+        assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{symbol}: {refused}");
+    }
+    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 3);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -1210,4 +1210,19 @@ fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds
     assert!(out.status.code() == Some(2) && stderr(&out).contains(&format!("ledger_sync:1 failed: {LIVE_REFUSED}")) && !stderr(&out).contains(GUARD_REFUSED), "{}", stderr(&out));
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(c.query_row("SELECT last_sync_error FROM api_keys", [], |r| r.get::<_, String>(0)).unwrap(), LIVE_REFUSED, "written, on an install the guard would refuse");
+}
+
+/// Every split's unit passes the engine's guard, not only one that moves a bot's counter: eligibility reads the
+/// account's split rows (`eligibility::history_reasons`), so a split row alone can make a working crypto bot one this
+/// engine does not run, and its next pass would end the process. Here a split of "BTC" that no bot's order names.
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_that_moves_no_counter_still_passes_the_engines_guard() {
+    let (_dir, db, s) = install();
+    let bot = db.run(move |c, _| Ok(seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00")))).await.unwrap();
+    let btc_split = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "BTC", "qty": qty, "date": "2026-09-15" });
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("i1", "2026-09-10"), btc_split("b-remove", "-1"), btc_split("b-add", "2")]))] }));
+    let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
+    assert_eq!(refused, format!("{GUARD_REFUSED}: bot {bot} (scheduled): 1 split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)"));
+    assert_eq!(one::<String>(&db, "SELECT (SELECT group_concat(tx_id) FROM account_transactions) || ', watermark ' || coalesce(last_synced_at, 'none') FROM api_keys").await,
+               "i1, watermark none", "the unit before the split stays; the split is not stored, and the bot stays one the engine runs");
 }
