@@ -332,7 +332,7 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 /// deadline its job declares, as the scheduler's runner would hold it.
 fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     use deltabadger::sync::balances::NoPrices;
-    use deltabadger::sync::job_api::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::jobs::{Cx, Db, Job, Outcome, Wake};
     use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
     const USAGE: &str = "usage: deltabadger sync ledger|balances [<api_key_id>]";
     let args: Vec<String> = std::env::args().skip(2).collect();
@@ -354,7 +354,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let spec = job.spec();
         let name = format!("{}:{}", spec.name, spec.scope.unwrap_or_default());
-        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)])) {
+        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock, wakers: Default::default() }, vec![Wake::Manual(None)])) {
             Outcome::Done => println!("{name}: done"),
             // An import larger than one run reads: what was read is stored, and the next run continues.
             Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),

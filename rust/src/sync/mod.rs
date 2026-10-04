@@ -3,9 +3,9 @@
 //! function, safe to call at any time; when to call them is the scheduler's business.
 //!
 //! The write rule (these jobs write the SQLite file the engine trades on):
-//! - every database phase runs off the runtime thread (`job_api::Db::run`), in short `BEGIN IMMEDIATE` transactions
-//!   (`write`), with `WRITE_GAP` after each; a transaction that writes `bots` (a split's counters) passes the engine's
-//!   `eligibility::guard` before it commits;
+//! - every database phase runs off the runtime thread (`jobs::Db::run`), in short `BEGIN IMMEDIATE` transactions
+//!   (`write`), with `WRITE_GAP` after each; a transaction that writes what eligibility reads (`bots`, a split's
+//!   counters, or a split row) passes the engine's `eligibility::guard` before it commits;
 //! - every answer is read to a stated size, off the runtime thread (`parsed`), as Rails would hold it and within a
 //!   budget of values (`wire`); every number in it goes through `number`, which bounds it before any arithmetic;
 //! - no value of an answer is logged: a log line says what happened and where, never an id, a cursor or a body;
@@ -18,7 +18,6 @@
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
 pub mod balances;
-pub mod job_api;
 pub mod jobs;
 pub mod ledger;
 pub mod parity;
@@ -31,7 +30,7 @@ use crate::venue::alpaca::Body;
 use crate::venue::VenueError;
 use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
-use job_api::Db;
+use crate::jobs::Db;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// ApiKey::SYNC_ERROR_LIMIT.
@@ -48,7 +47,7 @@ pub struct SyncError(pub String);
 impl From<rusqlite::Error> for SyncError { fn from(e: rusqlite::Error) -> Self { Self(format!("{e}")) } }
 impl From<crate::codec::CodecError> for SyncError { fn from(e: crate::codec::CodecError) -> Self { Self(format!("{e:?}")) } }
 
-/// One database phase of a sync, on the blocking pool (`job_api::Db::run`): no SQLite statement of a sync runs on the
+/// One database phase of a sync, on the blocking pool (`jobs::Db::run`): no SQLite statement of a sync runs on the
 /// runtime thread, and no transaction outlives its phase.
 pub async fn phase<T: Send + 'static>(db: &Db, work: impl FnOnce(&Connection) -> Result<T, SyncError> + Send + 'static) -> Result<T, SyncError> {
     db.run(move |c, _| work(c).map_err(|e| e.0)).await.map_err(SyncError)
@@ -63,9 +62,9 @@ pub const GUARD_REFUSED: &str = "the engine's guard refused this write";
 pub const WRITE_GAP: Duration = Duration::from_millis(110);
 
 /// One write transaction, the only place a sync commits: the write lock is taken up front, the statements run, and it
-/// commits. `f` says whether it wrote `bots` (a split's `restatement_generation`: the one write of a sync that can
-/// change a bot's eligibility); if it did, `eligibility::guard` has its say first, as for every writer of `bots`
-/// beside the engine. A refusal rolls the transaction back and fails the sync with the guard's reason (bot ids and
+/// commits. `f` says whether it wrote what eligibility reads (a split's row and its bots' `restatement_generation`:
+/// the writes of a sync that can change a bot's eligibility); if it did, `eligibility::guard` has its say first, as
+/// for every writer of `bots` beside the engine. A refusal rolls the transaction back and fails the sync with the guard's reason (bot ids and
 /// `check`'s words, never a secret). Every other unit writes only tables eligibility does not read, and does not pay
 /// for the guard (20 to 45 ms a call on a mid-sized install).
 pub fn write<T>(c: &Connection, cipher: &Cipher, f: impl FnOnce(&Connection) -> Result<(T, bool), SyncError>) -> Result<T, SyncError> {
@@ -90,7 +89,7 @@ pub async fn commit<T: Send + 'static>(db: &Db, work: impl FnOnce(&Connection) -
     commit_bots(db, move |c| work(c).map(|out| (out, false))).await
 }
 
-/// One write phase that may write `bots`: `work` says whether it did, and then the engine's guard is asked.
+/// One write phase that may write what eligibility reads: `work` says whether it did, and then the engine's guard is asked.
 pub async fn commit_bots<T: Send + 'static>(db: &Db, work: impl FnOnce(&Connection) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
     let (out, held) = db.run(move |c, cipher| write_timed(c, cipher, work).map_err(|e| e.0)).await.map_err(SyncError)?;
     db.note_write_hold(held);

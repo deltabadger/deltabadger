@@ -283,13 +283,13 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 /// scheduler's job runs it. It holds the exclusive engine lock from before it opens a database until it exits, so it
 /// runs only while neither the Rails app nor another `deltabadger` process (`run`, `serve`) has this install: a sync
 /// can never run against an install Rails is also syncing. It claims nothing and writes no lease: an install Rails
-/// owns stays Rails' (the rows are the ones Rails' own job would write). A split that moves a bot's counter passes
+/// owns stays Rails' (the rows are the ones Rails' own job would write). Every split's unit passes
 /// `eligibility::guard`, as under the scheduler; nothing else it writes is the engine's business. Balances by hand
 /// have no market-data source, so coins keep their last price; stocks and cash are priced. A run is held to the
 /// deadline its job declares, as the scheduler's runner would hold it.
 fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     use deltabadger::sync::balances::NoPrices;
-    use deltabadger::sync::job_api::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::jobs::{Cx, Db, Job, Outcome, Wake};
     use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
     const USAGE: &str = "usage: deltabadger sync ledger|balances [<api_key_id>]";
     let args: Vec<String> = std::env::args().skip(2).collect();
@@ -311,7 +311,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let spec = job.spec();
         let name = format!("{}:{}", spec.name, spec.scope.as_deref().unwrap_or_default());
-        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)]));
+        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock, wakers: Default::default() }, vec![Wake::Manual(None)]));
         let recorded = rt.block_on(db.run(move |c, _| {
             use deltabadger::jobs::state;
             let at = chrono::Utc::now();

@@ -344,7 +344,7 @@ async fn run(name: &str, api: Option<DataApi<ScriptedTransport>>, c: Connection,
             "MARKET_DATA_URL"=>Some("http://data-api:3000".into()),"MARKET_DATA_TOKEN"=>Some("tok".into()),_=>None
         }).unwrap();
     }
-    reference::run_once(name, api, Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(now)) }).await
+    reference::run_once(name, api, Cx { db: Db::new(c, seed::cipher()), clock: &FixedClock(at(now)), wakers: Default::default() }).await
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -516,8 +516,8 @@ async fn full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_writ
     let file = c.path().expect("a file database").to_string(); // the key import::holds keeps
     let db = Db::new(c, seed::cipher());
     let (gap, meter) = thread_gap_meter();
-    let stocks = reference::run_once(reference::STOCKS, Some(api), Cx { db: db.clone(), clock: &FixedClock(at("2026-10-02T10:05:00Z")) }).await;
-    let prune = reference::run_once(reference::PRUNE, None::<DataApi<ScriptedTransport>>, Cx { db, clock: &FixedClock(at("2026-10-02T10:05:00Z")) }).await;
+    let stocks = reference::run_once(reference::STOCKS, Some(api), Cx { db: db.clone(), clock: &FixedClock(at("2026-10-02T10:05:00Z")), wakers: Default::default() }).await;
+    let prune = reference::run_once(reference::PRUNE, None::<DataApi<ScriptedTransport>>, Cx { db, clock: &FixedClock(at("2026-10-02T10:05:00Z")), wakers: Default::default() }).await;
     meter.abort();
     stop.store(true, Ordering::SeqCst);
     probe.join().unwrap();
@@ -670,7 +670,7 @@ async fn index_refresh_attests_only_the_configuration_it_requested() {
         t.reply("GET /api/v2/indices",200,json!({"data":[{"external_id":"nasdaq-100","name":"Nasdaq 100","top_coins":["AAA.US"]}]}));
         let make=||Change{scripted:t.clone(),c:reopen(&dir),change};
         let api=DataApi::new(Config{url:"http://data-api:3000".into(),token:"tok".into()},make(),make());
-        let out=reference::run_once(reference::INDICES,Some(api),Cx{db:Db::new(c,seed::cipher()),clock:&FixedClock(now)}).await;
+        let out=reference::run_once(reference::INDICES,Some(api),Cx{db:Db::new(c,seed::cipher()),clock:&FixedClock(now),wakers:Default::default()}).await;
         let after=reopen(&dir);
         let attested=app_config::get_plain(&after,"rust_job.index_provider").unwrap();
         if change {

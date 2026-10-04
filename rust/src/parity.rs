@@ -379,7 +379,7 @@ pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
     let job_primary = store::open(&paths)?.primary;
     crate::engine::provider::bind(&job_primary, &cipher, &env)?;
     let db = jobs::Db::new(job_primary, cipher.clone());
-    let outcome = reference::run_once(job, api, jobs::Cx { db, clock: &FixedClock(at) }).await;
+    let outcome = reference::run_once(job, api, jobs::Cx { db, clock: &FixedClock(at), wakers: jobs::Wakers::default() }).await;
     let requests: Vec<String> = transport.requests().iter().map(request_key).collect();
     Ok(json!({ "requests": requests, "retry": matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
                "changes": diff_tables(&before, &reference_snapshot(&o.primary, &cipher)?, &REFERENCE_TABLES) }))

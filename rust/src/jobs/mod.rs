@@ -53,8 +53,10 @@ pub type JobFuture<'a> = Pin<Box<dyn Future<Output = Outcome> + 'a>>;
 /// than one chunk.
 pub const CHUNK: usize = 500;
 
-/// What a run gets: the scheduler's database handle and the clock.
-pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock }
+/// What a run gets: the scheduler's database handle, the clock, and the runner's wakers, so a run that ends early can
+/// wake itself to go on (S-7.7: the runner runs it again as soon as it is free, other due jobs first). Outside the
+/// scheduler (a hand-run job, a test), `Wakers::default()`: such a wake reaches no runner.
+pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock, pub wakers: Wakers }
 
 /// The scheduler's connection for job work (a `store::open` of its own) and the instance's cipher.
 #[derive(Clone)]
@@ -239,6 +241,9 @@ impl Scheduler {
             let Some(schedule) = s.spec.schedule else { continue };
             let (name, scope) = (s.spec.name, s.spec.scope.clone());
             let last = match self.db.run(move |c, _| state::read(c, name, scope.as_deref())).await {
+                // A run left its data incomplete (an import stopped between two runs, its self-wake lost with the process):
+                // its latest fire is not served, so the job is due at once.
+                Ok(st) if st.incomplete_since.is_some() => None,
                 Ok(st) => st.last_run_at.max(st.last_success_at),
                 Err(e) => { log(&format!("[jobs] {name}: state unreadable ({e}); treated as never run")); None }
             };
@@ -316,7 +321,7 @@ impl Scheduler {
         wakes.append(&mut s.pending);
         s.pending_since = None;
         let (name, scope, deadline) = (s.spec.name, s.spec.scope.clone(), s.spec.deadline);
-        let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock }, wakes.clone()));
+        let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock, wakers: self.wakers.clone() }, wakes.clone()));
         let outcome = tokio::select! {
             o = run => o.unwrap_or_else(|_| Outcome::Failed(format!("dropped past its {deadline:?} deadline"))),
             _ = stop.wait_for(|stopped| *stopped) => {

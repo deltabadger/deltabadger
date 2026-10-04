@@ -8,7 +8,8 @@
 //! - everything else (coins), and a stock Alpaca gave no snapshot or no latest trade for: the market-data source, by `assets.external_id`
 //!   (hosted: the data API's GET api/v1/prices).
 use super::activities::{CryptoPairs, Raw};
-use super::job_api::{ApiError, Db, PriceFuture, PriceSource};
+use crate::jobs::data_api::{ApiError, PriceFuture, PriceSource};
+use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
 use super::{commit, load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread, LIVE_REFUSED};
 use crate::crypto::Credentials;

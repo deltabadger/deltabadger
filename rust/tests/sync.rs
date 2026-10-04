@@ -5,7 +5,10 @@ use common::seed::{self, BotSpec, Seeded};
 use deltabadger::crypto::Credentials;
 use deltabadger::engine::{Clock, FixedClock};
 use deltabadger::sync::balances::{self, NoPrices, ScriptedPrices};
-use deltabadger::sync::job_api::{Cx, Db, EngineEvent, Jitter, Job, Outcome, PriceFuture, PriceSource, Retry, Schedule, Wake, DEADLINE};
+use deltabadger::engine::events::EngineEvent;
+use deltabadger::jobs::data_api::{PriceFuture, PriceSource};
+use deltabadger::jobs::schedule::{Jitter, Schedule};
+use deltabadger::jobs::{Cx, Db, Job, Outcome, Retry, Wake, DEADLINE};
 use deltabadger::sync::WRITE_GAP;
 use deltabadger::sync::jobs::{self, BalanceSync, Connect, LedgerSync};
 use deltabadger::sync::{self, ledger, SyncError, GUARD_REFUSED, LIVE_REFUSED};
@@ -178,31 +181,31 @@ async fn the_engines_guard_refuses_a_split_of_a_working_bots_symbol_and_the_ledg
     assert_eq!(one::<String>(&db, state).await, "3 rows, generation 1, 1 lines, watermark 2026-09-16 00:00:00, error none");
 }
 
-/// The guard is the engine's say on writes to `bots`, and costs tens of milliseconds a call: a unit that writes no bot
-/// does not ask it. Here the install is one the guard refuses outright (a working bot with restated prices), so any
-/// unit that asked would fail.
+/// The guard is the engine's say on what eligibility reads, and costs tens of milliseconds a call: a unit that writes
+/// neither a bot nor a split row does not ask it. Here the install is one the guard refuses outright (a working bot with
+/// restated prices), so any unit that asked would fail.
 #[tokio::test(flavor = "current_thread")]
-async fn only_a_unit_that_writes_bots_asks_the_engines_guard() {
+async fn only_a_unit_that_writes_what_eligibility_reads_asks_the_engines_guard() {
     let (_dir, db, s) = install();
     db.run(move |c, _| { bot_that_traded_aapl(c, s); c.execute("UPDATE bots SET restatement_generation = 1", []).map_err(|e| e.to_string()) }).await.unwrap();
-    // Plain ledger units, a failure recorded on the key, the transfer links, the watermark; and a split of a symbol
-    // no bot traded, which writes no bot.
+    // Plain ledger units, a failure recorded on the key, the transfer links, the watermark.
     let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("i-1", "2026-09-01"), { "id": "w-1", "activity_type": "CSW", "net_amount": "-100", "date": "2026-09-02" },
-                                                      { "id": "d-1", "activity_type": "CSD", "net_amount": "100", "date": "2026-09-03" },
-                                                      { "id": "q-remove", "activity_type": "SPLIT", "symbol": "QQQ", "qty": "-1", "date": "2026-09-04" },
-                                                      { "id": "q-add", "activity_type": "SPLIT", "symbol": "QQQ", "qty": "2", "date": "2026-09-04" }]))] }));
+                                                      { "id": "d-1", "activity_type": "CSD", "net_amount": "100", "date": "2026-09-03" }]))] }));
     let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
-    assert_eq!((out.imported, out.linked, out.splits.len(), out.splits[0].restated_bots.len()), (4, 1, 1, 0));
+    assert_eq!((out.imported, out.linked, out.splits.len()), (3, 1, 0));
     let (_, v) = venue(json!({ ACTIVITIES: [json!({ "status": 500, "body": { "message": "internal server error" } })] }));
     assert_eq!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err().error, "internal server error");
     // A balance unit.
     let (_, v) = venue(balances_script());
     assert_eq!(balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().synced, 3);
-    // The unit that would move the bot's counter does ask, and is refused.
-    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([split("s-remove", "-10"), split("s-add", "100")]))] }));
-    let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
-    assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{refused}");
-    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 4);
+    // A split's unit does ask, and is refused: one that would move the bot's counter, and one of a symbol no bot traded.
+    for symbol in ["AAPL", "QQQ"] {
+        let leg = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": symbol, "qty": qty, "date": "2026-09-15" });
+        let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([leg("s-remove", "-10"), leg("s-add", "100")]))] }));
+        let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
+        assert!(refused.starts_with(GUARD_REFUSED) && refused.contains("restated prices"), "{symbol}: {refused}");
+    }
+    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 3);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -395,7 +398,7 @@ impl Connect for Scripted {
     type T = ScriptedTransport;
     fn connect(&self, _: &Credentials) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(None)) }
 }
-fn cx<'a>(db: &Db, clock: &'a dyn Clock) -> Cx<'a> { Cx { db: db.clone(), clock } }
+fn cx<'a>(db: &Db, clock: &'a dyn Clock) -> Cx<'a> { Cx { db: db.clone(), clock, wakers: Default::default() } }
 
 #[test]
 fn each_reading_key_gets_a_ledger_job_and_a_balance_job_scoped_by_its_id() {
@@ -1207,4 +1210,225 @@ fn sync_by_hand_takes_the_engine_lock_and_refuses_while_rails_or_an_engine_holds
     assert!(out.status.code() == Some(2) && stderr(&out).contains(&format!("ledger_sync:1 failed: {LIVE_REFUSED}")) && !stderr(&out).contains(GUARD_REFUSED), "{}", stderr(&out));
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(c.query_row("SELECT last_sync_error FROM api_keys", [], |r| r.get::<_, String>(0)).unwrap(), LIVE_REFUSED, "written, on an install the guard would refuse");
+}
+
+/// Every split's unit passes the engine's guard, not only one that moves a bot's counter: eligibility reads the
+/// account's split rows (`eligibility::history_reasons`), so a split row alone can make a working crypto bot one this
+/// engine does not run, and its next pass would end the process. Here a split of "BTC" that no bot's order names.
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_that_moves_no_counter_still_passes_the_engines_guard() {
+    let (_dir, db, s) = install();
+    let bot = db.run(move |c, _| Ok(seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00")))).await.unwrap();
+    let btc_split = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "BTC", "qty": qty, "date": "2026-09-15" });
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([interest("i1", "2026-09-10"), btc_split("b-remove", "-1"), btc_split("b-add", "2")]))] }));
+    let SyncError(refused) = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap_err();
+    assert_eq!(refused, format!("{GUARD_REFUSED}: bot {bot} (scheduled): 1 split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)"));
+    assert_eq!(one::<String>(&db, "SELECT (SELECT group_concat(tx_id) FROM account_transactions) || ', watermark ' || coalesce(last_synced_at, 'none') FROM api_keys").await,
+               "i1, watermark none", "the unit before the split stays; the split is not stored, and the bot stays one the engine runs");
+}
+
+/// Wall time that follows tokio's clock, so a paused test runtime moves it (as in tests/jobs.rs).
+#[derive(Clone, Copy)]
+struct TokioClock { start: chrono::DateTime<chrono::Utc>, origin: tokio::time::Instant }
+impl Clock for TokioClock {
+    fn now(&self) -> chrono::DateTime<chrono::Utc> { self.start + chrono::Duration::from_std(self.origin.elapsed()).unwrap() }
+}
+fn tokio_clock(at: &str) -> TokioClock { TokioClock { start: at.parse().unwrap(), origin: tokio::time::Instant::now() } }
+const MINUTE: std::time::Duration = std::time::Duration::from_secs(60);
+const HOUR: std::time::Duration = std::time::Duration::from_secs(3600);
+
+/// The script's answers, and when (on the test's clock, "HH:MM") each request was sent and to which path.
+#[derive(Clone)]
+struct Timed { inner: ScriptedTransport, clock: TokioClock, sent: Rc<RefCell<Vec<(String, String)>>> }
+impl Timed {
+    fn new(script: &Value, clock: TokioClock) -> Self { Self { inner: ScriptedTransport::from_script(script), clock, sent: Rc::default() } }
+    fn sent(&self) -> Vec<(String, String)> { self.sent.borrow().clone() }
+}
+impl Transport for Timed {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        self.sent.borrow_mut().push((r.path.to_string(), self.clock.now().format("%H:%M").to_string()));
+        self.inner.send(r).await
+    }
+}
+impl Connect for Timed {
+    type T = Timed;
+    fn connect(&self, _: &Credentials) -> AlpacaVenue<Timed> { AlpacaVenue::new(self.clone(), Urls::for_passphrase(None)) }
+}
+
+/// Runs the real scheduler over `jobs` on the install's file, as `serve` does (its own connection, the engine's
+/// events), for `virtual_time` of the test's clock, sending each event at its offset; then stops it.
+async fn schedule(dir: &Path, jobs: Vec<Box<dyn Job>>, clock: &TokioClock, events: Vec<(std::time::Duration, EngineEvent)>, virtual_time: std::time::Duration) {
+    let mut engine = deltabadger::engine::events::EngineEvents::default();
+    let rx = engine.subscribe();
+    let s = deltabadger::jobs::Scheduler::new(Connection::open(dir.join("production.sqlite3")).unwrap(), seed::cipher(), jobs, Some(rx));
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let (ended, ()) = tokio::join!(s.run(stopped, clock), async {
+        let mut at = std::time::Duration::ZERO;
+        for (offset, e) in events { tokio::time::sleep(offset - at).await; at = offset; engine.send(e); }
+        tokio::time::sleep(virtual_time - at).await;
+        stop.send(true).unwrap();
+    });
+    ended.unwrap();
+}
+
+/// A job's record, `rust_job.<name>:<api_key_id>`: (last run, last success, last error, incomplete since), minutes.
+fn record(dir: &Path, job: &str, key: i64) -> [String; 4] {
+    let c = Connection::open(dir.join("production.sqlite3")).unwrap();
+    let s = deltabadger::jobs::state::read(&c, job, Some(&key.to_string())).unwrap();
+    let t = |t: Option<chrono::DateTime<chrono::Utc>>| t.map_or("never".to_string(), |t| t.format("%Y-%m-%dT%H:%M").to_string());
+    [t(s.last_run_at), t(s.last_success_at), s.last_error.unwrap_or_else(|| "none".into()), t(s.incomplete_since)]
+}
+
+fn ran_at(dir: &Path, key: i64, ledger: &str, balances: &str) {
+    let c = Connection::open(dir.join("production.sqlite3")).unwrap();
+    let key = key.to_string();
+    deltabadger::jobs::state::record_success(&c, jobs::LEDGER_SYNC, Some(&key), ledger.parse().unwrap()).unwrap();
+    deltabadger::jobs::state::record_success(&c, jobs::BALANCE_SYNC, Some(&key), balances.parse().unwrap()).unwrap();
+}
+
+fn night_script() -> Value {
+    let mut script = balances_script();
+    script[ACTIVITIES] = json!([ok(json!([interest("i1", "2026-09-01")]))]);
+    script
+}
+const ACTIVITIES_PATH: &str = "/v2/account/activities";
+
+/// Rails' cadence under the real scheduler, as `serve` registers the jobs: each reading key's ledger sync at 02:00 UTC
+/// (sync_all_account_transactions_job, "0 2 * * *"), its balance sync at 02:30 (sync_all_account_balances_job,
+/// "30 2 * * *"), and the ledger again whenever the engine records an order (Transaction's after_create_commit). Each
+/// run is recorded in the key's own `rust_job.<name>:<api_key_id>` row.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn under_the_scheduler_the_ledger_runs_at_two_the_balances_at_half_past_and_an_order_wakes_the_ledger() {
+    let (dir, _db, s) = install();
+    ran_at(dir.path(), s.api_key_id, "2026-09-19T02:00:05Z", "2026-09-19T02:30:05Z"); // last night, by Rails: nothing is due at the start
+    let clock = tokio_clock("2026-09-19T12:00:00Z");
+    let venue = Timed::new(&night_script(), clock);
+    let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
+    let order = EngineEvent::OrderRecorded { bot_id: 1, transaction_id: 1 };
+    schedule(dir.path(), registered, &clock, vec![(HOUR, order)], 15 * HOUR).await; // 12:00 to 03:00 the next day
+    let p = |path: &str, at: &str| (path.to_string(), at.to_string());
+    assert_eq!(venue.sent(), vec![p(ACTIVITIES_PATH, "13:00"), p(ACTIVITIES_PATH, "02:00"),
+                                  p("/v2/account", "02:30"), p("/v2/positions", "02:30"), p("/v2/stocks/snapshots", "02:30")]);
+    assert_eq!(record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id), ["2026-09-20T02:00", "2026-09-20T02:00", "none", "never"].map(String::from));
+    assert_eq!(record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id), ["2026-09-20T02:30", "2026-09-20T02:30", "none", "never"].map(String::from));
+}
+
+/// 1,050 activities a minute apart, as `Paged` serves them.
+fn long_history() -> Vec<Value> {
+    let start: chrono::DateTime<chrono::Utc> = "2026-03-01T00:00:00Z".parse().unwrap();
+    (0..1_050i64).map(|i| json!({ "id": format!("a-{i:04}"), "activity_type": "INT", "net_amount": "0.07", "transaction_time": (start + chrono::Duration::minutes(i)).to_rfc3339() })).collect()
+}
+
+/// Plan 2f S-7.7: a ledger import longer than one run (three pages a run here; 500 for the jobs) wakes itself and goes on
+/// as soon as the runner is free, as Rails' one job reads the whole history at once, instead of waiting for the next
+/// order or the next night.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn under_the_scheduler_an_import_longer_than_one_run_goes_on_at_once_until_it_is_whole() {
+    let (dir, db, s) = install();
+    let server = Paged::new(long_history());
+    let job = LedgerSync::new(PagedVenues(server.clone()), s.api_key_id).within(ledger::Limits { pages: 3, runs: 100 });
+    let clock = tokio_clock("2026-09-20T02:00:00Z"); // never ran here: due at once
+    schedule(dir.path(), vec![Box::new(job)], &clock, vec![], 10 * MINUTE).await;
+    assert_eq!((server.asked().len(), one::<i64>(&db, "SELECT count(*) FROM account_transactions").await), (11, 1_050), "four runs: 3, 3, 3 and 2 pages");
+    let [run, success, error, incomplete] = record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id);
+    assert!(run == success && success.starts_with("2026-09-20T02:0") && error == "none" && incomplete == "never", "{run} {success} {error} {incomplete}");
+}
+
+/// A restart under the scheduler, three ways. Nothing is stored about a run but its record, so each follows from the
+/// key's `rust_job` rows:
+/// - after a completed night, a start at 03:00 runs nothing until the next 02:00;
+/// - after a missed night, the start runs the ledger, then the balances, at once (2f's catch-up of a missed fire);
+/// - after a stop between two runs of a long import (its record: a run after the fire, `incomplete_since` set, and the
+///   self-wake lost with the process), the start goes on with the import at once, not at the next 02:00.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_restart_runs_what_a_stop_left_due_and_nothing_twice() {
+    let (dir, _db, s) = install();
+    let p = |path: &str, at: &str| (path.to_string(), at.to_string());
+    ran_at(dir.path(), s.api_key_id, "2026-09-20T02:00:05Z", "2026-09-20T02:30:05Z");
+    let clock = tokio_clock("2026-09-20T03:00:00Z");
+    let venue = Timed::new(&night_script(), clock);
+    let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
+    schedule(dir.path(), registered, &clock, vec![], 22 * HOUR).await; // to 01:00 the next day
+    assert_eq!(venue.sent(), vec![], "tonight's runs are done");
+    assert_eq!(record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id)[1], "2026-09-20T02:00");
+
+    let clock = tokio_clock("2026-09-22T09:00:00Z"); // the night of the 21st and the 22nd missed
+    let venue = Timed::new(&night_script(), clock);
+    let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
+    schedule(dir.path(), registered, &clock, vec![], 10 * MINUTE).await;
+    assert_eq!(venue.sent(), vec![p(ACTIVITIES_PATH, "09:00"), p("/v2/account", "09:00"), p("/v2/positions", "09:00"), p("/v2/stocks/snapshots", "09:00")],
+               "each once, the ledger first");
+    assert_eq!(record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id)[1], "2026-09-22T09:00");
+
+    // A long import, stopped after its first run at 02:00 (the record the runner writes for it).
+    let (dir, db, s) = install();
+    let server = Paged::new(long_history());
+    let three_pages = ledger::Limits { pages: 3, runs: 100 };
+    let first = tokio_clock("2026-09-20T02:00:00Z");
+    assert_eq!(LedgerSync::new(PagedVenues(server.clone()), s.api_key_id).within(three_pages).run(cx(&db, &first), vec![Wake::Schedule]).await, Outcome::NothingNew);
+    deltabadger::jobs::state::record_run(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), jobs::LEDGER_SYNC, Some(&s.api_key_id.to_string()),
+                                         "2026-09-20T02:00:10Z".parse().unwrap()).unwrap();
+    let clock = tokio_clock("2026-09-20T03:00:00Z");
+    let job = LedgerSync::new(PagedVenues(server.clone()), s.api_key_id).within(three_pages);
+    schedule(dir.path(), vec![Box::new(job)], &clock, vec![], 10 * MINUTE).await;
+    assert_eq!((server.asked().len(), one::<i64>(&db, "SELECT count(*) FROM account_transactions").await), (11, 1_050), "the import went on from its third page");
+    let [_, success, _, incomplete] = record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id);
+    assert!(success.starts_with("2026-09-20T03:0") && incomplete == "never", "{success} {incomplete}");
+}
+
+/// Codex round 1: the balances, too, are marked incomplete before their first write unit. A hand run of the balances
+/// after the night's success, stopped between two units, leaves some holdings new and some old; the next start runs the
+/// balance sync at once instead of tomorrow at 02:30.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same_day_success() {
+    let (dir, db, s) = install();
+    let night = FixedClock("2026-09-20T02:30:05Z".parse().unwrap());
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &night).await.unwrap().unwrap();
+    ran_at(dir.path(), s.api_key_id, "2026-09-20T02:00:05Z", "2026-09-20T02:30:05Z");
+    let mut script = balances_script();
+    script["GET /v2/account"] = json!([ok(json!({ "cash": "200" }))]);
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "qty": "3" }]))]);
+    // Observe through another connection: only committed rows can end the run. The first balance batch updates
+    // USD and AAPL; the obsolete BTC holding is removed in a later unit, after WRITE_GAP.
+    let observer = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let rows = || {
+        observer.prepare("SELECT assets.symbol, b.free, b.locked, b.usd_value, b.synced_at FROM account_balances b \
+                          JOIN assets ON assets.id = b.asset_id ORDER BY assets.symbol").unwrap()
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?, r.get::<_, f64>(2)?, r.get::<_, Option<f64>>(3)?, r.get::<_, String>(4)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap()
+    };
+    let morning = tokio_clock("2026-09-20T11:00:00Z");
+    let stopped = BalanceSync::new(Scripted(ScriptedTransport::from_script(&script)), Rc::new(NoPrices), s.api_key_id);
+    {
+        let committed_batch = async {
+            loop {
+                if rows().iter().any(|(symbol, free, _, _, _)| symbol == "USD" && *free == 200.0) { break; }
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        };
+        tokio::select! {
+            result = stopped.run(cx(&db, &morning), vec![Wake::Manual(None)]) => panic!("run ended before interruption: {result:?}"),
+            result = tokio::time::timeout(MINUTE, committed_batch) => result.expect("a balance batch committed before interruption"),
+        }
+    }
+    assert_eq!(rows(), vec![
+        ("AAPL".into(), 3.0, 0.0, Some(682.56), "2026-09-20 11:00:00".into()),
+        ("BTC".into(), 0.5, 0.0, None, "2026-09-20 02:30:05".into()),
+        ("USD".into(), 200.0, 0.0, Some(200.0), "2026-09-20 11:00:00".into()),
+    ], "committed new quantities and an obsolete holding remain after the stop");
+    assert_eq!(one::<String>(&db, "SELECT balances_synced_at FROM api_keys").await, "2026-09-20 02:30:05", "the interrupted run did not advance the watermark");
+    assert!(write_lock_is_free(dir.path()), "no transaction is left open");
+    let clock = tokio_clock("2026-09-20T15:00:00Z");
+    let venue = Timed::new(&script, clock);
+    schedule(dir.path(), vec![Box::new(BalanceSync::new(venue.clone(), Rc::new(NoPrices), s.api_key_id))], &clock, vec![], 10 * MINUTE).await;
+    let p = |path: &str, at: &str| (path.to_string(), at.to_string());
+    assert_eq!(venue.sent(), vec![p("/v2/account", "15:00"), p("/v2/positions", "15:00"), p("/v2/stocks/snapshots", "15:00")], "repaired at the start");
+    assert_eq!(rows(), vec![
+        ("AAPL".into(), 3.0, 0.0, Some(682.56), "2026-09-20 15:00:00".into()),
+        ("USD".into(), 200.0, 0.0, Some(200.0), "2026-09-20 15:00:00".into()),
+    ], "the restart refreshed the balances and removed the obsolete holding");
+    assert_eq!(one::<String>(&db, "SELECT balances_synced_at FROM api_keys").await, "2026-09-20 15:00:00");
+    let [_, success, _, incomplete] = record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id);
+    assert_eq!((success.as_str(), incomplete.as_str()), ("2026-09-20T15:00", "never"));
 }
