@@ -2,7 +2,7 @@
   "gems": {
     "mail": "2.9.1",
     "actionmailer": "8.1.4",
-    "net-smtp": "0.5.1",
+    "net-smtp": "0.5.2",
     "devise": "5.0.4",
     "honeymaker": "0.12.3"
   },

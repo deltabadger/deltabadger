@@ -16,6 +16,7 @@
 pub mod backfill;
 pub mod figures;
 pub mod jobs;
+pub mod parity;
 pub mod prices;
 pub mod rows;
 pub mod snapshot;
