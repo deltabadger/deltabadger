@@ -1,10 +1,13 @@
-//! The syncs as jobs of the engine's scheduler (Plan 2f; the interface is `job_api`): one ledger job and one balance
+//! The syncs as jobs of the engine's scheduler (`crate::jobs`, Plan 2f): one ledger job and one balance
 //! job per API key, `ledger_sync` and `balance_sync` with the key's id as 2f's scope, so each has its own record
 //! (`app_configs` row `rust_job.ledger_sync:<api_key_id>`). The runner, not the job, writes that record and enforces
 //! the deadline: a job only returns its `Outcome`. A run with nothing to import is `Done`, so a first success differs
 //! from "never ran".
 use super::balances;
-use super::job_api::{Cx, Db, EngineEvent, Jitter, Job, JobFuture, Outcome, PriceSource, Retry, Schedule, Spec, Wake, DEADLINE};
+use crate::engine::events::EngineEvent;
+use crate::jobs::data_api::PriceSource;
+use crate::jobs::schedule::{Jitter, Schedule};
+use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
 use super::{credentials, ledger, reading_keys, Failure, SyncError, ALPACA};
 use crate::crypto::Credentials;
 use crate::venue::alpaca::{AlpacaVenue, LiveFactory};

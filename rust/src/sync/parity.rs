@@ -1,7 +1,7 @@
 //! The Rust half of the sync row-parity harness (script/rust/sync.rb is the Rails half): the scenario's steps on a
 //! marked scratch copy, each a real sync over the recorded bodies Rails' jobs read, reported in the shape Rails reports.
 use super::balances::{self, ScriptedPrices, PRICES_PATH};
-use super::job_api::Db;
+use crate::jobs::Db;
 use super::{ledger, reading_keys, SyncError};
 use crate::crypto::{Cipher, Credentials};
 use crate::engine::FixedClock;

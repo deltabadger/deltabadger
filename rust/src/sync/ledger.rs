@@ -2,7 +2,7 @@
 //! GET /v2/account/activities), AccountTransactionSync#sync! (dedup, rows, the bot's own order, split side effects,
 //! asset identity, the watermark) and TransferMatcher.run!. Rails is the oracle (rust/tests/sync_parity.rs).
 use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, SELL};
-use super::job_api::Db;
+use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
 use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread, LIVE_REFUSED};
 use crate::codec::parse_time;

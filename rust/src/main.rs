@@ -289,7 +289,7 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 /// deadline its job declares, as the scheduler's runner would hold it.
 fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     use deltabadger::sync::balances::NoPrices;
-    use deltabadger::sync::job_api::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::jobs::{Cx, Db, Job, Outcome, Wake};
     use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
     const USAGE: &str = "usage: deltabadger sync ledger|balances [<api_key_id>]";
     let args: Vec<String> = std::env::args().skip(2).collect();

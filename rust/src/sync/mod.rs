@@ -3,7 +3,7 @@
 //! function, safe to call at any time; when to call them is the scheduler's business.
 //!
 //! The write rule (these jobs write the SQLite file the engine trades on):
-//! - every database phase runs off the runtime thread (`job_api::Db::run`), in short `BEGIN IMMEDIATE` transactions
+//! - every database phase runs off the runtime thread (`jobs::Db::run`), in short `BEGIN IMMEDIATE` transactions
 //!   (`write`), with `WRITE_GAP` after each; a transaction that writes `bots` (a split's counters) passes the engine's
 //!   `eligibility::guard` before it commits;
 //! - every answer is read to a stated size, off the runtime thread (`parsed`), as Rails would hold it and within a
@@ -18,7 +18,6 @@
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
 pub mod balances;
-pub mod job_api;
 pub mod jobs;
 pub mod ledger;
 pub mod parity;
@@ -31,7 +30,7 @@ use crate::venue::alpaca::Body;
 use crate::venue::VenueError;
 use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
-use job_api::Db;
+use crate::jobs::Db;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// ApiKey::SYNC_ERROR_LIMIT.
@@ -48,7 +47,7 @@ pub struct SyncError(pub String);
 impl From<rusqlite::Error> for SyncError { fn from(e: rusqlite::Error) -> Self { Self(format!("{e}")) } }
 impl From<crate::codec::CodecError> for SyncError { fn from(e: crate::codec::CodecError) -> Self { Self(format!("{e:?}")) } }
 
-/// One database phase of a sync, on the blocking pool (`job_api::Db::run`): no SQLite statement of a sync runs on the
+/// One database phase of a sync, on the blocking pool (`jobs::Db::run`): no SQLite statement of a sync runs on the
 /// runtime thread, and no transaction outlives its phase.
 pub async fn phase<T: Send + 'static>(db: &Db, work: impl FnOnce(&Connection) -> Result<T, SyncError> + Send + 'static) -> Result<T, SyncError> {
     db.run(move |c, _| work(c).map_err(|e| e.0)).await.map_err(SyncError)
