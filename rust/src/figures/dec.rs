@@ -1,4 +1,4 @@
-//! The decimal the figures hold: Ruby's BigDecimal (3.3.1) as Rails' accounting uses it. Exact sums, differences
+//! The decimal the figures hold: Ruby's BigDecimal (4.1.3) as Rails' accounting uses it. Exact sums, differences
 //! and products; a quotient rounded to a precision that depends on its operands; a negative zero, which Rails
 //! prints (`"-0.0"`).
 //!

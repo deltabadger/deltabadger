@@ -262,7 +262,10 @@ fn the_ruby_being_mirrored_has_not_changed() {
         assert_eq!(hex::encode(Sha256::digest(&bytes)), sum.as_str().unwrap(), "{path} changed since the vectors were recorded");
     }
     assert_eq!(v["account_transaction_adjustment"], deltabadger::figures::db::ADJUSTMENT, "AccountTransaction.entry_types[:adjustment]");
-    assert_eq!(v["versions"]["bigdecimal"], "3.3.1", "BigDecimal's division precision is the gem's: record again and re-run the grid when it moves");
+    let lockfile = std::fs::read_to_string(root.join("Gemfile.lock")).expect("Gemfile.lock is readable");
+    let bigdecimal = lockfile.lines().find_map(|line| line.strip_prefix("    bigdecimal (").and_then(|version| version.strip_suffix(')')))
+        .expect("Gemfile.lock pins BigDecimal");
+    assert_eq!(v["versions"]["bigdecimal"], bigdecimal, "BigDecimal's division precision is the gem's: record again and re-run the grid when it moves");
 }
 
 // ---- Bot::ChartSeries: the timeframe, reading a grid, thinning the buy marks, marking a chart at market ----
