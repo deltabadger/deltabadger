@@ -216,3 +216,62 @@ pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str
     tokio::spawn(async move { if publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); } });
     Vec::new()
 }
+
+/// How long the `figures` service gathers marks before it publishes: a basket's legs and a sweep's fills come together.
+const COALESCE:Duration=Duration::from_millis(500);
+/// A publication that failed (a transient database error) is tried again after `BACKOFF`, doubling, at most `RETRIES`
+/// times in a row: about eight seconds in all.
+const BACKOFF:Duration=Duration::from_millis(250);
+const RETRIES:u32=5;
+/// The `figures` service of `deltabadger serve`: an order the engine recorded or wrote changes its bot's figures, and
+/// Rails then broadcasts them (Bot::UpdateMetricsJob). Two parts in one future. One reads the engine's queue as fast as
+/// it fills and only marks the bot (`Service::mark`: O(1), one mark per bot, never waiting), so nothing accumulates
+/// there while a publication runs. The other wakes on a mark, gathers the burst for `COALESCE`, and publishes each
+/// owner once. A write moved the revision, so a publication starts a fill and its end publishes. Returns once a stop is
+/// requested; an engine that went away leaves it waiting for that stop.
+pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crate::engine::events::EngineEvent>,mut stop:tokio::sync::watch::Receiver<bool>)->Result<(),String>{
+    use crate::engine::events::EngineEvent;
+    let service=app.figure_service.clone();
+    let marking=async {
+        while let Some(event)=events.recv().await {
+            if let EngineEvent::OrderRecorded{bot_id,..}|EngineEvent::OrderUpdated{bot_id,..}=event { service.mark(bot_id); }
+        }
+    };
+    let publishing=async {
+        let mut failures=0u32;
+        loop {
+            service.marked_wait().await;
+            tokio::time::sleep(COALESCE).await;
+            let bots=service.take_marked();
+            let mut owners=service.take_owners();
+            if bots.is_empty() && owners.is_empty() { continue; }
+            // A failed lookup or publication keeps its bots or its account marked: they are tried again after a backoff.
+            let mut failed_bots=Vec::new();
+            if !bots.is_empty() {
+                let ids=serde_json::json!(bots).to_string();
+                let found=app.db(move|c|{
+                    let mut s=c.prepare("SELECT DISTINCT user_id FROM bots WHERE id IN (SELECT value FROM json_each(?1)) ORDER BY user_id")?;
+                    let users=s.query_map([ids],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+                    Ok(users)
+                }).await;
+                match found { Ok(users)=>owners.extend(users), Err(_)=>failed_bots.extend(bots) }
+            }
+            let mut failed_owners=Vec::new();
+            for user in owners { if publish(&app,user).await.is_err() { failed_owners.push(user); } }
+            if failed_bots.is_empty() && failed_owners.is_empty() { failures=0; continue; }
+            failures+=1;
+            // ponytail: RETRIES attempts, then the demand waits for the next order or page request, as Rails' job would.
+            if failures>RETRIES { failures=0; continue; }
+            tokio::time::sleep(BACKOFF*2u32.pow(failures-1)).await;
+            for bot in failed_bots { service.mark(bot); }
+            for user in failed_owners { service.mark_owner(user); }
+        }
+    };
+    let engine_gone=tokio::select!{
+        _=stop.wait_for(|stopped|*stopped)=>false,
+        _=marking=>true,
+        _=publishing=>false,
+    };
+    if engine_gone { let _=stop.wait_for(|stopped|*stopped).await; } // allow-swallow: an error means no stop can come, and returning is the stop
+    Ok(())
+}
