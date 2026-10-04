@@ -259,7 +259,7 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     for (method, path) in [("delete", format!("/bots/{first}")), ("post", "/bots/dca_multi_assets".to_string()),
                            ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
                            ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split")), ("post", format!("/bots/{first}/reverse")), ("patch", "/bots/reorder".to_string()),
-                           ("post", format!("/bots/{first}/export")), ("delete", format!("/bots/{first}/transactions/1")), ("post", "/en/broadcasts/metrics_update".to_string())] {
+                           ("post", format!("/bots/{first}/export")), ("delete", format!("/bots/{first}/transactions/1")), ("post", "/en/broadcasts/fetch_open_orders".to_string())] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
         let refused = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::None, &[]).await;

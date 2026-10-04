@@ -129,3 +129,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
     }
     Some(serde_json::json!({"bots":bots,"account":format!("<div id=\"global-pnl\">{}</div>",super::NO_VALUE)}))
 }
+/// Puts the user's figures on their streams. Task 4 fills this in.
+pub async fn publish(_app: &App, _user: i64) -> Result<(), WebError> {
+    Ok(())
+}

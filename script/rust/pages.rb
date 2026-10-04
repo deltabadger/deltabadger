@@ -219,7 +219,29 @@ module Pages
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
 
   # Bot ids follow the order of 'bots'.
-  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios)
+  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios)
+
+  # What broadcast--on-connect posts: JSON to the locale's path, the page's token in X-CSRF-Token.
+  def broadcast(method, args = {}, path = "/en/broadcasts/#{method}")
+    { 'method' => 'POST', 'path' => path, 'json' => args.to_json, 'csrf' => 'header', 'headers' => { 'Content-Type' => 'application/json' } }
+  end
+
+  # POST /broadcasts/* for the three figures a page waits on. Rails answers at once and leaves the work to a job.
+  def broadcast_scenarios
+    asks = [broadcast('metrics_update', 'bot_id' => 1).merge('expect' => 200), broadcast('metrics_update', 'bot_id' => '2'),
+            broadcast('pnl_update', 'bot_ids' => [1, 2, 3]), broadcast('pnl_update'), broadcast('global_pnl_update'), get('/de/bots/3'),
+            broadcast('metrics_update', { 'bot_id' => 3 }, '/de/broadcasts/metrics_update'),
+            broadcast('global_pnl_update', {}, '/broadcasts/global_pnl_update')]
+    # A bot that is not the user's, a number that is no bot's, and no bot at all: "not found"; the other two do not look.
+    strangers = [broadcast('metrics_update', 'bot_id' => 3).merge('expect' => 404), broadcast('metrics_update', 'bot_id' => 99),
+                 broadcast('metrics_update'), broadcast('pnl_update', 'bot_ids' => [3]), broadcast('global_pnl_update')]
+    {
+      'broadcasts' => with_bots(three, signed_in(get('/bots'), *asks)),
+      'broadcasts_of_another_user' => two_users.merge('steps' => signed_in(get('/bots'), *strangers)),
+      'broadcasts_without_token' => with_bots(three, signed_in(get('/bots'), broadcast('global_pnl_update').merge('csrf' => 'none'))),
+      'broadcasts_signed_out' => with_bots(three, [get('/login'), broadcast('global_pnl_update'), broadcast('metrics_update', 'bot_id' => 1)])
+    }
+  end
 
   # The same three at work: a history of orders and events on the first, a spending cap that has seen one
   # buy on the second, an order resting on the third.
@@ -652,7 +674,7 @@ module Pages
         travel_to(now, with_usec: true) do
           BEFORE.fetch(step['before']).call if step['before']
           headers = step['headers'].dup
-          params = step['form']&.dup
+          params = step['json'] || step['form']&.dup
           if %w[form both].include?(step['csrf'])
             action = step['path'].split('?').first
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"

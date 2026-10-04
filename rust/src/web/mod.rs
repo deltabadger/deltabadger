@@ -9,6 +9,7 @@ pub mod auth;
 pub mod bearer;
 pub mod bot;
 pub mod bots;
+pub mod broadcasts;
 pub mod cable;
 pub mod consent;
 pub mod colors;
@@ -522,6 +523,9 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
         .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
+        .route("/broadcasts/metrics_update", only(post(broadcasts::metrics_update)))
+        .route("/broadcasts/pnl_update", only(post(broadcasts::pnl_update)))
+        .route("/broadcasts/global_pnl_update", only(post(broadcasts::global_pnl_update)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
@@ -678,7 +682,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
     let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
-    let json_post = (bot_json || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    // What broadcast--on-connect posts (web::broadcasts), under any locale.
+    let broadcast_json = original_method == Method::POST && route_path.starts_with("/broadcasts/");
+    let json_post = (bot_json || broadcast_json || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
     let (form, body) = if form_post || json_post {
