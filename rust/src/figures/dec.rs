@@ -292,6 +292,8 @@ impl Dec {
     pub fn is_positive(&self) -> bool { !self.negative && !self.mag.is_zero() }
     pub fn is_negative(&self) -> bool { self.negative && !self.mag.is_zero() }
     fn opposite(&self) -> Dec { Dec { mag: self.mag.clone(), negative: !self.negative } }
+    /// `-x`: the sign turned, a zero's included (Ruby's `-BigDecimal('0')` is `-0.0`).
+    pub fn neg(&self) -> Dec { self.opposite() }
 
     /// BigDecimal#/ (BigDecimal_div2 with n = 0): the quotient to as many digits as the longer operand has, plus
     /// sixteen (at least 32), the last of them rounded half up. Ruby gives Infinity for a zero divisor; Rails'

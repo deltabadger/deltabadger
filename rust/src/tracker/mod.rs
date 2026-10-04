@@ -15,6 +15,7 @@
 //! Rails computes those (Plan D4b, or at a zero basis); this build states no figure rather than a wrong one.
 pub mod prices;
 pub mod rows;
+pub mod walk;
 
 /// Tax::PriceService::FIAT_CURRENCIES.
 pub const FIAT: [&str; 13] = ["USD", "EUR", "GBP", "CHF", "SEK", "PLN", "DKK", "CZK", "BGN", "AUD", "CAD", "JPY", "AED"];
