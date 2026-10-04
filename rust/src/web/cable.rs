@@ -45,10 +45,10 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use hmac::{Hmac, Mac};
 use serde_json::{json, Value};
 use sha2::Sha256;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 use std::time::Duration;
-use tokio::sync::{broadcast, Notify};
+use tokio::sync::Notify;
 
 pub const PROTOCOL: &str = "actioncable-v1-json";
 pub const CHANNEL: &str = "Turbo::StreamsChannel";
@@ -77,11 +77,132 @@ pub const SEND_DEADLINE: Duration = Duration::from_secs(10);
 /// How long an upgrade that told stale connections of its user to close waits for their places.
 const EVICTION_WAIT: Duration = Duration::from_secs(1);
 
-/// Every broadcast goes to every connection, which keeps the ones it subscribed to.
-/// ponytail: one channel for the whole process, fine for one user's few tabs; a map of streams if that changes.
+/// Payloads a connection's mailbox holds before that connection is closed. One per target of a page (a newer
+/// `replace` of a target supersedes the pending one), so a page with 500 bots fits.
+pub const MAILBOX_ENTRIES: usize = 1536;
+/// Bytes a connection's mailbox holds before that connection is closed: room for every chart of a large account twice.
+pub const MAILBOX_BYTES: usize = 32 * 1024 * 1024;
+
+/// Every broadcast goes into the mailbox of every connection subscribed to its stream.
 pub struct Hub {
-    sender: broadcast::Sender<(Arc<str>, Arc<str>)>,
+    boxes: Mutex<Vec<Weak<Mailbox>>>,
     seats: Mutex<Seats>,
+}
+
+/// What one connection still has to send. Posting never waits; the connection takes from the front.
+#[derive(Default)]
+pub struct Mailbox {
+    inbox: Mutex<Inbox>,
+    ready: Notify,
+}
+
+/// (the stream and target of a single `replace`, which a newer one supersedes; the stream; the payload)
+type Pending = (Option<(Arc<str>, String)>, Arc<str>, Arc<str>);
+
+#[derive(Default)]
+struct Inbox {
+    streams: HashSet<String>,
+    queue: VecDeque<Pending>,
+    bytes: usize,
+    overflowed: bool,
+}
+
+/// The target of a payload that is exactly one `<turbo-stream action="replace">`, as turbo::stream writes it.
+fn replaced_target(html: &str) -> Option<String> {
+    let rest = html.strip_prefix("<turbo-stream action=\"replace\" target=\"")?;
+    (html.matches("<turbo-stream").count() == 1).then(|| rest.split('"').next().unwrap_or_default().to_string()) // allow-swallow: an Option; split always yields a first piece
+}
+
+impl Mailbox {
+    fn inbox(&self) -> std::sync::MutexGuard<'_, Inbox> {
+        self.inbox.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// From now on, payloads of `stream` are kept.
+    pub fn listen(&self, stream: &str) {
+        self.inbox().streams.insert(stream.to_string());
+    }
+
+    /// Only payloads of these streams are kept from now on.
+    pub fn only<'a>(&self, streams: impl Iterator<Item = &'a String>) {
+        self.inbox().streams = streams.cloned().collect();
+    }
+
+    /// Keeps `html` if its stream is listened to, superseding a pending `replace` of the same stream and target. A payload
+    /// that would take the mailbox past either bound overflows it: it drops everything it holds and keeps nothing more,
+    /// and its connection is closed as soon as the write in hand returns or misses its deadline. So a mailbox never
+    /// holds more than the bounds, even while its writer is blocked.
+    pub fn post(&self, stream: &Arc<str>, html: &Arc<str>) {
+        let mut inbox = self.inbox();
+        if inbox.overflowed || !inbox.streams.contains(&**stream) {
+            return;
+        }
+        let key = replaced_target(html).map(|target| (stream.clone(), target));
+        if let Some(key) = &key {
+            if let Some(at) = inbox.queue.iter().position(|(pending, _, _)| pending.as_ref() == Some(key)) {
+                if let Some((_, _, old)) = inbox.queue.remove(at) {
+                    inbox.bytes -= old.len();
+                }
+            }
+        }
+        if inbox.queue.len() >= MAILBOX_ENTRIES || inbox.bytes + html.len() > MAILBOX_BYTES {
+            inbox.overflowed = true;
+            inbox.queue = VecDeque::new();
+            inbox.bytes = 0;
+        } else {
+            inbox.bytes += html.len();
+            inbox.queue.push_back((key, stream.clone(), html.clone()));
+        }
+        drop(inbox);
+        self.ready.notify_one();
+    }
+
+    /// The payloads waiting, oldest first.
+    pub fn pending(&self) -> Vec<String> {
+        self.inbox().queue.iter().map(|(_, _, html)| html.to_string()).collect()
+    }
+
+    /// Whether the mailbox overflowed: its connection is closed.
+    fn overflowed(&self) -> bool {
+        self.inbox().overflowed
+    }
+
+    /// The next (stream, payload); `None` once the mailbox overflowed, which closes the connection.
+    async fn next(&self) -> Option<(Arc<str>, Arc<str>)> {
+        loop {
+            {
+                let mut inbox = self.inbox();
+                if inbox.overflowed {
+                    return None;
+                }
+                if let Some((_, stream, html)) = inbox.queue.pop_front() {
+                    inbox.bytes -= html.len();
+                    return Some((stream, html));
+                }
+            }
+            self.ready.notified().await;
+        }
+    }
+}
+
+/// A connection's mailbox, registered with the hub until the connection's task ends, however it ends.
+struct Registered<'a> {
+    hub: &'a Hub,
+    mailbox: Arc<Mailbox>,
+}
+
+impl std::ops::Deref for Registered<'_> {
+    type Target = Mailbox;
+    fn deref(&self) -> &Mailbox {
+        &self.mailbox
+    }
+}
+
+impl Drop for Registered<'_> {
+    fn drop(&mut self) {
+        let mut boxes = self.hub.boxes.lock().unwrap_or_else(PoisonError::into_inner);
+        boxes.retain(|other| other.strong_count() > 0 && !std::ptr::eq(other.as_ptr(), Arc::as_ptr(&self.mailbox)));
+    }
 }
 
 /// The open connections, per user id.
@@ -110,7 +231,7 @@ impl Seats {
 
 impl Default for Hub {
     fn default() -> Self {
-        Self { sender: broadcast::channel(256).0, seats: Mutex::new(Seats::default()) }
+        Self { boxes: Mutex::new(Vec::new()), seats: Mutex::new(Seats::default()) }
     }
 }
 
@@ -183,9 +304,37 @@ impl Hub {
         }
     }
 
-    /// Sends `html` (one or more `<turbo-stream>` elements) to every page subscribed to `stream`.
+    /// Sends `html` (one or more `<turbo-stream>` elements) to every page subscribed to `stream`: into each connection's
+    /// mailbox, without waiting for any of them.
     pub fn broadcast(&self, stream: &str, html: &str) {
-        let _ = self.sender.send((stream.into(), html.into())); // an error only means nobody is connected
+        let (stream, html): (Arc<str>, Arc<str>) = (stream.into(), html.into());
+        let mut boxes = self.boxes.lock().unwrap_or_else(PoisonError::into_inner);
+        boxes.retain(|mailbox| mailbox.strong_count() > 0);
+        for mailbox in boxes.iter().filter_map(Weak::upgrade) {
+            mailbox.post(&stream, &html);
+        }
+    }
+
+    /// A new connection's mailbox, unregistered when the connection's task ends. Registering also forgets any mailbox
+    /// whose connection is gone, so the hub holds the open connections' mailboxes, broadcasts or not.
+    fn mailbox(&self) -> Registered<'_> {
+        let mailbox = Arc::new(Mailbox::default());
+        let mut boxes = self.boxes.lock().unwrap_or_else(PoisonError::into_inner);
+        boxes.retain(|other| other.strong_count() > 0);
+        boxes.push(Arc::downgrade(&mailbox));
+        drop(boxes);
+        Registered { hub: self, mailbox }
+    }
+
+    /// (mailboxes registered, payloads and bytes they hold): what the hub keeps for its connections.
+    pub fn held(&self) -> (usize, usize, usize) {
+        let boxes = self.boxes.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut held = (boxes.len(), 0, 0);
+        for mailbox in boxes.iter().filter_map(Weak::upgrade) {
+            let inbox = mailbox.inbox();
+            (held.1, held.2) = (held.1 + inbox.queue.len(), held.2 + inbox.bytes);
+        }
+        held
     }
 }
 
@@ -309,7 +458,7 @@ async fn revoked(place: &Place) {
 /// message over `MAX_MESSAGE_BYTES` (the read fails), on a subscription over `MAX_SUBSCRIPTIONS`,
 /// on a write that misses its deadline, and when the connection cannot keep up with the hub.
 async fn talk(app: &App, user_id: i64, mut socket: WebSocket) {
-    let mut feed = app.hub.sender.subscribe();
+    let mailbox = app.hub.mailbox();
     let mut subscriptions: Vec<(String, String)> = Vec::new(); // (identifier as the client sent it, stream)
     if send(&mut socket, json!({ "type": "welcome" })).await.is_err() {
         return;
@@ -317,18 +466,21 @@ async fn talk(app: &App, user_id: i64, mut socket: WebSocket) {
     let mut ping = tokio::time::interval(app.cable_ping);
     ping.tick().await; // the first tick is immediate, and the welcome has just gone out
     loop {
+        if mailbox.overflowed() {
+            return; // closed as soon as the write in hand has returned: whatever was published since is dropped
+        }
         let sent = tokio::select! {
             incoming = socket.recv() => match incoming {
-                Some(Ok(Message::Text(text))) => command(app, user_id, &mut socket, &mut subscriptions, text.as_str()).await,
+                Some(Ok(Message::Text(text))) => command(app, user_id, &mut socket, &mut subscriptions, &mailbox, text.as_str()).await,
                 Some(Ok(Message::Close(_))) | Some(Err(_)) | None => return,
                 Some(Ok(_)) => Ok(()),
             },
             _ = ping.tick() => send(&mut socket, json!({ "type": "ping", "message": app.now().timestamp() })).await,
-            delivery = feed.recv() => match delivery {
-                Ok((stream, html)) => deliver(&mut socket, &subscriptions, &stream, &html).await,
-                // Too far behind to catch up, or the hub is gone: close, so the client reconnects and
-                // the page asks for fresh state, exactly as after any dropped connection.
-                Err(_) => return,
+            delivery = mailbox.next() => match delivery {
+                Some((stream, html)) => deliver(&mut socket, &subscriptions, &stream, &html).await,
+                // The mailbox overflowed: close, so the client reconnects and subscribes again, and is sent the latest
+                // figures of each stream it subscribes (Task 4). Only this connection is affected.
+                None => return,
             },
         };
         if sent.is_err() {
@@ -347,7 +499,7 @@ async fn deliver(socket: &mut WebSocket, subscriptions: &[(String, String)], str
     Ok(())
 }
 
-async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions: &mut Vec<(String, String)>, text: &str) -> Result<(), axum::Error> {
+async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions: &mut Vec<(String, String)>, mailbox: &Mailbox, text: &str) -> Result<(), axum::Error> {
     let Ok(message) = serde_json::from_str::<Value>(text) else { return Ok(()) };
     let Some(identifier) = message["identifier"].as_str() else { return Ok(()) };
     match message["command"].as_str() {
@@ -364,6 +516,7 @@ async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions:
             match stream.filter(|stream| stream_is_for(stream, user_id)) {
                 Some(_) if subscriptions.len() >= MAX_SUBSCRIPTIONS => Err(axum::Error::new("too many subscriptions")),
                 Some(stream) => {
+                    mailbox.listen(&stream);
                     subscriptions.push((identifier.to_string(), stream));
                     send(socket, json!({ "identifier": identifier, "type": "confirm_subscription" })).await
                 }
@@ -372,6 +525,7 @@ async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions:
         }
         Some("unsubscribe") => {
             subscriptions.retain(|(known, _)| known != identifier);
+            mailbox.only(subscriptions.iter().map(|(_, stream)| stream));
             Ok(())
         }
         _ => Ok(()), // "message": Turbo::StreamsChannel has no actions
