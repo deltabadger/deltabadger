@@ -55,6 +55,7 @@ yaml-rust2 = "0.13"
 ego-tree = "0.11"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 scraper = "0.27"
+rusqlite = { version = "0.37", features = ["hooks"] } # tests count SQLite VM steps (tracker::jobs)
 tempfile = "3"
 tokio = { version = "1", features = ["test-util"] } # paused time: the handback CLI's 1201 s wait runs instantly in tests
 tokio-tungstenite = "0.29"

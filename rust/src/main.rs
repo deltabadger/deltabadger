@@ -161,7 +161,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(jobs::data_api::DataApi::live);
     let api = std::rc::Rc::new(api);
     let mut registered = jobs::reference::shared_jobs(api.clone());
-    registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api).map_err(|e| e.0)?);
+    registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
+    registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall())?);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe()));
     Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
 }
