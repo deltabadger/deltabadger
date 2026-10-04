@@ -24,9 +24,9 @@ fn id(ctx: &Ctx, name: &str) -> Option<i64> {
     }
 }
 
-/// As Rails' job does, the work never changes the answer.
+/// As Rails' job does, the work never changes the answer. A publication that fails is retried by the `figures` service.
 async fn publish(app: &App, user: i64) {
-    let _ = super::figure::loading::publish(app, user).await;
+    if super::figure::loading::publish(app, user).await.is_err() { app.figure_service.mark_owner(user); }
 }
 
 /// `metrics_update`: the bot page's metrics and chart. A bot that is not the user's is "not found"; a deleted one is found.

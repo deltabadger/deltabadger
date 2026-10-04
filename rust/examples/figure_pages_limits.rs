@@ -38,7 +38,7 @@ pub fn run()->Result<(),String>{
         let (refused,_)=budget::scope(limits,||figure::account(&c,1,&market,now,"en","token",""));
         if !matches!(refused,Err(FiguresError::NotComputed(ref message)) if message==OVER_BUDGET){return Err(format!("page escaped {limits:?}"));}
     }
-    let failed=loading::render(&c,1,&Snapshot::Failed,"en","token","").ok_or("terminal state missing")?;
+    let failed=loading::render(&c,1,&Snapshot::Failed,"en","token","").map_err(|e|format!("{e:?}"))?.ok_or("terminal state missing")?;
     for part in ["tile","metrics","chart"] {
         let html=failed["bots"]["1"][part].as_str().ok_or("part missing")?;
         if !html.contains("no-value")||html.contains("loader")||html.contains("0.00"){return Err(format!("dishonest terminal {part}"));}

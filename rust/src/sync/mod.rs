@@ -179,10 +179,19 @@ pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> {
 
 /// The key's credentials, decrypted. An unreadable value is an error, never an empty credential.
 pub fn credentials(c: &Connection, cipher: &Cipher, key_id: i64) -> Result<Credentials, SyncError> {
-    let (key, secret, passphrase): (Option<String>, Option<String>, Option<String>) =
+    let stored: (Option<String>, Option<String>, Option<String>) =
         c.query_row("SELECT key, secret, passphrase FROM api_keys WHERE id = ?1", [key_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    decrypted(cipher, key_id, stored)
+}
+
+/// Stored (key, secret, passphrase) decrypted, with no read: an error is only ever an unreadable value.
+pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Option<String>, Option<String>, Option<String>)) -> Result<Credentials, SyncError> {
     let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|_| SyncError(format!("api key {key_id} is unreadable (is SECRET_KEY_BASE this instance's own?)")))).transpose();
-    Ok(Credentials { key: open(key)?.unwrap_or_default(), secret: open(secret)?.unwrap_or_default(), passphrase: open(passphrase)? })
+    Ok(Credentials {
+        key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
+        secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
+        passphrase: open(passphrase)?,
+    })
 }
 
 pub fn live(credentials: &Credentials) -> bool { credentials.passphrase.as_deref() == Some("live") }

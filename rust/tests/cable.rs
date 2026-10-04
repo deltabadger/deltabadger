@@ -578,6 +578,9 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     opened.primary.execute("UPDATE bots SET label='Action test' WHERE id=?1",[bot])?;
     let env = |name: &str| match name { "SECRET_KEY_BASE" => Some("engine-test-secret".to_string()), "APP_ROOT_URL" => Some("http://localhost:3000".to_string()), _ => None };
     let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, opened.primary, TestClock::at("2026-09-10T12:00:30Z")).map_err(|e|format!("{e:?}"))?;
+    // No market data: the figures stay cold, and a subscription asks for no publication (`loading::resubscribed`), so
+    // only the actions' own fragments are broadcast.
+    let app = app.with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e|format!("{e:?}"))?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     let server = tokio::spawn(server::serve_on(listener,app.clone(),server::Limits::default()));
@@ -743,4 +746,42 @@ async fn connections_that_come_and_go_without_a_broadcast_leave_no_mailbox_behin
         assert!(gone(&app, OWNER, Duration::from_secs(5)).await);
         assert_eq!(app.hub.held().0, 0, "a closed connection's mailbox stayed in the hub");
     }
+}
+
+/// A bot's page stream is its user's only, as a `user_<id>` stream is: the name the bot's page carries is refused on
+/// another user's connection, as a name that does not verify is, and confirmed on its owner's.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bots_page_stream_is_confirmed_only_on_its_users_connections() -> Result<(), Box<dyn std::error::Error>> {
+    use common::{seed, web::Browser};
+    let (_dir, opened, seeded) = common::install_alpaca();
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=0", [HASH])?;
+    opened.primary.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at) VALUES('other@example.com',?1,?2,?2,?2)", (HASH,"2026-01-01 00:00:00"))?;
+    let mut spec = seed::BotSpec::weekly(5.0, "2026-09-10 12:00:00");
+    spec.status = 2;
+    let bot = seed::insert_bot(&opened.primary, &seeded, &spec);
+    opened.primary.execute("UPDATE bots SET label='Owned' WHERE id=?1", [bot])?;
+    let env = |name: &str| match name { "SECRET_KEY_BASE" => Some(web::SECRET.to_string()), "APP_ROOT_URL" => Some("http://localhost:3000".to_string()), _ => None };
+    let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, opened.primary, TestClock::at("2026-09-10T12:00:30Z")).map_err(|e|format!("{e:?}"))?
+        .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e|format!("{e:?}"))?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let server = tokio::spawn(server::serve_on(listener, app.clone(), server::Limits::default()));
+    // The bot's own stream, signed as its page names it.
+    let mut browser = Browser { cookie: Some(signed_in(&app, OWNER)), page: None };
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert_eq!(page.status, 200);
+    let signed = page.body.split("signed-stream-name=\"").skip(1).filter_map(|rest| rest.split('"').next())
+        .find(|signed| cable::verified_stream_name(&app.keys.streams, signed).is_some_and(|name| !name.starts_with("user_") && name.ends_with(":bot_updates")))
+        .ok_or("the bot page subscribes to its bot's stream")?.to_string();
+    let identifier = json!({ "channel": "Turbo::StreamsChannel", "signed_stream_name": signed }).to_string();
+    let (mut other, _) = open_as(address, "http://localhost:3000", Some(&signed_in(&app, SECOND))).await.map_err(|s| format!("other socket {s}"))?;
+    next(&mut other).await;
+    command(&mut other, "subscribe", &identifier).await;
+    assert_eq!(next_event(&mut other).await["type"], "reject_subscription", "another user's bot");
+    let (mut owner, _) = open_as(address, "http://localhost:3000", Some(&signed_in(&app, OWNER))).await.map_err(|s| format!("owner socket {s}"))?;
+    next(&mut owner).await;
+    command(&mut owner, "subscribe", &identifier).await;
+    assert_eq!(next_event(&mut owner).await["type"], "confirm_subscription", "the owner's bot");
+    server.abort();
+    Ok(())
 }

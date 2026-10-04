@@ -92,15 +92,129 @@ fn page_loads_coalesce_and_late_results_cannot_replace_rotated_credentials() {
     let service = Service::default();
     let Load::Start(first, _) = service.begin(1,"key-a",1,100) else { panic!("first read starts fill") };
     assert!(matches!(service.begin(1,"key-a",1,100),Load::Cold));
-    let Load::Start(second, _) = service.begin(1,"key-b",2,100) else { panic!("new credentials start new fill") };
-    assert!(matches!(service.begin(2,"key-c",1,100),Load::Failed));
-    first.finish(Cache::default(),true);
+    // One fill per account: new credentials, or a revision a write moved, wait for the running fill to end.
     assert!(matches!(service.begin(1,"key-b",2,100),Load::Cold));
-    second.finish(Cache::default(),true);
+    let Load::Start(other, _) = service.begin(2,"key-c",1,100) else { panic!("another account starts its own fill") };
+    assert!(matches!(service.begin(3,"key-d",1,100),Load::Busy), "both fills are taken");
+    first.finish(Cache::default(),true,100);
+    let Load::Start(second, _) = service.begin(1,"key-b",2,100) else { panic!("new credentials start once the old fill ends") };
+    second.finish(Cache::default(),true,100);
+    other.finish(Cache::default(),true,100);
     assert!(matches!(service.begin(1,"key-b",2,299),Load::Ready(_,100)));
     assert!(matches!(service.begin(1,"key-b",2,300),Load::Start(_, _)));
     // Dropping a cancelled fill becomes a terminal state with bounded retry, not an eternal spinner.
     assert!(matches!(service.begin(1,"key-b",2,300),Load::Failed));
+}
+
+#[test]
+fn a_failure_lasts_a_minute_from_its_end_and_a_wait_outlives_a_full_house() {
+    use deltabadger::web::figure::service::{Service, Load, ALLOWANCE};
+    let service = Service::default();
+    let Load::Start(slow, _) = service.begin(1,"k",1,0) else { panic!("starts") };
+    slow.finish(Cache::default(),false,90); // failed at the 90-second timeout
+    assert!(matches!(service.begin(1,"k",1,149),Load::Failed), "kept for a minute from its end, not its start");
+    assert!(matches!(service.begin(1,"k",1,150),Load::Start(_, _)));
+    // Who waits is kept until published; an account whose fill runs is not idle.
+    let service = Service::default();
+    let Load::Start(running, _) = service.begin(1,"k",1,0) else { panic!("starts") };
+    service.want(1);
+    service.want(2);
+    assert_eq!(service.waiting_idle(), vec![2]);
+    running.finish(Cache::default(),true,0);
+    assert_eq!(service.waiting_idle(), vec![1, 2]);
+    service.served(1);
+    assert_eq!(service.waiting_idle(), vec![2]);
+    // A waiting account's own fills spend its allowance; with none left a fill is refused, and the wait ends.
+    let service = Service::default();
+    service.want(9);
+    for revision in 1..=u64::from(ALLOWANCE) { // each overtaken by a write
+        let Load::Start(attempt, _) = service.begin(9,"k",revision,0) else { panic!("an allowed attempt") };
+        attempt.finish(Cache::default(),false,0);
+    }
+    assert_eq!(service.allowance(9), Some(0));
+    assert!(matches!(service.begin(9,"k",u64::from(ALLOWANCE) + 1,0),Load::Failed));
+}
+
+#[test]
+fn waiting_behind_other_accounts_spends_no_allowance() {
+    use deltabadger::web::figure::service::{Service, Load, ALLOWANCE};
+    // A and B fill; C and D wait for capacity. A ends and C starts; C ends before B, and D still gets its own attempt.
+    let service = Service::default();
+    let Load::Start(a, _) = service.begin(1,"a",1,0) else { panic!("A starts") };
+    let Load::Start(b, _) = service.begin(2,"b",1,0) else { panic!("B starts") };
+    for user in [3, 4] {
+        assert!(matches!(service.begin(user,"w",1,0),Load::Busy));
+        service.want(user);
+    }
+    a.finish(Cache::default(),true,0);
+    let Load::Start(c, _) = service.begin(3,"w",1,0) else { panic!("C gets its attempt") };
+    assert!(matches!(service.begin(4,"w",1,0),Load::Busy));
+    assert_eq!((service.allowance(3), service.allowance(4)), (Some(ALLOWANCE - 1), Some(ALLOWANCE)), "only C's own fill spent");
+    c.finish(Cache::default(),true,0);
+    assert!(matches!(service.begin(4,"w",1,0),Load::Start(_, _)), "D gets its attempt once capacity frees");
+    b.finish(Cache::default(),true,0);
+}
+
+#[test]
+fn an_accounts_latest_publication_is_sent_again_only_while_its_figures_are_fresh_and_whole() {
+    use deltabadger::web::cable::MAILBOX_ENTRIES;
+    use deltabadger::web::figure::service::{Service, Load};
+    let stream = "user_1:bot_updates";
+    let published = vec![(stream.to_string(), "<turbo-stream action=\"replace\" target=\"global-pnl\"><template>1</template></turbo-stream>".to_string())];
+    let fresh = |service: &Service, now: i64| service.latest(1, "k", 1, now, stream);
+    let service = Service::default();
+    let Load::Start(fill, _) = service.begin(1,"k",1,0) else { panic!("starts") };
+    fill.finish(Cache::default(),true,0);
+    let serial = service.settled(1);
+    assert!(service.record(1, serial, "k", 1, 0, &published), "fresh figures are delivered");
+    assert_eq!(fresh(&service, 0).unwrap().iter().map(|html| html.to_string()).collect::<Vec<_>>(), vec![published[0].1.clone()]);
+    assert_eq!(service.latest(1, "k", 1, 0, "elsewhere").map(|kept| kept.len()), Some(0), "only that stream's");
+    assert!(service.latest(2, "k", 1, 0, stream).is_none(), "only that account's");
+    // Not once the figures expired (the cache's five minutes), the database was written, or the credentials changed;
+    // and a publication that finds them so is not delivered.
+    assert!(fresh(&service, 299).is_some() && fresh(&service, 300).is_none(), "expired figures sent again");
+    assert!(service.latest(1, "k", 2, 0, stream).is_none(), "figures of an older revision sent again");
+    assert!(service.latest(1, "other", 1, 0, stream).is_none(), "figures of other credentials sent again");
+    assert!(!service.record(1, serial, "k", 1, 300, &published), "expired figures delivered");
+    assert!(service.record(1, serial, "k", 1, 0, &published));
+    // Nor once the account was evicted by eight others.
+    for other in 2..=9 {
+        let Load::Start(fill, _) = service.begin(other,"o",1,0) else { panic!("account {other} starts") };
+        fill.finish(Cache::default(),true,0);
+    }
+    assert!(fresh(&service, 0).is_none(), "an evicted account's figures sent again");
+    // A write starts the next fill: what was published is no longer the account's figures, during the fill or after it.
+    let service = Service::default();
+    let Load::Start(fill, _) = service.begin(1,"k",1,0) else { panic!("starts") };
+    fill.finish(Cache::default(),true,0);
+    let serial = service.settled(1);
+    assert!(service.record(1, serial, "k", 1, 0, &published));
+    let Load::Start(next, _) = service.begin(1,"k",2,0) else { panic!("the write's fill starts") };
+    assert!(service.latest(1, "k", 2, 0, stream).is_none(), "sent again while a newer fill runs");
+    next.finish(Cache::default(),true,0);
+    assert!(service.latest(1, "k", 2, 0, stream).is_none(), "sent again after a newer fill");
+    // A publication rendered before that fill began is neither delivered nor kept.
+    assert!(!service.record(1, serial, "k", 2, 0, &published), "a publication of older figures delivered");
+    assert!(service.latest(1, "k", 2, 0, stream).is_none(), "kept a publication of older figures");
+    // An account past the mailbox's bounds: 512 bots publish 1537 payloads (a tile each on the account's stream, metrics
+    // and a chart on each bot's, then the headline), and only the headline is left out; with 513 the last bot's whole
+    // stream is. Either publication is delivered, but never sent again, whole stream or not.
+    for bots in [512, 513] {
+        let mut streams = Vec::new();
+        for bot in 0..bots {
+            streams.push((stream.to_string(), format!("<turbo-stream action=\"replace\" target=\"tile_{bot}\"><template></template></turbo-stream>")));
+            for target in ["metrics", "chart"] { streams.push((format!("bot_{bot}:bot_updates"), format!("<turbo-stream action=\"replace\" target=\"{target}\"><template></template></turbo-stream>"))); }
+        }
+        streams.push((stream.to_string(), published[0].1.clone()));
+        assert!(streams.len() > MAILBOX_ENTRIES);
+        let service = Service::default();
+        let Load::Start(fill, _) = service.begin(1,"k",1,0) else { panic!("starts") };
+        fill.finish(Cache::default(),true,0);
+        assert!(service.record(1, service.settled(1), "k", 1, 0, &streams), "{bots} bots: delivered");
+        for on in [stream.to_string(), "bot_0:bot_updates".to_string(), format!("bot_{}:bot_updates", bots - 1)] {
+            assert!(service.latest(1, "k", 1, 0, &on).is_none(), "{bots} bots: {on} sent again from an incomplete publication");
+        }
+    }
 }
 
 #[tokio::test]

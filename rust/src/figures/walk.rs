@@ -361,7 +361,7 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
     let mut strings_seen = HashSet::new();
     for order in &s.orders {
         budget::charge(1, 0)?;
-        let (key, text) = (key_of(order), order.base.clone().unwrap_or_default());
+        let (key, text) = (key_of(order), order.base.clone().unwrap_or_default()); // allow-swallow: an Option; a legacy row without a symbol has an empty spelling
         if !strings_seen.insert((key.clone(), text.clone())) { continue; }
         let at = *string_places.entry(key.clone()).or_insert_with(|| {
             data.key_strings.push((key, vec![])); data.key_strings.len() - 1

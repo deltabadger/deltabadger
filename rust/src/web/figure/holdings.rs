@@ -101,7 +101,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
             .query_map([s.bot.user_id,s.bot.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
         let live: Vec<_> = locks.into_iter().filter_map(|(id,symbol,until,source)| {
             let until = until.as_deref().and_then(At::from_sql)?;
-            (until > now).then_some((id,symbol,until,source.unwrap_or_default()))
+            (until > now).then_some((id,symbol,until,source.unwrap_or_default())) // allow-swallow: an Option; a lock with no source label keeps an empty label
         }).collect();
         let candidates = live.iter().filter(|(id,_,_,_)| !m.key_assets.iter().any(|(_,asset)| *asset == Some(*id)))
             .map(|(id,symbol,_,_)| (crate::figures::keys::Identity::Asset(*id),symbol.as_deref().filter(|s| !s.is_empty()).map(str::to_string).unwrap_or_else(|| format!("#{id}")))).collect::<Vec<_>>();
@@ -172,9 +172,11 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 let amount = precision(&Num::Dec(offer),2,true)?;
                 let prompt = i18n::t(locale,"bot.redeploy.prompt",&[("amount",Arg::Text(&amount)),("symbol",Arg::Text(quote))]);
                 out.push_str(&format!("<div class=\"widget redeploy-prompt\">\n<span class=\"label\">\n{prompt}\n</span>\n<div class=\"redeploy-prompt__actions\" id=\"redeploy-prompt-actions\">\n"));
+                // A broadcast has no session, and Rails' renderer then writes no token (loading::publish).
+                let token = if csrf.is_empty() { String::new() } else { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" autocomplete=\"off\" />", escape(csrf)) };
                 for (decline, colour, label) in [(false,"success","confirm"),(true,"danger","decline")] {
                     let method = if decline { "<input type=\"hidden\" name=\"_method\" value=\"delete\" autocomplete=\"off\" />" } else { "" };
-                    out.push_str(&format!("<form class=\"button_to\" method=\"post\" action=\"{}/bots/{}/redeploy\">{method}<button class=\"rbutton rbutton--{colour}\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" autocomplete=\"off\" /></form>\n",escape(prefix),s.bot.id,t(locale,&format!("bot.redeploy.{label}")),escape(csrf)));
+                    out.push_str(&format!("<form class=\"button_to\" method=\"post\" action=\"{}/bots/{}/redeploy\">{method}<button class=\"rbutton rbutton--{colour}\" type=\"submit\">{}</button>{token}</form>\n",escape(prefix),s.bot.id,t(locale,&format!("bot.redeploy.{label}"))));
                 }
                 out.push_str("</div>\n</div>\n");
             }

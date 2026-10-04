@@ -41,7 +41,7 @@ use axum::extract::ws::{rejection::WebSocketUpgradeRejection, Message, WebSocket
 use axum::extract::State;
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use base64::{engine::general_purpose::STANDARD as B64, Engine};
+use base64::{engine::general_purpose::{STANDARD as B64, URL_SAFE_NO_PAD}, Engine};
 use hmac::{Hmac, Mac};
 use serde_json::{json, Value};
 use sha2::Sha256;
@@ -339,7 +339,7 @@ impl Hub {
 }
 
 fn signature(key: &[u8; 32], data: &str) -> Option<String> {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).ok()?;
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).ok()?; // allow-swallow: HMAC takes a key of any length; never fails
     mac.update(data.as_bytes());
     Some(hex::encode(mac.finalize().into_bytes()))
 }
@@ -348,15 +348,15 @@ fn signature(key: &[u8; 32], data: &str) -> Option<String> {
 /// stream names, under this process's own key, so a name Rails signed is not accepted here.
 pub fn signed_stream_name(key: &[u8; 32], name: &str) -> String {
     let data = B64.encode(Value::String(name.to_string()).to_string());
-    format!("{data}--{}", signature(key, &data).unwrap_or_default())
+    format!("{data}--{}", signature(key, &data).unwrap_or_default()) // allow-swallow: an Option that is never None (above)
 }
 
 pub fn verified_stream_name(key: &[u8; 32], signed: &str) -> Option<String> {
     let (data, given) = signed.split_once("--")?;
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).ok()?;
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).ok()?; // allow-swallow: HMAC takes a key of any length; never fails
     mac.update(data.as_bytes());
-    mac.verify_slice(&hex::decode(given).ok()?).ok()?; // constant-time
-    serde_json::from_slice::<Value>(&B64.decode(data).ok()?).ok()?.as_str().map(str::to_string)
+    mac.verify_slice(&hex::decode(given).ok()?).ok()?; // constant-time; allow-swallow: a name that does not verify is refused
+    serde_json::from_slice::<Value>(&B64.decode(data).ok()?).ok()?.as_str().map(str::to_string) // allow-swallow: so is one that does not decode
 }
 
 /// Whether a connection of `user_id` may subscribe to `stream`. A name that begins `user_<digits>`,
@@ -364,6 +364,23 @@ pub fn verified_stream_name(key: &[u8; 32], signed: &str) -> Option<String> {
 pub fn stream_is_for(stream: &str, user_id: i64) -> bool {
     let owner = stream.strip_prefix("user_").and_then(|rest| rest.split(':').next()).filter(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()));
     owner.is_none_or(|id| id == user_id.to_string())
+}
+
+/// Whose a stream named after a record is (`turbo_stream_from bot, …`: the record's GlobalID in URL-safe base64, then
+/// `:`). `Some(false)`: not a record's stream; `Some(true)`: a bot of `user_id`'s; `None`: another user's bot, or a
+/// record no connection may follow. A failure to read the bot's owner closes the connection, and the page's reconnect
+/// asks again.
+async fn record_stream(app: &App, stream: &str, user_id: i64) -> Result<Option<bool>, axum::Error> {
+    let head = stream.split(':').next().unwrap_or_default(); // allow-swallow: an Option; split always yields a first piece
+    let decoded = URL_SAFE_NO_PAD.decode(head.trim_end_matches('=')).ok() // allow-swallow: a name that is not base64 is not a record's
+        .and_then(|bytes| String::from_utf8(bytes).ok()); // allow-swallow: nor one that is not text
+    let Some(record) = decoded.as_deref().and_then(|gid| gid.strip_prefix("gid://")) else { return Ok(Some(false)) };
+    let bot = record.strip_prefix("deltabadger/Bots::").and_then(|rest| rest.split_once('/'))
+        .and_then(|(_, id)| id.parse::<i64>().ok()); // allow-swallow: a record that is not a bot is followed by no one
+    let Some(bot) = bot else { return Ok(None) };
+    let owned = app.db(move |c| Ok(c.query_row("SELECT count(*) FROM bots WHERE id = ?1 AND user_id = ?2", [bot, user_id], |r| r.get::<_, i64>(0))? > 0)).await
+        .map_err(|_| axum::Error::new("the bot's owner could not be read"))?;
+    Ok(owned.then_some(true))
 }
 
 /// `turbo_stream_from`: the element the page subscribes with.
@@ -379,7 +396,7 @@ pub fn stream_source(key: &[u8; 32], name: &str) -> String {
 /// `Host` header, which is all Action Cable looks at; a forwarded host is not consulted here.
 /// A missing header is refused.
 fn origin_allowed(config: &Config, headers: &HeaderMap) -> bool {
-    let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else { return false };
+    let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else { return false }; // allow-swallow: an Origin that is not text is refused
     let came_to = || header_text(headers, "host").map(|host| canonical_origin(if matches!(config.request_scheme(headers), "https" | "wss") { "https" } else { "http" }, host));
     config.own_origin.clone().or_else(came_to).is_some_and(|allowed| allowed == origin)
 }
@@ -398,7 +415,7 @@ pub async fn connect(State(app): State<App>, headers: HeaderMap, upgrade: Result
     let now = app.now();
     let opened = session::from_request(&app.keys.session, &headers, now);
     let (data, expires_at) = opened.map_or((SessionData::default(), 0), |opened| (opened.data, opened.expires_at));
-    let salt = data.user.as_ref().map(|(_, salt)| salt.clone()).unwrap_or_default();
+    let salt = data.user.as_ref().map(|(_, salt)| salt.clone()).unwrap_or_default(); // allow-swallow: an Option; no user is refused below
     let user_id = match auth::current_user(&app, &Session::new(data), now).await {
         Ok(Current::SignedIn(user)) => user.id,
         Ok(_) => return plain(StatusCode::UNAUTHORIZED, "Sign in first"),
@@ -507,20 +524,32 @@ async fn command(app: &App, user_id: i64, socket: &mut WebSocket, subscriptions:
             if subscriptions.iter().any(|(known, _)| known == identifier) {
                 return Ok(()); // the client re-sends an unconfirmed subscribe; Rails answers the first only
             }
-            let options: Value = serde_json::from_str(identifier).unwrap_or(Value::Null);
+            let options: Value = serde_json::from_str(identifier).unwrap_or(Value::Null); // allow-swallow: malformed subscription options have no channel and are ignored below, as in Rails
             if options["channel"] != CHANNEL {
                 return Ok(()); // Rails logs "Subscription class not found" and sends nothing
             }
             // A name that verifies, and that is not another user's own stream.
             let stream = options["signed_stream_name"].as_str().and_then(|signed| verified_stream_name(&app.keys.streams, signed));
+            let refused = json!({ "identifier": identifier, "type": "reject_subscription" });
             match stream.filter(|stream| stream_is_for(stream, user_id)) {
                 Some(_) if subscriptions.len() >= MAX_SUBSCRIPTIONS => Err(axum::Error::new("too many subscriptions")),
-                Some(stream) => {
-                    mailbox.listen(&stream);
-                    subscriptions.push((identifier.to_string(), stream));
-                    send(socket, json!({ "identifier": identifier, "type": "confirm_subscription" })).await
-                }
-                None => send(socket, json!({ "identifier": identifier, "type": "reject_subscription" })).await,
+                Some(stream) => match record_stream(app, &stream, user_id).await? {
+                    None => send(socket, refused).await,
+                    Some(own_bot) => {
+                        mailbox.listen(&stream);
+                        if own_bot || stream == format!("user_{user_id}:bot_updates") {
+                            // A page that subscribes again, after its connection dropped a publication, ends with the
+                            // current figures.
+                            let on: Arc<str> = stream.as_str().into();
+                            for html in super::figure::loading::resubscribed(app, user_id, &stream).await {
+                                mailbox.post(&on, &html);
+                            }
+                        }
+                        subscriptions.push((identifier.to_string(), stream));
+                        send(socket, json!({ "identifier": identifier, "type": "confirm_subscription" })).await
+                    }
+                },
+                None => send(socket, refused).await,
             }
         }
         Some("unsubscribe") => {
