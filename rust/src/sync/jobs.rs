@@ -93,6 +93,8 @@ impl<C: Connect> Job for LedgerSync<C> {
             // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
+            // Rails' SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
+            else { crate::tracker::jobs::wake_for_key(&cx, self.key_id).await; }
             outcome
         })
     }
@@ -119,7 +121,11 @@ impl<C: Connect> Job for BalanceSync<C> {
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-            outcome(balances::sync(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock).await, |_| true)
+            let outcome = outcome(balances::sync(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock).await, |_| true);
+            // Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
+            // rewrites today's rows.
+            crate::tracker::jobs::wake_for_key(&cx, self.key_id).await;
+            outcome
         })
     }
 }

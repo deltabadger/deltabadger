@@ -15,6 +15,7 @@
 //! Rails computes those (Plan D4b, or at a zero basis); this build states no figure rather than a wrong one.
 pub mod backfill;
 pub mod figures;
+pub mod jobs;
 pub mod prices;
 pub mod rows;
 pub mod snapshot;
