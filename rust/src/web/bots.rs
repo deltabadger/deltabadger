@@ -267,7 +267,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
             names.insert(id.to_string(), name.map_or(Value::Null, Value::String));
         }
         let literal = |key: &str, name: &str| i18n::text(ctx.locale, key, &[(name, i18n::Arg::Text(&format!("%{{{name}}}")))]);
-        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,&ctx.path(""));
+        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,&ctx.path(""))?;
         let headline=figures.as_ref().and_then(|v|v["account"].as_str()).map(str::to_string);
         let mut tiles = vec![];
         for bot in &listed {

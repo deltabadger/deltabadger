@@ -578,6 +578,9 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     opened.primary.execute("UPDATE bots SET label='Action test' WHERE id=?1",[bot])?;
     let env = |name: &str| match name { "SECRET_KEY_BASE" => Some("engine-test-secret".to_string()), "APP_ROOT_URL" => Some("http://localhost:3000".to_string()), _ => None };
     let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, opened.primary, TestClock::at("2026-09-10T12:00:30Z")).map_err(|e|format!("{e:?}"))?;
+    // No market data: the figures stay cold, and a subscription asks for no publication (`loading::resubscribed`), so
+    // only the actions' own fragments are broadcast.
+    let app = app.with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e|format!("{e:?}"))?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     let server = tokio::spawn(server::serve_on(listener,app.clone(),server::Limits::default()));
@@ -635,5 +638,150 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     assert_eq!(next_event(&mut owner).await["message"],"continue-marker");
     owner.close(None).await?;
     other.close(None).await?;
+    Ok(())
+}
+
+/// A connection whose client stops reading for a while, during publications larger than the old 256-message channel
+/// and with large charts among them: it stays open, and ends with the latest payload of every target. Its mailbox holds
+/// one payload per target (each newer `replace` supersedes the pending one), so three rounds of 300 never exceed
+/// `MAILBOX_ENTRIES`; a second user's connection, reading all along, receives its own stream's payload at once.
+#[tokio::test(flavor = "current_thread")]
+async fn a_connection_that_stops_reading_keeps_its_place_and_ends_with_the_latest_of_every_target() {
+    let (_dir, app, address) = served().await;
+    let stream = "user_1:bot_updates";
+    let (mut slow, _) = open(address, "http://localhost:3000").await.unwrap();
+    next(&mut slow).await;
+    let id = identifier(&app, stream);
+    command(&mut slow, "subscribe", &id).await;
+    assert_eq!(next_event(&mut slow).await["type"], "confirm_subscription");
+    let (mut other, _) = open_as(address, "http://localhost:3000", Some(&signed_in(&app, SECOND))).await.unwrap();
+    next(&mut other).await;
+    let other_id = identifier(&app, &format!("user_{SECOND}:bot_updates"));
+    command(&mut other, "subscribe", &other_id).await;
+    assert_eq!(next_event(&mut other).await["type"], "confirm_subscription");
+    let chart = "x".repeat(20_000);
+    for round in ["first", "second", "third"] {
+        for target in 0..300 {
+            app.hub.broadcast(stream, &format!("<turbo-stream action=\"replace\" target=\"t{target}\"><template>{round}{chart}</template></turbo-stream>"));
+        }
+        // The slow client reads nothing while the server's writes to it back up; the other user is served meanwhile.
+        app.hub.broadcast(&format!("user_{SECOND}:bot_updates"), &format!("<turbo-stream action=\"replace\" target=\"tile\"><template>{round}</template></turbo-stream>"));
+        assert!(next_event(&mut other).await["message"].as_str().unwrap().contains(round), "another user's connection waited on the slow one");
+        tokio::time::sleep(Duration::from_millis(400)).await;
+    }
+    app.hub.broadcast(stream, "done");
+    let mut latest = std::collections::BTreeMap::new();
+    loop {
+        let message = next_event(&mut slow).await;
+        let html = message["message"].as_str().expect("the slow connection stays open").to_string();
+        if html == "done" { break; }
+        let target = html.split("target=\"").nth(1).and_then(|rest| rest.split('"').next()).unwrap().to_string();
+        latest.insert(target, html);
+    }
+    assert_eq!(latest.len(), 300);
+    assert!(latest.values().all(|html| html.contains("<template>third")), "every target ends with the latest payload");
+}
+
+#[test]
+fn a_mailbox_supersedes_only_a_pending_replace_of_the_same_stream_and_target() {
+    let mailbox = cable::Mailbox::default();
+    mailbox.listen("s");
+    let post = |html: &str| mailbox.post(&"s".into(), &html.into());
+    post("<turbo-stream action=\"replace\" target=\"a\"><template>1</template></turbo-stream>");
+    post("<turbo-stream action=\"remove\" target=\"b\"></turbo-stream>");
+    post("<turbo-stream action=\"replace\" target=\"a\"><template>2</template></turbo-stream>");
+    post("<turbo-stream action=\"append\" target=\"a\"><template>3</template></turbo-stream>");
+    post("<turbo-stream action=\"replace\" target=\"a\"><template>x</template></turbo-stream><turbo-stream action=\"remove\" target=\"c\"></turbo-stream>");
+    mailbox.post(&"elsewhere".into(), &"<turbo-stream action=\"replace\" target=\"a\"><template>no</template></turbo-stream>".into());
+    assert_eq!(mailbox.pending(), vec![
+        "<turbo-stream action=\"remove\" target=\"b\"></turbo-stream>".to_string(),
+        "<turbo-stream action=\"replace\" target=\"a\"><template>2</template></turbo-stream>".into(),
+        "<turbo-stream action=\"append\" target=\"a\"><template>3</template></turbo-stream>".into(),
+        "<turbo-stream action=\"replace\" target=\"a\"><template>x</template></turbo-stream><turbo-stream action=\"remove\" target=\"c\"></turbo-stream>".into(),
+    ], "one replace of one target is superseded; appends, removes, several elements and other streams are not");
+}
+
+/// A connection whose writer is blocked on a client that reads nothing, while publication goes on: past either bound its
+/// mailbox drops what it holds and keeps nothing more, however much is published after, so the hub never holds more
+/// than the bounds. The connection is closed when the blocked write's deadline ends.
+#[tokio::test(flavor = "current_thread")]
+async fn a_mailbox_past_its_bounds_keeps_nothing_while_its_writer_is_blocked() {
+    let (_dir, app, address) = served().await;
+    let stream = "user_1:bot_updates";
+    let (mut slow, _) = open(address, "http://localhost:3000").await.unwrap();
+    next(&mut slow).await;
+    command(&mut slow, "subscribe", &identifier(&app, stream)).await;
+    assert_eq!(next_event(&mut slow).await["type"], "confirm_subscription");
+    // From here the client reads nothing. Eight megabytes are more than the buffers between the two ends hold.
+    let big = "x".repeat(1024 * 1024);
+    for target in 0..8 {
+        app.hub.broadcast(stream, &format!("<turbo-stream action=\"replace\" target=\"big{target}\"><template>{big}</template></turbo-stream>"));
+    }
+    tokio::time::sleep(Duration::from_millis(500)).await; // the writer takes payloads until one of its writes blocks
+    assert_eq!(app.hub.open(OWNER), 1, "blocked, and alive");
+    let bounded = |app: &App| { let (_, payloads, bytes) = app.hub.held(); assert!(payloads <= cable::MAILBOX_ENTRIES && bytes <= cable::MAILBOX_BYTES, "{payloads} payloads, {bytes} bytes"); };
+    for target in 0..2 * cable::MAILBOX_ENTRIES {
+        app.hub.broadcast(stream, &format!("<turbo-stream action=\"replace\" target=\"t{target}\"><template>{target}</template></turbo-stream>"));
+        bounded(&app);
+    }
+    for target in 0..40 {
+        app.hub.broadcast(stream, &format!("<turbo-stream action=\"replace\" target=\"chart{target}\"><template>{big}</template></turbo-stream>"));
+        bounded(&app);
+    }
+    assert_eq!(app.hub.held(), (1, 0, 0), "past its bounds, the mailbox keeps nothing");
+    assert_eq!(app.hub.open(OWNER), 1, "the write in hand is still blocked");
+    assert!(gone(&app, OWNER, cable::SEND_DEADLINE * 3).await, "closed when the blocked write's deadline ended");
+    assert_eq!(app.hub.held(), (0, 0, 0));
+}
+
+/// Connections that open and close while nothing is broadcast leave nothing in the hub.
+#[tokio::test(flavor = "current_thread")]
+async fn connections_that_come_and_go_without_a_broadcast_leave_no_mailbox_behind() {
+    let (_dir, app, address) = served().await;
+    for _ in 0..40 {
+        let (mut socket, _) = open(address, "http://localhost:3000").await.unwrap();
+        next(&mut socket).await;
+        assert_eq!(app.hub.held().0, 1);
+        socket.close(None).await.unwrap();
+        assert!(gone(&app, OWNER, Duration::from_secs(5)).await);
+        assert_eq!(app.hub.held().0, 0, "a closed connection's mailbox stayed in the hub");
+    }
+}
+
+/// A bot's page stream is its user's only, as a `user_<id>` stream is: the name the bot's page carries is refused on
+/// another user's connection, as a name that does not verify is, and confirmed on its owner's.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bots_page_stream_is_confirmed_only_on_its_users_connections() -> Result<(), Box<dyn std::error::Error>> {
+    use common::{seed, web::Browser};
+    let (_dir, opened, seeded) = common::install_alpaca();
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=0", [HASH])?;
+    opened.primary.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at) VALUES('other@example.com',?1,?2,?2,?2)", (HASH,"2026-01-01 00:00:00"))?;
+    let mut spec = seed::BotSpec::weekly(5.0, "2026-09-10 12:00:00");
+    spec.status = 2;
+    let bot = seed::insert_bot(&opened.primary, &seeded, &spec);
+    opened.primary.execute("UPDATE bots SET label='Owned' WHERE id=?1", [bot])?;
+    let env = |name: &str| match name { "SECRET_KEY_BASE" => Some(web::SECRET.to_string()), "APP_ROOT_URL" => Some("http://localhost:3000".to_string()), _ => None };
+    let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, opened.primary, TestClock::at("2026-09-10T12:00:30Z")).map_err(|e|format!("{e:?}"))?
+        .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e|format!("{e:?}"))?;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let server = tokio::spawn(server::serve_on(listener, app.clone(), server::Limits::default()));
+    // The bot's own stream, signed as its page names it.
+    let mut browser = Browser { cookie: Some(signed_in(&app, OWNER)), page: None };
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert_eq!(page.status, 200);
+    let signed = page.body.split("signed-stream-name=\"").skip(1).filter_map(|rest| rest.split('"').next())
+        .find(|signed| cable::verified_stream_name(&app.keys.streams, signed).is_some_and(|name| !name.starts_with("user_") && name.ends_with(":bot_updates")))
+        .ok_or("the bot page subscribes to its bot's stream")?.to_string();
+    let identifier = json!({ "channel": "Turbo::StreamsChannel", "signed_stream_name": signed }).to_string();
+    let (mut other, _) = open_as(address, "http://localhost:3000", Some(&signed_in(&app, SECOND))).await.map_err(|s| format!("other socket {s}"))?;
+    next(&mut other).await;
+    command(&mut other, "subscribe", &identifier).await;
+    assert_eq!(next_event(&mut other).await["type"], "reject_subscription", "another user's bot");
+    let (mut owner, _) = open_as(address, "http://localhost:3000", Some(&signed_in(&app, OWNER))).await.map_err(|s| format!("owner socket {s}"))?;
+    next(&mut owner).await;
+    command(&mut owner, "subscribe", &identifier).await;
+    assert_eq!(next_event(&mut owner).await["type"], "confirm_subscription", "the owner's bot");
+    server.abort();
     Ok(())
 }

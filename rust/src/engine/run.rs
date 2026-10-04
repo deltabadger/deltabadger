@@ -62,6 +62,8 @@ impl<F: VenueFactory> Engine<F> {
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
     /// A receiver of every event this engine sends from now on. Taken before `run::run` consumes the engine.
     pub fn subscribe(&mut self) -> UnboundedReceiver<EngineEvent> { self.events.subscribe() }
+    /// The events `wants` accepts (`EngineEvents::subscribe_to`).
+    pub fn subscribe_to(&mut self, wants: fn(&EngineEvent) -> bool) -> UnboundedReceiver<EngineEvent> { self.events.subscribe_to(wants) }
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
@@ -120,6 +122,24 @@ fn outstanding_orders(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
     let mut s = c.prepare("SELECT id, bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL ORDER BY id")?;
     let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<(i64, i64)>, _>>()?;
     Ok(rows)
+}
+
+/// After a tick, whether it ended well or in an error: each order it placed gets one follow-up poll shortly after (a
+/// deliberate small delay; Rails enqueues FetchAndUpdateOrderJob at placement), and each row it inserted or recovered is
+/// announced. An order it placed is in no later sweep's waiting set, so this is its only announcement and its only poll.
+fn after_tick<F: VenueFactory>(e: &mut Engine<F>, id: i64, tick_start: &str, last_tx: i64, recovered: Option<i64>, clock: &dyn Clock) -> Result<(), EngineError> {
+    let mut s = e.primary.prepare(
+        "SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) AND created_at >= ?2")?;
+    let accepted = s.query_map(rusqlite::params![id, tick_start], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for tx in accepted.into_iter().chain(recovered) { e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default())); }
+    let mut s = e.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND id > ?2 ORDER BY id")?;
+    let created = s.query_map(rusqlite::params![id, last_tx], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for tx in created.iter().copied().chain(recovered.filter(|r| !created.contains(r))) {
+        e.events.send(EngineEvent::OrderRecorded { bot_id: id, transaction_id: tx });
+    }
+    Ok(())
 }
 
 /// Bots outside the working set that still hold a placement intent (stopped after an ambiguous send). No tick
@@ -250,6 +270,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
         };
+        // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
+        e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         if let Some((wait, m)) = retry {
             super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));
             e.polls.insert(tx, (id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts));
@@ -368,25 +390,18 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let funds_marker = |c: &Connection| c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", tick::FUNDS_MAIL_PENDING),
                                                          [id], |r| r.get::<_, Option<String>>(0));
         let funds_before = funds_marker(&e.primary)?;
-        let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await?;
+        let ticked = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await;
+        // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
+        // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
+        e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+        let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock);
+        let outcome = ticked?;
+        committed?;
         let repeat = matches!(&outcome, TickOutcome::Stale { source, .. } if e.stale_logged.get(&id) == Some(source));
         if !repeat { super::log(&format!("bot {id}: {outcome:?}")); }
         match &outcome {
             TickOutcome::Stale { source, .. } => { e.stale_logged.insert(id, *source); }
             _ => { e.stale_logged.remove(&id); }
-        }
-        // An order accepted this tick gets one follow-up poll shortly after (a deliberate small delay; Rails enqueues
-        // FetchAndUpdateOrderJob at placement), whatever the tick's final outcome.
-        let mut s = e.primary.prepare(
-            "SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) AND created_at >= ?2")?;
-        let accepted = s.query_map(rusqlite::params![id, tick_start], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-        drop(s);
-        for tx in accepted.into_iter().chain(recovered) { e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default())); }
-        let mut s = e.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND id > ?2 ORDER BY id")?;
-        let created = s.query_map(rusqlite::params![id, last_tx], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-        drop(s);
-        for tx in created.iter().copied().chain(recovered.filter(|r| !created.contains(r))) {
-            e.events.send(EngineEvent::OrderRecorded { bot_id: id, transaction_id: tx });
         }
         // tick.rs leaves the funds marker with the stamp where Rails mails BotAlertsMailer#end_of_funds. The stamp alone is
         // no signal: a failure that stops the bot stamps it too, and its mail rides the error or stopped marker instead.

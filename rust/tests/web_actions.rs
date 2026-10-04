@@ -1255,6 +1255,9 @@ mod action_race {
             own.pragma_update(None, "foreign_keys", true)?;
             let env = |k: &str| match k { "SECRET_KEY_BASE" => Some("engine-test-secret".into()), _ => None };
             let app = App::new(Config::from_env(&env).map_err(|e|format!("{e:?}"))?, &env, own, clock.clone()).map_err(|e|format!("{e:?}"))?;
+            // No market data: the figures stay cold, and a subscription asks for no publication (`loading::resubscribed`),
+            // so only the actions' own fragments are broadcast.
+            let app = app.with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e|format!("{e:?}"))?;
             let wake = Arc::new(Notify::new()); app.attach_engine(wake.clone());
             let mut browser = Browser::default();
             browser.get(&app, "/login").await;

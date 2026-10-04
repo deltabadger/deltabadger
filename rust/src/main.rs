@@ -247,7 +247,9 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Ok(s) => s,
             Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
-        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler];
+        let figures = supervisor::Service { name: "figures",
+            run: Box::pin(deltabadger::web::figure::loading::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_order), engine.stop_handle().subscribe())) };
+        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler, figures];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {

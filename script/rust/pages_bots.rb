@@ -196,6 +196,28 @@ module Pages
                                                                     quote_amount_exec: '50')
              end + [order_row(record, 'NVDA', '2026-09-09T13:30:01Z', external_status: 'unknown', price: nil, amount: nil, quote_amount: '50',
                                                                       amount_exec: nil, quote_amount_exec: nil)]
+           when 'beyond_buys'
+             # What a figures page admits: a sale in every state the feed shows, a liquidation, a redeploy leg and a
+             # rebalance leg, beside one scheduled buy.
+             sell = { side: 'sell', quote_amount: nil }
+             [order_row(record, symbol, '2026-09-08T13:30:01Z', price: '410', amount: '0.12', amount_exec: '0.12', quote_amount: '49.2',
+                                                                quote_amount_exec: '49.2'),
+              order_row(record, symbol, '2026-09-09T13:30:01Z', sell.merge(transaction_type: 'LIQUIDATION', price: '412.37', amount: '0.05',
+                                                                           amount_exec: '0.05', quote_amount_exec: '20.6185')),
+              order_row(record, symbol, '2026-09-09T14:00:00Z', sell.merge(transaction_type: 'LIQUIDATION', status: 'failed', external_status: nil,
+                                                                           external_id: nil, amount: '0.02',
+                                                                           error_messages: ['insufficient qty available for order'])),
+              order_row(record, symbol, '2026-09-09T15:00:00Z', transaction_type: 'REDEPLOY', price: '411', amount: '0.05', amount_exec: '0.05',
+                                                                quote_amount: '20.55', quote_amount_exec: '20.55'),
+              order_row(record, symbol, '2026-09-09T16:00:00Z', sell.merge(transaction_type: 'REBALANCE', external_status: 'cancelled',
+                                                                           order_type: 'limit_order', price: '420', amount: '0.01', amount_exec: '0',
+                                                                           quote_amount_exec: '0')),
+              order_row(record, symbol, '2026-09-10T10:00:00Z', sell.merge(external_status: 'open', order_type: 'limit_order', price: '430.5',
+                                                                           amount: '0.01', amount_exec: '0', quote_amount_exec: '0')),
+              order_row(record, symbol, '2026-09-10T11:00:00Z', sell.merge(transaction_type: 'LIQUIDATION', external_status: 'abandoned',
+                                                                           amount: '0.01')),
+              order_row(record, symbol, '2026-09-10T11:30:00Z', sell.merge(transaction_type: 'LIQUIDATION', external_status: 'unknown',
+                                                                           amount: '0.03'))]
            else raise "unknown orders #{name}"
            end
     Transaction.insert_all!(rows)

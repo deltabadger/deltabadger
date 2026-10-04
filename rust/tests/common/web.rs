@@ -108,6 +108,23 @@ impl Browser {
     }
 
     pub async fn send(&mut self, app: &App, method: &str, path: &str, form: Option<&[(&str, &str)]>, csrf: Csrf, headers: &[(&str, &str)]) -> Answer {
+        let page = self.page.clone().unwrap_or_default();
+        let mut headers = headers.to_vec();
+        let body = form.map(|fields| {
+            let mut encoded = form_urlencoded::Serializer::new(String::new());
+            for (name, value) in fields { encoded.append_pair(name, value); }
+            if matches!(csrf, Csrf::Form | Csrf::Both) {
+                let action = path.split('?').next().unwrap();
+                encoded.append_pair("authenticity_token", &form_token(&page, action).unwrap_or_else(|| panic!("the last page has no form posting to {action}")));
+            }
+            headers.push(("content-type", "application/x-www-form-urlencoded"));
+            encoded.finish()
+        });
+        self.send_body(app, method, path, body, csrf, &headers).await
+    }
+
+    /// `send` with a body as it is, its type among `headers`: what a `fetch` call posts. `Csrf::Header` is the only token it carries.
+    pub async fn send_body(&mut self, app: &App, method: &str, path: &str, body: Option<String>, csrf: Csrf, headers: &[(&str, &str)]) -> Answer {
         let mut request = Request::builder().method(method).uri(path).header(header::HOST, HOST);
         if let Some(cookie) = &self.cookie {
             request = request.header(header::COOKIE, format!("{COOKIE}={cookie}"));
@@ -117,19 +134,7 @@ impl Browser {
         if matches!(csrf, Csrf::Header | Csrf::Both) {
             request = request.header("x-csrf-token", meta_token(&page).expect("the last page has a csrf-token meta tag"));
         }
-        let body = match form {
-            Some(fields) => {
-                let mut encoded = form_urlencoded::Serializer::new(String::new());
-                for (name, value) in fields { encoded.append_pair(name, value); }
-                if matches!(csrf, Csrf::Form | Csrf::Both) {
-                    let action = path.split('?').next().unwrap();
-                    encoded.append_pair("authenticity_token", &form_token(&page, action).unwrap_or_else(|| panic!("the last page has no form posting to {action}")));
-                }
-                request = request.header(header::CONTENT_TYPE, "application/x-www-form-urlencoded");
-                Body::from(encoded.finish())
-            }
-            None => Body::empty(),
-        };
+        let body = body.map_or_else(Body::empty, Body::from);
         let mut request = request.body(body).unwrap();
         request.extensions_mut().insert(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 40000))));
         let response = web::router(app.clone()).oneshot(request).await.unwrap();

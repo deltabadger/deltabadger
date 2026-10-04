@@ -99,7 +99,7 @@ pub fn bot(c: &Connection, id: i64) -> Result<Bot, FiguresError> {
     let base_asset_ids = match (kind, settings.get("allocations").and_then(Value::as_object)) {
         (Kind::Index, _) => vec![],
         (Kind::Basket, Some(weights)) if !weights.is_empty() => weights.keys().map(|k| to_i(&Value::String(k.clone()))).collect::<Result<Vec<_>, _>>()?,
-        (Kind::Basket, _) => settings.get("base_asset_ids").and_then(Value::as_array).map(|ids| ids.iter().map(to_i).collect::<Result<Vec<_>, _>>()).transpose()?.unwrap_or_default(),
+        (Kind::Basket, _) => settings.get("base_asset_ids").and_then(Value::as_array).map(|ids| ids.iter().map(to_i).collect::<Result<Vec<_>, _>>()).transpose()?.unwrap_or_default(), // allow-swallow: an Option; a basket with no assets saved has none
     };
     let exchange_type = match exchange_id {
         Some(e) => c.query_row("SELECT type FROM exchanges WHERE id = ?1", [e], |r| r.get::<_, Option<String>>(0)).optional()?.flatten(),
@@ -247,10 +247,10 @@ pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<
     let mut out = vec![];
     while let Some(r) = rows.next()? {
         budget::charge(1, 0)?;
-        let raw: Option<String> = r.get(2)?;
+        let raw: String = r.get(2)?;
         out.push(SplitRow {
             id: r.get(4)?, exchange_id: r.get(0)?, base_currency: r.get(1)?,
-            raw_data: raw.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null),
+            raw_data: serde_json::from_str(&raw).map_err(data)?,
             at: instant(&r.get::<_, String>(3)?)?,
         });
     }

@@ -191,8 +191,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     if feed {
         let (view, owner) = (ctx.clone(), user.clone());
         let body = match app.db(move |c| orders::feed(c, &view, &bot, &owner)).await {
-            Ok(Ok(body)) => body,
-            Ok(Err(reason)) => return Ok(layout::refused(&ctx, reason)),
+            Ok(body) => body,
             Err(error) => return layout::or_refused(&ctx, error),
         };
         return Ok((StatusCode::OK, [(axum::http::header::CONTENT_TYPE, crate::web::turbo::CONTENT_TYPE)], body).into_response());
@@ -208,7 +207,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let other_bots = others.query_map([user.id, bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
             .map(|row| row.map(|(id, label)| (ctx.path(&format!("/bots/{id}")), label.unwrap_or_default()))).collect::<Result<Vec<_>, _>>()?;
         let hide_money = user.hide_balances;
-        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str());
+        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
         let metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
@@ -258,7 +257,7 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     let csrf = ctx.csrf_token();
     let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
     let (view,owner,id,token)=(ctx.clone(),user.clone(),bot.id,csrf.clone());
-    let ready = app.db(move|c|Ok(crate::web::figure::loading::render(c,owner.id,&snapshot,view.locale,&token,&view.path(""))
+    let ready = app.db(move|c|Ok(crate::web::figure::loading::render(c,owner.id,&snapshot,view.locale,&token,&view.path(""))?
         .and_then(|v|v["bots"][id.to_string()]["chart"].as_str().map(str::to_string)))).await?;
     let chart = match ready { Some(ready)=>ready,None=>chart(&ctx,&bot,user.hide_balances)? };
     let body = ChartFrame { args: json(&serde_json::json!({ "bot_id": bot.id })), chart: &chart }.render()?;
