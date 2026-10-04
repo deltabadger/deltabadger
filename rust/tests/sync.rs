@@ -1333,3 +1333,102 @@ async fn under_the_scheduler_an_import_longer_than_one_run_goes_on_at_once_until
     let [run, success, error, incomplete] = record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id);
     assert!(run == success && success.starts_with("2026-09-20T02:0") && error == "none" && incomplete == "never", "{run} {success} {error} {incomplete}");
 }
+
+/// A restart under the scheduler, three ways. Nothing is stored about a run but its record, so each follows from the
+/// key's `rust_job` rows:
+/// - after a completed night, a start at 03:00 runs nothing until the next 02:00;
+/// - after a missed night, the start runs the ledger, then the balances, at once (2f's catch-up of a missed fire);
+/// - after a stop between two runs of a long import (its record: a run after the fire, `incomplete_since` set, and the
+///   self-wake lost with the process), the start goes on with the import at once, not at the next 02:00.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_restart_runs_what_a_stop_left_due_and_nothing_twice() {
+    let (dir, _db, s) = install();
+    let p = |path: &str, at: &str| (path.to_string(), at.to_string());
+    ran_at(dir.path(), s.api_key_id, "2026-09-20T02:00:05Z", "2026-09-20T02:30:05Z");
+    let clock = tokio_clock("2026-09-20T03:00:00Z");
+    let venue = Timed::new(&night_script(), clock);
+    let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
+    schedule(dir.path(), registered, &clock, vec![], 22 * HOUR).await; // to 01:00 the next day
+    assert_eq!(venue.sent(), vec![], "tonight's runs are done");
+    assert_eq!(record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id)[1], "2026-09-20T02:00");
+
+    let clock = tokio_clock("2026-09-22T09:00:00Z"); // the night of the 21st and the 22nd missed
+    let venue = Timed::new(&night_script(), clock);
+    let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
+    schedule(dir.path(), registered, &clock, vec![], 10 * MINUTE).await;
+    assert_eq!(venue.sent(), vec![p(ACTIVITIES_PATH, "09:00"), p("/v2/account", "09:00"), p("/v2/positions", "09:00"), p("/v2/stocks/snapshots", "09:00")],
+               "each once, the ledger first");
+    assert_eq!(record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id)[1], "2026-09-22T09:00");
+
+    // A long import, stopped after its first run at 02:00 (the record the runner writes for it).
+    let (dir, db, s) = install();
+    let server = Paged::new(long_history());
+    let three_pages = ledger::Limits { pages: 3, runs: 100 };
+    let first = tokio_clock("2026-09-20T02:00:00Z");
+    assert_eq!(LedgerSync::new(PagedVenues(server.clone()), s.api_key_id).within(three_pages).run(cx(&db, &first), vec![Wake::Schedule]).await, Outcome::NothingNew);
+    deltabadger::jobs::state::record_run(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), jobs::LEDGER_SYNC, Some(&s.api_key_id.to_string()),
+                                         "2026-09-20T02:00:10Z".parse().unwrap()).unwrap();
+    let clock = tokio_clock("2026-09-20T03:00:00Z");
+    let job = LedgerSync::new(PagedVenues(server.clone()), s.api_key_id).within(three_pages);
+    schedule(dir.path(), vec![Box::new(job)], &clock, vec![], 10 * MINUTE).await;
+    assert_eq!((server.asked().len(), one::<i64>(&db, "SELECT count(*) FROM account_transactions").await), (11, 1_050), "the import went on from its third page");
+    let [_, success, _, incomplete] = record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id);
+    assert!(success.starts_with("2026-09-20T03:0") && incomplete == "never", "{success} {incomplete}");
+}
+
+/// Codex round 1: the balances, too, are marked incomplete before their first write unit. A hand run of the balances
+/// after the night's success, stopped between two units, leaves some holdings new and some old; the next start runs the
+/// balance sync at once instead of tomorrow at 02:30.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same_day_success() {
+    let (dir, db, s) = install();
+    let night = FixedClock("2026-09-20T02:30:05Z".parse().unwrap());
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &night).await.unwrap().unwrap();
+    ran_at(dir.path(), s.api_key_id, "2026-09-20T02:00:05Z", "2026-09-20T02:30:05Z");
+    let mut script = balances_script();
+    script["GET /v2/account"] = json!([ok(json!({ "cash": "200" }))]);
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "qty": "3" }]))]);
+    // Observe through another connection: only committed rows can end the run. The first balance batch updates
+    // USD and AAPL; the obsolete BTC holding is removed in a later unit, after WRITE_GAP.
+    let observer = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let rows = || {
+        observer.prepare("SELECT assets.symbol, b.free, b.locked, b.usd_value, b.synced_at FROM account_balances b \
+                          JOIN assets ON assets.id = b.asset_id ORDER BY assets.symbol").unwrap()
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?, r.get::<_, f64>(2)?, r.get::<_, Option<f64>>(3)?, r.get::<_, String>(4)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap()
+    };
+    let morning = tokio_clock("2026-09-20T11:00:00Z");
+    let stopped = BalanceSync::new(Scripted(ScriptedTransport::from_script(&script)), Rc::new(NoPrices), s.api_key_id);
+    {
+        let committed_batch = async {
+            loop {
+                if rows().iter().any(|(symbol, free, _, _, _)| symbol == "USD" && *free == 200.0) { break; }
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        };
+        tokio::select! {
+            result = stopped.run(cx(&db, &morning), vec![Wake::Manual(None)]) => panic!("run ended before interruption: {result:?}"),
+            result = tokio::time::timeout(MINUTE, committed_batch) => result.expect("a balance batch committed before interruption"),
+        }
+    }
+    assert_eq!(rows(), vec![
+        ("AAPL".into(), 3.0, 0.0, Some(682.56), "2026-09-20 11:00:00".into()),
+        ("BTC".into(), 0.5, 0.0, None, "2026-09-20 02:30:05".into()),
+        ("USD".into(), 200.0, 0.0, Some(200.0), "2026-09-20 11:00:00".into()),
+    ], "committed new quantities and an obsolete holding remain after the stop");
+    assert_eq!(one::<String>(&db, "SELECT balances_synced_at FROM api_keys").await, "2026-09-20 02:30:05", "the interrupted run did not advance the watermark");
+    assert!(write_lock_is_free(dir.path()), "no transaction is left open");
+    let clock = tokio_clock("2026-09-20T15:00:00Z");
+    let venue = Timed::new(&script, clock);
+    schedule(dir.path(), vec![Box::new(BalanceSync::new(venue.clone(), Rc::new(NoPrices), s.api_key_id))], &clock, vec![], 10 * MINUTE).await;
+    let p = |path: &str, at: &str| (path.to_string(), at.to_string());
+    assert_eq!(venue.sent(), vec![p("/v2/account", "15:00"), p("/v2/positions", "15:00"), p("/v2/stocks/snapshots", "15:00")], "repaired at the start");
+    assert_eq!(rows(), vec![
+        ("AAPL".into(), 3.0, 0.0, Some(682.56), "2026-09-20 15:00:00".into()),
+        ("USD".into(), 200.0, 0.0, Some(200.0), "2026-09-20 15:00:00".into()),
+    ], "the restart refreshed the balances and removed the obsolete holding");
+    assert_eq!(one::<String>(&db, "SELECT balances_synced_at FROM api_keys").await, "2026-09-20 15:00:00");
+    let [_, success, _, incomplete] = record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id);
+    assert_eq!((success.as_str(), incomplete.as_str()), ("2026-09-20T15:00", "never"));
+}

@@ -241,6 +241,9 @@ impl Scheduler {
             let Some(schedule) = s.spec.schedule else { continue };
             let (name, scope) = (s.spec.name, s.spec.scope.clone());
             let last = match self.db.run(move |c, _| state::read(c, name, scope.as_deref())).await {
+                // A run left its data incomplete (an import stopped between two runs, its self-wake lost with the process):
+                // its latest fire is not served, so the job is due at once.
+                Ok(st) if st.incomplete_since.is_some() => None,
                 Ok(st) => st.last_run_at.max(st.last_success_at),
                 Err(e) => { log(&format!("[jobs] {name}: state unreadable ({e}); treated as never run")); None }
             };

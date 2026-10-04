@@ -115,6 +115,10 @@ impl<C: Connect> Job for BalanceSync<C> {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
             let credentials = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return Outcome::Failed(e) };
+            // As the ledger: from before the first write unit until a complete success, the key's balances may be half
+            // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
+            let (key, at) = (self.key_id.to_string(), cx.clock.now());
+            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
             outcome(balances::sync(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock).await, |_| true)
         })
     }
