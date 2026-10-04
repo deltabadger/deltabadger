@@ -73,7 +73,7 @@ async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_
     let t = ScriptedTransport::default();
     t.reply("GET /api/v2/listings?venue=alpaca_crypto", 200, json!({ "data": listings }));
     let api = DataApi::new(Config { url: "http://data-api:3000".into(), token: "tok".into() }, t.clone(), t.clone());
-    let run = Cx { db: Db::new(store::open(&p).unwrap().primary, seed::cipher()), clock: &FixedClock(at("2026-10-01T10:15:00Z")) };
+    let run = Cx { db: Db::new(store::open(&p).unwrap().primary, seed::cipher()), clock: &FixedClock(at("2026-10-01T10:15:00Z")), wakers: Default::default() };
     let out = reference::run_once(reference::ALPACA_CRYPTO, Some(api), run).await;
     assert!(matches!(&out, Outcome::Failed(m) if m.contains("late failure")), "{out:?}");
     state::record_error(&o.primary, reference::ALPACA_CRYPTO, None, at("2026-10-01T10:15:00Z"), "late failure").unwrap(); // as the runner records it

@@ -53,8 +53,10 @@ pub type JobFuture<'a> = Pin<Box<dyn Future<Output = Outcome> + 'a>>;
 /// than one chunk.
 pub const CHUNK: usize = 500;
 
-/// What a run gets: the scheduler's database handle and the clock.
-pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock }
+/// What a run gets: the scheduler's database handle, the clock, and the runner's wakers, so a run that ends early can
+/// wake itself to go on (S-7.7: the runner runs it again as soon as it is free, other due jobs first). Outside the
+/// scheduler (a hand-run job, a test), `Wakers::default()`: such a wake reaches no runner.
+pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock, pub wakers: Wakers }
 
 /// The scheduler's connection for job work (a `store::open` of its own) and the instance's cipher.
 #[derive(Clone)]
@@ -316,7 +318,7 @@ impl Scheduler {
         wakes.append(&mut s.pending);
         s.pending_since = None;
         let (name, scope, deadline) = (s.spec.name, s.spec.scope.clone(), s.spec.deadline);
-        let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock }, wakes.clone()));
+        let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock, wakers: self.wakers.clone() }, wakes.clone()));
         let outcome = tokio::select! {
             o = run => o.unwrap_or_else(|_| Outcome::Failed(format!("dropped past its {deadline:?} deadline"))),
             _ = stop.wait_for(|stopped| *stopped) => {

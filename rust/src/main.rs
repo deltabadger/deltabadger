@@ -311,7 +311,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let spec = job.spec();
         let name = format!("{}:{}", spec.name, spec.scope.as_deref().unwrap_or_default());
-        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)]));
+        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock, wakers: Default::default() }, vec![Wake::Manual(None)]));
         let recorded = rt.block_on(db.run(move |c, _| {
             use deltabadger::jobs::state;
             let at = chrono::Utc::now();

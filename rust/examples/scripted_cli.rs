@@ -354,7 +354,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let spec = job.spec();
         let name = format!("{}:{}", spec.name, spec.scope.unwrap_or_default());
-        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock }, vec![Wake::Manual(None)])) {
+        match rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock, wakers: Default::default() }, vec![Wake::Manual(None)])) {
             Outcome::Done => println!("{name}: done"),
             // An import larger than one run reads: what was read is stored, and the next run continues.
             Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),

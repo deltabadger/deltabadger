@@ -398,7 +398,7 @@ impl Connect for Scripted {
     type T = ScriptedTransport;
     fn connect(&self, _: &Credentials) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(None)) }
 }
-fn cx<'a>(db: &Db, clock: &'a dyn Clock) -> Cx<'a> { Cx { db: db.clone(), clock } }
+fn cx<'a>(db: &Db, clock: &'a dyn Clock) -> Cx<'a> { Cx { db: db.clone(), clock, wakers: Default::default() } }
 
 #[test]
 fn each_reading_key_gets_a_ledger_job_and_a_balance_job_scoped_by_its_id() {
@@ -1225,4 +1225,111 @@ async fn a_split_that_moves_no_counter_still_passes_the_engines_guard() {
     assert_eq!(refused, format!("{GUARD_REFUSED}: bot {bot} (scheduled): 1 split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)"));
     assert_eq!(one::<String>(&db, "SELECT (SELECT group_concat(tx_id) FROM account_transactions) || ', watermark ' || coalesce(last_synced_at, 'none') FROM api_keys").await,
                "i1, watermark none", "the unit before the split stays; the split is not stored, and the bot stays one the engine runs");
+}
+
+/// Wall time that follows tokio's clock, so a paused test runtime moves it (as in tests/jobs.rs).
+#[derive(Clone, Copy)]
+struct TokioClock { start: chrono::DateTime<chrono::Utc>, origin: tokio::time::Instant }
+impl Clock for TokioClock {
+    fn now(&self) -> chrono::DateTime<chrono::Utc> { self.start + chrono::Duration::from_std(self.origin.elapsed()).unwrap() }
+}
+fn tokio_clock(at: &str) -> TokioClock { TokioClock { start: at.parse().unwrap(), origin: tokio::time::Instant::now() } }
+const MINUTE: std::time::Duration = std::time::Duration::from_secs(60);
+const HOUR: std::time::Duration = std::time::Duration::from_secs(3600);
+
+/// The script's answers, and when (on the test's clock, "HH:MM") each request was sent and to which path.
+#[derive(Clone)]
+struct Timed { inner: ScriptedTransport, clock: TokioClock, sent: Rc<RefCell<Vec<(String, String)>>> }
+impl Timed {
+    fn new(script: &Value, clock: TokioClock) -> Self { Self { inner: ScriptedTransport::from_script(script), clock, sent: Rc::default() } }
+    fn sent(&self) -> Vec<(String, String)> { self.sent.borrow().clone() }
+}
+impl Transport for Timed {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        self.sent.borrow_mut().push((r.path.to_string(), self.clock.now().format("%H:%M").to_string()));
+        self.inner.send(r).await
+    }
+}
+impl Connect for Timed {
+    type T = Timed;
+    fn connect(&self, _: &Credentials) -> AlpacaVenue<Timed> { AlpacaVenue::new(self.clone(), Urls::for_passphrase(None)) }
+}
+
+/// Runs the real scheduler over `jobs` on the install's file, as `serve` does (its own connection, the engine's
+/// events), for `virtual_time` of the test's clock, sending each event at its offset; then stops it.
+async fn schedule(dir: &Path, jobs: Vec<Box<dyn Job>>, clock: &TokioClock, events: Vec<(std::time::Duration, EngineEvent)>, virtual_time: std::time::Duration) {
+    let mut engine = deltabadger::engine::events::EngineEvents::default();
+    let rx = engine.subscribe();
+    let s = deltabadger::jobs::Scheduler::new(Connection::open(dir.join("production.sqlite3")).unwrap(), seed::cipher(), jobs, Some(rx));
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let (ended, ()) = tokio::join!(s.run(stopped, clock), async {
+        let mut at = std::time::Duration::ZERO;
+        for (offset, e) in events { tokio::time::sleep(offset - at).await; at = offset; engine.send(e); }
+        tokio::time::sleep(virtual_time - at).await;
+        stop.send(true).unwrap();
+    });
+    ended.unwrap();
+}
+
+/// A job's record, `rust_job.<name>:<api_key_id>`: (last run, last success, last error, incomplete since), minutes.
+fn record(dir: &Path, job: &str, key: i64) -> [String; 4] {
+    let c = Connection::open(dir.join("production.sqlite3")).unwrap();
+    let s = deltabadger::jobs::state::read(&c, job, Some(&key.to_string())).unwrap();
+    let t = |t: Option<chrono::DateTime<chrono::Utc>>| t.map_or("never".to_string(), |t| t.format("%Y-%m-%dT%H:%M").to_string());
+    [t(s.last_run_at), t(s.last_success_at), s.last_error.unwrap_or_else(|| "none".into()), t(s.incomplete_since)]
+}
+
+fn ran_at(dir: &Path, key: i64, ledger: &str, balances: &str) {
+    let c = Connection::open(dir.join("production.sqlite3")).unwrap();
+    let key = key.to_string();
+    deltabadger::jobs::state::record_success(&c, jobs::LEDGER_SYNC, Some(&key), ledger.parse().unwrap()).unwrap();
+    deltabadger::jobs::state::record_success(&c, jobs::BALANCE_SYNC, Some(&key), balances.parse().unwrap()).unwrap();
+}
+
+fn night_script() -> Value {
+    let mut script = balances_script();
+    script[ACTIVITIES] = json!([ok(json!([interest("i1", "2026-09-01")]))]);
+    script
+}
+const ACTIVITIES_PATH: &str = "/v2/account/activities";
+
+/// Rails' cadence under the real scheduler, as `serve` registers the jobs: each reading key's ledger sync at 02:00 UTC
+/// (sync_all_account_transactions_job, "0 2 * * *"), its balance sync at 02:30 (sync_all_account_balances_job,
+/// "30 2 * * *"), and the ledger again whenever the engine records an order (Transaction's after_create_commit). Each
+/// run is recorded in the key's own `rust_job.<name>:<api_key_id>` row.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn under_the_scheduler_the_ledger_runs_at_two_the_balances_at_half_past_and_an_order_wakes_the_ledger() {
+    let (dir, _db, s) = install();
+    ran_at(dir.path(), s.api_key_id, "2026-09-19T02:00:05Z", "2026-09-19T02:30:05Z"); // last night, by Rails: nothing is due at the start
+    let clock = tokio_clock("2026-09-19T12:00:00Z");
+    let venue = Timed::new(&night_script(), clock);
+    let registered = jobs::register(&Connection::open(dir.path().join("production.sqlite3")).unwrap(), &venue, Rc::new(NoPrices)).unwrap();
+    let order = EngineEvent::OrderRecorded { bot_id: 1, transaction_id: 1 };
+    schedule(dir.path(), registered, &clock, vec![(HOUR, order)], 15 * HOUR).await; // 12:00 to 03:00 the next day
+    let p = |path: &str, at: &str| (path.to_string(), at.to_string());
+    assert_eq!(venue.sent(), vec![p(ACTIVITIES_PATH, "13:00"), p(ACTIVITIES_PATH, "02:00"),
+                                  p("/v2/account", "02:30"), p("/v2/positions", "02:30"), p("/v2/stocks/snapshots", "02:30")]);
+    assert_eq!(record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id), ["2026-09-20T02:00", "2026-09-20T02:00", "none", "never"].map(String::from));
+    assert_eq!(record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id), ["2026-09-20T02:30", "2026-09-20T02:30", "none", "never"].map(String::from));
+}
+
+/// 1,050 activities a minute apart, as `Paged` serves them.
+fn long_history() -> Vec<Value> {
+    let start: chrono::DateTime<chrono::Utc> = "2026-03-01T00:00:00Z".parse().unwrap();
+    (0..1_050i64).map(|i| json!({ "id": format!("a-{i:04}"), "activity_type": "INT", "net_amount": "0.07", "transaction_time": (start + chrono::Duration::minutes(i)).to_rfc3339() })).collect()
+}
+
+/// Plan 2f S-7.7: a ledger import longer than one run (three pages a run here; 500 for the jobs) wakes itself and goes on
+/// as soon as the runner is free, as Rails' one job reads the whole history at once, instead of waiting for the next
+/// order or the next night.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn under_the_scheduler_an_import_longer_than_one_run_goes_on_at_once_until_it_is_whole() {
+    let (dir, db, s) = install();
+    let server = Paged::new(long_history());
+    let job = LedgerSync::new(PagedVenues(server.clone()), s.api_key_id).within(ledger::Limits { pages: 3, runs: 100 });
+    let clock = tokio_clock("2026-09-20T02:00:00Z"); // never ran here: due at once
+    schedule(dir.path(), vec![Box::new(job)], &clock, vec![], 10 * MINUTE).await;
+    assert_eq!((server.asked().len(), one::<i64>(&db, "SELECT count(*) FROM account_transactions").await), (11, 1_050), "four runs: 3, 3, 3 and 2 pages");
+    let [run, success, error, incomplete] = record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id);
+    assert!(run == success && success.starts_with("2026-09-20T02:0") && error == "none" && incomplete == "never", "{run} {success} {error} {incomplete}");
 }

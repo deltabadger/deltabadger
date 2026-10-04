@@ -65,7 +65,7 @@ pub async fn run_within_deadline(job: &dyn Job, cx: Cx<'_>, wakes: Vec<Wake>) ->
 /// `ledger_sync`, scoped by the key: Rails' `AccountTransaction::SyncJob` for one key. It runs nightly at 02:00 UTC
 /// (`AccountTransaction::SyncAllJob`'s fan-out, recurring key `sync_all_account_transactions_job`) and after every
 /// order row the engine records (`Transaction`'s after_create_commit). No retry: Rails' job declares none, and the
-/// next order or the next night is the retry.
+/// next order or the next night is the retry. An import longer than one run wakes itself and goes on at once.
 pub struct LedgerSync<C: Connect> { venues: C, key_id: i64, limits: ledger::Limits }
 
 impl<C: Connect> LedgerSync<C> {
@@ -89,7 +89,11 @@ impl<C: Connect> Job for LedgerSync<C> {
             let key = self.key_id.to_string();
             let at = cx.clock.now();
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-            outcome(ledger::sync_within(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits).await, |out| out.complete)
+            let outcome = outcome(ledger::sync_within(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits).await, |out| out.complete);
+            // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
+            // whole history at once; other due jobs run in between.
+            if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
+            outcome
         })
     }
 }
