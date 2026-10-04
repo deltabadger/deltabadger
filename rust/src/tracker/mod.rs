@@ -13,6 +13,7 @@
 //! fee carried on a row, cash in another currency, a linked transfer of anything but dollars, a trade leg with no cash
 //! quote of its own; and so is a walk that needs a price it cannot get (CoinGecko's, one two fetches did not bring, or one no coin can be named for).
 //! Rails computes those (Plan D4b, or at a zero basis); this build states no figure rather than a wrong one.
+pub mod backfill;
 pub mod figures;
 pub mod prices;
 pub mod rows;
