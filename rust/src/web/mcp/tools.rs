@@ -54,12 +54,18 @@ fn exchanges(c:&Connection,user:i64)->Result<String,WebError>{
     for row in rows{let (name,status)=row?;lines.push(format!("- {name} | API key status: {}",["pending_validation","correct","incorrect","pending_activation"].get(status).copied().unwrap_or("")));}
     Ok(if lines.is_empty(){"No exchanges connected. Add an API key when creating a bot.".into()}else{format!("Connected Exchanges ({}):\n{}",lines.len(),lines.join("\n"))})
 }
-pub(super) fn number(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
+fn decimal(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<crate::ruby::BigDec>> {
     let value = r.get_ref(col)?;
     // Preserve SQLite INTEGER digits; retain the existing REAL and TEXT decimal conversions.
     crate::ruby::from_sql(value)
-        .map(|v| v.map(|d| d.to_s_f()))
         .map_err(|e| rusqlite::Error::FromSqlConversionFailure(col, value.data_type(), format!("{e:?}").into()))
+}
+pub(super) fn number(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
+    Ok(decimal(r,col)?.map(|d|d.to_s_f()))
+}
+/// Polling persists zero for an unknown price; every stored MCP price uses Rails' nil branch.
+pub(super) fn price(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
+    Ok(decimal(r,col)?.filter(|d|!d.is_zero()).map(|d|d.to_s_f()))
 }
 fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
     let bot=args["bot_id"].as_f64().map(|v|v as i64);
@@ -68,7 +74,7 @@ fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
     let limit=if raw<=0{20}else{raw.min(100)};
     let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
     let mut q=c.prepare("SELECT t.created_at,t.side,t.status,t.amount_exec,t.base,t.price,t.quote,t.quote_amount_exec FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.id=?2) ORDER BY t.created_at DESC LIMIT ?3")?;
-    let rows=q.query_map(rusqlite::params![user,bot,limit],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,usize>(2)?,number(r,3)?,r.get::<_,Option<String>>(4)?,number(r,5)?,r.get::<_,Option<String>>(6)?,number(r,7)?)))?;
+    let rows=q.query_map(rusqlite::params![user,bot,limit],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,usize>(2)?,number(r,3)?,r.get::<_,Option<String>>(4)?,price(r,5)?,r.get::<_,Option<String>>(6)?,number(r,7)?)))?;
     let mut lines=vec![];
     for row in rows{
         let (time,side,status,amount,base,price,quote,cost)=row?;

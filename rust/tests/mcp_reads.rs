@@ -111,7 +111,7 @@ async fn four_reads_match_rails() {
         }
         actual.push((dir,steps,got));
     }
-    assert_eq!(actual.len(),90,"all recorded M3 scenarios");
+    assert_eq!(actual.len(),92,"all recorded M3 scenarios");
     common::rails(boot.path(),"test",&["runner","script/rust/mcp.rb","record",root.path().to_str().unwrap()]);
     if let Ok(root)=std::env::var("M3_RECORDINGS"){
         for (dir,_,got) in &actual {
@@ -153,6 +153,7 @@ async fn four_reads_match_rails() {
             "m3_unpriced"=>vec![("Global P/L: -13.83%\nProfit (USD): $-117.15","Global P/L: Not available (needs market data)")],
             "m3_unmapped_cash"=>vec![("All balances on Alpaca are zero.","Balances could not be fully read: unmapped nonzero cash")],
             "m3_unmapped_position"=>vec![("All balances on Alpaca are zero.","Balances could not be fully read: unmapped nonzero position")],
+            "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)"),("@ 0.0 USD","")],
             "m3_market_no_price"=>vec![("AAA/USD @ 0 (Market order)","AAA/USD  (Market order)")],
             "m3_limit_no_price"=>vec![("AAA/USD @ 0 (Limit order)","AAA/USD  (Limit order)")],
             "m3_empty_redeploy_minimum"=>vec![("Redeploy offer (answer with answer_redeploy_offer): 0.01 USD","Redeploy unavailable: no composition minimum")],
@@ -270,4 +271,67 @@ async fn bounds_transport(dir:&Path,steps:&Value){
     let got=play(copy.path(),&[ready.to_vec(),vec![order]].concat(),None).await;
     let body=got["responses"].as_array().unwrap().last().unwrap()["body"].as_str().unwrap();
     assert!(body.contains("Read unavailable: response exceeds 65536 bytes"),"final text cap {body}");
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn polled_open_market_zero_price_uses_the_nil_branch() {
+    use common::seed::{self,BotSpec,TxSpec};
+    use deltabadger::{engine::polling,venue::alpaca::parse_order,web::mcp::{reads,tools::Called}};
+    let (dir,o,s)=common::install_alpaca();
+    let bot=seed::insert_bot(&o.primary,&s,&BotSpec::weekly(60.0,"2026-09-01 10:00:00"));
+    let tx=seed::insert_tx(&o.primary,&s,bot,&TxSpec{status:0,external_status:Some(0),external_id:Some("polled-market".into()),order_type:0,amount:Some("2"),quote_amount:None,price:None,quote_amount_exec:None,amount_exec:None,created_at:"2026-09-10 12:00:00".into()});
+    let state=parse_order("polled-market",&json!({"status":"new","side":"buy","type":"market","qty":"2","filled_qty":"0","symbol":"BTC/USD"})).unwrap();
+    polling::apply_in(&o.primary,bot,tx,&state,true,AT.parse().unwrap()).unwrap();
+    let stored:(f64,f64,i64)=o.primary.query_row("SELECT price,amount_exec,external_status FROM transactions WHERE id=?1",[tx],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+    assert_eq!(stored,(0.0,0.0,1),"polling persists its unknown sentinel");
+    o.primary.execute("DELETE FROM api_keys",[]).unwrap();
+    o.primary.execute("UPDATE users SET time_zone='UTC'",[]).unwrap();
+    let app=web::app(dir.path(),web::SECRET,TestClock::at(AT));
+    let before=snapshot(dir.path())["transactions"].clone();
+    let Called::Fetch(fetch)=reads::plan(&o.primary,&app,s.user_id,"list_open_orders",&json!({})).unwrap() else{panic!("orders fetch")};
+    let got=reads::finish(&o.primary,reads::fetch(&app,fetch).await).unwrap();
+    assert_eq!(got["content"][0]["text"],format!("Open orders (1):\n- [2026-09-10 12:00] #{tx} BUY 2.0 BTC/USD  (Market order) | Alpaca | ext: polled-market"));
+    // Read the actual engine-polled database through the unchanged Rails service/presenter.
+    let boot=tempfile::tempdir().unwrap();
+    let oracle=dir.path().join("polled-rails.json");
+    common::rails(boot.path(),"test",&["runner",r#"ActiveRecord::Base.establish_connection(adapter: 'sqlite3',database: File.join(ARGV[0],'production.sqlite3')); Time.zone='UTC'; order=BotApi::Orders::ListOpen.call(user: User.find(ARGV[1])).data[:orders].sole; presenter=ListOpenOrdersTool.allocate; File.write(ARGV[2],JSON.generate(zero: presenter.send(:db_line,order),nil: presenter.send(:db_line,order.merge(price: nil))))"#,dir.path().to_str().unwrap(),&s.user_id.to_string(),oracle.to_str().unwrap()]);
+    let rails=read(&oracle);
+    let line=got["content"][0]["text"].as_str().unwrap().strip_prefix("Open orders (1):\n").unwrap();
+    assert!(rails["zero"].as_str().unwrap().contains("@ 0.0"));
+    assert_eq!(line,rails["nil"].as_str().unwrap(),"exact Rails no-price branch");
+    if let Ok(root)=std::env::var("M3_RECORDINGS") {
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(Path::new(&root).join("polled-engine.json"),serde_json::to_string_pretty(&json!({"stored_price":stored.0,"stored_amount_exec":stored.1,"external_status":stored.2,"rails_stored_zero":rails["zero"],"rails_nil_price":rails["nil"],"rust_stored_zero":line})).unwrap()).unwrap();
+    }
+    assert_eq!(snapshot(dir.path())["transactions"],before,"MCP preserves the persisted zero");
+    o.primary.execute("UPDATE transactions SET price=NULL",[]).unwrap();
+    let Called::Fetch(fetch)=reads::plan(&o.primary,&app,s.user_id,"list_open_orders",&json!({})).unwrap() else{panic!("orders fetch")};
+    assert_eq!(reads::finish(&o.primary,reads::fetch(&app,fetch).await).unwrap(),got);
+}
+
+#[test]
+fn mcp_transaction_zero_price_uses_the_nil_branch() {
+    use common::seed::{self,BotSpec,TxSpec};
+    use deltabadger::web::{bearer::Bearer,mcp::tools::{self,Called}};
+    let (dir,o,s)=common::install_alpaca();
+    let bot=seed::insert_bot(&o.primary,&s,&BotSpec::weekly(60.0,"2026-09-01 10:00:00"));
+    seed::insert_tx(&o.primary,&s,bot,&TxSpec{status:0,external_status:Some(2),external_id:Some("filled".into()),order_type:0,amount:Some("2"),quote_amount:None,price:None,quote_amount_exec:Some("200"),amount_exec:Some("2"),created_at:"2026-09-10 12:00:00".into()});
+    o.primary.execute("UPDATE users SET time_zone='UTC'",[]).unwrap();
+    o.primary.execute("INSERT INTO oauth_applications(name,uid,personal_access_token,personal_owner_id,created_at,updated_at) VALUES('test','test',1,?1,'2026-09-10','2026-09-10')",[s.user_id]).unwrap();
+    let who=Bearer{user_id:s.user_id,application_id:o.primary.last_insert_rowid(),token_id:1};
+    let app=web::app(dir.path(),web::SECRET,TestClock::at(AT));
+    let read=||{
+        let Called::Done(result)=tools::call(&o.primary,&app,who,"list_transactions",&json!({})).unwrap() else{panic!("local transaction read")};
+        result["content"][0]["text"].as_str().unwrap().to_owned()
+    };
+    let absent=read();
+    assert_eq!(absent,"Transactions (1):\n- [2026-09-10 12:00] BUY 2.0 BTC  (200.0 USD) | submitted");
+    for zero in ["0","0.0","'0.000'","'-0.0'"] {
+        o.primary.execute_batch(&format!("UPDATE transactions SET price={zero}")).unwrap();
+        assert_eq!(read(),absent,"stored {zero} is unknown");
+    }
+    o.primary.execute_batch("UPDATE transactions SET quote_amount_exec=NULL").unwrap();
+    assert_eq!(read(),"Transactions (1):\n- [2026-09-10 12:00] BUY 2.0 BTC   | submitted");
+    o.primary.execute_batch("UPDATE transactions SET price=100.5").unwrap();
+    assert!(read().contains("@ 100.5 USD"));
 }

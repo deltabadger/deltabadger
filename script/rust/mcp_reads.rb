@@ -88,6 +88,15 @@ module McpReads
       no_price['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open']['body'] = [{ 'id' => 'no-price', 'symbol' => 'AAA', 'status' => 'new', 'side' => 'buy', 'type' => kind, 'qty' => '2', 'filled_qty' => '0' }]
       result["m3_#{kind}_no_price"] = [no_price, McpParity.ready + [calls[1].merge('sql' => ['DELETE FROM transactions'])]]
     end
+    # Persisted polling sentinel: the engine regression exercises apply_in for this state.
+    %w[zero null].each do |price_kind|
+      stored = price_kind == 'zero' ? '0' : 'NULL'
+      setup = ['DELETE FROM transactions',
+               "INSERT INTO transactions(id,bot_id,exchange_id,external_id,status,external_status,side,order_type,amount,amount_exec,quote_amount_exec,price,base,quote,created_at,updated_at) VALUES(9001,1,1,'polled-market',0,1,0,0,2,0,0,#{stored},'AAA','USD','2026-09-10 12:00:00','2026-09-10 12:00:00')"]
+      sc = zero.deep_dup
+      sc['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open'] = Figures.ok([])
+      result["m3_stored_#{price_kind}_price"] = [sc, McpParity.ready + [calls[1].merge('sql' => setup), McpParity.tool('list_transactions')]]
+    end
     result['m3_inactive_order_ticker'] = [index, McpParity.ready + [calls[1].merge('sql' => ['UPDATE tickers SET available=0,trading_enabled=0'])]]
     result['m3_inactive_pair_ticker'] = [pair.deep_dup.tap { |v| v['bots'] = [v['bots'].first] }, McpParity.ready + [McpParity.tool('get_bot_details', bot_id: 1).merge('sql' => ['UPDATE tickers SET available=0,trading_enabled=0']), calls.last]]
     null_fill = pair.deep_dup

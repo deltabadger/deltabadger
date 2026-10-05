@@ -146,7 +146,7 @@ fn local_orders(c:&Connection,user:i64,exchange:Option<i64>)->Result<(Vec<String
     if !read_limits::count(n,read_limits::LOCAL_ORDERS){return Ok((vec![read_limits::REFUSAL.into()],HashSet::new()))}
     let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
     let mut q=c.prepare("SELECT t.id,t.created_at,t.side,t.amount,t.base,t.quote,t.price,t.order_type,e.name,t.external_id FROM transactions t JOIN bots b ON b.id=t.bot_id JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.status=0 AND t.external_status=1 AND (?2 IS NULL OR t.exchange_id=?2) ORDER BY t.created_at DESC LIMIT 100")?;
-    let rows=q.query_map(rusqlite::params![user,exchange],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,Option<i64>>(2)?,tools::number(r,3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,tools::number(r,6)?,r.get::<_,Option<i64>>(7)?,r.get::<_,String>(8)?,r.get::<_,Option<String>>(9)?)))?;
+    let rows=q.query_map(rusqlite::params![user,exchange],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,Option<i64>>(2)?,tools::number(r,3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,tools::price(r,6)?,r.get::<_,Option<i64>>(7)?,r.get::<_,String>(8)?,r.get::<_,Option<String>>(9)?)))?;
     let mut lines=vec![];let mut ids=HashSet::new();
     for row in rows{
         let (id,time,side,amount,base,quote,price,kind,name,ext)=row?;
