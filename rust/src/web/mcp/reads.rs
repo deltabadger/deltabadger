@@ -206,7 +206,7 @@ fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value)->Result<Str
     }else{
         let ids=if pair_kind(kind){s["base_asset_id"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s["allocations"].as_object().filter(|a|!a.is_empty()){a.keys().map(|k|crate::ruby::to_i(k)).collect()}else{s["base_asset_ids"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};
         let assets=figures::db::asset_names(c,&ids).map_err(fail_fig)?;
-        if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{
+        if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; Rails generates bot.new below.
             let symbols=ids.iter().filter_map(|id|assets.iter().find(|(asset,_,_)|asset==id).and_then(|(_,symbol,_)|symbol.as_deref())).collect::<Vec<_>>();
             let label=symbols.iter().take(3).copied().collect::<Vec<_>>().join(", ");
             if symbols.len()>3{format!("{label} + {}",symbols.len()-3)}else{label}
