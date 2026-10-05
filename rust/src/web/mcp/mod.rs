@@ -1,5 +1,7 @@
 //! actionmcp 0.201.0's non-streaming transport on its existing SQLite tables.
 pub mod protocol;
+pub mod reads;
+pub mod read_limits;
 pub mod tools;
 use super::{App,WebError,bearer};
 use axum::{body::to_bytes,extract::Request,http::{HeaderMap,Method,StatusCode},response::{Response,IntoResponse}};
@@ -9,14 +11,18 @@ use base64::{Engine,engine::general_purpose::{URL_SAFE,URL_SAFE_NO_PAD}};
 use rand::RngCore;
 use protocol::{error,result,metadata};
 const VERSION:&str="2025-11-25";
-pub fn instructions(c:&Connection)->Result<String,WebError>{
+/// `Exchange.tradeable.pluck(:name)`: available and not retired.
+pub fn tradeable(c:&Connection)->Result<Vec<String>,WebError>{
     let mut q=c.prepare("SELECT name FROM exchanges WHERE available=1 AND type NOT IN ('Exchanges::Bitmart')")?;
-    let exchanges=q.query_map([],|r|r.get::<_,String>(0))?.collect::<Result<Vec<_>,_>>()?.join(", ");
+    let names=q.query_map([],|r|r.get::<_,String>(0))?.collect::<Result<Vec<_>,_>>()?; Ok(names)
+}
+pub fn instructions(c:&Connection)->Result<String,WebError>{
+    let exchanges=tradeable(c)?.join(", ");
     Ok(format!("Deltabadger is a user's personal investing server. Available exchanges: {exchanges}.\nSupports both cryptocurrency and stocks/ETFs (via Alpaca).\nTrading is available either via DCA bots, or by direct access to connected exchanges\nWhen the user asks to trade stocks or ETFs (e.g., QQQM, SPY, AAPL), use the Alpaca exchange.\nUse list_exchanges to see which exchanges the user has connected before placing orders."))
 }
 fn response(status:u16,body:Option<Value>,controller:bool)->Response {
     let content=if controller{"application/json; charset=utf-8"}else{"application/json"};
-    let text=body.map(|v|v.to_string()).unwrap_or_default();
+    let text=body.map(|v|super::bots::json(&v)).unwrap_or_default(); // No response body for notifications; the Option is intentional.
     let mut r=(StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),[("content-type",content),("cache-control",if status==200{"max-age=0, private, must-revalidate"}else{"no-cache"})],text).into_response();
     if controller || matches!(status,200|202|204|405) { let status=r.status();super::headers::controller_defaults(r.headers_mut(),status,false); }
     if status==204{r.headers_mut().remove("content-type");}
@@ -84,19 +90,40 @@ pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Respon
         let who=match bearer::authenticate(c,auth.as_deref(),"mcp",app2.clock.as_ref())?{
             Ok(w)=>w,Err(why)=>{
                 let message=match why{bearer::Refusal::Missing=>"Missing bearer token",bearer::Refusal::Invalid=>"Invalid access token",bearer::Refusal::Revoked=>"Access token revoked",bearer::Refusal::Expired=>"Access token expired",bearer::Refusal::InsufficientScope=>"Access token missing required scope",bearer::Refusal::UserNotFound=>"User not found"};
-                let mut r=err(401,&payload["id"],-32000,message);add(&mut r,"www-authenticate","Bearer error=\"invalid_token\"");return Ok(r);
+                let mut r=err(401,&payload["id"],-32000,message);add(&mut r,"www-authenticate","Bearer error=\"invalid_token\"");return Ok((r,None));
             }
         };
         let initializing=payload["method"]=="initialize";
         if initializing{c.execute_batch("SAVEPOINT mcp_initialize")?;}
-        let answer=dispatch(c,&app2,who,&parts.method,&h,&payload);
+        let mut pending=None;
+        let answer=dispatch(c,&app2,who,&parts.method,&h,&payload,&mut pending);
         if initializing{
             if answer.is_err(){c.execute_batch("ROLLBACK TO mcp_initialize")?;}
             c.execute_batch("RELEASE mcp_initialize")?;
         }
-        answer
+        answer.map(|r|(r,pending))
     }).await;
-    match answer{Ok(r)=>r,Err(_)=>err(500,&id,-32603,"An unexpected error occurred.")}
+    match answer{
+        Ok((_,Some(pending)))=>finish(app,pending).await.unwrap_or_else(|_|err(500,&id,-32603,"An unexpected error occurred.")),
+        Ok((r,None))=>r,
+        Err(_)=>err(500,&id,-32603,"An unexpected error occurred.")
+    }
+}
+/// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
+pub struct Pending{session:String,id:Value,fetch:reads::Fetch}
+/// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
+async fn finish(app:App,p:Pending)->Result<Response,WebError>{
+    let fetched=reads::fetch(&app,p.fetch).await;
+    let app2=app.clone();
+    app.db(move|c|{
+        let value=reads::finish(c,fetched).unwrap_or_else(|_|protocol::tool_text("An unexpected error occurred.",true));
+        let answer=result(&p.id,value);
+        let s=Session{id:p.session,status:"initialized".into(),initialized:true,version:Some(VERSION.into())};
+        history(c,&s,&answer,true,&crate::codec::format_time(app2.now()))?;
+        let mut r=response(200,Some(answer),false);
+        add(&mut r,"mcp-protocol-version",VERSION);
+        Ok(r)
+    }).await
 }
 struct Session{ id:String,status:String,initialized:bool,version:Option<String> }
 fn load(c:&Connection,id:&str)->Result<Option<Session>,WebError>{Ok(c.query_row("SELECT id,status,initialized,protocol_version FROM action_mcp_sessions WHERE id=?1",[id],|r|Ok(Session{id:r.get(0)?,status:r.get(1)?,initialized:r.get(2)?,version:r.get(3)?})).optional()?)}
@@ -105,7 +132,7 @@ fn history(c:&Connection,s:&Session,payload:&Value,outgoing:bool,now:&str)->Resu
     let kind=if payload.get("method").is_some(){if id.is_some(){"request"}else{"notification"}}else if payload.get("error").is_some(){"error"}else{"response"};
     let ping=payload["method"]=="ping";
     let id_text=id.map(|v|v.as_str().map(str::to_string).unwrap_or_else(||v.to_string()));
-    c.execute("INSERT INTO action_mcp_session_messages (session_id,direction,message_json,message_type,jsonrpc_id,is_ping,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7)",rusqlite::params![s.id,if outgoing{"client"}else{"server"},payload.to_string(),kind,id_text,ping,now])?;
+    c.execute("INSERT INTO action_mcp_session_messages (session_id,direction,message_json,message_type,jsonrpc_id,is_ping,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7)",rusqlite::params![s.id,if outgoing{"client"}else{"server"},super::bots::json(payload),kind,id_text,ping,now])?;
     c.execute("UPDATE action_mcp_sessions SET messages_count=messages_count+1 WHERE id=?1",[&s.id])?;
     if outgoing&&id.is_some(){
         let request:Option<(i64,bool)>=c.query_row("SELECT id,is_ping FROM action_mcp_session_messages WHERE session_id=?1 AND direction='server' AND message_type='request' AND jsonrpc_id=?2 ORDER BY created_at DESC LIMIT 1",rusqlite::params![s.id,id_text],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
@@ -117,7 +144,7 @@ fn history(c:&Connection,s:&Session,payload:&Value,outgoing:bool,now:&str)->Resu
     }
     Ok(())
 }
-fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,v:&Value)->Result<Response,WebError>{
+fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,v:&Value,pending:&mut Option<Pending>)->Result<Response,WebError>{
     let method=v["method"].as_str().unwrap_or("");let id=&v["id"];
     if let Some((code,message))=protocol::params_error(v){return Ok(err(if v.get("id").is_some(){200}else{400},id,code,&message));}
     let sid=header(h,"mcp-session-id").filter(|s|!s.trim().is_empty());
@@ -193,7 +220,10 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
         "tools/call"=>{
             let name=p["name"].as_str().unwrap_or("");
             if !names.iter().any(|n|n==name){error(id,-32602,&format!("Tool '{name}' not found or not registered for this session"))}
-            else{result(id,tools::call(c,who,name,p.get("arguments").unwrap_or(&json!({})))?)}
+            else{match tools::call(c,app,who,name,p.get("arguments").unwrap_or(&json!({})))?{
+                tools::Called::Done(value)=>result(id,value),
+                tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),fetch});return Ok(response(202,None,false));}
+            }}
         },
         m if m.starts_with("tools/")=>error(id,-32601,&format!("Unknown tools method: {m}")),
         m if m.starts_with("resources/")=>error(id,-32601,"Resources are not available for this session"),

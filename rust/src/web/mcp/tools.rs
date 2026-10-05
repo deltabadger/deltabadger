@@ -1,8 +1,9 @@
 use super::protocol::{metadata, tool_text, validate};
-use crate::web::{bearer::Bearer, consent, WebError, timezone};
+use super::reads;
+use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
-pub const NAMES: [&str;4] = ["list_bots","list_exchanges","list_transactions","list_tax_jurisdictions"];
+pub const NAMES: [&str;8] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","list_open_orders","list_tax_jurisdictions"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -13,12 +14,12 @@ pub fn gate(c: &Connection, who: Bearer, name: &str) -> Result<Option<Value>,Web
     Ok(if !enabled.iter().any(|n| n == name) {Some(tool_text(&format!("Tool '{name}' is disabled. Enable it in Settings > MCP."),true))}
        else if !granted.iter().any(|n| n == name) {Some(tool_text(&format!("Tool '{name}' is not available to this client. Grant it in Settings > Connect."),true))} else {None})
 }
-fn str_value(v: &Value) -> String { match v {Value::Null => String::new(), Value::String(s) => s.clone(), _ => v.to_string()} }
-fn asset(c: &Connection,id: &Value) -> Result<Option<String>,WebError> {
+pub(super) fn str_value(v: &Value) -> String { match v {Value::Null => String::new(), Value::String(s) => s.clone(), _ => v.to_string()} }
+pub(super) fn asset(c: &Connection,id: &Value) -> Result<Option<String>,WebError> {
     let id = id.as_i64().unwrap_or_else(|| crate::ruby::to_i(id.as_str().unwrap_or("")));
     Ok(c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?)
 }
-const STATUSES: [&str;8] = ["created","scheduled","stopped","deleted","executing","retrying","waiting","archived"];
+pub(super) const STATUSES: [&str;8] = ["created","scheduled","stopped","deleted","executing","retrying","waiting","archived"];
 fn bots(c: &Connection,user:i64,args:&Value) -> Result<String,WebError> {
     let filter = args["status"].as_str().filter(|s| !s.trim().is_empty());
     let mut q = c.prepare("SELECT b.type,b.label,b.settings,b.status,e.name FROM bots b LEFT JOIN exchanges e ON b.exchange_id=e.id WHERE b.user_id=?1 AND b.status != 3")?;
@@ -39,11 +40,13 @@ fn bots(c: &Connection,user:i64,args:&Value) -> Result<String,WebError> {
             Some(symbols.join("+"))
         } else {asset(c,&s["base_asset_id"])?};
         let pair=if multi || (base.is_some() && quote.is_some()) {format!("{}/{}",base.unwrap_or_default(),quote.clone().unwrap_or_default())} else {"N/A".into()};
-        let type_name=match kind.as_str(){"Bots::DcaMultiAsset"=>"Dca Multi Asset","Bots::DcaIndex"=>"Dca Index","Bots::DcaSingleAsset"=>"Dca Single Asset","Bots::Signal"=>"Signal",_=>kind.rsplit("::").next().unwrap_or("")};
+        let type_name=type_name(&kind);
         lines.push(format!("- {} | {type_name} | {pair} | {} | {name} | {} {}/{}",label.unwrap_or_default(),exchange.unwrap_or_else(||"N/A".into()),str_value(&s["quote_amount"]),quote.unwrap_or_default(),s.get("interval").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||"N/A".into())));
     }
     Ok(if lines.is_empty(){"No bots found.".into()}else{format!("Bots ({}):\n{}",lines.len(),lines.join("\n"))})
 }
+/// `type.to_s.demodulize.titleize` for the bot classes there are.
+pub(super) fn type_name(kind:&str)->&str{match kind{"Bots::DcaMultiAsset"=>"Dca Multi Asset","Bots::DcaIndex"=>"Dca Index","Bots::DcaSingleAsset"=>"Dca Single Asset","Bots::Signal"=>"Signal",_=>kind.rsplit("::").next().unwrap_or("")}}
 fn exchanges(c:&Connection,user:i64)->Result<String,WebError>{
     let mut q=c.prepare("SELECT e.name,k.status FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0")?;
     let rows=q.query_map([user],|r|Ok((r.get::<_,String>(0)?,r.get::<_,usize>(1)?)))?;
@@ -51,12 +54,18 @@ fn exchanges(c:&Connection,user:i64)->Result<String,WebError>{
     for row in rows{let (name,status)=row?;lines.push(format!("- {name} | API key status: {}",["pending_validation","correct","incorrect","pending_activation"].get(status).copied().unwrap_or("")));}
     Ok(if lines.is_empty(){"No exchanges connected. Add an API key when creating a bot.".into()}else{format!("Connected Exchanges ({}):\n{}",lines.len(),lines.join("\n"))})
 }
-fn number(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
+fn decimal(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<crate::ruby::BigDec>> {
     let value = r.get_ref(col)?;
     // Preserve SQLite INTEGER digits; retain the existing REAL and TEXT decimal conversions.
     crate::ruby::from_sql(value)
-        .map(|v| v.map(|d| d.to_s_f()))
         .map_err(|e| rusqlite::Error::FromSqlConversionFailure(col, value.data_type(), format!("{e:?}").into()))
+}
+pub(super) fn number(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
+    Ok(decimal(r,col)?.map(|d|d.to_s_f()))
+}
+/// Polling persists zero for an unknown price; every stored MCP price uses Rails' nil branch.
+pub(super) fn price(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
+    Ok(decimal(r,col)?.filter(|d|!d.is_zero()).map(|d|d.to_s_f()))
 }
 fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
     let bot=args["bot_id"].as_f64().map(|v|v as i64);
@@ -65,7 +74,7 @@ fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
     let limit=if raw<=0{20}else{raw.min(100)};
     let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
     let mut q=c.prepare("SELECT t.created_at,t.side,t.status,t.amount_exec,t.base,t.price,t.quote,t.quote_amount_exec FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.id=?2) ORDER BY t.created_at DESC LIMIT ?3")?;
-    let rows=q.query_map(rusqlite::params![user,bot,limit],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,usize>(2)?,number(r,3)?,r.get::<_,Option<String>>(4)?,number(r,5)?,r.get::<_,Option<String>>(6)?,number(r,7)?)))?;
+    let rows=q.query_map(rusqlite::params![user,bot,limit],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,usize>(2)?,number(r,3)?,r.get::<_,Option<String>>(4)?,price(r,5)?,r.get::<_,Option<String>>(6)?,number(r,7)?)))?;
     let mut lines=vec![];
     for row in rows{
         let (time,side,status,amount,base,price,quote,cost)=row?;
@@ -76,11 +85,14 @@ fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
     }
     Ok(if lines.is_empty(){"No transactions found.".into()}else{format!("Transactions ({}):\n{}",lines.len(),lines.join("\n"))})
 }
-pub fn call(c:&Connection,who:Bearer,name:&str,args:&Value)->Result<Value,WebError>{
-    if let Some(refusal)=gate(c,who,name)? {return Ok(refusal);}
+/// What a call answers now, or the venue or market read it needs first (`reads`).
+pub enum Called { Done(Value), Fetch(reads::Fetch) }
+pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called,WebError>{
+    if let Some(refusal)=gate(c,who,name)? {return Ok(Called::Done(refusal));}
     let schema=metadata()["tools"].as_array().into_iter().flatten().find(|t|t["name"]==name).map(|t|&t["inputSchema"]).unwrap_or(&Value::Null);
     let errors=validate(args,schema,"");
-    if !errors.is_empty(){return Ok(tool_text(&format!("Invalid input: {}",errors.join(", ")),true));}
+    if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
+    if reads::NAMES.contains(&name){return Ok(reads::plan(c,app,who.user_id,name,args).unwrap_or_else(|_|Called::Done(tool_text("An unexpected error occurred.",true))));}
     let text=match name {
         "list_bots"=>bots(c,who.user_id,args),
         "list_exchanges"=>exchanges(c,who.user_id),
@@ -90,5 +102,5 @@ pub fn call(c:&Connection,who:Bearer,name:&str,args:&Value)->Result<Value,WebErr
             Ok(format!("Supported tax jurisdictions ({}):\n{}",rows.len(),rows.join("\n")))
         },_=>Err(WebError::Config("unregistered MCP tool".into()))
     };
-    Ok(match text{Ok(t)=>tool_text(&t,false),Err(_)=>tool_text("An unexpected error occurred.",true)})
+    Ok(Called::Done(match text{Ok(t)=>tool_text(&t,false),Err(_)=>tool_text("An unexpected error occurred.",true)}))
 }

@@ -49,6 +49,7 @@ fn rows(path: &Path) -> String {
 struct Scenario {
     name: String,
     rails: Value,
+    normalized: Value,
     rust: Result<Value, String>,
     /// The database copy's bytes and its rows, before and after this library read it.
     before: (String, String),
@@ -87,7 +88,7 @@ fn grid() -> &'static Grid {
             let took = started.elapsed();
             // Reading a database in WAL mode creates its -wal and -shm files; a write would put bytes in the first.
             let logged = std::fs::metadata(copy.join("production.sqlite3-wal")).map_or(0, |log| log.len());
-            Scenario { rails: serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
+            Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), rails: serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
         }).collect();
         Grid { scenarios, _roots: (rails_root, rust_root) }
     })
@@ -123,7 +124,7 @@ fn compare(what: &str, pick: impl Fn(&Value) -> Value) {
     for scenario in &grid.scenarios {
         let before = out.len();
         match &scenario.rust {
-            Ok(rust) => difference(&scenario.name, "", &pick(&scenario.rails), &pick(rust), &mut out),
+            Ok(rust) => difference(&scenario.name, "", &pick(&scenario.normalized), &pick(rust), &mut out),
             Err(error) => out.push(format!("{}: {error}", scenario.name)),
         }
         if out.len() > before { differing += 1; }
@@ -275,7 +276,7 @@ fn the_accounts_totals_match_rails_in_every_scenario() {
 fn the_market_is_asked_for_exactly_what_rails_asks_it() {
     // Where a figure is not computed the library stops asking, so those scenarios are left out here.
     let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
-    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 2);
+    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 6);
     for scenario in grid().scenarios.iter().filter(whole) {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
@@ -334,10 +335,24 @@ fn what_is_not_computed_is_named() {
     let mut expected: Vec<String> = [".bots.2", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("account_pair_bot{place}: {pair}")).collect();
     // A candle that is no number: the walk and the live figures stand, the chart and what is drawn from it do not.
     expected.extend([".bots.1.marked", ".bots.1.chart", ".pnl_history"].iter().map(|place| format!("candle_nan{place}: {number}")));
+    // RULING-R2: the existing row_readings fixture has a positive execution without a price.
+    for name in ["row_readings","tax_lots","unpriced_rebalances","unpriced_sales"] {
+        expected.extend([".bots.1.metrics", ".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place|format!("{name}{place}: executed fill value unavailable")));
+    }
     assert_eq!(listed, expected);
     // Unreadable batch prices are omitted by Rails and named as no_price above; an unreadable candle
     // still prevents the chart from being computed.
     for (place, reason, rails) in &found {
         if reason == number { assert!(rails.contains("null"), "{place}: Rails has {rails}"); }
     }
+}
+
+#[test]
+fn normalized_oracle_changes_only_the_named_r4_histories() {
+    let mut changed=vec![];
+    for scenario in &grid().scenarios {
+        let mut original=scenario.rails.clone(); original.as_object_mut().unwrap().remove("seconds");
+        if original!=scenario.normalized{changed.push(scenario.name.as_str());}
+    }
+    assert_eq!(changed, vec!["negative_fill", "priced_pairs", "random_1", "random_10", "random_11", "random_12", "random_13", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_21", "random_22", "random_23", "random_24", "random_3", "random_4", "random_5", "random_6", "random_7", "random_9", "row_readings", "unpriced_rebalances", "unpriced_sales"]);
 }

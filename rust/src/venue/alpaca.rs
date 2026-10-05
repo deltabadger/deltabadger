@@ -101,6 +101,15 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
     })
 }
 
+/// Read-side presentation retains absence; placement/polling keep parse_order's persisted zero semantics.
+pub fn parse_read_order(id: &str, o: &Value) -> Result<OrderState, String> {
+    let mut order = parse_order(id, o)?;
+    let filled = ruby_opt_to_d(&o["filled_avg_price"]).map_err(|_| "Unreadable order price".to_string())?;
+    let limit = ruby_opt_to_d(&o["limit_price"]).map_err(|_| "Unreadable order price".to_string())?;
+    order.price = filled.filter(BigDec::is_positive).or(limit);
+    Ok(order)
+}
+
 /// An answer `AlpacaVenue::read` fetched and did not parse.
 #[derive(Clone, Debug)]
 pub struct Body { request: HttpRequest, response: HttpResponse }

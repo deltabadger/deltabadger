@@ -92,6 +92,7 @@ pub fn profit_in_usd(c: &Connection, market: &dyn MarketData, rates: &mut Rates,
 }
 
 fn profit(c: &Connection, market: &dyn MarketData, rates: &mut Rates, quote: Option<&str>, metrics: &Metrics) -> Result<Option<Num>, FiguresError> {
+    if quote.is_none_or(|q|q.trim().is_empty()) { return Err(FiguresError::NotComputed("quote currency unavailable".into())); }
     let profit = (&metrics.total_amount_value_in_quote.to_d()? - &metrics.total_quote_amount_invested.to_d()?)?;
     if profit.is_zero() { return Ok(Some(Num::Dec(profit))); }
     let Some(currency) = quote else { return Ok(None) };
@@ -142,6 +143,7 @@ impl<'a> Part<'a> {
 fn complete(parts: &[Part<'_>]) -> Result<(), FiguresError> {
     match parts.iter().find_map(|part| part.figures.err().filter(|absent| matches!(absent, Absent::NotComputed(_)))) {
         Some(absent) => Err(FiguresError::from(absent)),
+        None if parts.iter().any(|part|part.quote.is_none_or(|q|q.trim().is_empty())) => Err(FiguresError::NotComputed("quote currency unavailable".into())),
         None => Ok(()),
     }
 }

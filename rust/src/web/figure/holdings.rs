@@ -67,6 +67,28 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
     Ok(out)
 }
 
+/// Bot::Composition::Redeployable#redeploy_offer: what may be put back, zero when nothing (or less than the smallest
+/// placeable amount) is; None where Rails would rewrite the stored decline first (offset above the banked total).
+pub(crate) fn redeploy_offer(c: &Connection, s: &Subject, m: &Metrics, _members: &HashSet<i64>) -> Result<Option<Dec>, FiguresError> {
+    let (mut banked,mut spent)=(Dec::zero(),Dec::zero());
+    for order in &s.orders {
+        crate::figures::budget::charge(1,0)?;
+        let Some(fill)=crate::figures::fill::parse(order)? else{continue};
+        match order.kind.as_str(){
+            "LIQUIDATION"=>banked=(&banked+&fill.value)?,
+            "REDEPLOY"=>spent=(&spent+&fill.value)?,
+            _=>{},
+        }
+    }
+    let offset = decimal(c,"SELECT redeploy_declined_offset FROM bots WHERE id=?1",s.bot.id)?;
+    let offer = (&(&banked - &spent)? - &offset)?;
+    if offer.is_negative() { return Ok(None); }
+    let cash = m.walked.as_ref().map(|w| w.realised_cash.to_d()).transpose()?.unwrap_or_else(Dec::zero);
+    let offer = offer.min(cash);
+    let Some(minimum) = crate::figures::db::composition_minimum(c, s)? else { return Ok(None); };
+    Ok(Some(if offer >= minimum { offer } else { Dec::zero() }))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, csrf: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
     let quote = s.quote.as_deref().unwrap_or("");
@@ -158,17 +180,10 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         out.push_str(&format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,&locked,"wash_sale_list",true,hidden,locale,prefix)?));
     }
     if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
-        let banked = decimal(c,"SELECT sum(quote_amount_exec) FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND status=0",s.bot.id)?;
-        let spent = decimal(c,"SELECT sum(COALESCE(quote_amount_exec, CASE WHEN external_status=2 AND price IS NOT NULL AND amount IS NOT NULL THEN price*amount ELSE 0 END)) FROM transactions WHERE bot_id=?1 AND transaction_type='REDEPLOY' AND status=0",s.bot.id)?;
-        let offset = decimal(c,"SELECT redeploy_declined_offset FROM bots WHERE id=?1",s.bot.id)?;
-        let offer = (&(&banked - &spent)? - &offset)?;
         // Never rewrite the user's persisted decline from a GET. No redeploy offer for that invalid state.
-        if offer.is_negative() { out.push_str("<p role=\"status\">Redeploy unavailable</p>\n"); }
-        else {
-            let cash = m.walked.as_ref().map(|w| w.realised_cash.to_d()).transpose()?.unwrap_or_else(Dec::zero);
-            let offer = offer.min(cash);
-            let minimum = s.tickers.iter().filter(|t| members.is_empty() || members.contains(&t.base_asset_id)).map(|t| decimal(c,"SELECT minimum_quote_size FROM tickers WHERE id=?1",t.id)).collect::<Result<Vec<_>,_>>()?.into_iter().min().unwrap_or_else(Dec::zero);
-            if offer.is_positive() && offer >= minimum {
+        match redeploy_offer(c,s,m,&members)? {
+            None => out.push_str("<p role=\"status\">Redeploy unavailable</p>\n"),
+            Some(offer) if offer.is_positive() => {
                 let amount = precision(&Num::Dec(offer),2,true)?;
                 let prompt = i18n::t(locale,"bot.redeploy.prompt",&[("amount",Arg::Text(&amount)),("symbol",Arg::Text(quote))]);
                 out.push_str(&format!("<div class=\"widget redeploy-prompt\">\n<span class=\"label\">\n{prompt}\n</span>\n<div class=\"redeploy-prompt__actions\" id=\"redeploy-prompt-actions\">\n"));
@@ -180,9 +195,14 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 }
                 out.push_str("</div>\n</div>\n");
             }
+            Some(_) => {}
         }
     }
     out.push_str("</div>\n");
     budget::check().map_err(FiguresError::from)?;
     Ok(out)
 }
+
+#[cfg(test)]
+#[path="../../../tests/support/normalized_redeploy.rs"]
+mod normalized_redeploy_tests;

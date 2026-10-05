@@ -12,7 +12,7 @@ use super::live::{ticker_for_key, unlisted, venue};
 use super::market::MarketData;
 use super::num::{Num, NumError};
 use super::splits::{self, Event};
-use super::walk::{confirmed_exec_amounts, d, AssetSeries, Chart, Metrics, Row, Unpriced};
+use super::walk::{AssetSeries, Chart, Metrics, Row, Unpriced};
 use super::FiguresError;
 use chrono_tz::Tz;
 use rusqlite::Connection;
@@ -128,26 +128,24 @@ pub fn buy_marks(s: &Subject, metrics: &Metrics) -> Result<Vec<BuyMark>, Figures
     let keys = RowKeys::new(metrics)?;
     for order in &s.orders {
         budget::charge(1, 0)?;
-        if !order.buy || order.price.is_none() { continue; }
-        let (Some(amount), Some(quote)) = confirmed_exec_amounts(order)? else { continue };
-        if amount.is_zero() || quote.is_zero() { continue; }
+        let Some(fill)=super::fill::parse(order)? else{continue};
+        if !order.buy { continue; }
+        let (amount,quote)=(fill.quantity,fill.value);
         marks.push(BuyMark { at: order.at, key: keys.key(order.base.as_deref(), order.asset_id), amount, quote, fills: 1 });
     }
     Ok(thinned_marks(marks)?)
 }
 
 /// #chart_fill_marks_by_symbol: the price each fill marked its holding at. An order that executed nothing marks
-/// nothing, nor does a sale whose proceeds were never reported; of two fills at one moment the later stands.
+/// nothing; both reported and price-derived execution values mark a fill. The later same-time fill stands.
 fn fill_marks(s: &Subject, metrics: &Metrics) -> Result<Grids, FiguresError> {
     let mut out: Grids = vec![];
     let keys = RowKeys::new(metrics)?;
     let mut places = HashMap::new();
     for order in &s.orders {
         budget::charge(1, 0)?;
-        let Some(price) = &order.price else { continue };
-        let (executed, proceeds) = confirmed_exec_amounts(order)?;
-        if d(&executed).is_zero() || d(&proceeds).is_zero() { continue; }
-        if order.sell && !d(&order.quote_amount_exec).is_positive() { continue; }
+        let Some(fill)=super::fill::parse(order)? else{continue};
+        let price=fill.unit_price()?;
         let key = keys.key(order.base.as_deref(), order.asset_id);
         let at = *places.entry(key.clone()).or_insert_with(|| { out.push((key, vec![])); out.len() - 1 });
         // The orders come oldest first, so a fill of the same moment can only be the last mark so far.

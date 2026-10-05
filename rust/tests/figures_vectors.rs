@@ -220,11 +220,16 @@ fn an_order_row_is_read_as_filled_only_when_it_is_closed() {
     assert_eq!(cases.len(), 216);
     for c in cases {
         let order = Order {
-            id: 1, at: At(0), exchange_id: None, price: opt_dec(&c[1]), amount: opt_dec(&c[2]), amount_exec: opt_dec(&c[3]), quote_amount_exec: opt_dec(&c[4]),
+            id: 1, at: At(0), exchange_id: None, raw: deltabadger::figures::fill::Raw::new(opt_dec(&c[1]),opt_dec(&c[2]),opt_dec(&c[3]),opt_dec(&c[4])),
             base: None, asset_id: None, sell: false, buy: true, closed: c[0] == "closed", kind: "REGULAR".into(),
         };
-        let (amount, quote) = walk::confirmed_exec_amounts(&order).unwrap();
-        assert_eq!((amount.map(|d| d.to_s_f()), quote.map(|d| d.to_s_f())), (c[5].as_str().map(str::to_string), c[6].as_str().map(str::to_string)), "{c}");
+        let quantity=opt_dec(&c[3]).or_else(||if c[0]=="closed"{opt_dec(&c[2])}else{None});
+        let parsed=deltabadger::figures::fill::parse(&order);
+        if let Some(quantity)=quantity.filter(Dec::is_positive){
+            let value=opt_dec(&c[4]).filter(Dec::is_positive).or_else(||opt_dec(&c[1]).filter(Dec::is_positive).map(|p|(&p*&quantity).unwrap()));
+            if let Some(value)=value {let fill=parsed.unwrap().unwrap();assert_eq!((fill.quantity,fill.value),(quantity,value),"{c}");}
+            else{assert!(parsed.is_err(),"{c}");}
+        }else{assert!(parsed.unwrap().is_none(),"{c}");}
     }
 }
 
@@ -414,6 +419,15 @@ fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
     assert_eq!(pnl.unwrap().as_deref(), Some(r#"{"percent":"0.1","profit_usd":"10.0"}"#));
     assert_eq!(snapshot.unwrap(), (Some(r#"{"percent":"0.1","profit_usd":"10.0"}"#.to_string()), false));
     assert!(history.unwrap().0.is_some_and(|profit| profit.last() == Some(&10.0)));
+
+    // RULING-R2: no account total, currency profit, cached total or history may omit an unknown denomination.
+    for quote in [None, Some(""), Some("  ")] {
+        let parts = [part(1, Ok(Some(&figures))), Part { quote, ..part(2, Ok(Some(&figures))) }];
+        let (pnl, snapshot, history) = all(&parts);
+        for result in [&pnl as &dyn std::fmt::Debug, &snapshot, &history] { not_computed(result, "quote currency unavailable"); }
+        not_computed(&totals::profit_in_usd(&c, &NoMarket, &mut Rates::default(), quote, &figures), "quote currency unavailable");
+        not_computed(&totals::profit_in_usd(&c, &NoMarket, &mut Rates::default(), quote, &walk::Metrics::empty()), "quote currency unavailable");
+    }
 
     // A second bot that has traded and brought no figures: the total is not computed, never the first bot's alone.
     // The snapshot reads it as Rails reads a bot with nothing cached yet: loading.

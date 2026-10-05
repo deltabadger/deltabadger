@@ -3,15 +3,15 @@ use super::at::At;
 use super::{budget, num::NumError};
 use std::collections::{HashMap, HashSet};
 use super::FiguresError;
-use crate::enums::{BotStatus, TxExternalStatus, TxSide, TxStatus};
+use crate::enums::BotStatus;
 use super::dec::Dec;
 use rusqlite::{params, Connection, OptionalExtension, Row as SqlRow};
 use serde_json::Value;
 
 fn data(what: impl std::fmt::Debug) -> FiguresError { FiguresError::Data(format!("{what:?}")) }
 /// A decimal column: the one way a number of the database comes in, measured (`dec`).
-fn decimal(r: &SqlRow<'_>, i: usize) -> Result<Option<Dec>, FiguresError> { Ok(Dec::from_sql(r.get_ref(i)?)?) }
-fn instant(text: &str) -> Result<At, FiguresError> { At::from_sql(text).ok_or_else(|| FiguresError::Data(format!("a time Rails did not write: {text:?}"))) }
+pub(super) fn decimal(r: &SqlRow<'_>, i: usize) -> Result<Option<Dec>, FiguresError> { Ok(Dec::from_sql(r.get_ref(i)?)?) }
+pub(super) fn instant(text: &str) -> Result<At, FiguresError> { At::from_sql(text).ok_or_else(|| FiguresError::Data(format!("a time Rails did not write: {text:?}"))) }
 /// Ids as SQL literals, so each query has the shape of the one Rails sends (`IN (1, 2, 3)`); they are integers.
 fn id_list(ids: &[i64]) -> Result<String, FiguresError> {
     budget::charge(ids.len() as u64, 0)?;
@@ -113,7 +113,7 @@ pub fn bot(c: &Connection, id: i64) -> Result<Bot, FiguresError> {
 #[derive(Clone, Debug)]
 pub struct Order {
     pub id: i64, pub at: At, pub exchange_id: Option<i64>,
-    pub price: Option<Dec>, pub amount: Option<Dec>, pub amount_exec: Option<Dec>, pub quote_amount_exec: Option<Dec>,
+    pub raw: super::fill::Raw,
     pub base: Option<String>, pub asset_id: Option<i64>,
     pub sell: bool, pub buy: bool, pub closed: bool,
     /// transactions.transaction_type: REGULAR, REBALANCE, LIQUIDATION, REDEPLOY.
@@ -121,25 +121,7 @@ pub struct Order {
 }
 
 /// `transactions.submitted.order(:created_at, :id)`: every walk reads this one list.
-pub fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresError> {
-    let mut statement = c.prepare(
-        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type \
-         FROM transactions WHERE bot_id = ?1 AND status = ?2 ORDER BY created_at ASC, id ASC")?;
-    let mut rows = statement.query(params![bot_id, TxStatus::Submitted as i64])?;
-    let mut out = vec![];
-    while let Some(r) = rows.next()? {
-        budget::charge(1, 0)?;
-        let (side, status): (Option<i64>, Option<i64>) = (r.get(9)?, r.get(10)?);
-        out.push(Order {
-            id: r.get(0)?, at: instant(&r.get::<_, String>(1)?)?, exchange_id: r.get(2)?,
-            price: decimal(r, 3)?, amount: decimal(r, 4)?, amount_exec: decimal(r, 5)?, quote_amount_exec: decimal(r, 6)?,
-            base: r.get(7)?, asset_id: r.get(8)?, sell: side == Some(TxSide::Sell as i64), buy: side == Some(TxSide::Buy as i64),
-            closed: status == Some(TxExternalStatus::Closed as i64),
-            kind: r.get::<_, Option<String>>(11)?.unwrap_or_default(),
-        });
-    }
-    Ok(out)
-}
+pub fn orders(c:&Connection,bot_id:i64)->Result<Vec<Order>,FiguresError>{super::fill::orders(c,bot_id)}
 
 /// An asset's `(id, symbol, name)`.
 pub type AssetName = (i64, Option<String>, Option<String>);
@@ -187,6 +169,33 @@ pub fn tickers(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, FiguresError> {
         }
     };
     Ok(rows)
+}
+
+/// AssetConfigurable#ticker has no availability/trading filter.
+pub fn pair_ticker(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, FiguresError> {
+    let (Some(exchange), Some(quote), Some(base)) = (bot.exchange_id, bot.quote_asset_id, bot.base_asset_ids.first()) else { return Ok(vec![]) };
+    budget::charge(1, 0)?;
+    Ok(c.prepare(&format!("{TICKER} WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 AND t.base_asset_id=?3 ORDER BY t.id LIMIT 1"))?
+        .query_map(params![exchange, quote, base], ticker)?.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Composition minimums include disabled tickers; an empty/no-minimum set is unavailable, never zero.
+pub fn composition_minimum(c: &Connection, s: &Subject) -> Result<Option<Dec>, FiguresError> {
+    let mut q=c.prepare("SELECT t.minimum_quote_size FROM bot_index_assets m JOIN tickers t ON t.id=m.ticker_id WHERE m.bot_id=?1 AND m.in_index=1")?;
+    let mut values=vec![];
+    let mut rows=0;
+    for v in q.query_map([s.bot.id], |r| r.get::<_,rusqlite::types::Value>(0))? {
+        budget::charge(1,0)?; rows+=1;
+        if let Some(v)=Dec::from_sql((&v?).into())? { values.push(v); }
+    }
+    if rows==0 {
+        for t in &s.tickers {
+            budget::charge(1,0)?;
+            let v=c.query_row("SELECT minimum_quote_size FROM tickers WHERE id=?1",[t.id],|r|r.get::<_,rusqlite::types::Value>(0))?;
+            if let Some(v)=Dec::from_sql((&v).into())? { values.push(v); }
+        }
+    }
+    Ok(values.into_iter().min())
 }
 
 /// The precision of the tickers the composition trades right now, tradable or not (Allocatable#composition_tickers):

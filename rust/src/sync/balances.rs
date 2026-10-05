@@ -109,7 +109,7 @@ pub struct Summary {
     pub pricing_error: Option<String>,
 }
 
-struct Catalog {
+pub(crate) struct Catalog {
     user_id: i64, exchange_id: i64,
     /// `exchange.assets.pluck(:id)`: the assets the venue lists, in the order the rows are written.
     asset_ids: Vec<i64>,
@@ -126,7 +126,7 @@ enum Price { Float(f64), Decimal(BigDec) }
 /// The account as #get_balances needs it: an object whose `cash` is a number. Rails reads a missing or null `cash`
 /// as 0 (`nil.to_d`), removes the cash balance and reports success; here it is a malformed answer. The outer error
 /// is an answer that could not be read at all; the inner one is the account's shape, judged once both answers are in.
-fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
+pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let cash = |account: Raw| account.number("cash")?.ok_or_else(|| "the account has no cash figure".to_string());
     Ok(Raw::from_node(&node).map_err(|_| "unreadable account".to_string()).and_then(cash))
@@ -135,7 +135,7 @@ fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
 /// The positions as #get_balances needs them: an array of at most `MAX_POSITIONS` objects (the reader stops at the
 /// next one), each with a `symbol` and a `qty` that is a number. Rails skips a position with no symbol and reads a
 /// missing `qty` as 0, which removes that holding's balance; here either is a malformed answer.
-fn positions(text: &str) -> Result<Result<Vec<(String, BigDec)>, String>, Unread> {
+pub(crate) fn positions(text: &str) -> Result<Result<Vec<(String, BigDec)>, String>, Unread> {
     let node = match wire::read(text, &mut Budget(MAX_LIST_NODES), Some(MAX_POSITIONS)) {
         Err(wire::Refused::TooManyItems) => return Err(Unread::Raised(format!("more than {MAX_POSITIONS} positions"))),
         other => other.map_err(|r| Unread::refused(r, "positions"))?,
@@ -298,22 +298,33 @@ fn catalog(c: &Connection, key_id: i64) -> Result<Catalog, SyncError> {
     let key = load_key(c, key_id)?;
     // AccountBalance::SyncJob syncs reading keys only: status correct, never a withdrawal key.
     if key.status != 1 || key.key_type == 1 { return Err(SyncError(format!("api key {key_id} is not a reading key"))); }
+    catalog_for(c, key.user_id, key.exchange_id)
+}
+
+/// What #get_balances reads about the venue: the assets it lists and how a position's symbol names one.
+pub(crate) fn catalog_for(c: &Connection, user_id: i64, exchange_id: i64) -> Result<Catalog, SyncError> {
     let mut s = c.prepare("SELECT assets.id FROM assets INNER JOIN exchange_assets ON assets.id = exchange_assets.asset_id WHERE exchange_assets.exchange_id = ?1 ORDER BY exchange_assets.id")?;
-    let asset_ids = s.query_map([key.exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let asset_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     let mut by_symbol = HashMap::new();
     let mut s = c.prepare("SELECT base, quote, base_asset_id, quote_asset_id FROM tickers WHERE exchange_id = ?1 AND available = 1 ORDER BY id")?;
-    for row in s.query_map([key.exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?)))? {
+    for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?)))? {
         let (base, quote, base_asset, quote_asset) = row?;
         by_symbol.entry(base).or_insert(base_asset);
         by_symbol.entry(quote).or_insert(quote_asset);
     }
-    Ok(Catalog { user_id: key.user_id, exchange_id: key.exchange_id, asset_ids, by_symbol, pairs: super::ledger::crypto_pairs(c, key.exchange_id)? })
+    Ok(Catalog { user_id, exchange_id, asset_ids, by_symbol, pairs: super::ledger::crypto_pairs(c, exchange_id)? })
 }
 
 /// #get_balances' answer, reduced to what AccountBalance::Sync keeps: the listed assets with a positive quantity, in
 /// listing order. Settled cash is USD's quantity; a position's `qty` is its asset's (a stock by its symbol, a coin by
 /// its compact pair). A later position for the same asset replaces an earlier one.
 fn holdings(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -> Vec<(i64, BigDec)> {
+    balances(catalog, cash, positions).into_iter().filter(|(_, qty)| qty.is_positive()).collect()
+}
+
+/// #get_balances' answer: every listed asset with the quantity the answers gave it (cash for USD, a position's `qty`),
+/// in listing order; an asset nothing named is left out, as its zero would be.
+pub(crate) fn balances(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -> Vec<(i64, BigDec)> {
     let mut free: HashMap<i64, BigDec> = HashMap::new();
     let listed = |id: &i64| catalog.asset_ids.contains(id);
     if let Some(usd) = catalog.by_symbol.get("USD").filter(|id| listed(id)) { free.insert(*usd, cash); }
@@ -321,7 +332,22 @@ fn holdings(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -
         let asset = catalog.by_symbol.get(&symbol).copied().or_else(|| catalog.pairs.0.get(&symbol).map(|pair| pair.base_asset_id));
         if let Some(asset) = asset.filter(listed) { free.insert(asset, qty); }
     }
-    catalog.asset_ids.iter().filter_map(|id| free.remove(id).filter(BigDec::is_positive).map(|qty| (*id, qty))).collect()
+    catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|qty| (*id, qty))).collect()
+}
+
+/// Read-only completeness check; sync's existing partial-snapshot semantics stay unchanged.
+pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -> Result<Vec<(i64, BigDec)>, &'static str> {
+    let listed = |id: &i64| catalog.asset_ids.contains(id);
+    if !cash.is_zero() && catalog.by_symbol.get("USD").filter(|id| listed(id)).is_none() {
+        return Err("Balances could not be fully read: unmapped nonzero cash");
+    }
+    for (symbol, qty) in &positions {
+        let asset = catalog.by_symbol.get(symbol).copied().or_else(|| catalog.pairs.0.get(symbol).map(|pair| pair.base_asset_id));
+        if !qty.is_zero() && asset.filter(listed).is_none() {
+            return Err("Balances could not be fully read: unmapped nonzero position");
+        }
+    }
+    Ok(balances(catalog, cash, positions))
 }
 
 fn assets(c: &Connection, ids: &[i64]) -> Result<Vec<Asset>, SyncError> {

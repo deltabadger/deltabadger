@@ -4,6 +4,7 @@ use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
 mod holdings;
+pub(crate) use holdings::redeploy_offer;
 mod plot;
 mod headline;
 pub mod service;
@@ -46,7 +47,7 @@ fn tile(s: &Subject, m: &Metrics, unavailable: bool, hidden: bool) -> Result<Str
     }
     Ok(format!("<div id=\"pnl_bots_{kind}_{}\">\n{body}</div>\n", s.bot.id))
 }
-fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Result<Vec<String>, FiguresError> {
+pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Result<Vec<String>, FiguresError> {
     if m.asset_breakdown.is_empty() { return Ok(vec![]); }
     // Quarantined or unresolved splits leave ledger prices in the core result. Keep known
     // quantities and costs, but withhold every price-dependent value as for a missing price.

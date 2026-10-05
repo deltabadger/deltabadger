@@ -14,9 +14,11 @@ fn schema_errors_match_recorded_json_schemer_vectors(){
     assert!(failures.is_empty(),"{} mismatching schema vectors",failures.len());
 }
 #[test]
-fn schema_contains_exactly_the_four_implemented_tools(){
+fn schema_contains_exactly_the_implemented_tools(){
     let names:Vec<_>=protocol::metadata()["tools"].as_array().unwrap().iter().map(|v|v["name"].as_str().unwrap()).collect();
-    assert_eq!(names,deltabadger::web::mcp::tools::NAMES);
+    let implemented:Vec<_>=names.iter().copied().filter(|name|deltabadger::web::mcp::tools::NAMES.contains(name)).collect();
+    assert_eq!(implemented,deltabadger::web::mcp::tools::NAMES);
+    assert_eq!(names.len(),8); // All schemas recorded in Task 1; registry entries land per task.
 }
 #[test]
 fn recorded_sources_have_not_drifted(){
