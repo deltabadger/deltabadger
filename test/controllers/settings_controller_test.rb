@@ -157,4 +157,20 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :see_other
     assert_equal 'USD', @user.reload.display_currency
   end
+
+  # The privacy branch for a taken address stores it as pending without mailing it. A token sent
+  # earlier to another pending address must not confirm this one later.
+  test 'a taken new email does not inherit the token sent to the previous pending address' do
+    create(:user, email: 'taken@example.com')
+    patch settings_update_email_path, params: { user: { email: 'next@example.com', current_password: 'TestPassword1!' } }
+    assert_equal 'next@example.com', @user.reload.unconfirmed_email
+    assert_predicate @user.confirmation_token, :present?
+
+    patch settings_update_email_path, params: { user: { email: 'taken@example.com', current_password: 'TestPassword1!' } }
+
+    assert_response :success
+    @user.reload
+    assert_equal 'taken@example.com', @user.unconfirmed_email
+    assert_nil @user.confirmation_token
+  end
 end
