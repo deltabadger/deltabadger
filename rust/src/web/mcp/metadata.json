@@ -1071,7 +1071,7 @@
     "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
     "app/models/bot/composition/redeployable.rb": "bdc27932a55195d18fd5f8b84a5e4ac7325bf920938f1e70f4d9dc9cc8b9f513",
     "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
-    "app/models/exchanges/alpaca.rb": "58793d3062328cf7dc327216316fd93d697868ca66155639b3da1c959992e372",
+    "app/models/exchanges/alpaca.rb": "8983adcd3b32c84502da3238632bb83994b9fea11ce132d1c2f98562d6d3fd3e",
     "app/models/bots/dca_single_asset/measurable.rb": "5d97bfbd2da99b342112da2315779e3d9c42e3e437e76f0ddbd62990a71167d8",
     "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
     "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
