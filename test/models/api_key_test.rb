@@ -342,6 +342,22 @@ class ApiKeyTest < ActiveSupport::TestCase
     assert_operator scrubbed.length, :>, ApiKey::SYNC_ERROR_LIMIT, 'a log line keeps its full context'
   end
 
+  # An exchange error can echo the credential it rejected; the log line must not carry it.
+  test 'validate_credentials! keeps the credentials out of a failed validation log line' do
+    api_key = create(:api_key, :pending)
+    api_key.exchange.stubs(:get_api_key_validity).returns(Result::Failure.new('invalid key shortkey'))
+    Rails.logger.expects(:warn).with { |line| line.include?('validation failed') && !line.include?('shortkey') }
+
+    api_key.validate_credentials!(key: 'shortkey', secret: 'lettersonlysecret')
+  end
+
+  test 'update_status! keeps the credentials out of a failed validation log line' do
+    key = create(:api_key, raw_key: 'shortkey', raw_secret: 'lettersonlysecret')
+    Rails.logger.expects(:warn).with { |line| line.include?('validation failed') && !line.include?('lettersonlysecret') }
+
+    key.update_status!(Result::Failure.new('rejected lettersonlysecret'))
+  end
+
   test 'scrub leaves text that carries no credential alone' do
     key = create(:api_key, raw_key: 'shortkey', raw_secret: 'lettersonlysecret')
 
