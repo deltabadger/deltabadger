@@ -122,18 +122,17 @@ async fn the_sweep_ignores_a_rejected_order_and_the_tick_goes_on() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_partially_filled_order_fails_every_tick_before_placement() {
+async fn a_partially_filled_order_is_recorded_open_and_the_tick_goes_on() {
     let (_d, o, id, s) = setup(weekly());
     seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OPART".into()), order_type: 1, amount: Some("0.000935"),
         quote_amount: None, price: Some("64150"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-08-25 10:00:01".into() });
     let t = script(json!({ "GET /v2/orders/OPART": ok(json!({ "id": "OPART", "status": "partially_filled", "symbol": "BTC/USD", "type": "limit", "side": "buy",
         "notional": null, "qty": "0.000935", "filled_qty": "0.0004", "filled_avg_price": "64150", "limit_price": "64150" })) }));
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
-    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
-    assert!(t.posted_orders().is_empty(), "the sweep raises before anything is placed");
-    let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
-    assert_eq!(serde_json::from_str::<Value>(&details).unwrap()["error"], "Order OPART status is unknown.");
-    assert_eq!(one::<f64>(&o, "SELECT amount_exec FROM transactions WHERE external_id = 'OPART'"), 0.0, "the row is not updated");
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(one::<i64>(&o, "SELECT COUNT(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0);
+    assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OPART'"), 1, "still open");
+    assert_eq!(one::<f64>(&o, "SELECT amount_exec FROM transactions WHERE external_id = 'OPART'"), 0.0004, "the partial fill is recorded");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -302,15 +301,15 @@ async fn a_five_minute_smart_bot_waits_on_its_unresolved_intent_and_never_places
 
 #[tokio::test(flavor = "current_thread")]
 async fn the_follow_up_poll_raises_as_rails_job_does() {
-    use deltabadger::engine::polling::{self, PollFailure};
+    use deltabadger::engine::polling::{self, FollowUp, PollFailure};
     let (_d, o, id, s) = setup(weekly());
     let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OPOLL".into()), order_type: 1, amount: Some("0.000935"),
         quote_amount: None, price: Some("64150"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-09-01 10:00:01".into() });
     let partial = script(json!({ "GET /v2/orders/OPOLL": ok(json!({ "id": "OPOLL", "status": "partially_filled", "symbol": "BTC/USD", "type": "limit", "side": "buy",
         "notional": null, "qty": "0.000935", "filled_qty": "0.0004", "filled_avg_price": "64150", "limit_price": "64150" })) }));
     let now = at("2026-09-01T10:00:06Z");
-    assert_eq!(polling::follow_up(&o.primary, &venue(&partial), id, tx, now).await, Err(PollFailure::General("Order OPOLL status is unknown.".into())));
-    assert_eq!(one::<f64>(&o, "SELECT amount_exec FROM transactions WHERE external_id = 'OPOLL'"), 0.0, "the row is not updated");
+    assert_eq!(polling::follow_up(&o.primary, &venue(&partial), id, tx, now).await, Ok(FollowUp::StillOpen), "mid-fill is open: asked again");
+    assert_eq!(one::<f64>(&o, "SELECT amount_exec FROM transactions WHERE external_id = 'OPOLL'"), 0.0004, "the partial fill is recorded");
     let failing = script(json!({ "GET /v2/orders/OPOLL": [{ "status": 500, "body": { "message": "internal server error" } }] }));
     assert_eq!(polling::follow_up(&o.primary, &venue(&failing), id, tx, now).await,
                Err(PollFailure::General(format!("Failed to fetch order {tx}. Result: [\"internal server error\"]"))), "Rails names the transaction id");

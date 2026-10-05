@@ -275,7 +275,7 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         if name.ends_with("-funds_low_buying_power") { assert_eq!(rails_out["funds_notified"], true, "{name}: Rails must notify"); }
         if name.ends_with("-funds_low_cash_only") { assert_eq!(rails_out["funds_notified"], false, "{name}: Rails must not notify"); }
-        if name.ends_with("-poll_partially_filled") { assert_eq!(rails_out["poll_error"], "Order OOPEN-5 status is unknown.", "{name}"); }
+        if name.ends_with("-poll_partially_filled") { assert_eq!(rails_out["poll_error"], serde_json::Value::Null, "{name}: mid-fill is open, asked again"); }
         if name.ends_with("-insufficient_buying_power") { assert_eq!(rails_out["funds_notified"], true, "{name}: Bot::Failable stamps the budget"); }
         // The mails are compared above, which proves nothing if Rails mails in neither scenario or in both: pin Rails' side.
         let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
@@ -670,7 +670,7 @@ async fn rails_and_rust_decide_identically_across_the_basket_grid() {
         }
         if name == "basket-safety-tiers-pre_send-k2" { assert_eq!(sent, 2, "{name}: no retry after a placed leg"); }
         if name == "basket-safety-tiers-pre_send-k1" { assert!(sent > 1, "{name}: retry_on replays a run that placed nothing"); }
-        if name == "basket-sizing-w70-resting_partial-market" { assert_eq!(sent, 0, "{name}: Alpaca's partially_filled fails the sweep"); }
+        if name == "basket-sizing-w70-resting_partial-market" { assert!(sent > 0, "{name}: Alpaca's partially_filled is open; the sweep goes on"); }
         if name == "basket-recover-tiers-k2-network" { assert_eq!(sent, 5, "{name}: two in the first tick, three at the next checkpoint"); }
         if name == "basket-exited-holds-tiers" { assert_eq!(sent, 2, "{name}: the exited SOL is never bought"); }
         if name == "basket-exited-intent-tiers-k3-landed" { assert_eq!(sent, 5, "{name}: three legs, then BTC and ETH only"); }
@@ -868,7 +868,7 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
         let events: Vec<&str> = r["changes"]["bot_activity_logs"].as_array().ok_or("expected JSON array")?.iter().filter_map(|l| l["after"]["event"].as_str()).collect();
         if name.ends_with("-closed") { assert_eq!(events, ["market_closed"], "{name}"); }
         if name.ends_with("-split_recent") || name.ends_with("-split_unresolved") { assert_eq!(events, ["dca_skipped_restatement"], "{name}"); }
-        if name.ends_with("-sweep_done_for_day") || name.ends_with("-sweep_held") { assert!(events.contains(&"execution_failed"), "{name}: the sweep raises"); }
+        if name.ends_with("-sweep_done_for_day") || name.ends_with("-sweep_held") { assert!(!events.contains(&"execution_failed"), "{name}: open, the sweep goes on"); }
         if name.ends_with("-funds_low_buying_power") { assert_eq!(r["funds_notified"], true, "{name}: a stock bot spends buying_power"); }
         if name.ends_with("-funds_low_cash_only") { assert_eq!(r["funds_notified"], false, "{name}"); }
         if name.ends_with("-first_tick") { assert_eq!(r["sent"][0]["time_in_force"], "day", "{name}"); }

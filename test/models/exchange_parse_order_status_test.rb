@@ -91,6 +91,9 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
   FALLBACK_MAPS = {
     Exchanges::Alpaca => {
       'new' => :open, 'accepted' => :open, 'pending_new' => :open,
+      'partially_filled' => :open, 'held' => :open, 'accepted_for_bidding' => :open,
+      'pending_cancel' => :open, 'pending_replace' => :open, 'done_for_day' => :open,
+      'stopped' => :open, 'suspended' => :open, 'calculated' => :open,
       'filled' => :closed,
       'canceled' => :cancelled, 'expired' => :cancelled, 'replaced' => :cancelled,
       'rejected' => :failed

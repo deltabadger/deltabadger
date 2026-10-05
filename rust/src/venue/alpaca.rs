@@ -67,7 +67,10 @@ pub fn alpaca_not_found(body: &str) -> bool {
 /// Exchanges::Alpaca#parse_order_status.
 fn status(s: Option<&str>) -> OrderStatus {
     match s {
-        Some("new" | "accepted" | "pending_new") => OrderStatus::Open,
+        Some(
+            "new" | "accepted" | "pending_new" | "partially_filled" | "held" | "accepted_for_bidding" | "pending_cancel"
+            | "pending_replace" | "done_for_day" | "stopped" | "suspended" | "calculated",
+        ) => OrderStatus::Open,
         Some("filled") => OrderStatus::Closed,
         Some("canceled" | "expired" | "replaced") => OrderStatus::Cancelled,
         Some("rejected") => OrderStatus::Failed,

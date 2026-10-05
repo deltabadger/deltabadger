@@ -360,8 +360,7 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_equal 'abandoned', txn.reload.external_status
   end
 
-  # A signal bot has no tick to sweep its waiting orders, so this job is the only clock its market
-  # order has: still open means "ask again", bounded, and read-only.
+  # Still open means "ask again", bounded, and read-only.
   def open_market_order_for(bot, external_id:)
     txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: external_id,
                                amount_exec: nil, quote_amount_exec: nil)
@@ -431,12 +430,14 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_equal 'closed', txn.reload.external_status
   end
 
-  # A scheduled bot sweeps its own waiting orders on its next tick; nothing changes for it.
-  test "a scheduled bot's open order is left to its own tick" do
-    bot = create(:dca_single_asset, :started)
+  # A stopped bot's sale has no tick at all, and a weekly bot's next one is a week away: an order
+  # caught open must be asked about again whatever bot placed it.
+  test "a stopped scheduled bot's open order is asked about again" do
+    bot = create(:dca_single_asset, :stopped)
     txn = open_market_order_for(bot, external_id: 'dca-open')
 
-    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert_raises(Bot::FetchAndUpdateOrderJob::OrderStillOpen) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert_equal 'open', txn.reload.external_status
   end
 
   test 'a caller that asked for success_or_kill is still never raised at' do

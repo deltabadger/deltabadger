@@ -17,6 +17,11 @@ pub const STALE_AFTER_DAYS: i64 = 14;
 #[derive(Debug, PartialEq)]
 pub enum PollFailure { RateLimited(String), Transient(String), General(String) }
 
+/// A follow-up poll that did not fail: the order is settled, or the venue still holds it open (Rails' retry_on
+/// OrderStillOpen: asked again, whatever bot placed it).
+#[derive(Debug, PartialEq)]
+pub enum FollowUp { Done, StillOpen }
+
 struct Row {
     id: i64, side: Option<i64>, external_status: Option<i64>,
     price: Option<BigDec>, amount: Option<BigDec>, quote_amount: Option<BigDec>, amount_exec: Option<BigDec>, quote_amount_exec: Option<BigDec>,
@@ -193,17 +198,21 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
 /// outstanding order), for a bot in ANY status: the same QueryOrders → TradesHistory → stale path, lenient on
 /// `unknown`. One order's failure never holds back another's fill. The caller retries Transient/RateLimited
 /// failures as that job's retry_on does (3 and 4 attempts); others end the chain. A row no longer waiting is done.
-pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
+pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<FollowUp, PollFailure> {
     let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
     let bot = model::load_bot(c, bot_id).map_err(db)?;
     let rows: Vec<_> = waiting_ids(c, &bot).map_err(db)?.into_iter().filter(|(id, _, _)| *id == tx_id).collect();
-    if venue.rules().follow_up_strict { return follow_up_strict(c, venue, &bot, rows, tx_id, now).await; }
-    poll_rows(c, venue, &bot, rows, now, false).await
+    if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now).await?; } else { poll_rows(c, venue, &bot, rows, now, false).await?; }
+    // ponytail: the lenient path skips an `unknown` answer, so a row already open from an earlier poll reads as still open
+    // here; bounded by the caller's 8 attempts and read-only, so a few extra polls at worst.
+    let open: bool = c.query_row("SELECT status = 0 AND external_status = 1 FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0))
+        .map_err(|e| db(e.into()))?;
+    Ok(if open { FollowUp::StillOpen } else { FollowUp::Done })
 }
 
 /// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca: one GET; a throttle or transient
 /// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
-/// unknown status (partially_filled included) raises. A raise changes no row, as in Rails.
+/// unknown status raises. A raise changes no row, as in Rails.
 async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(()) };
     let rules = venue.rules();

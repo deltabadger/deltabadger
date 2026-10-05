@@ -41175,13 +41175,13 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "58793d3062328cf7dc327216316fd93d697868ca66155639b3da1c959992e372",
+    "app/models/exchanges/alpaca.rb": "8983adcd3b32c84502da3238632bb83994b9fea11ce132d1c2f98562d6d3fd3e",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
     "app/models/exchanges/kraken.rb": "f0054f310b4c625ff446fe1a3a217826c22432f29345ce1d63e12bb9274e053a",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/jobs/bot/fetch_and_update_open_orders_job.rb": "0594f4ce138af9283aac4980a27a01b5d791f8fa995379f3b34f948ea90b7609",
-    "app/jobs/bot/fetch_and_update_order_job.rb": "47f9d960ed232cfae34e4f96db4e0ccb8dc8b320b9eabd21a747e8539c3e35d2"
+    "app/jobs/bot/fetch_and_update_order_job.rb": "cc72c63565850aafa645b526b41ee97e6534de49b7085ddf607f481dc0c65a01"
   },
   "alpaca_sizing": [
     {
@@ -46000,7 +46000,7 @@
         "status": "partially_filled"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46024,7 +46024,7 @@
         "status": "partially_filled"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46048,7 +46048,7 @@
         "status": "partially_filled"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
@@ -46072,7 +46072,7 @@
         "status": "done_for_day"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46096,7 +46096,7 @@
         "status": "done_for_day"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46120,7 +46120,7 @@
         "status": "done_for_day"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
@@ -46144,7 +46144,7 @@
         "status": "pending_cancel"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46168,7 +46168,7 @@
         "status": "pending_cancel"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46192,7 +46192,7 @@
         "status": "pending_cancel"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
@@ -46216,7 +46216,7 @@
         "status": "held"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46240,7 +46240,7 @@
         "status": "held"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46264,7 +46264,7 @@
         "status": "held"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
