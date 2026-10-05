@@ -3,7 +3,7 @@ use super::reads;
 use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
-pub const NAMES: [&str;7] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","list_transactions","list_open_orders","list_tax_jurisdictions"];
+pub const NAMES: [&str;8] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","list_open_orders","list_tax_jurisdictions"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())

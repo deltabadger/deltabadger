@@ -420,6 +420,15 @@ fn the_totals_are_of_every_bot_of_the_account_or_not_computed() {
     assert_eq!(snapshot.unwrap(), (Some(r#"{"percent":"0.1","profit_usd":"10.0"}"#.to_string()), false));
     assert!(history.unwrap().0.is_some_and(|profit| profit.last() == Some(&10.0)));
 
+    // RULING-R2: no account total, currency profit, cached total or history may omit an unknown denomination.
+    for quote in [None, Some(""), Some("  ")] {
+        let parts = [part(1, Ok(Some(&figures))), Part { quote, ..part(2, Ok(Some(&figures))) }];
+        let (pnl, snapshot, history) = all(&parts);
+        for result in [&pnl as &dyn std::fmt::Debug, &snapshot, &history] { not_computed(result, "quote currency unavailable"); }
+        not_computed(&totals::profit_in_usd(&c, &NoMarket, &mut Rates::default(), quote, &figures), "quote currency unavailable");
+        not_computed(&totals::profit_in_usd(&c, &NoMarket, &mut Rates::default(), quote, &walk::Metrics::empty()), "quote currency unavailable");
+    }
+
     // A second bot that has traded and brought no figures: the total is not computed, never the first bot's alone.
     // The snapshot reads it as Rails reads a bot with nothing cached yet: loading.
     let (pnl, snapshot, history) = all(&[part(1, Ok(Some(&figures))), part(2, Ok(None))]);

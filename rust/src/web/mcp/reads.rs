@@ -1,18 +1,19 @@
 //! The four read tools. Network work runs outside App::db; accounting uses the merged figures library.
 use super::{protocol::tool_text,read_limits,tools::{self,Called}};
-use crate::{crypto::Credentials,figures::{self,at::At,budget,db::Subject,num::{Num,float_to_s},walk,live},sync,venue::alpaca::{AlpacaVenue,Urls},web::{App,WebError,figure::{self,loading::Wire}}};
+use crate::{crypto::Credentials,figures::{self,at::At,budget,db::Subject,num::{Num,float_to_s},walk,live,totals,page_market::{Cache,Reader}},sync,venue::alpaca::{AlpacaVenue,Urls},web::{App,WebError,figure::{self,loading::Wire}}};
 use rusqlite::{Connection,OptionalExtension};
 use serde_json::Value;
 use std::collections::HashSet;
-pub const NAMES:[&str;3]=["get_exchange_balances","list_open_orders","get_bot_details"];
+pub const NAMES:[&str;4]=["get_exchange_balances","list_open_orders","get_bot_details","get_portfolio_summary"];
 const ONLY:&str="this build reads Alpaca only";
 fn error()->WebError{WebError::Config("MCP read unavailable".into())}
 fn done(text:impl AsRef<str>)->Called{Called::Done(tool_text(read_limits::text(text.as_ref()),false))}
 pub enum Fetch {
     Balances{user:i64,exchange:i64,name:String,credentials:Credentials},
     Orders{user:i64,local:Vec<String>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Credentials>)>},
+    Summary{user:i64,credentials:Option<Credentials>,now:At},
 }
-pub enum Fetched { Text(String,bool), Balances(i64,i64,String,crate::ruby::BigDec,Vec<(String,crate::ruby::BigDec)>), Orders(i64,Vec<String>,HashSet<String>,Vec<(i64,String,Result<Value,String>)>) }
+pub enum Fetched { Text(String,bool), Balances(i64,i64,String,crate::ruby::BigDec,Vec<(String,crate::ruby::BigDec)>), Orders(i64,Vec<String>,HashSet<String>,Vec<(i64,String,Result<Value,String>)>), Summary(i64,Cache,At,bool) }
 fn credentials(c:&Connection,app:&App,user:i64,exchange:i64)->Result<Option<Credentials>,WebError>{
     let id=c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 LIMIT 1",[user,exchange],|r|r.get(0)).optional()?;
     id.map(|id|sync::credentials(c,&app.cipher,id).map_err(|_|error())).transpose()
@@ -45,7 +46,21 @@ pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Calle
             for (id,name,kind) in exchanges {if kind=="Exchanges::Alpaca" {venues.push((id,name,credentials(c,app,user,id)?));}}
             Ok(Called::Fetch(Fetch::Orders{user,local,ids,venues}))
         },
-        _=>Err(error())
+        "get_portfolio_summary"=>{
+            let n:i64=c.query_row("SELECT count(*) FROM bots WHERE user_id=?1 AND status!=3",[user],|r|r.get(0))?;
+            if n==0 {return Ok(done("No bots found. Create a bot to start tracking your portfolio."))}
+            let refused=budget::within(||->Result<bool,WebError>{
+                for id in ids(c,user)?{
+                    let Some(b)=bot(c,user,id)? else{continue};
+                    let (subject,metrics)=match metrics(c,&b,now){Ok(v)=>v,Err(WebError::Config(why)) if why=="executed fill value unavailable"=>continue,Err(e)=>return Err(e)};
+                    let needs_price=if pair_kind(&b.kind){!metrics.chart.labels.is_empty()&&!subject.tickers.is_empty()}else{live::needs_venue_price(c,&subject,&metrics,now).map_err(fail_fig)?};
+                    if subject.bot.exchange_type.as_deref()!=Some("Exchanges::Alpaca")&&needs_price{return Ok(true)}
+                }Ok(false)
+            })?;
+            if refused{return Ok(done(ONLY))}
+            let credentials=figure::loading::read_info(c,app,user)?.map(|i|i.credentials);
+            Ok(Called::Fetch(Fetch::Summary{user,credentials,now}))
+        },_=>Err(error())
     }
 }
 async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::ruby::BigDec,Vec<(String,crate::ruby::BigDec)>),(String,bool)>{
@@ -73,10 +88,18 @@ pub async fn fetch(app:&App,fetch:Fetch)->Fetched{
             }
             Fetched::Orders(user,local,ids,out)
         },
+        Fetch::Summary{user,credentials,now}=>{
+            let mut cache=Cache::default();
+            let ready=if let Some(credentials)=credentials{
+                let wire=Wire::new(&credentials,app.figure_source.clone());
+                figure::loading::fill_with(app,user,&mut cache,&wire,now,read_limits::check,move|c,r|global(c,user,r,now).is_ok()).await
+            }else{true}; // An empty market cache can still compute local cash-only USD totals.
+            Fetched::Summary(user,cache,now,ready)
+        }
     }
 }
 pub fn finish(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
-    let user=match &fetch{Fetched::Balances(u,..)|Fetched::Orders(u,..)=>Some(*u),Fetched::Text(..)=>None};
+    let user=match &fetch{Fetched::Balances(u,..)|Fetched::Orders(u,..)|Fetched::Summary(u,..)=>Some(*u),Fetched::Text(..)=>None};
     if let Some(user)=user{if !read_limits::check(c,user)?{return Ok(tool_text(read_limits::REFUSAL,false))}}
     let text=match fetch{
         Fetched::Text(text,is_error)=>return Ok(tool_text(read_limits::text(&text),is_error)),
@@ -115,6 +138,7 @@ pub fn finish(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
                 [vec![header],local,unavailable].concat().join("\n")
             }
         },
+        Fetched::Summary(user,cache,now,ready)=>budget::within(||summary(c,user,&cache,now,ready))?,
     };Ok(tool_text(read_limits::text(&text),false))
 }
 fn local_orders(c:&Connection,user:i64,exchange:Option<i64>)->Result<(Vec<String>,HashSet<String>),WebError>{
@@ -321,6 +345,50 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<String,WebError>{
                 lines.push(format!("Total acquired: {} {base}",num(&amount)?));
             }
         }
+    }
+    Ok(lines.join("\n"))
+}
+fn ids(c:&Connection,user:i64)->Result<Vec<i64>,WebError>{Ok(c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status!=3 ORDER BY id")?.query_map([user],|r|r.get(0))?.collect::<Result<Vec<_>,_>>()?)}
+fn global(c:&Connection,user:i64,reader:&Reader<'_>,now:At)->Result<Option<totals::GlobalPnl>,WebError>{
+    let mut computed=vec![];
+    for id in ids(c,user)?{
+        read_limits::charge_bot()?;
+        let kind:String=c.query_row("SELECT type FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        if pair_kind(&kind){
+            let p=figures::pair::marked(c,id,now,reader).map_err(fail_fig)?;
+            if p.metrics.prices_stale{return Ok(None)}
+            computed.push((p.subject,p.metrics));continue;
+        }
+        let s=Subject::load(c,id).map_err(fail_fig)?;
+        let walked=walk::metrics(c,&s,now).map_err(fail_fig)?;
+        let m=live::live(c,&s,&walked,reader,now).map_err(fail_fig)?;
+        if m.prices_stale||!figure::missing(&s,&m,reader).map_err(fail_fig)?.is_empty(){return Ok(None)}
+        computed.push((s,m));
+    }
+    let parts=computed.iter().map(|(s,m)|totals::Part{bot_id:s.bot.id,quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(m))}).collect::<Vec<_>>();
+    totals::global_pnl(c,reader,&mut totals::Rates::default(),&parts).map_err(fail_fig)
+}
+fn summary(c:&Connection,user:i64,cache:&Cache,now:At,ready:bool)->Result<String,WebError>{
+    let bots=ids(c,user)?.into_iter().map(|id|bot(c,user,id)).collect::<Result<Vec<_>,_>>()?.into_iter().flatten().collect::<Vec<_>>();
+    let count=|statuses:&[i64]|bots.iter().filter(|b|statuses.contains(&b.status)).count();
+    let archived=count(&[7]);
+    let mut lines=vec!["Portfolio Summary".into(),"================".into(),format!("Total bots: {} ({} active, {} stopped, {} not started{})",bots.len(),count(&[1,4,5,6]),count(&[2]),count(&[0]),if archived>0{format!(", {archived} archived")}else{String::new()}),String::new()];
+    let reader=Reader::new(cache,now.utc().timestamp()).with_symbols(figure::loading::symbols(c,user).map_err(fail_fig)?);
+    let reason=if bots.iter().any(|b|b.quote.trim().is_empty()){Some("quote currency unavailable")}
+        else if bots.iter().any(|b|matches!(metrics(c,b,now),Err(WebError::Config(why)) if why=="executed fill value unavailable")){Some("executed fill value unavailable")}
+        else{None};
+    let pnl=if ready&&reason.is_none(){global(c,user,&reader,now)?}else{None};
+    if let Some(p)=pnl{
+        lines.push(format!("Global P/L: {}",pct(&p.percent)?));
+        lines.push(format!("Profit (USD): {}${}",if p.profit_usd.is_negative(){""}else{"+"},num(&p.profit_usd)?));
+    }else if let Some(why)=reason{
+        lines.push(format!("Global P/L: Not available ({why})"));
+        if why=="quote currency unavailable"{lines.push(format!("Profit (USD): Not available ({why})"));}
+    }else{lines.push("Global P/L: Not available (needs market data)".into());}
+    lines.extend([String::new(),"--- Per-Bot Summary ---".into()]);
+    for b in bots{
+        let name=format!("- {} ({}) | {} | ",b.label,b.pair.as_deref().unwrap_or("N/A"),tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?);
+        lines.push(match metrics(c,&b,now){Ok((_,m))=>if let Some(p)=&m.pnl{format!("{name}P/L: {} | Invested: {} {}",pct(p)?,num(&m.total_quote_amount_invested)?,b.quote)}else{format!("{name}No metrics yet")},Err(WebError::Config(why)) if why=="executed fill value unavailable"=>format!("{name}Metrics unavailable: executed fill value unavailable"),Err(_)=>format!("{name}Metrics unavailable")});
     }
     Ok(lines.join("\n"))
 }
