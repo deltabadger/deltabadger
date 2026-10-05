@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use std::path::Path;
 use tower::ServiceExt;
 use base64::Engine;
-const EXPECTED_READS: &[&str] = &[];
+const EXPECTED_READS: &[&str] = &["get_exchange_balances","list_open_orders"];
 const ALL_READS: &[&str] = &["get_exchange_balances","list_open_orders","get_bot_details","get_portfolio_summary"];
 const AT: &str = "2026-09-10T12:00:30.123456Z";
 const HEADERS: [&str; 12] = ["content-type", "www-authenticate", "mcp-session-id", "mcp-protocol-version", "allow", "cache-control", "x-frame-options", "x-xss-protection", "x-content-type-options", "x-permitted-cross-domain-policies", "referrer-policy", "content-security-policy-report-only"];

@@ -13,12 +13,12 @@ use std::time::Duration;
 pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
 pub enum Snapshot { Cold, Failed, Ready(Cache,At,u64) }
-struct Info { identity:String,revision:u64,credentials:Credentials }
+pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials }
 fn revision(c:&Connection)->Result<u64,rusqlite::Error> {
     let version:u64=c.query_row("PRAGMA data_version",[],|r|r.get(0))?;
     Ok(version.wrapping_mul(1_000_000_007).wrapping_add(c.total_changes()))
 }
-fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
+pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
     let id:Option<i64>=c.query_row("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Alpaca' ORDER BY k.id LIMIT 1",[user],|r|r.get(0)).optional()?;
     let Some(id)=id else { return Ok(None) };
     // A failure to read the key is the read's failure: the caller's retry keeps the demand. Only an undecryptable key
@@ -30,16 +30,23 @@ fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
     let revision=revision(c)?;
     Ok(Some(Info{identity,revision,credentials}))
 }
-struct Wire { real:ReqwestTransport,source:Source }
+pub(crate) struct Wire { real:ReqwestTransport,source:Source }
+impl Wire {
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()),source} }
+}
 impl Transport for Wire {
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
             Source::Live=>self.real.send(r).await,
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)=>{
-                let picked:Vec<_>=r.query.iter().filter(|(k,_)|r.path.ends_with("/bars")&&(*k=="adjustment"||*k=="symbols")).collect();
+                // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
+                let host=r.base.split_once("://").map_or(r.base.as_str(),|(_,h)|h);
+                let data=host=="data.alpaca.markets";
+                let mut picked:Vec<_>=r.query.iter().filter(|(k,_)|!data||r.path.ends_with("/bars")&&(*k=="adjustment"||*k=="symbols")).collect();
+                if !data{picked.sort();}
                 let suffix=if picked.is_empty(){String::new()}else{format!("?{}",picked.iter().map(|(k,v)|format!("{k}={v}")).collect::<Vec<_>>().join("&"))};
-                let key=format!("GET data.alpaca.markets{}{suffix}",r.path);
+                let key=format!("{} {host}{}{suffix}",r.method,r.path);
                 let reply=script.get(&key).ok_or_else(||TransportError::Permanent("Unscripted market request".into()))?;
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
@@ -63,13 +70,20 @@ pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::Figur
     Ok(names.into_iter().collect())
 }
 async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At)->bool {
+    fill_with(app,user,cache,wire,now,|_,_|Ok(true),move|c,reader|account(c,user,reader,now,"en","","").is_ok()).await
+}
+/// Computes `work` against the cache, fetches what it asked for and computes again, at most four times. True when the
+/// last pass asked for nothing, nothing failed, and `work` succeeded.
+pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->bool+Clone+Send+'static)->bool {
     for _ in 0..4 {
         let snapshot=cache.clone();
+        let work=work.clone();
         let pass=app.db(move|c|{
+            if !admit(c,user)? { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
                 let reader=Reader::new(&snapshot,now.utc().timestamp()).with_symbols(names);
-                let ready=account(c,user,&reader,now,"en","","").is_ok() && !reader.failed();
+                let ready=work(c,&reader) && !reader.failed();
                 Ok::<_,crate::figures::FiguresError>((reader.demands(),ready))
             });
             Ok(result.ok()) // allow-swallow: a computation that fails is a failed fill (no value, retried after its minute)
@@ -99,7 +113,7 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         Load::Start(ticket,mut cache)=>{
             let inner=app.clone();let source=app.figure_source.clone();
             tokio::spawn(async move {
-                let wire=Wire{real:ReqwestTransport::new(http::client(),info.credentials.key.clone(),info.credentials.secret.clone()),source};
+                let wire=Wire::new(&info.credentials,source);
                 let ready=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(false);
                 let check=inner.clone();
                 let current=inner.db(move|c|read_info(c,&check,user)).await;
@@ -141,8 +155,6 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         });
         if let Ok(value)=computed{return Ok(Some(value));}
     }
-    // The fallback is every bot's no value, or nothing: a failure to read the bots fails the render, never publishes the
-    // headline alone.
     let mut bots=serde_json::Map::new();
     let ids=db::account_bots(c,user).map_err(|e|WebError::Task(format!("figures fallback: {e:?}")))?;
     for (id,kind) in ids {
