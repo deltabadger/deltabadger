@@ -202,7 +202,7 @@ class ApiKey < ApplicationRecord
       Rails.logger.warn("[#{exchange.name}] API key validation: incorrect key")
     else
       self.status = :pending_validation
-      Rails.logger.warn("[#{exchange.name}] API key validation failed: #{result.errors.join(', ')}")
+      Rails.logger.warn("[#{exchange.name}] API key validation failed: #{scrub(result.errors.join(', '))}")
     end
     self
   end
@@ -238,7 +238,7 @@ class ApiKey < ApplicationRecord
         update!(status: :correct)
       end
     else
-      Rails.logger.warn("[#{exchange.name}] API key validation failed: #{result.errors.join(', ')}")
+      Rails.logger.warn("[#{exchange.name}] API key validation failed: #{scrub(result.errors.join(', '))}")
       update!(status: :pending_validation)
     end
   end
