@@ -64,6 +64,11 @@ impl Transport for Wire {
 pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::FiguresError>{
     let mut names=std::collections::BTreeSet::new();
     for (id,_) in db::account_bots(c,user)? {
+        let kind:String=c.query_row("SELECT type FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        if matches!(kind.as_str(),"Bots::DcaSingleAsset"|"Bots::Signal"){
+            for ticker in crate::figures::pair::load(c,id)?.tickers{names.insert(ticker.ticker);}
+            continue;
+        }
         let bot=db::bot(c,id)?;
         for ticker in db::tickers(c,&bot)? { names.insert(ticker.ticker); }
     }
@@ -155,13 +160,24 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         });
         if let Ok(value)=computed{return Ok(Some(value));}
     }
+    // A failed cache has no metrics. Recover the shared stored-fill refusal under the same budget.
+    let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
+        for (id,_) in db::account_bots(c,user)?{for order in db::orders(c,id)?{crate::figures::fill::parse(&order)?;}}
+        Ok(())
+    });
+    let no_value=match fills{
+        Err(crate::figures::FiguresError::NotComputed(why)) if why=="executed fill value unavailable"=>"<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>",
+        _=>super::NO_VALUE,
+    };
+    // The fallback is every bot's no value, or nothing: a failure to read the bots fails the render, never publishes the
+    // headline alone.
     let mut bots=serde_json::Map::new();
     let ids=db::account_bots(c,user).map_err(|e|WebError::Task(format!("figures fallback: {e:?}")))?;
     for (id,kind) in ids {
         let kind=if kind.as_deref()==Some("Bots::DcaIndex"){"dca_index"}else{"dca_multi_asset"};
-        bots.insert(id.to_string(),serde_json::json!({"tile":format!("<div id=\"pnl_bots_{kind}_{id}\">{}</div>",super::NO_VALUE),"metrics":format!("<div id=\"metrics\">{}</div>",super::NO_VALUE),"chart":format!("<div id=\"chart\">{}</div>",super::NO_VALUE)}));
+        bots.insert(id.to_string(),serde_json::json!({"tile":format!("<div id=\"pnl_bots_{kind}_{id}\">{}</div>",no_value),"metrics":format!("<div id=\"metrics\">{}</div>",no_value),"chart":format!("<div id=\"chart\">{}</div>",no_value)}));
     }
-    Ok(Some(serde_json::json!({"bots":bots,"account":format!("<div id=\"global-pnl\">{}</div>",super::NO_VALUE)})))
+    Ok(Some(serde_json::json!({"bots":bots,"account":format!("<div id=\"global-pnl\">{}</div>",no_value)})))
 }
 /// Puts the user's figures on their streams (`figure::streams`): every tile, each bot page's metrics and chart, and the
 /// account headline. Each is rendered as Rails renders a broadcast: in the user's locale and under its paths

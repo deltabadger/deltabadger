@@ -5,7 +5,7 @@ mod limits;
 
 #[test]
 fn hostile_numbers_are_refused_quickly_and_nothing_is_computed_from_them() {
-    assert_eq!(limits::run(), Ok(87));
+    assert_eq!(limits::run(), Ok(89));
 }
 
 
@@ -22,8 +22,7 @@ fn distinct_unfilled_symbols_share_the_walk_budget() {
             exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2] },
         quote: Some("USD".into()), tickers: vec![],
         orders: (0..100_000).map(|i| db::Order {
-            id: i, at: At(i), exchange_id: Some(1), price: None, amount: None, amount_exec: None,
-            quote_amount_exec: None, base: Some(format!("SYM{i:06}")), asset_id: Some(2),
+            id: i, at: At(i), exchange_id: Some(1), raw: deltabadger::figures::fill::Raw::new(None,None,None,None), base: Some(format!("SYM{i:06}")), asset_id: Some(2),
             sell: false, buy: true, closed: false, kind: "REGULAR".into(),
         }).collect(),
     };

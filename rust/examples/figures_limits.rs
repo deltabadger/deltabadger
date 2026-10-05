@@ -124,10 +124,10 @@ fn shadowed_history(c: &Connection, orders: i64) -> Result<(), String> {
 
 /// Three units bought for 100; then, `pairs` times, one of them sold and one bought back for 33. Priced: each
 /// sale reports 34, and the holding's cost gains 32 digits (a third of it is taken off, and a third is 32 digits).
-/// Not priced: a REBALANCE sale with no proceeds reported, whose estimate is the cost itself, which the buy then
+/// Not reported: a REBALANCE sale with a positive unit price but no proceeds reported, whose Rails estimate is the cost itself, which the buy then
 /// divides by: the cost's digits double.
 fn pairs(c: &Connection, pairs: i64, priced: bool) -> Result<(), String> {
-    let sale = if priced { "34, 1, 1, 34, 'AAA', 2, 1, 2, 'REGULAR'" } else { "0, 1, 1, NULL, 'AAA', 2, 1, 2, 'REBALANCE'" };
+    let sale = if priced { "34, 1, 1, 34, 'AAA', 2, 1, 2, 'REGULAR'" } else { "1, 1, 1, NULL, 'AAA', 2, 1, 2, 'REBALANCE'" };
     c.execute_batch(&format!("
         UPDATE transactions SET amount = 3, amount_exec = 3 WHERE id = 1;
         WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < {pairs})
@@ -223,14 +223,25 @@ fn histories() -> Result<usize, String> {
     at_most(what, "steps", cost.used.steps, 26_000_000)?;
     at_most(what, "limbs held", cost.used.held, 2_000_000)?;
 
-    // Sales that double it: eleven are computed (Rails takes 1.5 seconds), the twelfth is beyond a figure's steps.
-    let what = "11 sales with no proceeds reported, each followed by a buy";
-    let cost = history(what, &|c| pairs(c, 11, false))?;
-    computed(what, &cost, 24)?;
-    let what = "12 sales with no proceeds reported, each followed by a buy";
-    let cost = history(what, &|c| pairs(c, 12, false))?;
-    if !matches!(&cost.points, Err(FiguresError::NotComputed(why)) if why == OVER_BUDGET) { return Err(format!("{what}: {:?}", cost.points)); }
-    at_most(what, "steps", cost.used.steps, FIGURE.steps)?;
+    // R4 derives the reported-missing sales' value from price; no released-basis exponential growth remains.
+    for count in [11,12] {
+        let what=format!("{count} sales valued at their known unit price");
+        let cost=history(&what,&|c|pairs(c,count,false))?;
+        computed(&what,&cost,(count*2+2) as usize)?;
+        at_most(&what,"steps",cost.used.steps,1_000_000)?;
+    }
+
+    // R3: with neither a positive unit price nor reported proceeds, refuse before the estimate or its growth.
+    for count in [11,12] {
+        let what=format!("{count} sales with unknown value are refused before accounting");
+        let cost=history(&what,&|c|{
+            pairs(c,count,false)?;
+            c.execute("UPDATE transactions SET price=0 WHERE side=1",[]).map_err(|e|e.to_string())?;
+            Ok(())
+        })?;
+        if !matches!(&cost.points,Err(FiguresError::NotComputed(why)) if why=="executed fill value unavailable") {return Err(format!("{what}: {:?}",cost.points));}
+        at_most(&what,"steps before refusal",cost.used.steps,100)?;
+    }
 
     // A long cost carried into a long chart, through to what the page is sent: 600 such sales leave a cost of
     // 19,200 digits, and each of 20,000 buys after them makes another, which the chart keeps. Steps, limbs,
@@ -249,7 +260,7 @@ fn histories() -> Result<usize, String> {
     if !matches!(&cost.points, Err(FiguresError::NotComputed(why)) if why == OVER_BUDGET) { return Err(format!("{what}: {:?}", cost.points)); }
     at_most(what, "limbs held", cost.used.held, FIGURE.held)?;
     at_most(what, "bytes allocated at one time", cost.peak as u64, 320 * MEGABYTE as u64)?;
-    Ok(9)
+    Ok(11)
 }
 
 pub fn run() -> Result<usize, String> {

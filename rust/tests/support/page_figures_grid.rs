@@ -150,6 +150,25 @@ async fn figures_fragments_match_the_rails_page_partials() {
             if demands.is_empty() { break; }
             cache.fill(&wire, demands, now.utc().timestamp()).await;
         }
+        if ["row_readings","tax_lots"].contains(&name) {
+            // RULING-R2: Rails publishes a number after skipping an executed, unpriced fill.
+            let reader=Reader::new(&cache,now.utc().timestamp());
+            let err=deltabadger::web::figure::account(&c,sc["user_id"].as_i64().unwrap(),&reader,now,"en","token","").unwrap_err();
+            assert!(matches!(err,deltabadger::figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"));
+            assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"Rails recorded its skipped-row figure");
+            use deltabadger::web::figure::loading::{self,Snapshot};
+            let rendered=loading::render(&c,sc["user_id"].as_i64().unwrap(),&Snapshot::Failed,"en","token","").unwrap().unwrap();
+            let absent="<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
+            assert_eq!(rendered,serde_json::json!({"bots":{"1":{
+                "tile":format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"),
+                "metrics":format!("<div id=\"metrics\">{absent}</div>"),
+                "chart":format!("<div id=\"chart\">{absent}</div>")}},
+                "account":format!("<div id=\"global-pnl\">{absent}</div>")}));
+            let streams=deltabadger::web::figure::streams(&c,sc["user_id"].as_i64().unwrap(),&rendered).unwrap();
+            assert_eq!(streams.len(),4);
+            for (_,payload) in streams {assert!(payload.contains(absent));assert!(!payload.contains("data-bot--chart-series"));}
+            continue; // Exact unavailable output above replaces the named Rails money defect.
+        }
         if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && ["basket_buys", "hidden", "owner_account"].contains(&name) {
             use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
             let env=common::web::env(common::web::SECRET);

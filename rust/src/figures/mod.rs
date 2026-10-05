@@ -19,6 +19,7 @@ pub mod market;
 pub mod num;
 pub mod parity;
 pub mod page_market;
+pub mod pair;
 pub mod scripted;
 pub mod splits;
 pub mod totals;
@@ -65,3 +66,5 @@ pub const OUT_OF_RANGE: &str = "number out of range";
 pub const OVER_BUDGET: &str = "the arithmetic of this history is beyond what one figure may cost";
 /// Why a figure made from Infinity, NaN or a text that is no decimal is not computed.
 pub const NOT_A_NUMBER: &str = "a value that is not a finite decimal number";
+
+pub mod fill;

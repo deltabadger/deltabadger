@@ -1,10 +1,10 @@
 //! The four read tools. Network work runs outside App::db; accounting uses the merged figures library.
 use super::{protocol::tool_text,read_limits,tools::{self,Called}};
-use crate::{crypto::Credentials,figures::num::float_to_s,sync,venue::alpaca::{AlpacaVenue,Urls},web::{App,WebError,figure::loading::Wire}};
+use crate::{crypto::Credentials,figures::{self,at::At,budget,db::Subject,num::{Num,float_to_s},walk,live},sync,venue::alpaca::{AlpacaVenue,Urls},web::{App,WebError,figure::{self,loading::Wire}}};
 use rusqlite::{Connection,OptionalExtension};
 use serde_json::Value;
 use std::collections::HashSet;
-pub const NAMES:[&str;2]=["get_exchange_balances","list_open_orders"];
+pub const NAMES:[&str;3]=["get_exchange_balances","list_open_orders","get_bot_details"];
 const ONLY:&str="this build reads Alpaca only";
 fn error()->WebError{WebError::Config("MCP read unavailable".into())}
 fn done(text:impl AsRef<str>)->Called{Called::Done(tool_text(read_limits::text(text.as_ref()),false))}
@@ -21,7 +21,9 @@ fn exchange(c:&Connection,name:&str)->Result<Option<(i64,String,String)>,WebErro
 fn unknown(c:&Connection,name:&str)->Result<Called,WebError>{Ok(done(format!("Exchange '{name}' not found. Available exchanges: {}",super::tradeable(c)?.join(", "))))}
 pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Called,WebError>{
     if !read_limits::check(c,user)?{return Ok(done(read_limits::REFUSAL))}
+    let now=At::from_utc(app.now()).ok_or_else(error)?;
     match name {
+        "get_bot_details"=>Ok(done(budget::within(||details(c,user,args["bot_id"].as_f64().unwrap_or(0.0) as i64,now))?)),
         "get_exchange_balances"=>{
             let name=args["exchange_name"].as_str().unwrap_or("");
             let Some((exchange,name,kind))=exchange(c,name)? else{return unknown(c,name)};
@@ -131,4 +133,194 @@ fn local_orders(c:&Connection,user:i64,exchange:Option<i64>)->Result<(Vec<String
         // Optional DB columns interpolate as empty; an absent amount alone prints N/A.
         lines.push(format!("- [{date}] #{id} {} {} {}/{} {} ({}) | {name} | ext: {ext}",match side{Some(0)=>"BUY",Some(1)=>"SELL",_=>""},amount.unwrap_or_else(||"N/A".into()),base.unwrap_or_default(),quote.unwrap_or_default(),price.map(|v|format!("@ {v}")).unwrap_or_default(),match kind{Some(0)=>"Market order",Some(1)=>"Limit order",_=>"Unknown"}));
     }Ok((lines,ids))
+}
+fn num(n:&Num)->Result<String,WebError>{
+    Ok(match n{Num::Int(i)=>i.to_string(),Num::Float(f)=>float_to_s(sync::balances::float_round(*f,2)),Num::Dec(d)=>d.round(2).map_err(|_|error())?.to_s_f()})
+}
+fn pct(n:&Num)->Result<String,WebError>{Ok(format!("{}{}%",if n.is_negative(){""}else{"+"},num(&n.mul(&Num::Int(100)).map_err(|_|error())?)?))}
+fn fail_fig(e:figures::FiguresError)->WebError{match e{figures::FiguresError::Data(ref why)|figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"||why=="quote currency unavailable"=>WebError::Config(why.clone()),_=>error()}}
+struct Bot {id:i64,label:String,kind:String,status:i64,settings:Value,transient:Value,exchange:String,quote:String,base:Option<String>,pair:Option<String>,started:Option<String>}
+fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
+    read_limits::charge_bot()?;
+    let row=c.query_row("SELECT b.label,b.type,b.status,b.settings,e.name,b.started_at,b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1 AND b.user_id=?2 AND b.status!=3",[id,user],|r|Ok((r.get::<_,Option<String>>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?))).optional()?;
+    let Some((label,kind,status,settings,exchange,started,transient))=row else{return Ok(None)};
+    let settings:Value=serde_json::from_str(&settings).map_err(|_|error())?;
+    let transient:Value=serde_json::from_str(&transient).map_err(|_|error())?;
+    let quote=tools::asset(c,&settings["quote_asset_id"])?.unwrap_or_default(); // nil quote interpolates as empty.
+    let members=members(c,&kind,&settings)?;
+    let base=if pair_kind(&kind){tools::asset(c,&settings["base_asset_id"])?}else if members.len()==1{Some(members[0].1.clone())}else{None};
+    let pair=if kind=="Bots::DcaMultiAsset"{Some(format!("{}/{}",members.iter().map(|(_,s,_)|s.as_str()).collect::<Vec<_>>().join("+"),quote))}else if pair_kind(&kind){base.as_ref().filter(|_|!quote.is_empty()).map(|base|format!("{base}/{quote}"))}else{None};
+    let label=match label.filter(|s|!s.trim().is_empty()){
+        Some(label)=>label,
+        None=>generated_label(c,user,id,&kind,&settings)?,
+    };
+    Ok(Some(Bot{id,label,kind,status,settings,transient,exchange:exchange.unwrap_or_else(||"N/A".into()),quote,base,pair,started}))
+}
+fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value)->Result<String,WebError>{
+    let label=if kind=="Bots::DcaIndex"{
+        let mut view=crate::web::bot::Bot::find(c,user,id,crate::web::bot::For::Feed)?.ok_or_else(error)?;
+        if !view.holds_whole_universe(){
+            if let (Some(max),Some(count))=(view.bounded_universe_size(),view.effective_num_coins()){
+                if count>max{view.settings.insert("num_coins".into(),serde_json::json!(max));}
+            }
+        }
+        let mut name=view.display_index_name().unwrap_or_else(||crate::web::i18n::text("en","bot.dca_index.setup.pick_index.top_coins",&[]));
+        if s["index_type"]=="category" && s["index_category_id"]!="nasdaq-100"{
+            if s["index_name"].as_str().is_none_or(|name|name.trim().is_empty()){
+                // Category IDs are slugs; Rails titleizes the ID when no display name is saved.
+                name=s["index_category_id"].as_str().map_or_else(||"Index".into(),|category|{
+                    category.replace(['-','_']," ").split_whitespace().map(|word|{
+                        let mut chars=word.chars();
+                        chars.next().map_or_else(String::new,|first|first.to_uppercase().collect::<String>()+chars.as_str())
+                    }).collect::<Vec<_>>().join(" ")
+                });
+            }
+            // Rails default_label appends num_coins even when hold_all uses the whole universe.
+            if let Some(count)=view.settings.get("num_coins").and_then(Value::as_i64){name.push_str(&format!(" · {count}"));}
+        }
+        name
+    }else{
+        let ids=if pair_kind(kind){s["base_asset_id"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s["allocations"].as_object().filter(|a|!a.is_empty()){a.keys().map(|k|crate::ruby::to_i(k)).collect()}else{s["base_asset_ids"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};
+        let assets=figures::db::asset_names(c,&ids).map_err(fail_fig)?;
+        if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{
+            let symbols=ids.iter().filter_map(|id|assets.iter().find(|(asset,_,_)|asset==id).and_then(|(_,symbol,_)|symbol.as_deref())).collect::<Vec<_>>();
+            let label=symbols.iter().take(3).copied().collect::<Vec<_>>().join(", ");
+            if symbols.len()>3{format!("{label} + {}",symbols.len()-3)}else{label}
+        }
+    };
+    Ok(if label.trim().is_empty(){crate::web::i18n::text("en","bot.new",&[])}else{label})
+}
+fn members(c:&Connection,kind:&str,s:&Value)->Result<Vec<(i64,String,f64)>,WebError>{
+    if kind!="Bots::DcaMultiAsset"{return Ok(vec![])}
+    let mut out=vec![];
+    let ids=if let Some(a)=s["allocations"].as_object().filter(|a|!a.is_empty()){a.keys().map(|k|crate::ruby::to_i(k)).collect::<Vec<_>>()}else{s["base_asset_ids"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};
+    let assets=figures::db::asset_names(c,&ids).map_err(fail_fig)?;
+    for id in ids{
+        if let Some((_,symbol,_))=assets.iter().find(|(asset,_,_)|*asset==id){
+            let symbol=symbol.clone().unwrap_or_default(); // nil symbol joins as empty in a pair.
+            let weight=s["allocations"][id.to_string()].as_f64().unwrap_or(0.0); // nil.to_f in allocation_for.
+            out.push((id,symbol,weight));
+        }
+    }Ok(out)
+}
+fn pair_kind(kind:&str)->bool{matches!(kind,"Bots::DcaSingleAsset"|"Bots::Signal")}
+fn metrics(c:&Connection,b:&Bot,now:At)->Result<(Subject,walk::Metrics),WebError>{
+    if pair_kind(&b.kind){let p=figures::pair::metrics(c,b.id,now).map_err(fail_fig)?;return Ok((p.subject,p.metrics));}
+    let s=Subject::load(c,b.id).map_err(fail_fig)?;
+    let m=walk::metrics(c,&s,now).map_err(fail_fig)?;
+    Ok((s,m))
+}
+fn effective_started(b:&Bot,zone:&str)->Result<Option<chrono::DateTime<chrono::Utc>>,WebError>{
+    let Some(raw)=&b.started else{return Ok(None)};
+    let mut start=crate::codec::parse_time(raw).map_err(|_|error())?;
+    // Signal and index have no trigger decorators.
+    if matches!(b.kind.as_str(),"Bots::Signal"|"Bots::DcaIndex") {return Ok(Some(start))}
+    let selling=b.settings["direction"]=="selling";
+    let prefix=if selling{"sell_"}else{""};
+    for trigger in ["price","price_drop","moving_average","indicator"]{
+        if b.settings[format!("{prefix}{trigger}_limited")].as_bool()!=Some(true){continue}
+        let Some(raw)=b.transient[format!("{prefix}{trigger}_limit_condition_met_at")].as_str().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
+        // ActionMCP::Current sets Time.zone to the calling user's zone.
+        let met=match chrono::DateTime::parse_from_rfc3339(raw){
+            Ok(t)=>t.to_utc(),
+            Err(_)=>{
+                let local=chrono::NaiveDateTime::parse_from_str(&raw.replacen('T'," ",1),"%Y-%m-%d %H:%M:%S%.f").map_err(|_|error())?;
+                use chrono::TimeZone;
+                // Rails prefers the DST occurrence at an ambiguous local time; invalid gaps refuse.
+                crate::web::timezone::zone(zone).unwrap_or(chrono_tz::Tz::UTC).from_local_datetime(&local).earliest().ok_or_else(error)?.to_utc()
+            },
+        };
+        start=start.max(met);
+    }
+    Ok(Some(start))
+}
+fn details(c:&Connection,user:i64,id:i64,now:At)->Result<String,WebError>{
+    let Some(b)=bot(c,user,id)?else{return Ok("Bot not found.".into())};
+    let status=tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?;
+    let mut lines=vec![format!("Bot: {}",b.label),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange)];
+    if let Some(pair)=&b.pair{lines.push(format!("Pair: {pair}"));}
+    let members=members(c,&b.kind,&b.settings)?;
+    if !members.is_empty(){
+        let names=figures::db::asset_names(c,&members.iter().map(|(id,_,_)|*id).collect::<Vec<_>>()).map_err(fail_fig)?;
+        let candidates=names.iter().map(|(id,symbol,name)|(figures::keys::Identity::Asset(*id),figures::keys::candidate(*id,symbol.as_deref(),name.as_deref()))).collect::<Vec<_>>();
+        let keys=figures::keys::call(&candidates).map_err(|_|error())?;
+        let formatted=members.iter().map(|(id,_,w)|{
+            let key=keys.iter().find(|(asset,_)|*asset==figures::keys::Identity::Asset(*id)).map(|(_,key)|key).ok_or_else(error)?;
+            Ok(format!("{key} {:.2}%",w*100.0))
+        }).collect::<Result<Vec<_>,WebError>>()?;
+        lines.push(format!("Allocations: {}",formatted.join(", ")));
+    }
+    let result=metrics(c,&b,now);
+    let mut redeploy_line=None;
+    if let Ok((s,m))=&result {if !pair_kind(&b.kind){
+        let in_index=c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1 AND in_index=1")?.query_map([id],|r|r.get(0))?.collect::<Result<HashSet<i64>,_>>()?;
+        let mut held=vec![];let mut exited=vec![];
+        for (key,row) in &m.asset_breakdown {
+            let asset=m.key_assets.iter().find(|(k,_)|k==key).and_then(|(_,id)|*id);
+            if let Some(t)=live::ticker_for_key(s,m,key).filter(|_|asset.is_some()){
+                let value=c.query_row("SELECT minimum_base_size FROM tickers WHERE id=?1",[t.id],|r|r.get::<_,rusqlite::types::Value>(0))?;
+                let minimum=crate::figures::dec::Dec::from_sql((&value).into()).map_err(|_|error())?.unwrap_or_else(figures::dec::Dec::zero); // nil.to_d is zero.
+                if row.amount.to_d().map_err(|_|error())?>=minimum{
+                    held.push(key.clone());if !in_index.is_empty()&&asset.is_some_and(|id|!in_index.contains(&id)){exited.push(key.clone());}
+                }
+            }
+        }
+        if !held.is_empty(){lines.push(format!("Holdings (sellable with liquidate_exited_asset): {}",held.join(", ")));}
+        if !exited.is_empty(){lines.push(format!("Exited holdings: {}",exited.join(", ")));}
+        if figures::db::composition_minimum(c,s).map_err(fail_fig)?.is_none(){
+            redeploy_line=Some("Redeploy unavailable: no composition minimum".into());
+        }else if let Some(offer)=figure::redeploy_offer(c,s,m,&in_index).map_err(fail_fig)?.filter(|v|v.is_positive()){
+            redeploy_line=Some(format!("Redeploy offer (answer with answer_redeploy_offer): {} {}",offer.to_s_f(),b.quote));
+        }
+    }
+    }
+    let (enabled,jurisdiction,zone):(Option<bool>,Option<String>,String)=c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction,time_zone FROM users WHERE id=?1",[user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+    let jurisdiction=jurisdiction.as_deref().filter(|s|!s.trim().is_empty()).unwrap_or("US");
+    if enabled==Some(true)&&["US","GB","IE"].contains(&jurisdiction){
+        let membership=if pair_kind(&b.kind){
+            "SELECT t.base_asset_id FROM tickers t JOIN bots b ON b.exchange_id=t.exchange_id WHERE b.id=?2 AND t.base_asset_id=json_extract(b.settings,'$.base_asset_id') AND t.quote_asset_id=json_extract(b.settings,'$.quote_asset_id')"
+        }else{"SELECT asset_id FROM bot_index_assets WHERE bot_id=?2"};
+        let mut q=c.prepare(&format!("SELECT a.symbol,l.buy_locked_until FROM wash_sale_locks l JOIN assets a ON a.id=l.asset_id WHERE l.user_id=?1 AND l.asset_id IN ({membership}) ORDER BY l.id"))?;
+        let mut locks=vec![];
+        for row in q.query_map([user,id],|r|Ok((r.get::<_,Option<String>>(0)?,r.get::<_,Option<String>>(1)?)))?{
+            let (symbol,until)=row?;
+            if let Some(until)=until{
+                let until=crate::codec::parse_time(&until).map_err(|_|error())?;
+                if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!("{} {days}d",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as Rails.
+            }
+        }
+        if !locks.is_empty(){lines.push(format!("Locked out of buying (wash sale): {}",locks.join(", ")));}
+    }
+    if let Some(line)=redeploy_line{lines.push(line);}
+    lines.push(format!("Interval: {}",b.settings["interval"].as_str().unwrap_or("N/A")));
+    lines.push(format!("Amount per order: {} {}",tools::str_value(&b.settings["quote_amount"]),b.quote));
+    let count:i64=c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND status IN (0,2)",[id],|r|r.get(0))?;
+    lines.push(format!("Orders executed: {count}"));
+    if let Some(start)=effective_started(&b,&zone)?{
+        lines.push(format!("Started: {}",crate::web::timezone::local(start,&zone).format("%Y-%m-%d %H:%M UTC")));
+    }
+    lines.push(String::new());
+    match result{
+        Err(WebError::Config(why)) if why=="executed fill value unavailable"=>lines.push("Metrics unavailable: executed fill value unavailable".into()),
+        Err(_)=>lines.push("Metrics unavailable: metrics unavailable".into()),
+        Ok((_,m))=>{
+            lines.push("--- Performance ---".into());
+            lines.push(format!("Total invested: {} {}",num(&m.total_quote_amount_invested)?,b.quote));
+            lines.push(format!("Current value: {} {}",num(&m.total_amount_value_in_quote)?,b.quote));
+            if let Some(p)=&m.pnl{lines.push(format!("P/L: {}",pct(p)?));}
+            if pair_kind(&b.kind){
+                let p=figures::pair::metrics(c,b.id,now).map_err(fail_fig)?;
+                if let Some(avg)=p.average{lines.push(format!("Average buy price: {} {}",num(&avg)?,b.quote));}
+                lines.push(format!("Total acquired: {} {}",num(&p.amount)?,b.base.as_deref().unwrap_or("units")));
+            }else if let Some(base)=b.base{
+                let identity=members.first().map(|m|m.0);
+                let key=m.key_assets.iter().find(|(_,asset)|*asset==identity).map(|(key,_)|key);
+                let row=m.asset_breakdown.iter().find(|(k,_)|Some(k)==key);
+                let amount=row.map(|(_,r)|r.amount.clone()).unwrap_or(Num::Int(0));
+                if let Some((_,r))=row.filter(|(_,r)|r.amount.is_positive()) {lines.push(format!("Average buy price: {} {}",num(&r.quote_invested.div(&r.amount).map_err(|_|error())?)?,b.quote));}
+                lines.push(format!("Total acquired: {} {base}",num(&amount)?));
+            }
+        }
+    }
+    Ok(lines.join("\n"))
 }

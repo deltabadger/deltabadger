@@ -39,6 +39,12 @@ module PageFigures
     basket = list.find { |s| s['name'] == 'basket_buys' }['bots'].first.deep_dup
     basket['settings'] = { 'limit_ordered' => true, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 10.0 }
     single = list.find { |s| s['name'] == 'row_readings' }['bots'].first.deep_dup
+    # Priced owner control; row_readings separately asserts the NULL-fill refusal.
+    single['orders'].reject! { |order| order['price'].nil? || order['price'].to_f <= 0 }
+    single['orders'].each do |order|
+      quantity = order['amount_exec'] || (order.fetch('ext', 'closed') == 'closed' ? order['amount'] : nil)
+      order['quote_amount_exec'] = (order['price'].to_d * quantity.to_d).to_s('F') if quantity.to_d.positive? && !order['quote_amount_exec'].to_d.positive?
+    end
     single['settings']['limit_ordered'] = true
     owner['bots'] = [basket, single, index]
     list << owner

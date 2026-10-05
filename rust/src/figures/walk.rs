@@ -206,19 +206,6 @@ impl Metrics {
     }
 }
 
-/// Transaction.confirmed_exec_amounts: a closed order with no execution recorded filled for what it asked. An open
-/// or cancelled one is never assumed filled.
-pub fn confirmed_exec_amounts(o: &Order) -> Result<(Option<Dec>, Option<Dec>), FiguresError> {
-    let (mut amount_exec, mut quote_amount_exec) = (o.amount_exec.clone(), o.quote_amount_exec.clone());
-    if o.closed {
-        if quote_amount_exec.is_none() {
-            if let (Some(price), Some(amount)) = (&o.price, &o.amount) { quote_amount_exec = Some((price * amount)?); }
-        }
-        if amount_exec.is_none() { amount_exec = o.amount.clone(); }
-    }
-    Ok((amount_exec, quote_amount_exec))
-}
-
 /// `x.to_d` on a column: nil is zero.
 pub fn d(value: &Option<Dec>) -> Dec { value.clone().unwrap_or_else(Dec::zero) }
 
@@ -331,8 +318,10 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
     // their asset is its own holding, by its string.
     let mut identities = vec![];
     let mut seen = HashSet::new();
+    let mut fills:Vec<Option<super::fill::Fill>>=Vec::with_capacity(s.orders.len());
     for order in &s.orders {
         budget::charge(1, 0)?;
+        fills.push(super::fill::parse(order)?);
         let id = identity(order);
         if seen.insert(id.clone()) { identities.push(id); }
     }
@@ -379,32 +368,25 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
     // Corporate actions are events in this walk like any fill: applied before the first order at or after them.
     let mut pending = splits::events(c, s.bot.user_id, &s.orders, &data.holdings()?, now)?;
 
-    for order in &s.orders {
+    for (order,fill) in s.orders.iter().zip(fills) {
         budget::charge(1, 0)?;
         let base = key_of(order);
         pending = walk.apply_due_splits(pending, Some(order.at))?;
-        let (amount_exec, quote_amount_exec) = confirmed_exec_amounts(order)?;
-        let executed = d(&amount_exec);
-        let reported = order.quote_amount_exec.clone().filter(Dec::is_positive);
+        let Some(fill)=fill else{continue};
+        let price=fill.unit_price()?;
+        let executed=fill.quantity;
+        let value=fill.value;
 
         // A sale of more than the ledger held: units that reached the venue some other way.
         let held = match walk.ledger.get(&base) { Some(entry) => entry.amount.to_d()?, None => Dec::zero() };
         if order.sell && executed > held { walk.external_sales = true; }
 
-        // The tax view of the fill, before the performance skip below: a fill the performance walk cannot use
-        // (units executed, proceeds not reported) still moved units for tax purposes.
+        // Tax lots and performance consume the same normalized value.
         if executed.is_positive() {
             if order.sell {
                 let list: &Lots = walk.lots(&base); // read where it stands: a copy per sale would be the whole history each time
-                let mut verdict = match &reported {
-                    // Judged on the raw proceeds, per transaction.
-                    Some(proceeds) => {
-                        tax_pnl.push((order.id, (proceeds - &lots::cost_of(list, &executed)?)?));
-                        lots::loss_in(list, &executed, proceeds)?
-                    }
-                    // No proceeds reported: unknown, unless no lot of the bot's own stood behind the sale.
-                    None => if list.is_empty() { Some(false) } else { None },
-                };
+                tax_pnl.push((order.id, (&value - &lots::cost_of(list, &executed)?)?));
+                let mut verdict=lots::loss_in(list,&executed,&value)?;
                 // Lots of the same asset recorded without it may be the ones FIFO consumed: unknown.
                 if let Some((_, shadows)) = order.asset_id.and_then(|id| shadowed_by.iter().find(|(asset, _)| *asset == id)) {
                     for key in shadows {
@@ -418,45 +400,11 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
                 loss_lot.push((order.id, verdict));
                 lots::consume(walk.lots(&base), &executed)?;
             } else {
-                // A lot opens at what was paid: the reported proceeds, else the order price times the units the
-                // venue said were executed, else unknown. Alpaca reports a zero, not a blank, for "no figure yet".
-                let estimated = match order.price.as_ref().filter(|price| price.is_positive()) {
-                    Some(price) => Some((price * &d(&order.amount_exec.clone().or_else(|| order.amount.clone())))?),
-                    None => None,
-                };
-                walk.lots(&base).push_back(Lot { amount: executed.clone(), cost: reported.clone().or(estimated) });
+                walk.lots(&base).push_back(Lot { amount: executed.clone(), cost: Some(value.clone()) });
             }
         }
 
-        // A sale the venue executed and did not price: the units are gone, so the ledger loses them, and the
-        // cost they carried is parked as an estimate of the proceeds until the venue reports them.
-        if order.sell && executed.is_positive() && reported.is_none() {
-            let released = match walk.ledger.get(&base) {
-                Some(entry) if entry.amount.to_d()?.is_positive() => {
-                    let fraction = Num::min2(Num::Dec(executed.clone()).div(&Num::Dec(entry.amount.to_d()?))?, Num::Int(1))?;
-                    Num::Dec(entry.invested.to_d()?).mul(&fraction)?
-                }
-                _ => Num::Dec(Dec::zero()),
-            };
-            let amount = Num::Dec(executed.clone());
-            match Fill::of(true, &order.kind) {
-                Fill::LiquidationSell => walk.books.unpriced_sell(&mut walk.ledger, &base, &amount, &released)?,
-                Fill::RegularSell => {
-                    // Only the units the ledger holds: with none held there is no cost to estimate from.
-                    let held = walk.ledger.get(&base).map_or(Num::Int(0), |entry| entry.amount.clone());
-                    let owned = Num::min2(amount, held)?;
-                    if owned.is_positive() { walk.books.regular_sell(&mut walk.ledger, &base, &owned, &released)?; }
-                }
-                _ => walk.books.rebalance_sell(&mut walk.ledger, &base, &amount, &released)?,
-            }
-            walk.estimated_proceeds = walk.estimated_proceeds.add(&released)?;
-            walk.point(order.at)?;
-            continue;
-        }
-
-        let (Some(price), Some(quote), Some(amount)) = (&order.price, &quote_amount_exec, &amount_exec) else { continue };
-        if quote.is_zero() || amount.is_zero() { continue; }
-        walk.books.apply(&mut walk.ledger, Fill::of(order.sell, &order.kind), &base, &Num::Dec(amount.clone()), &Num::Dec(quote.clone()))?;
+        walk.books.apply(&mut walk.ledger, Fill::of(order.sell, &order.kind), &base, &Num::Dec(executed), &Num::Dec(value))?;
         match walk.prices.iter_mut().find(|(key, _)| *key == base) {
             Some(entry) => entry.1 = Num::Dec(price.clone()),
             None => walk.prices.push((base.clone(), Num::Dec(price.clone()))),

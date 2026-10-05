@@ -48,6 +48,11 @@ pub fn unlisted(c: &Connection, s: &Subject, asset_id: Option<i64>) -> Result<Wh
     Ok(if listed { Why::Delisted } else { Why::NoTicker })
 }
 
+/// Rails' composition live pass asks the venue only after these local early returns.
+pub fn needs_venue_price(c:&Connection,s:&Subject,metrics:&Metrics,now:At)->Result<bool,FiguresError>{
+    Ok(!metrics.chart.labels.is_empty()&&!restated_prices_untrusted(c,s,metrics,now)?)
+}
+
 pub fn live(c: &Connection, s: &Subject, metrics: &Metrics, market: &dyn MarketData, now: At) -> Result<Metrics, FiguresError> {
     budget::within(|| marked_live(c, s, metrics, market, now))
 }
