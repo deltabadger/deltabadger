@@ -37,7 +37,7 @@ fn stamp_funds_low(c: &Connection, bot: &model::Bot, now: chrono::DateTime<chron
 
 /// ActiveJob's exception_executions, one counter per retry_on handler.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Attempts { pub transient: u32, pub rate: u32 }
+pub struct Attempts { pub transient: u32, pub rate: u32, pub open: u32 }
 
 #[derive(Debug)]
 pub enum TickOutcome {

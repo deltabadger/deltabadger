@@ -1009,7 +1009,11 @@ class Exchanges::Alpaca < Exchange
 
   def parse_order_status(status)
     case status
-    when 'new', 'accepted', 'pending_new'
+    # Every state Alpaca can still fill or settle from. A market order is usually caught mid-fill
+    # (partially_filled) by the poll that follows its placement; reading that as :unknown made the
+    # poll give up on an order that finished a second later.
+    when 'new', 'accepted', 'pending_new', 'partially_filled', 'held', 'accepted_for_bidding',
+         'pending_cancel', 'pending_replace', 'done_for_day', 'stopped', 'suspended', 'calculated'
       :open
     when 'filled'
       :closed

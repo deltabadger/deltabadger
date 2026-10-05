@@ -544,7 +544,7 @@ module Decisions
     when 'drifted' then [[closed_leg(1, 'BTC', 60.0)], {}]
     # An ETH limit buy resting unfilled: its remainder counts as held (reserved_waiting_amounts) and as invested.
     when 'resting' then [[resting], rest.('new', '0')]
-    # The same buy part-filled: Alpaca's partially_filled reads as unknown, so the sweep raises and the tick fails on both sides.
+    # The same buy part-filled: Alpaca's partially_filled is open, so the sweep records the fill and the tick goes on.
     when 'resting_partial' then [[resting.merge('amount_exec' => '0.003', 'quote_amount_exec' => '7.47975')], rest.('partially_filled', '0.003')]
     # A closed BTC buy that reported a zero executed quote adds no units to the ledger.
     when 'zero_quote_exec' then [[closed_leg(1, 'BTC', 42.0).merge('quote_amount_exec' => '0')], {}]

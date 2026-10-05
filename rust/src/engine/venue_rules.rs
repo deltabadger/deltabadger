@@ -47,7 +47,7 @@ pub struct VenueRules {
     /// Rails' in-app clients (Clients::Alpaca) raise Client::TransientNetworkError on a transport failure; honeymaker's
     /// return a Failure. It decides what a failed price or balance read does to a tick.
     pub transport_raises: bool,
-    /// Bot::FetchAndUpdateOrderJob raises on an unknown status (partially_filled on Alpaca) and on a failed fetch. True for
+    /// Bot::FetchAndUpdateOrderJob raises on an unknown status and on a failed fetch. True for
     /// Alpaca (one GET per order, as Exchange#get_order); false keeps Kraken's follow-up exactly as merged.
     pub follow_up_strict: bool, pub market_hours: bool,
 }

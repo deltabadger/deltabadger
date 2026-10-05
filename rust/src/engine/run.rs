@@ -249,7 +249,7 @@ fn assert_guarded(c: &Connection, report: &eligibility::Report) {
 }
 
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
-/// bot is stopped meanwhile). Transient/RateLimited failures retry as FetchAndUpdateOrderJob's retry_on.
+/// bot is stopped meanwhile). Transient/RateLimited failures and a still-open order retry as FetchAndUpdateOrderJob's retry_on.
 async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) {
     let now_us = clock.now().timestamp_micros();
     let due: Vec<(i64, i64, Attempts)> = e.polls.iter().filter(|(_, (_, at, _))| *at <= now_us).map(|(tx, (bot, _, a))| (*tx, *bot, *a)).collect();
@@ -265,7 +265,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             }
         };
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
-            Ok(()) => None,
+            Ok(polling::FollowUp::Done) => None,
+            Ok(polling::FollowUp::StillOpen) => { attempts.open += 1; (attempts.open < 8).then(|| (tick::retry_wait(attempts.open, false), "the order is still open".to_string())) }
             Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m)) }
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }

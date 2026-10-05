@@ -46000,7 +46000,7 @@
         "status": "partially_filled"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46024,7 +46024,7 @@
         "status": "partially_filled"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46048,7 +46048,7 @@
         "status": "partially_filled"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
@@ -46072,7 +46072,7 @@
         "status": "done_for_day"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46096,7 +46096,7 @@
         "status": "done_for_day"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46120,7 +46120,7 @@
         "status": "done_for_day"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
@@ -46144,7 +46144,7 @@
         "status": "pending_cancel"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46168,7 +46168,7 @@
         "status": "pending_cancel"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46192,7 +46192,7 @@
         "status": "pending_cancel"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,
@@ -46216,7 +46216,7 @@
         "status": "held"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "0.0",
         "amount": null,
         "quote_amount": "60.0",
@@ -46240,7 +46240,7 @@
         "status": "held"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64328.1",
         "amount": null,
         "quote_amount": "60.0",
@@ -46264,7 +46264,7 @@
         "status": "held"
       },
       {
-        "status": "unknown",
+        "status": "open",
         "price": "64149.97",
         "amount": "0.00093525",
         "quote_amount": null,

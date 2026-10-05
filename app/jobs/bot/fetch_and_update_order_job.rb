@@ -8,11 +8,12 @@ class Bot::FetchAndUpdateOrderJob < BotJob
   # Kraken's decaying counter). The durable row remains for the next sweep if exhausted.
   retry_on Client::RateLimitedError, wait: BotJob::RATE_LIMIT_WAIT, attempts: 4
 
-  # A market order the venue had accepted but not filled when it was asked (Alpaca answers :open
-  # for a just-accepted order). A scheduled bot sweeps its waiting orders on its next tick; a
-  # signal bot has no tick, so this job is the only clock its order has. Read-only — a retry
-  # re-reads an order, it never places one — and bounded: a market order fills in moments or not
-  # at all, and the open row stays for the page's own refresh if it never does.
+  # An order the venue had accepted but not filled when it was asked (Alpaca answers :open for a
+  # just-accepted or mid-fill order). Asked again for every bot, not only signal bots: a signal bot
+  # has no tick, a stopped bot's sale (Sell all, a rebalance) has none either, and a weekly bot's
+  # next tick is a week away — the row stayed "waiting", so the sold shares still read as held.
+  # Read-only — a retry re-reads an order, it never places one — and bounded: the open row stays
+  # for the sweeps and the page's own refresh if it outlives the retries.
   class OrderStillOpen < StandardError; end
 
   retry_on OrderStillOpen, wait: :polynomially_longer, attempts: 8 do |job, _error|
@@ -54,17 +55,13 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     # to the bot it now belongs to). Read it back so the callbacks the update fires — the broadcast,
     # the metrics refresh — address that bot, not the one this job was handed.
     order.reload
-    bot = order.bot
 
     order_data = result.data
     case order_data[:status]
     when :open, :closed, :cancelled
       raise "Failed to update order #{order.external_id}" unless order.update_with_order_data(order_data)
 
-      # Not order.market_order?: the update above has just overwritten order_type with the venue's,
-      # and an emulated market order reads as a limit from then on. A signal bot places market
-      # orders only, so the bot is the condition.
-      raise OrderStillOpen if order_data[:status] == :open && bot.signal?
+      raise OrderStillOpen if order_data[:status] == :open
     when :unknown
       raise "Order #{order.external_id} status is unknown."
     end
