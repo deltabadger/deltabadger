@@ -31,7 +31,7 @@ module McpParity
       'handshake' => [init, session_rpc('ping'), session_rpc('tools/list'), session_rpc('notifications/initialized', {}, nil),
                       session_rpc('tools/list'), session_rpc('notifications/initialized', {}, nil)],
       'reads' => ready + NAMES.map { |n| tool(n) },
-      'unknown' => ready + [tool('unknown'), tool('market_buy'), tool('get_bot_details')],
+      'unknown' => ready + [tool('unknown'), tool('market_buy'), tool('create_bot')],
       'no_token' => [init('Authorization' => nil)],
       'bad_token' => [init('Authorization' => 'Bearer unknown')],
       'scope' => [init('Authorization' => 'Bearer api-token')],
@@ -188,6 +188,7 @@ module McpParity
   def play(dir, steps, session_id = nil)
     Pages.connect(dir)
     configure
+    McpReads.setup(dir)
     browser = ActionDispatch::Integration::Session.new(Rails.application)
     browser.host! 'localhost:3000'
     responses = []
@@ -196,6 +197,7 @@ module McpParity
         Array(step['sql']).each { |sql| ActiveRecord::Base.connection.execute(sql) }
         hs = step['headers'].transform_values { |v| v == '$session' ? session_id : v }.compact
         browser.process(step['method'].downcase.to_sym, step['path'], params: step['body'], headers: hs)
+        raise 'unscripted MCP market request' if defined?(ScriptedMarket) && ScriptedMarket.gaps&.any?
         r = browser.response
         session_id = r.headers['Mcp-Session-Id'] || session_id
         responses << { 'status' => r.status, 'headers' => HEADERS.to_h { |h| [h, r.headers[h]] }.compact, 'body' => r.body }
@@ -250,16 +252,18 @@ module McpParity
     configure
     data = { 'requests' => ActionMCP::ProtocolValidator::REQUEST_PARAM_SCHEMAS, 'required_requests' => ActionMCP::ProtocolValidator::REQUIRED_REQUEST_PARAMS,
              'notifications' => ActionMCP::ProtocolValidator::NOTIFICATION_PARAM_SCHEMAS, 'required_notifications' => ActionMCP::ProtocolValidator::REQUIRED_NOTIFICATION_PARAMS,
-             'tools' => NAMES.map { |n| ActionMCP::ToolsRegistry.find(n).to_h(protocol_version: '2025-11-25') },
+             'tools' => (AppConfig::MCP_TOOL_DEFAULTS.keys & (NAMES + McpReads::NAMES)).map { |n| ActionMCP::ToolsRegistry.find(n).to_h(protocol_version: '2025-11-25') },
              'tax' => BotApi::Tax::ListJurisdictions.call.data,
-             'sources' => %w[Gemfile.lock config/mcp.yml config/routes.rb config/initializers/rack_attack.rb config/initializers/mcp_instructions.rb config/initializers/version.rb app/lib/tool_access.rb app/models/connected_client.rb app/models/app_config.rb app/models/user.rb app/models/exchange.rb app/models/api_key.rb app/models/transaction.rb app/models/bot.rb app/models/bots/dca_single_asset.rb app/models/bots/dca_multi_asset.rb app/models/bots/dca_multi_asset/allocatable.rb app/models/bots/dca_index.rb app/models/bots/signal.rb app/models/automation/labelable.rb app/models/tax/jurisdictions.rb].concat(Dir['app/mcp/**/*.rb'] + %w[app/services/bot_api/bots/list.rb app/services/bot_api/exchanges/list.rb app/services/bot_api/transactions/list.rb app/services/bot_api/tax/list_jurisdictions.rb]).to_h do |p|
+             'sources' => %w[Gemfile.lock config/mcp.yml config/routes.rb config/initializers/rack_attack.rb config/initializers/mcp_instructions.rb config/initializers/version.rb config/initializers/action_mcp_time_zone.rb app/lib/tool_access.rb app/models/connected_client.rb app/models/app_config.rb app/models/user.rb app/models/exchange.rb app/models/api_key.rb app/models/transaction.rb app/models/bot.rb app/models/bots/dca_single_asset.rb app/models/bots/dca_multi_asset.rb app/models/bots/dca_multi_asset/allocatable.rb app/models/bots/dca_index.rb app/models/bots/signal.rb app/models/automation/labelable.rb app/models/tax/jurisdictions.rb].concat(Dir['app/mcp/**/*.rb'] + %w[app/services/bot_api/bots/list.rb app/services/bot_api/exchanges/list.rb app/services/bot_api/transactions/list.rb app/services/bot_api/tax/list_jurisdictions.rb app/services/bot_api/bots/get.rb app/services/bot_api/exchanges/balances.rb app/services/bot_api/orders/list_open.rb app/services/bot_api/orders/lookup.rb app/services/bot_api/portfolio/summary.rb app/models/bot/composition/liquidatable.rb app/models/bot/composition/redeployable.rb app/models/bot/wash_sale_guard.rb app/models/exchanges/alpaca.rb app/models/bots/dca_single_asset/measurable.rb app/models/bot/composition/measurable.rb app/models/bot/asset_configurable.rb app/models/bot/reversible.rb app/models/bot/price_limitable.rb app/models/bot/price_drop_limitable.rb app/models/bot/moving_average_limitable.rb app/models/bot/indicator_limitable.rb]).to_h do |p|
                [p, Digest::SHA256.file(Rails.root.join(p)).hexdigest]
              end }
     File.write(path, "#{JSON.pretty_generate(data)}\n")
   end
 end
+require_relative 'mcp_reads'
 command, root = ARGV
 case command
+when 'reads_grid' then McpReads.grid(root)
 when 'grid', 'record', 'metadata', 'validation_vectors' then McpParity.public_send(command, root)
 when 'play' then McpParity.play(root, JSON.parse(File.read(File.join(root, 'leg.json'))), ARGV[2])
 else raise 'grid|record|metadata|play <scratch path>'

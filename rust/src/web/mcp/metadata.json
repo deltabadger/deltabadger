@@ -757,8 +757,64 @@
       }
     },
     {
+      "name": "get_bot_details",
+      "description": "Get detailed information about a specific bot including performance metrics (P/L, average price, invested, current value)",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
       "name": "list_exchanges",
       "description": "List connected exchanges with API key status",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "get_exchange_balances",
+      "description": "Fetch live balances from a connected exchange. Requires the exchange name (e.g., 'Binance', 'Kraken', 'Coinbase').",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_name": {
+            "type": "string",
+            "description": "Exchange name (e.g., Binance, Kraken, Coinbase)"
+          }
+        },
+        "required": [
+          "exchange_name"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_portfolio_summary",
+      "description": "Get a portfolio summary including global P/L, bot count breakdown, and per-bot P/L",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -783,6 +839,24 @@
           "limit": {
             "type": "number",
             "description": "Number of transactions to return (default: 20, max: 100)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_open_orders",
+      "description": "List currently open (unfilled) orders across all connected exchanges",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "exchange_name": {
+            "type": "string",
+            "description": "Filter by exchange name (optional)"
           }
         },
         "additionalProperties": false
@@ -925,6 +999,7 @@
     "config/initializers/rack_attack.rb": "c545474974177fdcff647c383fbb018a1bb56e705eb4f8f1d52e9353e810efda",
     "config/initializers/mcp_instructions.rb": "9aa196116e366726e8dbecf2472bc3f3a7fd3ee615441b5491aae4b07a93ac84",
     "config/initializers/version.rb": "0b047ced29695420c080951e60f42c5aef8d05d733e9ca79e70884ff73f74233",
+    "config/initializers/action_mcp_time_zone.rb": "53a0ab62e95c590c3d955e289db8033f47d59ccd0b2a6a5eec231f6df86459bb",
     "app/lib/tool_access.rb": "89381cc0de5810ac85969422eda7b61f7508ab8d333f3edee8e029f02204b402",
     "app/models/connected_client.rb": "d2b6f75cfa11678db50ad1af761a1330c8299ab91d392f8b852ca70ffea1cb50",
     "app/models/app_config.rb": "5c6181a642a11c525057f0b97a97986b499b435c89770810233cf625a7664368",
@@ -987,6 +1062,23 @@
     "app/services/bot_api/bots/list.rb": "1b28072e3b55fb1d77069b5f5a5b03e33362b7893fabbddb0b8a93520d0c8b79",
     "app/services/bot_api/exchanges/list.rb": "966f83ea42243ec9475f555365cc4c04f1c4c254a0f974624da02e510461e323",
     "app/services/bot_api/transactions/list.rb": "35f1e182b8052db0fe8244dbe28230a716b21118566af350e2c37a061a63804f",
-    "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970"
+    "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970",
+    "app/services/bot_api/bots/get.rb": "fe324f5115eac53f54a5534002036ba4a291c815e1906cbcf76fbe58e6b2eeec",
+    "app/services/bot_api/exchanges/balances.rb": "1c9d8459b4ce3b2f50646b7d094d41b569aa81476bd9117bb54febd269f48354",
+    "app/services/bot_api/orders/list_open.rb": "da45717f2379df823358fdbadee4dc79e9b2c3517036523845a746406172d5ad",
+    "app/services/bot_api/orders/lookup.rb": "3727bfc692f325da1fbe7b172eaab8c52c11cb006ea53801f0a87729762f4f56",
+    "app/services/bot_api/portfolio/summary.rb": "78dfc94b8f7418f685dc99beacce4fa741e2dfcde52f831acf223a2823e78d79",
+    "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
+    "app/models/bot/composition/redeployable.rb": "bdc27932a55195d18fd5f8b84a5e4ac7325bf920938f1e70f4d9dc9cc8b9f513",
+    "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
+    "app/models/exchanges/alpaca.rb": "58793d3062328cf7dc327216316fd93d697868ca66155639b3da1c959992e372",
+    "app/models/bots/dca_single_asset/measurable.rb": "5d97bfbd2da99b342112da2315779e3d9c42e3e437e76f0ddbd62990a71167d8",
+    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
+    "app/models/bot/reversible.rb": "2418bd1a92b4fdd733450a8c9712af6504c1a9e66e78652f85c2185e272e2b06",
+    "app/models/bot/price_limitable.rb": "d0f00a1c80cf0a29f9fb2ba084a5755345010b4dac04c01106b09331855b67c0",
+    "app/models/bot/price_drop_limitable.rb": "a5cea6fd7aa70c2511518a6c4ba5f0e6b9bac1173822feca0461cb0bde21061d",
+    "app/models/bot/moving_average_limitable.rb": "853350ff2ae43531e9a1da58a02048638e92f3dee7ec14691000b8c07afb7ae2",
+    "app/models/bot/indicator_limitable.rb": "e3572b673e52fe2f6676dbc79ec4914df4dbcc6b1ed352d1f001dfdcaff965ab"
   }
 }

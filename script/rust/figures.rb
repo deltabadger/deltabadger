@@ -33,7 +33,8 @@ module ScriptedMarket
   def self.lines(env)
     path = env.url.path
     query = URI.decode_www_form(env.url.query.to_s).sort
-    picks = if path == '/v1beta3/crypto/us/bars' then %w[symbols]
+    picks = if path == '/v2/orders' then %w[limit status]
+            elsif path == '/v1beta3/crypto/us/bars' then %w[symbols]
             elsif path.end_with?('/bars') then %w[adjustment]
             elsif path.end_with?('/prices') then %w[coin_ids vs_currencies]
             elsif path.end_with?('/simple/price') then %w[ids vs_currencies]
@@ -712,6 +713,8 @@ module Figures
       'denomination' => answer { d = Denomination.for(user.display_currency); { currency: d.currency, rate: d.rate } } }
   end
 
+  require_relative 'figures_normalized'
+
   def record(root)
     Rails.cache = ActiveSupport::Cache::MemoryStore.new # as production has one; development's null store would refetch everything
     ActiveSupport::JSON::Encoding.time_precision = 9 # every digit a Time carries, so two labels a microsecond apart differ
@@ -739,6 +742,16 @@ module Figures
       out['seconds'] = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3) # how long Rails took: printed beside this library's, never compared
       out['requests'] = ScriptedMarket.requests.uniq.sort
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
+      Rails.cache.clear
+      ScriptedMarket.requests = []
+      begin
+        Thread.current[:normalized_figure_rows] = true
+        normalized = travel_to(Time.iso8601(sc['at']), with_usec: true) { figures(User.find(sc['user_id']), sc['bot_ids']) }
+        normalized['requests'] = ScriptedMarket.requests.uniq.sort
+        File.write(File.join(dir, 'normalized.json'), JSON.pretty_generate(normalized))
+      ensure
+        Thread.current[:normalized_figure_rows] = false
+      end
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!
     end
