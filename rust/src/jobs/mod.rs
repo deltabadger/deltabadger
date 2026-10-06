@@ -17,6 +17,7 @@
 pub mod data_api;
 pub mod import;
 pub mod reference;
+pub mod resolve;
 pub mod schedule;
 pub mod state;
 
@@ -165,7 +166,7 @@ struct Shared { pending: Mutex<Vec<Pending>>, notify: Notify }
 impl Wakers {
     /// Runs `job` (in `scope`, for a job registered per scope) as soon as the runner is free. `key` is the job's own to
     /// interpret (an api key id, a user id). If it is running, it runs again right after. A wake for a name and scope that
-    /// is no job here is logged and dropped.
+    /// has no slot is resolved and registered by the scheduler before delivery.
     pub fn wake(&self, job: &str, scope: Option<&str>, key: Option<i64>) {
         self.0.pending.lock().unwrap_or_else(PoisonError::into_inner).push((job.to_string(), scope.map(String::from), Wake::Manual(key)));
         self.0.notify.notify_one(); // a permit is kept while the runner is busy: no wake is lost
@@ -210,7 +211,10 @@ impl Slot {
     }
 }
 
+pub type Resolver = Box<dyn Fn(&str, Option<&str>) -> Result<Box<dyn Job>, String>>;
+
 pub struct Scheduler {
+    resolver: Option<Resolver>,
     db: Db,
     /// The database file, for the runner's own state writes on a connection of their own (never behind `db`'s mutex,
     /// which a run dropped at its deadline may hold for its unit in hand). None: an in-memory database.
@@ -228,13 +232,15 @@ impl Scheduler {
             .map(|job| Slot { spec: job.spec(), job, scheduled: None, retry_at: None, replay: vec![], pending: vec![], pending_since: None, transient: 0, rate: 0 })
             .collect();
         let records = db.path().filter(|p| !p.is_empty()).map(String::from);
-        Self { db: Db::new(db, cipher), records, slots, wakers: Wakers::default(), events }
+        Self { db: Db::new(db, cipher), records, slots, wakers: Wakers::default(), events, resolver: None }
     }
+
+    pub fn with_resolver(mut self, resolver: Resolver) -> Self { self.resolver=Some(resolver); self }
 
     pub fn wakers(&self) -> Wakers { self.wakers.clone() }
 
-    /// Runs jobs until `stop` turns true, then returns Ok at once, dropping the job in hand. It returns no other way:
-    /// a job's failure is recorded and is the job's own, and a failed state write is logged.
+    /// Runs jobs until `stop` turns true, then returns Ok at once, dropping the job in hand.
+    /// a job's failure is recorded and is the job's own. An unresolved wake stops the service with an error.
     pub async fn run(mut self, mut stop: watch::Receiver<bool>, clock: &dyn Clock) -> Result<(), String> {
         let now = clock.now();
         for s in &mut self.slots {
@@ -252,7 +258,7 @@ impl Scheduler {
         loop {
             if *stop.borrow() { return Ok(()); }
             let now = clock.now();
-            self.collect(now);
+            self.collect(now)?;
             if let Some(i) = self.pick(now) {
                 if !self.run_slot(i, &mut stop, clock).await { return Ok(()); }
                 continue;
@@ -284,11 +290,20 @@ impl Scheduler {
     }
 
     /// Moves the wakes and the queued events into their slots, due from `now`.
-    fn collect(&mut self, now: DateTime<Utc>) {
+    fn collect(&mut self, now: DateTime<Utc>) -> Result<(),String> {
         for (name, scope, wake) in self.wakers.take() {
             match self.slots.iter_mut().find(|s| s.spec.name == name && s.spec.scope == scope) {
                 Some(s) => s.push(wake, now),
-                None => log(&format!("[jobs] a wake for {name} {scope:?}, which is no job here, was dropped")),
+                None => {
+                    let resolver=self.resolver.as_ref().ok_or("job resolver unavailable")?;
+                    let job=resolver(&name,scope.as_deref())?;
+                    let spec=job.spec();
+                    if spec.name!=name || spec.scope!=scope {return Err("job resolver returned a different consumer".into())}
+                    let scheduled=spec.schedule.map(|schedule|schedule.next_fire(now)+spec.jitter.draw());
+                    let mut slot=Slot{job,spec,scheduled,retry_at:None,replay:vec![],pending:vec![],pending_since:None,transient:0,rate:0};
+                    slot.push(wake,now);
+                    self.slots.push(slot);
+                },
             }
         }
         let (mut queued, mut closed) = (vec![], false);
@@ -303,6 +318,7 @@ impl Scheduler {
         }
         if closed { self.events = None; }
         for e in queued { self.route(&e, now); }
+        Ok(())
     }
 
     fn route(&mut self, e: &EngineEvent, now: DateTime<Utc>) {
