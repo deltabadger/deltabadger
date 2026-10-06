@@ -11,7 +11,7 @@ pattern = re.compile(r'\.unwrap\s*\(|\.expect\s*\(|\.unwrap_or_default\s*\(|\ble
 
 def check():
     subprocess.run([sys.executable, str(root / 'script/rust/mcp_reads_gate.py')], check=True)
-    for path in [source, *sorted(source.with_suffix('').rglob('*.rs'))]:
+    for path in [source, source.parent / 'user.rs', *sorted(source.with_suffix('').rglob('*.rs'))]:
         code = path.read_text().split('#[cfg(test)]')[0]
         for line in code.splitlines():
             if not line.strip().startswith('//'):

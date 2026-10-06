@@ -56,6 +56,8 @@ fn save_settings(c: &Connection, owner: i64, now: &str, params: &Value) -> Resul
         }
     }
     let updated = Value::Object(settings);
+    // Rails ignores update's false return and still answers head :ok.
+    if !super::user::validate_save(c, owner)? { return Ok(StatusCode::OK); }
     if was_null || updated != original {
         c.execute("UPDATE users SET tracker_settings=?1, updated_at=?2 WHERE id=?3", (updated.to_string(),now,owner))?;
     }
@@ -75,11 +77,11 @@ fn classifications(c: &Connection, owner: i64, now: &str, params: &Value) -> Res
             ["equity_fund","mixed_fund","real_estate_fund","foreign_real_estate_fund","other_fund"].iter()
                 .position(|name| Some(*name) == row.get("fund_category").and_then(Value::as_str)).map(|n| n as i64)
         } else { None };
-        if kind == 1 && category.is_none() { invalid = true; continue; }
-        let old: Option<(i64, Option<i64>)> = c.query_row("SELECT kind,fund_category FROM fund_classifications WHERE user_id=?1 AND symbol=?2",
-            (owner,&symbol), |r| Ok((r.get(0)?,r.get(1)?))).optional()?;
+        let old: Option<(i64, i64, Option<i64>)> = c.query_row("SELECT id,kind,fund_category FROM fund_classifications WHERE user_id=?1 AND symbol=?2",
+            (owner,&symbol), |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+        if !classifications::validate_save(c, owner, old.map(|r| r.0), &symbol, kind, category)? { invalid = true; continue; }
         match old {
-            Some(old) if old == (kind,category) => {},
+            Some((_,old_kind,old_category)) if (old_kind,old_category) == (kind,category) => {},
             Some(_) => { c.execute("UPDATE fund_classifications SET kind=?1, fund_category=?2, updated_at=?3 WHERE user_id=?4 AND symbol=?5",
                 (kind,category,now,owner,&symbol))?; },
             None => { c.execute("INSERT INTO fund_classifications(user_id,symbol,kind,fund_category,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?5)",

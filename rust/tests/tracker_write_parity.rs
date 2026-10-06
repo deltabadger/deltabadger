@@ -55,6 +55,9 @@ fn same_rows(actual: Value, expected: Value, label: &str) {
 
 #[tokio::test(flavor="current_thread")]
 async fn implemented_writes_match_the_recorded_rails_bytes_and_all_primary_rows() {
+    compare(&["settings_validation_zone", "settings_validation_blank_zone", "settings_validation_locale",
+        "settings_validation_blank_locale", "settings_validation_currency", "settings_validation_lower_currency",
+        "settings_validation_jurisdiction", "settings_validation_email", "settings_validation_valid_context"]).await;
     compare(&["fund_cast_0","fund_cast_1","fund_cast_2","fund_cast_3","fund_cast_4","settings","settings_blank","settings_query_json","fund_symbol_json","fund_share","fund_valid","fund_invalid","fund_mixed","fund_bad_shape","fund_unknown",
         "sync_empty","sync_alpaca","sync_read_only","sync_withdrawal","sync_incorrect"]).await;
 }

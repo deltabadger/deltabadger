@@ -26,6 +26,38 @@ fn settings(c: &Connection, owner: i64) -> Value {
 fn count(c: &Connection) -> i64 { c.query_row("SELECT count(*) FROM fund_classifications", [], |r| r.get(0)).unwrap() }
 
 #[tokio::test(flavor="current_thread")]
+async fn settings_model_validation_keeps_invalid_users_unchanged_with_rails_success() {
+    let (_dir,c,owner,app,mut b) = install();
+    // Corrupt stored values after authentication, as legacy/imported rows can be invalid.
+    for (column, value) in [("time_zone", "Invalid/Zone"), ("time_zone", ""),
+        ("locale", "invalid"), ("locale", ""), ("display_currency", "BTC"),
+        ("display_currency", "usd"), ("wash_sale_jurisdiction", "DE"), ("email", "\u{3000}")] {
+        let original: rusqlite::types::Value = c.query_row(&format!("SELECT {column} FROM users WHERE id=?1"), [owner], |r| r.get(0)).unwrap();
+        c.execute(&format!("UPDATE users SET {column}=?1 WHERE id=?2"), (value,owner)).unwrap();
+        let snapshot = || c.query_row("SELECT * FROM users WHERE id=?1", [owner], |r| {
+            (0..r.as_ref().column_count()).map(|i| r.get::<_,rusqlite::types::Value>(i)).collect::<Result<Vec<_>,_>>()
+        }).unwrap();
+        let before = snapshot();
+        let response = b.send(&app,"PATCH",SETTINGS,Some(&[("country","US")]),Csrf::Header,HEADERS).await;
+        assert_eq!(response.status,200,"{column}: Rails ignores update's false return");
+        assert_eq!(response.body,"");
+        assert_eq!(response.header("content-type"),Some("text/vnd.turbo-stream.html"));
+        assert_eq!(snapshot(),before,"{column}: validation must preserve the entire user row");
+        c.execute(&format!("UPDATE users SET {column}=?1 WHERE id=?2"), (original,owner)).unwrap();
+    }
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn settings_model_validation_obeys_update_context_and_optional_preferences() {
+    let (_dir,c,owner,app,mut b) = install();
+    // Unchanged email format/name and absent password are not validated on this save.
+    c.execute("UPDATE users SET name='',email='legacy-format',locale=NULL,wash_sale_jurisdiction=' ' WHERE id=?1",[owner]).unwrap();
+    let response = b.send(&app,"PATCH",SETTINGS,Some(&[("country","US")]),Csrf::Header,HEADERS).await;
+    assert_eq!(response.status,200);
+    assert_eq!(settings(&c,owner)["country"],"US");
+}
+
+#[tokio::test(flavor="current_thread")]
 async fn settings_allowlist_blank_preservation_and_owned_update() {
     let (_dir,c,owner,app,mut b) = install();
     c.execute("INSERT INTO users(id,email,encrypted_password,tracker_settings,created_at,updated_at) VALUES(999,'foreign@example.test','x','{\"country\":\"PL\"}','2026-01-01','2026-01-01')",[]).unwrap();

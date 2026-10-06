@@ -8,6 +8,24 @@ headers = Pages::HEADERS + ['content-disposition']
 Pages.send(:remove_const, :HEADERS)
 Pages.const_set(:HEADERS, headers.freeze)
 
+# Inject legacy values after sign-in, bypassing both validations and assignment normalization.
+D5_USER_SAVE_CASES = {
+  'zone' => { 'time_zone' => 'Invalid/Zone' }, 'blank_zone' => { 'time_zone' => '' },
+  'locale' => { 'locale' => 'invalid' }, 'blank_locale' => { 'locale' => '' },
+  'currency' => { 'display_currency' => 'BTC' }, 'lower_currency' => { 'display_currency' => 'usd' },
+  'jurisdiction' => { 'wash_sale_jurisdiction' => 'DE' }, 'email' => { 'email' => "\u3000" },
+  'valid_context' => { 'name' => '', 'email' => 'legacy-format', 'locale' => nil, 'wash_sale_jurisdiction' => ' ' }
+}.freeze
+before = Pages::BEFORE.merge(D5_USER_SAVE_CASES.to_h do |name, attributes|
+  ["d5_user_#{name}", lambda do
+    connection = User.connection
+    assignments = attributes.map { |column, value| "#{connection.quote_column_name(column)}=#{connection.quote(value)}" }
+    connection.execute("UPDATE users SET #{assignments.join(',')} WHERE id=#{User.first.id}")
+  end]
+end)
+Pages.send(:remove_const, :BEFORE)
+Pages.const_set(:BEFORE, before.freeze)
+
 module D5Grid
   TABLES = %w[account_transactions account_balances portfolio_snapshots portfolio_venue_snapshots fund_classifications historical_prices
               fx_rates].freeze
@@ -63,6 +81,10 @@ module D5Grid
                                        { 'country' => 'US', 'year' => '2024', 'export_type' => 'tax', 'report_scope' => 'crypto',
                                          'unpermitted' => 'ignored' })])
     add.call('settings_blank', [request.call('PATCH', '/tracker/save_export_settings', { 'country' => '', 'year' => ' ' })])
+    D5_USER_SAVE_CASES.each_key do |name|
+      add.call("settings_validation_#{name}", [request.call('PATCH', '/tracker/save_export_settings', { 'country' => 'US' })
+        .merge('before' => "d5_user_#{name}")])
+    end
     json_headers = Pages::TURBO.merge('Content-Type' => 'application/json', 'Referer' => 'http://localhost:3000/tracker')
     add.call('settings_query_json', [request.call('PATCH', '/tracker/save_export_settings?country=DE').merge(
       'json' => JSON.generate('country' => 'US', 'year' => 2024), 'headers' => json_headers

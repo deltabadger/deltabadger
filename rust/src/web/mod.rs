@@ -32,6 +32,7 @@ pub mod timezone;
 pub mod tracker;
 pub mod string_column;
 pub mod turbo;
+mod user;
 
 use crate::crypto::{hash_password, verify_password, Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};

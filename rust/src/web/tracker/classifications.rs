@@ -1,4 +1,4 @@
-//! Read-only broker classification proposals, the same cumulative universe as Rails' modal.
+//! FundClassification save validation and read-only broker classification proposals.
 use super::{Ctx,WebError,row::invalid};
 use crate::web::i18n::{self,escape,Arg};
 use rusqlite::{Connection,OptionalExtension};
@@ -6,6 +6,16 @@ use serde_json::Value;
 use std::collections::{BTreeMap,BTreeSet};
 const KINDS:[&str;3]=["share","fund","other_security"];
 const CATEGORIES:[&str;5]=["equity_fund","mixed_fund","real_estate_fund","foreign_real_estate_fund","other_fund"];
+
+/// FundClassification#save validates the proposed row, including on an unchanged save.
+pub(super) fn validate_save(c:&Connection,owner:i64,id:Option<i64>,symbol:&str,kind:i64,category:Option<i64>)->Result<bool,WebError>{
+    if symbol.trim().is_empty() || !(0..=2).contains(&kind)
+        || if kind==1 { !category.is_some_and(|n|(0..=4).contains(&n)) } else { category.is_some() } {
+        return Ok(false)
+    }
+    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM users WHERE id=?1) AND NOT EXISTS(SELECT 1 FROM fund_classifications WHERE user_id=?1 AND symbol=?2 AND (?3 IS NULL OR id<>?3))",
+        (owner,symbol,id),|r|r.get(0))?)
+}
 struct Classification {symbol:String,kind:Option<usize>,category:Option<usize>,persisted:bool,reasons:Vec<&'static str>}
 impl Classification{
     fn group(&self)->&'static str{if self.kind.is_none(){"unclassified"}else if !self.reasons.is_empty(){"refused"}else if self.kind==Some(1) && !self.persisted{"proposed_fund"}else{"settled"}}
