@@ -6,6 +6,7 @@ pub mod actions;
 pub mod action_view;
 pub mod draft;
 pub mod write;
+pub mod mcp_input;
 pub mod composition;
 pub mod orders;
 pub mod page;

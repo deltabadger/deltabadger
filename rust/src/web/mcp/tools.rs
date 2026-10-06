@@ -3,7 +3,7 @@ use super::reads;
 use crate::web::{bearer::Bearer, consent, App, WebError, timezone};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
-pub const NAMES: [&str;8] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","list_open_orders","list_tax_jurisdictions"];
+pub const NAMES: [&str;12] = ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","stop_bot","list_open_orders","list_tax_jurisdictions","delete_bot","archive_bot","unarchive_bot"];
 pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(enabled.into_iter().filter(|n| NAMES.contains(&n.as_str()) && granted.contains(n)).collect())
@@ -88,6 +88,16 @@ fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
 /// What a call answers now, or the venue or market read it needs first (`reads`).
 pub enum Called { Done(Value), Fetch(reads::Fetch) }
 pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called,WebError>{
+    if super::control::NAMES.contains(&name) {
+        return Ok(Called::Done(match super::control::call(c,app,who,name,args) {
+            Ok(value)=>value,
+            Err(_)=>{
+                // Match ActionMCP's exception response without exposing credentials or DB text.
+                crate::engine::log("MCP control tool failed");
+                tool_text("An unexpected error occurred.",true)
+            }
+        }));
+    }
     if let Some(refusal)=gate(c,who,name)? {return Ok(Called::Done(refusal));}
     let schema=metadata()["tools"].as_array().into_iter().flatten().find(|t|t["name"]==name).map(|t|&t["inputSchema"]).unwrap_or(&Value::Null);
     let errors=validate(args,schema,"");

@@ -16,9 +16,7 @@ fn schema_errors_match_recorded_json_schemer_vectors(){
 #[test]
 fn schema_contains_exactly_the_implemented_tools(){
     let names:Vec<_>=protocol::metadata()["tools"].as_array().unwrap().iter().map(|v|v["name"].as_str().unwrap()).collect();
-    let implemented:Vec<_>=names.iter().copied().filter(|name|deltabadger::web::mcp::tools::NAMES.contains(name)).collect();
-    assert_eq!(implemented,deltabadger::web::mcp::tools::NAMES);
-    assert_eq!(names.len(),8); // All schemas recorded in Task 1; registry entries land per task.
+    assert_eq!(names,deltabadger::web::mcp::tools::NAMES);
 }
 #[test]
 fn recorded_sources_have_not_drifted(){
@@ -26,4 +24,11 @@ fn recorded_sources_have_not_drifted(){
     let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let sources=protocol::metadata()["sources"].as_object().unwrap();assert!(sources.len()>25);
     for (path,want) in sources{assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(path)).unwrap())),want.as_str().unwrap(),"{path}: re-record MCP metadata and rerun parity");}
+}
+
+#[test]
+fn m3_reads_remain_registered_at_every_m4_task_boundary(){
+    for name in ["list_bots","get_bot_details","list_exchanges","get_exchange_balances","get_portfolio_summary","list_transactions","list_open_orders","list_tax_jurisdictions"] {
+        assert!(deltabadger::web::mcp::tools::NAMES.contains(&name),"M3 registry retained: {name}");
+    }
 }

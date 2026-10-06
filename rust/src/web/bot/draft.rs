@@ -230,7 +230,7 @@ impl Draft {
         Ok(())
     }
 
-    fn refresh(&mut self, c: &Connection) -> Result<(), WebError> {
+    pub(super) fn refresh(&mut self, c: &Connection) -> Result<(), WebError> {
         let quote = self.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
         self.candidate.quote_asset = quote.map(|id| Asset::find(c, id)).transpose()?.flatten();
         if self.candidate.kind == Kind::Basket {

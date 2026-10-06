@@ -848,6 +848,24 @@
       }
     },
     {
+      "name": "stop_bot",
+      "description": "Stop a running DCA bot",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "list_open_orders",
       "description": "List currently open (unfilled) orders across all connected exchanges",
       "inputSchema": {
@@ -876,6 +894,60 @@
       },
       "annotations": {
         "readOnlyHint": true
+      }
+    },
+    {
+      "name": "delete_bot",
+      "description": "Delete a bot (running or not). Its schedule is cancelled; its history is kept but hidden.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "archive_bot",
+      "description": "Archive a bot: it stops, leaves the dashboard, keeps its history. Reactivate with unarchive_bot.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "unarchive_bot",
+      "description": "Bring an archived bot back, stopped.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
       }
     }
   ],
@@ -1079,6 +1151,22 @@
     "app/models/bot/price_limitable.rb": "d0f00a1c80cf0a29f9fb2ba084a5755345010b4dac04c01106b09331855b67c0",
     "app/models/bot/price_drop_limitable.rb": "a5cea6fd7aa70c2511518a6c4ba5f0e6b9bac1173822feca0461cb0bde21061d",
     "app/models/bot/moving_average_limitable.rb": "853350ff2ae43531e9a1da58a02048638e92f3dee7ec14691000b8c07afb7ae2",
-    "app/models/bot/indicator_limitable.rb": "e3572b673e52fe2f6676dbc79ec4914df4dbcc6b1ed352d1f001dfdcaff965ab"
+    "app/models/bot/indicator_limitable.rb": "e3572b673e52fe2f6676dbc79ec4914df4dbcc6b1ed352d1f001dfdcaff965ab",
+    "app/services/bot_api/bots/create_support.rb": "e955d045345c81b82587d59aaf3d8fe37b73479fb45536db43b03049ffbec8d3",
+    "app/services/bot_api/bots/start.rb": "4e5b26bb8ed2fc2d0d83be3ddb781fa3078b947d738224ee9a9a3023a3154b5c",
+    "app/services/bot_api/bots/liquidate_exited.rb": "8de8ad400b8dc12a040bf7520b384c0161311283c2bbeedea271c26c3bdbcfea",
+    "app/services/bot_api/bots/archive.rb": "001b38a685c17f98fe04a8452dd1083a16ac83397bda743edeb01fd55c5ca341",
+    "app/services/bot_api/bots/lifecycle_support.rb": "cbaf8f8ef544a44bfec36481a765a46d81b18ee94dbe431750de20c12c67fe11",
+    "app/services/bot_api/bots/create_index.rb": "56dc165b33d7b33e69c2a1f7d69f6e7846eb8f45faf5a60f6b6ff6bce2b32446",
+    "app/services/bot_api/bots/stop.rb": "c37eef541a35b7808ffdbf9557a2c745c40b1af18c4b594421d02636ed0f3bf8",
+    "app/services/bot_api/bots/create_signal.rb": "4d39aefcff83159eb0da8a87c7835a1222c914b3e3a7ecdf67c9440e00994aa4",
+    "app/services/bot_api/bots/create.rb": "c990f47ab85ddeae546ed09f5ebc38e7a0ef2dacd19989f796d7ae20dca97176",
+    "app/services/bot_api/bots/answer_redeploy.rb": "17e4b138aef9a00d3abd35175cd4b17447fb671fdf83bebf1449087a94229a70",
+    "app/services/bot_api/bots/unarchive.rb": "068493f8fe8450c36d75d96d7f77aa3a4e3290294c396040fbd65f328bc767f8",
+    "app/services/bot_api/bots/delete.rb": "e6e19e51eaffbdb89be5a0d2c4237351d71d0aa02865bfe527d14debfb15b640",
+    "app/services/bot_api/bots/update_settings.rb": "68889e24c78b0961c20aba0076acf2c1bf0c71bd334a3c840894ccb055ffe054",
+    "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
+    "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c"
   }
 }
