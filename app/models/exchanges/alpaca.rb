@@ -254,7 +254,10 @@ class Exchanges::Alpaca < Exchange
     # buying power is borrowed, not owned. The spend figures ride along for #spendable_balance.
     # &.to_d, not .to_d: nil.to_d is 0, which would turn an absent field into a hard zero and make
     # every account look broke.
-    usd_asset = asset_from_symbol('USD')
+    cash_assets = assets.where(category: Fiat::CATEGORIES, symbol: 'USD').distinct.to_a
+    return Result::Failure.new('Unmapped or ambiguous Alpaca cash asset') if cash_assets.size != 1 && account_result.data['cash'].to_d.nonzero?
+
+    usd_asset = cash_assets.one? ? cash_assets.first : nil
     if usd_asset && asset_ids.include?(usd_asset.id)
       account = account_result.data
       balances[usd_asset.id] = {
@@ -265,13 +268,18 @@ class Exchanges::Alpaca < Exchange
       }
     end
 
-    # Positions. Stocks resolve via the existing bare-symbol map (position symbol ==
-    # ticker.base, e.g. "AAPL"). Crypto positions come back compact-concatenated (e.g.
-    # "AAVEUSD") — a THIRD format, distinct from both that bare form and the "AAVE/USD" pair
-    # format orders/quotes use — so they need their own lookup.
+    # Venue class and native spelling identify holdings, even while trading is unavailable.
+    position_index = live_ticker_index
     positions_result.data.each do |position|
-      asset = asset_from_symbol(position['symbol']) || asset_from_crypto_position_symbol(position['symbol'])
-      next unless asset && asset_ids.include?(asset.id)
+      category = { 'us_equity' => 'Stock', 'crypto' => 'Cryptocurrency' }[position['asset_class']]
+      candidates = position_index.fetch([category, position['symbol']], []).map(&:base_asset).uniq(&:id)
+      unless candidates.one?
+        Rails.logger.warn('Alpaca position skipped: unsupported class or unmapped/ambiguous identity')
+        next
+      end
+
+      asset = candidates.first
+      next unless asset_ids.include?(asset.id)
 
       qty = position['qty'].to_d
       balances[asset.id] = { free: qty, locked: 0 }
@@ -413,21 +421,29 @@ class Exchanges::Alpaca < Exchange
     set_limit_order(ticker: ticker, amount: amount, amount_type: amount_type, side: :sell, price: price)
   end
 
-  def get_order(order_id:)
+  def get_order(order_id:, stored_identity: false)
     result = client.get_order(order_id: order_id)
     return result if result.failure?
 
-    normalized = parse_order_data(result.data)
+    normalized = parse_order_data(result.data, resolve_identity: !stored_identity)
     Result::Success.new(normalized)
+  rescue OrderIdentityError => e
+    Rails.logger.warn("Alpaca order skipped: #{e.message}")
+    Result::Failure.new(e.message)
   end
 
-  def get_orders(order_ids:)
+  def get_orders(order_ids:, stored_identity_ids: [])
     orders = {}
+    index = live_ticker_index unless (order_ids - stored_identity_ids).empty?
     order_ids.each do |order_id|
       result = client.get_order(order_id: order_id)
       return result if result.failure?
 
-      orders[order_id] = parse_order_data(result.data)
+      begin
+        orders[order_id] = parse_order_data(result.data, resolve_identity: !stored_identity_ids.include?(order_id), index: index)
+      rescue OrderIdentityError => e
+        Rails.logger.warn("Alpaca order skipped: #{e.message}")
+      end
     end
 
     Result::Success.new(orders: orders, missing: [])
@@ -437,7 +453,13 @@ class Exchanges::Alpaca < Exchange
     result = client.list_orders(status: 'open')
     return result if result.failure?
 
-    orders = result.data.map { |order| parse_order_data(order) }
+    index = live_ticker_index
+    orders = result.data.filter_map do |order|
+      parse_order_data(order, resolve_identity: true, index: index)
+    rescue OrderIdentityError => e
+      Rails.logger.warn("Alpaca order skipped: #{e.message}")
+      nil
+    end
     Result::Success.new(orders)
   end
 
@@ -600,6 +622,28 @@ class Exchanges::Alpaca < Exchange
   def all_crypto?(tickers)
     list = Array(tickers)
     list.present? && list.all? { |t| crypto_ticker?(t) }
+  end
+
+  # Built once per response. Trading flags do not erase a held or already ordered identity.
+  def live_ticker_index
+    tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |ticker, index|
+      category = ticker.base_asset.category
+      next unless %w[Stock Cryptocurrency].include?(category)
+
+      native = ticker.ticker.sub(/\A__stale_\d+_/, '')
+      spellings = category == 'Cryptocurrency' ? [native, native.delete('/')] : [native]
+      spellings.uniq.each { |name| (index[[category, name]] ||= []) << ticker }
+    end
+  end
+
+  class OrderIdentityError < ArgumentError; end
+
+  def order_ticker(order_data, index)
+    category = { 'us_equity' => 'Stock', 'crypto' => 'Cryptocurrency' }[order_data['asset_class']]
+    candidates = index.fetch([category, order_data['symbol']], [])
+    raise OrderIdentityError, 'unsupported class or unmapped/ambiguous order identity' unless candidates.one?
+
+    candidates.first
   end
 
   def asset_from_crypto_position_symbol(symbol)
@@ -980,8 +1024,8 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(data)
   end
 
-  def parse_order_data(order_data)
-    ticker_record = tickers.find_by(ticker: order_data['symbol'])
+  def parse_order_data(order_data, resolve_identity: false, index: nil)
+    ticker_record = order_ticker(order_data, index || live_ticker_index) if resolve_identity
     order_type = order_data['type'] == 'limit' ? :limit_order : :market_order
     side = order_data['side']&.to_sym
     filled_qty = parse_venue_number(order_data['filled_qty'])

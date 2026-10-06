@@ -7,11 +7,11 @@ module Exchange::Dryable
         dry_run? ? get_dry_balances(asset_ids: asset_ids) : super
       end
 
-      def get_order(order_id:)
+      def get_order(order_id:, **options)
         dry_run? ? get_dry_order(order_id: order_id) : super
       end
 
-      def get_orders(order_ids:)
+      def get_orders(order_ids:, **options)
         dry_run? ? get_dry_orders(order_ids: order_ids) : super
       end
 

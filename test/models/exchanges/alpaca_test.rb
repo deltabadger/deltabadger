@@ -102,10 +102,10 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
   test 'list_open_orders returns parsed orders' do
     btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
     usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
-    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd)
+    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, ticker: 'BTC/USD')
 
     raw_orders = [
-      { 'id' => 'uuid-1', 'symbol' => 'BTC', 'side' => 'buy', 'type' => 'limit', 'status' => 'new',
+      { 'id' => 'uuid-1', 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'side' => 'buy', 'type' => 'limit', 'status' => 'new',
         'qty' => '0.5', 'limit_price' => '50000', 'filled_qty' => '0', 'filled_avg_price' => nil,
         'notional' => nil }
     ]
@@ -134,7 +134,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     end
 
     order_data = {
-      'id' => 'uuid-1', 'symbol' => 'BTC', 'side' => 'buy', 'type' => 'market', 'status' => 'accepted',
+      'id' => 'uuid-1', 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'side' => 'buy', 'type' => 'market', 'status' => 'accepted',
       'qty' => '1.0', 'limit_price' => nil, 'filled_qty' => '0', 'filled_avg_price' => nil,
       'notional' => '50000'
     }
@@ -263,12 +263,13 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
 
     order_data = {
-      'id' => 'uuid-2', 'symbol' => 'AAVE/USD', 'side' => 'buy', 'type' => 'market', 'status' => 'filled',
+      'id' => 'uuid-2', 'symbol' => 'AAVE/USD', 'asset_class' => 'crypto', 'side' => 'buy', 'type' => 'market', 'status' => 'filled',
       'qty' => '1.0', 'limit_price' => nil, 'filled_qty' => '1.0', 'filled_avg_price' => '100.0',
       'notional' => nil
     }
 
-    parsed = @exchange.send(:parse_order_data, order_data)
+    @exchange.send(:parse_order_data, order_data)
+    parsed = @exchange.send(:parse_order_data, order_data, resolve_identity: true)
     assert_equal ticker, parsed[:ticker]
   end
 
@@ -470,7 +471,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
     Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
     Clients::Alpaca.any_instance.stubs(:get_positions)
-                   .returns(Result::Success.new([{ 'symbol' => 'AAVEUSD', 'qty' => '2.5' }]))
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVEUSD', 'asset_class' => 'crypto', 'qty' => '2.5' }]))
 
     result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aave.id]) }
     assert_predicate result, :success?
@@ -484,7 +485,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
     Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
     Clients::Alpaca.any_instance.stubs(:get_positions)
-                   .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'qty' => '10' }]))
+                   .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'asset_class' => 'us_equity', 'qty' => '10' }]))
 
     result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aapl.id]) }
     assert_predicate result, :success?

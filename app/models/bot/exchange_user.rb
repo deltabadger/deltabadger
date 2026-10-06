@@ -15,13 +15,25 @@ module Bot::ExchangeUser
 
   def get_order(order_id:)
     with_api_key do
-      exchange.get_order(order_id: order_id)
+      if exchange.is_a?(Exchanges::Alpaca)
+        stored = transactions.where(exchange_id: exchange_id, external_id: order_id)
+                             .where.not(base_asset_id: nil).where.not(quote_asset_id: nil).exists?
+        exchange.get_order(order_id: order_id, stored_identity: stored)
+      else
+        exchange.get_order(order_id: order_id)
+      end
     end
   end
 
   def get_orders(order_ids:)
     with_api_key do
-      exchange.get_orders(order_ids: order_ids)
+      if exchange.is_a?(Exchanges::Alpaca)
+        stored = transactions.where(exchange_id: exchange_id, external_id: order_ids)
+                             .where.not(base_asset_id: nil).where.not(quote_asset_id: nil).pluck(:external_id)
+        exchange.get_orders(order_ids: order_ids, stored_identity_ids: stored)
+      else
+        exchange.get_orders(order_ids: order_ids)
+      end
     end
   end
 
