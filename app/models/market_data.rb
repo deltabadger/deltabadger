@@ -283,12 +283,13 @@ class MarketData
   # colliding on ticker symbol or asset pair cleared the baseline at full size, wrote a handful of
   # rows, and let the sweep unavailable the rest. Two filters that must agree will eventually
   # disagree; one function cannot.
-  def self.ticker_records_for(exchange, tickers_data)
+  def self.ticker_records_for(exchange, tickers_data, category: nil)
     return [] if tickers_data.blank?
 
     external_ids = tickers_data.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
     asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
 
+    categories = Asset.where(id: asset_map.values).pluck(:id, :category).to_h
     records = tickers_data.filter_map do |t|
       base_asset_id = asset_map[t['base_external_id']]
       quote_asset_id = asset_map[t['quote_external_id']]
@@ -303,17 +304,26 @@ class MarketData
       # nobody looked again for months — so it is worth the correction rather than the deletion.
       next unless t['base_decimals'] && t['quote_decimals'] && t['price_decimals']
 
+      asset_class = categories[base_asset_id].to_s
+      next if category && asset_class != category
+
       upsert_ticker_attributes(t, exchange_id: exchange.id, base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+        .merge(asset_class: asset_class)
     end
 
+    records.group_by { |r| r[:ticker] }.each do |symbol, group|
+      next if symbol.nil? || group.map { |r| r[:asset_class] }.uniq.one?
+
+      raise ActiveRecord::RecordNotUnique, 'Ticker symbol belongs to another asset class'
+    end
     # Deduplicate within the batch (keep first occurrence per constraint key)
     records.uniq! { |r| [r[:exchange_id], r[:base_asset_id], r[:quote_asset_id]] }
-    records.uniq! { |r| [r[:exchange_id], r[:base], r[:quote]] }
+    records.uniq! { |r| [r[:exchange_id], r[:asset_class], r[:base], r[:quote]] }
     records.uniq! { |r| [r[:exchange_id], r[:ticker]] }
     records
   end
 
-  def self.import_tickers!(exchange, tickers_data)
+  def self.import_tickers!(exchange, tickers_data, category: nil)
     return [] if tickers_data.blank?
 
     # ExchangeAssets come from the raw payload's assets, not the deduped ticker rows, and are
@@ -326,13 +336,13 @@ class MarketData
     end
     ExchangeAsset.upsert_all(ea_records, unique_by: %i[asset_id exchange_id]) if ea_records.any?
 
-    ticker_records = ticker_records_for(exchange, tickers_data)
+    ticker_records = ticker_records_for(exchange, tickers_data, category: category)
     return [] if ticker_records.empty?
 
     # Pre-align existing tickers so secondary constraints don't conflict
     reconcile_ticker_conflicts!(exchange, ticker_records)
 
-    Ticker.upsert_all(ticker_records, unique_by: %i[exchange_id base_asset_id quote_asset_id])
+    Ticker.upsert_all(ticker_records.map { |record| record.except(:asset_class) }, unique_by: %i[exchange_id base_asset_id quote_asset_id])
 
     ticker_records.map { |r| r[:base_asset_id] }.uniq
   end
@@ -517,7 +527,7 @@ class MarketData
     alpaca = Exchanges::Alpaca.first
     return Result::Success.new unless alpaca
 
-    resolved_count = ticker_records_for(alpaca, listings).size
+    resolved_count = ticker_records_for(alpaca, listings, category: 'Stock').size
     if alpaca_listings_degraded?(resolved_count, AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY))
       Rails.logger.warn '[MarketData] sync_alpaca_listings: degraded/partial payload ' \
                         "(#{resolved_count} importable of #{listings.size} listings; " \
@@ -558,7 +568,7 @@ class MarketData
     # them would unavailable active bot tickers sharing an ambiguous symbol (the IBIT/LDRC case).
     # Empty written set ⇒ no sweep (never wipe everything when nothing was imported).
     Ticker.transaction do
-      written_base_asset_ids = import_tickers!(alpaca, listings)
+      written_base_asset_ids = import_tickers!(alpaca, listings, category: 'Stock')
       if written_base_asset_ids.any?
         legacy_asset_ids = Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").pluck(:id)
         alpaca.tickers.joins(:base_asset)
@@ -656,7 +666,7 @@ class MarketData
     # above) so a mid-sync process kill can never commit the sweep without the import having also
     # committed — the same AV=0-strand failure mode from the 2026-06-02 incident.
     Ticker.transaction do
-      written_base_asset_ids = import_tickers!(alpaca, tickers_data)
+      written_base_asset_ids = import_tickers!(alpaca, tickers_data, category: 'Cryptocurrency')
       if written_base_asset_ids.any?
         alpaca.tickers.joins(:base_asset)
               .where(assets: { category: 'Cryptocurrency' })
@@ -821,25 +831,29 @@ class MarketData
   end
 
   private_class_method def self.reconcile_ticker_conflicts!(exchange, ticker_records)
-    existing_tickers = Ticker.where(exchange_id: exchange.id)
+    existing_tickers = Ticker.where(exchange_id: exchange.id).includes(:base_asset)
     return if existing_tickers.empty?
 
     by_asset_pair = existing_tickers.index_by { |t| [t.base_asset_id, t.quote_asset_id] }
     by_ticker = existing_tickers.index_by(&:ticker)
-    by_base_quote = existing_tickers.index_by { |t| [t.base, t.quote] }
+    by_base_quote = existing_tickers.index_by { |t| [t.base_asset.category.to_s, t.base, t.quote] }
 
     # The two passes are deliberately sequential: every stale holder must be freed before any
     # rename runs, so they can't be merged into one loop.
     # rubocop:disable-next Style/CombinableLoops
     Ticker.transaction do
       # Pass 1: free the secondary unique slots. The asset-pair upsert sets base/quote/ticker, which
-      # trips the [exchange_id, ticker] OR [exchange_id, base, quote] index if a DIFFERENT asset-pair
+      # must free the native ticker and the class-scoped display pair if a DIFFERENT asset-pair
       # row still holds the value an incoming record needs. Tickers are never deleted here (Undeletable
       # + the bot_index_assets FK), so move each such stale holder out of BOTH namespaces with a
       # tombstone and mark it unavailable, so the rename/upsert below cannot collide.
       ticker_records.each do |record|
-        holders = [by_ticker[record[:ticker]], by_base_quote[[record[:base], record[:quote]]]].compact.uniq
+        holders = [by_ticker[record[:ticker]], by_base_quote[[record[:asset_class], record[:base], record[:quote]]]].compact.uniq
         holders.each do |holder|
+          if holder.base_asset.category.to_s != record[:asset_class]
+            raise ActiveRecord::RecordNotUnique,
+                  'Ticker symbol belongs to another asset class'
+          end
           next if holder.base_asset_id == record[:base_asset_id] && holder.quote_asset_id == record[:quote_asset_id]
 
           # Idempotent per namespace: free BOTH secondary keys, only prefixing one that isn't already
