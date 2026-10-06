@@ -586,3 +586,148 @@ async fn a_not_found_answer_with_an_out_of_range_number_proves_nothing() {
     assert!(matches!(recovered, Recovery::Pending), "{recovered:?}");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "the intent stays");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_settlement_uses_stored_ids_and_skips_one_unresolved_order() {
+    collision_batch("valid").await;
+}
+
+async fn collision_batch(defect: &str) {
+    use deltabadger::engine::polling;
+    let (_d,o,id,s)=setup(weekly());
+    o.primary.execute("UPDATE tickers SET ticker='__stale_7_BTC/USD',base='__stale_7_BTC',available=0",[]).unwrap();
+    let mut txs=vec![];
+    for ext in ["BAD","FILL","CANCEL","NEW"] {
+        let tx=seed::insert_tx(&o.primary,&s,id,&TxSpec { status:0,external_status:Some(1),external_id:Some(ext.into()),order_type:0,
+            amount:Some("2"),quote_amount:Some("60"),price:Some("30"),quote_amount_exec:Some("0"),amount_exec:Some("0"),created_at:"2026-09-01 10:00:00".into() });
+        if ext=="BAD" || ext=="NEW" {o.primary.execute("UPDATE transactions SET base_asset_id=NULL,quote_asset_id=NULL,base=NULL,quote=NULL WHERE id=?1",[tx]).unwrap();}
+        txs.push(tx);
+    }
+    o.primary.execute("UPDATE transactions SET created_at='2026-01-01 00:00:00' WHERE id=?1",[txs[0]]).unwrap();
+    let body=|symbol,kind,status,qty| json!({"symbol":symbol,"asset_class":kind,"status":status,"filled_qty":qty,"filled_avg_price":"30","qty":"2","side":"buy","type":"market"});
+    let mut bad=body("UNKNOWN","crypto","filled","2");
+    match defect {
+        "status" => bad["status"]=json!("future_status"),
+        "number" => bad["filled_qty"]=json!("unreadable"),
+        "missing" => { bad.as_object_mut().unwrap().remove("filled_qty"); },
+        _ => {},
+    }
+    let t=script(json!({
+        "GET /v2/orders/BAD":ok(if defect=="bare_number" {json!(bad.to_string().replace("\"filled_qty\":\"2\"", "\"filled_qty\":1e-350"))} else {bad}),
+        // Stored identity wins even when the venue no longer supplies a usable class/symbol.
+        "GET /v2/orders/FILL":ok(body("BTC/USD","future_class","filled","2")),
+        "GET /v2/orders/CANCEL":ok(body("BTC/USD","crypto","canceled","0")),
+        "GET /v2/orders/NEW":ok(body("BTC/USD","crypto","filled","2"))}));
+    let result=polling::sweep(&o.primary,&venue(&t),&model::load_bot(&o.primary,id).unwrap(),at(T0)).await;
+    assert!(result.is_ok(),"one unresolved order must not abort settlement: {result:?}");
+    let values=|tx| o.primary.query_row("SELECT base_asset_id,quote_asset_id,external_status,quote_amount_exec FROM transactions WHERE id=?1",[tx],|r| Ok((r.get::<_,Option<i64>>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,i64>(2)?,r.get::<_,f64>(3)?))).unwrap();
+    assert_eq!(values(txs[0]),(None,None,1,0.0));
+    assert_eq!(values(txs[1]),(Some(s.btc),Some(s.quote),2,60.0));
+    assert_eq!(values(txs[2]),(Some(s.btc),Some(s.quote),3,0.0));
+    assert_eq!(values(txs[3]),(Some(s.btc),Some(s.quote),2,60.0));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_funding_skips_unsupported_positions_and_notifies_once_from_cash() {
+    let (_d,o,id,_)=setup(weekly());
+    let t=script(json!({"GET /v2/orders/OTX-1":ok(json!({"symbol":"BTC/USD","asset_class":"crypto","status":"filled","filled_qty":"2","filled_avg_price":"30","side":"buy","type":"market"})),"GET /v2/account":ok(json!({"cash":"1"})),
+        "GET /v2/positions":ok(json!([{"symbol":"FUTURE","asset_class":"future","qty":"10"},{"symbol":"UNKNOWN","asset_class":"us_equity","qty":"10"}]))}));
+    let result=tick::tick(&o.primary,&venue(&t),id,&FixedClock(at(T0)),&mut Attempts::default()).await.unwrap();
+    assert!(matches!(result,TickOutcome::Done { placed:true }));
+    assert!(one::<bool>(&o,"SELECT last_end_of_funds_notification IS NOT NULL FROM bots"));
+    let before:String=one(&o,"SELECT json_extract(transient_data, '$.rust_funds_mail_pending') FROM bots");
+    tick::tick(&o.primary,&venue(&t),id,&FixedClock(at(T0)+Duration::hours(1)),&mut Attempts::default()).await.unwrap();
+    assert_eq!(one::<String>(&o,"SELECT json_extract(transient_data, '$.rust_funds_mail_pending') FROM bots"),before);
+}
+
+#[test]
+fn collision_untracked_orders_require_class_and_resolve_native_tombstones() {
+    let (_d,o,_id,s)=setup(weekly());
+    o.primary.execute("INSERT INTO assets(external_id,symbol,name,category,created_at,updated_at) VALUES('BTC.US','BTC','Trust','Stock','2026-01-01','2026-01-01')",[]).unwrap();
+    let stock=o.primary.last_insert_rowid();
+    o.primary.execute("INSERT INTO tickers(exchange_id,ticker,base,quote,base_asset_id,quote_asset_id,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,available,trading_enabled,created_at,updated_at) VALUES(?1,'__stale_9_BTC','__stale_9_BTC','USD',?2,?3,9,2,2,'0.000000001','1',0,0,'2026-01-01','2026-01-01')",rusqlite::params![s.exchange_id,stock,s.quote]).unwrap();
+    o.primary.execute("UPDATE tickers SET ticker='__stale_7_BTC/USD',available=0 WHERE id=?1",[s.ticker_id]).unwrap();
+    for (symbol,class,want) in [("BTC",Some("us_equity"),Some(stock)),("BTC/USD",Some("crypto"),Some(s.btc)),("BTCUSD",Some("crypto"),Some(s.btc)),("BTC",Some("crypto"),None),("BTC/USD",Some("us_equity"),None),("BTC",Some("future"),None),("BTC",None,None)] {
+        let tx=seed::insert_tx(&o.primary,&s,_id,&TxSpec { status:0,external_status:Some(1),external_id:Some("NEW".into()),order_type:0,
+            amount:Some("2"),quote_amount:Some("60"),price:Some("30"),quote_amount_exec:Some("0"),amount_exec:Some("0"),created_at:"2026-09-01 10:00:00".into() });
+        o.primary.execute("UPDATE transactions SET base_asset_id=NULL,quote_asset_id=NULL,base=NULL,quote=NULL WHERE id=?1",[tx]).unwrap();
+        let raw=json!({"symbol":symbol,"asset_class":class,"status":"filled","filled_qty":"2","filled_avg_price":"30","side":"buy","type":"market"});
+        let state=deltabadger::venue::alpaca::parse_order("NEW",&raw).unwrap();
+        deltabadger::engine::polling::apply_in(&o.primary,_id,tx,&state,false,at(T0)).unwrap();
+        let actual:Option<i64>=o.primary.query_row("SELECT base_asset_id FROM transactions WHERE id=?1",[tx],|r|r.get(0)).unwrap();
+        assert_eq!(actual,want,"{symbol} {class:?}");
+        o.primary.execute("DELETE FROM transactions WHERE id=?1",[tx]).unwrap();
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_identified_orders_keep_strict_validation() {
+    use deltabadger::engine::polling;
+    for stored in [false,true] {
+        for defect in ["status","number","missing","bare_number"] {
+            let (_d,o,id,s)=setup(weekly());
+            let tx=seed::insert_tx(&o.primary,&s,id,&TxSpec { status:0,external_status:Some(1),external_id:Some("BAD".into()),order_type:0,
+                amount:Some("2"),quote_amount:Some("60"),price:Some("30"),quote_amount_exec:Some("0"),amount_exec:Some("0"),created_at:"2026-09-01 10:00:00".into() });
+            if !stored {o.primary.execute("UPDATE transactions SET base_asset_id=NULL,quote_asset_id=NULL WHERE id=?1",[tx]).unwrap();}
+            let mut bad=json!({"symbol":"BTC/USD","asset_class":"crypto","status":"filled","filled_qty":"2","filled_avg_price":"30"});
+            match defect {
+                "status" => bad["status"]=json!("future_status"),
+                "number" => bad["filled_qty"]=json!("unreadable"),
+                "missing" => {bad.as_object_mut().unwrap().remove("filled_qty");},
+                _ => {},
+            }
+            let t=script(json!({"GET /v2/orders/BAD":ok(if defect=="bare_number" {json!(bad.to_string().replace("\"filled_qty\":\"2\"", "\"filled_qty\":1e-350"))} else {bad})}));
+            let result=polling::sweep(&o.primary,&venue(&t),&model::load_bot(&o.primary,id).unwrap(),at(T0)).await;
+            let error=format!("{:?}",result.unwrap_err());
+            assert!(error.contains(if defect=="status" {"status is unknown"} else if defect=="bare_number" {"unreadable number"} else {"unreadable filled_qty"}),"identified {stored} {defect}: {error}");
+            assert_eq!(one::<f64>(&o,"SELECT quote_amount_exec FROM transactions"),0.0);
+            assert_eq!(one::<i64>(&o,"SELECT external_status FROM transactions"),1);
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_unidentified_status_does_not_block_settlement() {
+    collision_batch("status").await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_unidentified_number_does_not_block_settlement() {
+    collision_batch("number").await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_unidentified_missing_does_not_block_settlement() {
+    collision_batch("missing").await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_unidentified_bare_number_does_not_block_settlement() {
+    collision_batch("bare_number").await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_funding_identifies_before_decoding_bare_numbers() {
+    let (_d,o,id,_)=setup(weekly());
+    let t=script(json!({"GET /v2/orders/OTX-1":ok(json!({"symbol":"BTC/USD","asset_class":"crypto","status":"filled","filled_qty":"2","filled_avg_price":"30","side":"buy","type":"market"})),"GET /v2/account":ok(json!({"cash":"1"})),
+        "GET /v2/positions":ok(json!(r#"[{"symbol":"UNKNOWN","asset_class":"future","qty":1e400},{"symbol":"BTCUSD","asset_class":"crypto","qty":"2"}]"#))}));
+    let result=tick::tick(&o.primary,&venue(&t),id,&FixedClock(at(T0)),&mut Attempts::default()).await.unwrap();
+    assert!(matches!(result,TickOutcome::Done { placed:true }));
+    assert!(one::<bool>(&o,"SELECT last_end_of_funds_notification IS NOT NULL FROM bots"));
+    let before:String=one(&o,"SELECT json_extract(transient_data, '$.rust_funds_mail_pending') FROM bots");
+    tick::tick(&o.primary,&venue(&t),id,&FixedClock(at(T0)+Duration::hours(1)),&mut Attempts::default()).await.unwrap();
+    assert_eq!(one::<String>(&o,"SELECT json_extract(transient_data, '$.rust_funds_mail_pending') FROM bots"),before);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_venue_positions_identify_before_decoding_and_keep_identified_strict() {
+    use deltabadger::venue::Venue;
+    let t=script(json!({"GET /v2/positions":ok(json!(r#"[{"symbol":"UNKNOWN","asset_class":"future","qty":1e400},{"symbol":"AAPL","asset_class":"us_equity","qty":"2"}]"#))}));
+    let result=venue(&t).positions().await;
+    assert!(result.is_ok(), "unidentified numbers cannot abort positions: {result:?}");
+    assert_eq!(result.unwrap().get("AAPL"),Some(&BigDec::from_i64(2)));
+    for raw in [r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e400}]"#,r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":"garbage"}]"#,r#"[{"symbol":"AAPL","asset_class":"us_equity"}]"#] {
+        let t=script(json!({"GET /v2/positions":ok(json!(raw))}));
+        assert!(venue(&t).positions().await.is_err(),"identified positions keep strict numbers: {raw}");
+    }
+}

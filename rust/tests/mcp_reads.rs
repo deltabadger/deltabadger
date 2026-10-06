@@ -111,7 +111,7 @@ async fn four_reads_match_rails() {
         }
         actual.push((dir,steps,got));
     }
-    assert_eq!(actual.len(),92,"all recorded M3 scenarios");
+    assert_eq!(actual.len(),97,"all recorded M3 scenarios");
     common::rails(boot.path(),"test",&["runner","script/rust/mcp.rb","record",root.path().to_str().unwrap()]);
     if let Ok(root)=std::env::var("M3_RECORDINGS"){
         for (dir,_,got) in &actual {
@@ -147,12 +147,15 @@ async fn four_reads_match_rails() {
             let texts=got["responses"].to_string();
             assert!(texts.contains("Global P/L: +15.0%") && texts.contains("+$30.0"),"{name}: normalized $230/+15% required");
         }
+        if name=="m3_order_identity" {
+            let text=got["responses"].to_string();
+            assert!(text.contains("known-tombstone") && text.contains("AAA/USD"));
+            assert!(!text.contains("wrong-class") && !text.contains("ext: unknown"));
+        }
         let replacements=match name {
             "m3_other_venue_figures"=>vec![("Portfolio Summary\n================\nTotal bots: 3 (3 active, 0 stopped, 0 not started)\n\nGlobal P/L: +1.14%\nProfit (USD): +$9.64\n\n--- Per-Bot Summary ---\n- Basket (AAA+BBB/USD) | scheduled | P/L: +0.08% | Invested: 200.0 USD\n- Limited (AAA/USD) | scheduled | P/L: +3.64% | Invested: 346.99 USD\n- ND100 (N/A) | scheduled | P/L: -1.05% | Invested: 300.0 USD","this build reads Alpaca only")],
             "m3_other_venue"=>vec![("Failed to fetch balances from Kraken: EAPI:Invalid key","this build reads Alpaca only")],
             "m3_unpriced"=>vec![("Global P/L: -13.83%\nProfit (USD): $-117.15","Global P/L: Not available (needs market data)")],
-            "m3_unmapped_cash"=>vec![("All balances on Alpaca are zero.","Balances could not be fully read: unmapped nonzero cash")],
-            "m3_unmapped_position"=>vec![("All balances on Alpaca are zero.","Balances could not be fully read: unmapped nonzero position")],
             "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)"),("@ 0.0 USD","")],
             "m3_market_no_price"=>vec![("AAA/USD @ 0 (Market order)","AAA/USD  (Market order)")],
             "m3_limit_no_price"=>vec![("AAA/USD @ 0 (Limit order)","AAA/USD  (Limit order)")],
@@ -334,4 +337,36 @@ fn mcp_transaction_zero_price_uses_the_nil_branch() {
     assert_eq!(read(),"Transactions (1):\n- [2026-09-10 12:00] BUY 2.0 BTC   | submitted");
     o.primary.execute_batch("UPDATE transactions SET price=100.5").unwrap();
     assert!(read().contains("@ 100.5 USD"));
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn collision_mcp_identity_precedes_parsing() {
+    use deltabadger::web::mcp::{reads,tools::Called};
+    for identified in [false,true] {
+        for defect in ["status","number","missing","bare_number"] {
+            let (dir,o,s)=common::install_alpaca();
+            let mut bad=json!({"id":"bad","symbol":if identified {"BTC/USD"} else {"UNKNOWN"},"asset_class":"crypto","status":"new","filled_qty":"0","qty":"2","side":"buy","type":"market"});
+            match defect {
+                "status" => bad["status"]=json!("future_status"),
+                "number" => bad["filled_qty"]=json!("unreadable"),
+                "missing" => {bad.as_object_mut().unwrap().remove("filled_qty");},
+                _ => {},
+            }
+            let good=json!({"id":"good","symbol":"BTC/USD","asset_class":"crypto","status":"new","filled_qty":"0","qty":"2","side":"buy","type":"market"});
+            let body=json!([bad,good]);
+            let body=if defect=="bare_number" {json!(body.to_string().replacen("\"filled_qty\":\"0\"", "\"filled_qty\":1e-350",1))} else {body};
+            let script=json!({"GET paper-api.alpaca.markets/v2/orders?limit=50&status=open":{"status":200,"body":body}});
+            let app=web::app(dir.path(),"engine-test-secret",TestClock::at(AT)).with_figure_source(deltabadger::web::figure::loading::Source::Script(script)).unwrap();
+            let Called::Fetch(fetch)=reads::plan(&o.primary,&app,s.user_id,"list_open_orders",&json!({})).unwrap() else{panic!("orders fetch")};
+            let result=reads::finish(&o.primary,reads::fetch(&app,fetch).await);
+            if identified && defect!="status" {
+                assert!(result.is_err(),"identified {defect}: {result:?}");
+            } else {
+                let result=result.unwrap();
+                let text=result["content"][0]["text"].as_str().unwrap();
+                assert!(text.contains("ext: good"),"{text}");
+                assert_eq!(text.contains("ext: bad"),identified,"{text}");
+            }
+        }
+    }
 }

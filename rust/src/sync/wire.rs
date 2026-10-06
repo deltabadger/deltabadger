@@ -227,7 +227,7 @@ fn fixed(digits: &str, exponent: i32) -> String {
     format!("{}.{}", &digits[..whole], &digits[whole..])
 }
 
-struct Reader<'a> { bytes: &'a [u8], text: &'a str, at: usize }
+struct Reader<'a> { bytes: &'a [u8], text: &'a str, at: usize, identity: bool }
 
 impl<'a> Reader<'a> {
     fn space(&mut self) { while matches!(self.bytes.get(self.at), Some(b' ' | b'\t' | b'\n' | b'\r')) { self.at += 1; } }
@@ -307,7 +307,12 @@ impl<'a> Reader<'a> {
                 let start = self.at;
                 while self.bytes.get(self.at).is_some_and(|b| !matches!(b, b',' | b']' | b'}' | b' ' | b'\t' | b'\n' | b'\r')) { self.at += 1; }
                 let token = self.text.get(start..self.at).filter(|t| !t.is_empty()).ok_or(Refused::NotJson)?;
-                if !serde_json::from_str::<serde_json::Value>(token).is_ok_and(|v| !v.is_array() && !v.is_object() && !v.is_string()) { return Err(Refused::NotJson); }
+                let valid = if self.identity {
+                    serde_json::from_str::<Box<serde_json::value::RawValue>>(token).is_ok()
+                } else {
+                    serde_json::from_str::<serde_json::Value>(token).is_ok_and(|v| !v.is_array() && !v.is_object() && !v.is_string())
+                };
+                if !valid { return Err(Refused::NotJson); }
                 Ok(Node::Scalar(token.to_string()))
             }
             None => Err(Refused::NotJson),
@@ -319,7 +324,17 @@ impl<'a> Reader<'a> {
 /// checked by serde_json as it is read (a number, a string's escapes, a literal), an overwritten one included, so
 /// nothing that is not JSON gets through.
 pub fn read(text: &str, budget: &mut Budget, max_items: Option<usize>) -> Result<Node, Refused> {
-    let mut reader = Reader { bytes: text.as_bytes(), text, at: 0 };
+    let mut reader = Reader { bytes: text.as_bytes(), text, at: 0, identity: false };
+    let node = reader.value(0, budget, max_items)?;
+    reader.space();
+    if reader.at != text.len() { return Err(Refused::NotJson); }
+    Ok(node)
+}
+
+/// Preserve numeric tokens until the caller resolves identity. Syntax, nesting, node and list limits
+/// are identical to `read`; only conversion of a number is deferred.
+pub(crate) fn read_identity(text: &str, budget: &mut Budget, max_items: Option<usize>) -> Result<Node, Refused> {
+    let mut reader = Reader { bytes: text.as_bytes(), text, at: 0, identity: true };
     let node = reader.value(0, budget, max_items)?;
     reader.space();
     if reader.at != text.len() { return Err(Refused::NotJson); }

@@ -303,7 +303,7 @@ async fn a_split_for_another_held_asset_during_positions_ends_the_tick() {
     impl Transport for Positions {
         async fn send(&self,req:&HttpRequest)->Result<HttpResponse,TransportError> {
             let reply=self.inner.send(req).await?;
-            if req.path=="/v2/positions" {return Ok(HttpResponse{status:200,body:json!([{"symbol":"AAA","qty":"15"},{"symbol":"BBB","qty":"30"}]).to_string()});}
+            if req.path=="/v2/positions" {return Ok(HttpResponse{status:200,body:json!([{"symbol":"AAA","asset_class":"us_equity","qty":"15"},{"symbol":"BBB","asset_class":"us_equity","qty":"30"}]).to_string()});}
             Ok(reply)
         }
     }

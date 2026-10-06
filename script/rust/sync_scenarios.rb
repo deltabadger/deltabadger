@@ -468,6 +468,31 @@ module SyncScenarios
       P.balance(ctx, 'ETH', free: '2')
     end
     [
+      *[true, false].product([true, false]).map do |coin_first, available|
+        { name: "balances-collision-#{coin_first}-#{available}",
+          setup: lambda do |ctx|
+            stock = Asset.create!(external_id: 'BTC.US', symbol: 'BTC', name: 'Bitcoin Trust', category: 'Stock')
+            ctx[:assets]['BTC_STOCK'] = stock
+            ExchangeAsset.create!(exchange: ctx[:alpaca], asset: stock)
+            ticker = Ticker.create!(exchange: ctx[:alpaca], base_asset: stock, quote_asset: ctx[:assets]['USD'],
+                                   ticker: 'BTC', base: 'BTC', quote: 'USD', base_decimals: 9, quote_decimals: 2,
+                                   price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+            ticker.update_column(:id, 0) unless coin_first
+            ctx[:alpaca].tickers.update_all(available: available)
+            P.balance(ctx, 'BTC_STOCK', free: '10')
+            P.balance(ctx, 'BTC', free: '2')
+          end,
+          steps: [P.balances(night, account: P.account('100'),
+                             positions: P.ok([P.position('BTC', '10'), P.position('BTCUSD', '2', asset_class: 'crypto')]),
+                             snapshots: P.snapshot_body('BTC' => 30), prices: P.prices_body('bitcoin' => 60_000))] }
+      end,
+      { name: 'balances-excluded_positions', setup: seeded,
+        steps: [P.balances(night, account: P.account('1'), positions: P.ok([
+          P.position('FUTURE', 'unreadable', asset_class: 'future'), P.position('UNKNOWN', 'unreadable'),
+          P.position('AAPL', '10'), P.position('BTCUSD', '2', asset_class: 'crypto')
+        ]), snapshots: P.snapshot_body('AAPL' => 30), prices: P.prices_body('bitcoin' => 60_000))] },
+      { name: 'balances-missing_class', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('BTC', '10').except('asset_class')]))] },
       { name: 'balances-first', steps: [P.balances(night, account: P.account('99123.45'), positions: held, snapshots: snaps, prices: coins)] },
       { name: 'balances-updates_and_removes',
         setup: lambda do |ctx|

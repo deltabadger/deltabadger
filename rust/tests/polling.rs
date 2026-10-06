@@ -169,7 +169,7 @@ fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() 
                        VALUES (?1, ?2, 'OLEGACY', 0, 0, 0, 0, 18, 'week', 60, 'REGULAR', '[]', '2026-09-01 10:00:01', '2026-09-01 10:00:01')",
                       rusqlite::params![id, s.exchange_id]).unwrap();
     let tx = o.primary.last_insert_rowid();
-    let state = |pair: &str| OrderState { txid: "OLEGACY".into(), status: OrderStatus::Open, price: Some(BigDec::from_i64(2500)), amount: None,
+    let state = |pair: &str| OrderState { asset_class: Some("crypto".into()), txid: "OLEGACY".into(), status: OrderStatus::Open, price: Some(BigDec::from_i64(2500)), amount: None,
         quote_amount: Some(BigDec::from_i64(18)), amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: false, sell: false, pair: Some(pair.into()) };
     let row = || -> (Option<String>, Option<String>, Option<i64>, Option<i64>) { o.primary.query_row(
         "SELECT base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap() };

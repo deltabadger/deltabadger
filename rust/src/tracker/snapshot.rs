@@ -123,7 +123,7 @@ mod tests {
     }
 
     fn balance(usd_value: Option<&str>, priced_at: &str) -> Balance {
-        Balance { symbol: "AAPL".into(), free: Dec::one(), locked: Dec::zero(), usd_price: None, usd_value: usd_value.map(|v| Dec::strict(v).unwrap()),
+        Balance { category: Some("Stock".into()), symbol: "AAPL".into(), free: Dec::one(), locked: Dec::zero(), usd_price: None, usd_value: usd_value.map(|v| Dec::strict(v).unwrap()),
                   priced_at: At::from_sql(priced_at), synced_at: At::from_sql("2026-10-01 02:30:00") }
     }
 

@@ -400,7 +400,7 @@ fn external_ids(rows: &[Value]) -> Vec<String> {
 
 #[derive(Clone, Debug)]
 pub struct TickerRecord {
-    pub base_asset_id: i64, pub quote_asset_id: i64,
+    pub base_asset_id: i64, pub quote_asset_id: i64, pub asset_class: String,
     pub base: Option<String>, pub quote: Option<String>, pub ticker: Option<String>,
     pub minimum_base_size: Option<String>, pub minimum_quote_size: Option<String>,
     pub maximum_base_size: Option<String>, pub maximum_quote_size: Option<String>,
@@ -422,7 +422,7 @@ fn size(v: &Value, default: Option<&str>) -> R<Option<String>> {
 }
 
 /// MarketData.ticker_records_for (:286-314): the importable, deduped ticker rows. Pure: no writes.
-pub fn ticker_records_for(c: &Connection, rows: &[Value]) -> R<Vec<TickerRecord>> {
+pub fn ticker_records_for(c: &Connection, rows: &[Value], category: Option<&str>) -> R<Vec<TickerRecord>> {
     if rows.is_empty() { return Ok(vec![]); }
     let ids: HashMap<String, i64> = asset_ids(c, &external_ids(rows))?.into_iter().collect();
     let mut out = vec![];
@@ -430,7 +430,9 @@ pub fn ticker_records_for(c: &Connection, rows: &[Value]) -> R<Vec<TickerRecord>
         let (Some(&b), Some(&q)) = (t["base_external_id"].as_str().and_then(|k| ids.get(k)), t["quote_external_id"].as_str().and_then(|k| ids.get(k))) else { continue };
         // Pairs the exchange gave no trading params for are skipped (:296-304).
         if !(truthy(&t["base_decimals"]) && truthy(&t["quote_decimals"]) && truthy(&t["price_decimals"])) { continue; }
-        out.push(TickerRecord {
+        let asset_class: String = c.query_row("SELECT coalesce(category, '') FROM assets WHERE id = ?1", [b], |r| r.get(0)).map_err(sql)?;
+        if category.is_some_and(|category| category != asset_class) { continue; }
+        out.push(TickerRecord { asset_class,
             base_asset_id: b, quote_asset_id: q, base: string(&t["base"]), quote: string(&t["quote"]), ticker: string(&t["ticker"]),
             minimum_base_size: size(&t["minimum_base_size"], Some("0"))?, minimum_quote_size: size(&t["minimum_quote_size"], Some("0"))?,
             maximum_base_size: size(&t["maximum_base_size"], None)?, maximum_quote_size: size(&t["maximum_quote_size"], None)?,
@@ -439,13 +441,21 @@ pub fn ticker_records_for(c: &Connection, rows: &[Value]) -> R<Vec<TickerRecord>
             trading_enabled: t["trading_enabled"] != Value::Bool(false),
         });
     }
+    let mut classes = HashMap::new();
+    for r in &out {
+        if let Some(symbol) = &r.ticker {
+            if classes.insert(symbol, &r.asset_class).is_some_and(|held| held != &r.asset_class) {
+                return Err("Ticker symbol belongs to another asset class".into());
+            }
+        }
+    }
     // `uniq!` keeps the first occurrence per key, in this order (:309-312).
     fn uniq_by<K: std::hash::Hash + Eq>(v: &mut Vec<TickerRecord>, key: impl Fn(&TickerRecord) -> K) {
         let mut seen = HashSet::new();
         v.retain(|r| seen.insert(key(r)));
     }
     uniq_by(&mut out, |r| (r.base_asset_id, r.quote_asset_id));
-    uniq_by(&mut out, |r| (r.base.clone(), r.quote.clone()));
+    uniq_by(&mut out, |r| (r.asset_class.clone(), r.base.clone(), r.quote.clone()));
     uniq_by(&mut out, |r| r.ticker.clone());
     Ok(out)
 }
@@ -457,7 +467,7 @@ fn tombstone(id: i64, value: &str) -> String {
     if value.starts_with(TOMBSTONE) { value.into() } else { format!("{TOMBSTONE}{id}_{value}") }
 }
 
-struct Held { id: i64, pair: (i64, i64), ticker: String, base: String, quote: String }
+struct Held { asset_class: String, id: i64, pair: (i64, i64), ticker: String, base: String, quote: String }
 
 
 /// What one ticker unit writes, in order, in one transaction.
@@ -513,18 +523,18 @@ pub fn plan_tickers(c: &Connection, exchange_id: i64, rows: &[Value], sweep_cate
     let empty = |exchange_assets| TickerPlan { exchange_assets, units: vec![], sweep: vec![], written: vec![] };
     if rows.is_empty() { return Ok(empty(vec![])); }
     let exchange_assets: Vec<i64> = asset_ids(c, &external_ids(rows))?.into_iter().map(|(_, id)| id).collect();
-    let records = ticker_records_for(c, rows)?;
+    let records = ticker_records_for(c, rows, sweep_category)?;
     if records.is_empty() { return Ok(empty(exchange_assets)); }
 
-    let mut s = c.prepare("SELECT id, base_asset_id, quote_asset_id, ticker, base, quote FROM tickers WHERE exchange_id = ?1 ORDER BY id").map_err(sql)?;
-    let held: Vec<Held> = s.query_map([exchange_id], |r| Ok(Held { id: r.get(0)?, pair: (r.get(1)?, r.get(2)?), ticker: r.get(3)?, base: r.get(4)?, quote: r.get(5)? }))
+    let mut s = c.prepare("SELECT t.id, t.base_asset_id, t.quote_asset_id, t.ticker, t.base, t.quote, coalesce(a.category, '') FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 ORDER BY t.id").map_err(sql)?;
+    let held: Vec<Held> = s.query_map([exchange_id], |r| Ok(Held { asset_class: r.get(6)?, id: r.get(0)?, pair: (r.get(1)?, r.get(2)?), ticker: r.get(3)?, base: r.get(4)?, quote: r.get(5)? }))
         .map_err(sql)?.collect::<Result<_, _>>().map_err(sql)?;
     let base: i64 = c.query_row("SELECT max(coalesce((SELECT seq FROM sqlite_sequence WHERE name = 'tickers'), 0), coalesce((SELECT max(id) FROM tickers), 0))",
                                 [], |r| r.get(0)).map_err(sql)?;
     // index_by: the last row wins a key, though the unique indexes leave one per key.
     let by_pair: HashMap<(i64, i64), usize> = held.iter().enumerate().map(|(i, h)| (h.pair, i)).collect();
     let by_ticker: HashMap<&str, usize> = held.iter().enumerate().map(|(i, h)| (h.ticker.as_str(), i)).collect();
-    let by_bq: HashMap<(&str, &str), usize> = held.iter().enumerate().map(|(i, h)| ((h.base.as_str(), h.quote.as_str()), i)).collect();
+    let by_bq: HashMap<(&str, &str, &str), usize> = held.iter().enumerate().map(|(i, h)| ((h.asset_class.as_str(), h.base.as_str(), h.quote.as_str()), i)).collect();
     let record_of: HashMap<(i64, i64), usize> = records.iter().enumerate().map(|(i, r)| ((r.base_asset_id, r.quote_asset_id), i)).collect();
 
     // Pass 1, on copies of the names: who holds what each record needs, and the tombstones.
@@ -532,8 +542,9 @@ pub fn plan_tickers(c: &Connection, exchange_id: i64, rows: &[Value], sweep_cate
     let mut needs: Vec<Vec<usize>> = vec![vec![]; records.len()];
     for (ri, r) in records.iter().enumerate() {
         let by_t = r.ticker.as_deref().and_then(|t| by_ticker.get(t));
-        let by_b = match (&r.base, &r.quote) { (Some(b), Some(q)) => by_bq.get(&(b.as_str(), q.as_str())), _ => None };
+        let by_b = match (&r.base, &r.quote) { (Some(b), Some(q)) => by_bq.get(&(r.asset_class.as_str(), b.as_str(), q.as_str())), _ => None };
         for &i in [by_t, by_b].into_iter().flatten() {
+            if held[i].asset_class != r.asset_class { return Err("Ticker symbol belongs to another asset class".into()); }
             if held[i].pair == (r.base_asset_id, r.quote_asset_id) || needs[ri].contains(&i) { continue; }
             needs[ri].push(i);
             names[i] = (tombstone(held[i].id, &names[i].0), tombstone(held[i].id, &names[i].1));

@@ -83,7 +83,8 @@ pub enum DecodeError {
     NotJson,
 }
 
-/// Every venue response body is decoded here, never with serde_json directly. serde_json reads a bare JSON number as an
+/// Every identified venue value is decoded here. Order readers may first retain RawValue tokens to exclude rows with
+/// no identity, without interpreting their numbers. serde_json otherwise reads a bare JSON number as an
 /// f64, so `1e-350` would arrive as 0.0 before any cap could see it. The raw text is scanned first: every bare number
 /// (string contents skipped, escapes honoured) must be within the venue caps (ruby::VENUE_MAX_EXPONENT for the effective
 /// exponent, mantissa included; ruby::VENUE_MAX_DIGITS significant digits), or the whole answer is unreadable.

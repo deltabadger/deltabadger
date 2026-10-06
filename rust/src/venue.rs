@@ -48,6 +48,7 @@ pub struct OrderState {
     /// The pair as the venue names it in this order (Alpaca `symbol`, Kraken `descr.pair`): Rails backfills a row's blank
     /// asset fields from this pair's ticker (`order_data[:ticker]`), never from the bot. None where the venue gives none.
     pub pair: Option<String>,
+    pub asset_class: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -75,6 +76,12 @@ pub trait Venue {
     async fn add_order(&self, order: &NewOrder) -> Result<String, VenueError>;
     /// The orders asked for; ids the venue does not report are simply absent.
     async fn orders(&self, txids: &[String]) -> Result<Vec<OrderState>, VenueError>;
+    /// Alpaca resolves identity before interpreting a row. Excluded IDs are present, not missing orders.
+    /// Other venues retain their existing parsing and identity behavior.
+    async fn orders_identified<F>(&self, txids: &[String], _identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        self.orders(txids).await.map(|orders| (orders, vec![]))
+    }
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete.
     async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
     /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there.

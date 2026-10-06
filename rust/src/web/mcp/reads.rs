@@ -13,7 +13,8 @@ pub enum Fetch {
     Orders{user:i64,local:Vec<String>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Credentials>)>},
     Summary{user:i64,credentials:Option<Credentials>,now:At},
 }
-pub enum Fetched { Text(String,bool), Balances(i64,i64,String,crate::ruby::BigDec,Vec<(String,crate::ruby::BigDec)>), Orders(i64,Vec<String>,HashSet<String>,Vec<(i64,String,Result<Value,String>)>), Summary(i64,Cache,At,bool) }
+type RawOrders = Vec<Box<serde_json::value::RawValue>>;
+pub enum Fetched { Text(String,bool), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), Orders(i64,Vec<String>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>), Summary(i64,Cache,At,bool) }
 fn credentials(c:&Connection,app:&App,user:i64,exchange:i64)->Result<Option<Credentials>,WebError>{
     let id=c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 LIMIT 1",[user,exchange],|r|r.get(0)).optional()?;
     id.map(|id|sync::credentials(c,&app.cipher,id).map_err(|_|error())).transpose()
@@ -63,7 +64,7 @@ pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Calle
         },_=>Err(error())
     }
 }
-async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::ruby::BigDec,Vec<(String,crate::ruby::BigDec)>),(String,bool)>{
+async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::ruby::BigDec,Vec<sync::balances::Position>),(String,bool)>{
     let cash=sync::parsed(venue.read(false,"/v2/account",vec![],sync::balances::MAX_ACCOUNT_BYTES).await.map_err(sync::venue_failure)?,sync::balances::account).await?;
     let held=sync::parsed(venue.read(false,"/v2/positions",vec![],sync::balances::MAX_LIST_BYTES).await.map_err(sync::venue_failure)?,sync::balances::positions).await?;
     match (cash,held){(Ok(c),Ok(h))=>Ok((c,h)),(Err(e),_)|(_,Err(e))=>Err((e,false))}
@@ -82,7 +83,7 @@ pub async fn fetch(app:&App,fetch:Fetch)->Fetched{
                 let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()),Urls::for_passphrase(None));
                 let result=match venue.read(false,"/v2/orders",vec![("status","open".into()),("limit","50".into())],sync::balances::MAX_LIST_BYTES).await {
                     Err(e)=>Err(sync::venue_failure(e)),
-                    Ok(body)=>sync::parsed(body,|text|crate::venue::http::decode_json(text).map_err(|_|sync::Unread::Raised("Unreadable orders".into()))).await
+                    Ok(body)=>sync::parsed(body,|text|serde_json::from_str::<RawOrders>(text).map_err(|_|sync::Unread::Raised("Unreadable orders".into()))).await
                 };
                 match result {Ok(v)=>out.push((id,name,Ok(v))),Err((_,true))=>return Fetched::Text("An unexpected error occurred.".into(),true),Err((why,false))=>out.push((id,name,Err(sync::scrub(&why,&credentials))))}
             }
@@ -106,7 +107,7 @@ pub fn finish(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
         Fetched::Balances(user,exchange,name,cash,held)=>{
             let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
             let mut lines=vec![];
-            for (id,qty) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(tool_text(why,false))}{
+            for (id,qty) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(tool_text(&format!("Failed to fetch balances from {name}: {why}"),false))}{
                 let n=qty.to_f(); if n==0.0{continue}
                 let symbol:Option<String>=c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?.flatten();
                 lines.push(format!("- {}: {}",symbol.unwrap_or_else(||format!("Unknown({id})")),float_to_s(n)));
@@ -118,14 +119,18 @@ pub fn finish(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
             for (exchange,name,result) in venues{
                 match result{
                     Err(why)=>unavailable.push(format!("! {name}: could not be checked ({why}) — open orders there are not listed")),
-                    Ok(value)=>{
-                        let rows=value.as_array().ok_or_else(error)?;
+                    Ok(rows)=>{
                         if !read_limits::count(rows.len(),read_limits::VENUE_ORDERS){return Ok(tool_text(read_limits::REFUSAL,false))}
                         for raw in rows{
-                        let id=raw["id"].as_str().unwrap_or("");if ids.contains(id){continue}
-                        let parsed=crate::venue::alpaca::parse_read_order(id,raw).map_err(|_|error())?;
-                        let pair:Option<(String,String)>=c.query_row("SELECT base,quote FROM tickers WHERE exchange_id=?1 AND ticker=?2 LIMIT 1",rusqlite::params![exchange,parsed.pair],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-                        let pair=pair.map(|(a,b)|format!("{a}/{b}")).unwrap_or_else(||id.into());
+                        let (id,pair,class)=crate::venue::alpaca::order_identity(raw.get());
+                        let id=id.as_deref().unwrap_or("");if ids.contains(id){continue}
+                        let Some(ticker)=crate::engine::model::alpaca_order_ticker(c,exchange,pair.as_deref(),class.as_deref()).map_err(|_|error())? else {
+                            eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
+                            continue;
+                        };
+                        let raw=crate::venue::http::decode_json(raw.get()).map_err(|_|error())?;
+                        let parsed=crate::venue::alpaca::parse_read_order(id,&raw).map_err(|_|error())?;
+                        let pair=format!("{}/{}",ticker.base_code,ticker.quote_code);
                         let amount=parsed.amount.map(|a|a.to_s_f()).unwrap_or_else(||"N/A".into());
                         let price=parsed.price.map(|p|format!("@ {}",p.to_s_f())).unwrap_or_default(); // Rails omits the price only when nil.
                         let side=raw["side"].as_str().map(str::to_uppercase).unwrap_or_else(||"?".into());

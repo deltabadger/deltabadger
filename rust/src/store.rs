@@ -153,7 +153,7 @@ const PRIMARY: &[TableContract] = &[
         ("maximum_base_size", "decimal", false), ("maximum_quote_size", "decimal", false),
         ("trading_enabled", "boolean", true), ("available", "boolean", false),
         ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
-    ], unique_indexes: &[&["exchange_id", "base_asset_id", "quote_asset_id"], &["exchange_id", "ticker"], &["exchange_id", "base", "quote"]] },
+    ], unique_indexes: &[&["exchange_id", "base_asset_id", "quote_asset_id"], &["exchange_id", "ticker"]] },
     // The bot pages (src/web/bot) also read an asset's name, colour, market cap and external id, and an exchange's fee and availability.
     TableContract { name: "assets", columns: &[
         ("id", "integer", true), ("external_id", "varchar", true), ("symbol", "varchar", false), ("name", "varchar", false),

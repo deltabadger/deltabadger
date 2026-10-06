@@ -351,7 +351,7 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         // fractionable: false is dropped (:495), then Invariant B and the defaults (:500-504), before the guard counts.
         let listings: Vec<Value> = take_list(body).into_iter().filter(|l| l["fractionable"] != Value::Bool(false)).map(stock_listing).collect();
         let Some(alpaca) = alpaca_id(c)? else { return Ok(Err(Outcome::NothingNew)) };
-        let resolved = import::ticker_records_for(c, &listings)?.len() as i64; // import_tickers!' own builder, post-dedup (:514-520)
+        let resolved = import::ticker_records_for(c, &listings, Some("Stock"))?.len() as i64; // import_tickers!' own builder, post-dedup (:514-520)
         let last_good = app_config::get(c, cipher, ALPACA_LISTINGS_LAST_GOOD)?;
         if stocks_degraded(resolved, last_good.as_deref()) { return Ok(Err(degraded(resolved, listings.len(), last_good.as_deref()))); }
         // The legacy collision guard (:539-551) and the sweep's legacy exclusion (:563) have nothing to act on: the gate

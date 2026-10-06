@@ -862,7 +862,7 @@ module Decisions
         sc.fetch('splits', []).select { |sp| sp['name'] == sym && sp['ratio'] }.each do |sp|
           p,q = sp['ratio'].split(':').map(&:to_d); held *= p/q
         end
-        { 'symbol' => sym, 'qty' => held.to_s('F') } if held.positive?
+        { 'symbol' => sym, 'asset_class' => 'us_equity', 'qty' => held.to_s('F') } if held.positive?
       end
       sc['script']['alpaca']['GET /v2/positions'] = [ok(positions)]
     end

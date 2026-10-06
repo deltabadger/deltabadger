@@ -104,7 +104,7 @@ async fn a_wrong_split_stands_down_then_correct_rows_clear_without_any_order() {
     seed::insert_stock_tx(&o.primary,&s,id,asset,"KLAC",&tx);
     let row=seed::insert_split(&o.primary,&s,"KLAC","2026-09-05 00:00:00",Some("3:2"));
     o.primary.execute("UPDATE account_transactions SET base_amount=5,raw_data=?1 WHERE id=?2",params![json!({"corporate_action":"split","qty":"-10","split_ratio":"3:2","merged_activity_ids":["a","b"]}).to_string(),row]).unwrap();
-    let transport=ScriptedTransport::from_script(&json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"KLAC","qty":"30"}]}]}));
+    let transport=ScriptedTransport::from_script(&json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"KLAC","asset_class":"us_equity","qty":"30"}]}]}));
     let venue=AlpacaVenue::new(transport.clone(),Urls::for_passphrase(Some("paper")));
     let bot=model::load_bot(&o.primary,id).unwrap();
     let now="2026-09-10T14:00:00Z".parse().unwrap();
@@ -117,10 +117,10 @@ async fn a_wrong_split_stands_down_then_correct_rows_clear_without_any_order() {
     let second=seed::insert_bot(&o.primary,&s,&BotSpec::weekly(60.0,"2026-09-01 14:00:00").weights(&[(asset,1.0)]));
     seed::insert_stock_tx(&o.primary,&s,second,asset,"KLAC",&common::seed::TxSpec {external_id:Some("second-fill".into()),..tx});
     assert!(splits::refusal(&o.primary,&venue,&bot,now).await.unwrap().is_some(),"one bot is not the account");
-    let both=ScriptedTransport::from_script(&json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"KLAC","qty":"60"}]}]}));
+    let both=ScriptedTransport::from_script(&json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"KLAC","asset_class":"us_equity","qty":"60"}]}]}));
     let both=AlpacaVenue::new(both,Urls::for_passphrase(Some("paper")));
     assert!(splits::refusal(&o.primary,&both,&bot,now).await.unwrap().is_none(),"sum both bots' restated holdings once");
-    let unreadable=ScriptedTransport::from_script(&json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"KLAC"}]}]}));
+    let unreadable=ScriptedTransport::from_script(&json!({"GET /v2/positions":[{"status":200,"body":[{"symbol":"KLAC","asset_class":"us_equity"}]}]}));
     let unreadable=AlpacaVenue::new(unreadable,Urls::for_passphrase(Some("paper")));
     assert!(splits::refusal(&o.primary,&unreadable,&bot,now).await.unwrap().is_some(),"missing quantity never means zero");
 

@@ -52,15 +52,27 @@ fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
 /// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
 pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    let status = match s.status {
-        OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
-        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(false),
-    };
     let row = load(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
     // order's pair (Exchanges::*#parse_order_data `tickers.find_by(ticker:)`), never the bot's first member.
-    let ticker = match &s.pair { Some(pair) => model::ticker_for_pair(c, bot.exchange_id, pair)?, None => None };
+    let ticker = if row.base_asset_id.is_some() && row.quote_asset_id.is_some() {
+        None
+    } else if model::exchange_type(c, &bot)? == "Exchanges::Alpaca" {
+        let ticker = model::alpaca_order_ticker(c, bot.exchange_id, s.pair.as_deref(), s.asset_class.as_deref())?;
+        if ticker.is_none() {
+            eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
+            return Ok(false);
+        }
+        ticker
+    } else {
+        match &s.pair { Some(pair) => model::ticker_for_pair(c, bot.exchange_id, pair)?, None => None }
+    };
+
+    let status = match s.status {
+        OrderStatus::Open => TxExternalStatus::Open, OrderStatus::Closed => TxExternalStatus::Closed,
+        OrderStatus::Cancelled => TxExternalStatus::Cancelled, OrderStatus::Unknown | OrderStatus::Failed => return Ok(false),
+    };
 
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
     let mut sets: Vec<(&str, Sql)> = vec![];
@@ -158,6 +170,13 @@ pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: D
     poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, true).await
 }
 
+/// Read only identity columns before the venue parses status or money. Complete stored IDs win.
+fn order_identified(c: &Connection, bot: &model::Bot, tx_id: i64, pair: Option<&str>, class: Option<&str>) -> Result<bool, EngineError> {
+    let stored: bool = c.query_row("SELECT base_asset_id IS NOT NULL AND quote_asset_id IS NOT NULL FROM transactions WHERE id=?1", [tx_id], |r| r.get(0))?;
+    if stored || model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(true); }
+    Ok(model::alpaca_order_ticker(c, bot.exchange_id, pair, class)?.is_some())
+}
+
 /// Both Rails polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
 /// the given waiting rows. `strict` (the sweep) fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
 async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, strict: bool) -> Result<(), PollFailure> {
@@ -165,10 +184,16 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
     if rows.is_empty() { return Ok(()); }
     let ids: Vec<String> = rows.iter().map(|(_, e, _)| e.clone()).collect();
     let mut found: Vec<OrderState> = vec![];
+    let mut skipped = vec![];
     for batch in ids.chunks(50) {
-        found.extend(venue.orders(batch).await.map_err(|e| classify(e, &ids, venue.rules()))?);
+        let (orders, excluded) = venue.orders_identified(batch, |ext, pair, class| {
+            let Some((id, _, _)) = rows.iter().find(|(_, e, _)| e == ext) else { return Ok(false); };
+            order_identified(c, bot, *id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
+        }).await.map_err(|e| classify(e, &ids, venue.rules()))?;
+        found.extend(orders);
+        skipped.extend(excluded);
     }
-    let missing: Vec<String> = ids.iter().filter(|id| !found.iter().any(|o| &&o.txid == id)).cloned().collect();
+    let missing: Vec<String> = ids.iter().filter(|id| !skipped.contains(id) && !found.iter().any(|o| &&o.txid == id)).cloned().collect();
     if !missing.is_empty() {
         let since = rows.iter().filter(|(_, e, _)| missing.contains(e)).map(|(_, _, at)| *at).min()
             .and_then(|at| at.checked_sub(3_600_000_000)).ok_or_else(|| db(super::schedule::time_range_error()))?;
@@ -177,7 +202,7 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
     }
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
     for (id, ext, created) in &rows {
-        if found.iter().any(|o| &o.txid == ext) { continue; }
+        if skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
         if *created < now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
             c.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
                       params![TxExternalStatus::Abandoned as i64, format_time(now), id]).map_err(|e| db(e.into()))?;
@@ -217,8 +242,11 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
 async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(()) };
     let rules = venue.rules();
-    let state = match venue.orders(std::slice::from_ref(&ext)).await {
-        Ok(mut found) if !found.is_empty() => found.remove(0),
+    let state = match venue.orders_identified(std::slice::from_ref(&ext), |_, pair, class| {
+        order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
+    }).await {
+        Ok((_, skipped)) if skipped.contains(&ext) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: unsupported class or unmapped/ambiguous order identity"))),
+        Ok((mut found, _)) if !found.is_empty() => found.remove(0),
         Ok(_) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: []"))),
         Err(VenueError::Rejected(errs)) if rules.is_throttle(&errs) => return Err(PollFailure::RateLimited(to_sentence(&errs))),
         Err(VenueError::Rejected(errs)) if rules.is_transient(&errs) => return Err(PollFailure::Transient(to_sentence(&errs))),

@@ -1,5 +1,5 @@
 {
-  "app/models/exchanges/alpaca.rb": "8983adcd3b32c84502da3238632bb83994b9fea11ce132d1c2f98562d6d3fd3e",
+  "app/models/exchanges/alpaca.rb": "d3d8c606da5dfc13dc8617a2dbdd892181e336474ae2f70eede799e7825f1bfe",
   "app/models/candle_series_cache.rb": "5cc0d060f7a4f4caaa634949b4c22123896674267ed236dd40f862623ca9cc89",
   "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
   "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
