@@ -406,3 +406,50 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     Exchange::SyncAlpacaAssetsJob.perform_now
   end
 end
+
+class Exchange::SyncAlpacaAssetsJobTest
+  test 'stock BTC and Bitcoin coexist and a later listing restores its tombstone' do
+    coin = create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    crypto = create(:ticker, exchange: @exchange, base_asset: coin, quote_asset: usd,
+                             ticker: '__stale_1_BTC/USD', base: '__stale_1_BTC', quote: 'USD', available: false)
+    trust = create(:asset, external_id: 'alpaca_btc-stock', symbol: 'BTC', category: 'Stock')
+    stock_ticker = create(:ticker, exchange: @exchange, base_asset: trust, quote_asset: usd,
+                                   ticker: '__stale_2_BTC', base: '__stale_2_BTC', quote: 'USD', available: false)
+    stocks = [{ 'id' => 'btc-stock', 'symbol' => 'BTC', 'name' => 'Trust', 'tradable' => true, 'fractionable' => true }]
+    Clients::Alpaca.any_instance.stubs(:get_assets).with(status: 'active', asset_class: 'us_equity').returns(Result::Success.new(stocks))
+    crypto_response = Result::Success.new([{ 'symbol' => 'BTC/USD', 'tradable' => true }])
+    Clients::Alpaca.any_instance.stubs(:get_assets).with(status: 'active', asset_class: 'crypto').returns(crypto_response)
+    2.times { Exchange::SyncAlpacaAssetsJob.perform_now }
+    assert_equal ['BTC/USD', 'BTC', true], crypto.reload.attributes.values_at('ticker', 'base', 'available')
+    assert_equal ['BTC', 'BTC', true], stock_ticker.reload.attributes.values_at('ticker', 'base', 'available')
+    assert_equal 2, @exchange.tickers.where(base: 'BTC', quote: 'USD', available: true).count
+  end
+end
+
+class Exchange::SyncAlpacaAssetsJobTest
+  test 'a stock native-symbol conflict cannot reassign a crypto ticker' do
+    coin = create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    held = create(:ticker, exchange: @exchange, base_asset: coin, quote_asset: usd, ticker: 'BTC', base: 'BTC', quote: 'USD')
+    before = held.attributes
+    stock = { 'id' => 'btc-stock', 'symbol' => 'BTC', 'name' => 'Trust', 'tradable' => true, 'fractionable' => true }
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      Exchange::SyncAlpacaAssetsJob.new.send(:sync_stocks, stock_data: [stock], exchange: @exchange, usd_asset: usd)
+    end
+    assert_equal before, held.reload.attributes
+  end
+
+  test 'a crypto native-symbol conflict cannot reassign a stock ticker' do
+    trust = create(:asset, external_id: 'alpaca_btc-stock', symbol: 'BTC', category: 'Stock')
+    create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    held = create(:ticker, exchange: @exchange, base_asset: trust, quote_asset: usd, ticker: 'BTC/USD', base: 'BTC', quote: 'USD')
+    before = held.attributes
+    client = stub(get_assets: Result::Success.new([{ 'symbol' => 'BTC/USD', 'tradable' => true }]))
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      Exchange::SyncAlpacaAssetsJob.new.send(:sync_crypto, client: client, exchange: @exchange, usd_asset: usd)
+    end
+    assert_equal before, held.reload.attributes
+  end
+end
