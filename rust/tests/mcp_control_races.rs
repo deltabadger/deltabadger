@@ -12,7 +12,7 @@ mod action_race {
     const NOW: &str = "2026-09-03T15:00:00Z";
     const ANCHOR: &str = "2026-09-01 10:00:00";
     const LIMIT: Duration = Duration::from_secs(15);
-    
+
 
     // rusqlite's safe busy-handler interface takes a function pointer. Serialize only
     // these probes, and keep the callback bounded even if an assertion unwinds.
