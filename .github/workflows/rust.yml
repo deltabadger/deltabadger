@@ -81,6 +81,12 @@ on:
       - 'app/models/ticker.rb'
       - 'app/models/account_transaction.rb'
       - 'config/initializers/oj.rb'
+      # M4 control schemas, coercions and lifecycle callbacks are drift checked.
+      - 'app/mcp/tools/*_bot*_tool.rb'
+      - 'app/services/bot_api/bots/**'
+      - 'app/services/bot_api/number.rb'
+      - 'app/models/bot/accountable.rb'
+      - 'app/models/bot/lifecycle.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -161,6 +167,12 @@ on:
       - 'app/models/ticker.rb'
       - 'app/models/account_transaction.rb'
       - 'config/initializers/oj.rb'
+      # M4 control schemas, coercions and lifecycle callbacks are drift checked.
+      - 'app/mcp/tools/*_bot*_tool.rb'
+      - 'app/services/bot_api/bots/**'
+      - 'app/services/bot_api/number.rb'
+      - 'app/models/bot/accountable.rb'
+      - 'app/models/bot/lifecycle.rb'
 
 permissions:
   contents: read
@@ -228,4 +240,4 @@ jobs:
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
           --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
-          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract
+          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract

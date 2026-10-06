@@ -1,0 +1,106 @@
+[
+  {
+    "value": null,
+    "decimal": null
+  },
+  {
+    "value": true,
+    "decimal": null
+  },
+  {
+    "value": false,
+    "decimal": null
+  },
+  {
+    "value": {},
+    "decimal": null
+  },
+  {
+    "value": [],
+    "decimal": null
+  },
+  {
+    "value": 0,
+    "decimal": "0.0"
+  },
+  {
+    "value": 1,
+    "decimal": "1.0"
+  },
+  {
+    "value": 1.5,
+    "decimal": "1.5"
+  },
+  {
+    "value": 1,
+    "decimal": "1.0"
+  },
+  {
+    "value": 5e-05,
+    "decimal": "0.00005"
+  },
+  {
+    "value": 1000000000000000.0,
+    "decimal": null
+  },
+  {
+    "value": 1e-18,
+    "decimal": "0.000000000000000001"
+  },
+  {
+    "value": 1e-19,
+    "decimal": null
+  },
+  {
+    "value": "001.20",
+    "decimal": "1.2"
+  },
+  {
+    "value": "1e2",
+    "decimal": null
+  },
+  {
+    "value": "+1",
+    "decimal": null
+  },
+  {
+    "value": "-1",
+    "decimal": null
+  },
+  {
+    "value": "1.",
+    "decimal": null
+  },
+  {
+    "value": ".1",
+    "decimal": null
+  },
+  {
+    "value": " 12.5 ",
+    "decimal": "12.5"
+  },
+  {
+    "value": "NaN",
+    "decimal": null
+  },
+  {
+    "value": "123456789012345",
+    "decimal": "123456789012345.0"
+  },
+  {
+    "value": "1234567890123456",
+    "decimal": null
+  },
+  {
+    "value": "0.123456789012345678",
+    "decimal": "0.123456789012345678"
+  },
+  {
+    "value": "0.1234567890123456789",
+    "decimal": null
+  },
+  {
+    "wire": "-0.0",
+    "decimal": null
+  }
+]

@@ -1,0 +1,15 @@
+# Timing meters sample wall time; reserve the six permitted slots while they run.
+# The bounds and assertions are unchanged. Other tests still use nextest -j 6.
+[[profile.default.overrides]]
+filter = 'binary(one_process)'
+threads-required = 6
+
+# The full-size reference publication meter samples the same wall-time/lock budget.
+[[profile.default.overrides]]
+filter = 'binary(reference_jobs) & test(full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds)'
+threads-required = 6
+
+# The ledger's large-history meter also samples the unchanged wall-time lock bound.
+[[profile.default.overrides]]
+filter = 'binary(sync) & test(over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in)'
+threads-required = 6

@@ -191,3 +191,13 @@ async fn an_unreadable_kraken_fill_fails_the_sweep_and_records_no_zero_fill() {
         assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"), "{bad}: the carry is untouched");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn stored_trade_lookup_time_out_of_range_is_refused() {
+    let (_d, o, s, b) = setup(json!({}));
+    let created = deltabadger::codec::format_time(DateTime::<Utc>::MIN_UTC);
+    seed::insert_tx(&o.primary, &s, b, &open_market(&created, "OTX-edge"));
+    let result = polling::sweep(&o.primary, &FakeVenue::new(), &bot(&o, b), now()).await;
+    assert!(matches!(result, Err(PollFailure::General(ref message)) if message.contains("time is outside the representable range")), "{result:?}");
+    assert_eq!(o.primary.query_row("SELECT external_status FROM transactions WHERE external_id='OTX-edge'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+}

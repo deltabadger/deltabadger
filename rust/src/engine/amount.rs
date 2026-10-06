@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
-fn at(us: i64) -> DateTime<Utc> { DateTime::from_timestamp_micros(us).expect("time in range") }
+fn at(us: i64) -> Result<DateTime<Utc>, EngineError> { DateTime::from_timestamp_micros(us).ok_or_else(super::schedule::time_range_error) }
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
 
 /// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
@@ -25,9 +25,9 @@ fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:
 pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
     if bot.status == BotStatus::Deleted { return Ok(BigDec::zero()); }
     let Some(started) = bot.started_at_us else { return Ok(BigDec::zero()) };
-    let since = bot.calc_since_us().expect("started_at is set");
+    let since = bot.calc_since_us().ok_or_else(super::schedule::time_range_error)?;
     // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
-    let since_text = format_time(at(since));
+    let since_text = format_time(at(since)?);
 
     let mut invested = BigDec::zero();
     let mut s = c.prepare(
@@ -55,7 +55,7 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     let quote_amount = bot.quote_amount().ok_or_else(|| EngineError::Data("quote_amount".into()))?;
     let smart = bot.smart_quote_amount();
     let eff = effective(interval, quote_amount, smart);
-    let intervals = interval_count(checkpoints(started, now_us, eff).last_us, since, eff);
+    let intervals = interval_count(checkpoints(started, now_us, eff)?.last_us, since, eff)?;
     // Float × Integer is a Float; adding the BigDecimal carry coerces it with Float#to_d.
     let owed = BigDec::from_f64(smart.unwrap_or(quote_amount) * intervals as f64).map_err(data)?;
     Ok((&(&owed + &bot.missed_quote_amount()?) - &invested).max(BigDec::zero()))
@@ -218,7 +218,7 @@ pub fn quote_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Nu
     let mut spent = Num::Int(0);
     if let Some(since) = bot.quote_amount_limit_enabled_at_us().map_err(EngineError::Data)? {
         // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
-        let since_text = format_time(at(since));
+        let since_text = format_time(at(since)?);
         let window = "bot_id = ?1 AND status = 0 AND side = 0 AND transaction_type = 'REGULAR' AND created_at >= ?2";
         let mut closed = vec![];
         let mut s = c.prepare(&format!("SELECT quote_amount_exec FROM transactions WHERE {window} AND external_status = 2 ORDER BY id"))?;

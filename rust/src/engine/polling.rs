@@ -170,14 +170,15 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
     }
     let missing: Vec<String> = ids.iter().filter(|id| !found.iter().any(|o| &&o.txid == id)).cloned().collect();
     if !missing.is_empty() {
-        let since = rows.iter().filter(|(_, e, _)| missing.contains(e)).map(|(_, _, at)| *at).min().unwrap() - 3_600_000_000;
-        let fills = venue.fills_from_trades(&missing, DateTime::from_timestamp_micros(since).unwrap()).await.map_err(|e| classify(e, &ids, venue.rules()))?;
+        let since = rows.iter().filter(|(_, e, _)| missing.contains(e)).map(|(_, _, at)| *at).min()
+            .and_then(|at| at.checked_sub(3_600_000_000)).ok_or_else(|| db(super::schedule::time_range_error()))?;
+        let fills = venue.fills_from_trades(&missing, DateTime::from_timestamp_micros(since).ok_or_else(|| db(super::schedule::time_range_error()))?).await.map_err(|e| classify(e, &ids, venue.rules()))?;
         found.extend(fills.into_iter().map(|f| OrderState { status: OrderStatus::Closed, ..f }));
     }
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
     for (id, ext, created) in &rows {
         if found.iter().any(|o| &o.txid == ext) { continue; }
-        if *created < (now - Duration::days(STALE_AFTER_DAYS)).timestamp_micros() {
+        if *created < now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
             c.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
                       params![TxExternalStatus::Abandoned as i64, format_time(now), id]).map_err(|e| db(e.into()))?;
             model::log_activity(c, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now).map_err(db)?;

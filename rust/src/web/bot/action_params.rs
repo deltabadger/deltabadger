@@ -16,7 +16,7 @@ impl ParamError {
 }
 
 #[derive(Clone, Debug)]
-pub struct ActionParams(Param);
+pub struct ActionParams(Param, bool);
 
 impl ActionParams {
     pub fn parse(params: &Params) -> Result<Self, ParamError> {
@@ -27,12 +27,20 @@ impl ActionParams {
         };
         merge(&mut query, body);
         validate(&query)?;
-        Ok(Self(query))
+        Ok(Self(query, false))
     }
+
+    pub fn from_mcp(value: Value) -> Result<Self, ParamError> {
+        validate(&value)?;
+        Ok(Self(value, true))
+    }
+
+    pub fn mcp(&self) -> bool { self.1 }
 
     pub fn value(&self) -> &Param { &self.0 }
 
     pub fn permitted(&self, kind: Kind) -> Result<Param, ParamError> {
+        if self.mcp() { return Ok(self.0.clone()); }
         let (root, allowed) = match kind {
             Kind::Basket => ("bots_dca_multi_asset", BASKET_SCALARS),
             Kind::Index => ("bots_dca_index", INDEX_SCALARS),

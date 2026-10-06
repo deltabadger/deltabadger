@@ -3,6 +3,7 @@ pub mod protocol;
 pub mod reads;
 pub mod read_limits;
 pub mod tools;
+pub mod control;
 use super::{App,WebError,bearer};
 use axum::{body::to_bytes,extract::Request,http::{HeaderMap,Method,StatusCode},response::{Response,IntoResponse}};
 use rusqlite::{Connection,OptionalExtension};
@@ -22,7 +23,7 @@ pub fn instructions(c:&Connection)->Result<String,WebError>{
 }
 fn response(status:u16,body:Option<Value>,controller:bool)->Response {
     let content=if controller{"application/json; charset=utf-8"}else{"application/json"};
-    let text=body.map(|v|super::bots::json(&v)).unwrap_or_default(); // No response body for notifications; the Option is intentional.
+    let text=match body {Some(v)=>super::bot::mcp_input::encode(&v),None=>String::new()};
     let mut r=(StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),[("content-type",content),("cache-control",if status==200{"max-age=0, private, must-revalidate"}else{"no-cache"})],text).into_response();
     if controller || matches!(status,200|202|204|405) { let status=r.status();super::headers::controller_defaults(r.headers_mut(),status,false); }
     if status==204{r.headers_mut().remove("content-type");}
@@ -132,7 +133,7 @@ fn history(c:&Connection,s:&Session,payload:&Value,outgoing:bool,now:&str)->Resu
     let kind=if payload.get("method").is_some(){if id.is_some(){"request"}else{"notification"}}else if payload.get("error").is_some(){"error"}else{"response"};
     let ping=payload["method"]=="ping";
     let id_text=id.map(|v|v.as_str().map(str::to_string).unwrap_or_else(||v.to_string()));
-    c.execute("INSERT INTO action_mcp_session_messages (session_id,direction,message_json,message_type,jsonrpc_id,is_ping,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7)",rusqlite::params![s.id,if outgoing{"client"}else{"server"},super::bots::json(payload),kind,id_text,ping,now])?;
+    c.execute("INSERT INTO action_mcp_session_messages (session_id,direction,message_json,message_type,jsonrpc_id,is_ping,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7)",rusqlite::params![s.id,if outgoing{"client"}else{"server"},super::bot::mcp_input::encode(payload),kind,id_text,ping,now])?;
     c.execute("UPDATE action_mcp_sessions SET messages_count=messages_count+1 WHERE id=?1",[&s.id])?;
     if outgoing&&id.is_some(){
         let request:Option<(i64,bool)>=c.query_row("SELECT id,is_ping FROM action_mcp_session_messages WHERE session_id=?1 AND direction='server' AND message_type='request' AND jsonrpc_id=?2 ORDER BY created_at DESC LIMIT 1",rusqlite::params![s.id,id_text],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
@@ -212,9 +213,16 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
                 }
             }else{Ok(0)};
             match offset{Err(e)=>error(id,-32602,e),Ok(n)=>{
-                let all:Vec<Value>=names.iter().filter_map(|name|metadata()["tools"].as_array()?.iter().find(|t|t["name"]==*name).cloned()).skip(n).take(10).collect();if let Some(token)=p["_meta"].get("progressToken"){
+                let items:Vec<Value>=names.iter().filter_map(|name|metadata()["tools"].as_array()?.iter().find(|t|t["name"]==*name).cloned()).collect();
+                // ActionMCP pagination is off by default; an explicit cursor enables ten-item pages.
+                let paged=p["cursor"].is_string();
+                let more=paged && n<items.len().saturating_sub(10);
+                let all:Vec<Value>=items.into_iter().skip(n).take(if paged{10}else{usize::MAX}).collect();
+                let mut body=json!({"tools":all});
+                if more{body["nextCursor"]=json!(URL_SAFE_NO_PAD.encode(n.saturating_add(10).to_string()));}
+                if let Some(token)=p["_meta"].get("progressToken"){
                     history(c,&s,&json!({"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":token,"progress":100,"message":"Tools list retrieval complete"}}),true,&now)?;
-                }result(id,json!({"tools":all}))
+                }result(id,body)
             }}
         },
         "tools/call"=>{

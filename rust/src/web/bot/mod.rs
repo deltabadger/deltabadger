@@ -6,6 +6,7 @@ pub mod actions;
 pub mod action_view;
 pub mod draft;
 pub mod write;
+pub mod mcp_input;
 pub mod composition;
 pub mod orders;
 pub mod page;
@@ -583,11 +584,16 @@ impl Bot {
     /// between two orders that the calendar here does not hold (`MAX_SPAN_SECONDS`), and for a
     /// working bot one too short to compute a checkpoint from (`MIN_SPAN_SECONDS`). Asked of every
     /// bot `find` returns, before anything is rendered from it.
-    pub fn unrendered(&self) -> Option<&'static str> {
+    pub fn schedule_bounds(&self) -> Option<&'static str> {
         let seconds = self.effective().map(|effective| effective.seconds());
         // Written so that a span that is not a number at all (a quotient of zeros) is refused too.
         if !seconds.is_some_and(|seconds| seconds <= MAX_SPAN_SECONDS) { return Some("Smart Intervals that leave more than a thousand years between two orders"); }
         if self.working() && !seconds.is_some_and(|seconds| seconds >= MIN_SPAN_SECONDS) { return Some("a working bot whose Smart Intervals leave no time between two orders"); }
+        None
+    }
+
+    pub fn unrendered(&self) -> Option<&'static str> {
+        if let Some(reason) = self.schedule_bounds() { return Some(reason); }
         // Bot::QuoteAmountLimitable validates a cap that is switched on as no less than the smallest amount the quote states
         // (`minimum_quote_amount_limit`), and prints the error under the field; the tickers that say what that is are loaded by now.
         let floor = start::minimum_quote_amount_limit(self);
@@ -674,13 +680,19 @@ impl Bot {
     /// `next_interval_checkpoint_at` and `last_interval_checkpoint_at`. Without an anchor Rails counts from now.
     pub fn checkpoints(&self, now: DateTime<Utc>) -> Option<Checkpoints> {
         let anchor = self.anchor().unwrap_or(now);
-        Some(schedule::checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), self.effective()?))
+        match schedule::checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), self.effective()?) {
+            Ok(checkpoints) => Some(checkpoints),
+            Err(reason) => { crate::engine::log(&format!("[web] bot {}: {reason:?}; schedule refused", self.id)); None }
+        }
     }
 
     /// The same two checkpoints (next, last) before Rails rounds them: what it enqueues the next job for and measures the progress bar from.
     pub fn unrounded(&self, now: DateTime<Utc>) -> Option<(Unrounded, Unrounded)> {
         let anchor = self.anchor().unwrap_or(now);
-        Some(schedule::unrounded(anchor.timestamp_micros(), now.timestamp_micros(), self.effective()?))
+        match schedule::unrounded(anchor.timestamp_micros(), now.timestamp_micros(), self.effective()?) {
+            Ok(checkpoints) => Some(checkpoints),
+            Err(reason) => { crate::engine::log(&format!("[web] bot {}: {reason:?}; schedule refused", self.id)); None }
+        }
     }
 
     /// Automation::Schedulable#last_action_job_at: `Time.zone.parse` of the stored text.

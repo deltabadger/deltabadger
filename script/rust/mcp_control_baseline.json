@@ -1,0 +1,73 @@
+{
+  "rust/src/web/bot/action_params.rs": {
+    "let accepted: Vec<&str> = headers.get_all(\"accept\").iter().filter_map(|h| h.to_str().ok())": 1
+  },
+  "rust/src/web/bot/draft.rs": {
+    "self.submitted = params.as_object().cloned().unwrap_or_default();": 1,
+    "let _ = e;": 1,
+    "id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?,": 1,
+    "let mut allocations = self.candidate.settings.get(\"allocations\").and_then(Value::as_object).cloned().unwrap_or_default();": 1,
+    ".iter().find_map(|pattern| NaiveDateTime::parse_from_str(s, pattern).ok())": 1,
+    ".or_else(|| NaiveDate::parse_from_str(s, \"%Y-%m-%d\").ok()?.and_hms_opt(0, 0, 0))": 1,
+    "let n = whole.parse::<u32>().ok()?;": 1,
+    "return day.with_day(s.parse().ok()?)?.and_hms_opt(0, 0, 0);": 1,
+    "let code_key = (field.to_owned(), code.to_owned(), count.clone().unwrap_or_default());": 1,
+    "let args = count.as_deref().map(|c| vec![(\"count\", i18n::Arg::Text(c))]).unwrap_or_default();": 1,
+    "let n = match &value { Value::Number(n) => n.as_f64(), Value::String(s) => s.trim().parse::<f64>().ok(), _ => None }.filter(|n| n.is_finite());": 1,
+    "let split = BigDec::from_f64(amount).ok().and_then(|n| n.div(&BigDec::from_i64(10)));": 1,
+    "let at = self.candidate.text(\"start_at\").and_then(|s| DateTime::parse_from_rfc3339(s).ok());": 1,
+    "let amount = numeric(&self.read(\"sell_amount\"), false).ok().and_then(|v| v.as_f64()).unwrap_or(0.0);": 1,
+    ".and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|at| crate::codec::format_time(at.with_timezone(&Utc)));": 1,
+    "let weights = self.candidate.settings.get(\"allocations\").and_then(Value::as_object).cloned().unwrap_or_default();": 1,
+    "\"start_at\" => check.start_at = Some(if self.candidate.text(\"start_at\").and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_some() { \"must_be_future\" } else { \"blank\" }),": 1,
+    "return self.candidate.text(\"start_at\").and_then(|s|DateTime::parse_from_rfc3339(s).ok()).map(|t|Some(t.with_timezone(&Utc))).ok_or_else(||failure(\"invalid start date\"));": 1
+  },
+  "rust/src/web/bot/mod.rs": {
+    "Value::String(text) if plain_decimal(text) => text.parse().ok(),": 1,
+    "if plain_decimal(text) { text.parse().ok() } else { None }": 1,
+    "let class = class.unwrap_or_default();": 1,
+    "Ok(Exchange { id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)? })": 1,
+    "error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()": 1,
+    "id, kind, status, label: label.unwrap_or_default(), exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,": 1,
+    "Some(Value::String(text)) if !text.trim().is_empty() => BigDec::parse(text).ok(),": 1,
+    "_ => BigDec::parse(\"0.05\").ok(),": 1,
+    "let stored = || self.text(\"start_at\").filter(|text| !text.trim().is_empty()).and_then(|text| DateTime::parse_from_rfc3339(text).ok()).map(|time| time.with_timezone(&Utc));": 1,
+    "DateTime::parse_from_rfc3339(text).ok().map(|time| time.with_timezone(&Utc))": 1,
+    "weights.iter().filter_map(|(asset_id, stored)| Some((asset_id.parse().ok()?, weight(stored)?))).collect()": 1,
+    "Some(Value::Object(weights)) if !weights.is_empty() => weights.keys().filter_map(|key| key.parse().ok()).collect(),": 1,
+    "_ => settings.get(\"base_asset_ids\").and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_i64).collect()).unwrap_or_default(),": 1,
+    "top_coins: top_coins.and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok()).unwrap_or_default(),": 1,
+    "weights: weights.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default(),": 1,
+    "i64::try_from(super::format::to_i(segment)).ok().filter(|id| *id > 0)": 1
+  },
+  "rust/src/web/bot/write.rs": {},
+  "rust/src/web/bot/mcp_input.rs": {},
+  "rust/src/web/mcp/mod.rs": {
+    "let text=body.map(|v|super::bots::json(&v)).unwrap_or_default(); // No response body for notifications; the Option is intentional.": 1,
+    "fn header<'a>(h:&'a HeaderMap,k:&str)->Option<&'a str>{h.get(k).and_then(|v|v.to_str().ok())}": 1,
+    "if s.is_empty()||!s.iter().all(u8::is_ascii_digit){Err(\"Invalid cursor format\")}else{Ok(std::str::from_utf8(&s).ok().and_then(|s|s.parse::<usize>().ok()).unwrap_or(usize::MAX))}": 1
+  },
+  "rust/src/web/mcp/tools.rs": {
+    "let name = usize::try_from(status).ok().and_then(|i|STATUSES.get(i)).copied().unwrap_or(\"\");": 1,
+    "if filter.is_some_and(|f| f != name && f.parse::<i64>().ok() != Some(status)) {continue;}": 1,
+    "let ids:Vec<Value> = if let Some(a)=s[\"allocations\"].as_object().filter(|a|!a.is_empty()) {a.keys().map(|k|json!(k)).collect()} else {s[\"base_asset_ids\"].as_array().cloned().unwrap_or_default()};": 1,
+    "let pair=if multi || (base.is_some() && quote.is_some()) {format!(\"{}/{}\",base.unwrap_or_default(),quote.clone().unwrap_or_default())} else {\"N/A\".into()};": 1,
+    "lines.push(format!(\"- {} | {type_name} | {pair} | {} | {name} | {} {}/{}\",label.unwrap_or_default(),exchange.unwrap_or_else(||\"N/A\".into()),str_value(&s[\"quote_amount\"]),quote.unwrap_or_default(),s.get(\"interval\").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||\"N/A\".into())));": 1,
+    "let quote=quote.unwrap_or_default();": 1,
+    "lines.push(format!(\"- [{date}] {} {} {} {} | {}\",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|[\"BUY\",\"SELL\"].get(s).copied()).unwrap_or(\"\"),amount.map(|v|format!(\"{v} {}\",base.unwrap_or_default())).unwrap_or_else(||\"N/A\".into()),price.map(|v|format!(\"@ {v} {quote}\")).unwrap_or_default(),cost.map(|v|format!(\"({v} {quote})\")).unwrap_or_default(),[\"submitted\",\"failed\",\"skipped\"].get(status).copied().unwrap_or(\"\")));": 1
+  },
+  "rust/src/web/mcp/control.rs": {},
+  "rust/src/web/mcp/reads.rs": {
+    "let price=parsed.price.map(|p|format!(\"@ {}\",p.to_s_f())).unwrap_or_default(); // Rails omits the price only when nil.": 1,
+    "let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in Rails.": 1,
+    "lines.push(format!(\"- [{date}] #{id} {} {} {}/{} {} ({}) | {name} | ext: {ext}\",match side{Some(0)=>\"BUY\",Some(1)=>\"SELL\",_=>\"\"},amount.unwrap_or_else(||\"N/A\".into()),base.unwrap_or_default(),quote.unwrap_or_default(),price.map(|v|format!(\"@ {v}\")).unwrap_or_default(),match kind{Some(0)=>\"Market order\",Some(1)=>\"Limit order\",_=>\"Unknown\"}));": 1,
+    "let quote=tools::asset(c,&settings[\"quote_asset_id\"])?.unwrap_or_default(); // nil quote interpolates as empty.": 1,
+    "if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; Rails generates bot.new below.": 1,
+    "let symbol=symbol.clone().unwrap_or_default(); // nil symbol joins as empty in a pair.": 1,
+    "if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!(\"{} {days}d\",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as Rails.": 1
+  },
+  "rust/src/web/mcp/read_limits.rs": {},
+  "rust/src/figures/fill.rs": {
+    "kind: r.get::<_, Option<String>>(11)?.unwrap_or_default(), // NULL kind has no special accounting role; DB errors propagate.": 1
+  }
+}

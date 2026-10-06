@@ -230,7 +230,7 @@ impl Draft {
         Ok(())
     }
 
-    fn refresh(&mut self, c: &Connection) -> Result<(), WebError> {
+    pub(super) fn refresh(&mut self, c: &Connection) -> Result<(), WebError> {
         let quote = self.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
         self.candidate.quote_asset = quote.map(|id| Asset::find(c, id)).transpose()?.flatten();
         if self.candidate.kind == Kind::Basket {
@@ -413,6 +413,20 @@ impl Draft {
         let keys: &[&str] = if self.candidate.kind == Kind::Basket { &["allocations", "quote_asset_id", "weighting"] }
             else { &["quote_asset_id", "num_coins", "hold_all", "allocation_flattening", "index_type", "index_category_id"] };
         keys.iter().any(|key| !equal_option(self.raw_settings.get(*key), self.candidate.settings.get(*key)))
+    }
+
+    /// Shared writer boundary, after Rails validation so Rails refusals keep their order/text.
+    /// Returns true only for an additional Rust schedule-range refusal.
+    pub fn validate_schedule_bounds(&mut self, locale: &str, now: DateTime<Utc>) -> bool {
+        if !self.errors.is_empty() { return false; }
+        let bot = &self.candidate;
+        let outside = bot.schedule_bounds().is_some() || bot.checkpoints(now).is_none_or(|cp| {
+            DateTime::from_timestamp_micros(cp.next_us).is_none() || DateTime::from_timestamp_micros(cp.last_us).is_none()
+        });
+        if !outside { return false; }
+        let field = if bot.effective().is_some_and(|eff| eff.seconds() < super::MIN_SPAN_SECONDS) { "smart_interval_quote_amount" } else { "quote_amount" };
+        self.error(locale, field, "greater_than", Some(0.0));
+        true
     }
 
     pub fn validate(&mut self, c: &Connection, context: ValidationContext, now: DateTime<Utc>, provider: bool, locale: &str) -> Result<(), WebError> {

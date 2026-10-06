@@ -87,20 +87,41 @@ fn settings_inner<T>(
     let (provider, configured) = bots::market_data(&tx, &ctx.app)?;
     // Stored scope refusals survive. Only the pending lock's validation must precede its
     // page refusal, since a rejected composition still has a renderable narrow settings form.
-    let original_refusal = super::refusal(&tx, id, wash_sale, provider, For::Page)?;
+    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Page)? };
     if let Some(reason) = original_refusal.filter(|reason| *reason != "a rebalance, liquidation or redeploy in progress") { return Ok(Outcome::Unported(reason)); }
-    match draft.parse(&tx, &fields, &zone, ctx.now) {
+    let mut mcp_carry = None;
+    let mut mcp_refused = false;
+    if submitted.mcp() {
+        match super::mcp_input::apply(&tx, &mut draft, &fields)? {
+            super::mcp_input::InputOutcome::Parsed => {},
+            super::mcp_input::InputOutcome::AsciiAliasRefused => mcp_refused = true,
+        }
+        if draft.errors.is_empty() {
+            // BotApi captures under the old settings before model validation; the save
+            // callback later caps it or restores the original if the window did not move.
+            let carry = match pending(&tx, &draft.original, ctx.now) {
+                Ok(amount) => amount,
+                Err(e) if super::unreadable(&e) => return Ok(Outcome::Unported("settings carry exceeds the supported history or numeric bounds")),
+                Err(e) => return Err(e),
+            };
+            draft.candidate.transient.insert("missed_quote_amount".into(), serialized(carry.clone())?);
+            mcp_carry = Some(carry);
+            draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?;
+        }
+    } else { match draft.parse(&tx, &fields, &zone, ctx.now) {
         Err(ParseError::Database(e)) => return Err(e),
         Err(ParseError::Invalid(_)) => {},
         Ok(()) => draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?,
     }
+    }
+    mcp_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now);
     if !draft.errors.is_empty() {
         let prepared = response_builder(&tx, &ctx, &draft)?;
         tx.rollback()?;
-        return Ok(Outcome::Invalid(prepared.response));
+        return Ok(if mcp_refused {Outcome::GuardRefused(prepared.response)} else {Outcome::Invalid(prepared.response)});
     }
     if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
-    if let Some(reason) = draft.original.unrendered() { return Ok(Outcome::Unported(reason)); }
+    if !submitted.mcp() { if let Some(reason) = draft.original.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let mut effects = draft.save_effects(&tx, ctx.now)?;
     // Callback rewrites (notably an exchange change) can change settings after the initial
     // dirty check. Defaults alone are compared to the load-time baseline, not the disk JSON.
@@ -108,22 +129,33 @@ fn settings_inner<T>(
     final_settings.extend(effects.settings.set.clone());
     effects.settings_changed = !super::draft::equal(&json!(final_settings), &json!(draft.baseline));
     if effects.settings_changed {
-        let old = match pending(&tx, &draft.original, ctx.now) {
+        let old = match mcp_carry {
+            Some(amount) => amount,
+            None => match pending(&tx, &draft.original, ctx.now) {
             Ok(amount) => amount,
             Err(e) if super::unreadable(&e) => return Ok(Outcome::Unported("settings carry exceeds the supported history or numeric bounds")),
             Err(e) => return Err(e),
+            },
         };
         let cap = effective_amount(&draft.candidate)?;
         let carry = minimum(old, cap)?;
         effects.transient.set.insert("missed_quote_amount".into(), serialized(carry)?);
         effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
     }
+    if submitted.mcp() && !effects.settings_changed {
+        // BotApi explicitly captures before save. When the carry window does not move,
+        // Accountable restores the old value (nil even when the key was absent).
+        effects.transient.set.remove("missed_quote_amount");
+        for (key,value) in [("missed_quote_amount",draft.raw_transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null)),("missed_quote_amount_was_set",Value::Null)] {
+            if draft.raw_transient.get(key) != Some(&value) { effects.transient.set.insert(key.into(),value); }
+        }
+    }
     let class = match draft.original.kind { Kind::Basket => "Bots::DcaMultiAsset", Kind::Index => "Bots::DcaIndex" };
     let label_changed = draft.candidate.label != draft.original.label;
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
     let changed = label_changed || exchange_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
-    for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, value.to_string(), id, owner, class))?)?; }
-    for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, value.to_string(), id, owner, class))?)?; }
+    for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
+    for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
     if exchange_changed { one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?; }
@@ -141,9 +173,9 @@ fn settings_inner<T>(
         tx.rollback()?;
         return Ok(Outcome::GuardRefused(response.response));
     }
-    if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Page)? { return Ok(Outcome::Unported(reason)); }
+    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Page)? { return Ok(Outcome::Unported(reason)); } }
     draft.candidate = Bot::find(&tx, owner, id, For::Page)?.ok_or_else(|| error("saved bot disappeared"))?;
-    if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); }
+    if !submitted.mcp() { if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let prepared = response_builder(&tx, &ctx, &draft)?;
     tx.commit()?;
     if !changed { return Ok(Outcome::NoChange(prepared.response)); }
@@ -317,6 +349,24 @@ fn lifecycle_inner<T>(
         (id,owner), |r| Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).optional()?;
     let Some((class,status,raw,transient)) = row else { return Ok(Outcome::Missing) };
     let mut view = LifecycleView { draft: None, errors: vec![] };
+    if submitted.mcp() {
+        let label: String = tx.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        let name = match status {0=>"created",1=>"scheduled",2=>"stopped",3=>"deleted",4=>"executing",5=>"retrying",6=>"waiting",7=>"archived",_=>return Err(error("unknown bot status"))};
+        let working = matches!(status,1|4|5|6);
+        let message = match action {
+            Action::Stop if !working => Some(format!("Bot '{label}' is not running ({name}).")),
+            Action::Start if working => Some(format!("Bot '{label}' is already running ({name}).")),
+            Action::Archive if status==7 => Some(format!("Bot '{label}' is already archived.")),
+            Action::Unarchive if status!=7 => Some(format!("Bot '{label}' is not archived.")),
+            _ => None,
+        };
+        if let Some(message)=message {
+            view.errors.push(FieldError {field:"base".into(),message});
+            let prepared=response_builder(&tx,&ctx,&view)?;
+            tx.rollback()?;
+            return Ok(Outcome::Invalid(prepared.response));
+        }
+    }
     // A stale Reactivate never validates, fills defaults, or wakes a running bot.
     if action == Action::Unarchive && status != 7 || action == Action::Archive && status == 7 {
         let prepared = response_builder(&tx, &ctx, &view)?;
@@ -343,6 +393,7 @@ fn lifecycle_inner<T>(
     };
     let mut fresh = true;
     let mut delayed = None;
+    let mut writer_refused = false;
     if action == Action::Start {
         // Execute the final SQL gate even for a working row; it must touch zero rows.
         if matches!(status,1|4|5|6) {
@@ -350,26 +401,40 @@ fn lifecycle_inner<T>(
             if rows != 0 { return Err(error("working Start passed its SQL gate")); }
             view.add(ctx.locale,"engine.already_running");
         } else {
-            match submitted.start_fresh() { Ok(value) => fresh=value, Err(_) => view.add(ctx.locale,"engine.invalid_start_fresh") }
+            if submitted.mcp() { fresh=status==0; } else { match submitted.start_fresh() { Ok(value) => fresh=value, Err(_) => view.add(ctx.locale,"engine.invalid_start_fresh") } }
         }
     }
-    if view.errors.is_empty() && !safety {
+    if view.errors.is_empty() && (!safety || submitted.mcp() && action != Action::Stop) {
         let (provider,configured)=bots::market_data(&tx,&ctx.app)?;
         let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-        let refusal=super::refusal(&tx,id,wash,provider,For::Page)?;
+        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,wash,provider,For::Page)?};
         let draft=view.draft.as_mut().ok_or_else(||error("owned lifecycle draft disappeared"))?;
-        let refusal=refusal.or_else(||draft.original.unrendered());
+        let refusal=if submitted.mcp() {None} else {refusal.or_else(||draft.original.unrendered())};
         if action==Action::Start {
             if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
         }
-        draft.candidate.status=if action==Action::Start {BotStatus::Scheduled}else{BotStatus::Stopped};
+        draft.candidate.status=match action {
+            Action::Start=>BotStatus::Scheduled, Action::Archive=>BotStatus::Archived,
+            Action::Delete=>BotStatus::Deleted, Action::Unarchive|Action::Stop=>BotStatus::Stopped,
+        };
+        if action==Action::Start && fresh {
+            // Lifecycle resets the candidate before valid?(:start), including an old
+            // negative carry. Keep the original intact for the guarded save callbacks.
+            draft.candidate.started_at=Some(ctx.now);
+            if draft.candidate.transient.contains_key("last_action_job_at") {
+                draft.candidate.transient.insert("last_action_job_at".into(),Value::Null);
+            }
+            draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
+        }
         draft.validate(&tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
+        if action == Action::Start { writer_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now); }
         view.errors.extend(draft.errors.clone());
         if action==Action::Unarchive && view.errors.is_empty() {
             if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
         }
         if action==Action::Start && view.errors.is_empty() {
             if draft.candidate.api_key != Some(ApiKeyStatus::Correct as i64) {
+                writer_refused = true;
                 let reason=i18n::text(ctx.locale,"engine.api_key_not_ready",&[]);
                 view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
             } else if fresh {
@@ -382,7 +447,7 @@ fn lifecycle_inner<T>(
         if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
         let prepared=response_builder(&tx,&ctx,&view)?;
         tx.rollback()?;
-        return Ok(Outcome::Invalid(prepared.response));
+        return Ok(if writer_refused {Outcome::GuardRefused(prepared.response)} else {Outcome::Invalid(prepared.response)});
     }
     let at=codec::format_time(ctx.now);
     if let Some(draft)=view.draft.as_mut() {
@@ -393,6 +458,16 @@ fn lifecycle_inner<T>(
             draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
         }
         let mut effects=draft.save_effects(&tx,ctx.now)?;
+        if submitted.mcp() && effects.settings_changed && delayed.is_none() {
+            let carry=pending(&tx,&draft.original,ctx.now)?;
+            effects.transient.set.insert("missed_quote_amount".into(),serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?);
+            effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
+        }
+        if submitted.mcp() && !effects.settings_changed &&
+            (action==Action::Stop || action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
+            effects.transient.set.insert("missed_quote_amount".into(),draft.raw_transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null));
+            effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
+        }
         if delayed.is_some() {
             // Rails captures after assigning the future anchor and resetting carry.
             let carry=pending(&tx,&draft.candidate,ctx.now)?;
@@ -400,8 +475,8 @@ fn lifecycle_inner<T>(
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
             effects.transient.set.insert("last_action_job_at".into(),Value::Null);
         }
-        for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,value.to_string(),id,owner,&class))?)?; }
-        for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},value.to_string(),id,owner,&class))?)?; }
+        for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
+        for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
         if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }
     } else {
@@ -409,13 +484,16 @@ fn lifecycle_inner<T>(
         let settings=super::object(&raw,"bots.settings")?;
         for (key,value) in [("smart_intervaled",json!(false)),("limit_ordered",json!(false)),("limit_order_pcnt_distance",json!(0.001))] {
             if matches!(settings.get(key),None|Some(Value::Null|Value::Bool(false))) {
-                one(tx.execute(SET_SETTING,(path(key,false)?,value.to_string(),id,owner,&class))?)?;
+                one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(&value)} else {value.to_string()},id,owner,&class))?)?;
             }
         }
     }
     match action {
         Action::Start => {
             one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
+            if submitted.mcp() && fresh && delayed.is_none() {
+                one(tx.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount_was_set',json('true')) WHERE id=?1",[id])?)?;
+            }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
@@ -428,7 +506,10 @@ fn lifecycle_inner<T>(
             one(tx.execute(WEB_STOP,(id,owner,&class,&at))?)?;
             if action==Action::Archive { one(tx.execute("UPDATE bots SET status=7 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=2",(id,owner,&class))?)?; }
         }
-        Action::Delete => one(tx.execute(WEB_DELETE,(id,owner,&class,&at))?)?,
+        Action::Delete => {
+            one(tx.execute(WEB_DELETE,(id,owner,&class,&at))?)?;
+            if submitted.mcp() { one(tx.execute("UPDATE bots SET stopped_at=?2 WHERE id=?1",(id,&at))?)?; }
+        },
         Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
     }
     if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
