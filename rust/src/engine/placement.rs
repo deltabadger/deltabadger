@@ -130,8 +130,8 @@ pub fn remove_wait(c: &Connection, bot_id: Option<i64>) -> Result<(), EngineErro
 
 fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::schedule::Checkpoints) -> i64) -> Result<(), EngineError> {
     let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us, bot.interval(), bot.quote_amount(), bot.schedule_key()) else { return Ok(()) };
-    let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())));
-    let until = DateTime::from_timestamp_micros(at).expect("time in range").to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?);
+    let until = DateTime::from_timestamp_micros(at).ok_or_else(super::schedule::time_range_error)?.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
               params![json!({ "until": until, "schedule": schedule }).to_string(), bot.id])?;
     Ok(())
@@ -184,7 +184,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
     }
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now + Duration::seconds(DEADLINE_SECONDS), at: now, plan: plan.clone() };
+    let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -205,7 +205,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
 
 pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
-    if clock.now() > intent.at + Duration::seconds(SEND_WINDOW_SECONDS) {
+    let Some(send_until) = intent.at.checked_add_signed(Duration::seconds(SEND_WINDOW_SECONDS)) else { return Sent::NotSent(format!("{:?}", super::schedule::time_range_error())); };
+    if clock.now() > send_until {
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
     }
     let rules = venue.rules();
@@ -260,10 +261,10 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     // process start. A venue without one (VenueRules::absence_margin_secs): the lookup must start a full margin after the
     // intent AND after this process started, because a process suspended (or killed and restarted) after its send cannot
     // vouch for when that send left.
-    let absent_from = if rules.deadline_sent { intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) }
-                      else { intent.at.max(process_start) + Duration::seconds(rules.absence_margin_secs) };
+    let absent_from = if rules.deadline_sent { intent.deadline.checked_add_signed(Duration::seconds(ABSENCE_AFTER_SECONDS)).ok_or_else(super::schedule::time_range_error)? }
+                      else { intent.at.max(process_start).checked_add_signed(Duration::try_seconds(rules.absence_margin_secs).ok_or_else(super::schedule::time_range_error)?).ok_or_else(super::schedule::time_range_error)? };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
-    match venue.order_by_client_id(&intent.cl_ord_id, intent.at - Duration::hours(1)).await {
+    match venue.order_by_client_id(&intent.cl_ord_id, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await {
         Ok(Some(state)) => {
             let now = clock.now();
             let tx = model::immediate(c)?;

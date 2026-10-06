@@ -142,6 +142,11 @@ module McpControl
     s['start_bot_r2_negative_carry'] = McpParity.ready + [tool('start_bot', {}, [set_status(0), negative_carry])]
     s['settings_r2_unicode_symbol'] = McpParity.ready + [tool('update_bot_settings', { allocations: 'ſOL:70,ETH:30' },
                                                               ["UPDATE assets SET symbol='SOL' WHERE id=16"])]
+    schedule = [set_status(2), "UPDATE bots SET settings=json_set(settings,'$.interval','hour','$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',10), transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-09T12:00:01Z') WHERE id=1"]
+    s['settings_schedule_bounds'] = McpParity.ready + [tool('update_bot_settings', { quote_amount: 1e-18 }, schedule)]
+    s['start_schedule_bounds'] = McpParity.ready + [tool('start_bot', {}, schedule + ["UPDATE bots SET settings=json_set(settings,'$.quote_amount',1e-18) WHERE id=1"])]
+    s['settings_schedule_rails_invalid'] = McpParity.ready + [tool('update_bot_settings', { quote_amount: 0 }, schedule)]
+    s['start_schedule_rails_invalid'] = McpParity.ready + [tool('start_bot', {}, schedule + ["UPDATE bots SET status=0,started_at=NULL,settings=json_set(settings,'$.quote_amount',0) WHERE id=1"])]
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
     raise 'empty M4 scenario filter' if selected.empty?

@@ -295,6 +295,9 @@ fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), Eng
     if request.get("requested_at").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {
         super::log(&format!("[engine] warning: bot {id}: rust_continue_start {request} is malformed; removed, and the bot continues as Rails would"));
     }
+    if let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) {
+        checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?.validate_times()?;
+    }
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending') \
                 WHERE id = ?1", [id])?;
     placement::remove_wait(&tx, Some(id))?;
@@ -346,7 +349,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
 
     let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
     let eff = effective(interval, quote, bot.smart_quote_amount());
-    let cps = checkpoints(anchor, now_us, eff);
+    let cps = checkpoints(anchor, now_us, eff)?;
+    cps.validate_times()?;
     // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
     // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.
     let defer = match bot.rust_defer() {
@@ -430,7 +434,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
     for at in [e.retry_at.get(&id), e.reconcile_at.get(&id), e.closed_until.get(&id).map(|(t, _)| t).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
     if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
-    let next = checkpoints(anchor, clock.now().timestamp_micros(), eff).next_us;
+    let next = checkpoints(anchor, clock.now().timestamp_micros(), eff)?.next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
     Ok(())
 }

@@ -114,6 +114,7 @@ fn settings_inner<T>(
         Ok(()) => draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?,
     }
     }
+    mcp_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now);
     if !draft.errors.is_empty() {
         let prepared = response_builder(&tx, &ctx, &draft)?;
         tx.rollback()?;
@@ -426,6 +427,7 @@ fn lifecycle_inner<T>(
             draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
         }
         draft.validate(&tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
+        if action == Action::Start { writer_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now); }
         view.errors.extend(draft.errors.clone());
         if action==Action::Unarchive && view.errors.is_empty() {
             if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }

@@ -258,6 +258,27 @@ pub fn round6_micros(anchor_us: i64, terms: &[(f64, i64)]) -> i64 {
     anchor_us + micros as i64
 }
 
+/// Fallible exact rounding for stored schedules, including subnormal/very large floats.
+/// BigInt avoids intermediate shifts/products wrapping before the final i64 range check.
+pub fn checked_round6_micros(anchor_us: i64, terms: &[(f64, i64)]) -> Option<i64> {
+    use bigdecimal::num_traits::ToPrimitive;
+    if terms.iter().any(|(f, _)| !f.is_finite()) { return None; }
+    let parts: Vec<_> = terms.iter().map(|&(f, k)| {
+        let (m, e) = decompose(f);
+        (BigInt::from(m) * k, e)
+    }).collect();
+    let e_min = parts.iter().map(|(_, e)| *e).min().unwrap_or(0).min(0);
+    let sum: BigInt = parts.iter().map(|(m, e)| m << (e - e_min) as usize).sum();
+    let scaled = sum * 1_000_000;
+    let divisor = BigInt::from(1) << (-e_min) as usize;
+    // Floor((scaled / divisor) + 1/2), including negative times (Ruby half-up).
+    let numerator: BigInt = scaled * 2 + &divisor;
+    let denominator: BigInt = divisor * 2;
+    let mut rounded: BigInt = &numerator / &denominator;
+    if numerator.sign() == Sign::Minus && &numerator % &denominator != BigInt::from(0) { rounded -= 1; }
+    (rounded + BigInt::from(anchor_us)).to_i64()
+}
+
 /// Exact `Time.at(anchor_us) + k·f > Time.at(now_us)`.
 pub fn exceeds(anchor_us: i64, (f, k): (f64, i64), now_us: i64) -> bool {
     let (m, e) = decompose(f);

@@ -1234,7 +1234,7 @@ mod status_bar {
         for case in &cases {
             let anchor = time(case["anchor"].as_str().unwrap()).timestamp_micros();
             let exact = status::Instant::of(&Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] });
-            let rounded = Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] }.rounded();
+            let rounded = Unrounded { base_us: anchor, terms: vec![(float(&case["float"]), case["times"].as_i64().unwrap())] }.rounded().unwrap();
             let job = time(case["job"].as_str().unwrap()).timestamp_micros();
             assert_eq!(exact.held_micros(), job, "{case}");
             assert_eq!(exact.floor_micros().div_euclid(1_000_000), time(case["second"].as_str().unwrap()).timestamp(), "{case}");

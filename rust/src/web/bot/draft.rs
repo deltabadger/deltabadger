@@ -415,6 +415,20 @@ impl Draft {
         keys.iter().any(|key| !equal_option(self.raw_settings.get(*key), self.candidate.settings.get(*key)))
     }
 
+    /// Shared writer boundary, after Rails validation so Rails refusals keep their order/text.
+    /// Returns true only for an additional Rust schedule-range refusal.
+    pub fn validate_schedule_bounds(&mut self, locale: &str, now: DateTime<Utc>) -> bool {
+        if !self.errors.is_empty() { return false; }
+        let bot = &self.candidate;
+        let outside = bot.schedule_bounds().is_some() || bot.checkpoints(now).is_none_or(|cp| {
+            DateTime::from_timestamp_micros(cp.next_us).is_none() || DateTime::from_timestamp_micros(cp.last_us).is_none()
+        });
+        if !outside { return false; }
+        let field = if bot.effective().is_some_and(|eff| eff.seconds() < super::MIN_SPAN_SECONDS) { "smart_interval_quote_amount" } else { "quote_amount" };
+        self.error(locale, field, "greater_than", Some(0.0));
+        true
+    }
+
     pub fn validate(&mut self, c: &Connection, context: ValidationContext, now: DateTime<Utc>, provider: bool, locale: &str) -> Result<(), WebError> {
         self.errors = self.parse_errors.clone();
         self.error_codes.clear();

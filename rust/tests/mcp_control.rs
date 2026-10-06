@@ -106,7 +106,7 @@ async fn control_transcripts() {
         let steps = read(dir.join("steps.json"));
         let rust = tempfile::tempdir().unwrap();
         copy_install(dir, rust.path());
-        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol";
+        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds");
         let before=if unicode_symbol {
             let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
             for step in steps.as_array().unwrap() {if let Some(sql)=step["sql"].as_array() {for command in sql {c.execute_batch(command.as_str().unwrap()).unwrap();}}}
@@ -132,6 +132,21 @@ async fn control_transcripts() {
             }
         }
         let name=dir.file_name().unwrap().to_string_lossy();
+        if name.ends_with("schedule_bounds") {
+            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}));
+            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
+            let expected=if name.starts_with("settings_") {"Failed to update bot: Quote amount The invested amount must be greater than 0"} else {"Failed to start bot 'Control': Quote amount The invested amount must be greater than 0"};
+            assert_eq!(response["result"]["content"][0]["text"],expected);
+            assert_eq!(response["result"]["isError"],true);
+            for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
+                assert_eq!(got["rows"][table],got["before_business"][table],"schedule refusal rolls back {name}: {table}");
+            }
+            if let Ok(path)=std::env::var("M4_EVIDENCE") {
+                std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
+            }
+            continue;
+        }
         if name=="registry" {
             let body:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let names:Vec<_>=body["result"]["tools"].as_array().unwrap().iter().map(|t|t["name"].as_str().unwrap()).collect();

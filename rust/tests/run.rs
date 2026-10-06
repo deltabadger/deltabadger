@@ -367,3 +367,29 @@ async fn action_lifecycle_created_continue_does_not_use_stopped_only_wait() -> R
         "Rails' restarting? is false for a created bot, even with a paid interval and a last-action stamp");
     Ok(())
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn stored_out_of_range_schedule_refuses_one_bot_and_other_bots_keep_ticking() {
+    for (quote, continuing) in [(1e-18, true), (36000.0 / 8.4e12, true), (1e-18, false), (36000.0 / 8.4e12, false)] {
+        let v = priced();
+        let (_d, mut e, id, seed) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+        let healthy = seed::insert_bot(&e.primary, &seed, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        e.primary.execute("UPDATE bots SET settings=json_set(settings,'$.interval','hour','$.quote_amount',?1,'$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',10), transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-01T10:00:01Z','$.rust_continue_start',json(?2)) WHERE id=?3",
+            rusqlite::params![quote, json!({"requested_at":"2026-09-01T10:00:30Z","was_stopped":true}).to_string(), id]).unwrap();
+        if !continuing { e.primary.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_continue_start') WHERE id=?1",[id]).unwrap(); }
+        let bot = model::load_bot(&e.primary, id).unwrap();
+        let reason = placement::defer_to_next_checkpoint(&e.primary, &bot, at("2026-09-01T10:00:30Z").0).unwrap_err();
+        assert!(format!("{reason:?}").contains("time is outside the representable range"));
+        for time in ["2026-09-01T10:00:30Z", "2026-09-08T10:00:30Z"] {
+            run::step(&mut e, &at(time)).await.unwrap();
+            let refused = model::load_bot(&e.primary, id).unwrap();
+            assert_eq!(refused.transient.get("rust_continue_start").is_some(), continuing, "the refused request remains for a later pass");
+            assert!(refused.transient.get("rust_defer_until").is_none());
+            let count:i64=e.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1",[id],|r|r.get(0)).unwrap();
+            assert_eq!(count,0);
+        }
+        let count:i64=e.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1",[healthy],|r|r.get(0)).unwrap();
+        assert_eq!(count,2,"healthy bot ticks on both passes");
+        assert_eq!(v.sent().len(),2);
+    }
+}
