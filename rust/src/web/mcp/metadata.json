@@ -848,6 +848,24 @@
       }
     },
     {
+      "name": "start_bot",
+      "description": "Start a stopped or newly created DCA bot",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "stop_bot",
       "description": "Stop a running DCA bot",
       "inputSchema": {

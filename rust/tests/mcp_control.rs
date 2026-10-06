@@ -199,3 +199,119 @@ async fn control_transcripts() {
     }
     assert!(failures.is_empty(), "M4 mismatches: {failures:?}");
 }
+
+#[derive(Clone)]
+struct PriceBarrier {
+    transport:deltabadger::venue::http::ScriptedTransport,
+    entered:std::rc::Rc<tokio::sync::Notify>, release:std::rc::Rc<tokio::sync::Notify>, held:std::rc::Rc<std::cell::Cell<bool>>,
+    sent:std::rc::Rc<std::cell::RefCell<Vec<Value>>>,
+}
+impl deltabadger::venue::http::Transport for PriceBarrier {
+    async fn send(&self,request:&deltabadger::venue::http::HttpRequest)->Result<deltabadger::venue::http::HttpResponse,deltabadger::venue::http::TransportError> {
+        if request.path=="/v1beta3/crypto/us/latest/quotes" && !self.held.replace(true) {
+            self.entered.notify_one();
+            tokio::time::timeout(std::time::Duration::from_secs(20),self.release.notified()).await.map_err(|_|deltabadger::venue::http::TransportError::Permanent("price barrier expired".into()))?;
+        }
+        if request.method=="POST" {self.sent.borrow_mut().push(request.body.clone().unwrap());}
+        self.transport.send(request).await
+    }
+}
+impl deltabadger::venue::VenueFactory for PriceBarrier {
+    type V=deltabadger::venue::alpaca::AlpacaVenue<Self>;
+    fn for_bot(&self,_:&str,credentials:Option<deltabadger::crypto::Credentials>)->Self::V {
+        deltabadger::venue::alpaca::AlpacaVenue::new(self.clone(),deltabadger::venue::alpaca::Urls::for_passphrase(credentials.as_ref().and_then(|c|c.passphrase.as_deref())))
+    }
+}
+fn changes(before:&Value,after:&Value)->Value {
+    let mut changes=serde_json::Map::new();
+    for table in ["bots","bot_index_assets","bot_activity_logs","transactions","api_keys","users"] {
+        let mut rows=vec![];
+        for row in after[table].as_array().unwrap() {
+            let old=before[table].as_array().unwrap().iter().find(|r|r["id"]==row["id"]);
+            let delta:serde_json::Map<String,Value>=row.as_object().unwrap().iter().filter(|(key,value)|old.is_none_or(|r|r[*key]!=**value)).map(|(key,value)|(key.clone(),value.clone())).collect();
+            if !delta.is_empty(){rows.push(json!({"id":row["id"],"delta":delta}));}
+        }
+        if !rows.is_empty(){changes.insert(table.into(),json!(rows));}
+    }
+    json!(changes)
+}
+#[tokio::test(flavor="current_thread")]
+async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
+    use deltabadger::{crypto::{Cipher,EncryptionKeys},engine::{model,tick,provider},venue::alpaca::{AlpacaVenue,Urls}};
+    use std::rc::Rc;
+    let root=tempfile::tempdir().unwrap();
+    let output=root.path().join("record");
+    let boot=tempfile::tempdir().unwrap();
+    common::rails(boot.path(),"test",&["runner","script/rust/mcp_control_races.rb",output.to_str().unwrap()]);
+    let lost=read(output.join("settings_lost_update/race.json"));
+    assert_eq!((lost["read"].as_f64(),lost["committed"].as_f64(),lost["final"].as_f64()),(Some(50.0),Some(20.0),Some(50.0)));
+    for name in deltabadger::web::mcp::control::NAMES {
+        let dir=output.join(name);let rails=read(dir.join("race.json"));
+        let rust=tempfile::tempdir().unwrap();
+        copy_install(&dir,rust.path());
+        std::fs::copy(dir.join("before.sqlite3"),rust.path().join("production.sqlite3")).unwrap();
+        let ready:Vec<Value>=vec![
+            json!({"method":"POST","path":"/mcp","headers":{"Authorization":"Bearer m2-token","Content-Type":"application/json","Accept":"application/json, text/event-stream"},"body":json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"M4 race","version":"1"}}}).to_string()}),
+            json!({"method":"POST","path":"/mcp","headers":{"Authorization":"Bearer m2-token","Content-Type":"application/json","Accept":"application/json, text/event-stream","Mcp-Session-Id":"$session"},"body":json!({"jsonrpc":"2.0","method":"notifications/initialized"}).to_string()})];
+        let init=play(rust.path(),&ready,None).await;
+        let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
+        let secret=std::fs::read_to_string(rust.path().join("secret_key_base")).unwrap();
+        let cipher=Cipher::new(&EncryptionKeys::resolve(&|_|None,&secret).unwrap());
+        provider::bind(&c,&cipher,&|_|None).unwrap();
+        let script=PriceBarrier{transport:common::scripted::script(json!({})),entered:Rc::new(tokio::sync::Notify::new()),release:Rc::new(tokio::sync::Notify::new()),held:Rc::new(std::cell::Cell::new(false)),sent:Rc::new(std::cell::RefCell::new(vec![]))};
+        let venue=AlpacaVenue::new(script.clone(),Urls::for_passphrase(Some("paper")));
+        let clock=TestClock::at(AT);let mut attempts=tick::Attempts::default();
+        let future=tick::tick(&c,&venue,1,&*clock,&mut attempts);tokio::pin!(future);
+        tokio::select!{_ = script.entered.notified()=>{},result=&mut future=>panic!("{name}: ended before price: {result:?}"),_ = tokio::time::sleep(std::time::Duration::from_secs(20))=>panic!("{name}: no price barrier")}
+        let before=snapshot(rust.path());
+        let step=read(dir.join("tool.json"));
+        let got=play(rust.path(),&[step],Some(init["session"].as_str().unwrap().to_owned())).await;
+        assert_eq!(got["responses"][0]["status"],rails["response"]["status"],"{name}");
+        assert_eq!(got["responses"][0]["body"],rails["response"]["body"],"{name}: byte-equal racing response");
+        assert_eq!(changes(&before,&got["rows"]),changes(&rails["before_tool"],&rails["at_tool"]),"{name}: exact tool write delta");
+        script.release.notify_one();
+        tokio::time::timeout(std::time::Duration::from_secs(20),&mut future).await.unwrap().unwrap();
+        let safety=["stop_bot","archive_bot","delete_bot"].contains(&name);
+        assert_eq!(rails["sent"].as_array().unwrap().len(),2,"Rails known pre-placement race");
+        assert_eq!(script.sent.borrow().len(),if safety {0} else {2},"{name}: placement fence");
+        let state=model::load_bot(&c,1).unwrap();
+        assert_eq!(state.status as i64,rails["final"]["bots"][0]["status"].as_i64().unwrap(),"{name}: never resurrected");
+        if !safety {
+            for (got,want) in script.sent.borrow().iter().zip(rails["sent"].as_array().unwrap()) {
+                assert_eq!(got["symbol"],want["symbol"]);
+                let amount=|v:&Value|{let text=v.as_str().map(str::to_owned).unwrap_or_else(||v.to_string());deltabadger::ruby::BigDec::parse(&text).unwrap()};
+                assert_eq!(amount(&got["notional"]),amount(&want["notional"]),"{name}: exact scripted contribution");
+            }
+        }
+    }
+    // Fresh MCP start: complete HTTP and row parity, actual immediate scheduler,
+    // exact first contribution, no second contribution at the same clock.
+    let dir=output.join("fresh_start");let rails=read(dir.join("fresh.json"));
+    assert_eq!(rails["job_at"],Value::Null);
+    let rust=tempfile::tempdir().unwrap();copy_install(&dir,rust.path());
+    std::fs::copy(dir.join("before.sqlite3"),rust.path().join("production.sqlite3")).unwrap();
+    let steps=read(dir.join("steps.json"));
+    let got=play(rust.path(),steps.as_array().unwrap(),None).await;
+    assert_eq!(comparable(got),comparable(rails["tool"].clone()),"fresh start: all HTTP bytes and columns");
+    let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
+    let secret=std::fs::read_to_string(rust.path().join("secret_key_base")).unwrap();
+    let cipher=Cipher::new(&EncryptionKeys::resolve(&|_|None,&secret).unwrap());provider::bind(&c,&cipher,&|_|None).unwrap();
+    let mut polls=serde_json::Map::new();
+    for (i,order) in rails["sent"].as_array().unwrap().iter().enumerate() {
+        polls.insert(format!("GET /v2/orders/OTX-{}",i+1),json!([common::scripted::ok(json!({"id":format!("OTX-{}",i+1),"status":"new","symbol":order["symbol"],"type":"market","side":"buy","notional":order["notional"],"qty":null,"filled_qty":"0","filled_avg_price":null,"limit_price":null}))]));
+    }
+    let script=PriceBarrier{transport:common::scripted::script(json!(polls)),entered:Rc::new(tokio::sync::Notify::new()),release:Rc::new(tokio::sync::Notify::new()),held:Rc::new(std::cell::Cell::new(true)),sent:Rc::new(std::cell::RefCell::new(vec![]))};
+    let clock=TestClock::at("2026-09-10T12:00:30.123457Z");
+    let paths=deltabadger::store::Paths::from_env(&|_|None,rust.path());
+    let lock=deltabadger::lease::lock(&paths,deltabadger::engine::Clock::now(&*clock)).unwrap();
+    let mut engine=deltabadger::engine::run::Engine::new(c,script.clone(),cipher,lock);
+    deltabadger::engine::run::step(&mut engine,&*clock).await.unwrap();
+    assert_eq!(script.sent.borrow().len(),2,"fresh start immediately buys both legs");
+    for (got,want) in script.sent.borrow().iter().zip(rails["sent"].as_array().unwrap()) {
+        assert_eq!(got["symbol"],want["symbol"]);
+        let amount=|value:&Value|deltabadger::ruby::BigDec::parse(&value.as_str().map(str::to_owned).unwrap_or_else(||value.to_string())).unwrap();
+        assert_eq!(amount(&got["notional"]),amount(&want["notional"]),"fresh start exact contribution");
+    }
+    deltabadger::engine::run::step(&mut engine,&*clock).await.unwrap();
+    assert_eq!(script.sent.borrow().len(),2,"fresh start never doubles at the same clock");
+}

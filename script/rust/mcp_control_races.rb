@@ -124,3 +124,44 @@ McpControl::NAMES.each do |name|
   end
 end
 puts 'Rails race outcomes recorded: settings plus six tools'
+# Fresh start: the actual MCP service queues immediately, then the real job buys once.
+dir = File.join(root, 'fresh_start')
+FileUtils.mkdir_p(dir)
+%w[production.sqlite3 production_queue.sqlite3 secret_key_base].each { |file| FileUtils.cp(File.join(template, file), File.join(dir, file)) }
+Pages.connect(dir)
+McpParity.configure
+ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+Rails.cache.clear
+ScriptedAlpaca.http = Decisions.basket_http.transform_values(&:dup)
+ScriptedAlpaca.sent = []
+fresh_tool = nil
+fresh_job = nil
+McpParity.travel_to(Time.iso8601(Pages::AT), with_usec: true) do
+  Bot.find(1).update_columns(status: 0, started_at: nil)
+  ActiveRecord::Base.connection.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+  FileUtils.cp(File.join(dir, 'production.sqlite3'), File.join(dir, 'before.sqlite3'))
+  steps = McpParity.ready + [McpControl.tool('start_bot')]
+  File.write(File.join(dir, 'steps.json'), JSON.generate(steps))
+  browser = ActionDispatch::Integration::Session.new(Rails.application)
+  browser.host! 'localhost:3000'
+  sid = nil
+  responses = steps.map do |step|
+    headers = step['headers'].transform_values { |value| value == '$session' ? sid : value }
+    browser.process(:post, step['path'], params: step['body'], headers: headers)
+    response = browser.response
+    sid = response.headers['Mcp-Session-Id'] || sid
+    { status: response.status, body: response.body, headers: McpParity::HEADERS.to_h { |header| [header, response.headers[header]] }.compact }
+  end
+  fresh_tool = { responses:, session: sid, rows: McpControl.snapshot }
+  fresh_job = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |queued| queued[:job] == Bot::ActionJob }
+  raise 'fresh start did not queue now' unless fresh_job && fresh_job[:at].nil?
+end
+# A queued job begins after the service, on the strict checkpoint boundary.
+McpParity.travel_to(Time.iso8601(Pages::AT) + Rational(1, 1_000_000), with_usec: true) do
+  Rails.application.executor.wrap { Bot::ActionJob.perform_now(Bot.find(1)) }
+  sent = ScriptedAlpaca.sent
+  contribution = sent.sum { |order| order.fetch('notional').to_d }
+  raise "fresh start contribution changed: #{sent.inspect}" unless sent.size == 2 && contribution == 20
+
+  File.write(File.join(dir, 'fresh.json'), JSON.pretty_generate({ tool: fresh_tool, job_at: fresh_job[:at], sent:, rows: McpControl.snapshot }))
+end

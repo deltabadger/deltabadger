@@ -51,6 +51,7 @@ module McpControl
           McpParity.ready + [tool(name, name == 'update_bot_settings' ? { label: 'Renamed' } : {}, [set_status(status)])]
       end
       s["#{name}_missing"] = McpParity.ready + [tool(name, { bot_id: 999 })]
+      s["#{name}_huge_id"] = McpParity.ready + [tool(name, { bot_id: 1e30 })]
       s["#{name}_fractional_id"] =
         McpParity.ready + [tool(name, { bot_id: 1.9 }, [set_status(if name == 'stop_bot'
                                                                      1
