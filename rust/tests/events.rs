@@ -111,14 +111,14 @@ async fn every_tick_and_every_poll_announce_their_bot_once() {
     run::step(&mut e, &at("2026-09-01T10:00:05.5Z")).await.unwrap(); // the poll writes `open` over `unknown`
     assert_eq!(drained(&mut rx), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }]);
     let updates = |heard: Vec<EngineEvent>| heard.into_iter().filter(|event| matches!(event, EngineEvent::OrderUpdated { .. })).collect::<Vec<_>>();
-    // The sweep finds it as it was, and a second order is placed: the tick is announced all the same, and so is the
-    // second order's poll, with nothing read to decide.
+    // Advancing a week also makes the first order's retry overdue. The step announces that poll and the tick
+    // separately. The new order's poll is still due five seconds later, with nothing read to decide.
     run::step(&mut e, &at("2026-09-08T10:00:00.5Z")).await.unwrap();
-    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "the tick");
+    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "the overdue poll and the tick");
     run::step(&mut e, &at("2026-09-08T10:00:05.5Z")).await.unwrap();
     assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "the second order's poll");
     run::step(&mut e, &at("2026-09-15T10:00:00.5Z")).await.unwrap(); // the sweep before the third order finds the first filled
-    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "one per tick, however many it wrote");
+    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "the overdue poll and the tick each announce once");
     let filled: i64 = e.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     assert_eq!(filled, 2);
 }
