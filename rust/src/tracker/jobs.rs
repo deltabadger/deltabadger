@@ -265,6 +265,15 @@ impl<C: Connect, T: Transport> Job for Backfill<C, T> {
     }
 }
 
+/// Construct a consumer for a user discovered after startup (including historical-only users).
+pub fn resolve<C: Connect + Clone + 'static,T: Transport + 'static>(name:&str,user_id:i64,venues:&C,api:Rc<Option<DataApi<T>>>,wall:Wall)->Option<Box<dyn Job>>{
+    match name{
+        TRACKER_LEDGER=>Some(Box::new(LedgerWalk{api,user_id,wall})),
+        PORTFOLIO_BACKFILL=>Some(Box::new(Backfill{venues:venues.clone(),api,user_id})),
+        _=>None,
+    }
+}
+
 /// The tracker's jobs, per user with a reading Alpaca key, every walk before every backfill; today's rows dated by
 /// `wall` (`system_wall()` in the binary).
 pub fn register<C: Connect + Clone + 'static, T: Transport + 'static>(c: &Connection, venues: &C, api: Rc<Option<DataApi<T>>>, wall: Wall) -> Result<Vec<Box<dyn Job>>, String> {

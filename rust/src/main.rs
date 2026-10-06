@@ -152,7 +152,7 @@ fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: 
 
 /// The scheduler owns its connection, cipher and event subscription and follows the supervisor's one stop signal.
 /// Construction logs nothing, preserving the takeover and running lines before any service starts.
-fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, engine: &mut Engine<LiveFactory>, clock: &'a dyn Clock)
+fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, engine: &mut Engine<LiveFactory>, clock: &'a dyn Clock, web: Option<&deltabadger::web::App>)
     -> Result<supervisor::Service<'a>, String> {
     let secret = env("SECRET_KEY_BASE").unwrap_or_default();
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
@@ -162,8 +162,9 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let api = std::rc::Rc::new(api);
     let mut registered = jobs::reference::shared_jobs(api.clone());
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
-    registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall())?);
-    let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe()));
+    registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
+    let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(jobs::resolve::all(LiveFactory::new(),api,deltabadger::tracker::jobs::system_wall()));
+    if let Some(web) = web { web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?; }
     Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
 }
 
@@ -195,7 +196,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let code = rt.block_on(async move {
         let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
-        let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock) {
+        let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, None) {
             Ok(s) => s,
             Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
@@ -243,7 +244,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let code = rt.block_on(async move {
         let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
         engine.stop_handle().on_signals();
-        let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock) {
+        let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, Some(&app)) {
             Ok(s) => s,
             Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };

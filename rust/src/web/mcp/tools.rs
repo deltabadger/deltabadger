@@ -16,7 +16,7 @@ pub fn gate(c: &Connection, who: Bearer, name: &str) -> Result<Option<Value>,Web
 }
 pub(super) fn str_value(v: &Value) -> String { match v {Value::Null => String::new(), Value::String(s) => s.clone(), _ => v.to_string()} }
 pub(super) fn asset(c: &Connection,id: &Value) -> Result<Option<String>,WebError> {
-    let id = id.as_i64().unwrap_or_else(|| crate::ruby::to_i(id.as_str().unwrap_or("")));
+    let Some(id) = id.as_i64().filter(|id|*id>0).or_else(||id.as_str().and_then(crate::web::bot::id_from_path)) else{return Ok(None)};
     Ok(c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?)
 }
 pub(super) const STATUSES: [&str;8] = ["created","scheduled","stopped","deleted","executing","retrying","waiting","archived"];

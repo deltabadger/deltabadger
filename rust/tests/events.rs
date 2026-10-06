@@ -114,11 +114,11 @@ async fn every_tick_and_every_poll_announce_their_bot_once() {
     // The sweep finds it as it was, and a second order is placed: the tick is announced all the same, and so is the
     // second order's poll, with nothing read to decide.
     run::step(&mut e, &at("2026-09-08T10:00:00.5Z")).await.unwrap();
-    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "the tick");
+    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "one overdue poll and one tick in this pass");
     run::step(&mut e, &at("2026-09-08T10:00:05.5Z")).await.unwrap();
     assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "the second order's poll");
     run::step(&mut e, &at("2026-09-15T10:00:00.5Z")).await.unwrap(); // the sweep before the third order finds the first filled
-    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "one per tick, however many it wrote");
+    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "one overdue poll and one tick, however many rows they wrote");
     let filled: i64 = e.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     assert_eq!(filled, 2);
 }

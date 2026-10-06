@@ -29,6 +29,8 @@ pub mod server;
 pub mod session;
 pub mod shell;
 pub mod timezone;
+pub mod tracker;
+pub mod string_column;
 pub mod turbo;
 
 use crate::crypto::{hash_password, verify_password, Cipher, EncryptionKeys};
@@ -53,6 +55,8 @@ use tower::ServiceExt;
 
 #[derive(Debug)]
 pub enum WebError {
+    /// ActiveRecord::RecordInvalid: production public 422, no stored values in diagnostics.
+    RecordInvalid,
     Engine(EngineError),
     /// The environment this process was started with cannot serve this install.
     Config(String),
@@ -72,6 +76,12 @@ fn error_page() -> &'static [u8] {
 impl IntoResponse for WebError {
     /// A request that fails is answered and logged; it never takes the process down.
     fn into_response(self) -> Response {
+        if matches!(self,Self::RecordInvalid){
+            let body=assets::find("/422.html").map_or(&b"Unprocessable Content"[..],|file|file.body);
+            let mut response=(StatusCode::UNPROCESSABLE_ENTITY,[(header::CONTENT_TYPE,"text/html; charset=utf-8")],body).into_response();
+            response.extensions_mut().insert(headers::BelowControllers);
+            return response;
+        }
         eprintln!("deltabadger: request failed: {self:?}");
         (StatusCode::INTERNAL_SERVER_ERROR, [(header::CONTENT_TYPE, "text/html; charset=utf-8")], error_page()).into_response()
     }
@@ -331,6 +341,7 @@ pub struct Inner {
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
+    jobs: std::sync::OnceLock<crate::jobs::Wakers>,
 }
 
 pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
@@ -365,6 +376,7 @@ impl App {
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
             db: Mutex::new(primary),
             engine: std::sync::OnceLock::new(),
+            jobs: std::sync::OnceLock::new(),
         })))
     }
 
@@ -386,6 +398,15 @@ impl App {
     /// Called once, by `supervisor::serve`, before the first request is served. A second call is ignored.
     pub fn attach_engine(&self, wake: Arc<tokio::sync::Notify>) {
         let _ = self.engine.set(wake);
+    }
+
+    pub fn attach_jobs(&self, wake: crate::jobs::Wakers) -> Result<(), WebError> {
+        self.jobs.set(wake).map_err(|_| WebError::Config("job scheduler already attached".into()))
+    }
+
+    /// Delivery stays in the blocking writer immediately after its successful commit.
+    pub fn wake_job(&self, name: &'static str, scope: &str) {
+        if let Some(wake) = self.jobs.get() { wake.wake(name,Some(scope),None); }
     }
 
     /// After a committed write the engine must act on (a bot started, stopped, deleted or archived, or its settings
@@ -505,6 +526,13 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/tracker/save_export_settings", only(patch(tracker::save_export_settings)))
+        .route("/tracker/fund_classifications", only(patch(tracker::fund_classifications)))
+        .route("/tracker/sync", only(post(tracker::sync)))
+        .route("/tracker/tax_report", only(get(tracker::modal::deferred_report)))
+        .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))
+        .route("/tracker/transactions/{id}/price", only(patch(tracker::transaction::update_price)))
+        .route("/tracker/transactions/{id}/toggle_transfer", only(patch(tracker::transaction::toggle_transfer)))
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
         // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
         .route("/bots/new", axum::routing::any(layout::not_ported))
@@ -678,7 +706,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let original_method = parts.method.clone();
     let (path_locale, route_path) = locale::split(&full_path);
     let route_path = route_path.to_string();
-    let bot_json = bot::action_params::action(&route_path, &original_method).is_some();
+    let bot_json = bot::action_params::action(&route_path, &original_method).is_some()
+        || (original_method == Method::PATCH && matches!(route_path.as_str(), "/tracker/save_export_settings" | "/tracker/fund_classifications"))
+        || (original_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"));
     let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
     let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));

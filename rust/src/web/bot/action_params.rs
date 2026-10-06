@@ -39,6 +39,16 @@ impl ActionParams {
 
     pub fn value(&self) -> &Param { &self.0 }
 
+    /// Rails' controller parameter merge: query keys replace body keys shallowly.
+    /// Existing bot actions retain their separately approved body-winning merge.
+    pub fn parse_rails(params: &Params) -> Result<Self, ParamError> {
+        let mut parsed = Self::parse(params)?;
+        let query = form(&params.query)?;
+        let object = parsed.0.as_object_mut().ok_or(ParamError::Shape)?;
+        if let Value::Object(query) = query { object.extend(query); }
+        Ok(parsed)
+    }
+
     pub fn permitted(&self, kind: Kind) -> Result<Param, ParamError> {
         if self.mcp() { return Ok(self.0.clone()); }
         let (root, allowed) = match kind {
