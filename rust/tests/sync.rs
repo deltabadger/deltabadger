@@ -1260,7 +1260,13 @@ impl Connect for Timed {
 async fn schedule(dir: &Path, jobs: Vec<Box<dyn Job>>, clock: &TokioClock, events: Vec<(std::time::Duration, EngineEvent)>, virtual_time: std::time::Duration) {
     let mut engine = deltabadger::engine::events::EngineEvents::default();
     let rx = engine.subscribe();
-    let s = deltabadger::jobs::Scheduler::new(Connection::open(dir.join("production.sqlite3")).unwrap(), seed::cipher(), jobs, Some(rx));
+    // Like serve, this harness resolves the tracker wake emitted by a completed sync.
+    // The prior harness silently dropped that wake; keep the restart assertions unchanged.
+    let api: Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>> = Rc::new(None);
+    let resolver = deltabadger::jobs::resolve::all(Scripted(ScriptedTransport::from_script(&json!({}))), api,
+                                                deltabadger::tracker::jobs::system_wall());
+    let s = deltabadger::jobs::Scheduler::new(Connection::open(dir.join("production.sqlite3")).unwrap(), seed::cipher(), jobs, Some(rx))
+        .with_resolver(resolver);
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let (ended, ()) = tokio::join!(s.run(stopped, clock), async {
         let mut at = std::time::Duration::ZERO;
