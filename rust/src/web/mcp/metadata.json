@@ -866,6 +866,44 @@
       }
     },
     {
+      "name": "update_bot_settings",
+      "description": "Update settings on a stopped or newly created bot: amount and label on any bot, the index knobs on an index bot, the weights on a basket bot",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bot_id": {
+            "type": "number",
+            "description": "The bot ID"
+          },
+          "quote_amount": {
+            "type": "number",
+            "description": "Amount per order in quote currency (optional)"
+          },
+          "label": {
+            "type": "string",
+            "description": "Bot label (optional)"
+          },
+          "num_coins": {
+            "type": "number",
+            "description": "Index bots: how many top assets to hold (2-100)"
+          },
+          "allocation_flattening": {
+            "type": "number",
+            "description": "Index bots: 0 = market-cap weights, 1 = equal"
+          },
+          "allocations": {
+            "type": "string",
+            "description": "Basket bots: new weights for every current asset, e.g. 'BTC:70,ETH:30' (sum 100). Name an asset by its key from get_bot_details when two share a symbol, or by asset id"
+          }
+        },
+        "required": [
+          "bot_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "list_open_orders",
       "description": "List currently open (unfilled) orders across all connected exchanges",
       "inputSchema": {

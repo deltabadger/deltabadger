@@ -5,7 +5,7 @@ use rusqlite::{Connection,OptionalExtension};
 use serde_json::Value;
 use std::sync::Arc;
 
-pub const NAMES: [&str;4]=["stop_bot","archive_bot","unarchive_bot","delete_bot"];
+pub const NAMES: [&str;5]=["stop_bot","archive_bot","unarchive_bot","delete_bot","update_bot_settings"];
 fn prepared(response: Value) -> Prepared<Value> {Prepared{response,broadcasts:vec![]}}
 fn guard_text(ctx:&Ctx,reason:&str)->Value {
     tool_text(&crate::web::i18n::text(ctx.locale,"engine.write_refused", &[("reason",crate::web::i18n::Arg::Text(reason))]),true)
