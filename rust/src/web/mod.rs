@@ -529,6 +529,7 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/tracker", only(get(tracker::index::index)))
         .route("/tracker/save_export_settings", only(patch(tracker::save_export_settings)))
         .route("/tracker/fund_classifications", only(patch(tracker::fund_classifications)))
         .route("/tracker/sync", only(post(tracker::sync)))

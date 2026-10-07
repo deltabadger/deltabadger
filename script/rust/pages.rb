@@ -193,7 +193,7 @@ module Pages
       'unrouted_get_logout' => { 'steps' => [get('/login'), login, get('/logout')] },
       'unrouted_unknown_locale_prefix' => { 'steps' => [get('/zz/login')] },
       'unrouted_locale_before_up' => { 'steps' => [get('/de/up')] },
-      'not_ported_tracker' => { 'steps' => [get('/login'), login, get('/tracker')] },
+      'tracker_empty' => { 'steps' => [get('/login'), login, get('/tracker')] },
       'bots_empty_with_holdings' => { 'balances' => { 'BTC' => 5000, 'USD' => 120 }, 'steps' => [get('/login'), login, get('/bots')] },
       'bots_empty_cash_shown' => { 'user' => user('tracker_settings' => { 'show_cash' => true }), 'balances' => { 'USD' => 120 },
                                         'steps' => [get('/login'), login, get('/bots')] },

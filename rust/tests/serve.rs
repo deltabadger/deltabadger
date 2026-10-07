@@ -83,7 +83,7 @@ async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
-    for path in ["/tracker", "/de/settings/account?tab=x", "/setup", "/zz/login", "/assets/application.css"] {
+    for path in ["/tracker/import/new", "/de/settings/account?tab=x", "/setup", "/zz/login", "/assets/application.css"] {
         let answer = browser.get(&app, path).await;
         assert_eq!(answer.status, 501, "{path}");
         assert!(answer.body.contains(&format!("GET {path}")), "{path}: {}", answer.body);

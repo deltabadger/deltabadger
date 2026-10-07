@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 
 pub mod fx;
 pub mod read;
+pub mod index;
 pub mod row;
 pub mod transaction;
 pub mod modal;

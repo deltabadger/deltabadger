@@ -15,6 +15,7 @@
     <title>{{ v.t("meta.title")|safe }}</title>
     {% include "layouts/_favicon.html" %}
 
+
     <link rel="stylesheet" href="{{ v.asset("application.css") }}" media="all" data-turbo-track="reload" />
     <script src="{{ v.asset("application.js") }}" data-turbo-track="reload" type="module"></script>
 
@@ -34,7 +35,7 @@
   {{ v.t("setup.syncing_message")|safe }}
 </div>{% endif %}
       </div>
-      
+      {{ flash_extra|safe }}
     </div>
 
     {{ navbar|safe }}
