@@ -90,7 +90,7 @@ async fn each_write_enforces_csrf_owner_guard_and_atomic_sql_failure() {
         assert_eq!(b.send(&app,"PATCH",&p,Some(&fields),Csrf::None,HEADERS).await.status,302);
         assert_eq!(b.send(&app,"PATCH",&p,Some(&fields),Csrf::Header,&[("origin","https://foreign.invalid")]).await.status,302);
         assert_eq!(b.send(&app,"PATCH",&path(foreign,price),Some(&fields),Csrf::Header,HEADERS).await.status,404);
-        tokio::time::timeout(std::time::Duration::from_millis(100),wake.notified()).await.unwrap();
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(10),wake.notified()).await.is_err());
         c.execute("INSERT INTO bots(user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES(?1,1,'Bots::DcaSingleAsset',1,'{}','{}','2026-01-01','2026-01-01')",[owner]).unwrap();
         assert_eq!(b.send(&app,"PATCH",&p,Some(&fields),Csrf::Header,HEADERS).await.status,422);
         assert!(tokio::time::timeout(std::time::Duration::from_millis(10),wake.notified()).await.is_err());

@@ -45,13 +45,6 @@ impl Row {
     }
 }
 
-/// Use the shared denomination policy: a missing current FX rate is explicitly USD.
-/// The current page-market reader cannot fetch fiat rates; this is a recorded parity gap.
-pub fn denomination(c:&Connection,ctx:&Ctx)->Result<Denomination,WebError> {
-    let cache=crate::figures::page_market::Cache::default();
-    let market=crate::figures::page_market::Reader::new(&cache,ctx.app.now().timestamp());
-    crate::figures::totals::denomination(c,&market,&ctx.user().ok_or_else(invalid)?.display_currency).map_err(|_|invalid())
-}
 
 fn amount(value:&Dec,currency:&str)->Result<String,WebError> {
     let absolute=if value.is_negative(){value.neg()}else{value.clone()};
@@ -152,4 +145,9 @@ fn venue(class: &str) -> String {
         out.extend(ch.to_lowercase());
     }
     out.replace('-',"_")
+}
+
+/// FX refusal replaces every monetary cell; never a zero or a mislabeled dollar figure.
+pub fn unavailable(id:i64)->String {
+    format!("<tr id=\"account_transaction_{id}\" class=\"tracker-row\"><td colspan=\"10\"><span class=\"no-value\">Currency conversion unavailable</span></td></tr>\n")
 }
