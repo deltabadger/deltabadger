@@ -124,7 +124,17 @@ fn compare(what: &str, pick: impl Fn(&Value) -> Value) {
     for scenario in &grid.scenarios {
         let before = out.len();
         match &scenario.rust {
-            Ok(rust) => difference(&scenario.name, "", &pick(&scenario.normalized), &pick(rust), &mut out),
+            Ok(rust) => {
+                let mut expected=scenario.normalized.clone();
+                if scenario.name.starts_with("account_string_price_") {
+                    let control=grid.scenarios.iter().find(|s|s.name=="account_deltabadger").unwrap();
+                    for field in ["global_pnl","global_pnl_snapshot"] {
+                        assert!(expected[field].as_str().unwrap().contains("TypeError"));
+                        expected[field]=control.normalized[field].clone();
+                    }
+                }
+                difference(&scenario.name, "", &pick(&expected), &pick(rust), &mut out);
+            },
             Err(error) => out.push(format!("{}: {error}", scenario.name)),
         }
         if out.len() > before { differing += 1; }
@@ -276,7 +286,7 @@ fn the_accounts_totals_match_rails_in_every_scenario() {
 fn the_market_is_asked_for_exactly_what_rails_asks_it() {
     // Where a figure is not computed the library stops asking, so those scenarios are left out here.
     let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
-    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 6);
+    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 10);
     for scenario in grid().scenarios.iter().filter(whole) {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
@@ -339,6 +349,14 @@ fn what_is_not_computed_is_named() {
     for name in ["row_readings","tax_lots","unpriced_rebalances","unpriced_sales"] {
         expected.extend([".bots.1.metrics", ".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place|format!("{name}{place}: executed fill value unavailable")));
     }
+    expected.push("account_no_provider.denomination: Currency conversion unavailable".into());
+    for name in ["account_rate_missing","account_rates_down","account_rates_refused"] {
+        for field in ["bots.2.profit_in_usd","global_pnl","global_pnl_snapshot","pnl_history"] {
+            expected.push(format!("{name}.{field}: Currency conversion unavailable"));
+        }
+        if name!="account_rates_refused" {expected.push(format!("{name}.denomination: Currency conversion unavailable"));}
+    }
+    let mut listed=listed;listed.sort();expected.sort();
     assert_eq!(listed, expected);
     // Unreadable batch prices are omitted by Rails and named as no_price above; an unreadable candle
     // still prevents the chart from being computed.
