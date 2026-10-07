@@ -34,6 +34,10 @@ def run(name, selection=None):
 query = 'test(first_sync_reads_only)'
 page = 'binary(=tracker_first_sync)'
 mutants = [
+    ('job_state', 'page', 'AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1)', 'AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1 AND 0)', 'test(first_sync_persisted_job_state)'),
+    ('job_state_owner', 'page', 'WHERE synced_key.user_id=?1', 'WHERE 1', 'test(first_sync_persisted_job_state)'),
+    ('ledger_job_state', 'page', '?2 || synced_key.id', "'unused-ledger'", 'test(first_sync_persisted_job_state)'),
+    ('balance_job_state', 'page', '?3 || synced_key.id', "'unused-balance'", 'test(first_sync_persisted_job_state)'),
     ('settings_shape', 'page', 'if !shape.is_null() && !shape.is_object()', 'if false && !shape.is_null() && !shape.is_object()', page),
     ('key_owner', 'page', 'EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)', 'EXISTS(SELECT 1 FROM api_keys WHERE 1)', query),
     ('foreign_keys', 'page', 'WHERE k.user_id=?1 AND (', 'WHERE (k.user_id=?1 OR k.user_id<>?1) AND (', query),

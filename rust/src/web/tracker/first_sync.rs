@@ -4,14 +4,17 @@ use rusqlite::Connection;
 
 /// A complete first-sync page only: no history can be mislabeled as an empty record.
 /// Keep the owner and the absence predicates in SQL, including zero balances.
+/// Any persisted key-scoped sync state counts, regardless of its value or current page filters.
 pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
+    use crate::{jobs::state, sync::jobs::{LEDGER_SYNC, BALANCE_SYNC}};
     Ok(c.query_row("SELECT
       EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM api_keys k LEFT JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND (e.type IS NULL OR e.type!='Exchanges::Alpaca' OR COALESCE(k.status,-1)!=1 OR COALESCE(k.key_type,-1) NOT IN (0,2) OR k.last_synced_at IS NOT NULL OR k.balances_synced_at IS NOT NULL OR COALESCE(k.last_sync_error,'')!=''))
+      AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",[owner],|r|r.get(0))?)
+      AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some(""))],|r|r.get(0))?)
 }
 
 
@@ -69,7 +72,7 @@ mod tests {
     use super::*;
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE exchanges(id INTEGER,type TEXT); CREATE TABLE api_keys(user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_synced_at TEXT,balances_synced_at TEXT,last_sync_error TEXT); CREATE TABLE account_transactions(user_id INTEGER); CREATE TABLE account_balances(user_id INTEGER); CREATE TABLE portfolio_snapshots(user_id INTEGER); CREATE TABLE portfolio_venue_snapshots(user_id INTEGER); INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca'),(2,'Exchanges::Kraken'); INSERT INTO api_keys VALUES(7,1,1,0,NULL,NULL,NULL);").unwrap();
+        c.execute_batch("CREATE TABLE exchanges(id INTEGER,type TEXT); CREATE TABLE app_configs(key TEXT,value TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_synced_at TEXT,balances_synced_at TEXT,last_sync_error TEXT); CREATE TABLE account_transactions(user_id INTEGER); CREATE TABLE account_balances(user_id INTEGER); CREATE TABLE portfolio_snapshots(user_id INTEGER); CREATE TABLE portfolio_venue_snapshots(user_id INTEGER); INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca'),(2,'Exchanges::Kraken'); INSERT INTO api_keys VALUES(11,7,1,1,0,NULL,NULL,NULL);").unwrap();
         c
     }
     #[test]
@@ -89,8 +92,31 @@ mod tests {
             assert!(!supported(&c,7).unwrap(),"{change}");
         }
         let c=db();c.execute("UPDATE api_keys SET key_type=2",[]).unwrap();assert!(supported(&c,7).unwrap());
-        c.execute("INSERT INTO api_keys VALUES(8,2,2,1,'old','old','foreign')",[]).unwrap();assert!(supported(&c,7).unwrap());
-        c.execute("INSERT INTO api_keys VALUES(7,2,1,0,NULL,NULL,NULL)",[]).unwrap();assert!(!supported(&c,7).unwrap());
+        c.execute("INSERT INTO api_keys VALUES(12,8,2,2,1,'old','old','foreign')",[]).unwrap();assert!(supported(&c,7).unwrap());
+        c.execute("INSERT INTO api_keys VALUES(13,7,2,1,0,NULL,NULL,NULL)",[]).unwrap();assert!(!supported(&c,7).unwrap());
+    }
+    #[test]
+    fn first_sync_persisted_job_state_is_owner_scoped_and_value_independent() {
+        use crate::sync::jobs::{LEDGER_SYNC, BALANCE_SYNC};
+        for job in [LEDGER_SYNC, BALANCE_SYNC] {
+            for value in [Some(r#"{"last_success_at":"2026-10-07T00:00:00Z"}"#),
+                          Some(r#"{"last_error":"failed"}"#),
+                          Some(r#"{"incomplete_since":"2026-10-07T00:00:00Z"}"#),
+                          Some("{}"), Some("invalid JSON"), None] {
+                let c=db();
+                c.execute("INSERT INTO api_keys VALUES(12,8,2,2,1,'old','old','foreign')",[]).unwrap();
+                let key=crate::jobs::state::key(job,Some("12"));
+                c.execute("INSERT INTO app_configs VALUES(?1,?2)",rusqlite::params![key,value]).unwrap();
+                assert!(supported(&c,7).unwrap(),"foreign {job} {value:?}");
+                let key=crate::jobs::state::key(job,Some("110"));
+                c.execute("INSERT INTO app_configs VALUES(?1,?2)",rusqlite::params![key,value]).unwrap();
+                assert!(supported(&c,7).unwrap(),"unowned suffix {job}");
+                c.execute("INSERT INTO api_keys VALUES(13,7,1,1,0,NULL,NULL,NULL)",[]).unwrap();
+                let key=crate::jobs::state::key(job,Some("13"));
+                c.execute("INSERT INTO app_configs VALUES(?1,?2)",rusqlite::params![key,value]).unwrap();
+                assert!(!super::super::read::only(&c,|c|supported(c,7)).unwrap(),"owned second key {job} {value:?}");
+            }
+        }
     }
     #[test]
     fn first_sync_database_errors_are_propagated() {

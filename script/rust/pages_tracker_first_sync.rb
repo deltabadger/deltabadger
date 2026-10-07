@@ -43,6 +43,33 @@ before['first_fx_backoff'] = lambda do
   User.first.update!(display_currency: 'EUR')
   Rails.cache.write(Denomination.backoff_key('EUR'), true, expires_in: 5.minutes)
 end
+# Rust scheduler state is plain text, unlike AppConfig's encrypted attribute writer.
+job_state = lambda do |job, key_id, value|
+  c = AppConfig.connection
+  c.execute('INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(' \
+            "#{c.quote("rust_job.#{job}:#{key_id}")},#{c.quote(value)},#{c.quote(Time.current)},#{c.quote(Time.current)})")
+end
+# Both API-key scoped jobs are enumerated in rust/src/sync/jobs.rs and jobs/resolve.rs.
+%w[ledger_sync balance_sync].each do |job|
+  {
+    'success' => { last_run_at: '2026-10-07T00:00:00Z', last_success_at: '2026-10-07T00:00:00Z' }.to_json,
+    'failed' => { last_error_at: '2026-10-07T00:00:00Z', last_error: 'synthetic failure' }.to_json,
+    'incomplete' => { incomplete_since: '2026-10-07T00:00:00Z' }.to_json,
+    'empty' => '{}', 'malformed' => 'invalid JSON', 'null' => nil
+  }.each do |state, value|
+    before["first_job_#{job}_#{state}"] = lambda do
+      Exchanges::Kraken.create!(name: 'Kraken', maker_fee: 0, taker_fee: 0)
+      job_state.call(job, ApiKey.first.id, value)
+    end
+  end
+  before["first_job_#{job}_foreign"] = lambda do
+    foreign = User.create!(Pages.owner('email' => 'foreign@example.com').merge('password' => Pages::PASSWORD))
+    key = ApiKey.first.dup
+    key.user = foreign
+    key.save!
+    job_state.call(job, key.id, { last_success_at: '2026-10-07T00:00:00Z' }.to_json)
+  end
+end
 Pages.send(:remove_const, :BEFORE)
 Pages.const_set(:BEFORE, before.freeze)
 
@@ -95,6 +122,13 @@ module D5FirstSyncGrid
     add.call('escaped_scope', '/tracker?exchange_id=1%22%3E%3Cscript%3E')
     %w[balance transaction snapshot venue_snapshot balance_mark ledger_mark failed other_venue two_venues].each do |name|
       add.call("deferred_#{name}", '/tracker', {}, "first_#{name}")
+    end
+    %w[ledger_sync balance_sync].each do |job|
+      %w[success failed incomplete empty malformed null].each do |state|
+        add.call("deferred_job_#{job}_#{state}", '/tracker?exchange_id=2&from=2024-01-01&to=2024-01-02',
+                 {}, "first_job_#{job}_#{state}")
+      end
+      add.call("job_#{job}_foreign", '/tracker', {}, "first_job_#{job}_foreign")
     end
     add.call('deferred_withdrawal', '/tracker', {}, nil, {}, 'alpaca_withdrawal')
     add.call('deferred_incorrect', '/tracker', {}, nil, {}, 'alpaca_incorrect')
