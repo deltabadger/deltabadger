@@ -1,0 +1,44 @@
+{
+  "sources": {
+    "app/jobs/account_transaction/sync_job.rb": "801dcaad518822936ddec31bba1d6c6e68bcd21a603700c702f35bb6a1e8c724",
+    "app/jobs/tracker/ledger_job.rb": "f0b8c9bc56fab031a0f475bab4220120dc87a68b3148cf073f9a56ede5b053c9"
+  },
+  "records": {
+    "sync_1_success": [
+      [
+        "user_1:sync",
+        "<turbo-stream action=\"remove\" target=\"sync-progress\"></turbo-stream>"
+      ]
+    ],
+    "sync_1_failure": [
+      [
+        "user_1:sync",
+        "<turbo-stream action=\"remove\" target=\"sync-progress\"></turbo-stream>"
+      ]
+    ],
+    "ledger_1": [
+      [
+        "user_1:sync",
+        "<turbo-stream action=\"refresh\"></turbo-stream>"
+      ]
+    ],
+    "sync_42_success": [
+      [
+        "user_42:sync",
+        "<turbo-stream action=\"remove\" target=\"sync-progress\"></turbo-stream>"
+      ]
+    ],
+    "sync_42_failure": [
+      [
+        "user_42:sync",
+        "<turbo-stream action=\"remove\" target=\"sync-progress\"></turbo-stream>"
+      ]
+    ],
+    "ledger_42": [
+      [
+        "user_42:sync",
+        "<turbo-stream action=\"refresh\"></turbo-stream>"
+      ]
+    ]
+  }
+}

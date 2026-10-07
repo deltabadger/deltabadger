@@ -785,3 +785,27 @@ async fn a_bots_page_stream_is_confirmed_only_on_its_users_connections() -> Resu
     server.abort();
     Ok(())
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn completion_notifications_reach_only_the_owners_cable_stream() {
+    let (_dir, app, address) = served().await;
+    let (mut owner, _) = open(address, "http://localhost:3000").await.unwrap();
+    let (mut second, _) = open_as(address, "http://localhost:3000", Some(&signed_in(&app, SECOND))).await.unwrap();
+    next(&mut owner).await;
+    next(&mut second).await;
+    for (socket, stream) in [(&mut owner, "user_1:sync"), (&mut second, "user_2:sync")] {
+        command(socket, "subscribe", &identifier(&app, stream)).await;
+        assert_eq!(next_event(socket).await["type"], "confirm_subscription");
+    }
+    app.job_notifications().sync_done(OWNER);
+    app.job_notifications().ledger_done(OWNER);
+    app.hub.broadcast("user_1:sync", "end");
+    app.hub.broadcast("user_2:sync", "foreign-end");
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/tracker_completion.json")).unwrap();
+    assert_eq!(next_event(&mut owner).await["message"], fixture["records"]["sync_1_success"][0][1]);
+    assert_eq!(next_event(&mut owner).await["message"], fixture["records"]["ledger_1"][0][1]);
+    assert_eq!(next_event(&mut owner).await["message"], "end", "exactly one of each");
+    assert_eq!(next_event(&mut second).await["message"], "foreign-end");
+    owner.close(None).await.unwrap();
+    second.close(None).await.unwrap();
+}

@@ -234,7 +234,10 @@ impl<T: Transport> Job for LedgerWalk<T> {
     }
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
-            match ledger_run(&cx.db, (*self.api).as_ref(), self.user_id, cx.clock, self.wall.clone(), &mut Allowance::run()).await { Ok(_) => Outcome::Done, Err(e) => Outcome::Failed(e) }
+            match ledger_run(&cx.db, (*self.api).as_ref(), self.user_id, cx.clock, self.wall.clone(), &mut Allowance::run()).await {
+                Ok(_) => { cx.db.notifications.ledger_done(self.user_id); Outcome::Done }
+                Err(e) => Outcome::Failed(e),
+            }
         })
     }
 }

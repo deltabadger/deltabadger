@@ -85,16 +85,26 @@ impl<C: Connect> Job for LedgerSync<C> {
     /// Whatever woke it (the schedule, a manual wake, any number of orders), a run is one sync of this key.
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
-            let credentials = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return Outcome::Failed(e) };
-            let key = self.key_id.to_string();
-            let at = cx.clock.now();
-            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-            let outcome = outcome(ledger::sync_within(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits).await, |out| out.complete);
-            // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
-            // whole history at once; other due jobs run in between.
-            if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
-            // Rails' SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
-            else { crate::tracker::jobs::wake_for_key(&cx, self.key_id).await; }
+            let key_id = self.key_id;
+            let owner = match cx.db.run(move |c, _| c.query_row("SELECT user_id FROM api_keys WHERE id=?1", [key_id], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string())).await {
+                Ok(owner) => owner,
+                Err(e) => return Outcome::Failed(e),
+            };
+            let outcome = async {
+                let credentials = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return Outcome::Failed(e) };
+                let key = self.key_id.to_string();
+                let at = cx.clock.now();
+                if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+                let outcome = outcome(ledger::sync_within(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits).await, |out| out.complete);
+                // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
+                // whole history at once; other due jobs run in between.
+                if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
+                // Rails' SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
+                else { crate::tracker::jobs::wake_for_key(&cx, self.key_id).await; }
+                outcome
+            }.await;
+            // A capped import continues; only its final success/failure completes the Rails job.
+            if outcome != Outcome::NothingNew { cx.db.notifications.sync_done(owner); }
             outcome
         })
     }

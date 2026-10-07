@@ -164,7 +164,10 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(jobs::resolve::all(LiveFactory::new(),api,deltabadger::tracker::jobs::system_wall()));
-    if let Some(web) = web { web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?; }
+    let scheduler = if let Some(web) = web {
+        web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;
+        scheduler.with_notifications(web.job_notifications())
+    } else { scheduler };
     Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
 }
 
