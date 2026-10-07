@@ -12,7 +12,7 @@ use std::time::Duration;
 #[derive(Clone,Default)]
 pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
-pub enum Snapshot { Cold, Failed, Ready(Cache,At,u64) }
+pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
 pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials }
 fn revision(c:&Connection)->Result<u64,rusqlite::Error> {
     let version:u64=c.query_row("PRAGMA data_version",[],|r|r.get(0))?;
@@ -74,31 +74,40 @@ pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::Figur
     }
     Ok(names.into_iter().collect())
 }
-async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At)->bool {
-    fill_with(app,user,cache,wire,now,|_,_|Ok(true),move|c,reader|account(c,user,reader,now,"en","","").is_ok()).await
+type FillResult=Result<(),Option<&'static str>>;
+async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At)->FillResult {
+    fill_result(app,user,cache,wire,now,|_,_|Ok(true),move|c,reader|account(c,user,reader,now,"en","","").map(|_|())).await
 }
-/// Computes `work` against the cache, fetches what it asked for and computes again, at most four times. True when the
-/// last pass asked for nothing, nothing failed, and `work` succeeded.
+/// The MCP caller needs only readiness; the page caller retains a safe reason from computation.
 pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->bool+Clone+Send+'static)->bool {
+    fill_result(app,user,cache,wire,now,admit,move|c,reader|if work(c,reader){Ok(())}else{Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into()))}).await.is_ok()
+}
+/// Compute, fetch demands and retry at most four times. Only a fixed public reason crosses into
+/// failed snapshots: arbitrary provider diagnostics and stored data cannot become page text.
+async fn fill_result(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->Result<(),crate::figures::FiguresError>+Clone+Send+'static)->FillResult {
     for _ in 0..4 {
-        let snapshot=cache.clone();
-        let work=work.clone();
+        let snapshot=cache.clone();let work=work.clone();
         let pass=app.db(move|c|{
             if !admit(c,user)? { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
                 let reader=Reader::new(&snapshot,now.utc().timestamp()).with_symbols(names);
-                let ready=work(c,&reader) && !reader.failed();
-                Ok::<_,crate::figures::FiguresError>((reader.demands(),ready))
+                let result=work(c,&reader);
+                let ready=result.is_ok() && !reader.failed();
+                let reason=match result {
+                    Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>Some("Currency conversion unavailable"),
+                    _=>None,
+                };
+                Ok::<_,crate::figures::FiguresError>((reader.demands(),ready,reason))
             });
-            Ok(result.ok()) // allow-swallow: a computation that fails is a failed fill (no value, retried after its minute)
+            Ok(result.ok()) // allow-swallow: computation failure becomes a failed fill; only the safe reason above is retained
         }).await;
-        let Ok(Some((demands,ready)))=pass else { return false };
-        if demands.is_empty(){return ready;}
-        if demands.len()>crate::figures::page_market::MAX_ENTRIES{return false;}
+        let Ok(Some((demands,ready,reason)))=pass else { return Err(None) };
+        if demands.is_empty(){return if ready{Ok(())}else{Err(reason)};}
+        if demands.len()>crate::figures::page_market::MAX_ENTRIES{return Err(None);}
         cache.fill(wire,demands,now.utc().timestamp()).await;
     }
-    false
+    Err(None)
 }
 pub async fn prepare(app:&App,user:i64)->Result<Snapshot,WebError>{
     begin(app,user).await
@@ -108,10 +117,10 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed)};
-    let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed)};
+    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(None))};
+    let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
-        Load::Cold=>Ok(Snapshot::Cold),Load::Failed=>Ok(Snapshot::Failed),
+        Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
         Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
         Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision))},
@@ -119,12 +128,13 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
             let inner=app.clone();let source=app.figure_source.clone();
             tokio::spawn(async move {
                 let wire=Wire::new(&info.credentials,source);
-                let ready=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(false);
+                let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(Err(None));
                 let check=inner.clone();
                 let current=inner.db(move|c|read_info(c,&check,user)).await;
                 let unchanged=matches!(current,Ok(Some(ref current)) if current.identity==info.identity && current.revision==info.revision);
                 cache.set_stamp(now);
-                ticket.finish(cache,ready&&unchanged,inner.now().timestamp());
+                let reason=if unchanged{result.as_ref().err().copied().flatten()}else{None};
+                ticket.finish_with_reason(cache,result.is_ok()&&unchanged,reason,inner.now().timestamp());
                 // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
                 // limit turned away. A fill a write overtook is not published: publishing starts the next fill, and each
                 // fill a waiting account starts spends one of its own allowance (`service::ALLOWANCE`), so failures and
@@ -144,6 +154,7 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
 /// `Ok(None)` while the figures are cold; an error only when the fallback cannot read the account's bots.
 pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
     if matches!(snapshot,Snapshot::Cold){return Ok(None);}
+    let mut fx_unavailable=matches!(snapshot,Snapshot::Failed(Some("Currency conversion unavailable")));
     if let Snapshot::Ready(cache,now,prepared_revision)=snapshot {
         let computed=budget::within(||{
             let unavailable=||crate::figures::FiguresError::NotComputed("Market data unavailable".into());
@@ -158,17 +169,21 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             }
             Ok(value)
         });
-        if let Ok(value)=computed{return Ok(Some(value));}
+        match computed {
+            Ok(value)=>return Ok(Some(value)),
+            Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>fx_unavailable=true,
+            Err(_)=>{},
+        }
     }
     // A failed cache has no metrics. Recover the shared stored-fill refusal under the same budget.
     let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
         for (id,_) in db::account_bots(c,user)?{for order in db::orders(c,id)?{crate::figures::fill::parse(&order)?;}}
         Ok(())
     });
-    let no_value=match fills{
+    let no_value=if fx_unavailable {"<span class=\"no-value\">Currency conversion unavailable</span>"}else{match fills{
         Err(crate::figures::FiguresError::NotComputed(why)) if why=="executed fill value unavailable"=>"<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>",
         _=>super::NO_VALUE,
-    };
+    }};
     // The fallback is every bot's no value, or nothing: a failure to read the bots fails the render, never publishes the
     // headline alone.
     let mut bots=serde_json::Map::new();

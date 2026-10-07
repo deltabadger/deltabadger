@@ -35,7 +35,7 @@ impl Prepared {
     pub fn denomination(&self,c:&Connection,owner:i64,now:i64)->Result<Option<Denomination>,WebError>{
         let current:String=c.query_row("SELECT display_currency FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let identity=crate::engine::provider::fingerprint(c).map_err(|_|unavailable())?;
-        let _=now; // Task 4 adds the transaction-time expiry fence.
+        if now>=self.until{return Ok(None);}
         if current!=self.requested || identity!=self.identity{return Ok(None);}
         self.rate.as_ref().map(|rate| {
             let rate=Dec::strict(rate).map_err(|_|unavailable())?;

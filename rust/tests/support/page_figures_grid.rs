@@ -157,7 +157,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             assert!(matches!(err,deltabadger::figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"));
             assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"Rails recorded its skipped-row figure");
             use deltabadger::web::figure::loading::{self,Snapshot};
-            let rendered=loading::render(&c,sc["user_id"].as_i64().unwrap(),&Snapshot::Failed,"en","token","").unwrap().unwrap();
+            let rendered=loading::render(&c,sc["user_id"].as_i64().unwrap(),&Snapshot::Failed(None),"en","token","").unwrap().unwrap();
             let absent="<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
             assert_eq!(rendered,serde_json::json!({"bots":{"1":{
                 "tile":format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"),
@@ -198,7 +198,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 loop {
                     match loading::prepare(&app,user).await.unwrap() {
                         loading::Snapshot::Ready(_,_,_)=>break,
-                        loading::Snapshot::Failed=>panic!("fill failed"),
+                        loading::Snapshot::Failed(_)=>panic!("fill failed"),
                         _=>tokio::task::yield_now().await,
                     }
                 }
@@ -240,7 +240,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 // A missing cache entry must never expose the core's successful ledger fallback.
                 let pending=loading::Snapshot::Ready(Cache::default(),at,revision);
                 let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","")).await.unwrap().unwrap();
-                let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed,"en","token","")).await.unwrap().unwrap();
+                let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed(None),"en","token","")).await.unwrap().unwrap();
                 assert_eq!(pending,failed,"pending demands published a ledger figure or account total");
                 // Cache a refused price demand and require the same honest unavailable result.
                 let names=app.db(move|c| Ok(loading::symbols(c,user).unwrap())).await.unwrap();
@@ -475,7 +475,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 app.db(|c| { c.execute_batch("ALTER TABLE bots RENAME TO bots_away")?; Ok(()) }).await.unwrap();
                 // Check the fallback's own boundary: the later stream lookup can also fail and mask a swallowed read.
                 app.db(move |c| {
-                    assert!(loading::render(c,user,&loading::Snapshot::Failed,"en","","").is_err(),
+                    assert!(loading::render(c,user,&loading::Snapshot::Failed(None),"en","","").is_err(),
                         "a fallback whose bots cannot be read must fail before constructing a partial page");
                     Ok(())
                 }).await.unwrap();
@@ -599,7 +599,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     loop {
                         match loading::prepare(&app,user).await.unwrap() {
                             loading::Snapshot::Ready(_,_,_)=>break,
-                            loading::Snapshot::Failed=>panic!("corrected fill failed"),
+                            loading::Snapshot::Failed(_)=>panic!("corrected fill failed"),
                             _=>tokio::task::yield_now().await,
                         }
                     }

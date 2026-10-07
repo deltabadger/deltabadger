@@ -16,10 +16,10 @@ struct State { active:usize, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTr
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
-struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,cache:Cache }
+struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,reason:Option<&'static str>,cache:Cache }
 /// `Busy`: both fills are taken by other accounts. `Failed` also when a fill is needed and the waiting account has no
 /// allowance left.
-pub enum Load { Cold, Failed, Busy, Ready(Cache,i64), Start(Ticket,Cache) }
+pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64), Start(Ticket,Cache) }
 pub struct Ticket { service:Service,user:i64,serial:u64,finished:bool }
 impl Service {
     fn state(&self)->MutexGuard<'_,State> { self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
@@ -28,9 +28,9 @@ impl Service {
         // One fill per account, whatever revision it was started for: its end starts the next one if a page still waits.
         if state.entries.get(&user).is_some_and(|e|e.loading) { return Load::Cold; }
         if let Some(entry)=state.entries.get(&user).filter(|e|e.identity==identity&&e.revision==revision) {
-            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed }; }
+            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }
         }
-        if state.wanted.get(&user)==Some(&0) { return Load::Failed; }
+        if state.wanted.get(&user)==Some(&0) { return Load::Failed(None); }
         // Waiting for capacity spends nothing.
         if state.active>=2 { return Load::Busy; }
         if state.entries.len()>=ACCOUNTS && !state.entries.contains_key(&user) {
@@ -40,7 +40,7 @@ impl Service {
         if let Some(allowance)=state.wanted.get_mut(&user) { *allowance-=1; }
         let cache=state.entries.get(&user).filter(|e|e.identity==identity).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty
         state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;
-        state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,cache:cache.clone()});
+        state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone()});
         Load::Start(Ticket{service:self.clone(),user,serial,finished:false},cache)
     }
     /// A page asked for this user's figures and they could not be published yet (loading::publish). A fill already
@@ -110,14 +110,15 @@ impl Service {
 }
 impl Ticket {
     /// `now`: when the fill ended. A failure is kept for a minute from then, however long the fill ran.
-    pub fn finish(mut self,cache:Cache,ready:bool,now:i64) { self.store(cache,ready,Some(now));self.finished=true; }
-    fn store(&self,cache:Cache,ready:bool,ended:Option<i64>) {
+    pub fn finish(self,cache:Cache,ready:bool,now:i64) { self.finish_with_reason(cache,ready,None,now); }
+    pub fn finish_with_reason(mut self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64) { self.store(cache,ready,reason,Some(now));self.finished=true; }
+    fn store(&self,cache:Cache,ready:bool,reason:Option<&'static str>,ended:Option<i64>) {
         let mut state=self.service.state();
         state.active=state.active.saturating_sub(1);
         if let Some(entry)=state.entries.get_mut(&self.user).filter(|e|e.serial==self.serial) {
-            entry.loading=false;entry.ready=ready;entry.cache=cache;
+            entry.loading=false;entry.ready=ready;entry.reason=if ready{None}else{reason};entry.cache=cache;
             entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
         }
     }
 }
-impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None); } } }
+impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None); } } }

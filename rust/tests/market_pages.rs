@@ -103,7 +103,7 @@ fn page_loads_coalesce_and_late_results_cannot_replace_rotated_credentials() {
     assert!(matches!(service.begin(1,"key-b",2,299),Load::Ready(_,100)));
     assert!(matches!(service.begin(1,"key-b",2,300),Load::Start(_, _)));
     // Dropping a cancelled fill becomes a terminal state with bounded retry, not an eternal spinner.
-    assert!(matches!(service.begin(1,"key-b",2,300),Load::Failed));
+    assert!(matches!(service.begin(1,"key-b",2,300),Load::Failed(_)));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn a_failure_lasts_a_minute_from_its_end_and_a_wait_outlives_a_full_house() {
     let service = Service::default();
     let Load::Start(slow, _) = service.begin(1,"k",1,0) else { panic!("starts") };
     slow.finish(Cache::default(),false,90); // failed at the 90-second timeout
-    assert!(matches!(service.begin(1,"k",1,149),Load::Failed), "kept for a minute from its end, not its start");
+    assert!(matches!(service.begin(1,"k",1,149),Load::Failed(_)), "kept for a minute from its end, not its start");
     assert!(matches!(service.begin(1,"k",1,150),Load::Start(_, _)));
     // Who waits is kept until published; an account whose fill runs is not idle.
     let service = Service::default();
@@ -132,7 +132,7 @@ fn a_failure_lasts_a_minute_from_its_end_and_a_wait_outlives_a_full_house() {
         attempt.finish(Cache::default(),false,0);
     }
     assert_eq!(service.allowance(9), Some(0));
-    assert!(matches!(service.begin(9,"k",u64::from(ALLOWANCE) + 1,0),Load::Failed));
+    assert!(matches!(service.begin(9,"k",u64::from(ALLOWANCE) + 1,0),Load::Failed(_)));
 }
 
 #[test]
