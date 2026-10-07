@@ -15,7 +15,7 @@ pipeline = root / 'rust/src/web/mod.rs'
 selection = root / 'rust/src/sync/mod.rs'
 original = {p: p.read_text() for p in (source, pipeline, selection)}
 results = []
-env = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_PROFILE_DEV_DEBUG='0',
+env = dict(os.environ, CARGO_BUILD_JOBS='6', CARGO_PROFILE_DEV_DEBUG='0',
            CARGO_PROFILE_TEST_DEBUG='0', CARGO_INCREMENTAL='0', CARGO_TERM_COLOR='never')
 assert Path(env['CARGO_TARGET_DIR']).resolve().is_relative_to(root.parent.resolve())
 
@@ -32,7 +32,7 @@ def run(name, selected=None):
     if shutil.disk_usage('/').free < 15 * 1024**3:
         raise RuntimeError('STOP: less than 15 GiB free')
     args = ['cargo', 'nextest', 'run', '--manifest-path', str(root / 'rust/Cargo.toml'),
-            '--locked', '-j', '4', '--no-fail-fast']
+            '--locked', '-j', '5', '--no-fail-fast']
     if selected:
         args += ['--test', 'tracker_sync' if selected.startswith('sync_') else 'tracker_writes', '-E', f'test(={selected})']
     else:

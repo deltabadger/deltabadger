@@ -131,6 +131,20 @@ impl<T: Transport> DataApi<T> {
             .map_err(|_| ApiError::Failed { status: Some(status), message: format!("Unreadable response (HTTP {status})") })
     }
 
+    /// Current fiat feed, bounded before JSON numeric conversion. Diagnostics never include response data.
+    pub async fn exchange_rates(&self) -> Result<Value, ApiError> {
+        let req=HttpRequest{method:"GET",base:self.config.url.trim_end_matches('/').into(),path:"/api/v1/exchange_rates".into(),query:vec![],body:None,not_after:None};
+        let failed=|status|ApiError::Failed{status,message:"Currency conversion unavailable".into()};
+        let reply=match self.normal.send_limited(&req,256*1024).await {
+            Ok(reply)=>reply,
+            Err(TransportError::Permanent(_))=>return Err(failed(None)),
+            Err(TransportError::NotSent(_)|TransportError::MaybeSent(_))=>return Err(ApiError::Transient("Currency conversion unavailable".into())),
+        };
+        if reply.status>=400{return Err(failed(Some(reply.status)));}
+        let body=http::decode_json(&reply.body).map_err(|_|failed(Some(reply.status)))?;
+        Ok(body["data"].clone())
+    }
+
     pub async fn assets(&self) -> Result<Value, ApiError> { self.get("/api/v1/assets", &[], false).await }
     pub async fn indices(&self) -> Result<Value, ApiError> { self.get("/api/v2/indices", &[], false).await }
     pub async fn tickers(&self, exchange: &str) -> Result<Value, ApiError> { self.get(&format!("/api/v1/tickers/{exchange}"), &[], false).await }

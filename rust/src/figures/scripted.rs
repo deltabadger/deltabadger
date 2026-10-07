@@ -121,10 +121,10 @@ impl MarketData for Scripted {
         };
         let mut out = vec![];
         for (currency, rate) in rates.as_object().into_iter().flatten() {
-            match Num::from_json(&rate["value"]) {
+            match Num::from_fx_json(&rate["value"]) {
                 Ok(Some(value)) => out.push((currency.clone(), Ok(value))),
                 Ok(None) if rate["value"].is_null() => {} // no value: the currency has no rate
-                // Ruby would divide a String by a String and raise NoMethodError somewhere this plan did not measure.
+                // Malformed strings are refused instead of Ruby String#to_f prefix parsing.
                 Ok(None) => out.push((currency.clone(), Err(NumError::NotANumber))),
                 Err(error) => out.push((currency.clone(), Err(error))),
             }

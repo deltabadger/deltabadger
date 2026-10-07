@@ -46,6 +46,17 @@ impl Num {
         }
     }
 
+    /// Provider fiat operands use Ruby Float, accepting only whole trimmed decimal strings.
+    /// Unlike String#to_f, a numeric prefix followed by garbage is never accepted.
+    pub fn from_fx_json(value: &serde_json::Value) -> Result<Option<Num>, NumError> {
+        let number = match value {
+            serde_json::Value::String(text) => text.trim().parse::<f64>().map_err(|_| NumError::NotANumber)?,
+            // Preserve the existing JSON-number domain guard; totals converts these to f64.
+            _ => return Self::from_json(value),
+        };
+        finite(number).map(Some)
+    }
+
     /// `to_d`: Integer exactly, Float through its shortest digits (Float#to_d).
     pub fn to_d(&self) -> Result<Dec, NumError> {
         match self {

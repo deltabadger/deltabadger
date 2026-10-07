@@ -16,7 +16,7 @@ paths = {name: root / path for name, path in {
     'scheduler':'rust/src/jobs/mod.rs', 'cast':'rust/src/web/string_column.rs',
 }.items()}
 original = {name: path.read_text() for name, path in paths.items()}
-env = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_PROFILE_DEV_DEBUG='0',
+env = dict(os.environ, CARGO_BUILD_JOBS='6', CARGO_PROFILE_DEV_DEBUG='0',
            CARGO_PROFILE_TEST_DEBUG='0', CARGO_INCREMENTAL='0', CARGO_TERM_COLOR='never')
 assert Path(env['CARGO_TARGET_DIR']).resolve().is_relative_to(root.parent.resolve())
 results = []
@@ -33,7 +33,7 @@ def run(name, test=None):
     subprocess.run(['df', '-g', '/'], check=True)
     assert shutil.disk_usage('/').free >= 15 * 1024**3, 'STOP: less than 15 GiB free'
     args = ['cargo', 'nextest', 'run', '--manifest-path', str(root / 'rust/Cargo.toml'),
-            '--locked', '-j', '4', '--no-fail-fast', '--test', 'tracker_transactions', '--test', 'tracker_write_parity', '--test', 'tracker_pages', '--test', 'tracker_writes']
+            '--locked', '-j', '5', '--no-fail-fast', '--test', 'tracker_transactions', '--test', 'tracker_write_parity', '--test', 'tracker_pages', '--test', 'tracker_writes']
     if test:
         args += ['-E', f'test(={test})']
     with (out / f'{name}.log').open('w') as log:
@@ -92,8 +92,10 @@ try:
     assert run('baseline')[0] == 0, 'baseline must pass'
     for name, path, before, after, test in mutants:
         count = original[path].count(before)
-        assert count == (2 if name in ['ledger_wake','turbo_content_type'] else 1), f'ambiguous/missing mutation: {name}: {count}'
+        assert count == (3 if name == 'turbo_content_type' else 2 if name == 'ledger_wake' else 1), f'ambiguous/missing mutation: {name}: {count}'
         try:
+            if name == 'owner':
+                paths['transaction'].write_text(original['transaction'].replace('id=?1 AND user_id=?2', 'id=?1 AND (user_id=?2 OR user_id<>?2)'))
             paths[path].write_text(original[path].replace(before, after))
             code, log = run(name, test)
             killed = code == 100 and 'FAIL' in log and 'test run failed' in log
@@ -103,6 +105,7 @@ try:
             print(f'{name}: killed by {test}', flush=True)
         finally:
             paths[path].write_text(original[path])
+            paths['transaction'].write_text(original['transaction'])
     assert run('restored')[0] == 0, 'restored production must pass'
 finally:
     for name, source in original.items():

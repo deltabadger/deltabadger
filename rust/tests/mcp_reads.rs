@@ -105,7 +105,7 @@ async fn four_reads_match_rails() {
             let cache=Cache::default();let market=Reader::new(&cache,now.utc().timestamp());
             let page=figure::account(&c,1,&market,now,"en","","");
             assert!(format!("{page:?}").contains("executed fill value unavailable"),"pages cannot publish the skipped-fill figure");
-            let rendered=figure::loading::render(&c,1,&figure::loading::Snapshot::Failed,"en","","").unwrap().unwrap();
+            let rendered=figure::loading::render(&c,1,&figure::loading::Snapshot::Failed(None),"en","","").unwrap().unwrap();
             for key in ["tile","metrics","chart"]{assert!(rendered["bots"]["1"][key].as_str().unwrap().contains("Figures unavailable: executed fill value unavailable"));}
             assert!(rendered["account"].as_str().unwrap().contains("Figures unavailable: executed fill value unavailable"));
         }

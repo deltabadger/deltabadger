@@ -5,6 +5,7 @@ use axum::{extract::{Extension, State}, http::{header, HeaderMap, StatusCode}, r
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{Map, Value};
 
+pub mod fx;
 pub mod row;
 pub mod transaction;
 pub mod modal;

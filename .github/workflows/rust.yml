@@ -239,5 +239,5 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
+          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
           --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract

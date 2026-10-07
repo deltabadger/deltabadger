@@ -25,8 +25,8 @@ pub const FIAT_SYMBOLS: [&str; 33] = [
 ];
 
 /// Utilities::Currency.exchange_rate, uncached: what one `from` is worth in `to`, a fiat currency. A Float one for a
-/// currency against itself; otherwise whatever Ruby made of the provider's answer (an Integer divides as one, and
-/// a coin's price that came as a String is handed on as that String). The outer error is this library's own.
+/// currency against itself; provider fiat FX uses Ruby Float operands and division (D5b-1 round 1).
+/// The outer error is this library's own.
 /// The figures only ever convert into a fiat currency (USD, or the one the account is shown in), so of Rails' four
 /// paths the two with a coin as the target are not here: asked for one, this fails as Rails' last line does.
 fn exchange_rate(c: &Connection, market: &dyn MarketData, from: &str, to: &str) -> Result<Fetch<Quoted>, FiguresError> {
@@ -42,23 +42,42 @@ fn exchange_rate(c: &Connection, market: &dyn MarketData, from: &str, to: &str) 
 
     if fiat(&from, &from_asset) {
         // The provider's rates are BTC-based: if 1 BTC = X EUR and 1 BTC = Y USD, then 1 EUR = Y / X USD.
-        let rates = match market.exchange_rates() { Ok(rates) => rates, Err(failure) => return Ok(Err(failure)) };
+        let rates = match market.exchange_rates() { Ok(rates) => rates, Err(_) => return Ok(Err(fx_unavailable())) };
         let rate = |symbol: &str| rates.iter().find(|(currency, _)| *currency == symbol.to_lowercase()).map(|(_, value)| value.clone());
-        let (Some(from_rate), Some(to_rate)) = (rate(&from), rate(&to)) else { return Ok(Err(Failure::Failed(format!("Exchange rate not found for {from} or {to}")))) };
+        let (Some(from_rate), Some(to_rate)) = (rate(&from), rate(&to)) else { return Ok(Err(fx_unavailable())) };
         // The two rates this conversion uses, and no other: a rate that is no number for a currency nobody asked
         // about stays where it is.
         return Ok(match (from_rate, to_rate) {
-            (Ok(from_rate), Ok(to_rate)) => to_rate.div(&from_rate).map(Quoted::Num).map_err(Failure::from),
-            (Err(error), _) | (_, Err(error)) => Err(Failure::from(error)),
+            (Ok(from_rate), Ok(to_rate)) => (|| {
+                let from = positive_float(from_rate.to_f())?;
+                let to = positive_float(to_rate.to_f())?;
+                let rate = positive_float(to / from)?;
+                Ok(Quoted::Num(Num::Float(rate)))
+            })(),
+            (Err(_), _) | (_, Err(_)) => Err(fx_unavailable()),
         });
     }
     if category(&from_asset).as_deref() == Some("Cryptocurrency") || stablecoin.is_some() {
         // The coin's price in the fiat currency, by its id at the provider: a stablecoin's known id, else the asset's.
         let coin = stablecoin.or_else(|| from_asset.as_ref().and_then(|asset| asset.external_id.clone()));
         let Some(coin) = coin else { return Ok(Err(Failure::Failed(format!("No CoinGecko ID found for {from}")))) };
-        return Ok(market.coin_price(&coin, &to.to_lowercase()));
+        return Ok(market.coin_price(&coin, &to.to_lowercase()).map_err(|_| fx_unavailable()).and_then(positive_fx).map(|d| Quoted::Num(Num::Dec(d))));
     }
     Ok(Err(unknown()))
+}
+
+fn fx_unavailable() -> Failure { Failure::NotComputed("Currency conversion unavailable".into()) }
+fn positive_float(value: f64) -> Fetch<f64> {
+    if !value.is_finite() || value <= 0.0 { return Err(fx_unavailable()); }
+    Ok(value)
+}
+fn positive_fx(value: Quoted) -> Fetch<Dec> {
+    let decimal = match value {
+        Quoted::Num(n) => n.to_d(),
+        Quoted::Text(s) => Dec::strict(&s),
+    }.map_err(Failure::from)?;
+    if !decimal.is_positive() { return Err(fx_unavailable()); }
+    Ok(decimal)
 }
 
 /// One lookup per currency for a page of bots.
@@ -100,8 +119,8 @@ fn profit(c: &Connection, market: &dyn MarketData, rates: &mut Rates, quote: Opt
     Ok(Some(Num::Dec((&profit * &rate.to_d()?)?)))
 }
 
-/// The fiat an account's figures are shown in, and the USD rate into it (Denomination.for). USD when the rate
-/// cannot be had: a currency sign on a dollar figure would be a lie.
+/// The fiat an account's figures are shown in, and the USD rate into it (Denomination.for).
+/// A missing or unusable conversion is unavailable with a reason (D5 ruling 8), never a USD fallback.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Denomination { pub currency: String, pub rate: Dec }
 
@@ -115,7 +134,7 @@ fn shown_in(c: &Connection, market: &dyn MarketData, display_currency: &str) -> 
     if currency.trim().is_empty() || currency == "USD" { return Ok(usd()); }
     match lift(exchange_rate(c, market, "USD", &currency)?)? {
         Some(rate) => Ok(Denomination { rate: rate.to_d()?, currency }),
-        None => Ok(usd()),
+        None => Err(FiguresError::NotComputed("Currency conversion unavailable".into())),
     }
 }
 

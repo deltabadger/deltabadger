@@ -315,6 +315,7 @@ fn derive(secret: &str, label: &str) -> Result<[u8; 32], WebError> {
 }
 
 pub struct Inner {
+    pub fx_cache: tracker::fx::Cache,
     pub figure_service: figure::service::Service,
     pub figure_source: figure::loading::Source,
     pub mcp_instructions: String,
@@ -370,6 +371,7 @@ impl App {
         let cipher = Cipher::new(&encryption);
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
         Ok(Self(Arc::new(Inner {
+            fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
