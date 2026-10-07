@@ -14,6 +14,56 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
       AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",[owner],|r|r.get(0))?)
 }
 
+
+use super::{Ctx,layout};
+use crate::web::{auth,shell::{self,Shell},i18n::{self,Arg},bots::{Segmented,SegmentedOption}};
+use askama::Template;
+use axum::{http::StatusCode,response::Response};
+#[derive(Template)]
+#[template(path="tracker/first_sync.html")]
+struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String}
+
+/// HTML date controls submit ISO days. Other Date.parse grammars remain an explicit later slice.
+fn dates(ctx:&Ctx)->Result<Option<(String,String)>,WebError>{
+    let mut dates=Vec::new();
+    for key in ["from","to"] {
+        let raw=ctx.params.query(key).unwrap_or("");
+        if raw.trim().is_empty(){dates.push(if key=="to"{ctx.app.now().date_naive().to_string()}else{String::new()});continue;}
+        if raw.len()!=10 || raw.as_bytes().get(4)!=Some(&b'-') || raw.as_bytes().get(7)!=Some(&b'-') || !raw.bytes().enumerate().all(|(i,b)|i==4||i==7||b.is_ascii_digit()){return Ok(None);}
+        if raw < "1583-01-01" {return Ok(None);}
+        chrono::NaiveDate::parse_from_str(raw,"%Y-%m-%d").map_err(|_|super::row::invalid())?;
+        dates.push(raw.to_string());
+    }
+    let mut dates=dates.into_iter();
+    Ok(dates.next().zip(dates.next()))
+}
+
+pub fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
+    let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(ctx))};
+    let Some((from,to))=dates(ctx)? else{return Ok(layout::refused(ctx,"tracker date syntax"))};
+    let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
+    let shape:serde_json::Value=match settings.as_deref(){Some(raw)=>serde_json::from_str(raw).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
+    if !shape.is_null() && !shape.is_object(){return Err(super::row::invalid());}
+    // Rails' show_cash? expects a JSON object; syntax and shape are checked before this helper.
+    let show_cash=crate::web::bots::show_cash(settings.as_deref());
+    let options=vec![SegmentedOption{value:"pos",label:i18n::text(ctx.locale,"tracker.positions",&[]),active:true,href:None},SegmentedOption{value:"tx",label:i18n::text(ctx.locale,"tracker.transactions",&[]),active:false,href:None}];
+    let record_switch=format!("\n{}",Segmented{fluid:true,label:i18n::text(ctx.locale,"tracker.positions",&[]),key:Some("tracker-record"),options,links:false}.render()?.lines().filter(|line|!line.is_empty()).collect::<Vec<_>>().join("\n").replace("->","-&gt;").replace("</svg>\n","</svg>\n\n"));
+    let value=i18n::text(ctx.locale,"bot.details.stats.portfolio_value",&[]);
+    let invested=i18n::text(ctx.locale,"bot.details.stats.total_invested",&[]);
+    let hint=i18n::t(ctx.locale,"tracker.tiles.total_pnl_hint",&[("value",Arg::Text(&value)),("invested",Arg::Text(&invested))]);
+    // No balance sync has happened. An empty table cannot prove a zero account value.
+    let reason=ctx.t("tracker.portfolio.never_synced");
+    let unavailable=format!("<span class=\"no-value\" title=\"{reason}\">—</span>");
+    let pairs=ctx.params.query.iter().filter(|(key,_)|matches!(key.as_str(),"exchange_id"|"from"|"to")).cloned().collect::<Vec<_>>();
+    let query=crate::web::locale::switch_query(&pairs);
+    let export_path=i18n::escape(&ctx.path(&format!("/tracker/export{}",if query.is_empty(){String::new()}else{format!("?{query}")})));
+    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable}.render()?;
+    let page=layout::Page{status:StatusCode::OK,body,flash_now:vec![]};
+    if ctx.turbo_frame.is_some(){return layout::frame(&ctx.csrf_token(),&page);}
+    let shell=Shell::load(c,&ctx.app,user)?;
+    shell::application_with_flash_extra(ctx,&ctx.csrf_token(),user,&shell,page,"  <div id=\"sync-warnings\" data-turbo-permanent>\n    \n  </div>\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

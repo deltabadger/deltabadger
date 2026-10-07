@@ -23,14 +23,21 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
             let exists:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get(0))?;
             if !exists{return Ok(layout::missing());}
         }
-        if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty())) || ctx.params.query.iter().any(|(k,_)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) {
+        if ctx.params.query.iter().any(|(k,_)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) {
             return Ok(layout::refused(ctx,"tracker date and structured filters"));
         }
         let populated:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)",[owner],|r|r.get(0))?;
         let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let settings:serde_json::Value=match settings {Some(text)=>serde_json::from_str(&text).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
-        if populated || settings.get("pending_report").is_some_and(serde_json::Value::is_object) {
+        if settings.get("pending_report").is_some_and(serde_json::Value::is_object) {
             return Ok(layout::refused(ctx,"populated tracker index and pending reports"));
+        }
+        if populated {
+            if super::first_sync::supported(c,owner)? {return super::first_sync::render(c,ctx,owner);}
+            return Ok(layout::refused(ctx,"populated tracker index after the first sync"));
+        }
+        if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty())) {
+            return Ok(layout::refused(ctx,"tracker date and structured filters"));
         }
     }
     let Some(user)=ctx.user() else{return Ok(auth::unauthenticated(ctx))};
