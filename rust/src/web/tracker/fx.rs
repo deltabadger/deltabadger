@@ -36,11 +36,11 @@ impl Prepared {
         let current:String=c.query_row("SELECT display_currency FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let identity=crate::engine::provider::fingerprint(c).map_err(|_|unavailable())?;
         if now>=self.until{return Ok(None);}
-        if current!=self.requested || identity!=self.identity{return Ok(None);}
+        if figures::totals::normalized_currency(&current)!=self.requested || identity!=self.identity{return Ok(None);}
         self.rate.as_ref().map(|rate| {
             let rate=Dec::strict(rate).map_err(|_|unavailable())?;
             if !rate.is_positive(){return Err(unavailable());}
-            Ok(Denomination{currency:if self.requested.is_empty(){"USD".into()}else{self.requested.clone()},rate})
+            Ok(Denomination{currency:self.requested.clone(),rate})
         }).transpose()
     }
 }
@@ -48,10 +48,10 @@ impl Prepared {
 pub async fn prepare(app:&App,owner:i64)->Result<Prepared,WebError>{
     let (requested,identity,config)=app.db(move|c|{
         let requested:String=c.query_row("SELECT display_currency FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-        Ok((requested,crate::engine::provider::fingerprint(c).map_err(|_|unavailable())?,crate::engine::provider::config(c).map_err(|_|unavailable())?))
+        Ok((figures::totals::normalized_currency(&requested),crate::engine::provider::fingerprint(c).map_err(|_|unavailable())?,crate::engine::provider::config(c).map_err(|_|unavailable())?))
     }).await?;
     let usd=||Prepared{identity:identity.clone(),requested:requested.clone(),rate:Some("1.0".into()),until:i64::MAX};
-    if requested.is_empty() || requested=="USD" {return Ok(usd());}
+    if requested=="USD" {return Ok(usd());}
     let(Some(identity_key),Some(config))=(identity.as_ref(),config)else{return Ok(Prepared{identity,requested,rate:None,until:i64::MIN});};
     // Five supported currencies; cap identities as well. Holding this async lock gives concurrent
     // requests one fill, without holding App::db or starting detached work that could outlive it.
