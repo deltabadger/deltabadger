@@ -133,6 +133,11 @@ module Utilities
 
         return Result::Failure.new("Exchange rate not found for #{from} or #{to}") if from_rate.nil? || to_rate.nil?
 
+        # A whole-number JSON value parses as an Integer, and Integer division would truncate the rate.
+        from_rate = from_rate.to_f
+        to_rate = to_rate.to_f
+        return Result::Failure.new("Unusable exchange rate for #{from} or #{to}") unless from_rate.positive? && to_rate.positive?
+
         # Rates are BTC-based, so: from_currency -> BTC -> to_currency
         # If 1 BTC = X EUR and 1 BTC = Y USD, then 1 EUR = Y/X USD
         Result::Success.new(to_rate / from_rate)
