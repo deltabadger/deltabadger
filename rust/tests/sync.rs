@@ -29,7 +29,7 @@ fn clock() -> FixedClock { FixedClock(NOW.parse().unwrap()) }
 fn paper() -> Credentials { Credentials { key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 fn ok(body: Value) -> Value { json!({ "status": 200, "body": body }) }
 fn interest(id: &str, date: &str) -> Value { json!({ "id": id, "activity_type": "INT", "net_amount": "0.07", "date": date }) }
-fn split(id: &str, qty: &str) -> Value { json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "qty": qty, "date": "2026-09-15" }) }
+fn split(id: &str, qty: &str) -> Value { json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": qty, "date": "2026-09-15" }) }
 
 /// The seed's ids, copyable into the blocking closures.
 #[derive(Clone, Copy)]
@@ -92,7 +92,7 @@ impl PriceSource for ProbingPrices {
 
 fn balances_script() -> Value {
     json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))],
-            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "qty": "2" }, { "symbol": "BTCUSD", "qty": "0.5" }]))],
+            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }, { "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.5" }]))],
             "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": 227.52 } } }))] })
 }
 
@@ -234,7 +234,7 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
     assert_eq!(row, "15 AAPL 90 2026-09-15 00:00:00 split 10:1");
 
     // A split imported ahead of its date: the caller is told to bump again at that moment, and the bump is one call.
-    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([{ "id": "later", "activity_type": "SPLIT", "symbol": "AAPL", "qty": "5", "date": "2026-10-05" }]))] }));
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([{ "id": "later", "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": "5", "date": "2026-10-05" }]))] }));
     let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
     assert!(out.splits[0].effective_later);
     let bumped = ledger::expire_restated(&db, s.user_id, s.exchange_id, "AAPL").await.unwrap();
@@ -248,7 +248,7 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
 async fn a_price_or_a_value_outside_a_venue_numbers_range_fails_the_balance_sync_before_any_write() {
     let (_dir, db, s) = install();
     let state = "SELECT (SELECT count(*) || ' ' || coalesce(group_concat(quote(usd_value)), '') FROM account_balances) || ', synced ' || (SELECT coalesce(balances_synced_at, 'never') FROM api_keys)";
-    let script = json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "symbol": "BTCUSD", "qty": "1000000000" }]))] });
+    let script = json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "1000000000" }]))] });
     let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 1e300 } } }))] }));
     let (_, v) = venue(script.clone());
     let failure = balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
@@ -300,7 +300,7 @@ async fn a_split_dated_ahead_bumps_again_at_the_first_sync_on_or_after_its_date_
     let pending = "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_sync.%splits%'";
     let at = |t: &str| FixedClock(t.parse().unwrap());
     let empty = || venue(json!({ ACTIVITIES: [ok(json!([]))] })).1;
-    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([{ "id": "later", "activity_type": "SPLIT", "symbol": "AAPL", "qty": "5", "date": "2026-10-05" }]))] }));
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([{ "id": "later", "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": "5", "date": "2026-10-05" }]))] }));
     assert!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().splits[0].effective_later);
     assert_eq!((one::<i64>(&db, generation).await, one::<i64>(&db, pending).await), (1, 1), "the import's own bump, and the one owed at the date");
     ledger::sync(&db, &empty(), s.api_key_id, &paper(), &at("2026-10-04T23:59:59Z")).await.unwrap().unwrap();
@@ -578,7 +578,7 @@ async fn an_import_longer_than_one_run_continues_where_it_stopped_and_ends_as_on
     // 1,050 activities a minute apart; a three-leg split lies across the end of the first run's third page. Rails merges
     // split legs that are consecutive in one read, so a run does not cut such a group: its last legs wait for the next run.
     let start: chrono::DateTime<chrono::Utc> = "2026-03-01T00:00:00Z".parse().unwrap();
-    let leg = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "qty": qty, "date": "2026-03-01" });
+    let leg = |id: &str, qty: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": qty, "date": "2026-03-01" });
     let history: Vec<Value> = (0..1_050i64).map(|i| match i {
         298 => leg("cut-remove", "-10"),
         299 => leg("cut-add-1", "15"),
@@ -757,7 +757,7 @@ async fn one_read_and_capped(history: &[Value], pages: usize) -> (String, String
 async fn a_capped_run_never_parts_what_rails_would_merge_and_always_moves_on() {
     let ints = |prefix: &str, n: usize| -> Vec<Value> { (0..n).map(|i| interest(&format!("{prefix}-{i:03}"), "2026-09-01")).collect() };
     let leg = |id: &str, symbol: &str, qty: &str, date: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": symbol, "qty": qty, "date": date });
-    let cancelled = |id: &str, kind: &str| json!({ "id": id, "activity_type": kind, "symbol": "AAPL", "qty": "999", "net_amount": "1", "date": "2026-09-15", "status": "canceled" });
+    let cancelled = |id: &str, kind: &str| json!({ "id": id, "activity_type": kind, "symbol": "AAPL", "asset_class": "us_equity", "qty": "999", "net_amount": "1", "date": "2026-09-15", "status": "canceled" });
     let cancelled_fill = json!({ "id": "c-fill", "activity_type": "FILL", "symbol": "AAPL", "side": "buy", "qty": "1", "price": "1", "transaction_time": "2026-09-15T14:30:00Z", "status": "canceled" });
     let day = "2026-09-15";
     // The cap falls after the hundredth activity. `before` INTs, then the activities around it, then five more INTs.
@@ -819,7 +819,7 @@ async fn a_capped_run_never_parts_what_rails_would_merge_and_always_moves_on() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_split_too_long_for_a_run_fails_it_and_the_import_is_ended_after_its_runs() {
     let too_long = "a split longer than a run of the ledger import may read on for: nothing was read";
-    let legs = |n: usize| (0..n).map(|i| json!({ "id": format!("leg-{i:03}"), "activity_type": "SPLIT", "symbol": "AAPL", "qty": if i == 0 { "-1000" } else { "1" }, "date": "2026-09-15" }));
+    let legs = |n: usize| (0..n).map(|i| json!({ "id": format!("leg-{i:03}"), "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": if i == 0 { "-1000" } else { "1" }, "date": "2026-09-15" }));
     let state = "SELECT (SELECT count(*) FROM account_transactions) || ' rows, watermark ' || coalesce(last_synced_at, 'none') || ', runs ' || \
                  coalesce((SELECT json_extract(value, '$.runs') FROM app_configs WHERE key = 'rust_sync.ledger:1'), 'no record') || ', error ' || coalesce(last_sync_error, 'none') FROM api_keys";
     assert_eq!((ledger::MAX_SPLIT_LEGS, ledger::MAX_READ_ON_PAGES), (500, 5));
@@ -955,12 +955,11 @@ async fn a_malformed_balance_answer_fails_the_sync_and_removes_nothing() {
     let before: String = one(&db, state).await;
     let later = FixedClock("2026-09-21T02:30:00Z".parse().unwrap());
     let good_account = json!({ "cash": "100.5" });
-    let aapl = json!([{ "symbol": "AAPL", "qty": "2" }]);
+    let aapl = json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }]);
     let cases: Vec<(&str, Value, Value, Value, String)> = vec![
         ("a position that is no object", good_account.clone(), json!([5]), json!({}), "unreadable position".into()),
-        ("a position whose symbol is blank", good_account.clone(), json!([{ "symbol": " ", "qty": "2" }]), json!({}), "a position without a symbol".into()),
-        ("a quantity past the caps", good_account.clone(), json!([{ "symbol": "AAPL", "qty": "1e400" }]), json!({}), "unreadable qty: beyond 10^±40".into()),
-        ("a quantity that is no number", good_account.clone(), json!([{ "symbol": "AAPL", "qty": "many" }]), json!({}), "unreadable qty: not a plain decimal number".into()),
+        ("a quantity past the caps", good_account.clone(), json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "1e400" }]), json!({}), "unreadable qty: beyond 10^±40".into()),
+        ("a quantity that is no number", good_account.clone(), json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "many" }]), json!({}), "unreadable qty: not a plain decimal number".into()),
         ("cash past the caps", json!({ "cash": "9".repeat(70) }), aapl.clone(), json!({}), "unreadable cash: more than 64 significant digits".into()),
         ("cash that is no number", json!({ "cash": true }), aapl.clone(), json!({}), "unreadable cash: not a number".into()),
         ("an account that is a list", json!([{ "cash": "1" }]), aapl.clone(), json!({}), "unreadable account".into()),
@@ -971,7 +970,7 @@ async fn a_malformed_balance_answer_fails_the_sync_and_removes_nothing() {
          json!(format!("[{{\"symbol\":\"AAPL\",\"qty\":\"2\",{}}}]", (0..200_000).map(|i| format!("\"k{i}\":0")).collect::<Vec<_>>().join(","))), json!({}),
          "positions with more values than one answer may hold".into()),
         ("a quantity that underflows a double, unquoted (a double reads it as 0, which would drop the holding)", good_account.clone(),
-         json!(r#"[{"symbol":"AAPL","qty":1e-999}]"#), json!({}), "unreadable qty: beyond 10^±40".into()),
+         json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e-999}]"#), json!({}), "unreadable qty: beyond 10^±40".into()),
         ("cash that underflows a double, unquoted", json!(r#"{"cash":1e-999}"#), aapl.clone(), json!({}), "unreadable cash: beyond 10^±40".into()),
         ("an account answer over the byte limit", json!({ "cash": "1", "note": "x".repeat(balances::MAX_ACCOUNT_BYTES) }), aapl.clone(), json!({}),
          "Client::TransientNetworkError: the response body is over 65536 bytes".into()),
@@ -993,7 +992,7 @@ async fn an_unreadable_snapshot_price_updates_holdings_and_keeps_the_last_price(
         balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
         let (_, v) = venue(json!({
             "GET /v2/account": [ok(json!({ "cash": "100" }))],
-            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "qty": "2" }]))],
+            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }]))],
             "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": value } } }))]
         }));
         let later = FixedClock("2026-09-21T02:30:00Z".parse().unwrap());
@@ -1394,7 +1393,7 @@ async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same
     ran_at(dir.path(), s.api_key_id, "2026-09-20T02:00:05Z", "2026-09-20T02:30:05Z");
     let mut script = balances_script();
     script["GET /v2/account"] = json!([ok(json!({ "cash": "200" }))]);
-    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "qty": "3" }]))]);
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "3" }]))]);
     // Observe through another connection: only committed rows can end the run. The first balance batch updates
     // USD and AAPL; the obsolete BTC holding is removed in a later unit, after WRITE_GAP.
     let observer = Connection::open(dir.path().join("production.sqlite3")).unwrap();
@@ -1437,4 +1436,100 @@ async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same
     assert_eq!(one::<String>(&db, "SELECT balances_synced_at FROM api_keys").await, "2026-09-20 15:00:00");
     let [_, success, _, incomplete] = record(dir.path(), jobs::BALANCE_SYNC, s.api_key_id);
     assert_eq!((success.as_str(), incomplete.as_str()), ("2026-09-20T15:00", "never"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_positions_preserve_class_in_both_orders_and_availability_states() {
+    for coin_first in [true, false] {
+        for available in [true, false] {
+            let (_dir, db, s) = install();
+            let stock = db.run(move |c, _| {
+                c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES ('BTC.US','BTC','Bitcoin Trust','Stock','2026-01-01','2026-01-01')", []).unwrap();
+                let stock = c.last_insert_rowid();
+                c.execute("INSERT INTO tickers (id,exchange_id,ticker,base,quote,base_asset_id,quote_asset_id,available,base_decimals,quote_decimals,price_decimals,minimum_base_size,minimum_quote_size,created_at,updated_at) VALUES (?1,?2,'BTC','BTC','USD',?3,?4,?5,9,2,2,'0.000000001','1','2026-01-01','2026-01-01')", rusqlite::params![if coin_first {s.ticker_id+1000} else {s.ticker_id-1},s.exchange_id,stock,s.quote,available]).unwrap();
+                c.execute("UPDATE tickers SET available=?1 WHERE id=?2", rusqlite::params![available,s.ticker_id]).unwrap();
+                c.execute("INSERT INTO exchange_assets (asset_id,exchange_id,available,created_at,updated_at) VALUES (?1,?2,1,'2026-01-01','2026-01-01')", [stock,s.exchange_id]).unwrap();
+                c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES ('USD.US','USD','USD Trust','Stock','2026-01-01','2026-01-01')",[]).unwrap();
+                c.execute("INSERT INTO exchange_assets (asset_id,exchange_id,available,created_at,updated_at) VALUES (?1,?2,1,'2026-01-01','2026-01-01')",[c.last_insert_rowid(),s.exchange_id]).unwrap();
+                Ok(stock)
+            }).await.unwrap();
+            for qty in ["0", "2"] {
+                let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],
+                    "GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":"us_equity","qty":"10"}, {"symbol":"BTCUSD","asset_class":"crypto","qty":qty}]))],
+                    "GET /v2/stocks/snapshots":[ok(json!({"BTC":{"latestTrade":{"p":30}}}))]}));
+                balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
+                let held: Vec<(i64,f64)> = db.run(move |c,_| Ok(c.prepare("SELECT asset_id,free FROM account_balances WHERE asset_id IN (?1,?2) ORDER BY asset_id").unwrap().query_map([stock,s.btc], |r| Ok((r.get(0)?,r.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap())).await.unwrap();
+                assert_eq!(held.iter().find(|(id,_)| *id==stock).map(|(_,q)| *q),Some(10.0));
+                assert_eq!(held.iter().find(|(id,_)| *id==s.btc).map_or(0.0,|(_,q)| *q),qty.parse::<f64>().unwrap());
+            }
+            // Restoring a bug tombstone changes neither live identity nor stored balance ids.
+            let stable: String = one(&db,"SELECT group_concat(id || ':' || asset_id || ':' || free) FROM account_balances").await;
+            for tombstoned in [true, false] {
+                db.run(move |c,_| {
+                    c.execute("UPDATE tickers SET ticker=?1,base=?2,available=?3 WHERE id=?4",rusqlite::params![if tombstoned {"__stale_7_BTC/USD"} else {"BTC/USD"},if tombstoned {"__stale_7_BTC"} else {"BTC"},!tombstoned,s.ticker_id]).unwrap();
+                    Ok(())
+                }).await.unwrap();
+                let (_,v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],"GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":"us_equity","qty":"10"},{"symbol":"BTC/USD","asset_class":"crypto","qty":"2"}]))],"GET /v2/stocks/snapshots":[ok(json!({"BTC":{"latestTrade":{"p":30}}}))]}));
+                balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
+                assert_eq!(stable,one::<String>(&db,"SELECT group_concat(id || ':' || asset_id || ':' || free) FROM account_balances").await);
+            }
+
+            for (kind,qty) in [Value::Null,json!("future_class"),json!("crypto")].into_iter().flat_map(|kind| ["10","unreadable"].map(|qty| (kind.clone(),qty))) {
+                let (_,v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],"GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":kind,"qty":qty}]))]}));
+                balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
+                assert_eq!(one::<i64>(&db,"SELECT count(*) FROM account_balances").await,1);
+                assert_eq!(one::<i64>(&db,"SELECT asset_id FROM account_balances").await,s.quote);
+            }
+            db.run(move |c,_| {
+                let id = seed::insert_bot(c,&s.seeded(),&BotSpec::weekly(60.0,"2026-09-01 10:00:00").with("rebalance_enabled",json!(true)));
+                let verdict = deltabadger::engine::eligibility::check_install(c).unwrap();
+                assert!(verdict.problems.iter().any(|p| p.starts_with(&format!("bot {id} ")) && p.contains("rebalance_enabled")),"Rust refuses unported rebalancing even with both BTC classes");
+                Ok(())
+            }).await.unwrap();
+        }
+    }
+}
+
+#[test]
+fn collision_order_parsing_retains_class_without_blocking_stored_fills() {
+    for (symbol, kind, other) in [("BTC","us_equity","crypto"),("BTC/USD","crypto","us_equity")] {
+        let mut row = json!({"symbol":symbol,"asset_class":kind,"filled_qty":"2","filled_avg_price":"30","status":"filled"});
+        let parsed = deltabadger::venue::alpaca::parse_order("o",&row).unwrap();
+        assert_eq!(parsed.amount_exec.to_s_f(),"2.0");
+        assert_eq!(parsed.quote_amount_exec.to_s_f(),"60.0");
+        assert_eq!(parsed.pair.as_deref(),Some(symbol));
+        row["asset_class"] = json!(other);
+        assert_eq!(deltabadger::venue::alpaca::parse_order("o",&row).unwrap().amount_exec.to_s_f(),"2.0");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_tracker_refuses_to_merge_stock_and_crypto_quantities() {
+    let (_dir,db,s)=install();
+    db.run(move |c,_| {
+        c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES ('BTC.US','BTC','Trust','Stock','2026-01-01','2026-01-01')",[]).unwrap();
+        let stock=c.last_insert_rowid();
+        for (asset,qty,price) in [(s.btc,2,60000),(stock,10,30)] {
+            c.execute("INSERT INTO account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at) VALUES (?1,?2,?3,?4,0,?5,?4*?5,'2026-01-01 00:00:00','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,asset,qty,price]).unwrap();
+        }
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let result=deltabadger::tracker::figures::compute(c,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
+        assert!(result.is_err(),"a tracker must not publish 12 BTC by adding ten stock shares to two bitcoins");
+        Ok(())
+    }).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_positions_identify_before_decoding_bare_numbers() {
+    let (_dir, db, s) = install();
+    for (symbol, class) in [("UNKNOWN", "future"), ("UNKNOWN", "us_equity"), ("", "crypto")] {
+        let raw = format!(r#"[{{"symbol":"{symbol}","asset_class":"{class}","qty":1e400}},{{"symbol":"AAPL","asset_class":"us_equity","qty":"2"}}]"#);
+        let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(raw))],"GET /v2/stocks/snapshots":[ok(json!({"AAPL":{"latestTrade":{"p":30}}}))]}));
+        let result = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap();
+        assert!(result.is_ok(), "unidentified {symbol}/{class} must not decode qty: {result:?}");
+        assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
+    }
+    let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e400}]"#))]}));
+    assert!(balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().is_err(), "identified numbers remain strict");
+    assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
 }

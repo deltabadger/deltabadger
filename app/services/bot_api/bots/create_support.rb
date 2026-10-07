@@ -37,12 +37,15 @@ module BotApi
       end
 
       def find_pair(exchange, base_symbol, quote_symbol)
-        ticker = exchange.tickers.available
-                         .joins(:base_asset, :quote_asset)
-                         .where(assets: { symbol: base_symbol.to_s.upcase })
-                         .where(quote_assets_tickers: { symbol: quote_symbol.to_s.upcase })
-                         .first
-        return nil unless ticker
+        candidates = exchange.tickers
+                             .joins(:base_asset, :quote_asset)
+                             .where(assets: { symbol: base_symbol.to_s.upcase })
+                             .where(quote_assets_tickers: { symbol: quote_symbol.to_s.upcase })
+                             .limit(2).to_a
+        return nil unless candidates.one?
+
+        ticker = candidates.first
+        return nil unless ticker.available?
 
         { base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id }
       end

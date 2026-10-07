@@ -33,11 +33,12 @@ module BotApi
       end
 
       def find_ticker(exchange, base_symbol, quote_symbol)
-        exchange.tickers
-                .joins(:base_asset, :quote_asset)
-                .where(assets: { symbol: base_symbol.to_s.upcase })
-                .where(quote_assets_tickers: { symbol: quote_symbol.to_s.upcase })
-                .first
+        candidates = exchange.tickers
+                             .joins(:base_asset, :quote_asset)
+                             .where(assets: { symbol: base_symbol.to_s.upcase })
+                             .where(quote_assets_tickers: { symbol: quote_symbol.to_s.upcase })
+                             .limit(2).to_a
+        candidates.first if candidates.one?
       end
 
       # A deliberate manual buy is still a repurchase, and washing the loss is exactly what the window

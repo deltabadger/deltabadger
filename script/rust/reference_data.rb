@@ -223,6 +223,16 @@ module Reference
     healthy[3] = healthy[3].merge('native_symbol' => 'C04USD') # the venue's own symbol is the ticker
     healthy += [listing(1, 'base_asset_id' => 'crypto:unknown', 'symbol' => 'UNK/USD'), listing(1, 'symbol' => 'BAD')]
     add.('crypto-healthy', job, { key => [ok('data' => healthy)] }) { crypto_seed }
+    [false, true].each do |stale|
+      btc = listing(1, 'base_asset_id' => 'crypto:bitcoin', 'symbol' => 'BTC/USD')
+      add.("crypto-collision-#{stale}", job, { key => [ok('data' => healthy + [btc])] }) do
+        crypto_seed
+        coin = asset('bitcoin', 'BTC', 'Cryptocurrency')
+        trust = asset('BTC.US', 'BTC', 'Stock', instrument_type: 'stock')
+        ticker(@alpaca, trust, @usd, 'BTC', 'BTC', 'USD')
+        ticker(@alpaca, coin, @usd, stale ? '__stale_99_BTC/USD' : 'BTC/USD', stale ? '__stale_99_BTC' : 'BTC', 'USD').update_columns(available: !stale)
+      end
+    end
     add.('crypto-creates-usd-degraded', job, { key => [ok('data' => (1..29).map { |i| listing(i) })] }) { crypto_seed(usd: false) }
     add.('crypto-degraded-baseline', job, { key => [ok('data' => (1..35).map { |i| listing(i) })] }) do
       crypto_seed
@@ -253,6 +263,19 @@ module Reference
     listings_key = 'GET /api/v2/listings?venue_scheme=alpaca_exchange'
     both = { assets_key => [ok('data' => stocks)], listings_key => [ok('data' => listings)] }
     add.('stocks-healthy', job, both) { stock_seed }
+    [false, true].each do |stale|
+      btc = stocks.first.merge('external_id' => 'BTC.US', 'symbol' => 'BTC', 'type' => 'stock',
+                               'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:BTC' }])
+      btc_listing = listings.first.merge('ticker' => 'BTC', 'base' => 'BTC', 'base_external_id' => 'BTC.US')
+      add.("stocks-collision-#{stale}", job,
+           { assets_key => [ok('data' => stocks + [btc])], listings_key => [ok('data' => listings + [btc_listing])] }) do
+        stock_seed
+        coin = asset('bitcoin', 'BTC', 'Cryptocurrency')
+        trust = asset('BTC.US', 'BTC', 'Stock', instrument_type: 'stock')
+        ticker(@alpaca, coin, @usd, 'BTC/USD', 'BTC', 'USD')
+        ticker(@alpaca, trust, @usd, stale ? '__stale_99_BTC' : 'BTC', stale ? '__stale_99_BTC' : 'BTC', 'USD').update_columns(available: !stale)
+      end
+    end
     add.('stocks-off-switch', job, {}) do
       stock_seed
       AppConfig.set('stock_sync_enabled', 'false')

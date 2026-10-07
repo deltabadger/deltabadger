@@ -222,3 +222,30 @@ class Bots::DcaMultiAssetDayOrderFillTest < ActiveSupport::TestCase
                          amount_exec: exec && (exec / LIMIT), quote_amount_exec: exec, created_at: at, updated_at: at)
   end
 end
+
+class Bots::DcaMultiAssetDayOrderFillTest
+  test 'collision stock sync leaves the crypto tick placeable and a failed tick still carries' do
+    @t0 = Time.utc(2026, 10, 6, 10, 0)
+    travel_to @t0
+    coin = create(:asset, :bitcoin)
+    trust = stock('BTC')
+    bot = build_bot([coin])
+    row = { 'base_external_id' => trust.external_id, 'quote_external_id' => @usd.external_id,
+            'base' => 'BTC', 'quote' => 'USD', 'ticker' => 'BTC',
+            'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2 }
+    MarketData.import_tickers!(@exchange, [row])
+    crypto = @exchange.tickers.find_by!(base_asset: coin)
+    crypto.update_columns(ticker: 'BTC/USD')
+    tick(bot, at: @t0 + 5.minutes)
+    assert_equal(['BTC/USD'], @alpaca.placed.map { it[:symbol] })
+    assert_in_delta 100, @alpaca.quotes.sum, 0.001
+    # A fresh bot without any placeable member fails its tick and keeps this contribution.
+    failed = build_bot([coin])
+    crypto.update_columns(available: false)
+    travel_to @t0 + 6.minutes
+    result = with_dry_run(false) { failed.execute_action }
+    assert_predicate result, :failure?
+    assert_equal 100.to_d, failed.reload.pending_quote_amount.to_d
+    assert_equal 1, @alpaca.placed.size
+  end
+end

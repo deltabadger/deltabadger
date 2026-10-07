@@ -63,10 +63,10 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
       ExchangeAsset.find_or_create_by!(exchange: exchange, asset: usd_asset)
 
       ticker = exchange.tickers.find_by(base_asset: asset, quote_asset: usd_asset) ||
-               exchange.tickers.find_by(ticker: stock['symbol'])
+               exchange.tickers.joins(:base_asset).where(assets: { category: 'Stock' }).find_by(ticker: stock['symbol'])
 
       if ticker
-        ticker.update!(base_asset: asset, quote_asset: usd_asset, available: true)
+        ticker.update!(base_asset: asset, quote_asset: usd_asset, base: stock['symbol'], quote: 'USD', ticker: stock['symbol'], available: true)
       else
         ticker = exchange.tickers.create!(
           base_asset: asset,
@@ -124,7 +124,7 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
 
       pair = crypto['symbol']
       ticker = exchange.tickers.find_by(base_asset: asset, quote_asset: usd_asset) ||
-               exchange.tickers.find_by(ticker: pair)
+               exchange.tickers.joins(:base_asset).where(assets: { category: 'Cryptocurrency' }).find_by(ticker: pair)
 
       # min_trade_increment is the order-quantity step size (drives base_decimals);
       # min_order_size is the smallest tradable quantity (drives minimum_base_size). Alpaca
@@ -134,7 +134,7 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
       price_decimals = crypto['price_increment'].present? ? Utilities::Number.decimals(crypto['price_increment']) : 2
 
       if ticker
-        ticker.update!(base_asset: asset, quote_asset: usd_asset, ticker: pair, available: true)
+        ticker.update!(base_asset: asset, quote_asset: usd_asset, base: base, quote: quote, ticker: pair, available: true)
       else
         ticker = exchange.tickers.create!(
           base_asset: asset,

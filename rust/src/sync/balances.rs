@@ -7,7 +7,7 @@
 //! - a stock or ETF (category Stock): Alpaca's own latest trade, GET /v2/stocks/snapshots on data.alpaca.markets;
 //! - everything else (coins), and a stock Alpaca gave no snapshot or no latest trade for: the market-data source, by `assets.external_id`
 //!   (hosted: the data API's GET api/v1/prices).
-use super::activities::{CryptoPairs, Raw};
+use super::activities::Raw;
 use crate::jobs::data_api::{ApiError, PriceFuture, PriceSource};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
@@ -113,9 +113,9 @@ pub(crate) struct Catalog {
     user_id: i64, exchange_id: i64,
     /// `exchange.assets.pluck(:id)`: the assets the venue lists, in the order the rows are written.
     asset_ids: Vec<i64>,
-    /// #asset_from_symbol: a ticker's base or quote name → its asset; the first ticker wins a name.
-    by_symbol: HashMap<String, i64>,
-    pairs: CryptoPairs,
+    /// Venue asset class + native symbol, including unavailable listings; ambiguity stays unresolved.
+    by_symbol: HashMap<(String, String), HashSet<i64>>,
+    cash_ids: Vec<i64>,
 }
 
 struct Asset { id: i64, external_id: String, symbol: Option<String>, category: Option<String> }
@@ -133,19 +133,30 @@ pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
 }
 
 /// The positions as #get_balances needs them: an array of at most `MAX_POSITIONS` objects (the reader stops at the
-/// next one), each with a `symbol` and a `qty` that is a number. Rails skips a position with no symbol and reads a
-/// missing `qty` as 0, which removes that holding's balance; here either is a malformed answer.
-pub(crate) fn positions(text: &str) -> Result<Result<Vec<(String, BigDec)>, String>, Unread> {
-    let node = match wire::read(text, &mut Budget(MAX_LIST_NODES), Some(MAX_POSITIONS)) {
+/// next one). Unsupported classes and absent symbols are logged and individually excluded. For a supported
+/// identity a missing/unreadable quantity still fails the response; it is never manufactured as zero.
+pub(crate) type Position = (String, String, Node);
+
+pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unread> {
+    let node = match wire::read_identity(text, &mut Budget(MAX_LIST_NODES), Some(MAX_POSITIONS)) {
         Err(wire::Refused::TooManyItems) => return Err(Unread::Raised(format!("more than {MAX_POSITIONS} positions"))),
         other => other.map_err(|r| Unread::refused(r, "positions"))?,
     };
     let Node::Array(items) = node else { return Ok(Err("unreadable positions".into())) };
-    Ok(items.iter().map(|item| {
-        let position = Raw::from_node(item).map_err(|_| "unreadable position".to_string())?;
-        let symbol = position.value["symbol"].as_str().filter(|s| !s.trim().is_empty()).ok_or_else(|| "a position without a symbol".to_string())?;
-        let qty = position.number("qty")?.ok_or_else(|| "a position without a quantity".to_string())?;
-        Ok((symbol.to_string(), qty))
+    Ok(items.iter().filter_map(|item| {
+        let Node::Object(fields) = item else { return Some(Err("unreadable position".to_string())); };
+        let identity = |key: &str| fields.iter().find(|(name, _)| name == key).and_then(|(_, value)| {
+            if let Node::Scalar(token) = value { serde_json::from_str::<String>(token).ok() } else { None }
+        });
+        let category = match identity("asset_class").as_deref() {
+            Some("us_equity") => "Stock", Some("crypto") => "Cryptocurrency",
+            _ => { eprintln!("Alpaca position skipped: unsupported class"); return None; }
+        };
+        let Some(symbol) = identity("symbol").filter(|s| !s.trim().is_empty()) else {
+            eprintln!("Alpaca position skipped: unmapped identity"); return None;
+        };
+        // Keep the whole row raw until the catalog resolves its class and native symbol.
+        Some(Ok((category.to_string(), symbol, item.clone())))
     }).collect())
 }
 
@@ -156,8 +167,9 @@ pub(crate) fn positions(text: &str) -> Result<Result<Vec<(String, BigDec)>, Stri
 /// move, the key's `last_sync_error` holds `failure.error`, and an "unauthorized" answer has marked the key incorrect.
 /// A balance sync never clears `last_sync_error` (the ledger sync does).
 ///
-/// Every answer is validated whole before one row is written: a malformed account or position fails the sync and
-/// removes nothing. The rows are then written in units of `BATCH`; `balances_synced_at` moves in the last one.
+/// The account and numeric/structural validity are checked before a row is written. Unresolvable position identities
+/// are individually excluded; other malformed data still fails the sync. Rows are written in units of `BATCH`;
+/// `balances_synced_at` moves in the last one.
 pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
                                 -> Result<Result<Summary, Failure>, SyncError> {
     let catalog = phase(db, move |c| catalog(c, key_id)).await?;
@@ -191,7 +203,10 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn Pr
         (Ok(cash), Ok(held)) => (cash, held),
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
     };
-    let held = holdings(&catalog, cash, held);
+    let held = match complete_balances(&catalog, cash, held) {
+        Ok(rows) => rows.into_iter().filter(|(_, qty)| qty.is_positive()).collect::<Vec<_>>(),
+        Err(why) => return fail(why, false).await,
+    };
 
     let ids: Vec<i64> = held.iter().map(|(id, _)| *id).collect();
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
@@ -305,49 +320,44 @@ fn catalog(c: &Connection, key_id: i64) -> Result<Catalog, SyncError> {
 pub(crate) fn catalog_for(c: &Connection, user_id: i64, exchange_id: i64) -> Result<Catalog, SyncError> {
     let mut s = c.prepare("SELECT assets.id FROM assets INNER JOIN exchange_assets ON assets.id = exchange_assets.asset_id WHERE exchange_assets.exchange_id = ?1 ORDER BY exchange_assets.id")?;
     let asset_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
-    let mut by_symbol = HashMap::new();
-    let mut s = c.prepare("SELECT base, quote, base_asset_id, quote_asset_id FROM tickers WHERE exchange_id = ?1 AND available = 1 ORDER BY id")?;
-    for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?)))? {
-        let (base, quote, base_asset, quote_asset) = row?;
-        by_symbol.entry(base).or_insert(base_asset);
-        by_symbol.entry(quote).or_insert(quote_asset);
+    let mut by_symbol: HashMap<(String, String), HashSet<i64>> = HashMap::new();
+    let mut s = c.prepare("SELECT t.ticker, a.category, t.base_asset_id FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id = ?1 ORDER BY t.id")?;
+    for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?)))? {
+        let (native, category, asset) = row?;
+        let Some(category) = category.filter(|c| c == "Stock" || c == "Cryptocurrency") else { continue };
+        let native = position_spelling(&native).to_string();
+        let mut names = vec![native.clone()];
+        if category == "Cryptocurrency" { names.push(native.replace('/', "")); }
+        for name in names { by_symbol.entry((category.clone(), name)).or_default().insert(asset); }
     }
-    Ok(Catalog { user_id, exchange_id, asset_ids, by_symbol, pairs: super::ledger::crypto_pairs(c, exchange_id)? })
+    let mut s = c.prepare("SELECT DISTINCT a.id FROM assets a JOIN exchange_assets ea ON ea.asset_id=a.id WHERE ea.exchange_id=?1 AND a.category IN ('Fiat','Currency') AND a.symbol='USD'")?;
+    let cash_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    Ok(Catalog { user_id, exchange_id, asset_ids, by_symbol, cash_ids })
 }
 
-/// #get_balances' answer, reduced to what AccountBalance::Sync keeps: the listed assets with a positive quantity, in
-/// listing order. Settled cash is USD's quantity; a position's `qty` is its asset's (a stock by its symbol, a coin by
-/// its compact pair). A later position for the same asset replaces an earlier one.
-fn holdings(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -> Vec<(i64, BigDec)> {
-    balances(catalog, cash, positions).into_iter().filter(|(_, qty)| qty.is_positive()).collect()
+pub(crate) fn position_spelling(native: &str) -> &str {
+    native.strip_prefix("__stale_").and_then(|rest| {
+        let (digits, name) = rest.split_once('_')?;
+        (!digits.is_empty() && digits.bytes().all(|c| c.is_ascii_digit())).then_some(name)
+    }).unwrap_or(native)
 }
 
-/// #get_balances' answer: every listed asset with the quantity the answers gave it (cash for USD, a position's `qty`),
-/// in listing order; an asset nothing named is left out, as its zero would be.
-pub(crate) fn balances(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -> Vec<(i64, BigDec)> {
+/// Unsupported/unmapped positions are individually excluded; cash and resolvable positions still publish.
+pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<Vec<(i64, BigDec)>, String> {
     let mut free: HashMap<i64, BigDec> = HashMap::new();
-    let listed = |id: &i64| catalog.asset_ids.contains(id);
-    if let Some(usd) = catalog.by_symbol.get("USD").filter(|id| listed(id)) { free.insert(*usd, cash); }
-    for (symbol, qty) in positions {
-        let asset = catalog.by_symbol.get(&symbol).copied().or_else(|| catalog.pairs.0.get(&symbol).map(|pair| pair.base_asset_id));
-        if let Some(asset) = asset.filter(listed) { free.insert(asset, qty); }
+    if let [usd] = catalog.cash_ids.as_slice() { free.insert(*usd, cash); }
+    else if !cash.is_zero() { return Err("Unmapped or ambiguous Alpaca cash asset".into()); }
+    for (category, symbol, raw) in positions {
+        let ids = catalog.by_symbol.get(&(category, symbol));
+        let Some(asset) = ids.filter(|ids| ids.len() == 1).and_then(|ids| ids.iter().next()).copied().filter(|id| catalog.asset_ids.contains(id)) else {
+            eprintln!("Alpaca position skipped: unmapped or ambiguous identity");
+            continue;
+        };
+        let position = Raw::from_node(&raw).map_err(|_| "unreadable position".to_string())?;
+        let qty = position.number("qty")?.ok_or_else(|| "a position without a quantity".to_string())?;
+        free.insert(asset, qty);
     }
-    catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|qty| (*id, qty))).collect()
-}
-
-/// Read-only completeness check; sync's existing partial-snapshot semantics stay unchanged.
-pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<(String, BigDec)>) -> Result<Vec<(i64, BigDec)>, &'static str> {
-    let listed = |id: &i64| catalog.asset_ids.contains(id);
-    if !cash.is_zero() && catalog.by_symbol.get("USD").filter(|id| listed(id)).is_none() {
-        return Err("Balances could not be fully read: unmapped nonzero cash");
-    }
-    for (symbol, qty) in &positions {
-        let asset = catalog.by_symbol.get(symbol).copied().or_else(|| catalog.pairs.0.get(symbol).map(|pair| pair.base_asset_id));
-        if !qty.is_zero() && asset.filter(listed).is_none() {
-            return Err("Balances could not be fully read: unmapped nonzero position");
-        }
-    }
-    Ok(balances(catalog, cash, positions))
+    Ok(catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|qty| (*id, qty))).collect())
 }
 
 fn assets(c: &Connection, ids: &[i64]) -> Result<Vec<Asset>, SyncError> {

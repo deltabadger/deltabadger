@@ -20,6 +20,8 @@ module Tracker
   # Each moves money in and basis together, so what is held less what went in is what was banked
   # plus what is still riding — by construction. The backstop then only ever fires on a bug.
   class Figures
+    class AmbiguousAssetClass < ArgumentError; end
+
     # Below this an assumption is applied in silence: a few cents of fee rounding is not worth a line.
     NOTE_FLOOR = 1
     # How far the two halves of the identity may sit apart before that is itself a note. A cent, or
@@ -113,6 +115,17 @@ module Tracker
     # said — the value, and what each holding is worth — and everything the history decides waits.
     def result
       return waiting_for_ledger if @ledger.nil?
+
+      # The ledger is still keyed by symbol. Refuse a cross-class merge rather than
+      # changing historical transaction matching or adding unlike quantities.
+      classes = @balances.group_by { |row| row.asset.symbol }
+                         .transform_values { |rows| rows.map { |row| row.asset.category }.uniq }
+      Asset.where(symbol: @pending.keys).distinct.pluck(:symbol, :category).each do |symbol, category|
+        (classes[symbol] ||= []) << category
+      end
+      if classes.values.any? { |categories| categories.uniq.size > 1 }
+        raise AmbiguousAssetClass, 'Tracker figures unavailable: ambiguous asset class for a shared symbol'
+      end
 
       holdings = resolve_holdings
       resolve_departed(holdings)

@@ -354,7 +354,7 @@ class Exchanges::UnreadableOrderNumbersTest < ActiveSupport::TestCase
       { 'descr' => { 'pair' => @bot.ticker.ticker, 'ordertype' => 'market', 'type' => 'buy', 'price' => '0' },
         'status' => 'closed', 'vol' => '0.002', 'vol_exec' => '0.002', 'cost' => '100', 'price' => '50000', 'oflags' => '' }
     else
-      { 'id' => 'placed-order', 'symbol' => @bot.ticker.ticker, 'type' => 'market', 'side' => 'buy', 'status' => 'filled',
+      { 'id' => 'placed-order', 'symbol' => @bot.ticker.ticker, 'asset_class' => 'crypto', 'type' => 'market', 'side' => 'buy', 'status' => 'filled',
         'qty' => '0.002', 'notional' => '100', 'filled_qty' => '0.002', 'filled_avg_price' => '50000', 'limit_price' => '50000' }
     end
   end

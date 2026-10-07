@@ -227,7 +227,7 @@ fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(),
         "balances-positions_not_array" => only_the_error_text_differs(rails, rust, "TypeError: no implicit conversion of String into Integer", "unreadable positions"),
         "balances-account_no_cash" => refused("the account has no cash figure", &[1]),
         "balances-cash_only_null_cash" => refused("the account has no cash figure", &[1, 2, 3, 4]),
-        "balances-position_no_symbol" => refused("a position without a symbol", &[2]),
+
         "balances-position_no_quantity" => refused("a position without a quantity", &[2]),
         _ => return None,
     })
@@ -243,7 +243,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), dirs.len()), (58, 35, 93), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), dirs.len()), (58, 41, 99), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -268,7 +268,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     assert_eq!(divergences, ["balances-account_no_cash", "balances-account_null", "balances-cash_only_null_cash", "balances-no_trade_keeps_last_price",
-                             "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-position_no_quantity", "balances-position_no_symbol",
+                             "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-position_no_quantity",
                              "balances-positions_not_array",
                              "ledger-pages_stalled", "ledger-split_future", "ledger-split_hostile_quantity"], "the listed divergences");
 

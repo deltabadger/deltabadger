@@ -28,8 +28,12 @@ module Exchange::Synchronizer
 
   private
 
+  def catalogue_tickers
+    stock_venue? ? tickers.joins(:base_asset).where(assets: { category: 'Stock' }) : tickers
+  end
+
   def new_pairs?(tickers_info)
-    known = tickers.pluck(:base, :quote).to_set
+    known = catalogue_tickers.pluck(:base, :quote).to_set
     tickers_info.any? { |info| known.exclude?([info[:base], info[:quote]]) }
   end
 
@@ -153,13 +157,13 @@ module Exchange::Synchronizer
   end
 
   def sync_existing_exchange_assets_and_tickers!(tickers_info)
-    current_tickers = tickers.available.pluck(:ticker)
+    current_tickers = catalogue_tickers.available.pluck(:ticker)
     updated_tickers = []
     tickers_info.each do |ticker_info|
       @on_progress&.call
       base = ticker_info[:base]
       quote = ticker_info[:quote]
-      ticker = tickers.find_by(base: base, quote: quote)
+      ticker = catalogue_tickers.find_by(base: base, quote: quote)
       if ticker.present?
         ticker.update(ticker_info)
         updated_tickers << ticker.ticker
@@ -174,6 +178,7 @@ module Exchange::Synchronizer
         base_asset = Asset.find_by(external_id: base_asset_external_id)
         quote_asset = Asset.find_by(external_id: quote_asset_external_id)
         next if base_asset.blank? || quote_asset.blank?
+        next if stock_venue? && base_asset.category != 'Stock'
 
         [base_asset, quote_asset].each do |asset|
           exchange_asset = exchange_assets.find_by(asset_id: asset.id)
@@ -197,7 +202,7 @@ module Exchange::Synchronizer
     stale_tickers = current_tickers - updated_tickers
     return unless updated_tickers.any? && stale_tickers.size < current_tickers.size
 
-    tickers.where(ticker: stale_tickers).update_all(available: false)
+    catalogue_tickers.where(ticker: stale_tickers).update_all(available: false)
 
     current_exchange_asset_ids = exchange_assets.available.pluck(:asset_id)
     updated_exchange_asset_ids = tickers.available.pluck(:base_asset_id, :quote_asset_id).flatten.uniq

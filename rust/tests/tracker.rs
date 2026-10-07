@@ -59,7 +59,7 @@ fn script() -> Value {
     let closes: Vec<Value> = (1..=30).map(|d| json!({ "t": format!("2026-09-{d:02}T04:00:00Z"), "o": 220, "h": 220, "l": 220, "c": 220 + d, "v": 1 })).collect();
     json!({ "GET /v2/account/activities": [ok(json!([]))],
             "GET /v2/account": [ok(json!({ "cash": "600" }))],
-            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "qty": "2" }]))],
+            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }]))],
             "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": 227.52 } } }))],
             "GET /v2/stocks/AAPL/bars": [ok(json!({ "bars": closes, "symbol": "AAPL", "next_page_token": null }))] })
 }

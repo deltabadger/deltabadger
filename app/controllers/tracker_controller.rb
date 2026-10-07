@@ -1,6 +1,10 @@
 class TrackerController < ApplicationController
   include AdminOnly
 
+  rescue_from Tracker::Figures::AmbiguousAssetClass do |error|
+    render plain: error.message, status: :unprocessable_entity
+  end
+
   # The table shows a window, not an archive: an account with five years of Binance fills renders
   # tens of thousands of rows otherwise. `?all=1` still asks for the lot, and Export always has it.
   ROW_LIMIT = 200

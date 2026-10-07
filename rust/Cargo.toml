@@ -35,7 +35,7 @@ rand = "0.8"
 rusqlite = { version = "0.37", features = ["bundled", "functions"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 rust_decimal = { version = "1", features = ["std"] }
-serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
+serde_json = { version = "1", features = ["float_roundtrip", "preserve_order", "raw_value"] }
 sha1 = "0.10"
 sha2 = "0.10"
 subtle = "2"

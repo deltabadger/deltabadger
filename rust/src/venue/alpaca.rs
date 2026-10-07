@@ -78,6 +78,14 @@ fn status(s: Option<&str>) -> OrderStatus {
     }
 }
 
+/// Extract only identity strings while preserving all other fields as raw JSON. No order number is decoded here.
+/// Wrong-typed or absent identity fields cannot identify an untracked order. Complete stored IDs need neither field.
+pub fn order_identity(raw: &str) -> (Option<String>, Option<String>, Option<String>) {
+    let mut identity: std::collections::HashMap<String, Box<serde_json::value::RawValue>> = serde_json::from_str(raw).unwrap_or_default();
+    let string = |value: Option<Box<serde_json::value::RawValue>>| value.and_then(|v| serde_json::from_str::<String>(v.get()).ok());
+    (string(identity.remove("id")), string(identity.remove("symbol")), string(identity.remove("asset_class")))
+}
+
 /// Exchanges::Alpaca#parse_order_data. `id` is the id asked for (#get_orders keys its answer by it). Fills are gross.
 /// `Err` names the first number it cannot read: the answer is unreadable, never a zero fill.
 pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
@@ -97,6 +105,7 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
         _ => limit_price.unwrap_or_else(BigDec::zero),
     };
     Ok(OrderState {
+        asset_class: o["asset_class"].as_str().map(str::to_string),
         txid: id.to_string(), status: status(o["status"].as_str()), price: Some(price),
         amount: qty, quote_amount: notional,
         quote_amount_exec: &filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero), amount_exec: filled_qty,
@@ -149,6 +158,17 @@ impl<T: Transport> AlpacaVenue<T> {
         }
     }
 
+    /// Position identities are read before any numeric conversion. Keep transport and structural
+    /// failures strict; individual unidentified rows are excluded by the shared position reader.
+    async fn raw_positions(&self) -> Result<Vec<crate::sync::balances::Position>, VenueError> {
+        let body = self.read(false, "/v2/positions", vec![], crate::sync::balances::MAX_LIST_BYTES).await?;
+        match crate::sync::parsed(body, crate::sync::balances::positions).await {
+            Ok(Ok(rows)) => Ok(rows),
+            Ok(Err(why)) | Err((why, false)) => Err(VenueError::Rejected(vec![why])),
+            Err((why, true)) => Err(VenueError::Transient(why)),
+        }
+    }
+
     /// A read as Clients::Alpaca#with_rescue answers it: a 2xx body that parses; else Rejected with Rails' message (an
     /// HTTP failure, a 3xx, an unreadable body, or a permanent transport failure is a Failure Result); a transient transport
     /// failure is Transient (Client.network_failure raises it).
@@ -171,11 +191,11 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     /// Clients::Alpaca#get_clock on the trading host, with the bot's key.
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> {
         let bad = || VenueError::Rejected(vec!["unreadable venue positions".into()]);
-        let body = self.get(self.request("GET", false, "/v2/positions".into(), vec![], None)).await?;
-        let rows = body.as_array().filter(|rows| rows.len() <= 5000).ok_or_else(bad)?;
+        let rows = self.raw_positions().await?;
         let mut out = std::collections::HashMap::new();
-        for row in rows {
-            let symbol = row["symbol"].as_str().filter(|s| !s.is_empty() && s.len() <= 100).ok_or_else(bad)?;
+        for (_category, symbol, raw) in rows {
+            if symbol.is_empty() || symbol.len() > 100 { return Err(bad()); }
+            let row = http::decode_json(&raw.text()).map_err(|_| bad())?;
             let qty = ruby_opt_to_d(&row["qty"]).map_err(|_| bad())?.ok_or_else(bad)?;
             if qty < BigDec::zero() || out.insert(symbol.to_string(), qty).is_some() { return Err(bad()); }
         }
@@ -254,14 +274,37 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         }
     }
 
-    /// #get_orders: one GET per id; the first failure is the answer; nothing is ever reported missing.
+    /// Without transaction context every requested order retains strict parsing (e.g. placement recovery).
     async fn orders(&self, ids: &[String]) -> Result<Vec<OrderState>, VenueError> {
+        self.orders_identified(ids, |_, _, _| Ok(true)).await.map(|(orders, _)| orders)
+    }
+
+    /// #get_orders: identity exclusion precedes all status/number parsing, as in Rails.
+    async fn orders_identified<F>(&self, ids: &[String], mut identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         let mut out = Vec::with_capacity(ids.len());
+        let mut skipped = vec![];
         for id in ids {
-            let body = self.get(self.request("GET", false, format!("/v2/orders/{id}"), vec![], None)).await?;
+            let request = self.request("GET", false, format!("/v2/orders/{id}"), vec![], None);
+            let response = match self.transport.send(&request).await {
+                Err(TransportError::Permanent(m)) => return Err(VenueError::Rejected(vec![m])),
+                Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => return Err(VenueError::Transient(m)),
+                Ok(response) if (200..300).contains(&response.status) => response,
+                Ok(response) => return Err(VenueError::Rejected(vec![error_message(&request, &response)])),
+            };
+            // Validate JSON syntax without converting numeric tokens; identified rows still pass the strict decoder below.
+            let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&response.body)
+                .map_err(|_| VenueError::Rejected(vec![unreadable(DecodeError::NotJson, &request, &response)]))?;
+            let (_, pair, class) = order_identity(raw.get());
+            if !identify(id, pair.as_deref(), class.as_deref())? {
+                eprintln!("Alpaca order skipped: unsupported class or unmapped/ambiguous order identity");
+                skipped.push(id.clone());
+                continue;
+            }
+            let body = http::decode_json(raw.get()).map_err(|e| VenueError::Rejected(vec![unreadable(e, &request, &response)]))?;
             out.push(parse_order(id, &body).map_err(|e| VenueError::Rejected(vec![e]))?);
         }
-        Ok(out)
+        Ok((out, skipped))
     }
 
     /// GET /v2/orders:by_client_order_id: one complete answer. Only Alpaca's own not-found envelope proves absence; any
@@ -292,7 +335,10 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     /// bot: non_marginable_buying_power, else cash (`&.to_d`, so only an absent field falls back).
     async fn balance(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError> {
         let account = self.get(self.request("GET", false, "/v2/account".into(), vec![], None)).await?;
-        self.get(self.request("GET", false, "/v2/positions".into(), vec![], None)).await?;
+        let positions = self.raw_positions().await?;
+        for _position in positions {
+            eprintln!("Alpaca position excluded from cash funding: only the account cash/buying power funds USD orders");
+        }
         // ponytail: eligibility admits only USD-quoted Alpaca bots; another quote would be a position lookup ("BTCUSD").
         if asset_symbol != "USD" { return Ok(BigDec::zero()); }
         // An unreadable balance is never a zero (which would read as low funds). Clients::Alpaca would raise on it, so it is

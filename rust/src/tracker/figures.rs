@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 
 /// An `account_balances` row with something in it (`nonzero`), as the model reads it.
 #[derive(Clone, Debug)]
-pub struct Balance { pub symbol: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
+pub struct Balance { pub category: Option<String>, pub symbol: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
 
 /// A decimal column of `scale` with a precision, as ActiveRecord casts what SQLite returns: a REAL is
 /// `BigDecimal(float.round(scale), 16)` then the scale (sync::balances::cast_float's rule), anything else to_d and the
@@ -34,13 +34,13 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
 /// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.
 pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<Balance>, FiguresError> {
     let mut s = c.prepare(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category FROM account_balances b JOIN assets a ON a.id = b.asset_id \
          WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 ORDER BY b.id")?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
         out.push(Balance {
-            symbol: r.get(0)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
+            category: r.get(7)?, symbol: r.get(0)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
             usd_price: scaled(r.get_ref(3)?, 8)?, usd_value: scaled(r.get_ref(4)?, 8)?, priced_at: instant(r.get(5)?)?, synced_at: instant(r.get(6)?)?,
         });
     }
@@ -130,6 +130,18 @@ fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> 
 /// `Figures.for(user, ledger:, balances:, pending:)`. Every symbol's balances, pending move and position are found
 /// through an index, each lookup a step.
 pub fn compute(c: &Connection, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
+    // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
+    let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
+    for balance in balances { classes.entry(&balance.symbol).or_default().insert(balance.category.clone()); }
+    for (symbol, _) in pending {
+        let mut stmt = c.prepare("SELECT DISTINCT category FROM assets WHERE symbol=?1")?;
+        for category in stmt.query_map([symbol], |r| r.get::<_, Option<String>>(0))? {
+            classes.entry(symbol).or_default().insert(category?);
+        }
+    }
+    if classes.values().any(|categories| categories.len() > 1) {
+        return Err(FiguresError::NotComputed("Tracker figures unavailable: ambiguous asset class for a shared symbol".into()));
+    }
     let zero = Dec::zero();
     let mut moved = Dec::zero();
     // The symbols in the order Rails meets them (balances, then what arrived since), each with its balance rows.

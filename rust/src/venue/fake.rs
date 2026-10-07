@@ -62,6 +62,7 @@ fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
     let mut price = required(&o["price"])?;
     if price.is_zero() && limit { price = required(&o["descr"]["price"])?; }
     Ok(OrderState {
+        asset_class: None,
         txid: txid.into(),
         status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
@@ -218,6 +219,7 @@ impl Venue for FakeVenue {
         Ok(Some(match raw {
             Some(raw) => parse_order(&txid, &raw)?,
             None => OrderState {
+                asset_class: None,
                 txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
                 amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
                 pair: Some(order.pair.clone()),
@@ -250,6 +252,7 @@ impl Venue for FakeVenue {
         // The aggregate names its first trade's pair (honeymaker's aggregate_trades), which Rails looks up as a ticker
         // (kraken.rb:833): a pair spelled like the ticker (SOLEUR) resolves, Kraken's own spelling (XXBTZEUR) does not.
         Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
+            asset_class: None,
             txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair,
         }).collect())
     }

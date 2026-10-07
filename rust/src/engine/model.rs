@@ -261,6 +261,23 @@ pub fn ticker_for_pair(c: &Connection, exchange_id: i64, pair: &str) -> Result<O
     one_ticker(c, "t.exchange_id = ?1 AND t.ticker = ?2", params![exchange_id, pair])
 }
 
+/// Identity for Alpaca venue data with no stored asset ids. Unavailable tombstones remain identities.
+pub fn alpaca_order_ticker(c: &Connection, exchange_id: i64, symbol: Option<&str>, class: Option<&str>) -> Result<Option<Ticker>, EngineError> {
+    let category = match class { Some("crypto") => "Cryptocurrency", Some("us_equity") => "Stock", _ => return Ok(None) };
+    let Some(symbol) = symbol else { return Ok(None) };
+    let mut statement = c.prepare("SELECT t.id,t.ticker FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND a.category=?2")?;
+    let mut found = None;
+    for row in statement.query_map(params![exchange_id,category], |r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))? {
+        let (id,native) = row?;
+        let native = crate::sync::balances::position_spelling(&native);
+        if native == symbol || (category == "Cryptocurrency" && native.replace('/', "") == symbol) {
+            if found.is_some() { return Ok(None); }
+            found = Some(id);
+        }
+    }
+    found.map(|id| ticker_by_id(c,exchange_id,id)).transpose().map(Option::flatten)
+}
+
 pub fn exchange_name(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
     let name: Option<String> = c.query_row("SELECT name FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?.flatten();
     Ok(name.unwrap_or_default())

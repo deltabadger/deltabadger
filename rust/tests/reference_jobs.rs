@@ -682,3 +682,158 @@ async fn index_refresh_attests_only_the_configuration_it_requested() {
         }
     }
 }
+
+fn collision_pair(ext: &str, ticker: &str, base: &str) -> Value {
+    let mut row = pair(ext, ticker, base);
+    row["quote"] = json!("USD");
+    row["quote_external_id"] = json!("usd");
+    row
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_import_orders_and_batch_preserve_both_classes() {
+    for reverse in [false, true] {
+        let (dir, c) = db();
+        let venue = exchange(&c, "Exchanges::Alpaca", true);
+        asset(&c, "usd", "USD", "Fiat");
+        let coin = asset(&c, "bitcoin", "BTC", "Cryptocurrency");
+        let stock = asset(&c, "BTC.US", "BTC", "Stock");
+        let mut rows = vec![collision_pair("bitcoin", "BTC/USD", "BTC"), collision_pair("BTC.US", "BTC", "BTC")];
+        if reverse { rows.reverse(); }
+        let db = Db::new(c, common::seed::cipher());
+        for row in &rows { import_tickers(&db, venue, vec![row.clone()], "2026-10-06T10:00:00Z").await.unwrap(); }
+        let before = tickers(&reopen(&dir));
+        let mut written = import_tickers(&db, venue, rows, "2026-10-06T10:00:00Z").await.unwrap();
+        written.sort_unstable();
+        assert_eq!(written, vec![coin, stock], "the batch keep-set contains both asset classes");
+        assert_eq!(before, tickers(&reopen(&dir)), "neither class is tombstoned or replaced");
+        let c = reopen(&dir);
+        assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers WHERE base = 'BTC' AND available = 1 AND trading_enabled = 1"), 2);
+        for id in [coin, stock] {
+            assert_eq!(one::<i64>(&c, &format!("SELECT count(*) FROM tickers WHERE base_asset_id = {id}")), 1);
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_sweeps_and_wrong_class_records_stay_in_the_importing_class() {
+    let (dir, c) = db();
+    let venue = exchange(&c, "Exchanges::Alpaca", true);
+    asset(&c, "usd", "USD", "Fiat");
+    asset(&c, "bitcoin", "BTC", "Cryptocurrency");
+    asset(&c, "BTC.US", "BTC", "Stock");
+    asset(&c, "ethereum", "ETH", "Cryptocurrency");
+    asset(&c, "AAPL.US", "AAPL", "Stock");
+    let db = Db::new(c, common::seed::cipher());
+    let rows = vec![collision_pair("bitcoin", "BTC/USD", "BTC"), collision_pair("BTC.US", "BTC", "BTC"),
+                    collision_pair("ethereum", "ETH/USD", "ETH"), collision_pair("AAPL.US", "AAPL", "AAPL")];
+    import_tickers(&db, venue, rows.clone(), "2026-10-06T10:00:00Z").await.unwrap();
+    for (category, own, other, stale, untouched) in [("Stock", 1, 0, "AAPL", "ETH/USD"), ("Cryptocurrency", 0, 1, "ETH/USD", "BTC")] {
+        let mut wrong = rows[other].clone();
+        wrong["trading_enabled"] = json!(false);
+        let feed = vec![rows[own].clone(), wrong];
+        let plan = db.run(move |c, _| import::plan_tickers(c, venue, &feed, Some(category))).await.unwrap();
+        import::publish_tickers(&db, venue, plan, at("2026-10-06T10:00:00Z")).await.unwrap();
+        let c = reopen(&dir);
+        assert_eq!(one::<i64>(&c, &format!("SELECT available FROM tickers WHERE ticker = '{stale}'")), 0);
+        assert_eq!(one::<i64>(&c, &format!("SELECT available AND trading_enabled FROM tickers WHERE ticker = '{untouched}'")), 1);
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_stock_import_leaves_crypto_tick_placeable_and_failed_contribution_owed() {
+    use common::{scripted, seed::{self, BotSpec}};
+    use deltabadger::engine::{model, amount, tick::{self, Attempts, TickOutcome}, FixedClock};
+    let (dir, o, s) = common::install_alpaca();
+    let stock = asset(&o.primary, "BTC.US", "BTC", "Stock");
+    o.primary.execute("UPDATE assets SET instrument_type = 'stock' WHERE id = ?1", [stock]).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-10-06 10:00:00"));
+    let stock_bot = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-10-06 10:00:00").weights(&[(stock, 1.0)]));
+    let db = Db::new(reopen(&dir), seed::cipher());
+    let row = json!({ "ticker": "BTC", "base": "BTC", "quote": "USD", "base_external_id": "BTC.US", "quote_external_id": "usd",
+                      "base_decimals": 9, "quote_decimals": 2, "price_decimals": 2, "minimum_quote_size": "1" });
+    let plan = import::plan_tickers(&o.primary, s.exchange_id, &[row], Some("Stock")).unwrap();
+    import::publish_tickers(&db, s.exchange_id, plan, at("2026-10-06T10:00:00Z")).await.unwrap();
+    for (bot_id, base, symbol) in [(id, s.btc, "BTC/USD"), (stock_bot, stock, "BTC")] {
+        let bot = model::load_bot(&o.primary, bot_id).unwrap();
+        let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+        assert_eq!((ticker.base_asset_id, ticker.ticker.as_str()), (base, symbol));
+        let external = if base == s.btc { "bitcoin" } else { "BTC.US" };
+        let name = format!("collision-{base}");
+        seed::insert_index(&o.primary, &name, &[external], &json!({ external: 100.0 }));
+        let index_id = seed::index_bot(&o.primary, &s, &name, 1, 0.0, false);
+        let index_bot = model::load_bot(&o.primary, index_id).unwrap();
+        let transport = scripted::script(json!({ "GET /v2/stocks/BTC/quotes/latest": [scripted::ok(json!({ "quote": { "ap": 100, "bp": 99 } }))] }));
+        deltabadger::engine::index::refresh_composition(&o.primary, &scripted::venue(&transport), &index_bot,
+            &FixedClock(at("2026-10-06T10:05:00Z")), &tick::PriceCache::default()).await.unwrap().unwrap();
+        assert_eq!(one::<i64>(&o.primary, &format!("SELECT asset_id FROM bot_index_assets WHERE bot_id = {index_id} AND in_index = 1")), base);
+    }
+    let transport = scripted::script(json!({}));
+    let out = tick::tick(&o.primary, &scripted::venue(&transport), id, &FixedClock(at("2026-10-06T10:05:00Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(transport.posted_orders()[0]["symbol"], "BTC/USD");
+    assert_eq!(transport.posted_orders()[0]["notional"], "60.00");
+    let failed = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-10-06 10:00:00"));
+    o.primary.execute("UPDATE tickers SET available = 0 WHERE id = ?1", [s.ticker_id]).unwrap();
+    let out = tick::tick(&o.primary, &scripted::venue(&transport), failed, &FixedClock(at("2026-10-06T10:06:00Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
+    let bot = model::load_bot(&o.primary, failed).unwrap();
+    assert_eq!(amount::pending_quote_amount(&o.primary, &bot, at("2026-10-06T10:06:00Z").timestamp_micros()).unwrap().to_s_f(), "60.0");
+    assert_eq!(transport.posted_orders().len(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_native_ticker_conflicts_never_steal_another_class() {
+    let (dir, c) = db();
+    let venue = exchange(&c, "Exchanges::Alpaca", true);
+    asset(&c, "usd", "USD", "Fiat");
+    asset(&c, "bitcoin", "BTC", "Cryptocurrency");
+    asset(&c, "BTC.US", "BTC", "Stock");
+    let db = Db::new(c, common::seed::cipher());
+    let coin = collision_pair("bitcoin", "BTC/USD", "BTC");
+    let bad = collision_pair("BTC.US", "BTC/USD", "BTC");
+    import_tickers(&db, venue, vec![coin.clone()], "2026-10-06T10:00:00Z").await.unwrap();
+    let before = tickers(&reopen(&dir));
+    assert!(import_tickers(&db, venue, vec![bad.clone()], "2026-10-06T10:00:00Z").await.is_err());
+    assert_eq!(before, tickers(&reopen(&dir)));
+    assert!(import_tickers(&db, venue, vec![coin, bad], "2026-10-06T10:00:00Z").await.is_err());
+    assert_eq!(before, tickers(&reopen(&dir)));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_stock_health_count_excludes_crypto_listings() {
+    let (d, c) = db();
+    exchange(&c, "Exchanges::Alpaca", true);
+    asset(&c, "bitcoin", "BTC", "Cryptocurrency");
+    asset(&c, "BTC.US", "BTC", "Stock");
+    let key = "alpaca_listings_last_good_count";
+    deltabadger::app_config::set(&c, &seed::cipher(), key, "1", at("2026-10-05T10:00:00Z")).unwrap();
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/assets", 200, json!({ "data": [] }));
+    t.reply("GET /api/v2/listings", 200, json!({ "data": [
+        collision_pair("BTC.US", "BTC", "BTC"), collision_pair("bitcoin", "BTC/USD", "BTC")
+    ] }));
+    let out = run(reference::STOCKS, scripted(&t), c, "2026-10-06T10:00:00Z").await;
+    assert_eq!(out, Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(deltabadger::app_config::get(&c, &seed::cipher(), key).unwrap().as_deref(), Some("1"));
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers"), 1);
+    assert_eq!(one::<String>(&c, "SELECT ticker FROM tickers"), "BTC");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_same_class_display_pairs_are_deduped_and_reconciled() {
+    let (d, c) = db();
+    let ex = exchange(&c, "Exchanges::Alpaca", true);
+    let first = asset(&c, "FIRST.US", "BTC", "Stock");
+    asset(&c, "OTHER.US", "BTC", "Stock");
+    asset(&c, "EUR.FOREX", "EUR", "Currency");
+    let db = Db::new(c, common::seed::cipher());
+    let rows = vec![pair("FIRST.US", "FIRST", "BTC"), pair("OTHER.US", "OTHER", "BTC")];
+    assert_eq!(import_tickers(&db, ex, rows.clone(), "2026-10-02T10:15:00Z").await.unwrap(), vec![first]);
+    assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM tickers WHERE base='BTC'"), 1);
+    import_tickers(&db, ex, vec![rows[1].clone()], "2026-10-02T10:16:00Z").await.unwrap();
+    let c = reopen(&d);
+    assert_eq!(one::<String>(&c, "SELECT ticker FROM tickers WHERE base='BTC'"), "OTHER");
+    assert_eq!(one::<i64>(&c, &format!("SELECT available FROM tickers WHERE base_asset_id={first}")), 0);
+}

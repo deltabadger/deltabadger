@@ -28,9 +28,9 @@ module McpReads
     index['at'] = McpParity::AT
     index['provider'] = 'deltabadger'
     index['script']['GET paper-api.alpaca.markets/v2/account'] = Figures.ok('cash' => '123.45')
-    index['script']['GET paper-api.alpaca.markets/v2/positions'] = Figures.ok([{ 'symbol' => 'AAA', 'qty' => '2.5' }])
+    index['script']['GET paper-api.alpaca.markets/v2/positions'] = Figures.ok([{ 'symbol' => 'AAA', 'asset_class' => 'us_equity', 'qty' => '2.5' }])
     index['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open'] = Figures.ok([
-      { 'id' => 'external-limit', 'symbol' => 'AAA', 'status' => 'new', 'side' => 'buy', 'type' => 'limit', 'qty' => '2', 'limit_price' => '100', 'filled_qty' => '0' }
+      { 'id' => 'external-limit', 'symbol' => 'AAA', 'asset_class' => 'us_equity', 'status' => 'new', 'side' => 'buy', 'type' => 'limit', 'qty' => '2', 'limit_price' => '100', 'filled_qty' => '0' }
     ])
     calls = [McpParity.tool('get_exchange_balances', exchange_name: 'Alpaca'), McpParity.tool('list_open_orders'),
              *[1,2,3].map { |id| McpParity.tool('get_bot_details', bot_id: id) }, McpParity.tool('get_portfolio_summary')]
@@ -40,6 +40,27 @@ module McpReads
     result['m3_not_granted'] = [index, McpParity.ready + NAMES.map { |name| McpParity.tool(name).merge('sql' => ["UPDATE connected_clients SET mcp_tools='[]'"]) }]
     result['m3_unknown_bot'] = [index, McpParity.ready + [McpParity.tool('get_bot_details', bot_id: 999), McpParity.tool('get_bot_details', bot_id: 4)]]
     result['m3_missing_key'] = [index, McpParity.ready + calls.first(2).map { |s| s.merge('sql' => ['DELETE FROM api_keys']) }]
+    identity = index.deep_dup
+    identity['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open']['body'] = [
+      { 'id' => 'wrong-class', 'symbol' => 'AAA', 'asset_class' => 'crypto', 'status' => 'new', 'side' => 'buy', 'type' => 'limit', 'qty' => '2', 'limit_price' => '100', 'filled_qty' => '0' },
+      { 'id' => 'unknown', 'symbol' => 'UNKNOWN', 'asset_class' => 'us_equity', 'status' => 'new', 'side' => 'buy', 'type' => 'limit', 'qty' => '2', 'limit_price' => '100', 'filled_qty' => '0' },
+      { 'id' => 'known-tombstone', 'symbol' => 'AAA', 'asset_class' => 'us_equity', 'status' => 'new', 'side' => 'buy', 'type' => 'limit', 'qty' => '2', 'limit_price' => '100', 'filled_qty' => '0' }
+    ]
+    result['m3_order_identity'] = [identity, McpParity.ready + [McpParity.tool('list_open_orders').merge('sql' => [
+      "UPDATE tickers SET ticker='__stale_' || id || '_' || ticker,base='__stale_' || id || '_' || base,available=0 WHERE ticker='AAA'"
+    ])]]
+    %w[status number missing].each do |defect|
+      malformed = identity.deep_dup
+      bad = malformed['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open']['body'][1]
+      bad['status'] = 'future_status' if defect == 'status'
+      bad['filled_qty'] = 'unreadable' if defect == 'number'
+      bad.delete('filled_qty') if defect == 'missing'
+      result["m3_order_identity_#{defect}"] = [malformed, result['m3_order_identity'][1].deep_dup]
+    end
+    bare = identity.deep_dup
+    path = 'GET paper-api.alpaca.markets/v2/orders?limit=50&status=open'
+    bare['script'][path]['body'] = bare['script'][path]['body'].to_json.sub('"filled_qty":"0"', '"filled_qty":1e-350')
+    result['m3_order_identity_bare_number'] = [bare, result['m3_order_identity'][1].deep_dup]
     result['m3_unknown_exchange'] = [index, McpParity.ready + %w[get_exchange_balances list_open_orders].map { |n| McpParity.tool(n, exchange_name: 'NoVenue') }]
     result['m3_other_venue'] = [index, McpParity.ready + [
       McpParity.tool('get_exchange_balances', exchange_name: 'Kraken').merge('sql' => ["UPDATE exchanges SET name='Kraken',type='Exchanges::Kraken' WHERE id=1"]),
@@ -81,11 +102,11 @@ module McpReads
     result['m3_legacy_pair'] = [pair, McpParity.ready + [McpParity.tool('get_bot_details', bot_id: 1), McpParity.tool('get_portfolio_summary')]]
     result['m3_unmapped_cash'] = [zero.deep_dup.tap { |s| s['script']['GET paper-api.alpaca.markets/v2/account'] = Figures.ok('cash' => '123.45') }, McpParity.ready + [calls.first.merge('sql' => ["DELETE FROM exchange_assets WHERE asset_id=(SELECT id FROM assets WHERE symbol='USD')"])]]
     unmapped = zero.deep_dup
-    unmapped['script']['GET paper-api.alpaca.markets/v2/positions'] = Figures.ok([{ 'symbol' => 'UNKNOWN', 'qty' => '2.5' }])
+    unmapped['script']['GET paper-api.alpaca.markets/v2/positions'] = Figures.ok([{ 'symbol' => 'UNKNOWN', 'asset_class' => 'us_equity', 'qty' => '2.5' }])
     result['m3_unmapped_position'] = [unmapped, McpParity.ready + [calls.first]]
     %w[market limit].each do |kind|
       no_price = zero.deep_dup
-      no_price['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open']['body'] = [{ 'id' => 'no-price', 'symbol' => 'AAA', 'status' => 'new', 'side' => 'buy', 'type' => kind, 'qty' => '2', 'filled_qty' => '0' }]
+      no_price['script']['GET paper-api.alpaca.markets/v2/orders?limit=50&status=open']['body'] = [{ 'id' => 'no-price', 'symbol' => 'AAA', 'asset_class' => 'us_equity', 'status' => 'new', 'side' => 'buy', 'type' => kind, 'qty' => '2', 'filled_qty' => '0' }]
       result["m3_#{kind}_no_price"] = [no_price, McpParity.ready + [calls[1].merge('sql' => ['DELETE FROM transactions'])]]
     end
     # Persisted polling sentinel: the engine regression exercises apply_in for this state.
