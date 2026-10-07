@@ -46,7 +46,7 @@ mutants = [
     ('market_stock_venue', 'index', "'Exchanges::Alpaca','Exchanges::Ibkr'", "'Exchanges::None','Exchanges::Ibkr'", page),
     ('key_presence', 'index', 'SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1) OR EXISTS', 'SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND 0) OR EXISTS', page),
     ('transaction_presence', 'index', 'EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)"', 'EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND 0)"', page),
-    ('pending_report', 'index', 'populated || settings.get("pending_report")', 'populated || false && settings.get("pending_report")', page),
+    ('pending_report', 'index', 'if settings.get("pending_report")', 'if false && settings.get("pending_report")', page),
     ('scope_bounds', 'index', 'ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty())', 'ctx.params.query("exchange_id").filter(|_|false)', page),
     ('date_deferral', 'index', 'if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty()))', 'if false && ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty()))', page),
     ('date_last_value', 'index', '["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty()))', 'ctx.params.query.iter().any(|(k,v)| (k=="from" || k=="to") && !v.trim().is_empty())', 'test(=repeated_scalar_dates_use_the_last_value)'),
