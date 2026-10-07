@@ -128,10 +128,16 @@ pub fn denomination(c: &Connection, market: &dyn MarketData, display_currency: &
     budget::within(|| shown_in(c, market, display_currency))
 }
 
+/// User's display-currency normalizer, also applied by Denomination.for on legacy rows.
+/// Nonblank codes are uppercased, not stripped. This never changes the stored preference.
+pub fn normalized_currency(code: &str) -> String {
+    if code.trim().is_empty() { "USD".into() } else { code.to_uppercase() }
+}
+
 fn shown_in(c: &Connection, market: &dyn MarketData, display_currency: &str) -> Result<Denomination, FiguresError> {
-    let currency = display_currency.to_uppercase();
+    let currency = normalized_currency(display_currency);
     let usd = || Denomination { currency: "USD".into(), rate: Dec::one() };
-    if currency.trim().is_empty() || currency == "USD" { return Ok(usd()); }
+    if currency == "USD" { return Ok(usd()); }
     match lift(exchange_rate(c, market, "USD", &currency)?)? {
         Some(rate) => Ok(Denomination { rate: rate.to_d()?, currency }),
         None => Err(FiguresError::NotComputed("Currency conversion unavailable".into())),

@@ -6,28 +6,27 @@
 <span>{{ v.t("links.hide_balances")|safe }}</span>
 <div class="toggle toggle--small">
 <input type="hidden" name="hide_balances" id="hide_balances" value="0" />
-<input type="checkbox" name="hide_balances" id="hide_balances" value="1" data-action="change->form--submit#submit"{% if user.hide_balances %} checked="checked"{% endif %} />
+<input type="checkbox" name="hide_balances" id="hide_balances" value="1" data-action="change-&gt;form--submit#submit"{% if user.hide_balances %} checked="checked"{% endif %} />
 <div class="toggle__style"></div>
 </div>
 </label>
 </form>
 {%- endmacro -%}
 {%- macro display_currency_picker(item_class) -%}
-<form class="switch-row-form" data-controller="form--segmented-field form--submit" data-action="segmented:change->form--segmented-field#set segmented:change->form--submit#submit" action="{{ v.path("/settings/update_display_currency") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><div class="{{ item_class }} {{ item_class }}--currency" data-dropdown-keep-open title="{{ v.t("settings.language_and_timezone.currency_is_used_for")|safe }}">
+<form class="switch-row-form" data-controller="form--segmented-field form--submit" data-action="segmented:change-&gt;form--segmented-field#set segmented:change-&gt;form--submit#submit" action="{{ v.path("/settings/update_display_currency") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><div class="{{ item_class }} {{ item_class }}--currency" data-dropdown-keep-open title="{{ v.t("settings.language_and_timezone.currency_is_used_for")|safe }}">
 
-<div class="segmented segmented--fluid" role="radiogroup" aria-label="{{ v.t("links.display_currency")|safe }}" data-controller="segmented" data-action="click->segmented#toggle" data-currency="true">
+<div class="segmented segmented--fluid" role="radiogroup" aria-label="{{ v.t("links.display_currency")|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle" data-currency="true">
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
   <div class="segmented__dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">
       <div class="segmented__pane segmented__menu">
-{% for (code, unit) in currencies %}
-            <button type="button" class="segmented__option{% if user.display_currency == *code %} is-on{% endif %}" role="radio" aria-checked="{% if user.display_currency == *code %}true{% else %}false{% endif %}" tabindex="{% if user.display_currency == *code %}0{% else %}-1{% endif %}" data-value="{{ code }}" data-segmented-target="option" data-action="segmented#select keydown->segmented#keys">{{ unit }}</button>
-{% endfor %}
-      </div>
+{% for (code, unit) in currencies %}            <button type="button" class="segmented__option{% if user.display_currency == *code %} is-on{% endif %}" role="radio" aria-checked="{% if user.display_currency == *code %}true{% else %}false{% endif %}" tabindex="{% if user.display_currency == *code %}0{% else %}-1{% endif %}" data-value="{{ code }}" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ unit }}</button>
+{% endfor %}      </div>
     </div>
   </div>
   <span class="segmented__caret" aria-hidden="true">
     {% include "svg/_16x16_down.html" %}
+
 </span></div>
 </div>
 <input data-form--segmented-field-target="field" type="hidden" value="{{ user.display_currency }}" name="user[display_currency]" />
@@ -36,7 +35,7 @@
     <input data-turbo-permanent id="hamburger" type="checkbox">
 <div class="hamburger hamburger__a"></div>
 <div class="hamburger hamburger__b"></div>
-<div class="menu-mobile" data-action="click->menu-mobile#close" data-controller="menu-mobile">
+<div class="menu-mobile" data-action="click-&gt;menu-mobile#close" data-controller="menu-mobile">
 <a class="menu-mobile__item menu-mobile__item--bots {% if v.current_page(shell.bots_path()) %}menu-mobile__item--active{% endif %}" href="{{ v.path(shell.bots_path()) }}">{{ v.t(shell.bots_label())|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--tracker {% if v.current_page("/tracker") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/tracker") }}">{{ v.t("links.tracker")|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--rules {% if v.current_page("/rules") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/rules") }}">{{ v.t("links.rules")|safe }}
@@ -51,31 +50,31 @@
 <div class="menu">
 <div class="menu__section menu__section--top menu__section--logo">
 <a class="menu__logo" aria-label="Deltabadger" href="{{ v.path(shell.bots_path()) }}">{% include "svg/_40x30_logo.html" %}
+
 </a></div>
 <div class="menu__section menu__section--top menu__section--main-menu" data-controller="menu">
-<a class="menu__item menu__item--bots {% if v.current_page(shell.bots_path()) %}menu__item--active{% endif %}" aria-label="{{ v.t(shell.bots_label())|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path(shell.bots_path()) }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<a class="menu__item menu__item--bots {% if v.current_page(shell.bots_path()) %}menu__item--active{% endif %}" aria-label="{{ v.t(shell.bots_label())|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path(shell.bots_path()) }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <text class="fill--icon" x="12" y="{{ bot_count_baseline }}" text-anchor="middle"
         font-size="{{ bot_count_font_size }}">{{ shell.bot_count }}</text>
 </svg>
 
-</a><a class="menu__item menu__item--tracker {% if v.current_page("/tracker") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.tracker")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="tracker" href="{{ v.path("/tracker") }}"><svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-{% if shell.arcs.is_empty() %}
-    <circle class="stroke--icon" cx="12" cy="12" r="9"
+</a><a class="menu__item menu__item--tracker {% if v.current_page("/tracker") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.tracker")|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="tracker" href="{{ v.path("/tracker") }}"><svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+{% if shell.arcs.is_empty() %}    <circle class="stroke--icon" cx="12" cy="12" r="9"
             fill="none" stroke-width="2"/>
-{% else %}{% for arc in shell.arcs %}
-      <circle cx="12" cy="12" r="9" fill="none"
+{% else %}{% for arc in shell.arcs %}      <circle cx="12" cy="12" r="9" fill="none"
               stroke-width="2" stroke-linecap="round" stroke="{{ arc.color }}"
               stroke-dasharray="{{ arc.dash }}" stroke-dashoffset="{{ arc.offset }}"/>
-{% endfor %}{% endif %}
-</svg>
+{% endfor %}{% endif %}</svg>
 
-</a><a class="menu__item menu__item--rules {% if v.current_page("/rules") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.rules")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="rules" href="{{ v.path("/rules") }}">{% include "svg/_24x24_withdrawal.html" %}
+</a><a class="menu__item menu__item--rules {% if v.current_page("/rules") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.rules")|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="rules" href="{{ v.path("/rules") }}">{% include "svg/_24x24_withdrawal.html" %}
+
 </a><div class="menu__chip" data-menu-target="chip"></div>
 </div>
 <div class="menu__section menu__section--bottom">
-<div class="dropdown-wrapper dropdown-wrapper--bottom-left" data-action="click->dropdown#toggle" data-controller="dropdown" data-dropdown-active-class="menu__item--active" data-dropdown-target="wrapper" data-turbo-permanent id="settings-menu">
+<div class="dropdown-wrapper dropdown-wrapper--bottom-left" data-action="click-&gt;dropdown#toggle" data-controller="dropdown" data-dropdown-active-class="menu__item--active" data-dropdown-target="wrapper" data-turbo-permanent id="settings-menu">
 <div class="menu__item menu__button" data-dropdown-target="trigger">
 {% include "svg/_24x24_sliders.html" %}
+
 </div>
 <div class="dropdown">
 <a class="dropdown__item" href="{{ v.path("/settings/account") }}">{{ v.t("links.account")|safe }}</a>
@@ -89,3 +88,5 @@
 </div>
 </div>
 </div>
+
+

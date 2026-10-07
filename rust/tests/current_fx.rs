@@ -65,3 +65,13 @@ fn numeric_string_fx_uses_the_shared_float_path() {
  }
  assert_eq!(c.total_changes(),1);
 }
+
+#[test]
+fn legacy_display_currency_uses_rails_normalizer_without_stripping_nonblank_codes() {
+ let c=db();let f=feed(Num::Int(100),Num::Int(80));
+ for raw in ["usd","Usd",""," \t\n","\u{3000}"] {
+  let d=totals::denomination(&c,&f,raw).unwrap();assert_eq!(d.currency,"USD");assert_eq!(d.rate.to_s_f(),"1.0");
+ }
+ let d=totals::denomination(&c,&f,"eur").unwrap();assert_eq!(d.currency,"EUR");assert_eq!(d.rate.to_s_f(),"0.8");
+ assert!(totals::denomination(&c,&f," eur ").is_err());
+}

@@ -104,10 +104,16 @@ struct ApplicationLayout<'a> {
     shell: &'a Shell,
     navbar: &'a str,
     body: &'a str,
+    flash_extra: &'a str,
 }
 
 /// layouts/application.html.erb with the signed-in navbar.
 pub fn application(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page) -> Result<Response, WebError> {
+    application_with_flash_extra(ctx,csrf,user,shell,page,"")
+}
+
+/// The tracker supplies Rails' content_for(:flash_extra), outside the permanent flash target.
+pub fn application_with_flash_extra(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, flash_extra: &str) -> Result<Response, WebError> {
     if ctx.turbo_frame.is_some() {
         return frame(csrf, &page);
     }
@@ -116,6 +122,6 @@ pub fn application(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page
     let navbar = Navbar { v: ctx, csrf, user, shell, currencies: &CURRENCIES, bot_count_font_size: size, bot_count_baseline: bot_count_baseline(size) }.render()?;
     // Rails also has `hide-chrome` here, on the page that opens the new-bot wizard. Not served yet: see bots::index.
     let body_class = if user.hide_balances { "hide-balances" } else { "" };
-    let layout = ApplicationLayout { v: ctx, csrf, body_class, flash: &flash, shell, navbar: &navbar, body: &page.body };
+    let layout = ApplicationLayout { v: ctx, csrf, body_class, flash: &flash, shell, navbar: &navbar, body: &page.body, flash_extra };
     Ok(html(page.status, layout.render()?))
 }

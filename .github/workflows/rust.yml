@@ -87,6 +87,12 @@ on:
       - 'app/services/bot_api/number.rb'
       - 'app/models/bot/accountable.rb'
       - 'app/models/bot/lifecycle.rb'
+      - 'app/controllers/tracker_controller.rb'
+      - 'app/models/user.rb'
+      - 'app/models/market_data_settings.rb'
+      - 'app/views/tracker/**'
+      - 'app/views/layouts/**'
+      - 'script/rust/pages_tracker_index.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -173,6 +179,12 @@ on:
       - 'app/services/bot_api/number.rb'
       - 'app/models/bot/accountable.rb'
       - 'app/models/bot/lifecycle.rb'
+      - 'app/controllers/tracker_controller.rb'
+      - 'app/models/user.rb'
+      - 'app/models/market_data_settings.rb'
+      - 'app/views/tracker/**'
+      - 'app/views/layouts/**'
+      - 'script/rust/pages_tracker_index.rb'
 
 permissions:
   contents: read
@@ -239,5 +251,5 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
+          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
           --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract

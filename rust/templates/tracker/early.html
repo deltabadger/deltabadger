@@ -1,0 +1,13 @@
+{{ v.stream_from(&preferences)|safe }}
+{{ v.stream_from(&tax_report)|safe }}
+{{ v.stream_from(&sync)|safe }}
+  <div class="welcome-screen">
+{% if missing %}    <p>{{ v.t("tracker.welcome.needs_market_data")|safe }}</p>
+    <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ v.path("/tracker/connect_market_data") }}">
+      {{ connect|safe }}
+{% else %}    <p>{{ v.t("tracker.welcome.connect_and_track")|safe }}</p>
+    <a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("tracker.connect_exchange")|safe }}" href="{{ v.path("/tracker/pick_exchange/new") }}">
+      {% include "svg/_24x24_plus.html" %}
+
+{% endif %}</a>  </div>
+
