@@ -275,20 +275,22 @@ module D5Grid
 end
 Pages.singleton_class.prepend(D5Grid)
 Rails.cache = ActiveSupport::Cache::MemoryStore.new
-command, root = ARGV
-raise 'usage: grid|record DIR' unless %w[grid record].include?(command) && root
+unless defined?(D5_TRACKER_LIBRARY)
+  command, root = ARGV
+  raise 'usage: grid|record DIR' unless %w[grid record].include?(command) && root
 
-Pages.public_send(command, root)
-if command == 'record'
-  Dir[File.join(root, '*/rails.json')].each do |path|
-    scenario = JSON.parse(File.read(File.join(File.dirname(path), 'scenario.json')))
-    result = JSON.parse(File.read(path))
-    raise "network attempt in #{File.basename(File.dirname(path))}" unless result.fetch('network').empty?
+  Pages.public_send(command, root)
+  if command == 'record'
+    Dir[File.join(root, '*/rails.json')].each do |path|
+      scenario = JSON.parse(File.read(File.join(File.dirname(path), 'scenario.json')))
+      result = JSON.parse(File.read(path))
+      raise "network attempt in #{File.basename(File.dirname(path))}" unless result.fetch('network').empty?
 
-    scenario.fetch('steps').zip(result.fetch('responses')).each do |step, answer|
-      next unless step.key?('expect')
-      raise "unexpected status for #{step['method']} #{step['path']}: #{answer['status']}" unless step['expect'] == answer['status']
+      scenario.fetch('steps').zip(result.fetch('responses')).each do |step, answer|
+        next unless step.key?('expect')
+        raise "unexpected status for #{step['method']} #{step['path']}: #{answer['status']}" unless step['expect'] == answer['status']
+      end
     end
+    puts "recorded and checked #{Dir[File.join(root, '*/rails.json')].size} scenarios"
   end
-  puts "recorded and checked #{Dir[File.join(root, '*/rails.json')].size} scenarios"
 end
