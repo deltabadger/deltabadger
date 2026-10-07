@@ -363,6 +363,11 @@ impl std::ops::Deref for App {
 }
 
 impl App {
+    pub fn job_notifications(&self) -> crate::jobs::notifications::Notifications {
+        let app = self.clone();
+        crate::jobs::notifications::Notifications::new(move |stream, payload| { app.hub.broadcast(stream, payload); Ok(()) })
+    }
+
     /// `primary` is a connection `store::open` returned, so the install has passed `store::check`.
     pub fn new(config: Config, env: &dyn Fn(&str) -> Option<String>, primary: Connection, clock: Arc<dyn Clock + Send + Sync>) -> Result<Self, WebError> {
         assets::require()?;

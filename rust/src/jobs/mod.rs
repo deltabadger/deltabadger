@@ -22,6 +22,7 @@ pub mod schedule;
 pub mod state;
 
 use crate::crypto::Cipher;
+pub mod notifications;
 use crate::engine::events::EngineEvent;
 use crate::engine::{log, Clock};
 use chrono::{DateTime, Utc};
@@ -61,13 +62,15 @@ pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock, pub wakers: Wakers }
 
 /// The scheduler's connection for job work (a `store::open` of its own) and the instance's cipher.
 #[derive(Clone)]
-pub struct Db { conn: Arc<Mutex<Connection>>, cipher: Arc<Cipher>, longest_hold_us: Arc<std::sync::atomic::AtomicU64> }
+pub struct Db { pub notifications: notifications::Notifications, conn: Arc<Mutex<Connection>>, cipher: Arc<Cipher>, longest_hold_us: Arc<std::sync::atomic::AtomicU64> }
 
 impl Db {
+    pub fn with_notifications(mut self, notifications: notifications::Notifications) -> Self { self.notifications = notifications; self }
+
     pub fn longest_write_hold(&self) -> Duration { Duration::from_micros(self.longest_hold_us.load(std::sync::atomic::Ordering::Relaxed)) }
     pub fn note_write_hold(&self, held: Duration) { self.longest_hold_us.fetch_max(u64::try_from(held.as_micros()).unwrap_or(u64::MAX), std::sync::atomic::Ordering::Relaxed); }
 
-    pub fn new(conn: Connection, cipher: Cipher) -> Self { Self { conn: Arc::new(Mutex::new(conn)), cipher: Arc::new(cipher), longest_hold_us: Arc::new(std::sync::atomic::AtomicU64::new(0)) } }
+    pub fn new(conn: Connection, cipher: Cipher) -> Self { Self { notifications: notifications::Notifications::default(), conn: Arc::new(Mutex::new(conn)), cipher: Arc::new(cipher), longest_hold_us: Arc::new(std::sync::atomic::AtomicU64::new(0)) } }
 
     /// Runs `f` on tokio's blocking pool, as the web's App::db does. Every SQLite statement and every large JSON walk of a
     /// job goes through here: nothing holds the runtime thread the engine ticks on past its 250 ms bound, and a wait
@@ -234,6 +237,8 @@ impl Scheduler {
         let records = db.path().filter(|p| !p.is_empty()).map(String::from);
         Self { db: Db::new(db, cipher), records, slots, wakers: Wakers::default(), events, resolver: None }
     }
+
+    pub fn with_notifications(mut self, notifications: notifications::Notifications) -> Self { self.db = self.db.with_notifications(notifications); self }
 
     pub fn with_resolver(mut self, resolver: Resolver) -> Self { self.resolver=Some(resolver); self }
 

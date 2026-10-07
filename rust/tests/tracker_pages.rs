@@ -34,6 +34,12 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
         for (method,path) in [("GET","/tracker"),("GET","/tracker?all=1&show_cash=1"),("GET","/tracker/import/new"),("POST","/tracker/import"),("GET","/tracker/export"),("GET","/tracker/tax_report?country=US&year=2024"),("GET","/tracker/download_tax_report?country=US&year=2024"),("GET","/tracker/add_api_key/new"),("GET","/tracker/pick_exchange/new"),("GET","/tracker/setup_coingecko"),("GET","/tracker/connect_market_data")] {
             let path=format!("{prefix}{path}");
             let answer=browser.send(&app,method,&path,Some(&[]),Csrf::Header,&[("origin","http://localhost:3000"),("accept","text/html"),("turbo-frame","modal")]).await;
+            if path==format!("{prefix}/tracker") || path==format!("{prefix}/tracker?all=1&show_cash=1") {
+                assert_eq!(answer.status,200,"{path}: populated first-sync page");
+                assert!(answer.body.contains("tracker-record"));
+                assert_eq!(snapshot(&connection),before,"first-sync GET must not mutate rows");
+                continue;
+            }
             assert_eq!(answer.status,501,"{path}");
             assert!(answer.body.contains("Not available in the Rust build yet"),"{path}");
             assert!(answer.body.contains("<turbo-frame id=\"modal\">"),"{path}");

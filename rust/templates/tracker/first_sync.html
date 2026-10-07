@@ -1,0 +1,150 @@
+{{ v.stream_from(&preferences)|safe }}
+{{ v.stream_from(&tax_report)|safe }}
+{{ v.stream_from(&sync)|safe }}
+  <div class="tracker">
+    <div class="tracker-exchanges">
+  <div class="filters">
+      <a class="rbutton rbutton--icon" data-turbo-frame="modal" aria-label="{{ v.t("tracker.connect_exchange")|safe }}" href="{{ v.path("/tracker/pick_exchange/new") }}">
+        {% include "svg/_24x24_plus.html" %}
+
+</a>  </div>
+
+  <div class="tracker-exchanges__end">
+    <div class="tracker-exchanges__sync">
+        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
+          {% include "svg/_24x24_sync.html" %}
+
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>    </div>
+
+      <a class="rbutton" data-turbo-frame="modal" href="{{ v.path("/tracker/export_modal") }}">{{ v.t("tracker.get_report")|safe }}</a>
+
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+      {% include "svg/_24x24_dot_menu.html" %}
+
+      <div class="dropdown">
+        <form class="switch-row-form" data-controller="form--submit" action="{{ v.path("/settings/update_show_cash") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+          <label class="dropdown__item dropdown__item--switch" data-dropdown-keep-open>
+            <span>{{ v.t("tracker.show_cash")|safe }}</span>
+            <div class="toggle toggle--small">
+              <input type="hidden" name="show_cash" id="show_cash" value="0" />
+              <input type="checkbox" name="show_cash" id="show_cash" value="1" data-action="change-&gt;form--submit#submit"{% if show_cash %} checked="checked"{% endif %} />
+              <div class="toggle__style"></div>
+            </div>
+          </label>
+</form>        <div class="dropdown__item dropdown__item--divider"></div>
+        <a class="dropdown__item" href="{{ export_path|safe }}">{{ v.t("bot.details.stats.download_csv")|safe }}</a>
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/tracker/import/new") }}">{{ v.t("tracker.import.title")|safe }}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+{% if !hidden %}      <div class="widget data-grid data-grid--six">
+    <div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    {{ v.t("bot.details.stats.total_invested")|safe }}
+  </div>
+  <div class="data-grid__item__value ">
+      <div class="loader--small" style="position: unset; margin: 0.5rem 0 0 auto;"></div>
+  </div>
+</div>
+
+    <div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    {{ v.t("bot.details.stats.portfolio_value")|safe }}
+  </div>
+  <div class="data-grid__item__value ">
+      {{ unavailable|safe }}
+  </div>
+</div>
+
+    <div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    {{ v.t("tracker.fees_paid")|safe }}
+  </div>
+  <div class="data-grid__item__value data-grid__item__value--quiet">
+      <div class="loader--small" style="position: unset; margin: 0.5rem 0 0 auto;"></div>
+  </div>
+</div>
+
+    <div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    {{ v.t("bot.dca_index.realised_pnl")|safe }}
+  </div>
+  <div class="data-grid__item__value ">
+      <div class="loader--small" style="position: unset; margin: 0.5rem 0 0 auto;"></div>
+  </div>
+</div>
+
+    <div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    {{ v.t("tracker.tiles.unrealised_pnl")|safe }}
+  </div>
+  <div class="data-grid__item__value ">
+      <div class="loader--small" style="position: unset; margin: 0.5rem 0 0 auto;"></div>
+  </div>
+</div>
+
+    <div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    {{ v.t("tracker.tiles.total_pnl")|safe }}
+      <span class="data-grid__item__hint" aria-label="{{ hint|safe }}"
+            data-controller="tooltip" data-tooltip-fixed-value="true"
+            data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        {% include "svg/_24x24_info.html" %}
+
+        <div class="tooltip tooltip--hint">{{ hint|safe }}</div>
+      </span>
+  </div>
+  <div class="data-grid__item__value ">
+      <div class="loader--small" style="position: unset; margin: 0.5rem 0 0 auto;"></div>
+  </div>
+</div>
+
+  </div>
+
+{% else %}    
+{% endif %}    <div class="widget tracker-holdings {% if hidden %}tracker-holdings--anon{% endif %}">
+  <div class="tracker-holdings__head">
+    <span class="label">{{ v.t("tracker.holdings")|safe }} · 0</span>
+    <span class="label"></span>
+  </div>
+
+    <p class="tracker-holdings__empty">{{ v.t("tracker.portfolio.never_synced")|safe }}</p>
+
+</div>
+
+    <div class="tracker-record" data-controller="tracker--record">
+  <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold">
+    {{ record_switch|safe }}
+  </div>
+
+  <div class="tracker-record__pane tracker-record__pane--off" data-pane="tx"
+       data-controller="order-filter" data-tracker--record-target="pane">
+    <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
+    </div>
+    <div class="tracker-record__table widget widget--table" data-controller="table-fit">
+        <p class="tracker-empty">{{ v.t("tracker.no_results")|safe }}</p>
+    </div>
+  </div>
+
+  <div class="tracker-record__pane" data-pane="pos"
+       data-controller="order-filter" data-tracker--record-target="pane">
+    <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
+    </div>
+    <div class="tracker-record__table widget widget--table tracker-positions" data-controller="table-fit">
+        <div class="loader--small" style="position: unset; margin: 2rem auto;"></div>
+    </div>
+  </div>
+
+  <div class="tracker-record__actions">
+    <form class="tracker-date-range" data-controller="form--submit" action="{{ v.path("/tracker") }}" accept-charset="UTF-8" method="get">
+{% if let Some(scope) = scope %}        <input type="hidden" name="exchange_id" id="exchange_id" value="{{ scope|safe }}" />
+{% endif %}      <input type="date" name="from" value="{{ from }}" class="sinput" data-action="change->form--submit#submit">
+      <input type="date" name="to" value="{{ to }}" class="sinput" data-action="change->form--submit#submit">
+</form>  </div>
+</div>
+
+  </div>
+
