@@ -368,6 +368,16 @@ class SetupTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
+  # Setup has one step now; an admin who never finished the old second step gets the app, as Rust serves it.
+  test 'an admin with setup_completed false gets the app' do
+    admin = create(:user, admin: true, setup_completed: false)
+    sign_in admin
+
+    get bots_path
+
+    assert_response :success
+  end
+
   private
 
   def with_env(key, value)
