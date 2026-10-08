@@ -39,4 +39,34 @@ class Bots::StartsControllerTest < ActionDispatch::IntegrationTest
     assert_match I18n.t('engine.already_running'), response.body
     assert_equal before, bot.reload.attributes
   end
+
+  test 'a start without start_fresh starts fresh instead of failing' do
+    bot = create(:dca_single_asset, user: @user, status: :stopped)
+    stub_enqueues
+
+    patch bot_start_path(bot_id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+
+    assert_response :success
+    assert_predicate bot.reload, :scheduled?
+  end
+
+  test 'an unreadable start_fresh is refused, not a server error' do
+    bot = create(:dca_single_asset, user: @user, status: :stopped)
+    stub_enqueues
+
+    patch bot_start_path(bot_id: bot.id, start_fresh: 'junk'), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+
+    assert_response :unprocessable_entity
+    assert_match I18n.t('engine.invalid_start_fresh'), response.body
+    assert_predicate bot.reload, :stopped?
+  end
+
+  private
+
+  def stub_enqueues
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+    Bots::DcaSingleAsset.any_instance.stubs(:check_missed_quote_amount_was_set).returns(true)
+  end
 end

@@ -143,7 +143,6 @@ module Pages
   module_function
 
   ACTION_EXCEPTIONS = {
-    'actions_start_missing' => 500, 'actions_start_junk' => 500,
     'actions_extra_html_archive' => 406,
     'actions_extra_html_update' => 406, 'actions_extra_html_start_start_fresh_true' => 406,
     'actions_extra_html_stop' => 406, 'actions_extra_empty_root' => 400

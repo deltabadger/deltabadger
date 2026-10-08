@@ -741,8 +741,8 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let flag=matches!(n,"start_missing"|"start_junk");
             let empty=n=="extra_empty_root";
             if start_guard || working_start || working_settings || html || scope || safety || flag || empty {
-                let rails_status=if html {406} else if flag {500}
-                    else if empty {400} else if working_start || matches!(n,"start_no_key"|"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
+                let rails_status=if html {406}
+                    else if empty {400} else if working_start || matches!(n,"start_junk"|"start_no_key"|"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
                 if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
                 // HTML update, stop and archive are refused before they write; HTML start still commits first.
