@@ -114,8 +114,10 @@ McpControl::NAMES.each do |name|
     sent = ScriptedAlpaca.sent
     final = McpControl.snapshot
     File.write(File.join(dir, 'diagnostic.json'), JSON.pretty_generate({ response:, sent:, at_tool:, final: }))
-    raise "scripted tick placements changed: #{sent.inspect}" unless sent.size == 2
-    raise 'wrong total contribution' unless sent.sum { |order| order.fetch('notional').to_d } == 500
+    # A stop, archive or delete committed while the tick is claimed fences its placement.
+    fenced = %w[stop_bot archive_bot delete_bot].include?(name)
+    raise "scripted tick placements changed: #{sent.inspect}" unless sent.size == (fenced ? 0 : 2)
+    raise 'wrong total contribution' unless fenced || sent.sum { |order| order.fetch('notional').to_d } == 500
 
     File.write(File.join(dir, 'race.json'), JSON.pretty_generate({ response:, before:, before_tool:, at_tool:, final:, sent: }))
   ensure

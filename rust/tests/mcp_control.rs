@@ -282,7 +282,7 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
         script.release.notify_one();
         tokio::time::timeout(std::time::Duration::from_secs(20),&mut future).await.unwrap().unwrap();
         let safety=["stop_bot","archive_bot","delete_bot"].contains(&name);
-        assert_eq!(rails["sent"].as_array().unwrap().len(),2,"Rails known pre-placement race");
+        assert_eq!(rails["sent"].as_array().unwrap().len(),if safety {0} else {2},"{name}: Rails placement fence");
         assert_eq!(script.sent.borrow().len(),if safety {0} else {2},"{name}: placement fence");
         let state=model::load_bot(&c,1).unwrap();
         assert_eq!(state.status as i64,rails["final"]["bots"][0]["status"].as_i64().unwrap(),"{name}: never resurrected");
