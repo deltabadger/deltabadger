@@ -1,7 +1,8 @@
 //! Settings and lifecycle writes own their observation, response construction and post-commit delivery.
 //! Call from App::db: cancelling its await must not cancel the committed write's wake.
 use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, Bot, For, Kind};
-use crate::{codec, engine::{eligibility, model}};
+use crate::{codec, engine::{eligibility, model}, ruby::BigDec};
+use crate::web::format::Num;
 use crate::web::{bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -30,6 +31,10 @@ WHERE id = ?3 AND user_id = ?4 AND type = ?5 AND status <> 3;";
 const REMOVE_TRANSIENT: &str = "UPDATE bots
 SET transient_data = json_remove(transient_data, ?1)
 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3;";
+
+/// Bot::Startable steps a passed start time forward in fixed UTC days; across a DST change that lands an hour BEFORE the
+/// chosen local time, and the engine does not buy early (start::StartAt). Rails starts these.
+const EARLY_START: &str = "this starting time crosses a daylight-saving change, where Rails would run the first order an hour before the chosen time";
 
 fn error(message: &str) -> WebError { super::data(message.into()) }
 fn one(rows: usize) -> Result<(), WebError> {
@@ -191,6 +196,19 @@ fn settings_inner<T>(
 
 pub use crate::engine::accounting::web_pending as pending;
 use crate::engine::accounting::{web_effective_amount as effective_amount, web_serialized as serialized, web_minimum as minimum};
+/// A stored transient value against the one assigned, by Ruby's `==`: `assigned` is nil, a BigDecimal (written as its
+/// text) or a settings number. A stored text is a String, never equal to a BigDecimal.
+fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
+    let number = |v: &Value| match v {
+        Value::String(s) => BigDec::parse(s).ok(),
+        v => Num::from_json(v).and_then(|n| n.to_d()),
+    };
+    match (stored, assigned) {
+        (Value::Null, Value::Null) => true,
+        (Value::Number(_), Value::String(_) | Value::Number(_)) => number(stored).is_some() && number(stored) == number(assigned),
+        _ => false,
+    }
+}
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
@@ -345,7 +363,13 @@ fn lifecycle_inner<T>(
                 view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
             } else if fresh {
                 let zone:String=tx.query_row("SELECT time_zone FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-                delayed=draft.initial_start_at(ctx.now,&zone)?;
+                // Lifecycle#start: `computed_start_at&.future?`.
+                let start=draft.initial_start_at(ctx.now,&zone)?.filter(|s|s.at>ctx.now);
+                if start.is_some_and(|s|s.early) {
+                    writer_refused = true;
+                    view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(EARLY_START))])});
+                }
+                delayed=start.map(|s|s.at);
             }
         }
     }
@@ -375,11 +399,21 @@ fn lifecycle_inner<T>(
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
         if delayed.is_some() {
-            // Rails captures after assigning the future anchor and resetting carry.
-            let carry=pending(&tx,&draft.candidate,ctx.now)?;
-            effects.transient.set.insert("missed_quote_amount".into(),serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?);
-            effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
-            effects.transient.set.insert("last_action_job_at".into(),Value::Null);
+            // Lifecycle#start assigns last_action_job_at and the carry nil, then captures after assigning the future
+            // anchor. Accountable lands the capture (`[missed_quote_amount.to_d, effective_quote_amount].min`) only when
+            // the settings changed (a new start_at) and restores the nil otherwise; ActiveRecord then writes
+            // transient_data only when the hash differs, by Ruby's ==, from the stored one.
+            let missed=if effects.settings_changed {
+                let carry=pending(&tx,&draft.candidate,ctx.now)?.to_d().ok_or_else(||error("carry is not finite"))?;
+                serialized(minimum(Num::Dec(carry),effective_amount(&draft.candidate)?)?)?
+            } else {Value::Null};
+            // A store_accessor writer does not materialize an absent key when assigned nil.
+            let mut start=vec![("missed_quote_amount",missed),("missed_quote_amount_was_set",Value::Null)];
+            if draft.raw_transient.contains_key("last_action_job_at") { start.push(("last_action_job_at",Value::Null)); }
+            let own=|key:&String| key=="last_action_job_at" || start.iter().any(|(k,_)| k==key);
+            let same=effects.transient.set.keys().all(own) && effects.transient.remove.is_empty()
+                && start.iter().all(|(k,v)| draft.raw_transient.get(*k).is_some_and(|old| ruby_equal(old,v)));
+            if same { effects.transient.set.retain(|k,_| !own(k)); } else { for (k,v) in start { effects.transient.set.insert(k.into(),v); } }
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }

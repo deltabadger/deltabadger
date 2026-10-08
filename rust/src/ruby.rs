@@ -476,3 +476,14 @@ mod settings_whitespace_tests {
         assert_eq!(super::strip("\0 \t Alice \n\0"),"Alice");
     }
 }
+
+/// ActiveModel::Type::Boolean#cast of a stored JSON value, read as a predicate (`== true`): nil for nothing and for "",
+/// false for its FALSE_VALUES (compared with `==`, so 0.0 is 0), true for anything else.
+pub fn cast_boolean(value: Option<&Value>) -> bool {
+    match value {
+        None | Some(Value::Null | Value::Bool(false)) => false,
+        Some(Value::String(text)) => !["", "0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&text.as_str()),
+        Some(Value::Number(number)) => number.as_f64() != Some(0.0),
+        Some(_) => true,
+    }
+}
