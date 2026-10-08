@@ -132,6 +132,28 @@ class Transaction < ApplicationRecord
     [amount_exec, quote_amount_exec]
   end
 
+  # A BUY as the figures read it, as [price, amount_exec, quote_amount_exec]: known when its units are
+  # (executed, or what a closed order asked for) and so is their value (the venue's executed value, else
+  # the order price times those units), and then priced at value / units. A buy whose price is NULL is
+  # still a fill when the venue reported what it executed and what that cost; a cancelled partial with no
+  # executed value is still one at its order price. Anything less comes back untouched: never guessed.
+  #
+  # Sells come back untouched. A sale the venue did not price is booked P/L-neutral, judged "unknown" for
+  # wash sales and kept out of the redeploy cap on purpose (Bot::Composition::Measurable); an order price
+  # times its units is not proceeds anyone reported.
+  def self.normalized_fill(side, external_status, price, amount, amount_exec, quote_amount_exec)
+    return [price, amount_exec, quote_amount_exec] unless side == 'buy'
+
+    units = amount_exec || (external_status == 'closed' ? amount : nil)
+    return [price, amount_exec, quote_amount_exec] unless units.to_d.positive?
+
+    value = quote_amount_exec.to_d
+    value = price.to_d * units if !value.positive? && price.to_d.positive?
+    return [price, amount_exec, quote_amount_exec] unless value.positive?
+
+    [value / units, units, value]
+  end
+
   # The ticker this order was placed on, nil when either asset is unknown.
   def ticker
     return if base_asset_id.nil? || quote_asset_id.nil?

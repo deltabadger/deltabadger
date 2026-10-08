@@ -50,6 +50,8 @@ module Bot::ChartSeries
                         .pluck(:created_at, :base, :base_asset_id, :price, :amount, :amount_exec, :quote_amount_exec,
                                :external_status)
                         .filter_map do |at, base, asset_id, price, amount, amount_exec, quote_amount_exec, external_status|
+      price, amount_exec, quote_amount_exec =
+        Transaction.normalized_fill('buy', external_status, price, amount, amount_exec, quote_amount_exec)
       amount_exec, quote_amount_exec =
         Transaction.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
       next if price.blank? || amount_exec.blank? || quote_amount_exec.blank?
@@ -148,10 +150,14 @@ module Bot::ChartSeries
   # Read straight from the rows rather than the walk, which keeps only the LAST price per asset.
   def chart_fill_marks_by_symbol
     key = chart_row_key
-    transactions.submitted.where.not(price: nil).order(:created_at, :id)
+    transactions.submitted.order(:created_at, :id)
                 .pluck(:created_at, :base, :base_asset_id, :side, :price, :amount, :amount_exec, :quote_amount_exec,
                        :external_status)
                 .filter_map do |time, base, asset_id, side, price, amount, amount_exec, quote_amount_exec, status|
+      # A NULL price is no reason to drop a buy whose value is known (Transaction.normalized_fill).
+      price, amount_exec, quote_amount_exec = Transaction.normalized_fill(side, status, price, amount, amount_exec, quote_amount_exec)
+      next if price.nil? # a sale with no price marks nothing
+
       executed, proceeds = Transaction.confirmed_exec_amounts(status, price, amount, amount_exec, quote_amount_exec)
       next if executed.to_d.zero? || proceeds.to_d.zero?
       # Judged on the RAW proceeds, as the walk does: the fallback above prices a closed sale that never
