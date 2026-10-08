@@ -174,15 +174,6 @@ async fn four_reads_match_rails() {
             _=>vec![],
         };
         for (from,to) in replacements { assert_eq!(replace_text(&mut want,from,to),2,"one response and its stored message: {name}"); }
-        if name == "m3_stranded_offset" {
-            // RULING-1: Rails loses this saved preference during a read. This one cell
-            // is the only persisted-field exception; all other columns still compare.
-            assert_eq!(got["rows"]["bots"][0]["id"], 1);
-            assert_eq!(want["rows"]["bots"][0]["id"], 1);
-            assert_eq!(got["rows"]["bots"][0]["redeploy_declined_offset"], 100);
-            assert_eq!(want["rows"]["bots"][0]["redeploy_declined_offset"], 0);
-            want["rows"]["bots"][0]["redeploy_declined_offset"] = json!(100);
-        }
         if name.ends_with("_label") {
             let original=if name.ends_with("_null_label"){Value::Null}else{json!("   ")};
             let expected=if name.contains("_whole_category_"){ "S&P 500 · 10" }else if name.contains("_category_"){ "Layer 1 · 20" }else if name.contains("_index_"){ "ND10" }else{ "AAA Inc." };

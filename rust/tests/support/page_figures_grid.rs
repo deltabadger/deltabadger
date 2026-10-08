@@ -676,7 +676,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 if ["stranded_offset", "liquidations"].contains(&name) && part == "metrics" {
                     let refusal = "<p role=\"status\">Redeploy unavailable</p>\n";
                     assert!(got.contains(refusal));
-                    assert_ne!(expected["offset"][0], expected["offset"][1]);
+                    assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a Rails read keeps the saved decline");
                     got = got.replacen(refusal, "", 1);
                 }
                 assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");

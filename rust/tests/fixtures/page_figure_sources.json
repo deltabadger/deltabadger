@@ -3,7 +3,7 @@
   "app/models/candle_series_cache.rb": "5cc0d060f7a4f4caaa634949b4c22123896674267ed236dd40f862623ca9cc89",
   "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
   "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
-  "app/models/bot/composition/redeployable.rb": "bdc27932a55195d18fd5f8b84a5e4ac7325bf920938f1e70f4d9dc9cc8b9f513",
+  "app/models/bot/composition/redeployable.rb": "071908cf91e79b799b07c174c1e1eadd44a68f46ba193e8c2424ad5e009ef578",
   "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
   "app/helpers/bot_helper.rb": "07c18a1356ba75618d7290e207716d08fb3dd2007a3d1c00642055dc87e55b01",
   "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",

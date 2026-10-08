@@ -170,16 +170,21 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_in_delta 0, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001
   end
 
-  # Unreachable once the guard above holds, so it is a bug state rather than a normal one — but a
-  # stale offset left behind would silently eat every future sale, which is worse than re-anchoring.
-  test 'an offset stranded above the banked total re-anchors instead of eating the next sale' do
+  # Unreachable once the guard above holds, so it is a bug state rather than a normal one. Reading
+  # the offer is a GET (the bot page, MCP get_bot): it shows nothing for it and never rewrites the
+  # user's saved decline. Only the user's own answer moves the offset.
+  test 'an offset stranded above the banked total reads as no offer and is left as saved' do
     buy('AAA', quote: 300, price: 100)
     liquidate('AAA', amount: 1, quote: 100, price: 100)
     @bot.update_columns(redeploy_declined_offset: 500)
+    updated_at = @bot.reload.updated_at
 
     assert_in_delta 0, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
-    assert_in_delta 100, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001, 're-anchored'
+    assert_in_delta 500, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001, 'a read writes nothing'
+    assert_equal updated_at, @bot.updated_at
 
+    @bot.decline_redeploy!
+    assert_in_delta 100, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001, 'the decline re-anchors'
     liquidate('AAA', amount: 0.5, quote: 50, price: 100)
     assert_in_delta 50, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
   end

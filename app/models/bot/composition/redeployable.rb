@@ -34,10 +34,10 @@ module Bot::Composition::Redeployable
 
   def redeploy_offer(data = metrics)
     offerable = redeploy_banked - redeploy_spent - declined_offset
-    # Not reachable while decline_redeploy! refuses mid-flight, so treat it as the bug state it is:
-    # a stranded offset would otherwise sit above the banked total forever, silently eating every
-    # future sale.
-    reanchor_declined_offset! if offerable.negative?
+    # Not reachable while decline_redeploy! refuses mid-flight, so it is the bug state: nothing is
+    # offered (the clamp floors it at zero) until the user's next decline re-anchors the offset.
+    # A read never rewrites the user's saved decline — the page and MCP get_bot both land here.
+    log_stranded_declined_offset if offerable.negative?
     # realised_cash is floored at zero by construction (every drain takes a `min` against it), so
     # the clamp bounds can never cross.
     offer = offerable.clamp(0.to_d, data[:realised_cash].to_d)
@@ -482,11 +482,10 @@ module Bot::Composition::Redeployable
     broadcast_redeploy_state
   end
 
-  def reanchor_declined_offset!
+  def log_stranded_declined_offset
     Rails.logger.warn(
       "redeploy offset stranded above banked total bot=#{id} " \
       "offset=#{declined_offset} banked=#{redeploy_banked} spent=#{redeploy_spent}"
     )
-    update_columns(redeploy_declined_offset: redeploy_banked - redeploy_spent)
   end
 end
