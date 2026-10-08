@@ -25,6 +25,15 @@ module BotApi
         bot = @user.bots.not_deleted.find_by(id: @bot_id.to_i)
         return Result.failure(:not_found, 'bot_not_found', 'Bot not found.') unless bot
 
+        # Settings are one JSON blob, written whole. Re-read the row under the write lock (SQLite
+        # opens this as BEGIN IMMEDIATE) and change only this call's keys on it, so an edit that
+        # committed after the load above — the user's new amount — is kept, not overwritten.
+        bot.class.transaction { update(bot.class.lock.find(bot.id)) }
+      end
+
+      private
+
+      def update(bot)
         if bot.working?
           return Result.failure(:conflict, 'bot_running',
                                 "Bot must be stopped before updating settings. Current status: #{bot.status}.")
@@ -45,8 +54,6 @@ module BotApi
                          "Failed to update bot: #{bot.errors.full_messages.join(', ')}")
         end
       end
-
-      private
 
       # A Hash of accepted updates, or a Result carrying the first refusal.
       def build_updates(bot)

@@ -1220,7 +1220,7 @@
     "app/services/bot_api/bots/answer_redeploy.rb": "17e4b138aef9a00d3abd35175cd4b17447fb671fdf83bebf1449087a94229a70",
     "app/services/bot_api/bots/unarchive.rb": "068493f8fe8450c36d75d96d7f77aa3a4e3290294c396040fbd65f328bc767f8",
     "app/services/bot_api/bots/delete.rb": "e6e19e51eaffbdb89be5a0d2c4237351d71d0aa02865bfe527d14debfb15b640",
-    "app/services/bot_api/bots/update_settings.rb": "68889e24c78b0961c20aba0076acf2c1bf0c71bd334a3c840894ccb055ffe054",
+    "app/services/bot_api/bots/update_settings.rb": "4311a16ad0a05dc624a6344201816ee34f7ad3603dd0436a1fe7bbd0f1f9cad5",
     "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
     "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c"
