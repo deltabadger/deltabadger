@@ -25,6 +25,11 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("price_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("price_limited", json!(true))))),
         ("indicator_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("indicator_limited", json!(true))))),
         ("quote_amount_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("quote_amount_limited", json!(true))))),
+        // Lifting the starting time left the suffix rule whole: any other `*_limited`, `*_ordered`, `*_intervaled` refuses.
+        ("stop_ordered", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("stop_ordered", json!(true))))),
+        ("volume_intervaled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("volume_intervaled", json!("1"))))),
+        ("base_amount_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("base_amount_limited", json!(true))))),
+        // A starting time runs only as a fresh start leaves it (start_at = started_at); this one has no start_at.
         ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true))))),
         ("rebalance_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true))))),
         ("direction", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
