@@ -70,6 +70,27 @@ end
     job_state.call(job, key.id, { last_success_at: '2026-10-07T00:00:00Z' }.to_json)
   end
 end
+%w[warm failed null malformed expired foreign].each do |state|
+  before["first_cache_#{state}"] = lambda do
+    owner = User.first.id + (state == 'foreign' ? 1 : 0)
+    value = case state
+            when 'null' then nil
+            when 'malformed' then 'invalid JSON'
+            else { state: state }.to_json
+            end
+    c = AppConfig.connection
+    c.execute('INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(' \
+              "#{c.quote("rust_tracker_ledger.#{owner}")},#{c.quote(value)},#{c.quote(Time.current)},#{c.quote(Time.current)})")
+    Tracker::Ledger.compute!(User.first) if state == 'warm'
+  end
+end
+before = before.transform_values do |hook|
+  lambda do
+    Rails.cache.clear
+    hook.call
+  end
+end
+before['first_clean_cache'] = -> { Rails.cache.clear }
 Pages.send(:remove_const, :BEFORE)
 Pages.const_set(:BEFORE, before.freeze)
 
@@ -78,7 +99,7 @@ module D5FirstSyncGrid
     cases = {}
     add = lambda do |name, path = '/tracker', headers = {}, hook = nil, attrs = {}, fixture = 'alpaca'|
       step = Pages.get(path, headers).merge('action_snapshot' => true, 'expect' => 200)
-      step['before'] = hook if hook
+      step['before'] = hook || 'first_clean_cache'
       cases["first_#{name}"] = { 'user' => Pages.owner(attrs), 'd5_fixture' => fixture,
                                  'steps' => Pages.signed_in(step) }
     end
@@ -130,6 +151,10 @@ module D5FirstSyncGrid
       end
       add.call("job_#{job}_foreign", '/tracker', {}, "first_job_#{job}_foreign")
     end
+    %w[warm failed null malformed expired].each do |state|
+      add.call("deferred_cache_#{state}", '/tracker', {}, "first_cache_#{state}")
+    end
+    add.call('cache_foreign', '/tracker', {}, 'first_cache_foreign')
     add.call('deferred_withdrawal', '/tracker', {}, nil, {}, 'alpaca_withdrawal')
     add.call('deferred_incorrect', '/tracker', {}, nil, {}, 'alpaca_incorrect')
     add.call('deferred_pending', '/tracker', {}, nil, 'tracker_settings' => { 'pending_report' => { 'country' => 'US', 'year' => 2024 } })

@@ -55,10 +55,16 @@ fn outcome<T>(done: Result<Result<T, Failure>, SyncError>, complete: impl Fn(&T)
 /// One run of a job outside the scheduler (the hand-run command), held to the deadline the scheduler's runner would
 /// hold it to: past `Spec::deadline` the run is dropped at its next await and reported in the runner's words.
 pub async fn run_within_deadline(job: &dyn Job, cx: Cx<'_>, wakes: Vec<Wake>) -> Outcome {
-    let deadline = job.spec().deadline;
+    let spec = job.spec();
+    let deadline = spec.deadline;
+    let db = cx.db.clone();
+    let owner = db.completion_owner(spec.name, spec.scope.as_deref()).await;
     match tokio::time::timeout(deadline, job.run(cx, wakes)).await {
         Ok(outcome) => outcome,
-        Err(_) => Outcome::Failed(format!("dropped past its {}s deadline", deadline.as_secs())),
+        Err(_) => {
+            db.deadline_completion(owner, spec.name, spec.scope.as_deref()).await;
+            Outcome::Failed(format!("dropped past its {}s deadline", deadline.as_secs()))
+        },
     }
 }
 

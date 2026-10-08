@@ -156,7 +156,7 @@ async fn completion_early_sync_failure_still_removes_progress() {
 async fn completion_ledger_refreshes_once_after_commit_and_not_on_failure() {
     for delivery_failure in [false, true] {
         let (dir, opened, seed) = common::install_alpaca();
-        opened.primary.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,'USD',100,'2026-09-01 00:00:00','{}','{}','2026-09-01','2026-09-01')", [seed.user_id, seed.exchange_id]).unwrap();
+        opened.primary.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,'USD',100,'2026-09-01 00:00:00','{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')", [seed.user_id, seed.exchange_id]).unwrap();
         let heard = Messages::default();
         let notifications = probe(
             dir.path().join("production.sqlite3"),

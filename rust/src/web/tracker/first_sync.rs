@@ -11,10 +11,11 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
       EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM api_keys k LEFT JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND (e.type IS NULL OR e.type!='Exchanges::Alpaca' OR COALESCE(k.status,-1)!=1 OR COALESCE(k.key_type,-1) NOT IN (0,2) OR k.last_synced_at IS NOT NULL OR k.balances_synced_at IS NOT NULL OR COALESCE(k.last_sync_error,'')!=''))
       AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1)
+      AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?4)
       AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some(""))],|r|r.get(0))?)
+      AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 
 
@@ -116,6 +117,16 @@ mod tests {
                 c.execute("INSERT INTO app_configs VALUES(?1,?2)",rusqlite::params![key,value]).unwrap();
                 assert!(!super::super::read::only(&c,|c|supported(c,7)).unwrap(),"owned second key {job} {value:?}");
             }
+        }
+    }
+    #[test]
+    fn first_sync_defers_an_owned_ledger_cache_of_any_state() {
+        for value in [Some("{}"),Some("malformed"),None] {
+            let c=db();
+            c.execute("INSERT INTO app_configs VALUES(?1,?2)",rusqlite::params![crate::tracker::cache::key(8),value]).unwrap();
+            assert!(supported(&c,7).unwrap(),"foreign cache");
+            c.execute("INSERT INTO app_configs VALUES(?1,?2)",rusqlite::params![crate::tracker::cache::key(7),value]).unwrap();
+            assert!(!super::super::read::only(&c,|c|supported(c,7)).unwrap(),"owned cache requires later figures slice");
         }
     }
     #[test]

@@ -37,7 +37,7 @@ mutants = [
     ('sync_success_only', 'sync', 'if outcome != Outcome::NothingNew { cx.db.notifications', 'if outcome == Outcome::Done { cx.db.notifications', 'test(completion_sync_success) | test(completion_early)'),
     ('drop_log', 'delivery', '(self.log)("[tracker] completion broadcast failed");', '', 'test(completion_delivery_failure)'),
     ('wrong_owner', 'delivery', 'format!("user_{owner}:sync")', 'format!("user_{}:sync", owner + 1)', 'test(completion_payloads)'),
-    ('refresh_before_commit', 'ledger', 'match ledger_run(&cx.db,', 'cx.db.notifications.ledger_done(self.user_id); match ledger_run(&cx.db,', 'test(completion_ledger_refreshes)'),
+    ('refresh_before_commit', 'ledger', 'match cached_ledger_run(&cx,', 'cx.db.notifications.ledger_done(self.user_id); match cached_ledger_run(&cx,', 'test(completion_ledger_refreshes)'),
     ('drop_cable', 'web', 'app.hub.broadcast(stream, payload); Ok(())', 'let _unused = (&app, stream, payload); Ok(())', 'test(completion_notifications_reach)'),
     ('drop_scheduler_wiring', 'main', 'scheduler.with_notifications(web.job_notifications())', 'scheduler', 'test(completion_scheduler_is_connected)'),
 ]

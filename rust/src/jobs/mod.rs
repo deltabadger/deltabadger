@@ -61,16 +61,66 @@ pub const CHUNK: usize = 500;
 pub struct Cx<'a> { pub db: Db, pub clock: &'a dyn Clock, pub wakers: Wakers }
 
 /// The scheduler's connection for job work (a `store::open` of its own) and the instance's cipher.
+#[derive(Default)]
+struct PendingDb { count: std::sync::atomic::AtomicUsize, idle: Notify }
+struct PendingUnit(Arc<PendingDb>);
+impl Drop for PendingUnit {
+    fn drop(&mut self) {
+        if self.0.count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst) == 1 { self.0.idle.notify_waiters(); }
+    }
+}
+
 #[derive(Clone)]
-pub struct Db { pub notifications: notifications::Notifications, conn: Arc<Mutex<Connection>>, cipher: Arc<Cipher>, longest_hold_us: Arc<std::sync::atomic::AtomicU64> }
+pub struct Db { pending: Arc<PendingDb>, pub notifications: notifications::Notifications, conn: Arc<Mutex<Connection>>, cipher: Arc<Cipher>, longest_hold_us: Arc<std::sync::atomic::AtomicU64> }
 
 impl Db {
     pub fn with_notifications(mut self, notifications: notifications::Notifications) -> Self { self.notifications = notifications; self }
 
+    /// A timed-out future may leave a queued or running blocking unit. Join all of them
+    /// before looking up the owner or publishing completion, including units awaiting the mutex.
+    pub async fn settled(&self) {
+        loop {
+            let idle = self.pending.idle.notified();
+            tokio::pin!(idle);
+            idle.as_mut().enable();
+            if self.pending.count.load(std::sync::atomic::Ordering::SeqCst) == 0 { return; }
+            idle.await;
+        }
+    }
+
+    /// Capture the owner before the run, so a key removed by outstanding work cannot
+    /// erase the destination of that run's timeout notification.
+    pub async fn completion_owner(&self, name: &str, scope: Option<&str>) -> Option<i64> {
+        if name != crate::tracker::jobs::TRACKER_LEDGER && name != crate::sync::jobs::LEDGER_SYNC { return None; }
+        let Some(id) = scope.and_then(|s| s.parse::<i64>().ok()) else {
+            log("[tracker] deadline completion scope unavailable"); return None;
+        };
+        if name == crate::tracker::jobs::TRACKER_LEDGER { return Some(id); }
+        match self.run(move |c, _| c.query_row("SELECT user_id FROM api_keys WHERE id=?1", [id], |r| r.get::<_, i64>(0)).map_err(|error| match error {
+            rusqlite::Error::SqliteFailure(code, detail) => format!("SQLite {:?} (extended {}): {}", code.code, code.extended_code, match detail.as_deref() { Some("no such table: api_keys") => "owner table missing", Some("no such column: user_id") => "owner column missing", _ => "owner query failed" }),
+            rusqlite::Error::QueryReturnedNoRows => "owner row missing".into(),
+            rusqlite::Error::InvalidColumnType(_, _, kind) => format!("owner column has {kind:?} type"),
+            _ => "owner query could not decode its result".into(),
+        })).await {
+            Ok(owner) => Some(owner),
+            Err(reason) => { log(&format!("[tracker] deadline completion owner unavailable: {reason}")); None }
+        }
+    }
+
+    pub async fn deadline_completion(&self, captured: Option<i64>, name: &str, scope: Option<&str>) {
+        // Draining is unconditional, even for unknown owners and unrelated job kinds.
+        self.settled().await;
+        // Retry a failed preliminary lookup only after all outstanding work has ended.
+        // A captured owner survives deletion of that key by the completed database unit.
+        let owner = match captured { Some(owner) => Some(owner), None => self.completion_owner(name, scope).await };
+        let Some(owner) = owner else { return; };
+        self.notifications.sync_done(owner);
+    }
+
     pub fn longest_write_hold(&self) -> Duration { Duration::from_micros(self.longest_hold_us.load(std::sync::atomic::Ordering::Relaxed)) }
     pub fn note_write_hold(&self, held: Duration) { self.longest_hold_us.fetch_max(u64::try_from(held.as_micros()).unwrap_or(u64::MAX), std::sync::atomic::Ordering::Relaxed); }
 
-    pub fn new(conn: Connection, cipher: Cipher) -> Self { Self { notifications: notifications::Notifications::default(), conn: Arc::new(Mutex::new(conn)), cipher: Arc::new(cipher), longest_hold_us: Arc::new(std::sync::atomic::AtomicU64::new(0)) } }
+    pub fn new(conn: Connection, cipher: Cipher) -> Self { Self { pending: Arc::new(PendingDb::default()), notifications: notifications::Notifications::default(), conn: Arc::new(Mutex::new(conn)), cipher: Arc::new(cipher), longest_hold_us: Arc::new(std::sync::atomic::AtomicU64::new(0)) } }
 
     /// Runs `f` on tokio's blocking pool, as the web's App::db does. Every SQLite statement and every large JSON walk of a
     /// job goes through here: nothing holds the runtime thread the engine ticks on past its 250 ms bound, and a wait
@@ -79,7 +129,10 @@ impl Db {
     /// `BEGIN IMMEDIATE` for a multi-statement write, and no transaction outlives the closure.
     pub async fn run<R: Send + 'static>(&self, f: impl FnOnce(&Connection, &Cipher) -> Result<R, String> + Send + 'static) -> Result<R, String> {
         let me = self.clone();
+        self.pending.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let unit = PendingUnit(self.pending.clone());
         tokio::task::spawn_blocking(move || {
+            let _unit = unit;
             let c = me.conn.lock().unwrap_or_else(PoisonError::into_inner);
             let bound: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_function_list WHERE name='rust_index_decrypt')",[],|r|r.get(0)).map_err(|_|"index configuration reader unavailable".to_string())?;
             if !bound { crate::engine::provider::bind(&c,&me.cipher,&|k|std::env::var(k).ok()).map_err(|_|"index configuration reader unavailable".to_string())?; }
@@ -342,9 +395,16 @@ impl Scheduler {
         wakes.append(&mut s.pending);
         s.pending_since = None;
         let (name, scope, deadline) = (s.spec.name, s.spec.scope.clone(), s.spec.deadline);
+        let completion_owner = self.db.completion_owner(name, scope.as_deref()).await;
         let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock, wakers: self.wakers.clone() }, wakes.clone()));
         let outcome = tokio::select! {
-            o = run => o.unwrap_or_else(|_| Outcome::Failed(format!("dropped past its {deadline:?} deadline"))),
+            o = run => match o {
+                Ok(outcome) => outcome,
+                Err(_) => {
+                    self.db.deadline_completion(completion_owner, name, scope.as_deref()).await;
+                    Outcome::Failed(format!("dropped past its {deadline:?} deadline"))
+                }
+            },
             _ = stop.wait_for(|stopped| *stopped) => {
                 log(&format!("[jobs] {name} {scope:?}: stopped mid-run; a scheduled run is due again at the next start"));
                 return false;
