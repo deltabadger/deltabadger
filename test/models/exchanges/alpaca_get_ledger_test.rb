@@ -86,24 +86,62 @@ class Exchanges::AlpacaGetLedgerTest < ActiveSupport::TestCase
     assert_equal 100, result.data.size
   end
 
-  test 'get_ledger stops when the cursor fails to advance' do
-    page = Array.new(100) do |index|
-      {
-        'id' => "stuck-page-#{index + 1}", 'activity_type' => 'INT',
-        'net_amount' => (index + 1).to_s, 'date' => '2026-04-04'
-      }
+  def int_page(prefix, size = 100, date: '2026-04-04')
+    Array.new(size) do |index|
+      { 'id' => "#{prefix}-#{index + 1}", 'activity_type' => 'INT', 'net_amount' => (index + 1).to_s, 'date' => date }
     end
+  end
+
+  def stub_pages(*pages)
     client = mock('alpaca_client')
-    # An API that ignored page_token would hand back the same page forever.
-    client.expects(:get_account_activities).twice.returns(Result::Success.new(page))
+    client.expects(:get_account_activities).times(pages.size).returns(*pages.map { |page| Result::Success.new(page) })
     @exchange.stubs(:client).returns(client)
     @exchange.instance_variable_set(:@client, client)
-    Rails.logger.expects(:warn).with { |message| message.include?('stuck-page-100') }
+    client
+  end
+
+  test 'get_ledger fails when the cursor does not advance' do
+    page = int_page('stuck-page')
+    # An API that ignored page_token would hand back the same page forever.
+    stub_pages(page, page)
 
     result = @exchange.get_ledger(api_key: @api_key)
 
-    assert result.success?
-    assert_equal 100, result.data.size
+    assert_predicate result, :failure?
+    assert_equal ["the ledger's page tokens repeat: nothing was read"], result.errors
+  end
+
+  test 'get_ledger fails on a cycle of page tokens instead of fetching for ever' do
+    first = int_page('cycle-a')
+    second = int_page('cycle-b')
+    stub_pages(first, second, first)
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert_predicate result, :failure?
+    assert_equal ["the ledger's page tokens repeat: nothing was read"], result.errors
+  end
+
+  test 'get_ledger fails on a full page whose last activity has no id' do
+    page = int_page('no-id')
+    page.last.delete('id')
+    stub_pages(page)
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert_predicate result, :failure?
+    assert_equal ['a full page of the ledger ends with an activity that has no id: nothing was read'], result.errors
+  end
+
+  test 'get_ledger reads a short page whose last activity has no id as the last page' do
+    page = int_page('short-no-id', 3)
+    page.last.delete('id')
+    stub_pages(page)
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert_predicate result, :success?
+    assert_equal 3, result.data.size
   end
 
   test 'returns normalized buy entry from FILL activity' do

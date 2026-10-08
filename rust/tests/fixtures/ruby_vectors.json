@@ -41175,7 +41175,7 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "df4a9a0415f0112a2e3e81f634c0c7b895707e7af3c65b9119659636607748f2",
+    "app/models/exchanges/alpaca.rb": "6e73ad9d9f512c56ddfe0d253d3dce96ced30a1a12786cf6a34b2ad80e8669f5",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
     "app/models/exchanges/kraken.rb": "f0054f310b4c625ff446fe1a3a217826c22432f29345ce1d63e12bb9274e053a",
