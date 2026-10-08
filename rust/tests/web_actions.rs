@@ -1081,7 +1081,7 @@ mod action_write {
             draft.candidate.settings.extend(case["settings"].as_object().ok_or("settings missing")?.clone());
             let now=case["now"].as_str().ok_or("now missing")?.parse()?;
             let actual=draft.initial_start_at(now,case["zone"].as_str().ok_or("zone missing")?).map_err(|e|format!("{e:?}"))?;
-            assert_eq!(actual.map(|t|t.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)),case["expected"].as_str().map(str::to_owned),"{case}");
+            assert_eq!(actual.map(|t|t.at.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)),case["expected"].as_str().map(str::to_owned),"{case}");
         }
         Ok(())
     }
