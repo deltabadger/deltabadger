@@ -31,7 +31,10 @@ module Bot::QuoteAmountLimitable
       def pending_quote_amount
         return super unless quote_amount_limited?
 
-        [super, quote_amount_available_before_limit_reached].min
+        available = quote_amount_available_before_limit_reached
+        raise ArgumentError, "bot #{id}: a closed buy under the spending cap has no quote_amount_exec" if available.nil?
+
+        [super, available].min
       end
     end
 
@@ -53,11 +56,14 @@ module Bot::QuoteAmountLimitable
 
     # Buy-side only: the spend cap counts what was spent buying. A sell fill also carries a positive
     # quote_amount_exec, so without the side filter a selling bot's proceeds would count as "spent".
-    closed_quote_amount = transactions.submitted.buy.regular
-                                      .where('created_at >= ?', quote_amount_limit_enabled_at)
-                                      .closed
-                                      .pluck(:quote_amount_exec)
-                                      .sum
+    closed_quote_amounts = transactions.submitted.buy.regular
+                                       .where('created_at >= ?', quote_amount_limit_enabled_at)
+                                       .closed
+                                       .pluck(:quote_amount_exec)
+    # A closed buy whose cost was never reported leaves the spend unknown (nil), not zero.
+    return nil if closed_quote_amounts.include?(nil)
+
+    closed_quote_amount = closed_quote_amounts.sum
 
     open_quote_amount = transactions.submitted.buy.regular
                                     .where('created_at >= ?', quote_amount_limit_enabled_at)
@@ -81,7 +87,8 @@ module Bot::QuoteAmountLimitable
   def quote_amount_limit_reached?
     return false unless quote_amount_limited?
 
-    quote_amount_limited? && quote_amount_available_before_limit_reached < minimum_quote_amount_limit
+    available = quote_amount_available_before_limit_reached
+    !available.nil? && available < minimum_quote_amount_limit
   end
 
   def minimum_quote_amount_limit
@@ -119,7 +126,11 @@ module Bot::QuoteAmountLimitable
   end
 
   def validate_quote_amount_limit_not_reached
-    errors.add(:settings, :quote_amount_limit_reached) if quote_amount_limit_reached?
+    if quote_amount_available_before_limit_reached.nil?
+      errors.add(:settings, :quote_amount_spent_unknown)
+    elsif quote_amount_limit_reached?
+      errors.add(:settings, :quote_amount_limit_reached)
+    end
   end
 
   def broadcast_quote_amount_limit_update
