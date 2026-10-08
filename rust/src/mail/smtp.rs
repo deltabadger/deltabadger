@@ -15,11 +15,12 @@
 //! - **A failure says where and with what code, and nothing the server wrote**: the stage, the reply code, the
 //!   enhanced status code. Never the reply's text (it can echo an address or the message), never a credential.
 //!
-//! Two rules differ from Rails (listed divergences):
 //! - **A user name or a password is never sent in the clear.** With either configured, STARTTLS is required: a server
-//!   that does not offer it is a failed delivery, before AUTH. Rails upgrades only when offered (`enable_starttls_auto`)
-//!   and authenticates either way. With neither configured (an open relay), plain text stays allowed, as in Rails.
-//!   A certificate that does not verify is a failure in both cases, never a downgrade.
+//!   that does not offer it is a failed delivery, before AUTH, as Rails' `enable_starttls: :always` does. With neither
+//!   configured (an open relay), plain text stays allowed (`enable_starttls_auto`), as in Rails. A certificate that does
+//!   not verify is a failure in both cases, never a downgrade.
+//!
+//! One rule differs from Rails (a listed divergence):
 //! - **Nothing configured means nothing is sent.** `Settings::current` is then `Err` with the reason. Rails delivers
 //!   to localhost:25. An EHLO name or a server name that is not a host name counts as not configured.
 use super::{address_ok, host_ok, mailbox};
@@ -317,7 +318,7 @@ pub async fn deliver(s: &Settings, from: &str, to: &str, message: &str) -> Resul
         let mut plain = Wire { io: tcp, unread: Vec::with_capacity(LINE_LIMIT), read_timeout: s.read_timeout };
         plain.reply("greeting", |c| c == 220).await?;
         if !plain.ehlo(&s.domain).await? {
-            // Required with a secret to protect; otherwise Rails' `enable_starttls_auto`: plain when not offered.
+            // Required with a secret to protect (Rails' `:always`); otherwise `enable_starttls_auto`: plain when not offered.
             if s.has_secret() {
                 return Err(failed("tls", format!("{} offers no STARTTLS, and a user name or password is never sent unencrypted", s.address)));
             }
