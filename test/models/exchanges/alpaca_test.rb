@@ -207,6 +207,38 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  test 'set_limit_order sends the floored qty exactly, never rounded up through Float' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL',
+                             base_decimals: 9, quote_decimals: 2, price_decimals: 8)
+    sent = nil
+    Clients::Alpaca.any_instance.stubs(:create_order).with { |params| sent = params }
+                   .returns(Result::Success.new({ 'id' => 'order-2' }))
+
+    with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('1000000'), amount_type: :quote, side: :buy,
+                                       price: BigDecimal('0.00123147'))
+    end
+    # Float formatting sent 812037646.065271616, above the floor.
+    assert_equal '812037646.065271585', sent[:qty]
+    assert_equal '0.00123147', sent[:limit_price]
+  end
+
+  test 'wire_decimal never exceeds the floored value and spells it exactly' do
+    rng = Random.new(20_261_008)
+    2_000.times do
+      places = rng.rand(0..12)
+      value = BigDecimal("#{rng.rand(10**rng.rand(1..12))}.#{rng.rand(10**18).to_s.rjust(18, '0')}")
+      floored = value.floor(places)
+      sent = @exchange.send(:wire_decimal, value, places)
+
+      assert_operator BigDecimal(sent), :<=, floored, "#{value} at #{places}"
+      assert_equal floored, BigDecimal(sent), "#{value} at #{places}"
+      assert_equal places, places.zero? ? 0 : sent.split('.').last.length, "#{sent} at #{places}"
+    end
+  end
+
   # == order symbol + time_in_force: pair symbol and gtc for crypto, bare symbol and day for stocks ==
 
   test 'set_market_order sends the pair symbol and gtc time_in_force for a crypto ticker' do
