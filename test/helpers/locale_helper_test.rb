@@ -87,6 +87,17 @@ class LocaleHelperTest < ActionView::TestCase
     assert_includes result, "#{CGI.escape('rows[][id]')}=7"
   end
 
+  test 'drops account-recovery and one-time tokens' do
+    request_for({ controller: 'tracker', action: 'index', locale: 'en' },
+                'page=2&reset_password_token=r1&user[reset_password_token]=r2&confirmation_token=c1&' \
+                'unlock_token=u1&token=t1&claim_code=c2&code=c3&otp_code_token=o1')
+
+    result = locale_switch_path('de')
+
+    %w[r1 r2 c1 u1 t1 c2 c3 o1].each { |secret| refute_includes result, secret }
+    assert_includes result, 'page=2'
+  end
+
   test 'always returns a path, never an absolute URL' do
     request_for({ controller: 'home', action: 'index', locale: 'en' }, 'host=evil.com')
 

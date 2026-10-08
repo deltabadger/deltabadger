@@ -35,7 +35,8 @@ module LocaleHelper
     confirmation_token password password_confirmation current_password otp_secret_key otp_secret
     otp_code_token key secret passphrase access_token refresh_token rsa_signature_key
     rsa_encryption_key dh_param api_token smtp_username smtp_password coingecko_api_key
-    alpaca_api_key alpaca_api_secret market_data_token
+    alpaca_api_key alpaca_api_secret market_data_token reset_password_token unlock_token token
+    claim_code code
   ].freeze
 
   def locale_switch_path(locale)

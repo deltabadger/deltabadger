@@ -106,6 +106,19 @@ mod locales {
         assert_eq!(locale::switch_query(&list), "a%5B%5D=2&a%5B%5D=10&a%5B%5D=1&b=1&z=0");
     }
 
+    /// LocaleHelper#locale_switch_path drops credentials at any depth and in any letter case
+    /// (test/helpers/locale_helper_test.rb holds the same cases on the Rails side).
+    #[test]
+    fn the_language_switch_drops_credential_parameters() {
+        let query = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
+        let given = query(&[("page", "2"), ("password", "p1"), ("API_TOKEN", "t1"), ("user[password]", "p2"), ("user[name]", "n"),
+                            ("smtp_password", "p3"), ("coingecko_api_key", "k1"), ("key", "k2"), ("rows[][secret]", "s1"),
+                            ("reset_password_token", "r1"), ("user[reset_password_token]", "r2"), ("confirmation_token", "c1"),
+                            ("unlock_token", "u1"), ("token", "t2"), ("claim_code", "c2"), ("code", "c3"), ("otp_code_token", "o1")]);
+        assert_eq!(locale::switch_path("de", "/login", &locale::switch_query(&given)), "/de/login?page=2&user%5Bname%5D=n");
+        assert!(locale::sensitive_query("User[Password]") && !locale::sensitive_query("passwords") && !locale::sensitive_query("keyword"));
+    }
+
     /// The language dropdown has a link per locale, each carrying the page's query. What that costs
     /// must grow with the query, not with its square, and not once per link.
     #[test]

@@ -1787,10 +1787,9 @@ fn assert_escaped(what: &str, body: &str) {
     assert!(escaped(body) > 0, "{what}: the text is not on the page at all, so nothing was proven");
 }
 
-/// No text out of the database is markup on the bot list or the bot page. Rails prints one as
-/// markup (the lone subject of a condition's sentence: `base_html.html_safe` in
-/// bots/settings/_price_limit.html.erb and its three siblings), so the parity grid cannot hold this:
-/// it is held here, for every text these pages print, in every place they print it.
+/// No text out of the database is markup on the bot list or the bot page, for every text these
+/// pages print, in every place they print it. Rails escapes the same texts, the lone subject of a
+/// condition's sentence included (`h(...)` in bots/settings/_price_limit.html.erb and its three siblings).
 #[tokio::test(flavor = "current_thread")]
 async fn no_text_from_the_database_is_markup_on_the_bot_pages() {
     let (_dir, _opened, app, mut browser, [lone, pair]) = hostile_install();
@@ -1803,8 +1802,8 @@ async fn no_text_from_the_database_is_markup_on_the_bot_pages() {
     }
     let page = browser.get(&app, &format!("/bots/{lone}")).await.body;
     assert!(escaped(&page) >= 10, "the symbol, the label, the venue and the settings are all on this page: {}", escaped(&page));
-    // The one text Rails hands to a sentence as markup: the lone subject of a condition. No locale's sentence
-    // for one member prints it today, so no page can show it; the function that makes it is held directly.
+    // The lone subject of a condition, escaped on both sides. No locale's sentence for one member prints it
+    // today, so no page can show it; the function that makes it is held directly.
     use deltabadger::web::bot::settings::lone_subject;
     let escaped_text = "&lt;img src=x onerror=alert(1)&gt;&quot; onmouseover=&quot;alert(2)";
     assert_eq!(lone_subject(&[(HOSTILE.to_string(), "7".to_string())]).as_deref(), Some(escaped_text));
