@@ -162,17 +162,6 @@ async fn control_transcripts() {
             assert_eq!(rails["result"]["content"][0]["text"],"[DRY RUN] Paper trading is on, so nothing was created or started: 'start_bot' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it.","{name}");
             assert_eq!(rails["result"]["isError"],true,"{name}");
         }
-        if name == "stop_bot_r1_invalid" {
-            let response:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["content"][0]["text"],"Failed to stop bot 'Control'.");
-            assert_eq!(want["rows"]["bots"][0]["status"],1);
-            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["content"][0]["text"],"Bot 'Control' stopped.");
-            assert_eq!(response["result"]["isError"],Value::Null);
-            assert_eq!(got["rows"]["bots"][0]["status"],2);
-            assert_eq!(got["rows"]["bots"][0]["settings"],want["rows"]["bots"][0]["settings"]);
-            continue; // R1 named safety divergence; no row normalization claims parity.
-        }
         if name.starts_with("start_bot_r1_key_") {
             // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
             for transcript in [&want, &got] {

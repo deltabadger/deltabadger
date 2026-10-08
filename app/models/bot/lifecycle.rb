@@ -110,17 +110,20 @@ module Bot::Lifecycle
     # concerns), which marks settings dirty — Accountable then requires
     # set_missed_quote_amount before any save (same guard start uses above).
     set_missed_quote_amount if settings_was != settings
-    if update(
-      status: :stopped,
-      stopped_at: Time.current,
-      stop_message_key:
-    )
-      cancel_scheduled_action_jobs
-      log_activity('stopped', details: { stop_message_key: stop_message_key }.compact)
+    # Without settings validation: a setting that no longer validates has nothing to do with
+    # stopping, and refusing the stop would leave the bot trading. The status and its log row
+    # commit together.
+    self.status = :stopped
+    self.stopped_at = Time.current
+    self.stop_message_key = stop_message_key
+    stopped = transaction do
+      next false unless save(validate: false)
+
+      log_activity('stopped', details: { stop_message_key: }.compact)
       true
-    else
-      false
     end
+    cancel_scheduled_action_jobs if stopped
+    stopped
   end
 
   def delete

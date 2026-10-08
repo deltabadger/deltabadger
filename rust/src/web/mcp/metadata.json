@@ -1222,7 +1222,7 @@
     "app/services/bot_api/bots/delete.rb": "e6e19e51eaffbdb89be5a0d2c4237351d71d0aa02865bfe527d14debfb15b640",
     "app/services/bot_api/bots/update_settings.rb": "4311a16ad0a05dc624a6344201816ee34f7ad3603dd0436a1fe7bbd0f1f9cad5",
     "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
-    "app/models/bot/lifecycle.rb": "30c426e34abc462a95cffd6ed64f4398640f3b74852b0ba4a9cd55878fe9bef5",
+    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c"
   }
 }
