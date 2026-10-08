@@ -1124,7 +1124,7 @@
     "Gemfile.lock": "95787405ce2f86cb20a9517ef92f9bef2f7e7975b2737d08737b87b4ad299eed",
     "config/mcp.yml": "f6e14ea3897ca14cf79a06f33b4c65a4df515e2db575b6cab835bcef9a05f951",
     "config/routes.rb": "3419624238f923699907a0751adddae4b685b72c23a9015982598568a5b4d119",
-    "config/initializers/rack_attack.rb": "c545474974177fdcff647c383fbb018a1bb56e705eb4f8f1d52e9353e810efda",
+    "config/initializers/rack_attack.rb": "f011184d80dd5c1f21b4d57d311f327d3d36eb1ae1ee4ad41ea32793ebfbacfa",
     "config/initializers/mcp_instructions.rb": "9aa196116e366726e8dbecf2472bc3f3a7fd3ee615441b5491aae4b07a93ac84",
     "config/initializers/version.rb": "0b047ced29695420c080951e60f42c5aef8d05d733e9ca79e70884ff73f74233",
     "config/initializers/action_mcp_time_zone.rb": "53a0ab62e95c590c3d955e289db8033f47d59ccd0b2a6a5eec231f6df86459bb",

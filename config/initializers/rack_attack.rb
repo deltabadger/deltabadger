@@ -80,12 +80,29 @@ end
 # is somehow absent the key is a shared constant rather than nil, because a throttle block
 # returning nil makes rack-attack skip the rule outright, so it has to fail closed.
 #
+# Declaring a proxy does not stop a caller from reaching the listener around it, and such a
+# caller's forwarded-for header is its own words. calculate_ip puts the peer last in its list,
+# so a peer that is no trusted proxy is still keyed on whatever hop it wrote. The headers are
+# therefore read only when the peer itself is a trusted proxy; any other peer, an address that
+# does not parse included, is keyed on itself.
+#
 # The bound that does not depend on IP attribution at all is the per-account one: sign-in,
 # the second factor and password reset are limited on the user row by :lockable.
 def (Rack::Attack).client_ip(req)
-  return req.env['REMOTE_ADDR'].presence || 'unattributed' unless Deltabadger::Application.behind_proxy_from_env
+  peer = req.env['REMOTE_ADDR'].presence
+  return peer || 'unattributed' unless Deltabadger::Application.behind_proxy_from_env && trusted_proxy?(peer)
 
-  req.env['action_dispatch.remote_ip']&.to_s.presence || req.env['REMOTE_ADDR'].presence || 'unattributed'
+  req.env['action_dispatch.remote_ip']&.to_s.presence || peer
+end
+
+# The list ActionDispatch::RemoteIp walks the forwarded hops with.
+def (Rack::Attack).trusted_proxy?(addr)
+  return false if addr.nil?
+
+  ip = IPAddr.new(addr)
+  (Rails.application.config.action_dispatch.trusted_proxies || ActionDispatch::RemoteIp::TRUSTED_PROXIES).any? { |proxy| proxy === ip }
+rescue IPAddr::InvalidAddressError
+  false
 end
 
 # rack-attack's default response is a bare "Retry later". These rules now match paths this

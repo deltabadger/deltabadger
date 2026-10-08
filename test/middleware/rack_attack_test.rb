@@ -199,6 +199,25 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     refute_equal 429, response.status, 'a second forwarded caller must not inherit the first budget'
   end
 
+  # Declaring a proxy does not stop a caller from reaching the listener without it. Such a
+  # caller's peer address is its own, not a trusted proxy's, so the headers it sends are
+  # its own words: Rails' RemoteIp would key it on whichever forwarded hop it typed.
+  test 'behind a declared proxy, a peer that is no trusted proxy is keyed on itself' do
+    declare_proxy(true)
+    11.times { |i| post_login('REMOTE_ADDR' => '198.18.0.5', 'HTTP_X_FORWARDED_FOR' => "203.0.113.#{i + 1}") }
+    assert_response :too_many_requests, 'a direct caller must not pick its own bucket with X-Forwarded-For'
+
+    Rack::Attack.reset!
+    11.times { |i| post_login('REMOTE_ADDR' => '198.18.0.5', 'HTTP_CLIENT_IP' => "203.0.113.#{i + 1}") }
+    assert_response :too_many_requests, 'nor with Client-Ip'
+  end
+
+  test 'a malformed peer address is keyed on itself, not on its headers' do
+    declare_proxy(true)
+    11.times { |i| post_login('REMOTE_ADDR' => 'garbage', 'HTTP_X_FORWARDED_FOR' => "203.0.113.#{i + 1}") }
+    assert_response :too_many_requests
+  end
+
   # Rack::Attack::Throttle#matched_by? opens with `return false unless discriminator`, so a
   # nil key does not mean "one shared bucket", it means the rule does not run at all. An
   # environment with no REMOTE_ADDR must therefore still produce a key.
