@@ -105,6 +105,23 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_response :too_many_requests
   end
 
+  # SETUP_TOKEN is presented as /setup?token=, so this GET is where it is guessed.
+  test 'throttles GET /setup carrying a token' do
+    6.times { |i| get '/setup', params: { token: "guess-#{i}" } }
+    assert_response :too_many_requests
+  end
+
+  test 'GET /setup without a token is not throttled' do
+    11.times { get '/setup' }
+    refute_equal 429, response.status
+  end
+
+  # Takes a claim code and spends an outbound call to the platform redeeming it.
+  test 'throttles POST /setup/platform_connection' do
+    6.times { post '/setup/platform_connection', params: { claim_code: 'x' } }
+    assert_response :too_many_requests
+  end
+
   test 'throttles POST /oauth/token' do
     21.times { post '/oauth/token', params: { grant_type: 'authorization_code', code: 'x' } }
     assert_response :too_many_requests

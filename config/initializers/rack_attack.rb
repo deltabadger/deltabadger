@@ -43,6 +43,7 @@ module RackAttackPaths
   # address the caller names. It was the one of the pair without a bound.
   CONFIRMATION = build('/confirmation')
   SETUP       = build('/setup')
+  SETUP_PLATFORM = build('/setup/platform_connection')
   # The OAuth endpoints live outside the locale scope, but still take a format suffix.
   REGISTER    = %r{\A/oauth/register#{FORMAT}\z}
   TOKEN       = %r{\A/oauth/token#{FORMAT}\z}
@@ -156,6 +157,19 @@ end
 
 Rack::Attack.throttle('setup', limit: 5, period: 60) do |req|
   Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+end
+
+# SETUP_TOKEN arrives as /setup?token=, so this GET is where it would be guessed. Any query
+# counts — parsing it here would hand Rack's parser to the caller ahead of the app, and every
+# spelling Rails reads as a token (token[]=, a repeated key) would need its own rule. A bare
+# GET only renders the form, and it is where the token redirect lands, so it is left free.
+Rack::Attack.throttle('setup/token', limit: 5, period: 60) do |req|
+  Rack::Attack.client_ip(req) if req.get? && req.query_string.present? && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+end
+
+# Takes a claim code and spends an outbound call to the platform redeeming it.
+Rack::Attack.throttle('setup/platform_connection', limit: 5, period: 60) do |req|
+  Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::SETUP_PLATFORM.match?(RackAttackPaths.normalize(req.path))
 end
 
 # The CSP report endpoint takes an unauthenticated POST and writes a line to the log, so
