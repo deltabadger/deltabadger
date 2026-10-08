@@ -22,10 +22,14 @@ module Automation::Labelable
     self.label = generate_label
   end
 
+  # Loading is a read: a missing name is computed for display and never saved from here, so a
+  # GET (the page, MCP get_bot / list_bots) leaves the row and its updated_at untouched. The name
+  # is written only when something saves the bot on purpose (set_default_label above).
   def ensure_label_exists
     return unless label.blank?
 
-    update!(label: generate_label)
+    self.label = generate_label
+    clear_attribute_changes([:label])
   end
 
   def generate_label

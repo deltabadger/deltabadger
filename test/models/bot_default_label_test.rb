@@ -41,6 +41,22 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     assert_equal 'Retirement', bot.label
   end
 
+  # Loading a bot is a read (the page, MCP get_bot / list_bots): a missing name is computed for
+  # display, never saved, so the row and its updated_at stay as they were.
+  test 'a bot loaded without a name shows one but the read saves nothing' do
+    bot = create(:dca_single_asset, user: @user, base_asset: @btc, quote_asset: @usd)
+    ['', nil].each do |blank|
+      bot.update_columns(label: blank, updated_at: 1.day.ago.round)
+      stamp = bot.reload.updated_at
+
+      loaded = Bot.find(bot.id)
+
+      assert_equal 'Bitcoin', loaded.label
+      assert_not loaded.label_changed?, 'nothing for a later save to write'
+      assert_equal [blank, stamp], Bot.where(id: bot.id).pick(:label, :updated_at)
+    end
+  end
+
   # --- a basket of assets ------------------------------------------------------
 
   test 'a two-asset bot is named by its tickers' do

@@ -175,14 +175,10 @@ async fn four_reads_match_rails() {
         };
         for (from,to) in replacements { assert_eq!(replace_text(&mut want,from,to),2,"one response and its stored message: {name}"); }
         if name.ends_with("_label") {
+            // Both sides name the bot in the response and leave the stored label and updated_at alone.
             let original=if name.ends_with("_null_label"){Value::Null}else{json!("   ")};
-            let expected=if name.contains("_whole_category_"){ "S&P 500 · 10" }else if name.contains("_category_"){ "Layer 1 · 20" }else if name.contains("_index_"){ "ND10" }else{ "AAA Inc." };
-            assert_eq!(want["rows"]["bots"][0]["label"],json!(expected),"{name}: Rails generated label: {}",want["responses"]);
+            assert_eq!(want["rows"]["bots"][0]["label"],original,"{name}: Rails read saved no label");
             assert_eq!(got["rows"]["bots"][0]["label"],original,"{name}: stored label unchanged");
-            want["rows"]["bots"][0]["label"]=original;
-            // Rails update! timestamps this label write; Rust preserves the original timestamp.
-            assert_ne!(want["rows"]["bots"][0]["updated_at"],got["rows"]["bots"][0]["updated_at"]);
-            want["rows"]["bots"][0]["updated_at"]=got["rows"]["bots"][0]["updated_at"].clone();
         }
         let (got,want)=(comparable(got),comparable(want));
         if EXPECTED_READS.len()<ALL_READS.len(){
