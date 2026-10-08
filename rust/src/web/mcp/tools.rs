@@ -12,7 +12,18 @@ pub fn registry(c: &Connection, who: Bearer) -> Result<Vec<String>,WebError> {
 pub fn gate(c: &Connection, who: Bearer, name: &str) -> Result<Option<Value>,WebError> {
     let (enabled,granted) = consent::mcp_access(c,who.user_id,who.application_id)?;
     Ok(if !enabled.iter().any(|n| n == name) {Some(tool_text(&format!("Tool '{name}' is disabled. Enable it in Settings > MCP."),true))}
-       else if !granted.iter().any(|n| n == name) {Some(tool_text(&format!("Tool '{name}' is not available to this client. Grant it in Settings > Connect."),true))} else {None})
+       else if !granted.iter().any(|n| n == name) {Some(tool_text(&format!("Tool '{name}' is not available to this client. Grant it in Settings > Connect."),true))}
+       else if LIVE_AUTOMATION_TOOLS.contains(&name) && paper_trading(c,who.user_id)? {Some(tool_text(&format!("[DRY RUN] Paper trading is on, so nothing was created or started: '{name}' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it."),true))}
+       else {None})
+}
+/// ApplicationMCPTool::LIVE_AUTOMATION_TOOLS; only start_bot is served here, the rest stay Rails'.
+const LIVE_AUTOMATION_TOOLS: [&str;5] = ["create_bot","create_index_bot","create_signal_bot","start_bot","start_rule"];
+/// User#mcp_dry_run?: `mcp_settings['dry_run'] == true`, nothing looser.
+fn paper_trading(c: &Connection, user_id: i64) -> Result<bool,WebError> {
+    let stored: Option<String> = c.query_row("SELECT mcp_settings FROM users WHERE id = ?1", [user_id], |r| r.get(0)).optional()?.flatten();
+    let Some(text) = stored else { return Ok(false) };
+    let settings: Value = serde_json::from_str(&text).map_err(|_| WebError::Config("unreadable mcp_settings".into()))?;
+    Ok(settings["dry_run"] == Value::Bool(true))
 }
 pub(super) fn str_value(v: &Value) -> String { match v {Value::Null => String::new(), Value::String(s) => s.clone(), _ => v.to_string()} }
 pub(super) fn asset(c: &Connection,id: &Value) -> Result<Option<String>,WebError> {

@@ -156,6 +156,12 @@ async fn control_transcripts() {
                 std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
             }
         }
+        if name.starts_with("paper_refused_") {
+            // ApplicationMCPTool: paper trading refuses start_bot before lookup, validation or any write.
+            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert_eq!(rails["result"]["content"][0]["text"],"[DRY RUN] Paper trading is on, so nothing was created or started: 'start_bot' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it.","{name}");
+            assert_eq!(rails["result"]["isError"],true,"{name}");
+        }
         if name == "stop_bot_r1_invalid" {
             let response:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
             assert_eq!(response["result"]["content"][0]["text"],"Failed to stop bot 'Control'.");
