@@ -56,9 +56,10 @@
           <%= link_to t('settings.email_notifications.disconnect'), settings_disconnect_email_path, data: { turbo_method: :delete, turbo_frame: "email_notifications" }, class: "button button--danger", style: "margin-top: 0" %>
         </div>
       <% elsif has_smtp_credentials %>
-        <%# Credentials exist but custom SMTP not active - include hidden fields for auto-submit %>
-        <%= hidden_field_tag :smtp_username, AppConfig.smtp_username %>
-        <%= hidden_field_tag :smtp_password, AppConfig.smtp_password %>
+        <%# Credentials exist but custom SMTP not active - include hidden fields for auto-submit. The
+            secrets ride as a placeholder; the controller keeps the stored ones when it comes back. %>
+        <%= hidden_field_tag :smtp_username, SettingsController::REDACTED %>
+        <%= hidden_field_tag :smtp_password, SettingsController::REDACTED %>
         <%= hidden_field_tag :smtp_host, AppConfig.smtp_host %>
         <%= hidden_field_tag :smtp_port, AppConfig.smtp_port %>
       <% else %>

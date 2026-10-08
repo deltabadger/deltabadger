@@ -3,15 +3,17 @@
     <h4 class="modal__title"><%= t('settings.rest.title') %></h4>
     <p class="text-center" style="text-wrap: balance"><%= t('settings.rest.description') %></p>
 
+    <%# Minted on first visit, but shown only in the response to Regenerate: a page load carries no secret. %>
     <% token = current_user.personal_api_token.token %>
+    <% token = SettingsController::REDACTED unless local_assigns[:reveal_token] %>
     <dl class="settings-kv">
       <dt class="label">URL</dt>
       <dd><%= render 'settings/widgets/copy_tag', value: AppConfig.api_url, id: 'rest_api_url_display' %></dd>
 
       <dt class="label"><%= t('settings.rest.token') %></dt>
       <dd>
-        <%# Shown in full, not masked: over plain http from another machine there is no Clipboard
-            API, and a token that can only be copied is then a token that cannot be had at all. %>
+        <%# When revealed, shown in full, not masked: over plain http from another machine there is no
+            Clipboard API, and a token that can only be copied is then a token that cannot be had at all. %>
         <%= render 'settings/widgets/copy_tag', value: token %>
         <%= button_to t('settings.rest.regenerate_token'), settings_regenerate_api_token_path, method: :post,
                       form: { data: { turbo_frame: 'rest_settings', turbo_confirm: t('settings.rest.regenerate_confirm') } },

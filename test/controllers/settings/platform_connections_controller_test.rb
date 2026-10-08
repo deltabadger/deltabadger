@@ -94,7 +94,8 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_includes response.body, I18n.t('settings.platform.connected_with_proxies')
   end
 
-  test 'switching from claimed market data to CoinGecko preserves and submits the saved key' do
+  # The saved key stays on the server: the page never carries it, and the switch uses what is stored.
+  test 'switching from claimed market data to CoinGecko keeps the saved key without rendering it' do
     configure_deltabadger_market_data
     AppConfig.set('platform_connected_at', Time.current.iso8601)
     AppConfig.coingecko_api_key = 'saved-key'
@@ -102,11 +103,11 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     get settings_connect_path
 
     assert_response :success
-    assert_select 'input[type=hidden][name=coingecko_api_key][value=saved-key]'
+    assert_not_includes response.body, 'saved-key'
+    assert_select 'input[name=coingecko_api_key]', count: 0
 
     patch settings_update_market_data_path,
-          params: { market_data_provider: MarketDataSettings::PROVIDER_COINGECKO,
-                    coingecko_api_key: 'saved-key' }, as: :turbo_stream
+          params: { market_data_provider: MarketDataSettings::PROVIDER_COINGECKO }, as: :turbo_stream
 
     assert_response :success
     assert_equal MarketDataSettings::PROVIDER_COINGECKO, AppConfig.market_data_provider

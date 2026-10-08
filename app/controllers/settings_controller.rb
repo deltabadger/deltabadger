@@ -1,6 +1,9 @@
 class SettingsController < ApplicationController
   include AdminOnly
 
+  # What a page shows in place of a stored secret. Submitted back, it means "keep what is stored".
+  REDACTED = '[redacted]'.freeze
+
   CLIENT_PERMISSION_SURFACES = {
     'mcp' => { groups: AppConfig::MCP_TOOL_GROUPS, column: :mcp_tools, reader: :granted_mcp_tools,
                enabled: :enabled_mcp_tool_names },
@@ -234,13 +237,15 @@ class SettingsController < ApplicationController
       AppConfig.market_data_provider = nil
       flash.now[:notice] = t('settings.market_data.disabled')
     elsif provider == MarketDataSettings::PROVIDER_COINGECKO
-      if params[:coingecko_api_key].blank?
+      # The page never carries a saved key, so switching back to CoinGecko uses the stored one.
+      coingecko_api_key = params[:coingecko_api_key].presence || AppConfig.coingecko_api_key
+      if coingecko_api_key.blank?
         # No key provided - show CoinGecko setup form
         AppConfig.market_data_provider = nil
         @show_coingecko_form = true
       else
         AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
-        AppConfig.coingecko_api_key = params[:coingecko_api_key]
+        AppConfig.coingecko_api_key = coingecko_api_key
         flash.now[:notice] = t('settings.market_data.updated')
       end
     elsif provider == MarketDataSettings::PROVIDER_DELTABADGER
@@ -348,7 +353,9 @@ class SettingsController < ApplicationController
       AppConfig.smtp_provider = nil
       flash.now[:notice] = t('settings.email_notifications.disabled')
     elsif provider == 'custom_smtp'
-      if params[:smtp_username].blank? || params[:smtp_password].blank?
+      smtp_username = unless_redacted(params[:smtp_username], AppConfig.smtp_username)
+      smtp_password = unless_redacted(params[:smtp_password], AppConfig.smtp_password)
+      if smtp_username.blank? || smtp_password.blank?
         # Clear provider and show SMTP setup form
         AppConfig.smtp_provider = nil
         @show_smtp_form = true
@@ -356,8 +363,8 @@ class SettingsController < ApplicationController
         AppConfig.smtp_provider = 'custom_smtp'
         AppConfig.smtp_host = params[:smtp_host]
         AppConfig.smtp_port = params[:smtp_port]
-        AppConfig.smtp_username = params[:smtp_username]
-        AppConfig.smtp_password = params[:smtp_password]
+        AppConfig.smtp_username = smtp_username
+        AppConfig.smtp_password = smtp_password
         flash.now[:notice] = t('settings.email_notifications.updated')
       end
     elsif provider == 'env_smtp'
@@ -422,7 +429,9 @@ class SettingsController < ApplicationController
 
   def regenerate_api_token
     current_user.regenerate_personal_api_token!
-    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest')
+    # The one response that shows the token: the new one, once, for copying.
+    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest',
+                                                               locals: { reveal_token: true })
   end
 
   def update_rest_tool_permissions
@@ -540,6 +549,10 @@ class SettingsController < ApplicationController
   end
 
   private
+
+  def unless_redacted(submitted, stored)
+    submitted == REDACTED ? stored : submitted
+  end
 
   # Both preference selects offer only valid options, so a rejection means a crafted request —
   # but the actions still have to answer one. Falling through to an implicit render answered a
