@@ -1514,7 +1514,8 @@ async fn collision_tracker_treats_both_cash_categories_as_one_class() {
         }
         let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
         let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
-        assert!(!matches!(result,Err(ref e) if format!("{e:?}").contains("ambiguous")),"USD as Fiat and as Currency is one class: {result:?}");
+        let figures=result.unwrap_or_else(|e| panic!("USD as Fiat and as Currency is one class: {e:?}"));
+        assert_eq!(figures.value.to_s_f(),"20.0","both USD rows are counted as one cash holding");
         Ok(())
     }).await.unwrap();
 }
