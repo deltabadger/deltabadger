@@ -49,7 +49,7 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
     },
     Exchanges::Bybit => {
       'Created' => :unknown, 'Untriggered' => :unknown,
-      'New' => :open, 'PartiallyFilled' => :open, 'PartiallyFilledCanceled' => :open,
+      'New' => :open, 'PartiallyFilled' => :open, 'PartiallyFilledCanceled' => :cancelled,
       'Filled' => :closed,
       'Cancelled' => :cancelled, 'Expired' => :cancelled, 'Deactivated' => :cancelled,
       'Rejected' => :failed

@@ -127,4 +127,26 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
 
     assert_predicate result, :failure?
   end
+
+  test 'parse_order_data ends a cancelled, partially filled order as cancelled with its executed amounts' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTCUSDT')
+    # Shape of a v5 /order/history row for a limit buy cancelled after a partial fill.
+    order_data = {
+      'orderId' => '1790915566373497344', 'orderLinkId' => '', 'symbol' => 'BTCUSDT', 'side' => 'Buy',
+      'orderType' => 'Limit', 'price' => '62795.00', 'qty' => '0.000159', 'avgPrice' => '62795',
+      'cumExecQty' => '0.000061', 'cumExecValue' => '3.830495', 'cumExecFee' => '0.000000061',
+      'leavesQty' => '0', 'leavesValue' => '0', 'orderStatus' => 'PartiallyFilledCanceled',
+      'cancelType' => 'CancelByUser', 'rejectReason' => 'EC_NoError', 'timeInForce' => 'GTC',
+      'createdTime' => '1715700000000', 'updatedTime' => '1715700060000'
+    }
+
+    parsed = @exchange.send(:parse_order_data, '1790915566373497344', order_data)
+
+    assert_equal :cancelled, parsed[:status]
+    assert_equal ticker, parsed[:ticker]
+    assert_equal BigDecimal('0.000061'), parsed[:amount_exec]
+    assert_equal BigDecimal('3.830495'), parsed[:quote_amount_exec]
+    assert_equal BigDecimal('0.000159'), parsed[:amount]
+    assert_empty parsed[:error_messages]
+  end
 end
