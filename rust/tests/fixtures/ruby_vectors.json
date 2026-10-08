@@ -67928,7 +67928,7 @@
             "c0de"
           ]
         ],
-        "query": null,
+        "query": "https://client.example/cb?code=c0de&a+b=c%2Fd&e=%FF",
         "fragment": "https://client.example/cb?code=theirs&a+b=c%2Fd&e=%FF#code=c0de"
       },
       {

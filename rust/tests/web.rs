@@ -840,21 +840,18 @@ mod oauth_rules {
         }
     }
 
-    /// Doorkeeper's URIBuilder: the redirect with the answer in its query, and in its fragment. In one
-    /// vector Rails has no answer: the URI's own query holds a byte that is not text (`%FF`), Rack
-    /// refuses to read it, and the approval fails. This crate writes the byte back as it stood.
+    /// Doorkeeper's URIBuilder: the redirect with the answer in its query, and in its fragment. A byte
+    /// in the URI's own query that is not text (`%FF`) is written back as it stood, in Rails
+    /// (config/initializers/doorkeeper.rb) and here.
     #[test]
     fn an_answer_is_written_as_doorkeepers_builder_writes_it() {
         let recorded = super::common::vectors()["oauth_uri"]["answers"].as_array().unwrap().clone();
-        assert!(recorded.len() >= 15 && recorded.iter().filter(|case| case["query"].is_null()).count() == 1 && recorded.iter().all(|case| case["fragment"].is_string()), "{} vectors", recorded.len());
+        assert!(recorded.len() >= 15 && recorded.iter().all(|case| case["query"].is_string() && case["fragment"].is_string()), "{} vectors", recorded.len());
+        assert!(recorded.iter().any(|case| case["query"] == "https://client.example/cb?code=c0de&a+b=c%2Fd&e=%FF"), "the %FF vector is recorded");
         for case in &recorded {
             let parameters: Vec<(&str, &str)> = case["parameters"].as_array().unwrap().iter().map(|pair| (pair[0].as_str().unwrap(), pair[1].as_str().unwrap())).collect();
             let url = case["url"].as_str().unwrap();
-            if case["query"].is_null() {
-                assert_eq!(oauth::redirect_with(url, &parameters, false), "https://client.example/cb?code=c0de&a+b=c%2Fd&e=%FF", "{case}");
-            } else {
-                assert_eq!(Some(oauth::redirect_with(url, &parameters, false).as_str()), case["query"].as_str(), "{case}");
-            }
+            assert_eq!(Some(oauth::redirect_with(url, &parameters, false).as_str()), case["query"].as_str(), "{case}");
             assert_eq!(Some(oauth::redirect_with(url, &parameters, true).as_str()), case["fragment"].as_str(), "{case}");
         }
     }
