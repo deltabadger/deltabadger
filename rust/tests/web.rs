@@ -709,12 +709,13 @@ mod host_authorization {
         }
     }
 
-    /// Whole requests, answered by ActionDispatch::HostAuthorization behind Puma: which pass, and what a
-    /// refusal is. The one difference: a forwarded header that names no host, where Rails fails (500).
+    /// Whole requests, answered by ActionDispatch::HostAuthorization behind Puma, with production's
+    /// EmptyForwardedHost in front: which pass, and what a refusal is. A forwarded header that names no
+    /// host is refused in both.
     #[test]
     fn a_request_is_refused_as_host_authorization_refuses_it() {
         let recorded = common::vectors()["host_authorization"]["requests"].as_array().unwrap().clone();
-        assert!(recorded.len() >= 20 && recorded.iter().filter(|case| case["status"] == 500).count() == 1, "{} vectors", recorded.len());
+        assert!(recorded.len() >= 20 && recorded.iter().all(|case| case["status"] == 200 || case["status"] == 403), "{} vectors", recorded.len());
         for case in &recorded {
             let allowed_hosts = case["allowed_hosts"].as_str().map(str::to_string);
             let config = Config::from_env(&move |name| match name {

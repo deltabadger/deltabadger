@@ -1298,10 +1298,12 @@ host_ask = lambda do |port, host, headers, xhr|
   { 'status' => head[%r{\AHTTP/1.1 (\d+)}, 1].to_i, 'content_type' => head[/^content-type: (.*?)\r?$/i, 1], 'body' => body,
     'other_headers' => head.lines.drop(1).map { |line| line[/\A[^:]+/].downcase }.reject { |name| %w[content-type content-length connection].include?(name) } }
 end
+require Rails.root.join('lib/middleware/empty_forwarded_host').to_s
 host_servers = Hash.new do |servers, hosts|
   inner = ->(_env) { [200, { 'content-type' => 'text/plain' }, ['passed']] }
-  # Rails leaves the middleware out when config.hosts is empty (DefaultMiddlewareStack).
-  servers[hosts] = over_puma.(hosts.empty? ? inner : ActionDispatch::HostAuthorization.new(inner, hosts))
+  # Rails leaves the middleware out when config.hosts is empty (DefaultMiddlewareStack). With hosts,
+  # production.rb puts EmptyForwardedHost in front of it.
+  servers[hosts] = over_puma.(hosts.empty? ? inner : EmptyForwardedHost.new(ActionDispatch::HostAuthorization.new(inner, hosts)))
 end
 vectors['host_authorization'] = {
   'hosts' => [nil, '', ' ', ',', 'app.example', ' app.example , .apps.example ', 'a.example,,b.example', 'a.example, ', 'a.example,', ',a.example', "a.example\t,\nb.example:8443"]

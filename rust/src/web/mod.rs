@@ -288,7 +288,7 @@ impl Config {
         }
         match last_forwarded_host(headers) {
             Some(Some(forwarded)) if !forwarded.trim().is_empty() && !allowed(&forwarded) => blocked.push(forwarded),
-            // A header that names no host at all (`,`): Rails fails on it with a 500. Refused here.
+            // A header that names no host at all (`,`): refused, as Rails' EmptyForwardedHost refuses it.
             Some(None) => blocked.push(String::new()),
             _ => {}
         }
