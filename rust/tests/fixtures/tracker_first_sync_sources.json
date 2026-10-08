@@ -19,7 +19,7 @@
   "app/views/bots/_metrics_item.html.erb": "bcf755c106a064f3eca6e5cd0d4a0607d2b2e74d4f64f5fc5fba5f97520cb3d8",
   "app/views/shared/_segmented.html.erb": "f550a9ffc90302012d6be10333e251a540e87d415d622fefd4f7f99474b28a20",
   "app/views/svg/_24x24_sync.html.haml": "a76bed78ef79842578770333dc8555a4e7b350291574defe8f0c6e16b2bad782",
-  "db/schema.rb": "7914c64ea01745895b6f7c5853e89d07488e0f39bda1c196cc9a233fc84e4aa8",
+  "db/schema.rb": "0b75e1405318540fa915f5865bd4c6a8f4afb43e29a496ce44466b73d88e38c3",
   "app/models/denomination.rb": "4763ea32cd8ffb02027943b56a17f7f1fd7338f2aa85bd51cb0f81a662dc51a6",
   "app/models/utilities/currency.rb": "a06a70e56d0272520976995eb6357473b8f0e6ca4f1e596525626db78caf0e74",
   "app/controllers/application_controller.rb": "064c1df99011c7a3653dfcfc1d5319650d21145fb4eba98a705066315524ec9d",
