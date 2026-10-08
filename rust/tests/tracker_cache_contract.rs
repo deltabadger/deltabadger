@@ -29,3 +29,10 @@ fn cache_lifecycle_matches_rails_with_documented_eviction_miss(){
     let mut expected=fixture()["states"].clone();assert_eq!(expected["delete"],"warm");assert_eq!(states["delete"],"cold","one retained version: a safe cache miss, no numeric page enabled");expected["delete"]=json!("cold");
     assert_eq!(Value::Object(states),expected);
 }
+#[test]
+fn cache_ci_covers_sources_and_portable_binaries(){
+    let workflow=include_str!("../../.github/workflows/rust.yml");
+    for path in fixture()["sources"].as_object().unwrap().keys(){assert_eq!(workflow.matches(&format!("- '{path}'")).count(),2,"both workflow events must cover {path}");}
+    for binary in ["tracker_cache_contract","tracker_deadline"]{assert!(workflow.contains(&format!("--test {binary}")),"portable {binary} missing from CI");}
+    assert!(!workflow.contains("--test tracker_cache_producer"));
+}
