@@ -33,7 +33,7 @@ pub fn today_row(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger:
     let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2))", rusqlite::params![user_id, exchange_id], |r| r.get(0))?;
     if balances.is_empty() && !rows { return Ok(None); }
     let pending = figures::pending(c, user_id, exchange_id)?;
-    let f = figures::compute(c, ledger, &balances, &pending)?;
+    let f = figures::compute(c, user_id, ledger, &balances, &pending)?;
     let (held_value, held_cost) = f.without_cash()?;
     Ok(Some(Day { value: f.value, invested: f.invested, held_value: Some(held_value), held_cost: Some(held_cost),
                   partial: partial(c, user_id, &balances)? || ledger.incomplete }))

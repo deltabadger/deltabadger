@@ -1513,8 +1513,23 @@ async fn collision_tracker_refuses_to_merge_stock_and_crypto_quantities() {
             c.execute("INSERT INTO account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at) VALUES (?1,?2,?3,?4,0,?5,?4*?5,'2026-01-01 00:00:00','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,asset,qty,price]).unwrap();
         }
         let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
-        let result=deltabadger::tracker::figures::compute(c,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
+        let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
         assert!(result.is_err(),"a tracker must not publish 12 BTC by adding ten stock shares to two bitcoins");
+        Ok(())
+    }).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn collision_tracker_ignores_a_same_symbol_class_the_user_never_touched() {
+    let (_dir,db,s)=install();
+    db.run(move |c,_| {
+        c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES ('BTC.US','BTC','Trust','Stock','2026-01-01','2026-01-01')",[]).unwrap();
+        c.execute("INSERT INTO account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at) VALUES (?1,?2,?3,2,0,60000,120000,'2026-01-01 00:00:00','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,s.btc]).unwrap();
+        c.execute("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,transacted_at,created_at,updated_at) VALUES (?1,?2,0,'BTC',?3,1,'2026-01-02 00:00:00','2026-01-02','2026-01-02')",rusqlite::params![s.user_id,s.exchange_id,s.btc]).unwrap();
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let pending=vec![("BTC".to_string(),deltabadger::figures::dec::Dec::one())];
+        let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&pending);
+        assert!(!matches!(result,Err(ref e) if format!("{e:?}").contains("ambiguous")),"a catalogue BTC stock the user never touched is not ambiguity: {result:?}");
         Ok(())
     }).await.unwrap();
 }
