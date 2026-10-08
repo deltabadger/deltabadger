@@ -51,4 +51,38 @@ class RewindLedgerWatermarksPastFutureRowsTest < ActiveSupport::TestCase
       assert_equal before, ApiKey.order(:id).pluck(:id, :last_synced_at, :updated_at), 'a second run changes nothing'
     end
   end
+  # Rows dedupe per user and exchange, so a second key of the same account skipped storing the split
+  # the first one stored, yet its watermark went to the split's date all the same. Deleting the first
+  # key leaves the row behind with no key.
+  test 'every key of the account goes back, whichever key stored the row dated ahead' do
+    travel_to NOW do
+      stored = Time.utc(2026, 10, 3, 8, 8, 50)
+      original = key_with(Time.utc(2026, 10, 5), [[Time.utc(2026, 10, 5), stored]])
+      replacement = create(:api_key, user: original.user, exchange: original.exchange, key_type: :read_only,
+                                     last_synced_at: Time.utc(2026, 10, 5))
+      superseded = key_with(Time.utc(2026, 10, 5), [[Time.utc(2026, 10, 5), stored]])
+      successor = create(:api_key, user: superseded.user, exchange: superseded.exchange, key_type: :read_only,
+                                   last_synced_at: Time.utc(2026, 10, 6))
+      deleted = key_with(Time.utc(2026, 10, 5), [[Time.utc(2026, 10, 5), stored]])
+      survivor = create(:api_key, user: deleted.user, exchange: deleted.exchange, key_type: :read_only,
+                                  last_synced_at: Time.utc(2026, 10, 7))
+      deleted.destroy!
+      assert_nil AccountTransaction.find_by(user_id: deleted.user_id).api_key_id
+      # Another account on the same venue holds no such row and keeps its watermark.
+      bystander = key_with(Time.utc(2026, 10, 7), [[Time.utc(2026, 10, 7), Time.utc(2026, 10, 7, 1)]])
+
+      migrate
+
+      assert_equal stored, original.reload.last_synced_at
+      assert_equal stored, replacement.reload.last_synced_at
+      assert_equal stored, superseded.reload.last_synced_at
+      assert_equal stored, successor.reload.last_synced_at
+      assert_equal stored, survivor.reload.last_synced_at
+      assert_equal Time.utc(2026, 10, 7), bystander.reload.last_synced_at
+
+      before = ApiKey.order(:id).pluck(:id, :last_synced_at, :updated_at)
+      migrate
+      assert_equal before, ApiKey.order(:id).pluck(:id, :last_synced_at, :updated_at), 'a second run changes nothing'
+    end
+  end
 end

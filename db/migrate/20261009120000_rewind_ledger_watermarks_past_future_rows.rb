@@ -6,21 +6,28 @@
 #
 # The hole is recognisable after the date has passed too: a row stored more than the overlap before
 # its own date, and a watermark past the moment it was stored. A row dated less than that ahead left
-# no hole. A watermark still ahead of now with no such row of its own to anchor on starts over, as a
-# fresh key does.
+# no hole. The row may belong to any key of the same user and venue, or to none once its key is gone,
+# so every key of that account goes back. A watermark still ahead of now with no such row to anchor on
+# starts over, as a fresh key does.
 class RewindLedgerWatermarksPastFutureRows < ActiveRecord::Migration[8.1]
   OVERLAP = 25.hours
 
   def up
     now = Time.current
-    ApiKey.where.not(last_synced_at: nil).find_each do |key|
-      stored = AccountTransaction.where(api_key_id: key.id).pluck(:transacted_at, :created_at)
+    ApiKey.where.not(last_synced_at: nil).group_by { |key| [key.user_id, key.exchange_id] }
+          .each do |(user_id, exchange_id), keys|
+      # Rows dedupe per user and exchange, so the key that stored the row dated ahead may not be the
+      # one whose watermark it carried, and a deleted key leaves its rows with no key at all.
+      stored = AccountTransaction.where(user_id: user_id, exchange_id: exchange_id)
+                                 .pluck(:transacted_at, :created_at)
                                  .filter_map { |at, created| created if at && at > created + OVERLAP }.min
-      rewound = if stored && key.last_synced_at > stored then stored
-                elsif !stored && key.last_synced_at > now then nil
-                else next
-                end
-      key.update_column(:last_synced_at, rewound)
+      keys.each do |key|
+        rewound = if stored && key.last_synced_at > stored then stored
+                  elsif !stored && key.last_synced_at > now then nil
+                  else next
+                  end
+        key.update_column(:last_synced_at, rewound)
+      end
     end
   end
 
