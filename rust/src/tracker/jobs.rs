@@ -234,12 +234,30 @@ impl<T: Transport> Job for LedgerWalk<T> {
     }
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
-            match ledger_run(&cx.db, (*self.api).as_ref(), self.user_id, cx.clock, self.wall.clone(), &mut Allowance::run()).await {
+            match cached_ledger_run(&cx, (*self.api).as_ref(), self.user_id, self.wall.clone()).await {
                 Ok(_) => { cx.db.notifications.ledger_done(self.user_id); Outcome::Done }
                 Err(e) => Outcome::Failed(e),
             }
         })
     }
+}
+
+/// Publish only a walk whose transaction/price version still matches inside the cache write.
+/// The three passes share the existing walk budget. A changing account is retried by its
+/// scheduler wake; no GET starts a calculation. Snapshot and lock behavior stays in ledger_run.
+const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during calculation";
+async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall)->Result<Walked,String> {
+    let mut allowance=Allowance::run();
+    for _ in 0..3 {
+        let (before,venue)=cx.db.run(move|c,_|Ok((super::cache::version(c,owner).map_err(message)?,Venue::alpaca(c).map_err(message)?.id))).await?;
+        let result=ledger_run(&cx.db,api,owner,cx.clock,wall.clone(),&mut allowance).await;
+        let cached=match &result {Ok(walked)=>Some(walked.clone()),Err(_)=>None};
+        let clock=wall.clone();
+        let published=cx.db.run(move|c,_|written(c,&*clock,|c,now|super::cache::publish(c,owner,&before,cached.as_ref(),venue,now)).map_err(message)).await?;
+        if published {return result;}
+    }
+    cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);
+    Err(CACHE_MOVING.into())
 }
 
 /// `portfolio_backfill`, scoped by the user.
