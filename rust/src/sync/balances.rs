@@ -123,8 +123,8 @@ struct Asset { id: i64, external_id: String, symbol: Option<String>, category: O
 /// A fresh price as Rails holds it: the market's is a Float, the venue's and cash are BigDecimals.
 enum Price { Float(f64), Decimal(BigDec) }
 
-/// The account as #get_balances needs it: an object whose `cash` is a number. Rails reads a missing or null `cash`
-/// as 0 (`nil.to_d`), removes the cash balance and reports success; here it is a malformed answer. The outer error
+/// The account as #get_balances needs it: an object whose `cash` is a number. A missing or null `cash` is a
+/// malformed answer, here and in Rails (`the account has no cash figure`). The outer error
 /// is an answer that could not be read at all; the inner one is the account's shape, judged once both answers are in.
 pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;

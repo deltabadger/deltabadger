@@ -245,6 +245,9 @@ class Exchanges::Alpaca < Exchange
     positions_result = client.get_positions
     return positions_result if positions_result.failure?
 
+    # A gap is a malformed answer, not an empty holding: nil.to_d is 0, and a zero balance is deleted.
+    return Result::Failure.new('the account has no cash figure') if account_result.data['cash'].nil?
+
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|
       [asset_id, { free: 0, locked: 0 }]
@@ -280,6 +283,7 @@ class Exchanges::Alpaca < Exchange
 
       asset = candidates.first
       next unless asset_ids.include?(asset.id)
+      return Result::Failure.new('a position without a quantity') if position['qty'].nil?
 
       qty = position['qty'].to_d
       balances[asset.id] = { free: qty, locked: 0 }

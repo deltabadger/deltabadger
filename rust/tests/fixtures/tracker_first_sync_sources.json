@@ -23,5 +23,5 @@
   "app/models/denomination.rb": "4763ea32cd8ffb02027943b56a17f7f1fd7338f2aa85bd51cb0f81a662dc51a6",
   "app/models/utilities/currency.rb": "a06a70e56d0272520976995eb6357473b8f0e6ca4f1e596525626db78caf0e74",
   "app/controllers/application_controller.rb": "064c1df99011c7a3653dfcfc1d5319650d21145fb4eba98a705066315524ec9d",
-  "app/models/exchanges/alpaca.rb": "d3d8c606da5dfc13dc8617a2dbdd892181e336474ae2f70eede799e7825f1bfe"
+  "app/models/exchanges/alpaca.rb": "df4a9a0415f0112a2e3e81f634c0c7b895707e7af3c65b9119659636607748f2"
 }
