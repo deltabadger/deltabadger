@@ -81,6 +81,56 @@ module ActionJobBehaviorTests
       assert_empty bot.transactions
     end
 
+    # A job runs under the query cache, and a stop from another request writes through another
+    # connection, which clears nothing here: a cached answer from the claim would let the order go.
+    # The raw write stands in for that other connection.
+    test 'a stop from another connection is seen through the query cache' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.unstub(:market_buy)
+      bot.exchange.expects(:market_buy).never
+      stopped = Bot.statuses[:stopped]
+      bot.define_singleton_method(:pending_quote_amount) do
+        self.class.connection.raw_connection.execute("UPDATE bots SET status = #{stopped} WHERE id = #{id}")
+        super()
+      end
+
+      ActiveRecord::Base.cache { Bot::ActionJob.new.perform(bot) }
+
+      assert_empty bot.transactions
+      assert_equal 'stopped', bot.reload.status
+    end
+
+    # A stop and a start both land while the claimed tick sizes its order. The row is working again,
+    # so status alone would let the old tick place. A resumed start keeps started_at; a fresh start
+    # arms a new tick that may already have claimed the bot. Neither is the run this tick claimed.
+    {
+      'a resumed start' => ->(bot) { bot.start(start_fresh: false) },
+      'a fresh start whose new tick has claimed the bot' => lambda do |bot|
+        bot.start(start_fresh: true)
+        bot = Bot.find(bot.id)
+        bot.update!(last_action_job_at: 1.second.from_now)
+        bot.transition_working!(:executing)
+      end
+    }.each do |label, restart|
+      test "a stop and #{label} after the tick claimed the bot place nothing from the old tick" do
+        bot = create_bot
+        setup_action_job_mocks(bot)
+        bot.exchange.unstub(:market_buy)
+        bot.exchange.expects(:market_buy).never
+        restarted = []
+        bot.define_singleton_method(:pending_quote_amount) do
+          restarted << [Bot.find(id).stop, restart.call(Bot.find(id))] if Bot.find(id).executing?
+          super()
+        end
+
+        Bot::ActionJob.new.perform(bot)
+
+        assert_equal [[true, true]], restarted, 'the stop and start landed inside the claimed tick'
+        assert_empty bot.transactions
+      end
+    end
+
     test 'does not flip an externally stopped bot to retrying when execution raises' do
       bot = create_bot
       setup_action_job_mocks(bot)

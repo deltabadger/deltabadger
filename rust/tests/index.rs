@@ -179,7 +179,7 @@ fn stock_and_index_intents_recheck_status_members_settings_and_every_ticker() {
     use deltabadger::engine::{amount, basket, placement, venue_rules::ALPACA};
     use deltabadger::ruby::BigDec;
     for index in [false,true] {
-        for mutation in ["status", "settings", "member", "ticker", "split", "instrument", "unavailable", "provider"] {
+        for mutation in ["status", "restart", "rerun", "settings", "member", "ticker", "split", "instrument", "unavailable", "provider"] {
             let (_d,o,s)=common::install_alpaca();
             let (asset,ticker)=seed::add_alpaca_stock(&o.primary,&s,"AAPL");
             seed::insert_index(&o.primary,"nasdaq-100",&["AAPL.US"],&json!({"AAPL.US":3e12}));
@@ -188,6 +188,8 @@ fn stock_and_index_intents_recheck_status_members_settings_and_every_ticker() {
             };
             basket::write_members(&o.primary,id,&[(asset,ticker,1.0)],at(T0)).unwrap();
             seed::fresh_stock_jobs(&o.primary,at(T0));
+            // Claimed by a tick, as the engine sizes it.
+            o.primary.execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:00.000Z') WHERE id=?1",[id]).unwrap();
             let bot=model::load_bot(&o.primary,id).unwrap();
             let ticker=model::ticker_by_id(&o.primary,s.exchange_id,ticker).unwrap().unwrap();
             let composition=placement::composition_snapshot(&o.primary,&bot).unwrap();
@@ -196,6 +198,9 @@ fn stock_and_index_intents_recheck_status_members_settings_and_every_ticker() {
             let writer=rusqlite::Connection::open(o.primary.path().unwrap()).unwrap();
             match mutation {
                 "status"=>{writer.execute("UPDATE bots SET status=2 WHERE id=?1",[id]).unwrap();},
+                // Stopped and started again: working, but not the run that sized the order.
+                "restart"=>{writer.execute("UPDATE bots SET status=1 WHERE id=?1",[id]).unwrap();},
+                "rerun"=>{writer.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:01.000Z') WHERE id=?1",[id]).unwrap();},
                 "settings"=>{writer.execute("UPDATE bots SET settings=json_set(settings,'$.num_coins',2) WHERE id=?1",[id]).unwrap();},
                 "member"=>{writer.execute("UPDATE bot_index_assets SET target_allocation=0.5 WHERE bot_id=?1",[id]).unwrap();},
                 "instrument"=>{writer.execute("UPDATE assets SET instrument_type='option' WHERE id=?1",[asset]).unwrap();},

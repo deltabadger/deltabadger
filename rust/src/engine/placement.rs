@@ -164,8 +164,8 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// to size the basket must also match (names, asset ids, availability, precision and minimums). Otherwise no intent is
 /// written, nothing will be sent, and `Begun::Changed` is returned with one log line naming the reason; the next pass sees the new row.
 ///
-/// Rails' leg loop fences a stop the same way (Automation::Statusable#stopped_mid_tick?) but not an edit: it places an order
-/// sized before an edit landed, a divergence. The fence only ever removes such
+/// Rails' leg loop fences a stop, or a stop and a restart, the same way (Automation::Statusable#stopped_mid_tick?) but not an
+/// edit: it places an order sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
     begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)
@@ -200,7 +200,11 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 break;
             }
         }
-        let reason = if !crate::enums::BOT_WORKING.contains(&current.status) { Some("it was stopped") }
+        // Still the run that sized it: a stop and a start put the row back to working, so it must still be the claim this tick
+        // took (Automation::Statusable#stopped_mid_tick?): executing, with the same started_at and last_action_job_at.
+        let same_run = current.status == crate::enums::BotStatus::Executing
+            && (current.started_at_us()?, current.last_action_job_at_us()?) == (bot.started_at_us()?, bot.last_action_job_at_us()?);
+        let reason = if !same_run { Some("it was stopped") }
             else if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
             else if &composition_snapshot(&tx, &current)? != composition { Some("its member rows or index settings changed") }
