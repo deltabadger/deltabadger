@@ -13,7 +13,7 @@ The widget shows ON or OFF and two choices, **None** and **Custom SMTP**. Pick *
 | **Username** | — |
 | **Password** | — |
 
-Username and password are required. For Gmail, use an App Password rather than your account password. Press **Set**. The connection uses STARTTLS with plain authentication.
+Username and password are required. For Gmail, use an App Password rather than your account password. Press **Set**. The connection requires STARTTLS with plain authentication: a server that does not offer it is refused, so the password is never sent in clear text.
 
 Once saved, the widget reads "Configured with *host*." and offers two buttons:
 
