@@ -38,7 +38,7 @@
               <%= f.select :"#{pfx}_in_ticker_id", base_select_options, { selected: active_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
-            <% base_html = base_select_options.first&.first || "" %>
+            <% base_html = h(base_select_options.first&.first || "") %>
           <% end %>
           <% value_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
             <%= t("bot.settings.extra_price_limit.value_condition.#{active_value_condition}") %>

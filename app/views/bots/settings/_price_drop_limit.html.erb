@@ -41,7 +41,7 @@
               <%= f.select :"#{pfx}_in_ticker_id", base_select_options, { selected: active_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
-            <% base_html = base_select_options.first&.first || "" %>
+            <% base_html = h(base_select_options.first&.first || "") %>
           <% end %>
           <% value_html = content_tag(:div) do %>
             <% limit = bot.public_send(pfx) %>
