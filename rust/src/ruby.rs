@@ -478,12 +478,13 @@ mod settings_whitespace_tests {
 }
 
 /// ActiveModel::Type::Boolean#cast of a stored JSON value, read as a predicate (`== true`): nil for nothing and for "",
-/// false for its FALSE_VALUES (compared with `==`, so 0.0 is 0), true for anything else.
+/// false for its FALSE_VALUES, true for anything else. FALSE_VALUES is a Set (matched by `eql?`): it holds the
+/// Integer 0, not the Float 0.0, so a stored 0.0 casts to true.
 pub fn cast_boolean(value: Option<&Value>) -> bool {
     match value {
         None | Some(Value::Null | Value::Bool(false)) => false,
         Some(Value::String(text)) => !["", "0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&text.as_str()),
-        Some(Value::Number(number)) => number.as_f64() != Some(0.0),
+        Some(Value::Number(number)) => number.as_i64() != Some(0),
         Some(_) => true,
     }
 }

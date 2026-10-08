@@ -95,3 +95,24 @@ fn the_checkpoints_around_the_first_run_match_rails() {
     }
     assert_eq!(n, 27 * 4 + 18);
 }
+
+#[test]
+fn a_stored_float_zero_is_true_as_in_active_model() {
+    // ActiveModel's FALSE_VALUES is a Set matched by eql?: it holds 0, not 0.0.
+    use deltabadger::ruby::cast_boolean;
+    use serde_json::json;
+    assert!(!cast_boolean(Some(&json!(0))));
+    assert!(cast_boolean(Some(&json!(0.0))));
+    assert!(!cast_boolean(Some(&json!("0"))));
+}
+
+#[test]
+fn an_iana_zone_is_read_and_an_unknown_one_is_refused() {
+    let now = parse_time("2026-03-02T12:00:00Z").unwrap();
+    // 12:00 UTC is 07:00 in New York (EST), so 09:30 there is still ahead today: 14:30 UTC.
+    let named = initial_start_at(Some("hour"), Some("09:30"), None, now, "Eastern Time (US & Canada)").unwrap();
+    let iana = initial_start_at(Some("hour"), Some("09:30"), None, now, "America/New_York").unwrap();
+    assert_eq!(named.at, iana.at);
+    assert_eq!(iana.at, parse_time("2026-03-02T14:30:00Z").unwrap());
+    assert_eq!(initial_start_at(Some("hour"), Some("09:30"), None, now, "Mars/Olympus").map(|s| s.at), Err("unknown time zone"));
+}
