@@ -14,8 +14,7 @@ module Api
                elsif same_keys?(keys_params, api_key)
                  revalidate_api_key(api_key)
                else
-                 remove(api_key)
-                 AddApiKey.call(keys_params)
+                 replace(api_key, keys_params)
                end
 
       if result.success?
@@ -40,6 +39,18 @@ module Api
       Result::Success.new
     rescue StandardError
       Result::Failure.new
+    end
+
+    # In place, so the key keeps its id and the ledger rows linked to it. The update validates
+    # before it writes: a rejected replacement leaves the stored key exactly as it was.
+    def replace(api_key, params)
+      replaced = api_key.update(key: params[:key], secret: params[:secret], passphrase: params[:passphrase],
+                                german_trading_agreement: params[:german_trading_agreement],
+                                status: :pending_validation, last_sync_error: nil)
+      return Result::Failure.new(api_key.errors.full_messages) unless replaced
+
+      ApiKeyValidatorJob.perform_later(api_key.id)
+      Result::Success.new(api_key)
     end
 
     def remove(api_key)
