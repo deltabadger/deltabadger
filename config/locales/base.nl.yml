@@ -595,6 +595,7 @@ nl:
         tax_report:
             failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
             refused_tokenized: 'Dit rapport kan niet worden gegenereerd: %{symbols} zijn getokeniseerde effecten, waarvan de fiscale behandeling afwijkt van die van crypto. Deltabadger verwerkt ze nog niet.'
+            refused_excess_return_of_capital: 'Dit rapport kan niet worden gegenereerd: een kapitaalterugbetaling op %{symbols} oversteeg de aanschafwaarde. Het overschot is een winst waarvoor dit rapport geen regel heeft, en Deltabadger verwerkt die nog niet.'
         holdings: 'Bezit'
         unrealised: 'Ongerealiseerd'
         tiles:

@@ -249,7 +249,7 @@ class TrackerController < ApplicationController
     refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
     if refusal
       return render turbo_stream: turbo_stream.append(
-        'flash', partial: 'tracker/report_refused', locals: { symbols: refusal['symbols'] }
+        'flash', partial: 'tracker/report_refused', locals: { refusal: refusal }
       )
     end
 
@@ -267,7 +267,7 @@ class TrackerController < ApplicationController
       # There is no CSV to send and there never will be for this input; saying "expired" would
       # invite the user to regenerate it forever.
       return redirect_to tracker_path,
-                         alert: t('tracker.tax_report.refused_tokenized', symbols: refusal['symbols'].join(', '))
+                         alert: Tax::GenerateReportJob.refusal_message(refusal)
     end
 
     if File.exist?(file_path)
@@ -415,7 +415,7 @@ class TrackerController < ApplicationController
     # it. Surfacing it here is what stops a reload from looking like "still generating".
     refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
     if refusal
-      @pending_refusal = { symbols: refusal['symbols'] }
+      @pending_refusal = refusal
       return
     end
 

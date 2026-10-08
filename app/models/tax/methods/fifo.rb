@@ -19,6 +19,7 @@ module Tax
         @old_stock_cutoff = options[:old_stock_cutoff]
         @swap_resets_holding_period = options.fetch(:swap_resets_holding_period, false)
         @excess_roc = 0.to_d
+        @excess_roc_rows = []
 
         @swap_in_groups = @crypto_to_crypto_taxable ? {} : build_swap_in_groups(transactions)
         @swap_out_groups = @crypto_to_crypto_taxable ? {} : build_swap_out_groups(transactions)
@@ -75,7 +76,7 @@ module Tax
             apply_split(lots[asset], amount, tx)
 
           when :return_of_capital
-            @excess_roc += reduce_lot_basis(lots[asset], tx)
+            book_excess_roc(tx, reduce_lot_basis(lots[asset], tx))
 
           when :fee
             consume_fee_in_kind(lots[asset], asset, amount)

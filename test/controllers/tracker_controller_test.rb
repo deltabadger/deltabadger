@@ -551,6 +551,23 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
                  response.headers['Content-Disposition'])
   end
 
+  test 'a report refused over a return of capital says why' do
+    path = Tax::GenerateReportJob.refusal_path(@user.id, 'DE', 1994)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.generate({ 'reason' => 'excess_return_of_capital', 'symbols' => ['BTC'] }))
+    @report_paths << path
+
+    message = I18n.t('tracker.tax_report.refused_excess_return_of_capital', symbols: 'BTC')
+    @user.update!(tracker_settings: { 'pending_report' => { 'country' => 'DE', 'year' => 1994 } })
+
+    get tracker_path
+    assert_includes CGI.unescapeHTML(response.body), message, 'the pending report shows the refusal'
+
+    get download_tax_report_tracker_path(country: 'DE', year: 1994)
+    assert_redirected_to tracker_path
+    assert_equal message, flash[:alert]
+  end
+
   test 'index auto-downloads a pending broker report with its scope' do
     @user.update!(tracker_settings: {
                     'pending_report' => { 'country' => 'DE', 'year' => 1993, 'report_scope' => 'broker' }

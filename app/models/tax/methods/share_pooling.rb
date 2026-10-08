@@ -15,6 +15,7 @@ module Tax
       # Each matching portion outputs as a separate row for auditability.
       def calculate(transactions, **_options)
         @excess_roc = 0.to_d
+        @excess_roc_rows = []
 
         acquisitions = Hash.new { |h, k| h[k] = [] }
         pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d, assumed: false } }

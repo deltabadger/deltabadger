@@ -183,6 +183,24 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     assert_nil Tax::GenerateReportJob.refusal(user.id, 'DE', 2016)
   end
 
+  test 'refuses a crypto report that would omit a return of capital beyond the basis' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    create(:api_key, user: user, exchange: exchange, last_synced_at: 1.day.ago)
+    create(:account_transaction, user: user, exchange: exchange, entry_type: :return_of_capital, base_currency: 'BTC',
+                                 base_amount: 1, quote_currency: 'USD', quote_amount: 150,
+                                 transacted_at: Time.utc(2014, 3, 1))
+    @cleanup = [user.id, 2014, 'US']
+
+    Tax::GenerateReportJob.perform_now(user.id, 'US', 2014)
+
+    assert_not File.exist?(Tax::GenerateReportJob.report_path(user.id, 'US', 2014))
+    refusal = Tax::GenerateReportJob.refusal(user.id, 'US', 2014)
+    assert_equal 'excess_return_of_capital', refusal['reason']
+    assert_equal ['BTC'], refusal['symbols']
+    assert_match 'return of capital', Tax::GenerateReportJob.refusal_message(refusal)
+  end
+
   # A refusal that outlives its cause is the same bug as the stale CSV it replaces.
   test 'a successful regeneration clears an earlier refusal' do
     user = tokenized_holder(2017)
@@ -223,9 +241,9 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
   def teardown
     return unless defined?(@cleanup) && @cleanup
 
-    user_id, year = @cleanup
-    FileUtils.rm_f(Tax::GenerateReportJob.report_path(user_id, 'DE', year))
-    FileUtils.rm_f(Tax::GenerateReportJob.refusal_path(user_id, 'DE', year))
+    user_id, year, country = @cleanup
+    FileUtils.rm_f(Tax::GenerateReportJob.report_path(user_id, country || 'DE', year))
+    FileUtils.rm_f(Tax::GenerateReportJob.refusal_path(user_id, country || 'DE', year))
   end
 
   def generate(user, country, year)

@@ -3,11 +3,17 @@ module Tax
     # A return of capital is not income: it hands back part of what was paid for the shares, so it
     # reduces cost basis rather than creating a gain. Basis can only fall to zero — whatever the
     # distribution exceeds is a gain the holder realises immediately, collected in `excess_roc` so
-    # the broker report can disclose it (crypto reports simply floor).
+    # the broker report can disclose it. The crypto report has no row for it and refuses instead,
+    # naming the rows in `excess_roc_rows`.
     module ReturnOfCapital
-      attr_reader :excess_roc
+      attr_reader :excess_roc, :excess_roc_rows
 
       private
+
+      def book_excess_roc(transaction, excess)
+        @excess_roc += excess
+        @excess_roc_rows << transaction if excess.positive?
+      end
 
       # Per-share when the ledger provides it; FIFO-dollar fallback otherwise.
       # Returns the excess reduction that found no basis to absorb it.

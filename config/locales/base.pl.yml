@@ -599,6 +599,7 @@ pl:
         tax_report:
             failed: 'Nie udało się wygenerować raportu. Sprawdź wybrane ustawienia i spróbuj ponownie.'
             refused_tokenized: 'Nie można wygenerować raportu: %{symbols} to tokenizowane papiery wartościowe, których zasady opodatkowania różnią się od kryptowalut. Deltabadger jeszcze ich nie uwzględnia.'
+            refused_excess_return_of_capital: 'Nie można wygenerować raportu: zwrot kapitału z %{symbols} przekroczył koszt nabycia. Nadwyżka to zysk, dla którego ten raport nie ma wiersza, a Deltabadger jeszcze jej nie uwzględnia.'
         holdings: 'Posiadane aktywa'
         unrealised: 'Niezrealizowany'
         tiles:

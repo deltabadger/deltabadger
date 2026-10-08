@@ -596,4 +596,41 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     refute_includes swiss_csv, income_header
     refute_includes german_csv, not_included
   end
+
+  # A return of capital beyond the basis is a gain the holder realises on the spot. The crypto report
+  # has no row for it, so a file would omit it: the report is refused, naming the asset.
+  test 'a return of capital beyond the basis in the report year refuses the report' do
+    user = roc_holder(roc_at: Time.utc(2024, 3, 1))
+
+    error = assert_raises(Tax::Report::ExcessReturnOfCapital) do
+      Tax::Report.new(country: 'US', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    end
+    assert_equal ['BTC'], error.symbols
+  end
+
+  test 'a return of capital beyond the basis in another year leaves this year\'s report alone' do
+    user = roc_holder(roc_at: Time.utc(2023, 3, 1))
+
+    csv = Tax::Report.new(country: 'US', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    assert_equal 'BTC', CSV.parse(csv, headers: true).first[2]
+  end
+
+  private
+
+  # One BTC bought for 100, a distribution of 150 against it (50 beyond the basis), sold in 2024.
+  def roc_holder(roc_at:)
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'USD', quote_amount: 100,
+                               transacted_at: Time.utc(2023, 1, 1), tx_id: 'roc-report-buy')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :return_of_capital, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'USD', quote_amount: 150,
+                               transacted_at: roc_at, tx_id: 'roc-report-distribution')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'USD', quote_amount: 200,
+                               transacted_at: Time.utc(2024, 6, 1), tx_id: 'roc-report-sell')
+    user
+  end
 end

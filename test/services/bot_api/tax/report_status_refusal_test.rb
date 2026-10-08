@@ -6,12 +6,12 @@ require 'test_helper'
 # Each test owns a year: reports are real files under a shared tmp root keyed on user id, which
 # repeats across parallel workers, so sharing one would let a sibling's teardown delete it mid-run.
 class BotApi::Tax::ReportStatusRefusalTest < ActiveSupport::TestCase
-  def refuse(year)
+  def refuse(year, reason = 'tokenized_unsupported')
     user = create(:user)
     FileUtils.rm_f(Tax::GenerateReportJob.report_path(user.id, 'DE', year))
     path = Tax::GenerateReportJob.refusal_path(user.id, 'DE', year)
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, JSON.generate({ 'reason' => 'tokenized_unsupported', 'symbols' => ['NVDAX'] }))
+    File.write(path, JSON.generate({ 'reason' => reason, 'symbols' => ['NVDAX'] }))
     @cleanup = [user.id, year]
     user
   end
@@ -44,5 +44,16 @@ class BotApi::Tax::ReportStatusRefusalTest < ActiveSupport::TestCase
     assert_equal 'report_refused', result.error_code
     assert_match 'NVDAX', result.error_message
     assert_no_match(/generate_tax_report/, result.error_message)
+  end
+
+  test 'downloading a report refused over a return of capital says so' do
+    user = refuse(2014, 'excess_return_of_capital')
+
+    result = BotApi::Tax::DownloadReport.call(user: user, country: 'DE', year: 2014)
+
+    assert_equal 'report_refused', result.error_code
+    assert_match 'NVDAX', result.error_message
+    assert_match 'return of capital', result.error_message
+    assert_no_match(/tokenized/, result.error_message)
   end
 end

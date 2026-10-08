@@ -596,6 +596,7 @@ fr:
         tax_report:
             failed: 'Le rapport n’a pas pu être généré. Vérifiez les paramètres sélectionnés et réessayez.'
             refused_tokenized: 'Ce rapport ne peut pas être généré : %{symbols} sont des titres tokenisés, dont le traitement fiscal diffère de celui des cryptomonnaies. Deltabadger ne les prend pas encore en charge.'
+            refused_excess_return_of_capital: 'Ce rapport ne peut pas être généré : un remboursement de capital sur %{symbols} a dépassé son prix de revient. L''excédent est un gain pour lequel ce rapport n''a pas de ligne, et Deltabadger ne le prend pas encore en charge.'
         holdings: 'Avoirs'
         unrealised: 'Latent'
         tiles:

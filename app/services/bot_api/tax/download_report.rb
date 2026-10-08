@@ -17,10 +17,15 @@ module BotApi
           if refusal
             # validation_failed is the domain status that maps to 422; an unknown one becomes a 500,
             # presenting an expected refusal as a retryable server fault.
-            return Result.failure(:validation_failed, 'report_refused',
-                                  "No report for #{country} (#{year}): #{refusal['symbols'].join(', ')} " \
-                                  'are tokenized securities, whose tax treatment differs from crypto. ' \
-                                  'Deltabadger does not report them yet.')
+            symbols = refusal['symbols'].join(', ')
+            why = if refusal['reason'] == 'excess_return_of_capital'
+                    "a return of capital on #{symbols} exceeded its cost basis, and the report has no " \
+                      'row for that gain. Deltabadger does not report it yet.'
+                  else
+                    "#{symbols} are tokenized securities, whose tax treatment differs from crypto. " \
+                      'Deltabadger does not report them yet.'
+                  end
+            return Result.failure(:validation_failed, 'report_refused', "No report for #{country} (#{year}): #{why}")
           end
 
           return Result.failure(:not_found, 'report_not_found',

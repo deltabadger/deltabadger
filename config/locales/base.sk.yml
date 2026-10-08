@@ -613,6 +613,7 @@ sk:
             download_ready: 'Daňový prehľad je pripravený. Kliknite na stiahnutie.'
             failed: 'Prehľad sa nepodarilo vygenerovať. Skontrolujte vybrané nastavenia a skúste to znova.'
             refused_tokenized: 'Tento prehľad sa nedá vygenerovať: %{symbols} sú tokenizované cenné papiere, ktorých zdanenie sa líši od kryptomien. Deltabadger ich zatiaľ nevykazuje.'
+            refused_excess_return_of_capital: 'Tento prehľad sa nedá vygenerovať: vrátenie kapitálu pri %{symbols} prevýšilo obstarávaciu cenu. Prebytok je zisk, pre ktorý prehľad nemá riadok, a Deltabadger ho zatiaľ nevykazuje.'
         holdings: 'Držané aktíva'
         unrealised: 'Nerealizovaný'
         tiles:

@@ -605,6 +605,7 @@ da:
             download_ready: 'Skatterapport er klar. Klik for at downloade.'
             failed: 'Rapporten kunne ikke genereres. Kontrollér de valgte indstillinger, og prøv igen.'
             refused_tokenized: 'Rapporten kan ikke genereres: %{symbols} er tokeniserede værdipapirer, hvis skattemæssige behandling adskiller sig fra krypto. Deltabadger håndterer dem endnu ikke.'
+            refused_excess_return_of_capital: 'Rapporten kan ikke genereres: en kapitaltilbagebetaling på %{symbols} oversteg anskaffelsessummen. Overskuddet er en gevinst, som rapporten ikke har en linje til, og Deltabadger håndterer den endnu ikke.'
         holdings: 'Beholdning'
         unrealised: 'Urealiseret'
         tiles:
