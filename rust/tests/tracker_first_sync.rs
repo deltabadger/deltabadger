@@ -4,5 +4,5 @@ mod common;
 mod grid;
 #[tokio::test(flavor="current_thread")]
 async fn populated_first_sync_pages_match_rails_and_never_write() {
-    grid::check_grid("script/rust/pages_tracker_first_sync.rb","D5_FIRST_GRID",119,&[], |name|if name.starts_with("first_deferred_"){grid::Mode::Deferred}else if name.starts_with("first_bad_"){grid::Mode::Exact}else{grid::Mode::FirstSync}).await;
+    grid::check_grid("script/rust/pages_tracker_first_sync.rb","D5_FIRST_GRID",125,&[], |name|if name.starts_with("first_deferred_"){grid::Mode::Deferred}else if name.starts_with("first_bad_"){grid::Mode::Exact}else{grid::Mode::FirstSync}).await;
 }
