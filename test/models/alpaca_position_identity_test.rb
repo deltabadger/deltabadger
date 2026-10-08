@@ -83,6 +83,26 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
       assert_equal [@usd.id], rows.reload.pluck(:asset_id)
     end
   end
+  test 'balance sync keeps a stored holding when its position arrives without a symbol' do
+    listings(true, true)
+    key = create(:api_key, exchange: @exchange)
+    key.stubs(:exchange).returns(@exchange)
+    @exchange.stubs(:set_client)
+    @exchange.stubs(:get_usd_prices).returns(Result::Success.new({ @stock.external_id => 30 }))
+    MarketData.stubs(:get_prices).returns(Result::Success.new({}))
+    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10' }])
+    assert_predicate AccountBalance::Sync.new(key).sync!, :success?
+    synced_at = key.reload.balances_synced_at
+
+    positions([{ 'asset_class' => 'us_equity', 'qty' => '10' }])
+    result = AccountBalance::Sync.new(key).sync!
+
+    assert_predicate result, :failure?
+    assert_equal ['a position without a symbol'], result.errors
+    assert_equal 10, AccountBalance.find_by!(user: key.user, exchange: @exchange, asset: @stock).free
+    assert_equal synced_at, key.reload.balances_synced_at
+  end
+
   test 'symbol only order and bot creation requests refuse an ambiguous pair' do
     listings(true, true)
     assert_nil BotApi::Orders::Lookup.find_ticker(@exchange, 'BTC', 'USD')

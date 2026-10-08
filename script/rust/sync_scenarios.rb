@@ -570,8 +570,8 @@ module SyncScenarios
       # recorded text differs. (Listed divergences.)
       { name: 'balances-account_null', setup: seeded, steps: [P.balances(night, account: P.ok(nil), positions: held)] },
       { name: 'balances-positions_not_array', setup: seeded, steps: [P.balances(night, account: P.account('100'), positions: P.ok('positions' => 'later'))] },
-      # No cash figure, and a held position with no quantity: both fail the sync and remove nothing. A position with no
-      # symbol is skipped on its own (its identity cannot be resolved), and the rest are written.
+      # No cash figure, a held position with no symbol, and one with no quantity: each fails the sync and removes
+      # nothing (skipped or read as 0, the holding's stored balance would be deleted).
       { name: 'balances-account_no_cash', setup: seeded,
         steps: [P.balances(night, account: P.ok('id' => 'paper-account', 'status' => 'ACTIVE', 'buying_power' => '200000'), positions: held, snapshots: snaps, prices: coins)] },
       { name: 'balances-position_no_symbol', setup: seeded,

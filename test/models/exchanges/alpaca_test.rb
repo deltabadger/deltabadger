@@ -524,13 +524,27 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     end
   end
 
-  # Matches the Rust sync: a position whose identity cannot be resolved (no symbol among them) is
-  # skipped one by one, the rest still publish.
-  test 'get_balances skips a position without a symbol and keeps the rest' do
+  # A held position with no symbol cannot be matched to the holding it is: skipping it would read that
+  # holding as 0 and the sync would delete its stored balance. Fail instead, as the Rust sync does.
+  [{}, { 'symbol' => nil }, { 'symbol' => ' ' }, { 'symbol' => 5 }].each do |symbol|
+    test "get_balances fails on a held position without a symbol: #{symbol.inspect}" do
+      usd = usd_with_ticker
+      Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
+      Clients::Alpaca.any_instance.stubs(:get_positions)
+                     .returns(Result::Success.new([{ 'asset_class' => 'us_equity', 'qty' => '10.5' }.merge(symbol)]))
+
+      result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
+
+      assert_predicate result, :failure?
+      assert_equal ['a position without a symbol'], result.errors
+    end
+  end
+
+  test 'get_balances still skips a position of an unsupported class, symbol or not' do
     usd = usd_with_ticker
     Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
     Clients::Alpaca.any_instance.stubs(:get_positions)
-                   .returns(Result::Success.new([{ 'asset_class' => 'us_equity', 'qty' => '10.5' }]))
+                   .returns(Result::Success.new([{ 'asset_class' => 'us_option', 'qty' => '1' }]))
 
     result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
 

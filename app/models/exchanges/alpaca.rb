@@ -26,6 +26,9 @@ class Exchanges::Alpaca < Exchange
   # GET /v2/assets?asset_class=crypto response before each production sync, not just when
   # Alpaca visibly adds a pair. Keyed by the BASE symbol only (Alpaca's `symbol` field is the
   # full pair, e.g. "AAVE/USD" — parsed before this lookup).
+  # The position classes #get_balances maps to a holding; any other class is skipped.
+  ALPACA_POSITION_CLASSES = { 'us_equity' => 'Stock', 'crypto' => 'Cryptocurrency' }.freeze
+
   CRYPTO_COINGECKO_IDS = {
     'AAVE' => 'aave',
     'ADA' => 'cardano',
@@ -248,6 +251,12 @@ class Exchanges::Alpaca < Exchange
     # A gap is a malformed answer, not an empty holding: nil.to_d is 0, and a zero balance is deleted.
     return Result::Failure.new('the account has no cash figure') if account_result.data['cash'].nil?
 
+    # Nor is a held position with no symbol: skipped, its holding would read as 0 and be deleted.
+    unnamed = positions_result.data.any? do |position|
+      ALPACA_POSITION_CLASSES.key?(position['asset_class']) && !(position['symbol'].is_a?(String) && position['symbol'].present?)
+    end
+    return Result::Failure.new('a position without a symbol') if unnamed
+
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|
       [asset_id, { free: 0, locked: 0 }]
@@ -274,7 +283,7 @@ class Exchanges::Alpaca < Exchange
     # Venue class and native spelling identify holdings, even while trading is unavailable.
     position_index = live_ticker_index
     positions_result.data.each do |position|
-      category = { 'us_equity' => 'Stock', 'crypto' => 'Cryptocurrency' }[position['asset_class']]
+      category = ALPACA_POSITION_CLASSES[position['asset_class']]
       candidates = position_index.fetch([category, position['symbol']], []).map(&:base_asset).uniq(&:id)
       unless candidates.one?
         Rails.logger.warn('Alpaca position skipped: unsupported class or unmapped/ambiguous identity')

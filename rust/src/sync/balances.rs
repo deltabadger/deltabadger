@@ -133,8 +133,9 @@ pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
 }
 
 /// The positions as #get_balances needs them: an array of at most `MAX_POSITIONS` objects (the reader stops at the
-/// next one). Unsupported classes and absent symbols are logged and individually excluded. For a supported
-/// identity a missing/unreadable quantity still fails the response; it is never manufactured as zero.
+/// next one). Unsupported classes are logged and individually excluded. A supported position with no symbol fails the
+/// response, here and in Rails (`a position without a symbol`): skipped, its holding would read as 0 and its stored
+/// balance be deleted. For a supported identity a missing/unreadable quantity fails it too; it is never manufactured as zero.
 pub(crate) type Position = (String, String, Node);
 
 pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unread> {
@@ -153,7 +154,7 @@ pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unr
             _ => { eprintln!("Alpaca position skipped: unsupported class"); return None; }
         };
         let Some(symbol) = identity("symbol").filter(|s| !s.trim().is_empty()) else {
-            eprintln!("Alpaca position skipped: unmapped identity"); return None;
+            return Some(Err("a position without a symbol".to_string()));
         };
         // Keep the whole row raw until the catalog resolves its class and native symbol.
         Some(Ok((category.to_string(), symbol, item.clone())))
