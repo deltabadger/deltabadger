@@ -164,7 +164,8 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// to size the basket must also match (names, asset ids, availability, precision and minimums). Otherwise no intent is
 /// written, nothing will be sent, and `Begun::Changed` is returned with one log line naming the reason; the next pass sees the new row.
 ///
-/// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
+/// Rails' leg loop fences a stop the same way (Automation::Statusable#stopped_mid_tick?) but not an edit: it places an order
+/// sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
     begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)

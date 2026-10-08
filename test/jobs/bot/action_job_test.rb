@@ -57,6 +57,30 @@ module ActionJobBehaviorTests
       assert_equal 'stopped', bot.reload.status
     end
 
+    # A stop cannot cancel a tick that is already running: Solid Queue's cancel reaches scheduled,
+    # ready and blocked jobs, not a claimed one. So the tick checks the row itself before it places.
+    # Here the stop commits after the tick has claimed the bot (:executing) and while it sizes the
+    # order, before anything is sent.
+    test 'a stop committed after the tick claimed the bot places nothing' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.unstub(:market_buy)
+      bot.exchange.expects(:market_buy).never
+      bot.define_singleton_method(:pending_quote_amount) do
+        raise 'the stop must land after the claim' unless Bot.find(id).executing? || Bot.find(id).stopped?
+
+        Bot.find(id).stop if Bot.find(id).executing?
+        super()
+      end
+      Bot::ActionJob.unstub(:set)
+      Bot::ActionJob.expects(:set).never
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_equal 'stopped', bot.reload.status
+      assert_empty bot.transactions
+    end
+
     test 'does not flip an externally stopped bot to retrying when execution raises' do
       bot = create_bot
       setup_action_job_mocks(bot)
