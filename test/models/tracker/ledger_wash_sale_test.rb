@@ -163,4 +163,18 @@ class Tracker::LedgerWashSaleTest < ActiveSupport::TestCase
     assert_equal Tracker::LedgerJob.new(@user.id).send(:concurrency_key),
                  Tracker::LedgerJob::Retry.new(@user.id).send(:concurrency_key), 'one guard for both'
   end
+
+  # The proceeds came in a coin nobody could price that day. Valued at zero, the sale read as a loss
+  # and locked; it is neither until the price arrives, which the next run asks for again.
+  test 'a sale at a price nobody had arms nothing' do
+    bought(1, 100, at: 40.days.ago)
+    create(:account_transaction, api_key: @api_key, entry_type: :sell, base_currency: 'AAA',
+                                 base_amount: 1, quote_currency: 'NOPRICE', quote_amount: 5,
+                                 transacted_at: 3.days.ago)
+
+    arm!
+
+    assert_predicate Tracker::Ledger.scopes(@user).fetch(nil), :incomplete, 'the page still says a price is missing'
+    assert_empty @user.wash_sale_locks.live
+  end
 end

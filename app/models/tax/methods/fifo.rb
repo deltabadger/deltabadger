@@ -179,14 +179,27 @@ module Tax
           # that nets a gain can still carry a loss a repurchase would wash.
           #
           # Cross-multiplied rather than divided, so a break-even tranche is not rounded into a loss.
-          # Fees are left out, matching Bot::TaxLots; a tranche whose basis was assumed carries cost
-          # zero and therefore reads as a gain, which under-locks — see the plan's disclosed gaps.
-          any_lot_lost: amount.positive? && tranches.any? { |t| fiat_value * t[:amount] < t[:cost] * amount }
+          # Fees are left out, matching Bot::TaxLots.
+          any_lot_lost: lot_lost_verdict(transaction, tranches, amount, fiat_value)
         }
 
         disposal[:old_stock] = old_stock?(earliest_date, holding_days) if @old_stock_cutoff
 
         disposals << disposal
+      end
+
+      # true, false, or nil when a price nobody had decides it. A missing price is not a zero: proceeds
+      # valued at one read as a loss, a lot opened at one reads as a gain and hides a real loss. nil
+      # arms nothing (`Tracker::Ledger.loss_sales`); the next run asks for the price again. A fee is
+      # not the proceeds, so a sale whose only missing price is its fee's still has a verdict.
+      def lot_lost_verdict(transaction, tranches, amount, fiat_value)
+        return false unless amount.positive?
+        return nil if transaction[:price_missing] && fiat_value.zero?
+
+        priced, unpriced = tranches.partition { |tranche| tranche[:unpriced].to_d.zero? }
+        return true if priced.any? { |t| fiat_value * t[:amount] < t[:cost] * amount }
+
+        unpriced.any? ? nil : false
       end
 
       def add_swap_in_lot(lots, transferred_tranches, transaction, asset, amount, fiat_value)
