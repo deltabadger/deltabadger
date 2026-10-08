@@ -3,6 +3,7 @@ class Bots::StopsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_bot
+  before_action :require_turbo_stream
 
   def update
     return if @bot.stop

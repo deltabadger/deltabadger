@@ -4,6 +4,7 @@ class BotsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_bot, only: %i[show edit update reverse]
+  before_action :require_turbo_stream, only: :update
 
   def index
     non_deleted_bots = current_user.bots.not_deleted

@@ -59,7 +59,7 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
         start_time_mode: 'date',
         start_at: '2026-11-11T15:24'
       }
-    }
+}, as: :turbo_stream
     bot.reload
     assert_equal true, bot.start_time_enabled?
     assert_equal 'date', bot.start_time_mode
@@ -76,7 +76,7 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
         start_time_mode: 'date',
         start_at: '2026-11-11T15:24' # 15:24 Warsaw (CET, UTC+1)
       }
-    }
+}, as: :turbo_stream
     bot.reload
     parsed = Time.find_zone!('UTC').parse(bot.start_at)
     assert_equal Time.utc(2026, 11, 11, 14, 24), parsed,
@@ -97,7 +97,7 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
         start_time_mode: 'date',
         start_at: '' # explicit clear
       }
-    }
+}, as: :turbo_stream
 
     bot.reload
     assert_nil bot.settings['start_at'],
@@ -116,7 +116,7 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
         start_time_mode: 'date',
         start_at: '2026-99-99T00:00' # out of range → parse returns nil
       }
-    }
+}, as: :turbo_stream
 
     bot.reload
     assert_nil bot.settings['start_at'],
@@ -259,7 +259,7 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
         start_time_mode: 'date',
         start_at: '2026-11-11T15:24'
       }
-    }
+}, as: :turbo_stream
     bot.reload
     assert_equal true, bot.start_time_enabled?
     assert_equal 'date', bot.start_time_mode
