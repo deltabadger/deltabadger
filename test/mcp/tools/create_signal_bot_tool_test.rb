@@ -33,4 +33,14 @@ class CreateSignalBotToolTest < ActiveSupport::TestCase
     assert_match(/disabled/, text)
     assert_empty @user.bots
   end
+
+  test 'paper trading on: creates no signal bot' do
+    @user.mcp_dry_run = true
+
+    text = CreateSignalBotTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD')
+                              .execute.contents.first.text
+
+    assert_empty @user.bots.reload
+    assert_match(/\A\[DRY RUN\] .*nothing was created or started/i, text)
+  end
 end

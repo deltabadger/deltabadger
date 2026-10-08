@@ -303,4 +303,16 @@ class CreateBotToolTest < ActiveSupport::TestCase
     assert_match(%r{BTC\+ETH/USD}, response.contents.first.text)
     assert_equal 'Bots::DcaMultiAsset', @user.bots.last.type
   end
+
+  test 'paper trading on: creates and starts nothing' do
+    @user.mcp_dry_run = true
+    Bot::ActionJob.expects(:perform_later).never
+    Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).never
+
+    response = CreateBotTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD',
+                                 quote_amount: 50.0, interval: 'day').execute
+
+    assert_empty @user.bots.reload
+    assert_match(/\A\[DRY RUN\] .*nothing was created or started/i, response.contents.first.text)
+  end
 end

@@ -48,4 +48,15 @@ class StartBotToolTest < ActiveSupport::TestCase
     @bot.reload
     assert @bot.stopped?
   end
+
+  test 'paper trading on: refuses to start the bot and schedules nothing' do
+    @user.mcp_dry_run = true
+    Bot::ActionJob.expects(:perform_later).never
+    Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).never
+
+    response = StartBotTool.new(bot_id: @bot.id).execute
+
+    assert @bot.reload.stopped?
+    assert_match(/\A\[DRY RUN\] .*nothing was created or started/i, response.contents.first.text)
+  end
 end

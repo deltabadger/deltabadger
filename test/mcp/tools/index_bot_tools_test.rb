@@ -56,4 +56,15 @@ class IndexBotToolsTest < ActiveSupport::TestCase
     assert_match(/not found or not available on Kraken/, text)
     assert_equal 0, @user.bots.count
   end
+
+  test 'create_index_bot with paper trading on creates and starts nothing' do
+    @user.mcp_dry_run = true
+    Bot::ActionJob.expects(:perform_later).never
+
+    text = CreateIndexBotTool.new(exchange_name: 'Kraken', quote_asset: 'EUR', quote_amount: 50,
+                                  interval: 'week', index: 'layer-1').execute.contents.first.text
+
+    assert_empty @user.bots.reload
+    assert_match(/\A\[DRY RUN\] .*nothing was created or started/i, text)
+  end
 end

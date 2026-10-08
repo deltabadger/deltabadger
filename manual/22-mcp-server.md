@@ -97,7 +97,7 @@ Trade tools work on crypto exchanges and, for stocks, on Alpaca (see [Stock brok
 
 ### Paper Trading
 
-The **MCP** widget has a switch, **Enable paper trading for trade tools**, that makes the Trade tools simulate orders with real market prices. No real orders are placed, and every result is prefixed with `[DRY RUN]`. Use it to try a client's trading behaviour before letting it spend anything. The setting applies to MCP only; the REST API places real orders.
+The **MCP** widget has a switch, **Enable paper trading for trade tools**, that makes the Trade tools simulate orders with real market prices. No real orders are placed, and every result is prefixed with `[DRY RUN]`. Use it to try a client's trading behaviour before letting it spend anything. A bot or rule runs on its own long after the call, so paper trading cannot simulate one: while it is on, **Create bot**, **Create index bot**, **Create signal bot**, **Start bot** and **Start rule** refuse and change nothing. The setting applies to MCP only; the REST API places real orders.
 
 ### Tax & Reporting
 
