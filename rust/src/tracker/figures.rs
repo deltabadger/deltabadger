@@ -129,13 +129,15 @@ fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> 
 
 /// `Figures.for(user, ledger:, balances:, pending:)`. Every symbol's balances, pending move and position are found
 /// through an index, each lookup a step.
-pub fn compute(c: &Connection, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
+pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
     let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(balance.category.clone()); }
     for (symbol, _) in pending {
-        let mut stmt = c.prepare("SELECT DISTINCT category FROM assets WHERE symbol=?1")?;
-        for category in stmt.query_map([symbol], |r| r.get::<_, Option<String>>(0))? {
+        // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
+        let mut stmt = c.prepare("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                                  WHERE t.user_id = ?1 AND t.base_currency = ?2")?;
+        for category in stmt.query_map(rusqlite::params![user_id, symbol], |r| r.get::<_, Option<String>>(0))? {
             classes.entry(symbol).or_default().insert(category?);
         }
     }

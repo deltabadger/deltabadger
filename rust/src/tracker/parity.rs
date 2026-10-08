@@ -67,7 +67,7 @@ fn report(c: &Connection, user_id: i64, walked: &Walked) -> Result<Value, Figure
         let balances = figures::balances(c, user_id, scope)?;
         let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2))", rusqlite::params![user_id, scope], |r| r.get(0))?;
         if balances.is_empty() && !rows { continue; }
-        let f = figures::compute(c, ledger, &balances, &figures::pending(c, user_id, scope)?)?;
+        let f = figures::compute(c, user_id, ledger, &balances, &figures::pending(c, user_id, scope)?)?;
         figs.insert(scope.map_or("whole".into(), |id| id.to_string()), figures_json(&f)?);
     }
     Ok(json!({ "whole": summary_json(&walked.whole), "venues": venues, "figures": figs }))

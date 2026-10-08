@@ -127,4 +127,32 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     end
     assert_match(/ambiguous asset class/i, error.message)
   end
+
+  # The catalogue holding both a BTC stock and BTC crypto is not ambiguity: only what this user holds
+  # or moved decides it. A crypto-only user with BTC moved since the sync must keep their figures.
+  test 'tracker ignores a same-symbol asset of another class the user never touched' do
+    user = create(:user)
+    AccountBalance.create!(user: user, exchange: @exchange, asset: @coin, free: 2, locked: 0,
+                           usd_price: 60_000, usd_value: 120_000, synced_at: Time.current)
+    create(:account_transaction, user: user, exchange: @exchange, entry_type: :buy, base_currency: 'BTC',
+                                 base_asset: @coin, base_amount: 1, quote_currency: 'USD', quote_amount: 60_000,
+                                 transacted_at: Time.current)
+    balances = AccountBalance.for_user(user).to_a
+    result = Tracker::Figures.for(user, ledger: Tracker::Ledger.for(user), balances: balances, pending: { 'BTC' => 1.to_d })
+    assert_not_nil result
+  end
+
+  test 'tracker refuses when the user moved one class of a symbol and holds the other' do
+    user = create(:user)
+    AccountBalance.create!(user: user, exchange: @exchange, asset: @coin, free: 2, locked: 0,
+                           usd_price: 60_000, usd_value: 120_000, synced_at: Time.current)
+    create(:account_transaction, user: user, exchange: @exchange, entry_type: :buy, base_currency: 'BTC',
+                                 base_asset: @stock, base_amount: 10, quote_currency: 'USD', quote_amount: 300,
+                                 transacted_at: Time.current)
+    balances = AccountBalance.for_user(user).to_a
+    error = assert_raises(ArgumentError) do
+      Tracker::Figures.for(user, ledger: Tracker::Ledger.for(user), balances: balances, pending: { 'BTC' => 10.to_d })
+    end
+    assert_match(/ambiguous asset class/i, error.message)
+  end
 end

@@ -120,7 +120,10 @@ module Tracker
       # changing historical transaction matching or adding unlike quantities.
       classes = @balances.group_by { |row| row.asset.symbol }
                          .transform_values { |rows| rows.map { |row| row.asset.category }.uniq }
-      Asset.where(symbol: @pending.keys).distinct.pluck(:symbol, :category).each do |symbol, category|
+      # Only the assets this user's own rows recorded. The catalogue lists a BTC stock beside BTC
+      # crypto for everyone; that is not ambiguity in this account.
+      own = @user.account_transactions.where(base_currency: @pending.keys).where.not(base_asset_id: nil).select(:base_asset_id)
+      Asset.where(id: own).distinct.pluck(:symbol, :category).each do |symbol, category|
         (classes[symbol] ||= []) << category
       end
       if classes.values.any? { |categories| categories.uniq.size > 1 }
