@@ -112,7 +112,8 @@ pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at:
     let part = |s: &str| (matches!(s.len(), 1 | 2) && s.bytes().all(|b| b.is_ascii_digit())).then(|| s.parse::<u32>().ok()).flatten();
     let (hour, minute) = (part(h).ok_or("invalid start time")?, part(m).ok_or("invalid start time")?);
     if hour > 23 || minute > 59 { return Err("invalid start time"); }
-    let zone = crate::web::timezone::zone(zone).unwrap_or(chrono_tz::UTC);
+    // ActiveSupport::TimeZone[] takes a Rails zone name or an IANA identifier; an unknown name is refused, never UTC.
+    let zone = crate::web::timezone::zone(zone).or_else(|| zone.parse::<chrono_tz::Tz>().ok()).ok_or("unknown time zone")?;
     // TimeZone#local / TimeWithZone: a wall time in a gap moves forward an hour, a repeated one takes the first (DST) instant.
     let wall = |naive: NaiveDateTime| -> Result<(NaiveDateTime, DateTime<Utc>), &'static str> {
         let (wall, at) = match zone.from_local_datetime(&naive) {
