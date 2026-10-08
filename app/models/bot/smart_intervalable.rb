@@ -159,7 +159,8 @@ module Bot::SmartIntervalable
 
       amount / interval_secs * maximum_frequency
     else
-      return 0 if quote_amount.blank?
+      # An interval the bot does not know (a rejected update being re-rendered) has no frequency.
+      return 0 if quote_amount.blank? || interval_duration.nil?
 
       quote_amount / interval_duration.to_f * maximum_frequency
     end

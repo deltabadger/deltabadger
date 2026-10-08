@@ -124,6 +124,8 @@ class BotsController < ApplicationController
       # flash.now[:notice] = t('alert.bot.bot_updated')
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      # An exchange, quote or interval that does not exist cannot be drawn: show the bot as stored, with the error.
+      @bot = current_user.bots.find(@bot.id) if @bot.exchange.nil? || @bot.quote_asset.nil? || @bot.interval_duration.nil?
       render :update, status: :unprocessable_entity
     end
   end
