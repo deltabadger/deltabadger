@@ -116,10 +116,13 @@ module Bot::Restatable
   # venues reporting one restatement must apply it once, and they need not agree on the hour — every
   # report that applies to one holding on one date is reconciled together.
   #
-  # A report applies to a holding when:
-  # - it names exactly one asset on its venue (by spelling or symbol): only to that asset's holding;
-  # - it names none or several: to every holding with a row recorded under its string;
-  # - the holding has no asset (rows recorded before orders stored theirs): whenever it names the string.
+  # A report's asset is the one its row recorded, else the one asset its name stands for on its venue
+  # (by spelling or symbol). It applies to a holding when:
+  # - both have an asset: only if they are the same one;
+  # - either has none: when its string is one the holding's rows were recorded under, and only while
+  #   that string names one class of asset in this user's account. A name that is both (Alpaca's BTC
+  #   security beside BTC/USD) restates nothing, and the report is kept under a nil date so
+  #   `unresolved_split?` stands the bot down rather than guessing.
   def grouped_split_rows(holdings)
     string_pairs, asset_pairs = traded_pairs
     return {} if string_pairs.empty? && asset_pairs.empty?
@@ -131,17 +134,36 @@ module Bot::Restatable
     return {} if rows.empty?
 
     report_assets = split_report_assets(rows)
+    classes = account_classes(rows.map(&:base_currency).uniq)
+    categories = Asset.where(id: holdings.values.map(&:first) + rows.map(&:base_asset_id) + report_assets.values)
+                      .pluck(:id, :category).to_h
     rows.each_with_object({}) do |row, groups|
-      report_asset = report_assets[[row.exchange_id, row.base_currency]]
+      report_asset = row.base_asset_id || report_assets[[row.exchange_id, row.base_currency]]
       holdings.each do |key, (asset_id, strings)|
-        applies = if asset_id && report_asset
-                    report_asset == asset_id && asset_pairs.include?([row.exchange_id, asset_id])
-                  else
-                    Array(strings).include?(row.base_currency) && string_pairs.include?([row.exchange_id, row.base_currency])
-                  end
-        (groups[[key, effective_date(row)]] ||= []) << row if applies
+        if asset_id && report_asset
+          next unless report_asset == asset_id && asset_pairs.include?([row.exchange_id, asset_id])
+
+          date = effective_date(row)
+        else
+          next unless Array(strings).include?(row.base_currency) && string_pairs.include?([row.exchange_id, row.base_currency])
+
+          named = classes.fetch(row.base_currency, []) + [categories[asset_id || report_asset]]
+          date = effective_date(row) if named.compact.uniq.size <= 1
+        end
+        (groups[[key, date]] ||= []) << row
       end
     end
+  end
+
+  # { symbol => [categories] } each name stands for in this user's account: the assets their ledger
+  # rows recorded and their balances hold under it. The catalogue listing a security beside a coin is
+  # not ambiguity in an account that only ever touched one of them.
+  def account_classes(symbols)
+    recorded = AccountTransaction.where(user_id: user_id, base_currency: symbols).joins(:base_asset)
+                                 .distinct.pluck(:base_currency, 'assets.category')
+    held = AccountBalance.where(user_id: user_id).joins(:asset).where(assets: { symbol: symbols })
+                         .distinct.pluck('assets.symbol', 'assets.category')
+    (recorded + held).group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
   end
 
   # { [exchange_id, name] => asset id } for the one asset each report's name stands for on its venue, by

@@ -1,6 +1,7 @@
 require 'test_helper'
 
-# Characterization of the separately ruled-out corporate-action defect.
+# A split of Alpaca's BTC security, recorded with its asset, never restates a BTC coin holding,
+# before or after the security's ticker is restored.
 class AlpacaCollisionMatchingPreservedTest < ActiveSupport::TestCase
   test 'restoring a ticker does not change existing account transaction matching' do
     user = create(:user)
@@ -35,7 +36,7 @@ class AlpacaCollisionMatchingPreservedTest < ActiveSupport::TestCase
       after = [Ticker.asset_ids_named(exchange.id, 'BTC').sort, bot.split_events,
                bot.metrics(force: true)[:total_base_amount], AccountTransaction.order(:id).map(&:attributes)]
       assert_equal before, after
-      assert_equal 2.to_d, after[2], 'Existing split matching is unchanged by ticker restoration'
+      assert_equal 1.to_d, after[2], 'the coin holding is not doubled by the security split'
     end
   end
 end

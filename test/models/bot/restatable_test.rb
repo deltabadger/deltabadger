@@ -158,6 +158,58 @@ class Bot::RestatableTest < ActiveSupport::TestCase
     assert_not bot.unresolved_split?, 'and it cannot stand the bot down either'
   end
 
+  # Alpaca lists a BTC security beside BTC/USD, so the name "BTC" names two assets there. A split of
+  # the security must never restate the coin.
+  def btc_at_alpaca
+    coin = create(:asset, :bitcoin)
+    stock = create(:asset, symbol: 'BTC', external_id: 'BTC.US', category: 'Stock')
+    create(:ticker, exchange: @alpaca, base_asset: stock, quote_asset: @usd, ticker: 'BTC', base: 'BTC', quote: 'USD')
+    create(:ticker, exchange: @alpaca, base_asset: coin, quote_asset: @usd, ticker: 'BTC/USD', base: 'BTC', quote: 'USD')
+    [coin, stock]
+  end
+
+  def bot_holding(asset)
+    bot = create(:dca_single_asset, user: @user, exchange: @alpaca, base_asset: asset, quote_asset: @usd, with_api_key: false)
+    create(:transaction, bot: bot, exchange: @alpaca, base: 'BTC', quote: 'USD', base_asset_id: asset.id)
+    bot
+  end
+
+  test 'a split of the security is not applied to the coin that shares its ticker' do
+    coin, stock = btc_at_alpaca
+    bot = bot_holding(coin)
+    split_row(symbol: 'BTC', ratio: '2:1', base_asset_id: stock.id)
+
+    assert_empty bot.split_events
+    assert_not bot.unresolved_split?
+  end
+
+  test 'a split of the security still restates the security under a ticker the venue lists twice' do
+    _coin, stock = btc_at_alpaca
+    bot = bot_holding(stock)
+    split_row(symbol: 'BTC', ratio: '2:1', base_asset_id: stock.id)
+
+    assert_equal 2.to_d, bot.split_events.sole.last
+  end
+
+  test 'a split that recorded no asset falls back to its name only while the user holds one class of it' do
+    coin, = btc_at_alpaca
+    bot = bot_holding(coin)
+    split_row(symbol: 'BTC', ratio: '2:1')
+
+    assert_equal 1, bot.split_events.size, 'nothing else of that name in this account'
+  end
+
+  test 'a split that recorded no asset is not applied, and stands the bot down, when the user holds both classes' do
+    coin, stock = btc_at_alpaca
+    bot = bot_holding(coin)
+    create(:account_transaction, user: @user, api_key: @api_key, entry_type: :buy, base_currency: 'BTC',
+                                 base_asset_id: stock.id, base_amount: 10, quote_currency: 'USD', quote_amount: 300)
+    split_row(symbol: 'BTC', ratio: '2:1')
+
+    assert_empty bot.split_events
+    assert bot.unresolved_split?, 'a split it can see and cannot attribute'
+  end
+
   # Deleting the cache keys alone loses a race: a walk that read the ledger just before the split
   # was stored can finish just after and write its pre-split answer into the hole. Past the bump it
   # is computing an old key and can only ever write there.
