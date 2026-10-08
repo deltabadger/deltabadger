@@ -319,13 +319,18 @@ fn lifecycle_inner<T>(
     let mut delayed = None;
     let mut writer_refused = false;
     if action == Action::Start {
-        // Execute the final SQL gate even for a working row; it must touch zero rows.
-        if matches!(status,1|4|5|6) {
-            let rows=tx.execute(WEB_START,(id,owner,&class,true,codec::format_time(ctx.now)))?;
-            if rows != 0 { return Err(error("working Start passed its SQL gate")); }
-            view.add(ctx.locale,"engine.already_running");
-        } else {
-            if submitted.mcp() { fresh=status==0; } else { match submitted.start_fresh() { Ok(value) => fresh=value, Err(_) => view.add(ctx.locale,"engine.invalid_start_fresh") } }
+        // Bots::StartsController reads the flag before Bot#start looks at the row, so a junk flag
+        // on a working bot is refused as junk. MCP has no flag: a created bot starts fresh.
+        let flag=if submitted.mcp() {Ok(status==0)} else {submitted.start_fresh()};
+        match flag {
+            Err(_)=>view.add(ctx.locale,"engine.invalid_start_fresh"),
+            // Execute the final SQL gate even for a working row; it must touch zero rows.
+            Ok(_) if matches!(status,1|4|5|6)=>{
+                let rows=tx.execute(WEB_START,(id,owner,&class,true,codec::format_time(ctx.now)))?;
+                if rows != 0 { return Err(error("working Start passed its SQL gate")); }
+                view.add(ctx.locale,"engine.already_running");
+            }
+            Ok(value)=>fresh=value,
         }
     }
     if view.errors.is_empty() && (!safety || submitted.mcp() && action != Action::Stop) {
