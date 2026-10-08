@@ -417,7 +417,7 @@ async fn a_web_write_holding_the_database_delays_the_engine_but_never_fails_it()
 }
 
 /// A web start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it
-/// (`bot_already_running`, 409), not restarted as Rails' web controller does (a listed divergence). The start write
+/// (`bot_already_running`, 409) and as Rails' web controller refuses it (422). The start write
 /// moves only a created or stopped bot, so it changes nothing; the handler then commits nothing, queues no tick, sends
 /// no wake and re-renders with `engine.already_running`. Had it restarted the bot (a new anchor, no last action), this
 /// pass would buy at once.

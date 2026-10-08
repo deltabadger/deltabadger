@@ -42,8 +42,17 @@ module Bot::Lifecycle
     # merge or a class switch (Bot::IndexSwitch) committed must not write :scheduled over it and arm
     # a tick. `self.class.where` is STI-scoped, so a row that is now another class reads as gone. The
     # adapter opens transactions as BEGIN IMMEDIATE, so the read here is serialised with that commit.
+    #
+    # A working bot is refused, read from the row rather than this copy: a stale tab's Start would
+    # otherwise re-anchor the schedule and tick at once, placing an extra order. The REST API
+    # answers the same case with 409 before it gets here.
     started = transaction do
       next false if persisted? && !self.class.where(id:).where.not(status: :deleted).exists?
+
+      if persisted? && self.class.working.exists?(id)
+        errors.add(:base, I18n.t('engine.already_running'))
+        next false
+      end
 
       valid?(:start) && save
     end
