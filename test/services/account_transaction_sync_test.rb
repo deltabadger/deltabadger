@@ -121,6 +121,41 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal Time.utc(2026, 3, 20, 10, 0, 0), @api_key.reload.last_synced_at
   end
 
+  # A row dated ahead of today (a split announced before its date) must not carry the watermark into the
+  # future: every fill, dividend and deposit between now and that date would fall outside every later window.
+  test 'a future-dated row does not move the watermark past the sync start' do
+    travel_to Time.utc(2026, 9, 20, 2, 0, 0) do
+      split = @ledger_entries.first.merge(entry_type: :adjustment, base_currency: 'KLAC', base_amount: 90,
+                                          quote_currency: nil, quote_amount: nil, fee_amount: nil,
+                                          tx_id: 'split-1', transacted_at: Time.utc(2026, 10, 5), raw_data: {})
+      @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries + [split]))
+      AccountTransactionSync.new(@api_key).sync!
+
+      assert_equal Time.utc(2026, 9, 20, 2, 0, 0), ApiKey.find(@api_key.id).last_synced_at
+    end
+
+    travel_to Time.utc(2026, 9, 21, 2, 0, 0) do
+      @exchange.expects(:get_ledger)
+               .with(api_key: @api_key, start_time: Time.utc(2026, 9, 19, 1, 0, 0))
+               .returns(Result::Success.new([]))
+      AccountTransactionSync.new(@api_key).sync!
+    end
+  end
+
+  # A key left behind by the old rule holds a watermark ahead of today: it is read as now, and the next
+  # completed sync pulls it back.
+  test 'a stored watermark ahead of now is read as now' do
+    travel_to Time.utc(2026, 9, 21, 2, 0, 0) do
+      @api_key.update!(last_synced_at: Time.utc(2026, 10, 5))
+      @exchange.expects(:get_ledger)
+               .with(api_key: @api_key, start_time: Time.utc(2026, 9, 20, 1, 0, 0))
+               .returns(Result::Success.new([]))
+      AccountTransactionSync.new(@api_key).sync!
+
+      assert_equal Time.utc(2026, 9, 21, 2, 0, 0), @api_key.reload.last_synced_at
+    end
+  end
+
   test 'passes start_time from last_synced_at' do
     last_sync = 2.days.ago.change(usec: 0)
     @api_key.update!(last_synced_at: last_sync)

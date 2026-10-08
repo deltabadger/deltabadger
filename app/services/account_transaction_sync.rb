@@ -5,6 +5,7 @@ class AccountTransactionSync
   end
 
   def sync!(&progress)
+    started = Time.current
     # Re-fetch a 25h overlap so late-posted entries (dividends post after their pay date) still land;
     # the dedup guard absorbs the repeats. A nil watermark means full history, never "since the newest
     # row we happen to hold" — otherwise a watermark reset would silently resume from truncated data.
@@ -15,8 +16,10 @@ class AccountTransactionSync
     # before today, and the account would go silently blind since nothing new could arrive to advance
     # the watermark. An uncapped venue gets NO floor — clamping there would simply drop the months
     # between two tracker visits.
+    #
+    # A stored watermark ahead of now (left behind before the cap below existed) is read as now.
     floor = @exchange.ledger_window&.ago
-    start_time = @api_key.last_synced_at && [@api_key.last_synced_at - 25.hours, floor].compact.max
+    start_time = @api_key.last_synced_at && [[@api_key.last_synced_at, started].min - 25.hours, floor].compact.max
     result = @exchange.get_ledger(api_key: @api_key, start_time: start_time)
     return result if result.failure?
 
@@ -26,10 +29,12 @@ class AccountTransactionSync
 
     # The watermark must come from the data — Time.current silently drops anything the fetch did not
     # return. It must also never advance past a row that failed to save: that row would fall outside
-    # every future window, turning one malformed entry into a permanent hole.
+    # every future window, turning one malformed entry into a permanent hole. Nor may it pass the moment
+    # this sync began: a row dated ahead (a split announced before its date) would carry it into the
+    # future, and every fill, dividend and deposit before that date would fall outside every later window.
     max_seen = entries.filter_map { |entry| entry[:transacted_at] }.max
-    watermark = [max_seen, outcome[:min_skipped]].compact.min
-    @api_key.update!(last_synced_at: watermark || @api_key.last_synced_at, last_sync_error: nil)
+    watermark = [max_seen, outcome[:min_skipped]].compact.min || @api_key.last_synced_at
+    @api_key.update!(last_synced_at: watermark && [watermark, started].min, last_sync_error: nil)
     Result::Success.new(outcome[:imported])
   end
 

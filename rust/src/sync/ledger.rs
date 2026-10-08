@@ -227,8 +227,8 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, cr
 /// transaction of at most `BATCH` rows (a split row alone, with what it does to the bots computed by the read before
 /// it), `WRITE_GAP` apart. A stop or a deadline drops the run between two units.
 ///
-/// Deliberately not Rails' (each a listed divergence, with Rails' result beside it in the grid): the watermark never
-/// passes the moment the sync began, and a page token that comes back is a failure. Split rows are Rails' own, to the
+/// The watermark never passes the moment the sync began (as Rails'). Deliberately not Rails' (a listed divergence, with
+/// Rails' result beside it in the grid): a page token that comes back is a failure. Split rows are Rails' own, to the
 /// row: its grouping of consecutive legs, its dedup by the group's first id.
 pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, credentials: &Credentials, clock: &dyn Clock, limits: Limits)
                                        -> Result<Result<Outcome, Failure>, SyncError> {
@@ -249,7 +249,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
     if super::live(credentials) { return fail(LIVE_REFUSED.into(), true).await; }
 
     // Where this run starts: where an unfinished import stopped, or the watermark less the overlap. A stored
-    // watermark ahead of now (Rails leaves one behind a split dated ahead) is read as now.
+    // watermark ahead of now (Rails left one behind a split dated ahead, before it capped the watermark too) is read as now.
     let import = resumed.unwrap_or_else(|| Import { cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),
                                                     started: now, max_seen: None, min_skipped: None, stored: 0, watermark: micros(key.last_synced_at) });
     // An import that does not end is stopped: its record goes, the watermark stays, and the key and the job say why.
@@ -320,9 +320,8 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
         return Ok(Ok(outcome));
     }
     // The watermark comes from the data, never the clock, and never passes a row that failed to save. Nor does it
-    // pass the moment this sync (or the import it finishes) began: Rails lets a row dated ahead (a pending split)
-    // carry it into the future, and every activity before that date is then outside every later window (a listed
-    // divergence).
+    // pass the moment this sync (or the import it finishes) began (as Rails'): a row dated ahead (a pending split) would
+    // carry it into the future, and every activity before that date would then be outside every later window.
     let watermark = [max_seen, min_skipped].into_iter().flatten().min().or(key.last_synced_at).map(|w| w.min(started));
     // `update!`: nothing is written, and updated_at does not move, when neither column changes.
     let changed = micros(watermark) != micros(key.last_synced_at) || key.last_sync_error.is_some();

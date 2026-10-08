@@ -79,12 +79,6 @@ fn without_columns(out: &mut Value, table: &str, columns: &[&str]) {
 }
 /// Takes every changed row of `table` out.
 fn without_rows(out: &mut Value, table: &str) { out["changes"][table] = json!([]); }
-/// Takes one request parameter out of every request of one step.
-fn without_parameter(out: &mut Value, step: usize, name: &str) {
-    for request in out["steps"][step]["requests"].as_array_mut().into_iter().flatten() {
-        if let Some(query) = request[1].as_array_mut() { query.retain(|p| p[0] != name); }
-    }
-}
 /// With the permitted differences taken out of both, Rails' output and Rust's are the same: every other row, column,
 /// request, raise and counter.
 fn rest_is_identical(rails: &Value, rust: &Value, permitted: &dyn Fn(&mut Value)) -> Result<(), String> {
@@ -142,22 +136,6 @@ fn oracle_split_verdict(rows: &[Value]) -> &'static str {
 fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let tx = |out: &Value| rows(out, "account_transactions");
     Some(match name {
-        // R1: the watermark and a row dated ahead of today.
-        "ledger-split_future" => (|| {
-            check(rows(rails, "api_keys")[0]["after"]["last_synced_at"] == "2026-10-05 00:00:00", "Rails no longer lets the watermark follow the split into the future: drop the listed divergence")?;
-            check(after_of(rails, 1) == "2026-10-03T23:00:00Z" && tx(rails).len() == 1, "Rails: the second night asks from the future and stores nothing new")?;
-            check(after_of(rust, 1) == "2026-09-19T01:00:00Z", "Rust: the second night asks from the first sync's start less 25 h")?;
-            let stored: Vec<Value> = tx(rust).iter().map(|r| r["after"]["tx_id"].clone()).collect();
-            check(stored == [json!("klac-remove"), json!("f-between"), json!("int-between")], &format!("Rust: the split, then the fill and the interest Rails never sees: {stored:?}"))?;
-            check(rows(rust, "api_keys")[0]["after"]["last_synced_at"] == "2026-09-21 02:00:07.500000", "Rust: the watermark is the second sync's start")?;
-            // Permitted: the second request's `after`, the two rows it brings back, and the key's watermark (with the
-            // `updated_at` that moves with it).
-            rest_is_identical(rails, rust, &|out| {
-                without_parameter(out, 1, "after");
-                if let Some(stored) = out["changes"]["account_transactions"].as_array_mut() { stored.retain(|r| r["after"]["tx_id"] == "klac-remove"); }
-                without_columns(out, "api_keys", &["last_synced_at", "updated_at"]);
-            })
-        })(),
         // A page token that did not move: Rails ends the ledger there and keeps the first page; Rust fails the run.
         "ledger-pages_stalled" => (|| {
             check(tx(rails).len() == 100 && rows(rails, "api_keys")[0]["after"]["last_synced_at"] == "2026-04-10 00:00:00" && rails["steps"][0]["raised"] == false,
@@ -270,7 +248,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(divergences, ["balances-account_no_cash", "balances-account_null", "balances-cash_only_null_cash", "balances-no_trade_keeps_last_price",
                              "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-position_no_quantity",
                              "balances-positions_not_array",
-                             "ledger-pages_stalled", "ledger-split_future", "ledger-split_hostile_quantity"], "the listed divergences");
+                             "ledger-pages_stalled", "ledger-split_hostile_quantity"], "the listed divergences");
 
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
@@ -386,8 +364,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         (dir, only)
     };
     // Inside the window of a split dated ahead: Rails reads from Rust's capped watermark, so it asks from the first
-    // sync's start less 25 h and stores what happened in between. (Its own watermark then follows the split into the
-    // future again: Rails' defect, R1.)
+    // sync's start less 25 h and stores what happened in between; its own watermark then stops at the second night's start.
     let (dir, only) = hand_back("ledger-split_future");
     only(&dir, 0);
     let rust_night = deltabadger::sync::parity::run(&dir, cipher.clone()).await.unwrap();
@@ -406,7 +383,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(after_of(&rails_night, 0), "2026-09-19T01:00:00Z");
     assert_eq!(rows(&rails_night, "account_transactions").iter().map(|r| r["after"]["tx_id"].clone()).collect::<Vec<_>>(), [json!("f-between"), json!("int-between")],
                "Rails stores the fill and the interest, and reads the split it finds stored as a duplicate");
-    assert_eq!(rows(&rails_night, "api_keys")[0]["after"]["last_synced_at"], "2026-10-05 00:00:00");
+    assert_eq!(rows(&rails_night, "api_keys")[0]["after"]["last_synced_at"], "2026-09-21 02:00:07.500000");
     let rails_night = read(&dup_dir.join("rails.json"));
     let own = rails_of("ledger-split_nested_duplicate_keys");
     assert_eq!((rows(&rails_night, "account_transactions").len(), rails_night["splits_read"].clone(), rails_night["steps"][0]["generations"].clone()),
