@@ -672,11 +672,12 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let flag=matches!(n,"start_missing"|"start_junk");
             let empty=n=="extra_empty_root";
             if start_guard || working_start || working_settings || html || bad_render || scope || safety || flag || empty {
-                let rails_status=if html {if n=="extra_html_archive" {500}else{406}} else if bad_render || flag {500}
-                    else if empty {400} else if matches!(n,"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
+                let rails_status=if html {406} else if flag {500}
+                    else if empty {400} else if bad_render || matches!(n,"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
                 if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
-                let rails_rows=expected_action_rows(n,step,&a["rows_before"],rails_status==200 || html)?;
+                // HTML update, stop and archive are refused before they write; HTML start still commits first.
+                let rails_rows=expected_action_rows(n,step,&a["rows_before"],rails_status==200 || n=="extra_html_start_start_fresh_true")?;
                 if let Some(error)=row_difference("Rails measured action",&rails_rows,&a["rows_after"]) { return Err(error) }
                 let rust_rows=if safety { expected_action_rows(if n=="archive_invalid" {"extra_html_archive"}else{"extra_html_stop"},step,&b["rows_before"],true)? } else { b["rows_before"].clone() };
                 if let Some(error)=row_difference("Rust fixed action contract",&rust_rows,&b["rows_after"]) { return Err(error) }
