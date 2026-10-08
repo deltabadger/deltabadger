@@ -103,7 +103,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 297, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 306, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -132,6 +132,12 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
         let expected: Option<&[&str]> = [("-blocking", &["stopped_by_error"][..]), ("-rejected", &["end_of_funds"]), ("-low_funds", &["end_of_funds"]), ("-on_schedule", &[])]
             .into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, mails)| mails);
         if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        // The starting-time scenarios must reach Bot::Startable#disable_starting_time!, or they compare nothing new.
+        if name.ends_with("-start_time_first_tick") {
+            let bot = &rails_out["changes"]["bots"][0]["after"];
+            assert_eq!(bot["settings"]["start_time_enabled"], false, "{name}: the first run turns the rule off");
+            assert!(rails_out["sent"].as_array().is_some_and(|s| !s.is_empty()), "{name}: the first run buys");
+        }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }

@@ -330,6 +330,8 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i6
             // clear_failure_state!, then back to scheduled unless stopped meanwhile.
             model::credential_write(c, &cx.credential_version, |tx| {
                 if model::load_bot(tx, bot_id)?.last_failure_kind().is_some() { record_failure(tx, bot_id, None)?; }
+                // The starting time only places the first run; it turns off before the transition, as in action_job.rb:139.
+                amount::disable_starting_time(tx, bot_id, clock.now())?;
                 Ok(if model::transition_working(tx, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped })
             })?
         }

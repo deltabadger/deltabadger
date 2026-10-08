@@ -279,7 +279,14 @@ module Decisions
                                                                                              limit_price: mode == 'limit' ? '49870.3' : '0'))] } } },
         'coarse_ticker' => { 'at' => after.(1), 'ticker' => { 'base_decimals' => 0, 'quote_decimals' => 0, 'price_decimals' => 0,
                                                               'minimum_base_size' => '1', 'minimum_quote_size' => '5' },
-                             'http' => { '/0/public/Ticker' => [ticker_body('9.9', '10.1', '10.0')] } }
+                             'http' => { '/0/public/Ticker' => [ticker_body('9.9', '10.1', '10.0')] } },
+        # A starting time as Bot::Lifecycle#start leaves it (settings.start_at = started_at, the carry captured as 0): the
+        # first run turns the rule off (Bot::Startable#disable_starting_time!), and the next checkpoint's run follows.
+        'start_time_first_tick' => { 'started_at' => '2026-09-01T10:00:00Z', 'at' => '2026-09-01T10:00:00.500000Z',
+                                     'next_at' => (Time.iso8601('2026-09-01T10:00:00Z') + step + 1.second).iso8601(6),
+                                     'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'hour', 'start_time_of_day' => '12:00',
+                                                     'start_at' => '2026-09-01T10:00:00Z' },
+                                     'settings_changed_at' => '2026-08-31T09:00:00Z', 'transient' => { 'missed_quote_amount' => 0 } }
       }
       # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, in the placed order's
       # first poll (Kraken's AddOrder answer carries no number either side reads), and in the sweep's poll of a waiting order.
@@ -298,10 +305,11 @@ module Decisions
           v_http = v.fetch('http', {})
           v_http = v_http.(mode) if v_http.respond_to?(:call)
           { 'name' => "#{interval}-#{mode}-#{name}", 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
-            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'started_at' => v.fetch('started_at', started), 'settings' => settings.merge(v.fetch('settings', {})),
+            'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
             'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'http' => http.merge(v_http) },
-            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'], 'next_at' => v['next_at'] }
         end
       end
     end
