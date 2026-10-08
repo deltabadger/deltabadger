@@ -4,6 +4,8 @@ require 'test_helper'
 # wrong: the caller asked for a buy and must be told why it did not happen.
 class BotApi::Orders::WashSaleTest < ActiveSupport::TestCase
   def setup
+    # The lock below ends on a fixed date; pin the clock before it so the test does not expire.
+    travel_to Time.zone.parse('2026-10-01 12:00')
     @user = create(:user)
     @exchange = create(:binance_exchange)
     create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
