@@ -74,10 +74,11 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
-            let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled") || k == "start_time_enabled";
+            let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
             if flag && set(v) && !SUPPORTED_FLAGS.contains(&k.as_str()) { r.push(k.clone()); }
         }
     }
+    if bot.settings.get("start_time_enabled").is_some_and(set) && BOT_WORKING.contains(&bot.status) { r.extend(start_time_reason(bot)); }
     if bot.settings.get("smart_intervaled").is_some_and(set) && !bot.smart_quote_amount().is_some_and(|a| a > 0.0) {
         r.push("smart interval amount missing, not a JSON number, or not positive".into());
     }
@@ -99,6 +100,20 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if alpaca && r.is_empty() { super::basket::walk(c, bot, Utc::now())?; }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
+}
+
+/// A pending starting time (Bot::Startable) runs only in the state Bot::Lifecycle#start(start_fresh: true) leaves it:
+/// settings.start_at equal to started_at, so Startable#repeat_anchor_at and the started_at the engine schedules from are one
+/// time, and no continue waiting. Rails' continue (start_fresh: false) ignores the starting time but still anchors the grid
+/// on start_at: it can buy at once and count every interval up to a start_at that was moved later; a start_at edited on a
+/// running bot moves the grid the same way. Read by truthiness, like the flags: anything Rails might treat as on.
+fn start_time_reason(bot: &Bot) -> Option<String> {
+    if bot.transient.get("rust_continue_start").is_some() {
+        return Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into());
+    }
+    let start_at = bot.settings.get("start_at").and_then(Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.timestamp_micros());
+    (start_at.is_none() || start_at != bot.started_at_us)
+        .then(|| "start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into())
 }
 
 /// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;
