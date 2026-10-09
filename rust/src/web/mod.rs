@@ -498,6 +498,11 @@ async fn up(State(app): State<App>) -> Response {
     response
 }
 
+/// HealthCheckController#index: the liveness probe launchpad and kamal-proxy use. No session, no database.
+async fn health_check() -> Response {
+    (StatusCode::OK, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], r#"{"health":"check"}"#).into_response()
+}
+
 /// CspReportsController: a browser posts policy violations here on its own, with no CSRF token.
 /// Accepted and dropped.
 /// ponytail: Rails logs nine sanitised fields of each report; port that when the policy is enforced.
@@ -568,6 +573,7 @@ fn routes(app: App) -> Router {
         .merge(oauth_api(app.clone()))
         // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
         .route("/up", only(get(up)))
+        .route("/health-check", only(get(health_check)))
         .route("/csp-report", only(post(csp_report)))
         .route("/cable", only(get(cable::connect)))
         .with_state(app)
