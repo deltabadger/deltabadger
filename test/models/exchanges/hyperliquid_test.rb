@@ -268,7 +268,9 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
   end
 
   test 'a bot starts normally while order placement is available' do
-    bot = create(:dca_single_asset, user: create(:user), exchange: @exchange, with_api_key: false)
+    user = create(:user)
+    create(:api_key, user: user, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    bot = create(:dca_single_asset, user: user, exchange: @exchange)
 
     assert bot.valid?(:start)
   end

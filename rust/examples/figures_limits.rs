@@ -49,9 +49,9 @@ static ALLOCATOR: Counting = Counting;
 
 /// Longer than this and a check has computed something it should have refused.
 const QUICKLY: Duration = Duration::from_secs(1);
-/// How long any history here may take. No build on any machine should come near it (a debug build on a busy one
-/// takes a sixth). It is not what catches a pass that is quadratic in the orders: the steps are.
-const AT_MOST: Duration = Duration::from_secs(60);
+/// How long any history here may take: a backstop against a hang, not what catches a pass that is quadratic in the
+/// orders (the steps are). A debug build on a slow shared CI runner took 61 s, so debug gets five times the room.
+const AT_MOST: Duration = Duration::from_secs(if cfg!(debug_assertions) { 300 } else { 60 });
 /// The orders of the long histories, and of the short one beside the first of them.
 const LONG: i64 = 100_000;
 const SHORT: i64 = LONG / 16;

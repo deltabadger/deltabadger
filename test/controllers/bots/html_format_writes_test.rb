@@ -27,11 +27,9 @@ class Bots::HtmlFormatWritesTest < ActionDispatch::IntegrationTest
 
   private
 
-  def assert_refused
+  def assert_refused(&block)
     before = @bot.reload.attributes
-    assert_no_difference 'BotActivityLog.count' do
-      yield
-    end
+    assert_no_difference 'BotActivityLog.count', &block
     assert_response :not_acceptable
     assert_equal before, @bot.reload.attributes
   end
