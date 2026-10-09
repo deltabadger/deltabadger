@@ -48,6 +48,7 @@ class AccountTransactionSync
   # The WATERMARK stays with the caller: an import must never advance `last_synced_at`, or the next
   # sync would skip the window the file happened to reach.
   def store!(entries, &progress)
+    refuse_unreadable_amounts!(entries)
     total = entries.size
     imported = 0
     duplicates = 0
@@ -305,6 +306,17 @@ class AccountTransactionSync
       "[#{@exchange.name_id}] Split side effects failed for #{at.base_currency} " \
       "tx_id=#{at.tx_id.inspect}: #{e.class}: #{e.message}"
     )
+  end
+
+  # A NaN amount binds as NULL and raises at its insert, after the rows before it were saved; an
+  # infinite one is no quantity at all. Either fails the whole batch before anything is written, so
+  # a run never stores half a window — the next one fails the same way until the venue corrects it.
+  def refuse_unreadable_amounts!(entries)
+    entries.each do |entry|
+      next if entry.values_at(:base_amount, :quote_amount, :fee_amount).all? { |n| !n.is_a?(Numeric) || n.finite? }
+
+      raise ArgumentError, "Unreadable #{@exchange.name_id} ledger amount: tx_id=#{entry[:tx_id].inspect}"
+    end
   end
 
   def duplicate?(entry, tx_id)

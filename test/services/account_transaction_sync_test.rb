@@ -38,6 +38,23 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     ]
   end
 
+  # A NaN amount binds as NULL and raises at its insert; the rows saved before it would stay while
+  # the watermark does not move. The sync fails before it writes anything instead (as the Rust port).
+  test 'an amount that is not a finite number fails the sync before any row is written' do
+    watermark = Time.utc(2026, 3, 1)
+    @api_key.update!(last_synced_at: watermark)
+    [BigDecimal('NaN'), BigDecimal('Infinity'), Float::NAN].each do |amount|
+      split = @ledger_entries.first.merge(entry_type: :adjustment, base_currency: 'AAPL', base_amount: amount,
+                                          quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                                          tx_id: 'split-1', transacted_at: Time.utc(2026, 3, 21))
+      @api_key.exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries + [split]))
+
+      assert_raises(ArgumentError) { AccountTransactionSync.new(@api_key).sync! }
+      assert_equal 0, AccountTransaction.count
+      assert_equal watermark, @api_key.reload.last_synced_at
+    end
+  end
+
   test 'imports ledger entries as account transactions' do
     @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
 
