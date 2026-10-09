@@ -54,4 +54,13 @@ class StartRuleToolTest < ActiveSupport::TestCase
     @rule.reload
     assert @rule.stopped?
   end
+
+  test 'paper trading on: refuses to arm the rule' do
+    @user.mcp_dry_run = true
+
+    response = StartRuleTool.new(rule_id: @rule.id).execute
+
+    assert @rule.reload.stopped?
+    assert_match(/\A\[DRY RUN\] .*nothing was created or started/i, response.contents.first.text)
+  end
 end

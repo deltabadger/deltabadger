@@ -61,7 +61,7 @@ mod action_race {
             c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,created_at,expires_in) VALUES (?1,?2,'m4-race-token','mcp',?3,3600)",(application,seed.user_id,"2026-09-03 15:00:00"))?;
             c.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,created_at,updated_at) VALUES (?1,?2,?3,?4,?4)",(seed.user_id,application,json!(names).to_string(),NOW))?;
             let permissions:serde_json::Map<String,Value>=names.iter().map(|n|(n.to_string(),json!(true))).collect();
-            c.execute("UPDATE users SET mcp_settings=?1 WHERE id=?2",(json!({"tool_permissions":permissions,"dry_run":true}).to_string(),seed.user_id))?;
+            c.execute("UPDATE users SET mcp_settings=?1 WHERE id=?2",(json!({"tool_permissions":permissions,"dry_run":false}).to_string(),seed.user_id))?;
             let init=json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"M4","version":"1"}}});
             let request=axum::http::Request::builder().method("POST").uri("/mcp").header("host","localhost:3000").header("authorization","Bearer m4-race-token")
                 .header("content-type","application/json").header("accept","application/json, text/event-stream").body(axum::body::Body::from(init.to_string()))?;
@@ -347,8 +347,25 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
     #[tokio::test(flavor="current_thread")]
     async fn continue_within_interval()->Result {continued("nothing_owed",true).await}
 
+    /// MCP paper trading on: start_bot is refused before the engine sees it, and nothing is written.
     #[tokio::test(flavor="current_thread")]
-    async fn start_refuses_live_key_even_with_mcp_paper_enabled()->Result {
+    async fn start_refuses_while_mcp_paper_trading_is_on()->Result {
+        let f=Fixture::new().await?;
+        f.c.execute("UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE id=?1",[f.seed.user_id])?;
+        let before=f.snapshot()?;
+        let answer=f.send("PATCH","/start",&[]).await?;
+        let response:Value=serde_json::from_str(&answer.body)?;
+        assert_eq!(response["result"]["isError"],true,"{}",answer.body);
+        let text=response["result"]["content"][0]["text"].as_str().ok_or("paper refusal")?;
+        assert!(text.starts_with("[DRY RUN] Paper trading is on"),"{text}");
+        assert_eq!(f.snapshot()?,before);
+        f.evidence("mcp-paper",&answer,&before)?;
+        f.woke(false).await
+    }
+
+    /// MCP paper trading off: a live venue key is still refused by the engine, which runs paper accounts only.
+    #[tokio::test(flavor="current_thread")]
+    async fn start_refuses_live_key()->Result {
         let f=Fixture::new().await?;
         let cipher=seed::cipher();
         f.c.execute("UPDATE api_keys SET passphrase=?1",[cipher.encrypt("live")])?;

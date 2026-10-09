@@ -3,6 +3,11 @@
 class ApplicationMCPTool < ActionMCP::Tool
   abstract!
 
+  # Paper trading simulates a single order inside the call. These tools instead leave something
+  # running that trades or withdraws on its own later, outside any call, so there is nothing to
+  # simulate: with paper trading on they refuse before touching anything.
+  LIVE_AUTOMATION_TOOLS = %w[create_bot create_index_bot create_signal_bot start_bot start_rule].freeze
+
   # Defense-in-depth: the session registry already hides tools this client may not
   # use, but that registry is written once per request and persisted, so the
   # decision is re-made here on every call.
@@ -15,6 +20,10 @@ class ApplicationMCPTool < ActionMCP::Tool
 
     return refuse("Tool '#{tool}' is disabled. Enable it in Settings > MCP.") unless current_user&.mcp_tool_enabled?(tool)
     return refuse("Tool '#{tool}' is not available to this client. Grant it in Settings > Connect.") unless tool_access.mcp_enabled?(tool)
+    if current_user.mcp_dry_run? && LIVE_AUTOMATION_TOOLS.include?(tool)
+      return refuse("[DRY RUN] Paper trading is on, so nothing was created or started: '#{tool}' would leave a bot " \
+                    'or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it.')
+    end
 
     super
   end
@@ -33,18 +42,5 @@ class ApplicationMCPTool < ActionMCP::Tool
   # the database at the moment of the call.
   def tool_access
     ToolAccess.new(user: current_user, application: OauthClientContext.oauth_application)
-  end
-
-  def with_dry_run_if_enabled
-    if current_user.mcp_dry_run?
-      Thread.current[:force_dry_run] = true
-      begin
-        yield
-      ensure
-        Thread.current[:force_dry_run] = nil
-      end
-    else
-      yield
-    end
   end
 end

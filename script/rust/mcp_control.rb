@@ -27,7 +27,7 @@ module McpControl
         Doorkeeper::AccessToken.create!(application: app, resource_owner_id: user.id, scopes:, expires_in: 3600).update_columns(token:)
         ConnectedClient.find_or_create_by!(user:, oauth_application: app).update!(mcp_tools: allowed)
       end
-      owner.update_columns(mcp_settings: { tool_permissions: NAMES.to_h { |n| [n, true] }, dry_run: true })
+      owner.update_columns(mcp_settings: { tool_permissions: NAMES.to_h { |n| [n, true] }, dry_run: false })
       second.update_columns(mcp_settings: { tool_permissions: NAMES.to_h { |n| [n, true] } })
       Pages.bot('kind' => 'coins', 'columns' => { 'status' => 'stopped', 'label' => 'Control' })
       Pages.bot('kind' => 'index', 'columns' => { 'status' => 'stopped', 'label' => 'Index' })
@@ -147,6 +147,14 @@ module McpControl
     s['start_schedule_bounds'] = McpParity.ready + [tool('start_bot', {}, schedule + ["UPDATE bots SET settings=json_set(settings,'$.quote_amount',1e-18) WHERE id=1"])]
     s['settings_schedule_rails_invalid'] = McpParity.ready + [tool('update_bot_settings', { quote_amount: 0 }, schedule)]
     s['start_schedule_rails_invalid'] = McpParity.ready + [tool('start_bot', {}, schedule + ["UPDATE bots SET status=0,started_at=NULL,settings=json_set(settings,'$.quote_amount',0) WHERE id=1"])]
+    # Paper trading on: start_bot refuses before any lookup, validation or write; other tools are unaffected.
+    paper = "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run',json('true')) WHERE email='owner@example.com'"
+    [0, 1, 2].each { |status| s["paper_refused_status_#{status}"] = McpParity.ready + [tool('start_bot', {}, [set_status(status), paper])] }
+    s['paper_refused_missing'] = McpParity.ready + [tool('start_bot', { bot_id: 999 }, [paper])]
+    s['paper_refused_schema'] = McpParity.ready + [tool('start_bot', { bot_id: '1' }, [paper])]
+    loose = "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run','true')"
+    s['paper_loose_string'] = McpParity.ready + [tool('start_bot', {}, [set_status(0), loose])]
+    s['paper_stop_bot'] = McpParity.ready + [tool('stop_bot', {}, [set_status(1), paper])]
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
     raise 'empty M4 scenario filter' if selected.empty?

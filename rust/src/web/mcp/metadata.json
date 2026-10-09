@@ -1148,7 +1148,7 @@
     "app/mcp/prompts/application_mcp_prompt.rb": "6962e67b4ff022ebc1663a7a00baf3cd38d64d631a0c0bf7383bad2bf90a42ee",
     "app/mcp/resource_templates/application_mcp_res_template.rb": "96459c60b135c3ebd909b7fef9e86b38057ac645995b9773829820de33ed10ee",
     "app/mcp/tools/answer_redeploy_offer_tool.rb": "418f6e938f1f841ab746b28b1f6b6df32501ad50d3ec0d2b2c644b9d78213f65",
-    "app/mcp/tools/application_mcp_tool.rb": "558802033499169e442d57f8eca9bd5cabc4f293c54358400066ce423757c79f",
+    "app/mcp/tools/application_mcp_tool.rb": "dbc95b444e3ea51f1c7438455f6486b1ff30b2df692df58e2ae4ffa84808e298",
     "app/mcp/tools/archive_bot_tool.rb": "24bf68860658c62af94a15d709fec8e90ddde5970ca61d943288e8e1f193fd95",
     "app/mcp/tools/cancel_order_tool.rb": "7d486d5a32636d8886e80bb05c51a44f99db731169a456fa35cb8a0aa72431f4",
     "app/mcp/tools/create_bot_tool.rb": "4275eefd0384af45e302f064b92e0a9bb835e5863a2de45aabfe9c5e978f3d46",
