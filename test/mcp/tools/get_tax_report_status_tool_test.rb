@@ -29,6 +29,34 @@ class GetTaxReportStatusToolTest < ActiveSupport::TestCase
     assert_match(/generate_tax_report/, text)
   end
 
+  test 'a refusal is explained by its own reason' do
+    path = Tax::GenerateReportJob.refusal_path(@user.id, 'DE', 2029)
+    FileUtils.rm_f(report_path('DE', 2029))
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.generate({ 'reason' => 'excess_return_of_capital', 'symbols' => ['BTC'] }))
+
+    text = GetTaxReportStatusTool.call('country' => 'DE', 'year' => 2029).contents.first.text
+
+    assert_match(/cannot be generated/, text)
+    assert_match(/return of capital on BTC exceeded its cost basis/, text)
+    assert_no_match(/tokenized/, text)
+  ensure
+    FileUtils.rm_f(path)
+  end
+
+  test 'a tokenized refusal names the tokenized securities' do
+    path = Tax::GenerateReportJob.refusal_path(@user.id, 'DE', 2030)
+    FileUtils.rm_f(report_path('DE', 2030))
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.generate({ 'reason' => 'tokenized_unsupported', 'symbols' => ['NVDAX'] }))
+
+    text = GetTaxReportStatusTool.call('country' => 'DE', 'year' => 2030).contents.first.text
+
+    assert_match(/NVDAX are tokenized securities/, text)
+  ensure
+    FileUtils.rm_f(path)
+  end
+
   private
 
   def report_path(country, year)

@@ -5,6 +5,18 @@ module BotApi
     # Read, never delete: a GET that erases what it returns is not safely retryable. The
     # tracker's own download removes the file because it is the last step of a UI flow.
     class DownloadReport
+      # Why a report was refused, for API and MCP callers (the browser reads the locale instead).
+      def self.refused_because(reason, symbols)
+        symbols = Array(symbols).join(', ')
+        if reason == 'excess_return_of_capital'
+          "a return of capital on #{symbols} exceeded its cost basis, and the report has no " \
+            'row for that gain. Deltabadger does not report it yet.'
+        else
+          "#{symbols} are tokenized securities, whose tax treatment differs from crypto. " \
+            'Deltabadger does not report them yet.'
+        end
+      end
+
       def self.call(user:, country:, year:)
         params = Params.resolve(country: country, year: year)
         return params unless params.success?
@@ -17,15 +29,8 @@ module BotApi
           if refusal
             # validation_failed is the domain status that maps to 422; an unknown one becomes a 500,
             # presenting an expected refusal as a retryable server fault.
-            symbols = refusal['symbols'].join(', ')
-            why = if refusal['reason'] == 'excess_return_of_capital'
-                    "a return of capital on #{symbols} exceeded its cost basis, and the report has no " \
-                      'row for that gain. Deltabadger does not report it yet.'
-                  else
-                    "#{symbols} are tokenized securities, whose tax treatment differs from crypto. " \
-                      'Deltabadger does not report them yet.'
-                  end
-            return Result.failure(:validation_failed, 'report_refused', "No report for #{country} (#{year}): #{why}")
+            return Result.failure(:validation_failed, 'report_refused',
+                                  "No report for #{country} (#{year}): #{refused_because(refusal['reason'], refusal['symbols'])}")
           end
 
           return Result.failure(:not_found, 'report_not_found',
