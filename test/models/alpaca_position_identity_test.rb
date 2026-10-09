@@ -142,6 +142,38 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     assert_not_nil result
   end
 
+  # Fiat and Currency are both cash: two USD rows under the two categories are one class.
+  test 'tracker treats the two cash categories of a symbol as one class' do
+    user = create(:user)
+    fiat = Asset.find_by(symbol: 'USD',
+                         category: 'Fiat') || create(:asset, symbol: 'USD', name: 'US Dollar', category: 'Fiat',
+                                                             external_id: 'usd-fiat')
+    currency = create(:asset, symbol: 'USD', name: 'US Dollar', category: 'Currency', external_id: 'usd-currency')
+    [fiat, currency].each do |asset|
+      AccountBalance.create!(user: user, exchange: @exchange, asset: asset, free: 10, locked: 0,
+                             usd_price: 1, usd_value: 10, synced_at: Time.current)
+    end
+    balances = AccountBalance.for_user(user).to_a
+    assert_nothing_raised { Tracker::Figures.for(user, ledger: Tracker::Ledger.for(user), balances: balances) }
+  end
+
+  test 'tracker treats a cash balance and pending cash under the other cash category as one class' do
+    user = create(:user)
+    fiat = Asset.find_by(symbol: 'USD',
+                         category: 'Fiat') || create(:asset, symbol: 'USD', name: 'US Dollar', category: 'Fiat',
+                                                             external_id: 'usd-fiat')
+    currency = create(:asset, symbol: 'USD', name: 'US Dollar', category: 'Currency', external_id: 'usd-currency')
+    AccountBalance.create!(user: user, exchange: @exchange, asset: fiat, free: 10, locked: 0,
+                           usd_price: 1, usd_value: 10, synced_at: Time.current)
+    create(:account_transaction, user: user, exchange: @exchange, entry_type: :deposit, base_currency: 'USD',
+                                 base_asset: currency, base_amount: 5, transacted_at: Time.current,
+                                 quote_currency: nil, quote_amount: nil)
+    balances = AccountBalance.for_user(user).to_a
+    assert_nothing_raised do
+      Tracker::Figures.for(user, ledger: Tracker::Ledger.for(user), balances: balances, pending: { 'USD' => 5.to_d })
+    end
+  end
+
   test 'tracker refuses when the user moved one class of a symbol and holds the other' do
     user = create(:user)
     AccountBalance.create!(user: user, exchange: @exchange, asset: @coin, free: 2, locked: 0,

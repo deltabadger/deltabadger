@@ -1504,6 +1504,23 @@ fn collision_order_parsing_retains_class_without_blocking_stored_fills() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn collision_tracker_treats_both_cash_categories_as_one_class() {
+    let (_dir,db,s)=install();
+    db.run(move |c,_| {
+        for (ext,cat) in [("usd-fiat","Fiat"),("usd-currency","Currency")] {
+            c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES (?1,'USD','US Dollar',?2,'2026-01-01','2026-01-01')",rusqlite::params![ext,cat]).unwrap();
+            let asset=c.last_insert_rowid();
+            c.execute("INSERT INTO account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at) VALUES (?1,?2,?3,10,0,1,10,'2026-01-01 00:00:00','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,asset]).unwrap();
+        }
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
+        let figures=result.unwrap_or_else(|e| panic!("USD as Fiat and as Currency is one class: {e:?}"));
+        assert_eq!(figures.value.to_s_f(),"20.0","both USD rows are counted as one cash holding");
+        Ok(())
+    }).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn collision_tracker_refuses_to_merge_stock_and_crypto_quantities() {
     let (_dir,db,s)=install();
     db.run(move |c,_| {

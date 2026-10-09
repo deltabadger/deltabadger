@@ -132,13 +132,15 @@ fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> 
 pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
     let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
-    for balance in balances { classes.entry(&balance.symbol).or_default().insert(balance.category.clone()); }
+    // Fiat and Currency are both cash: one class (Fiat::CATEGORIES).
+    let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), _ => c };
+    for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
     for (symbol, _) in pending {
         // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
         let mut stmt = c.prepare("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
                                   WHERE t.user_id = ?1 AND t.base_currency = ?2")?;
         for category in stmt.query_map(rusqlite::params![user_id, symbol], |r| r.get::<_, Option<String>>(0))? {
-            classes.entry(symbol).or_default().insert(category?);
+            classes.entry(symbol).or_default().insert(class(category?));
         }
     }
     if classes.values().any(|categories| categories.len() > 1) {
