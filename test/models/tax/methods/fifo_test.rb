@@ -528,4 +528,21 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
 
     assert_equal true, disposal[:any_lot_lost]
   end
+
+  # A fee is not the consideration: a lot bought for a known $100 keeps its basis when only the price
+  # of the fee paid in kind is missing, so selling it for $60 is still a known loss.
+  test 'a lot whose only missing price is its acquisition fee still decides the verdict' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'AAA', base_amount: 1.to_d, fiat_value: 100.to_d, price_missing: true,
+        value_missing: false, fee_currency: 'AAA', fee_amount: 0.01.to_d, fee_fiat_value: 0.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-unpriced-buy', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'AAA', base_amount: 0.99.to_d, fiat_value: 60.to_d,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'losing-sell', exchange: 'kraken' }
+    ]
+
+    disposal = Tax::Methods::Fifo.new.calculate(transactions).sole
+
+    assert_equal true, disposal[:any_lot_lost]
+    assert_equal 0.to_d, disposal[:unpriced_quantity], 'the units opened at a known price'
+  end
 end

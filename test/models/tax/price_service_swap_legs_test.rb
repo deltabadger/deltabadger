@@ -205,4 +205,14 @@ class Tax::PriceServiceSwapLegsTest < ActiveSupport::TestCase
     assert_not rows['ETH'][:price_missing]
     assert_empty service.warnings
   end
+
+  test 'a row whose only missing price is its fee keeps a known value' do
+    leg(:sell, 'EUR', 1_000)
+    leg(:buy, 'BTC', 0.05, fee_currency: 'NOPRICE', fee_amount: 1)
+
+    rows, = enrich
+
+    assert rows['BTC'][:price_missing], 'the fee could not be valued'
+    assert_equal false, rows['BTC'][:value_missing], 'what was paid for the coins is known'
+  end
 end

@@ -135,9 +135,12 @@ module Tax
       entries = transactions.each_with_index.map do |tx, index|
         warnings_before = @warnings.size
         fiat_value = resolve_row_value(tx, currency)
-        fee_fiat_value = resolve_fee_fiat_value(tx, currency)
         leg = @cash_legs.fetch(tx.id, {})
-        price_missing = @warnings.size > warnings_before || leg[:price_missing] == true
+        # The row's own value apart from its fee's: a lot's cost and a sale's proceeds stay known
+        # when only the fee could not be valued (FIFO's wash-sale verdict reads this one).
+        value_missing = @warnings.size > warnings_before || leg[:price_missing] == true
+        fee_fiat_value = resolve_fee_fiat_value(tx, currency)
+        price_missing = value_missing || @warnings.size > warnings_before
 
         enrich_percent = total.positive? ? 21 + ((index + 1).to_f / total * 79).to_i : 100
         on_progress&.call(enrich_percent, 100)
@@ -157,6 +160,7 @@ module Tax
           tx_id: tx.tx_id,
           group_id: tx.group_id,
           price_missing: price_missing,
+          value_missing: value_missing,
           # A figure the user stated by hand rather than one the venue reported or we priced. Carried
           # through so the tax report can disclose it: a stated cost is defensible, a silent one is not.
           stated_value: tx.respond_to?(:manual?) && tx.manual?(:price) && !valued_by_venue?(tx),

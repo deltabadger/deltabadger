@@ -44,7 +44,7 @@ module Tax
               cost_per_unit: cost_per_unit,
               date: tx[:transacted_at],
               basis_assumed: tx[:price_missing],
-              unpriced: tx[:price_missing] ? lot_amount : 0.to_d
+              unpriced: value_missing?(tx) ? lot_amount : 0.to_d
             }
 
           when :deposit
@@ -53,7 +53,7 @@ module Tax
             lot_amount, lot_cost = apply_acquisition_fee(lots, tx, amount, fiat_value)
             cost_per_unit = lot_amount.positive? ? (lot_cost / lot_amount) : 0.to_d
             lots[asset] << { amount: lot_amount, cost_per_unit: cost_per_unit, date: tx[:transacted_at],
-                             basis_assumed: true, unpriced: tx[:price_missing] ? lot_amount : 0.to_d }
+                             basis_assumed: true, unpriced: value_missing?(tx) ? lot_amount : 0.to_d }
 
           when :swap_in
             next if non_taxable_stablecoin_swap?(asset)
@@ -195,12 +195,19 @@ module Tax
       # not the proceeds, so a sale whose only missing price is its fee's still has a verdict.
       def lot_lost_verdict(transaction, tranches, amount, fiat_value)
         return false unless amount.positive?
-        return nil if transaction[:price_missing] && fiat_value.zero?
+        return nil if value_missing?(transaction) && fiat_value.zero?
 
         priced, unpriced = tranches.partition { |tranche| tranche[:unpriced].to_d.zero? }
         return true if priced.any? { |t| fiat_value * t[:amount] < t[:cost] * amount }
 
         unpriced.any? ? nil : false
+      end
+
+      # Whether the row's own value (a lot's cost, a sale's proceeds) rests on a missing price.
+      # `price_missing` also covers a fee nobody could price, which leaves the value known.
+      # Rows built outside Tax::PriceService carry only `price_missing`.
+      def value_missing?(row)
+        row.fetch(:value_missing) { row[:price_missing] }
       end
 
       def add_swap_in_lot(lots, transferred_tranches, transaction, asset, amount, fiat_value)
@@ -212,7 +219,7 @@ module Tax
             cost_per_unit: cost_per_unit,
             date: transaction[:transacted_at],
             basis_assumed: transaction[:price_missing],
-            unpriced: transaction[:price_missing] ? lot_amount : 0.to_d
+            unpriced: value_missing?(transaction) ? lot_amount : 0.to_d
           }
         else
           add_non_taxable_swap_in_lots(lots, transferred_tranches, transaction, asset, amount, fiat_value)
@@ -239,7 +246,7 @@ module Tax
         # the consideration paid, so adding market value to it would count the coins twice.
         if tranches.empty? && !cash_present
           open_swap_lot(lots[asset], transaction, lot_amount, unit(fiat_value + fee_cost, lot_amount),
-                        transaction[:transacted_at], assumed, unpriced: transaction[:price_missing] ? lot_amount : 0.to_d)
+                        transaction[:transacted_at], assumed, unpriced: value_missing?(transaction) ? lot_amount : 0.to_d)
           return
         end
 
