@@ -46,7 +46,19 @@ async fn deadline_completion_waits_for_commit_or_rollback_and_targets_owner_once
             let cipher=Cipher::new(&EncryptionKeys::resolve(&|_|None,"deadline-test").unwrap());
             let scheduler=Scheduler::new(c,cipher,vec![Box::new(Slow{name,scope:scope.into(),fail,delete_key})],None).with_notifications(notifications);
             scheduler.wakers().wake(name,Some(scope),None);
-            let stopping=async move { tokio::time::sleep(Duration::from_millis(300)).await; stop.send(true).unwrap(); };
+            // Stop once the deadline has run its course (the failure recorded and the owner notified), not after a fixed
+            // pause: a slow runner can need longer than any fixed sleep. Bounded so a regression still fails, never hangs.
+            let (waited,poll)=(seen.clone(),path.clone());
+            let stopping=async move {
+                let started=std::time::Instant::now();
+                loop {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    let failing=rusqlite::Connection::open(&poll).ok()
+                        .and_then(|c| jobs::state::read(&c,name,Some(scope)).ok()).is_some_and(|state| state.failing());
+                    if (failing && !waited.lock().unwrap().is_empty()) || started.elapsed()>Duration::from_secs(20) {break;}
+                }
+                stop.send(true).unwrap();
+            };
             let (result,())=tokio::join!(scheduler.run(rx,&SystemClock),stopping);
             result.unwrap();
             let oracle:serde_json::Value=serde_json::from_str(include_str!("fixtures/tracker_completion.json")).unwrap();
@@ -94,7 +106,18 @@ async fn deadline_owner_error_still_drains_and_recovers_in_both_wrappers() {
             let (stop,rx)=watch::channel(false);
             let scheduler=Scheduler::new(c,cipher,vec![Box::new(job)],None).with_notifications(notifications);
             scheduler.wakers().wake("ledger_sync",Some("7"),None);
-            let stopping=async move {tokio::time::sleep(Duration::from_millis(300)).await;stop.send(true).unwrap();};
+            // Wait for the condition, not a fixed pause (slow runners); bounded so a regression fails rather than hangs.
+            let (done,waited)=(finished.clone(),seen.clone());
+            let stopping=async move {
+                let started=std::time::Instant::now();
+                loop {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    let settled=done.load(std::sync::atomic::Ordering::SeqCst) && (!recover || !waited.lock().unwrap().is_empty());
+                    if settled || started.elapsed()>Duration::from_secs(20) {break;}
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                stop.send(true).unwrap();
+            };
             let (result,())=tokio::join!(scheduler.run(rx,&SystemClock),stopping);result.unwrap();
         } else {
             let db=jobs::Db::new(c,cipher).with_notifications(notifications);
