@@ -1631,7 +1631,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let capped_at = |cap: serde_json::Value| read(&|s| (s["quote_amount_limited"], s["quote_amount_limit"]) = (json!(true), cap.clone())).unrendered();
     assert_eq!((capped_at(json!(0.001)), capped_at(json!(0)), capped_at(json!(0.01))), (Some("a spending cap below the smallest amount its quote states"), Some("a spending cap below the smallest amount its quote states"), None));
     assert_eq!(read(&|s| (s["quote_amount_limited"], s["quote_amount_limit"]) = (json!(false), json!(0))).unrendered(), None, "off, it is not validated");
-    // Rails' floor is the bot's tickers' (app/models/bot/quote_amount_limitable.rb:87): none listed, none, whatever the memberships hold.
+    // Rails' floor is the bot's tickers' (app/models/bot/quote_amount_limitable.rb:94): none listed, none, whatever the memberships hold.
     c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
               (id, seeded.btc, seeded.ticker_id)).unwrap();
     c.execute("UPDATE tickers SET available = 0", []).unwrap();

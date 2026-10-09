@@ -256,7 +256,8 @@ pub fn pending(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Num, Web
         total = add(total, invested)?;
     }
     let pending = owed.sub(&total).ok_or_else(|| error("carry overflow"))?.at_least_zero();
-    if let Some(cap) = start::amount_limit(c, bot)? { minimum(pending, cap.left) } else { Ok(pending) }
+    // Bot::QuoteAmountLimitable#pending_quote_amount raises on an unknown spend.
+    if let Some(cap) = start::amount_limit(c, bot)? { minimum(pending, cap.left.ok_or_else(|| error("a closed buy under the spending cap has no quote_amount_exec"))?) } else { Ok(pending) }
 }
 
 fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Result<i64, WebError> {

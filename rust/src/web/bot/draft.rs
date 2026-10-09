@@ -533,7 +533,13 @@ impl Draft {
             self.boolean(locale, "quote_amount_limited");
             if self.read("quote_amount_limited") == json!(true) {
                 self.number(locale, "quote_amount_limit", Some((start::minimum_quote_amount_limit(&self.candidate), true)), None, false);
-                if starting && self.read("direction") != "selling" && start::amount_limit(c, &self.candidate)?.is_some_and(|limit| limit.reached) { self.error(locale, "settings", "quote_amount_limit_reached", None); }
+                if starting && self.read("direction") != "selling" {
+                    match start::amount_limit(c, &self.candidate)? {
+                        Some(limit) if limit.left.is_none() => self.error(locale, "settings", "quote_amount_spent_unknown", None),
+                        Some(limit) if limit.reached => self.error(locale, "settings", "quote_amount_limit_reached", None),
+                        _ => {}
+                    }
+                }
             }
             self.boolean(locale, "base_amount_limited");
             if self.candidate.one_asset() && self.read("base_amount_limited") == json!(true) && self.read("direction") == "selling" {
@@ -702,6 +708,12 @@ impl Draft {
             if (self.original.working() || pending) && (self.composition_changed() || exchange_changed) { self.add("allocations", i18n::text(locale, "errors.bots.multi_asset.locked_while_running", &[])); }
         }
         Ok(())
+    }
+
+    /// `@bot.exchange.nil? || @bot.quote_asset.nil? || @bot.interval_duration.nil?` on the candidate:
+    /// a reference Rails cannot draw, so a refused update shows the bot as stored.
+    pub fn undrawable(&self) -> bool {
+        self.exchange_missing || self.candidate.quote_asset.is_none() || self.candidate.interval().is_none()
     }
 
     pub fn check(&self) -> start::Check {

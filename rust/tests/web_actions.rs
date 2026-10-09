@@ -1083,6 +1083,26 @@ mod action_write {
         Ok(())
     }
 
+    /// A closed buy that never reported its cost (NULL quote_amount_exec) leaves the cap's spend
+    /// unknown: Rails reads nil, draws no remainder and refuses a start with
+    /// `quote_amount_spent_unknown` (test/controllers/bots/unknown_cap_spend_test.rb).
+    #[test]
+    fn action_lifecycle_unknown_cap_spend_refuses_start_and_draws_no_remainder() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',1000),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at','2026-09-01T00:00:00Z')",[])?;
+        seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("nocost".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("5"),price:Some("5000"),quote_amount_exec:None,amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()});
+        let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
+        let limit=deltabadger::web::bot::start::amount_limit(&f.c,&draft.candidate).map_err(|e|format!("{e:?}"))?.ok_or("the cap is on")?;
+        assert!(limit.left.is_none() && !limit.reached);
+        let before=f.snapshot()?;
+        let Outcome::Invalid(refused)=f.lifecycle(write::Action::Start,None)? else { return Err("the start must be refused".into()) };
+        let message=deltabadger::web::i18n::text("en","activerecord.errors.models.bot.attributes.settings.quote_amount_spent_unknown",&[]);
+        assert!(!message.starts_with("Translation missing"),"{message}");
+        assert!(refused["errors"].as_array().ok_or("errors")?.iter().any(|e|e==&json!(message)),"{refused}");
+        assert_eq!(f.snapshot()?,before);
+        Ok(())
+    }
+
     #[test]
     fn action_lifecycle_cap_basket_and_intent_contracts() -> Result {
         let f=Fixture::new()?;

@@ -131,7 +131,7 @@ fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64
 }
 
 /// One fill, committed. A fill that spends the amount limit enqueues one Rails Bot::StopJob per qualifying callback
-/// (quote_amount_limitable.rb:104), and mails stopped_by_amount_limit: its marker (notice::LIMIT) is written in the fill's
+/// (quote_amount_limitable.rb:111), and mails stopped_by_amount_limit: its marker (notice::LIMIT) is written in the fill's
 /// transaction. Rails mails once per callback; the marker is one key, so two such fills before a send owe one mail. With `stop_now` (a follow-up poll: that job runs right after FetchAndUpdateOrderJob, which
 /// has nothing left to do) the stop lands in the fill's own transaction. Without it (the tick's sweep: the job runs after the
 /// whole Bot::ActionJob) one pending stop is counted in `transient_data.rust_amount_limit_stops_pending`, by `json_set` in the
