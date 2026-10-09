@@ -42,11 +42,13 @@ module Api
     end
 
     # In place, so the key keeps its id and the ledger rows linked to it. The update validates
-    # before it writes: a rejected replacement leaves the stored key exactly as it was.
+    # before it writes: a rejected replacement leaves the stored key exactly as it was. The ledger
+    # watermark belonged to the old credential, which may have been another account: the new one
+    # syncs its own full history.
     def replace(api_key, params)
       replaced = api_key.update(key: params[:key], secret: params[:secret], passphrase: params[:passphrase],
                                 german_trading_agreement: params[:german_trading_agreement],
-                                status: :pending_validation, last_sync_error: nil)
+                                status: :pending_validation, last_sync_error: nil, last_synced_at: nil)
       return Result::Failure.new(api_key.errors.full_messages) unless replaced
 
       ApiKeyValidatorJob.perform_later(api_key.id)

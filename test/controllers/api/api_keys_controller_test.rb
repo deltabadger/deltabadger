@@ -63,4 +63,15 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
     assert_equal [new_secret, 'pending_validation'], [replaced.secret, replaced.status]
     assert_equal api_key.id, ledger_row.reload.api_key_id
   end
+
+  test 'an accepted replacement drops the previous credential\'s ledger watermark' do
+    api_key, = hyperliquid_key_with_history
+    api_key.update!(last_synced_at: 1.day.ago)
+
+    post '/api/api_keys', params: { api_key: { key: HL_KEY, secret: "0x#{'c' * 64}", exchange_id: api_key.exchange_id, key_type: 'trading' } }
+
+    assert_response :created
+    # The replacement may belong to another account: it syncs its own full history.
+    assert_nil api_key.reload.last_synced_at
+  end
 end
