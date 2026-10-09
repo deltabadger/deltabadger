@@ -1045,18 +1045,18 @@ mod action_write {
             f.c.execute("UPDATE users SET time_zone='UTC'",[])?;
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode',?1,'$.start_at',?2,'$.start_time_of_day',?2)",(mode,time))?;
             if mode=="hour" { f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_at','2026-09-11T13:45:00Z')",[])?; }
-            // The carry as the recorded bot had it before its start.
+            // transient_data exactly as the recorded bot had it before its start.
             let created=&vectors["schedule"][if mode=="date" {0} else {3}]["created"];
-            f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount',json(?1),'$.missed_quote_amount_was_set',json(?2))",
-                        (created["missed_quote_amount"].to_string(),created["missed_quote_amount_was_set"].to_string()))?;
+            f.c.execute("UPDATE bots SET transient_data=?1",[created.to_string()])?;
             let changed_before=f.stored()?["changed"].clone();
             assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)),"{mode}");
             let stored=f.stored()?;
             let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
             assert_eq!(anchor,rails["started_at"].as_str().ok_or("started_at")?,"{mode}");
             assert_eq!(stored["settings"]["start_at"],rails["settings"]["start_at"],"{mode}");
-            for key in ["missed_quote_amount","missed_quote_amount_was_set"] { assert_eq!(stored["transient"].get(key),rails["transient_data"].get(key),"{mode}: {key}"); }
-            assert_eq!(stored["transient"].get("rust_continue_start"),None);
+            assert_eq!(stored["transient"],rails["transient_data"],"{mode}: the whole transient_data, no key Rails leaves absent");
+            let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(json!(status),rails["status"],"{mode}");
             let changed=if mode=="date" {changed_before} else {json!(rails["settings_changed_at"])};
             assert_eq!(stored["changed"],changed,"{mode}: the window");
             let report=eligibility::check_install(&f.c).map_err(|e|format!("{e:?}"))?;

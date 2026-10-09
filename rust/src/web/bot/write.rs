@@ -384,7 +384,8 @@ fn lifecycle_inner<T>(
         if let Some(future)=delayed {
             draft.candidate.settings.insert("start_at".into(),json!(future.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)));
             draft.candidate.started_at=Some(future);
-            draft.candidate.transient.insert("last_action_job_at".into(),Value::Null);
+            // A store_accessor writer does not materialize an absent key when assigned nil.
+            if draft.raw_transient.contains_key("last_action_job_at") { draft.candidate.transient.insert("last_action_job_at".into(),Value::Null); }
             draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
         }
         let mut effects=draft.save_effects(&tx,ctx.now)?;
