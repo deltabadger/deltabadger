@@ -176,3 +176,43 @@ fn an_archived_account_history_exhausts_one_budget_and_visibly_stands_down() {
     assert!(used.steps <= 20000);
     assert!(t.posted_orders().is_empty());
 }
+
+/// Bot::Restatable#grouped_split_rows on a name a venue lists twice (Alpaca's BTC security beside BTC/USD), as
+/// test/models/bot/restatable_test.rb pins it: a report's recorded asset decides; one with none falls back to its name
+/// only while the account holds one class under it, and otherwise restates nothing and leaves the split unresolved.
+#[test]
+fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
+    use deltabadger::figures::{at::At, budget, db::Order, fill::Raw, splits::{self as rails, Holding}};
+    let now = At::from_sql("2026-10-01 00:00:00").unwrap();
+    // (holding the coin?, the split row records the security?, the account also bought the security?) → (factors, unresolved)
+    for (coin_held, recorded, both_classes, factors, unresolved) in [
+        (true, true, false, vec![], false),
+        (false, true, false, vec!["2.0"], false),
+        (true, false, false, vec!["2.0"], false),
+        (true, false, true, vec![], true),
+    ] {
+        let (_d, o, s) = common::install_alpaca();
+        let c = &o.primary;
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('BTC.US', 'BTC', 'BTC', 'Stock', ?1, ?1)", [T]).unwrap();
+        let stock = c.last_insert_rowid();
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                   minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+                   VALUES (?1, 'BTC', 'BTC', 'USD', ?2, ?3, 9, 2, 2, '0.000000001', '1', 1, 1, ?4, ?5)", params![s.exchange_id, stock, s.quote, T, seed::SYNCED]).unwrap();
+        if both_classes {
+            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_asset_id, base_amount, quote_currency, quote_amount, \
+                       transacted_at, raw_data, created_at, updated_at) VALUES (?1, ?2, 0, 'BTC', ?3, '10', 'USD', '300', '2026-08-01 00:00:00', '{}', ?4, ?4)",
+                      params![s.user_id, s.exchange_id, stock, T]).unwrap();
+        }
+        c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_asset_id, base_amount, transacted_at, raw_data, created_at, updated_at) \
+                   VALUES (?1, ?2, 15, 'BTC', ?3, '0', '2026-09-01 00:00:00', ?4, ?5, ?5)",
+                  params![s.user_id, s.exchange_id, recorded.then_some(stock), r#"{"corporate_action":"split","split_ratio":"2:1"}"#, T]).unwrap();
+        let held = if coin_held { s.btc } else { stock };
+        let orders = [Order { id: 1, at: At::from_sql("2026-08-15 00:00:00").unwrap(), exchange_id: Some(s.exchange_id), raw: Raw::new(None, None, None, None),
+                              base: Some("BTC".into()), asset_id: Some(held), sell: false, buy: true, closed: true, kind: "REGULAR".into() }];
+        let holdings = [Holding { key: "BTC".into(), asset_id: Some(held), strings: vec!["BTC".into()] }];
+        let case = (coin_held, recorded, both_classes);
+        let events = budget::within(|| rails::events(c, s.user_id, &orders, &holdings, now)).unwrap();
+        assert_eq!(events.iter().map(|e| e.factor.to_s_f()).collect::<Vec<_>>(), factors, "{case:?}");
+        assert_eq!(budget::within(|| rails::unresolved(c, s.user_id, &orders, &holdings, now)).unwrap(), unresolved, "{case:?}");
+    }
+}

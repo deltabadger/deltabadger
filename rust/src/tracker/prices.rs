@@ -119,11 +119,6 @@ impl Reference {
         self.prices.get(asset).filter(|_| from <= to).into_iter().flat_map(move |days| days.range(from..=to))
     }
 
-    /// Whether the catalogue has `symbol` in one of `categories`.
-    pub fn has_category(&self, symbol: &str, categories: &[&str]) -> bool {
-        self.assets.get(symbol).is_some_and(|list| list.iter().any(|(_, cat)| cat.as_deref().is_some_and(|c| categories.contains(&c))))
-    }
-
     /// The category of the asset the venue lists under `symbol`: None when it lists nothing, Some(None) uncategorised.
     pub fn listed_category(&self, symbol: &str) -> Option<Option<&str>> { self.listed.get(symbol).map(|(_, cat)| cat.as_deref()) }
 }

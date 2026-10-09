@@ -16,7 +16,7 @@ fn distinct_unfilled_symbols_share_the_walk_budget() {
     c.execute_batch("CREATE TABLE assets (id INTEGER, symbol TEXT, name TEXT);
         INSERT INTO assets VALUES (2, 'AAA', 'Asset');
         CREATE TABLE tickers (exchange_id INTEGER, base TEXT, base_asset_id INTEGER);
-        CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, raw_data TEXT, base_currency TEXT, transacted_at TEXT);").unwrap();
+        CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, raw_data TEXT, base_currency TEXT, base_asset_id INTEGER, transacted_at TEXT);").unwrap();
     let s = db::Subject {
         bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Basket,
             exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2] },
