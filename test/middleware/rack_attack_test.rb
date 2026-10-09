@@ -111,6 +111,20 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_response :too_many_requests
   end
 
+  test 'throttles HEAD /setup carrying a token' do
+    6.times { |i| head '/setup', params: { token: "guess-#{i}" } }
+    assert_response :too_many_requests
+  end
+
+  # Rails reads body parameters on a GET too, so a token can ride in a form body with no query.
+  test 'throttles GET /setup carrying a token in its body' do
+    6.times do |i|
+      get '/setup', env: { 'rack.input' => StringIO.new("token=guess-#{i}"), 'CONTENT_LENGTH' => "token=guess-#{i}".bytesize.to_s,
+                           'CONTENT_TYPE' => 'application/x-www-form-urlencoded' }
+    end
+    assert_response :too_many_requests
+  end
+
   test 'GET /setup without a token is not throttled' do
     11.times { get '/setup' }
     refute_equal 429, response.status
@@ -227,6 +241,23 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     Rack::Attack.reset!
     11.times { |i| post_login('REMOTE_ADDR' => '198.18.0.5', 'HTTP_CLIENT_IP' => "203.0.113.#{i + 1}") }
     assert_response :too_many_requests, 'nor with Client-Ip'
+  end
+
+  # A dual-stack socket hands an IPv4 proxy over as ::ffff:a.b.c.d. It is the same trusted proxy,
+  # as the Rust port's client_key reads it, so its callers keep their own buckets.
+  test 'an IPv4-mapped trusted proxy still keys on the forwarded header' do
+    declare_proxy(true)
+    11.times { post_login('REMOTE_ADDR' => '::ffff:10.0.0.5', 'HTTP_X_FORWARDED_FOR' => '198.51.100.7') }
+    assert_response :too_many_requests
+
+    post_login('REMOTE_ADDR' => '::ffff:10.0.0.5', 'HTTP_X_FORWARDED_FOR' => '198.51.100.8')
+    refute_equal 429, response.status, 'a second forwarded caller must not inherit the first budget'
+  end
+
+  test 'an IPv4-mapped peer is keyed on the IPv4 address it carries' do
+    11.times { post_login('REMOTE_ADDR' => '::ffff:203.0.113.9') }
+    post_login('REMOTE_ADDR' => '203.0.113.9')
+    assert_response :too_many_requests, 'one caller, one budget, however the socket spelled it'
   end
 
   test 'a malformed peer address is keyed on itself, not on its headers' do

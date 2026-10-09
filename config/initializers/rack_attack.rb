@@ -90,17 +90,29 @@ end
 # The bound that does not depend on IP attribution at all is the per-account one: sign-in,
 # the second factor and password reset are limited on the user row by :lockable.
 def (Rack::Attack).client_ip(req)
-  peer = req.env['REMOTE_ADDR'].presence
+  peer = canonical_ip(req.env['REMOTE_ADDR'].presence)
   return peer || 'unattributed' unless Deltabadger::Application.behind_proxy_from_env && trusted_proxy?(peer)
 
   req.env['action_dispatch.remote_ip']&.to_s.presence || peer
+end
+
+# A dual-stack socket hands an IPv4 peer over as ::ffff:a.b.c.d: that is the IPv4 address it
+# carries, for the trusted-proxy check and for the key alike (the Rust port's `to_canonical`).
+# Anything else, an address that does not parse included, is left as it came.
+def (Rack::Attack).canonical_ip(addr)
+  return addr if addr.nil?
+
+  ip = IPAddr.new(addr)
+  ip.ipv4_mapped? ? ip.native.to_s : addr
+rescue IPAddr::InvalidAddressError
+  addr
 end
 
 # The list ActionDispatch::RemoteIp walks the forwarded hops with.
 def (Rack::Attack).trusted_proxy?(addr)
   return false if addr.nil?
 
-  ip = IPAddr.new(addr)
+  ip = IPAddr.new(addr).native
   (Rails.application.config.action_dispatch.trusted_proxies || ActionDispatch::RemoteIp::TRUSTED_PROXIES).any? { |proxy| proxy === ip }
 rescue IPAddr::InvalidAddressError
   false
@@ -159,12 +171,17 @@ Rack::Attack.throttle('setup', limit: 5, period: 60) do |req|
   Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
 end
 
-# SETUP_TOKEN arrives as /setup?token=, so this GET is where it would be guessed. Any query
-# counts — parsing it here would hand Rack's parser to the caller ahead of the app, and every
-# spelling Rails reads as a token (token[]=, a repeated key) would need its own rule. A bare
-# GET only renders the form, and it is where the token redirect lands, so it is left free.
+# SETUP_TOKEN arrives as /setup?token=, so a GET (or a HEAD, which Rails routes to the same
+# action) is where it would be guessed. Rails reads body parameters on a GET too, so a body
+# counts as well as a query. Any query or body counts — parsing it here would hand Rack's parser
+# to the caller ahead of the app, and every spelling Rails reads as a token (token[]=, a repeated
+# key, JSON) would need its own rule. A bare GET only renders the form, and it is where the token
+# redirect lands, so it is left free.
 Rack::Attack.throttle('setup/token', limit: 5, period: 60) do |req|
-  Rack::Attack.client_ip(req) if req.get? && req.query_string.present? && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+  carries_input = req.query_string.present? || req.content_length.to_i.positive? || req.get_header('HTTP_TRANSFER_ENCODING').present?
+  if (req.get? || req.head?) && carries_input && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+    Rack::Attack.client_ip(req)
+  end
 end
 
 # Takes a claim code and spends an outbound call to the platform redeeming it.
