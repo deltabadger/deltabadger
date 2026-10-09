@@ -1208,7 +1208,8 @@ async fn action_http_fragments_locales_formats_and_hostile_drafts() -> Result<()
         assert_eq!(before,after);
         let hostile=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[interval]","<img src=x onerror=alert(1)>")]),Csrf::Header,&headers).await;
         assert_eq!(hostile.status,422,"{}",hostile.body);
-        assert!(hostile.body.contains("&lt;img") && !hostile.body.contains("<img src=x"));
+        // The unknown interval redraws the bot as stored (BotsController#update): the value is never echoed.
+        assert!(!hostile.body.contains("<img src=x") && !hostile.body.contains("&lt;img"),"{}",hostile.body);
         let bad=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[quote_amount]","7")]),Csrf::Header,&[("accept","text/html")]).await;
         assert_eq!(bad.status,406);
         let accepted=browser.send(&app,"POST",&format!("{path}.turbo_stream"),Some(&[("_method","patch"),("bots_dca_multi_asset[label]","Renamed")]),Csrf::Header,&[("accept","text/html")]).await;
