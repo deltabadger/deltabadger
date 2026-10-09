@@ -160,35 +160,22 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
 }
 
 /// Bot::Startable#disable_starting_time!, which Bot::ActionJob runs after a clean run of a bot whose starting time is on
-/// (action_job.rb:139): the rule turns off and, the settings having changed, Bot::Accountable captures the carry
-/// (set_missed_quote_amount: pending_quote_amount, QuoteAmountLimitable's cap included) and its before_save caps it at
-/// effective_quote_amount (`[missed_quote_amount.to_d, effective_quote_amount].min`, the first on a tie) and restarts the
-/// window (settings_changed_at). ActiveRecord writes transient_data only when the hash differs by Ruby's `==` from the one
-/// loaded: a carry numerically equal to the stored number, beside a present nil `missed_quote_amount_was_set`, leaves the
-/// column (and the stored 0 rather than "0.0") as it was. No-op when the rule is off (`start_time_enabled?` is false).
+/// (action_job.rb:139). With settings.start_at equal to started_at (the only start-time state the engine runs, see
+/// eligibility::start_time_reason) the schedule does not move, so Rails writes only the flag and updated_at
+/// (update_columns): no carry capture, the carry window (settings_changed_at) stays where it was, and an order of the first
+/// run still open counts later at what it fills. Rails' other branch (a start_at edited away from started_at captures the
+/// carry as a settings change) is refused here rather than ported. No-op when the rule is off.
 pub fn disable_starting_time(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     super::model::locked(c, |c| disable_locked(c, &super::model::load_bot(c, bot_id)?, now))
 }
 
 fn disable_locked(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
     if !crate::ruby::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
-    let mut carry = pending_quote_amount(c, bot, now.timestamp_micros())?;
-    if let Some(available) = quote_amount_available(c, bot)? { if available < carry { carry = available; } }
-    let key = if bot.smart_quote_amount().is_some() { "smart_interval_quote_amount" } else { "quote_amount" };
-    let raw = bot.settings.get(key).filter(|v| v.is_number()).ok_or_else(|| EngineError::Data(format!("{key} is not a number")))?;
-    let effective = BigDec::from_f64(raw.as_f64().ok_or_else(|| EngineError::Data(format!("{key} {raw}")))?).map_err(data)?;
-    let (value, stored) = if effective < carry { (effective, raw.clone()) } else { (carry.clone(), json!(carry.to_s_f())) };
-    let old = |k: &str| bot.transient.get(k);
-    let unchanged = old("missed_quote_amount").filter(|v| v.is_number())
-        .and_then(|v| v.as_i64().map(BigDec::from_i64).or_else(|| v.as_f64().and_then(|f| BigDec::from_f64(f).ok())))
-        .is_some_and(|stored| stored == value)
-        && old("missed_quote_amount_was_set") == Some(&Value::Null);
-    let at = format_time(now);
-    if !unchanged {
-        c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.missed_quote_amount', json(?2), '$.missed_quote_amount_was_set', json('null')) \
-                    WHERE id = ?1", params![bot.id, stored.to_string()])?;
+    let start_at = bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty());
+    if !start_at.is_none_or(|s| DateTime::parse_from_rfc3339(s).is_ok_and(|t| Some(t.timestamp_micros()) == bot.started_at_us)) {
+        return Err(EngineError::Data(format!("start_at {start_at:?} is not the bot's started_at")));
     }
-    c.execute("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false')), settings_changed_at = ?2, updated_at = ?2 WHERE id = ?1",
-              params![bot.id, at])?;
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false')), updated_at = ?2 WHERE id = ?1",
+              params![bot.id, format_time(now)])?;
     Ok(())
 }

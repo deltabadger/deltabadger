@@ -107,44 +107,51 @@ module StartTimeVectors
 
   # Bot::Lifecycle#start at `click`, then what Rails reads around the delayed first run, and Bot::Startable#disable_starting_time!
   # after a first run that bought `bought` (a closed buy, at T0 + 0.5 s): the carry it captures and the next run's amount.
+  # Then, after those, each schedule once more with the first run's order still open when the rule turns off and cancelled
+  # after it, having filled `bought` (`open`: true): the next run owes what it never filled.
   def schedule
     ActiveJob::Base.queue_adapter = :test
-    SCHEDULE.flat_map do |zone, click, settings, interval|
-      [nil, '60', '45.5'].map do |bought|
-        out = nil
-        ActiveRecord::Base.transaction do
-          ActiveJob::Base.queue_adapter.enqueued_jobs.clear
-          bot = travel_to(Time.iso8601(click) - 3600, with_usec: true) { basket(zone, settings.merge('start_time_enabled' => true, 'interval' => interval)) }
-          @id = bot.id
-          created = row(Bot.find(@id))
-          started = travel_to(Time.iso8601(click), with_usec: true) { Bot.find(@id).start(start_fresh: true) }
-          raise "start refused: #{Bot.find(@id).errors.full_messages}" unless started
+    SCHEDULE.flat_map { |s| [nil, '60', '45.5'].map { |bought| one(*s, bought, false) } } +
+      SCHEDULE.map { |s| one(*s, '15', true) }
+  end
 
-          job = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |j| j['job_class'] == 'Bot::ActionJob' }
-          t0 = Bot.find(@id).started_at
-          step = Bot.find(@id).effective_interval_duration
-          out = { 'zone' => zone, 'click' => click, 'settings' => settings, 'interval' => interval, 'bought' => bought,
-                  'created' => created['transient_data'], 'started' => row(Bot.find(@id)), 'wait_until' => iso(Time.at(job.fetch('scheduled_at').then { |s| s.is_a?(String) ? Time.iso8601(s) : s })) }
-          out['reads'] = [Rational(-1, 1_000_000), 0, Rational(1, 1_000_000), Rational(1, 2)].map { |dt| travel_to(t0 + dt, with_usec: true) { at(t0 + dt) } }
-          if bought
-            stamp = t0 + Rational(1, 2)
-            Transaction.insert!({ 'bot_id' => @id, 'exchange_id' => bot.exchange_id, 'base_asset_id' => Asset.find_by!(symbol: 'BTC').id,
-                                  'quote_asset_id' => Asset.find_by!(symbol: 'EUR').id, 'base' => 'BTC', 'quote' => 'EUR', 'side' => 0, 'status' => 0,
-                                  'external_status' => 2, 'external_id' => 'OSTART-1', 'order_type' => 0, 'transaction_type' => 'REGULAR',
-                                  'quote_amount' => '60', 'quote_amount_exec' => bought, 'amount_exec' => '0.001', 'price' => '50000',
-                                  'bot_interval' => interval, 'bot_quote_amount' => 60, 'error_messages' => [], 'created_at' => stamp, 'updated_at' => stamp })
-            disabled_at = t0 + Rational(3, 4)
-            travel_to(disabled_at, with_usec: true) { Bot.find(@id).disable_starting_time! }
-            out['disabled_at'] = iso(disabled_at)
-            out['disabled'] = row(Bot.find(@id))
-            later = t0 + step + 1
-            out['second'] = travel_to(later, with_usec: true) { at(later) }
-          end
-          raise ActiveRecord::Rollback
+  def one(zone, click, settings, interval, bought, open)
+    out = nil
+    ActiveRecord::Base.transaction do
+      ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+      bot = travel_to(Time.iso8601(click) - 3600, with_usec: true) { basket(zone, settings.merge('start_time_enabled' => true, 'interval' => interval)) }
+      @id = bot.id
+      created = row(Bot.find(@id))
+      started = travel_to(Time.iso8601(click), with_usec: true) { Bot.find(@id).start(start_fresh: true) }
+      raise "start refused: #{Bot.find(@id).errors.full_messages}" unless started
+
+      job = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |j| j['job_class'] == 'Bot::ActionJob' }
+      t0 = Bot.find(@id).started_at
+      step = Bot.find(@id).effective_interval_duration
+      out = { 'zone' => zone, 'click' => click, 'settings' => settings, 'interval' => interval, 'bought' => bought,
+              'created' => created['transient_data'], 'started' => row(Bot.find(@id)), 'wait_until' => iso(Time.at(job.fetch('scheduled_at').then { |s| s.is_a?(String) ? Time.iso8601(s) : s })) }
+      out['reads'] = [Rational(-1, 1_000_000), 0, Rational(1, 1_000_000), Rational(1, 2)].map { |dt| travel_to(t0 + dt, with_usec: true) { at(t0 + dt) } }
+      if bought
+        stamp = t0 + Rational(1, 2)
+        Transaction.insert!({ 'bot_id' => @id, 'exchange_id' => bot.exchange_id, 'base_asset_id' => Asset.find_by!(symbol: 'BTC').id,
+                              'quote_asset_id' => Asset.find_by!(symbol: 'EUR').id, 'base' => 'BTC', 'quote' => 'EUR', 'side' => 0, 'status' => 0,
+                              'external_status' => open ? 1 : 2, 'external_id' => 'OSTART-1', 'order_type' => 0, 'transaction_type' => 'REGULAR',
+                              'quote_amount' => '60', 'quote_amount_exec' => open ? nil : bought, 'amount_exec' => open ? nil : '0.001', 'price' => '50000',
+                              'bot_interval' => interval, 'bot_quote_amount' => 60, 'error_messages' => [], 'created_at' => stamp, 'updated_at' => stamp })
+        disabled_at = t0 + Rational(3, 4)
+        travel_to(disabled_at, with_usec: true) { Bot.find(@id).disable_starting_time! }
+        out['disabled_at'] = iso(disabled_at)
+        out['disabled'] = row(Bot.find(@id))
+        if open
+          out['open'] = true
+          Transaction.where(bot_id: @id).update_all(external_status: 3, quote_amount_exec: bought)
         end
-        out
+        later = t0 + step + 1
+        out['second'] = travel_to(later, with_usec: true) { at(later) }
       end
+      raise ActiveRecord::Rollback
     end
+    out
   end
 end
 
