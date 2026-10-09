@@ -14,7 +14,7 @@ class AnswerRedeployOfferTool < ApplicationMCPTool
     result = BotApi::Bots::AnswerRedeploy.call(user: current_user, bot_id: bot_id, accept: accept,
                                                dry_run: current_user.mcp_dry_run?)
     prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
-    return render(text: "#{prefix}#{result.error_message}") unless result.success?
+    return report_error("#{prefix}#{result.error_message}") unless result.success?
 
     verb = if result.data[:dry_run]
              result.data[:accepted] ? 'Would redeploy' : 'Would decline redeploying'

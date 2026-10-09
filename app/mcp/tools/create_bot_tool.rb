@@ -41,7 +41,7 @@ class CreateBotTool < ApplicationMCPTool
       start_at: start_at
     )
 
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     d = result.data
     pair_summary = "#{d[:pair]} on #{d[:exchange]}, #{quote_amount} #{quote_asset.to_s.upcase}/#{interval}."

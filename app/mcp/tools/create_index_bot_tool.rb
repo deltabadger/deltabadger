@@ -22,7 +22,7 @@ class CreateIndexBotTool < ApplicationMCPTool
       interval: interval, index: index, num_coins: num_coins, allocation_flattening: allocation_flattening,
       label: label, start_at: start_at
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     d = result.data
     render text: "Bot '#{d[:label]}' created and started — #{d[:index]} top #{d[:num_coins]} on " \

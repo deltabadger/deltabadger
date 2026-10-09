@@ -20,7 +20,7 @@ class CreateRuleTool < ApplicationMCPTool
       address_tag: address_tag, network: network, withdrawal_percentage: withdrawal_percentage,
       threshold_type: threshold_type, max_fee_percentage: max_fee_percentage, min_amount: min_amount
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     d = result.data
     render text: "Rule ##{d[:id]} created (stopped): #{d[:withdrawal_percentage]}% of #{d[:asset]} on " \

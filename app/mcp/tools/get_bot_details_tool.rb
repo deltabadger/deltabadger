@@ -9,7 +9,7 @@ class GetBotDetailsTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Bots::Get.call(user: current_user, bot_id: bot_id)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: present(result.data)
   end
@@ -38,7 +38,7 @@ class GetBotDetailsTool < ApplicationMCPTool
     lines << "Interval: #{data[:interval] || 'N/A'}"
     lines << "Amount per order: #{data[:quote_amount]} #{data[:quote_asset]}"
     lines << "Orders executed: #{data[:orders_executed]}"
-    lines << "Started: #{data[:started_at].strftime('%Y-%m-%d %H:%M UTC')}" if data[:started_at]
+    lines << "Started: #{data[:started_at].strftime('%Y-%m-%d %H:%M %Z')}" if data[:started_at]
 
     if data[:metrics]
       metrics = data[:metrics]

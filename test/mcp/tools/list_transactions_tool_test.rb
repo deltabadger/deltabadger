@@ -57,5 +57,16 @@ class ListTransactionsToolTest < ActiveSupport::TestCase
     text = response.contents.first.text
 
     assert_equal 'Bot not found.', text
+    assert response.error?, 'a failed call must carry isError'
+    assert response.to_h[:isError]
+  end
+
+  test 'a stored price of zero prints no price' do
+    bot = create(:dca_single_asset, user: @user)
+    create(:transaction, bot: bot, status: :submitted, amount_exec: 0.001, price: 0, quote_amount_exec: 50)
+
+    text = ListTransactionsTool.call.contents.first.text
+
+    assert_no_match(/@/, text)
   end
 end

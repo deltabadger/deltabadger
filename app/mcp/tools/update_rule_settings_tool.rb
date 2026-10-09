@@ -19,7 +19,7 @@ class UpdateRuleSettingsTool < ApplicationMCPTool
       min_amount: min_amount,
       threshold_type: threshold_type
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: "Rule ##{result.data[:id]} settings updated: #{result.data[:updated].join(', ')}."
   end

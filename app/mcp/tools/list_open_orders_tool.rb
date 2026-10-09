@@ -9,7 +9,7 @@ class ListOpenOrdersTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Orders::ListOpen.call(user: current_user, exchange_name: exchange_name)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     if result.data[:count].zero? && result.data[:unavailable].blank?
       render text: 'No open orders found.'

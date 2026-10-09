@@ -19,7 +19,7 @@ class ListAccountTransactionsTool < ApplicationMCPTool
       exchange_id: exchange_id, from_date: from_date, to_date: to_date,
       entry_type: entry_type, limit: limit
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     if result.data[:count].zero?
       render text: 'No account transactions found.'

@@ -10,7 +10,7 @@ class GetExchangeBalancesTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Exchanges::Balances.call(user: current_user, exchange_name: exchange_name)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     data = result.data
     if data[:count].zero?
