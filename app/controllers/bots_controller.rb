@@ -98,7 +98,7 @@ class BotsController < ApplicationController
       @next_cursor = feed.next_cursor
       @decimals = feed_decimals(@bot)
     else
-      @other_bots = current_user.bots.not_deleted.not_archived.ordered.where.not(id: @bot.id).pluck(:id, :label, :type)
+      @other_bots = current_user.bots.not_deleted.not_archived.ordered.where.not(id: @bot.id).map { |bot| [bot.id, bot.label, bot.type] }
       # Build index preview from bot's current state
       @index_preview = @bot.current_index_preview if @bot.dca_index?
 

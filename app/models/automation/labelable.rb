@@ -8,12 +8,20 @@ module Automation::Labelable
     # fills those in one step at a time on an in-memory bot.
     before_validation :set_default_label, if: -> { label.blank? }
     after_find :ensure_label_exists
+    after_save { @label_unsaved = false }
   end
 
   # What the bot holds, said the way the user would say it. Each type overrides this; nil means
   # there is nothing to read a name from (a settings-less bot, an asset row that went away).
   def default_label
     nil
+  end
+
+  # Assigning the shown name of a bot loaded without one is naming it on purpose: the value equals
+  # what is in memory, so mark it changed or the save would leave the row unnamed.
+  def label=(value)
+    super
+    label_will_change! if @label_unsaved && value.present?
   end
 
   private
@@ -30,6 +38,7 @@ module Automation::Labelable
 
     self.label = generate_label
     clear_attribute_changes([:label])
+    @label_unsaved = true
   end
 
   def generate_label

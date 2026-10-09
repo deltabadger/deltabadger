@@ -57,6 +57,27 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     end
   end
 
+  # The shown name is the bot's name: saving it on purpose writes it, so later settings changes
+  # cannot rename the bot behind the user's back.
+  test 'saving the shown name of a bot loaded without one writes it' do
+    bot = create(:dca_single_asset, user: @user, base_asset: @btc, quote_asset: @usd)
+    bot.update_columns(label: nil)
+
+    loaded = Bot.find(bot.id)
+    loaded.update!(label: loaded.label)
+
+    assert_equal 'Bitcoin', Bot.where(id: bot.id).pick(:label)
+  end
+
+  test 'a save that names nothing leaves a bot loaded without a name unnamed' do
+    bot = create(:dca_single_asset, user: @user, base_asset: @btc, quote_asset: @usd)
+    bot.update_columns(label: nil)
+
+    Bot.find(bot.id).update!(status: :stopped)
+
+    assert_nil Bot.where(id: bot.id).pick(:label)
+  end
+
   # --- a basket of assets ------------------------------------------------------
 
   test 'a two-asset bot is named by its tickers' do
