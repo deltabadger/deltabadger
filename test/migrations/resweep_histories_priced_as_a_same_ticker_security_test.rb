@@ -1,5 +1,5 @@
 require 'test_helper'
-require Rails.root.join('db/migrate/20261009120000_resweep_histories_priced_as_a_same_ticker_security.rb')
+require Rails.root.join('db/migrate/20261009130000_resweep_histories_priced_as_a_same_ticker_security.rb')
 
 # Before a broker holding was valued by the asset its rows recorded, a coin at Alpaca was priced as
 # any security the catalogue had under its ticker. Those histories are complete and their rows
