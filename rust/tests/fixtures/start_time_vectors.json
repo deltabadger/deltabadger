@@ -1,6 +1,6 @@
 {
   "ported_sources": {
-    "app/models/bot/startable.rb": "87af738e7acbc31a69e58fa5466cabc390d993a67312d219b62008159445f80a",
+    "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
     "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
     "app/models/automation/schedulable.rb": "34b176eabd069a9ed76e73cf08639429e9c8ca17e6be69bae4def1f07225e14b",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
@@ -127,11 +127,11 @@
           "start_at": "2026-09-11T13:45:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "0.0",
+          "missed_quote_amount": null,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-11 13:45:00",
-        "settings_changed_at": "2026-09-11 13:45:00.750000"
+        "settings_changed_at": "2026-09-10 11:00:30.123456"
       },
       "second": {
         "next": "2026-09-13T13:45:00.000000Z",
@@ -203,11 +203,11 @@
           "start_at": "2026-09-11T13:45:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": null,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-11 13:45:00",
-        "settings_changed_at": "2026-09-11 13:45:00.750000"
+        "settings_changed_at": "2026-09-10 11:00:30.123456"
       },
       "second": {
         "next": "2026-09-13T13:45:00.000000Z",
@@ -341,7 +341,7 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 13:45:00",
-        "settings_changed_at": "2026-09-10 13:45:00.750000"
+        "settings_changed_at": "2026-09-10 12:00:30.123456"
       },
       "second": {
         "next": "2026-09-12T13:45:00.000000Z",
@@ -415,11 +415,11 @@
           "start_at": "2026-09-10T13:45:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": 0,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 13:45:00",
-        "settings_changed_at": "2026-09-10 13:45:00.750000"
+        "settings_changed_at": "2026-09-10 12:00:30.123456"
       },
       "second": {
         "next": "2026-09-12T13:45:00.000000Z",
@@ -553,7 +553,7 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 07:30:00",
-        "settings_changed_at": "2026-09-10 07:30:00.750000"
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
       },
       "second": {
         "next": "2026-09-12T07:30:00.000000Z",
@@ -627,11 +627,11 @@
           "start_at": "2026-09-10T07:30:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": 0,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 07:30:00",
-        "settings_changed_at": "2026-09-10 07:30:00.750000"
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
       },
       "second": {
         "next": "2026-09-12T07:30:00.000000Z",
@@ -765,7 +765,7 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-11 13:30:00",
-        "settings_changed_at": "2026-09-11 13:30:00.750000"
+        "settings_changed_at": "2026-09-10 12:00:00.250000"
       },
       "second": {
         "next": "2026-09-25T13:30:00.000000Z",
@@ -839,11 +839,11 @@
           "start_at": "2026-09-11T13:30:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": 0,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-11 13:30:00",
-        "settings_changed_at": "2026-09-11 13:30:00.750000"
+        "settings_changed_at": "2026-09-10 12:00:00.250000"
       },
       "second": {
         "next": "2026-09-25T13:30:00.000000Z",
@@ -977,7 +977,7 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-03-29 01:30:00",
-        "settings_changed_at": "2026-03-29 01:30:00.750000"
+        "settings_changed_at": "2026-03-28 12:00:00.500000"
       },
       "second": {
         "next": "2026-04-12T01:30:00.000000Z",
@@ -1051,11 +1051,11 @@
           "start_at": "2026-03-29T01:30:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": 0,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-03-29 01:30:00",
-        "settings_changed_at": "2026-03-29 01:30:00.750000"
+        "settings_changed_at": "2026-03-28 12:00:00.500000"
       },
       "second": {
         "next": "2026-04-12T01:30:00.000000Z",
@@ -1189,7 +1189,7 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-11-01 05:30:00",
-        "settings_changed_at": "2026-11-01 05:30:00.750000"
+        "settings_changed_at": "2026-10-31 12:00:00"
       },
       "second": {
         "next": "2026-11-01T07:30:00.000000Z",
@@ -1263,11 +1263,11 @@
           "start_at": "2026-11-01T05:30:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": 0,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-11-01 05:30:00",
-        "settings_changed_at": "2026-11-01 05:30:00.750000"
+        "settings_changed_at": "2026-10-31 12:00:00"
       },
       "second": {
         "next": "2026-11-01T07:30:00.000000Z",
@@ -1401,12 +1401,12 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-01-31 14:59:00",
-        "settings_changed_at": "2026-01-31 14:59:00.750000"
+        "settings_changed_at": "2026-01-30 03:00:00"
       },
       "second": {
         "next": "2026-03-28T14:59:00.000000Z",
         "last": "2026-02-28T14:59:00.000000Z",
-        "pending": "60.0",
+        "pending": "0.0",
         "now": "2026-02-28T14:59:01.000000Z"
       }
     },
@@ -1479,12 +1479,12 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-01-31 14:59:00",
-        "settings_changed_at": "2026-01-31 14:59:00.750000"
+        "settings_changed_at": "2026-01-30 03:00:00"
       },
       "second": {
         "next": "2026-03-28T14:59:00.000000Z",
         "last": "2026-02-28T14:59:00.000000Z",
-        "pending": "60.0",
+        "pending": "14.5",
         "now": "2026-02-28T14:59:01.000000Z"
       }
     },
@@ -1617,12 +1617,12 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 07:30:00",
-        "settings_changed_at": "2026-09-10 07:30:00.750000"
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
       },
       "second": {
         "next": "2026-09-10T23:30:00.000000Z",
         "last": "2026-09-10T15:30:00.000000Z",
-        "pending": "20.0",
+        "pending": "0.0",
         "now": "2026-09-10T15:30:01.000000Z"
       }
     },
@@ -1697,12 +1697,12 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 07:30:00",
-        "settings_changed_at": "2026-09-10 07:30:00.750000"
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
       },
       "second": {
         "next": "2026-09-10T23:30:00.000000Z",
         "last": "2026-09-10T15:30:00.000000Z",
-        "pending": "20.0",
+        "pending": "0.0",
         "now": "2026-09-10T15:30:01.000000Z"
       }
     },
@@ -1835,7 +1835,7 @@
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 07:30:00",
-        "settings_changed_at": "2026-09-10 07:30:00.750000"
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
       },
       "second": {
         "next": "2026-09-24T07:30:00.000000Z",
@@ -1911,16 +1911,729 @@
           "start_at": "2026-09-10T07:30:00Z"
         },
         "transient_data": {
-          "missed_quote_amount": "14.5",
+          "missed_quote_amount": 0,
           "missed_quote_amount_was_set": null
         },
         "started_at": "2026-09-10 07:30:00",
-        "settings_changed_at": "2026-09-10 07:30:00.750000"
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
       },
       "second": {
         "next": "2026-09-24T07:30:00.000000Z",
         "last": "2026-09-17T07:30:00.000000Z",
         "pending": "74.5",
+        "now": "2026-09-17T07:30:01.000000Z"
+      }
+    },
+    {
+      "zone": "UTC",
+      "click": "2026-09-10T12:00:30.123456Z",
+      "settings": {
+        "start_time_mode": "date",
+        "start_at": "2026-09-11T13:45:00Z"
+      },
+      "interval": "day",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "date",
+          "start_at": "2026-09-11T13:45:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": null,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-11 13:45:00",
+        "settings_changed_at": "2026-09-10 11:00:30.123456"
+      },
+      "wait_until": "2026-09-11T13:45:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-09-11T13:45:00.000000Z",
+          "last": "2026-09-10T13:45:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-11T13:44:59.999999Z"
+        },
+        {
+          "next": "2026-09-11T13:45:00.000000Z",
+          "last": "2026-09-10T13:45:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-11T13:45:00.000000Z"
+        },
+        {
+          "next": "2026-09-12T13:45:00.000000Z",
+          "last": "2026-09-11T13:45:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-11T13:45:00.000001Z"
+        },
+        {
+          "next": "2026-09-12T13:45:00.000000Z",
+          "last": "2026-09-11T13:45:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-11T13:45:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-09-11T13:45:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "date",
+          "start_at": "2026-09-11T13:45:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": null,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-11 13:45:00",
+        "settings_changed_at": "2026-09-10 11:00:30.123456"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-09-13T13:45:00.000000Z",
+        "last": "2026-09-12T13:45:00.000000Z",
+        "pending": "105.0",
+        "now": "2026-09-12T13:45:01.000000Z"
+      }
+    },
+    {
+      "zone": "UTC",
+      "click": "2026-09-10T12:00:30.123456Z",
+      "settings": {
+        "start_time_mode": "hour",
+        "start_time_of_day": "13:45"
+      },
+      "interval": "day",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "hour",
+          "start_time_of_day": "13:45",
+          "start_at": "2026-09-10T13:45:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 13:45:00",
+        "settings_changed_at": "2026-09-10 12:00:30.123456"
+      },
+      "wait_until": "2026-09-10T13:45:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-09-10T13:45:00.000000Z",
+          "last": "2026-09-09T13:45:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T13:44:59.999999Z"
+        },
+        {
+          "next": "2026-09-10T13:45:00.000000Z",
+          "last": "2026-09-09T13:45:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T13:45:00.000000Z"
+        },
+        {
+          "next": "2026-09-11T13:45:00.000000Z",
+          "last": "2026-09-10T13:45:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T13:45:00.000001Z"
+        },
+        {
+          "next": "2026-09-11T13:45:00.000000Z",
+          "last": "2026-09-10T13:45:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T13:45:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-09-10T13:45:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "hour",
+          "start_time_of_day": "13:45",
+          "start_at": "2026-09-10T13:45:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 13:45:00",
+        "settings_changed_at": "2026-09-10 12:00:30.123456"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-09-12T13:45:00.000000Z",
+        "last": "2026-09-11T13:45:00.000000Z",
+        "pending": "105.0",
+        "now": "2026-09-11T13:45:01.000000Z"
+      }
+    },
+    {
+      "zone": "Warsaw",
+      "click": "2026-09-10T05:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "hour",
+        "start_time_of_day": "09:30"
+      },
+      "interval": "day",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "hour",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-10T07:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 07:30:00",
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
+      },
+      "wait_until": "2026-09-10T07:30:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:29:59.999999Z"
+        },
+        {
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:30:00.000000Z"
+        },
+        {
+          "next": "2026-09-11T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T07:30:00.000001Z"
+        },
+        {
+          "next": "2026-09-11T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T07:30:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-09-10T07:30:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "hour",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-10T07:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 07:30:00",
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-09-12T07:30:00.000000Z",
+        "last": "2026-09-11T07:30:00.000000Z",
+        "pending": "105.0",
+        "now": "2026-09-11T07:30:01.000000Z"
+      }
+    },
+    {
+      "zone": "Eastern Time (US & Canada)",
+      "click": "2026-09-10T12:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "friday",
+        "start_time_of_day": "09:30"
+      },
+      "interval": "week",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "friday",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-11T13:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-11 13:30:00",
+        "settings_changed_at": "2026-09-10 12:00:00.250000"
+      },
+      "wait_until": "2026-09-11T13:30:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-09-11T13:30:00.000000Z",
+          "last": "2026-09-04T13:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-11T13:29:59.999999Z"
+        },
+        {
+          "next": "2026-09-11T13:30:00.000000Z",
+          "last": "2026-09-04T13:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-11T13:30:00.000000Z"
+        },
+        {
+          "next": "2026-09-18T13:30:00.000000Z",
+          "last": "2026-09-11T13:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-11T13:30:00.000001Z"
+        },
+        {
+          "next": "2026-09-18T13:30:00.000000Z",
+          "last": "2026-09-11T13:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-11T13:30:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-09-11T13:30:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "friday",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-11T13:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-11 13:30:00",
+        "settings_changed_at": "2026-09-10 12:00:00.250000"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-09-25T13:30:00.000000Z",
+        "last": "2026-09-18T13:30:00.000000Z",
+        "pending": "105.0",
+        "now": "2026-09-18T13:30:01.000000Z"
+      }
+    },
+    {
+      "zone": "Warsaw",
+      "click": "2026-03-28T12:00:00.500000Z",
+      "settings": {
+        "start_time_mode": "sunday",
+        "start_time_of_day": "02:30"
+      },
+      "interval": "week",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "sunday",
+          "start_time_of_day": "02:30",
+          "start_at": "2026-03-29T01:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-03-29 01:30:00",
+        "settings_changed_at": "2026-03-28 12:00:00.500000"
+      },
+      "wait_until": "2026-03-29T01:30:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-03-29T01:30:00.000000Z",
+          "last": "2026-03-22T01:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-03-29T01:29:59.999999Z"
+        },
+        {
+          "next": "2026-03-29T01:30:00.000000Z",
+          "last": "2026-03-22T01:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-03-29T01:30:00.000000Z"
+        },
+        {
+          "next": "2026-04-05T01:30:00.000000Z",
+          "last": "2026-03-29T01:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-03-29T01:30:00.000001Z"
+        },
+        {
+          "next": "2026-04-05T01:30:00.000000Z",
+          "last": "2026-03-29T01:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-03-29T01:30:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-03-29T01:30:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "sunday",
+          "start_time_of_day": "02:30",
+          "start_at": "2026-03-29T01:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-03-29 01:30:00",
+        "settings_changed_at": "2026-03-28 12:00:00.500000"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-04-12T01:30:00.000000Z",
+        "last": "2026-04-05T01:30:00.000000Z",
+        "pending": "105.0",
+        "now": "2026-04-05T01:30:01.000000Z"
+      }
+    },
+    {
+      "zone": "Eastern Time (US & Canada)",
+      "click": "2026-10-31T12:00:00Z",
+      "settings": {
+        "start_time_mode": "sunday",
+        "start_time_of_day": "01:30"
+      },
+      "interval": "hour",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "sunday",
+          "start_time_of_day": "01:30",
+          "start_at": "2026-11-01T05:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-11-01 05:30:00",
+        "settings_changed_at": "2026-10-31 12:00:00"
+      },
+      "wait_until": "2026-11-01T05:30:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-11-01T05:30:00.000000Z",
+          "last": "2026-11-01T04:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-11-01T05:29:59.999999Z"
+        },
+        {
+          "next": "2026-11-01T05:30:00.000000Z",
+          "last": "2026-11-01T04:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-11-01T05:30:00.000000Z"
+        },
+        {
+          "next": "2026-11-01T06:30:00.000000Z",
+          "last": "2026-11-01T05:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-11-01T05:30:00.000001Z"
+        },
+        {
+          "next": "2026-11-01T06:30:00.000000Z",
+          "last": "2026-11-01T05:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-11-01T05:30:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-11-01T05:30:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "sunday",
+          "start_time_of_day": "01:30",
+          "start_at": "2026-11-01T05:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-11-01 05:30:00",
+        "settings_changed_at": "2026-10-31 12:00:00"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-11-01T07:30:00.000000Z",
+        "last": "2026-11-01T06:30:00.000000Z",
+        "pending": "105.0",
+        "now": "2026-11-01T06:30:01.000000Z"
+      }
+    },
+    {
+      "zone": "Tokyo",
+      "click": "2026-01-30T03:00:00Z",
+      "settings": {
+        "start_time_mode": "saturday",
+        "start_time_of_day": "23:59"
+      },
+      "interval": "month",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "saturday",
+          "start_time_of_day": "23:59",
+          "start_at": "2026-01-31T14:59:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-01-31 14:59:00",
+        "settings_changed_at": "2026-01-30 03:00:00"
+      },
+      "wait_until": "2026-01-31T14:59:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-01-31T14:59:00.000000Z",
+          "last": "2025-12-31T14:59:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-01-31T14:58:59.999999Z"
+        },
+        {
+          "next": "2026-02-28T14:59:00.000000Z",
+          "last": "2026-01-28T14:59:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-01-31T14:59:00.000000Z"
+        },
+        {
+          "next": "2026-02-28T14:59:00.000000Z",
+          "last": "2026-01-28T14:59:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-01-31T14:59:00.000001Z"
+        },
+        {
+          "next": "2026-02-28T14:59:00.000000Z",
+          "last": "2026-01-28T14:59:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-01-31T14:59:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-01-31T14:59:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "saturday",
+          "start_time_of_day": "23:59",
+          "start_at": "2026-01-31T14:59:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-01-31 14:59:00",
+        "settings_changed_at": "2026-01-30 03:00:00"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-03-28T14:59:00.000000Z",
+        "last": "2026-02-28T14:59:00.000000Z",
+        "pending": "45.0",
+        "now": "2026-02-28T14:59:01.000000Z"
+      }
+    },
+    {
+      "zone": "Warsaw",
+      "click": "2026-09-10T05:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "hour",
+        "start_time_of_day": "09:30",
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 20.0
+      },
+      "interval": "day",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "hour",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-10T07:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 07:30:00",
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
+      },
+      "wait_until": "2026-09-10T07:30:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T23:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:29:59.999999Z"
+        },
+        {
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-09T23:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:30:00.000000Z"
+        },
+        {
+          "next": "2026-09-10T15:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "20.0",
+          "now": "2026-09-10T07:30:00.000001Z"
+        },
+        {
+          "next": "2026-09-10T15:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "20.0",
+          "now": "2026-09-10T07:30:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-09-10T07:30:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "hour",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-10T07:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 07:30:00",
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-09-10T23:30:00.000000Z",
+        "last": "2026-09-10T15:30:00.000000Z",
+        "pending": "25.0",
+        "now": "2026-09-10T15:30:01.000000Z"
+      }
+    },
+    {
+      "zone": "Warsaw",
+      "click": "2026-09-10T05:00:00.250000Z",
+      "settings": {
+        "start_time_mode": "hour",
+        "start_time_of_day": "09:30",
+        "limit_ordered": true,
+        "limit_order_pcnt_distance": 0.0025
+      },
+      "interval": "week",
+      "bought": "15",
+      "created": {
+        "missed_quote_amount": 0,
+        "missed_quote_amount_was_set": null
+      },
+      "started": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": true,
+          "start_time_mode": "hour",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-10T07:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 07:30:00",
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
+      },
+      "wait_until": "2026-09-10T07:30:00.000000Z",
+      "reads": [
+        {
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-03T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:29:59.999999Z"
+        },
+        {
+          "next": "2026-09-10T07:30:00.000000Z",
+          "last": "2026-09-03T07:30:00.000000Z",
+          "pending": "0.0",
+          "now": "2026-09-10T07:30:00.000000Z"
+        },
+        {
+          "next": "2026-09-17T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T07:30:00.000001Z"
+        },
+        {
+          "next": "2026-09-17T07:30:00.000000Z",
+          "last": "2026-09-10T07:30:00.000000Z",
+          "pending": "60.0",
+          "now": "2026-09-10T07:30:00.500000Z"
+        }
+      ],
+      "disabled_at": "2026-09-10T07:30:00.750000Z",
+      "disabled": {
+        "status": 1,
+        "settings": {
+          "start_time_enabled": false,
+          "start_time_mode": "hour",
+          "start_time_of_day": "09:30",
+          "start_at": "2026-09-10T07:30:00Z"
+        },
+        "transient_data": {
+          "missed_quote_amount": 0,
+          "missed_quote_amount_was_set": null
+        },
+        "started_at": "2026-09-10 07:30:00",
+        "settings_changed_at": "2026-09-10 05:00:00.250000"
+      },
+      "open": true,
+      "second": {
+        "next": "2026-09-24T07:30:00.000000Z",
+        "last": "2026-09-17T07:30:00.000000Z",
+        "pending": "105.0",
         "now": "2026-09-17T07:30:01.000000Z"
       }
     }

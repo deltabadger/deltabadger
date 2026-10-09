@@ -45,25 +45,31 @@ fn the_amount_and_the_disable_match_rails() {
         }
         let Some(bought) = v["bought"].as_str() else { continue };
         let t0: DateTime<Utc> = deltabadger::codec::parse_time(v["started"]["started_at"].as_str().unwrap()).unwrap();
-        // The first run's closed buy, as the recorder wrote it.
+        // The first run's buy, as the recorder wrote it: closed, or (`open`) still open when the rule turns off.
+        let open = v["open"] == json!(true);
         c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, quote_amount, quote_amount_exec, \
                    amount_exec, price, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
-                   VALUES (?1, ?2, 'OSTART-1', 0, 2, 0, 0, '60', ?3, '0.001', '50000', 'BTC', 'EUR', ?4, ?5, ?6, 60, 'REGULAR', '[]', ?7, ?7)",
-                  rusqlite::params![id, s.exchange_id, bought, s.btc, s.quote, v["interval"].as_str(),
-                                    deltabadger::codec::format_time(t0 + chrono::Duration::milliseconds(500))]).unwrap();
+                   VALUES (?1, ?2, 'OSTART-1', 0, ?8, 0, 0, '60', ?3, ?9, '50000', 'BTC', 'EUR', ?4, ?5, ?6, 60, 'REGULAR', '[]', ?7, ?7)",
+                  rusqlite::params![id, s.exchange_id, (!open).then_some(bought), s.btc, s.quote, v["interval"].as_str(),
+                                    deltabadger::codec::format_time(t0 + chrono::Duration::milliseconds(500)),
+                                    if open { 1 } else { 2 }, (!open).then_some("0.001")]).unwrap();
         amount::disable_starting_time(c, id, time(&v["disabled_at"])).unwrap();
         let (settings, transient, changed) = stored(c, id);
         let rails = &v["disabled"];
         assert_eq!(settings["start_time_enabled"], json!(false), "{v}");
         assert_eq!(transient, rails["transient_data"], "the carry and its marker, as Rails stores them: {v}");
-        assert_eq!(changed, rails["settings_changed_at"].as_str().unwrap(), "the window restarts");
+        assert_eq!(changed, rails["settings_changed_at"].as_str().unwrap(), "the window stays where the start put it: {v}");
+        if open {
+            // Cancelled after the rule turned off, having filled `bought`: what it never filled is owed with the next run.
+            c.execute("UPDATE transactions SET external_status = 3, quote_amount_exec = ?2 WHERE bot_id = ?1", rusqlite::params![id, bought]).unwrap();
+        }
         assert_eq!(pending(time(&v["second"]["now"])), dec(v["second"]["pending"].as_str().unwrap()), "the next run's amount: {v}");
         // A second call is a no-op: the rule is off.
         amount::disable_starting_time(c, id, time(&v["second"]["now"])).unwrap();
         assert_eq!(stored(c, id).2, changed);
         disables += 1;
     }
-    assert_eq!((reads, disables), (108, 18));
+    assert_eq!((reads, disables), (144, 27));
 }
 
 fn engine(spec: &BotSpec, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64) {

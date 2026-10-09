@@ -93,7 +93,7 @@ fn the_checkpoints_around_the_first_run_match_rails() {
             n += 1;
         }
     }
-    assert_eq!(n, 27 * 4 + 18);
+    assert_eq!(n, 36 * 4 + 27);
 }
 
 #[test]
