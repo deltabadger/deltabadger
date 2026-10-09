@@ -836,8 +836,8 @@ cs:
             exempt_time_test: Osvobozeno (časový test)
             exempt_value_test: Osvobozeno (hodnotový test)
             taxable_gain: Zdanitelný zisk
-            yes: Ano
-            no: Ne
+            "yes": Ano
+            "no": Ne
             tax_percent: Daň (%{pct}%)
             total_value: 'Celková hodnota'
             allowance: 'Nezdanitelná částka'

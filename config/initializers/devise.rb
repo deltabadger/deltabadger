@@ -162,7 +162,9 @@ Devise.setup do |config|
 
   # Options to be passed to the created cookie. For instance, you can set
   # secure: true in order to force SSL only cookies.
-  config.rememberable_options = { secure: true }
+  # Same signal as the session cookie (config/application.rb): a Secure cookie is never sent back
+  # over plain http, so a self-hosted http install would never be remembered.
+  config.rememberable_options = { secure: Deltabadger::Application.force_ssl_from_env }
 
   # ==> Configuration for :validatable
   # Range for password length.

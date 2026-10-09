@@ -52,9 +52,11 @@ cs:
             signed_out: 'Odhlášení proběhlo úspěšně.'
             already_signed_out: 'Odhlášení proběhlo úspěšně.'
             two_factor:
+                title: "Dvoufázové ověření"
                 submit: "Ověřit"
                 invalid_code: "Nesprávný kód. Zkuste to znovu."
         failure:
+            locked: 'Váš účet je uzamčen.'
             already_authenticated: 'Již jste přihlášeni.'
             inactive: 'Váš účet ještě není aktivován.'
             invalid: 'Neplatný %{authentication_keys} nebo heslo.'

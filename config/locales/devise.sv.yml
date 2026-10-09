@@ -52,9 +52,11 @@ sv:
             signed_out: 'Utloggad.'
             already_signed_out: 'Utloggad.'
             two_factor:
+                title: "Tvåfaktorsautentisering"
                 submit: "Verifiera"
                 invalid_code: "Fel kod. Försök igen."
         failure:
+            locked: 'Ditt konto är låst.'
             already_authenticated: 'Du är redan inloggad.'
             inactive: 'Ditt konto är inte aktiverat ännu.'
             invalid: 'Ogiltig %{authentication_keys} eller lösenord.'

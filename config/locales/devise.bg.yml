@@ -52,9 +52,11 @@ bg:
             signed_out: 'Изходът е успешен.'
             already_signed_out: 'Изходът е успешен.'
             two_factor:
+                title: "Двуфакторна автентикация"
                 submit: "Потвърди"
                 invalid_code: "Грешен код. Опитайте отново."
         failure:
+            locked: 'Акаунтът ви е заключен.'
             already_authenticated: 'Вече сте в системата.'
             inactive: 'Акаунтът ви все още не е активиран.'
             invalid: 'Невалиден %{authentication_keys} или парола.'

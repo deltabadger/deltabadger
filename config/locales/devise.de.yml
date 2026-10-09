@@ -53,9 +53,11 @@ de:
             signed_out: 'Erfolgreich abgemeldet.'
             already_signed_out: 'Erfolgreich abgemeldet.'
             two_factor:
+                title: "Zwei-Faktor-Authentifizierung"
                 submit: "Verifizieren"
                 invalid_code: "Falscher Code. Versuchen Sie es erneut."
         failure:
+            locked: 'Ihr Konto ist gesperrt.'
             already_authenticated: 'Sie sind bereits angemeldet.'
             inactive: 'Ihr Konto ist noch nicht aktiviert.'
             invalid: 'Ungültige %{authentication_keys} oder Passwort.'

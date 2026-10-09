@@ -52,9 +52,11 @@ en:
             signed_out: 'Signed out successfully.'
             already_signed_out: 'Signed out successfully.'
             two_factor:
+                title: "Two-factor authentication"
                 submit: "Verify"
                 invalid_code: "Wrong code. Try again."
         failure:
+            locked: 'Your account is locked.'
             already_authenticated: 'You are already signed in.'
             inactive: 'Your account is not activated yet.'
             invalid: 'Invalid %{authentication_keys} or password.'

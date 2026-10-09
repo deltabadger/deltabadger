@@ -53,9 +53,11 @@ pl:
             signed_out: 'Wylogowano pomyślnie.'
             already_signed_out: 'Wylogowano pomyślnie.'
             two_factor:
+                title: "Weryfikacja dwuetapowa"
                 submit: "Zweryfikuj"
                 invalid_code: "Nieprawidłowy kod. Spróbuj ponownie."
         failure:
+            locked: 'Twoje konto jest zablokowane.'
             already_authenticated: 'Jesteś już zalogowany.'
             inactive: 'Twoje konto nie zostało jeszcze aktywowane.'
             invalid: 'Nieprawidłowy %{authentication_keys} lub hasło.'

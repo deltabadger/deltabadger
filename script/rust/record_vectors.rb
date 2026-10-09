@@ -1088,8 +1088,8 @@ i18n_calls = [
   ['en', 'bot.add_api_keys', { 'exchange' => %q(A<b>&"') }], # a plain key: the whole text is escaped
   ['en', 'ads.dca_profit_html', { 'years' => '<4>', 'profit' => '12', 'sp500_diff' => 'a&b' }], # an HTML key: only the arguments are
   ['en', 'devise.failure.invalid', { 'authentication_keys' => 'email' }],
-  ['en', 'devise.failure.locked', {}], ['de', 'devise.failure.locked', {}], # from the Devise gem, English only
-  ['en', 'devise.sessions.two_factor.title', {}], ['de', 'devise.sessions.two_factor.title', {}], # missing everywhere
+  ['en', 'devise.failure.locked', {}], ['de', 'devise.failure.locked', {}], # config/locales, every locale
+  ['en', 'devise.sessions.two_factor.title', {}], ['de', 'devise.sessions.two_factor.title', {}], # config/locales, every locale
   ['en', 'nowhere.some_key_html', {}], ['en', 'nowhere.user_id', { 'name' => 'a<b' }], ['en', 'nowhere._odd__key', { 'count' => 3 }]
 ] + %w[en pl ru].product([0, 1, 2, 4, 5, 11, 12, 21, 22, 24, 25, 101, 112]).flat_map { |locale, n| %w[days_left errors.messages.too_short].map { |key| [locale, key, { 'count' => n }] } }
 i18n_calls += I18n.available_locales.map { |locale| [locale.to_s, 'errors.messages.taken', {}] }

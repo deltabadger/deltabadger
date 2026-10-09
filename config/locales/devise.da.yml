@@ -52,9 +52,11 @@ da:
             signed_out: 'Du er nu logget ud.'
             already_signed_out: 'Du er nu logget ud.'
             two_factor:
+                title: "Tofaktorgodkendelse"
                 submit: "Bekræft"
                 invalid_code: "Forkert kode. Prøv igen."
         failure:
+            locked: 'Din konto er låst.'
             already_authenticated: 'Du er allerede logget ind.'
             inactive: 'Din konto er endnu ikke aktiveret.'
             invalid: 'Ugyldig %{authentication_keys} eller adgangskode.'
