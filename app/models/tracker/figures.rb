@@ -147,9 +147,13 @@ module Tracker
 
     private
 
-    # Fiat and Currency are both cash: the same class for the shared-symbol check.
+    # Fiat and Currency are both cash, and a tokenized share tracks its company's share one to one:
+    # each pair is one class for the shared-symbol check. A stock and a coin under one symbol stay apart.
     def asset_class(category)
-      Fiat::CATEGORIES.include?(category) ? 'Fiat' : category
+      return 'Fiat' if Fiat::CATEGORIES.include?(category)
+      return 'Stock' if category == 'Tokenized Stock'
+
+      category
     end
 
     def positions = @positions ||= @ledger.positions.index_by(&:symbol)

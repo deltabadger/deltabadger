@@ -132,8 +132,8 @@ fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> 
 pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
     let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
-    // Fiat and Currency are both cash: one class (Fiat::CATEGORIES).
-    let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), _ => c };
+    // Fiat and Currency are both cash, and a tokenized share tracks its company's share: one class each.
+    let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), Some("Tokenized Stock") => Some("Stock".to_string()), _ => c };
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
     for (symbol, _) in pending {
         // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
