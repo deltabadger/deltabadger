@@ -132,7 +132,7 @@ pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
                     if !(strings.contains(row.base_currency.as_str()) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str()))) { continue; }
                     let mut named_classes: Vec<Option<String>> = classes.get(&row.base_currency).cloned().unwrap_or_default();
                     if let Some(id) = asset_id.or(reported) {
-                        if !categories.contains_key(&id) { categories.insert(id, db::asset_category(c, id)?); }
+                        if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }
                         named_classes.push(categories[&id].clone());
                     }
                     let mut distinct: Vec<String> = vec![];

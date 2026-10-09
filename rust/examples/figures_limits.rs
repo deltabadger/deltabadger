@@ -73,7 +73,8 @@ const SCHEMA: &str = "
     CREATE TABLE transactions (id integer PRIMARY KEY, bot_id integer, status integer, created_at datetime(6), exchange_id integer, price decimal, amount decimal,
                                amount_exec decimal, quote_amount_exec decimal, base varchar, base_asset_id integer, side integer, external_status integer,
                                transaction_type varchar);
-    CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6));
+    CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6), base_asset_id integer);
+    CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
     INSERT INTO users VALUES (1, 'UTC', 'EUR', 0);
     INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca');
     INSERT INTO assets VALUES (1, 'USDT', 'Tether', 'Cryptocurrency', 'tether'), (2, 'AAA', 'AAA Inc.', 'Stock', 'stock-aaa'), (3, 'BBB', 'BBB Inc.', 'Stock', 'stock-bbb');
@@ -88,7 +89,7 @@ fn install(price: &str, split_ratio: Option<&str>, quote_decimals: i64) -> Resul
     c.execute(&format!("INSERT INTO transactions VALUES (1, 1, 0, '2026-03-02 14:30:00', 1, {price}, 1, 1, 100, 'AAA', 2, 0, 2, 'REGULAR')"), []).map_err(|e| e.to_string())?;
     c.execute("UPDATE tickers SET quote_decimals = ?1", [quote_decimals]).map_err(|e| e.to_string())?;
     if let Some(ratio) = split_ratio {
-        c.execute("INSERT INTO account_transactions VALUES (NULL, 1, 1, 15, 'AAA', ?1, '2026-03-03 00:00:00')", [json!({ "corporate_action": "split", "split_ratio": ratio }).to_string()]).map_err(|e| e.to_string())?;
+        c.execute("INSERT INTO account_transactions VALUES (NULL, 1, 1, 15, 'AAA', ?1, '2026-03-03 00:00:00', NULL)", [json!({ "corporate_action": "split", "split_ratio": ratio }).to_string()]).map_err(|e| e.to_string())?;
     }
     Ok(c)
 }

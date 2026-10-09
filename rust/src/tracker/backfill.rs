@@ -78,10 +78,13 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
 #[derive(Clone, Debug)]
 pub struct Instrument { pub key: String, pub symbol: String, pub stock: bool, pub from: NaiveDate, pub coin: Option<Option<String>> }
 
+/// A stock (true) or a coin with the one class it names.
+type Identity = (bool, Option<Option<String>>);
+
 /// `identity_of` on the stock venue: Some((true, None)) a stock, Some((false, the one coin named)) a coin, None a name
 /// that is both. The assets the venue's rows recorded under the symbol decide; with none recorded, what the venue lists
 /// under it, then the catalogue.
-fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Result<Option<(bool, Option<Option<String>>)>, FiguresError> {
+fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Result<Option<Identity>, FiguresError> {
     type Candidate = (i64, Option<String>, Option<String>);
     let read = |sql: &str, params: &[&dyn rusqlite::ToSql]| -> Result<Vec<Candidate>, FiguresError> {
         let mut s = c.prepare_cached(sql)?;
