@@ -1091,7 +1091,7 @@ mod action_write {
         let f=Fixture::new()?;
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',1000),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at','2026-09-01T00:00:00Z')",[])?;
         seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("nocost".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("5"),price:Some("5000"),quote_amount_exec:None,amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()});
-        let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
+        let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
         let limit=deltabadger::web::bot::start::amount_limit(&f.c,&draft.candidate).map_err(|e|format!("{e:?}"))?.ok_or("the cap is on")?;
         assert!(limit.left.is_none() && !limit.reached);
         let before=f.snapshot()?;
