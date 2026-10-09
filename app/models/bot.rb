@@ -30,6 +30,8 @@ class Bot < ApplicationRecord
   # Every start path — the button, a stale tab, BotApi::Bots::Start — goes through valid?(:start),
   # so one validation is the whole gate: an archived bot is reactivated first or not at all.
   validate :not_archived, on: :start
+  # Same gate for the key: without a `correct` trading key every tick would fail.
+  validate :trading_key_ready, on: :start
 
   before_save :store_previous_exchange_id
   before_update :refuse_stale_type
@@ -77,6 +79,10 @@ class Bot < ApplicationRecord
   # so the only place the archive is still visible at validation time is the persisted value.
   def not_archived
     errors.add(:status, :archived, message: I18n.t('errors.bots.archived')) if status_was == 'archived'
+  end
+
+  def trading_key_ready
+    errors.add(:base, I18n.t('engine.api_key_not_ready')) unless api_key.correct?
   end
 
   # Always :stopped, never :created — a never-run bot renders identically either way (no

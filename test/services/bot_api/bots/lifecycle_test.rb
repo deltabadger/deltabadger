@@ -64,4 +64,40 @@ class BotApi::Bots::LifecycleTest < ActiveSupport::TestCase
     assert_equal 'bot_not_found', BotApi::Bots::Archive.call(user: @user, bot_id: 0).error_code
     assert_equal 'bot_not_found', BotApi::Bots::Unarchive.call(user: @user, bot_id: 0).error_code
   end
+
+  # The key gate: a bot whose trading key is missing or not `correct` used to start, get scheduled,
+  # then fail every tick. Start refuses it instead, on every path (web, API, MCP, create-and-start).
+  test 'start refuses a bot whose trading key is missing, pending or incorrect' do
+    with_dry_run(false) do
+      bot = create(:dca_single_asset, :stopped, user: @user)
+      key = ApiKey.find_by!(user: @user, exchange: bot.exchange, key_type: :trading)
+
+      %i[pending_validation incorrect pending_activation].each do |status|
+        key.update_columns(status: ApiKey.statuses[status])
+        result = BotApi::Bots::Start.call(user: @user, bot_id: bot.id)
+        assert_equal 'bot_start_failed', result.error_code, status
+        assert_includes result.error_message, I18n.t('engine.api_key_not_ready')
+        assert bot.reload.stopped?, status
+      end
+
+      key.destroy!
+      assert_equal 'bot_start_failed', BotApi::Bots::Start.call(user: @user, bot_id: bot.id).error_code
+      assert bot.reload.stopped?
+
+      create(:api_key, user: @user, exchange: bot.exchange)
+      Bots::DcaSingleAsset.any_instance.stubs(:cancel_scheduled_action_jobs)
+      assert BotApi::Bots::Start.call(user: @user, bot_id: bot.id).success?
+      assert bot.reload.scheduled?
+    end
+  end
+
+  test 'a signal bot without a correct trading key does not start either' do
+    with_dry_run(false) do
+      bot = create(:signal_bot, :stopped, user: @user)
+      ApiKey.where(user: @user, exchange: bot.exchange).update_all(status: ApiKey.statuses[:incorrect])
+      assert_not bot.reload.start
+      assert_includes bot.errors.full_messages.join, I18n.t('engine.api_key_not_ready')
+      assert bot.reload.stopped?
+    end
+  end
 end
