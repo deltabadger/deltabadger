@@ -472,4 +472,77 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     assert_equal 800.to_d, bnb_disposal[:cost_basis]
     assert_equal 2_200.to_d, bnb_disposal[:gain_loss]
   end
+
+  # A price nobody had is not a zero: a lot opened at one cannot be judged a gain, and a sale priced at
+  # one cannot be judged a loss. The wash-sale guard waits for the price instead (retried next run).
+  test 'a sale of a lot opened at a missing price has no loss verdict' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 1.to_d, fiat_value: 0.to_d, price_missing: true,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'unpriced-buy', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 1.to_d, fiat_value: 60.to_d,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'priced-sell', exchange: 'kraken' }
+    ]
+
+    disposal = Tax::Methods::Fifo.new.calculate(transactions).sole
+
+    assert_nil disposal[:any_lot_lost], 'a zero basis would read as a gain and hide the loss'
+  end
+
+  test 'a sale at a missing price has no loss verdict' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 1.to_d, fiat_value: 100.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'priced-buy', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 1.to_d, fiat_value: 0.to_d, price_missing: true,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'unpriced-sell', exchange: 'kraken' }
+    ]
+
+    disposal = Tax::Methods::Fifo.new.calculate(transactions).sole
+
+    assert_nil disposal[:any_lot_lost], 'zero proceeds would read as a loss'
+  end
+
+  test 'a priced lot that lost still decides the verdict beside an unpriced one' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 1.to_d, fiat_value: 100.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'losing-buy', exchange: 'kraken' },
+      { entry_type: :buy, base_currency: 'X', base_amount: 1.to_d, fiat_value: 0.to_d, price_missing: true,
+        transacted_at: Time.utc(2024, 1, 2), tx_id: 'unpriced-buy', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 2.to_d, fiat_value: 120.to_d,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'mixed-sell', exchange: 'kraken' }
+    ]
+
+    disposal = Tax::Methods::Fifo.new.calculate(transactions).sole
+
+    assert_equal true, disposal[:any_lot_lost]
+  end
+
+  test 'a sale whose only missing price is its fee is still judged' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 1.to_d, fiat_value: 100.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-buy', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 1.to_d, fiat_value: 60.to_d, price_missing: true,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'fee-sell', exchange: 'kraken' }
+    ]
+
+    disposal = Tax::Methods::Fifo.new.calculate(transactions).sole
+
+    assert_equal true, disposal[:any_lot_lost]
+  end
+
+  # A fee is not the consideration: a lot bought for a known $100 keeps its basis when only the price
+  # of the fee paid in kind is missing, so selling it for $60 is still a known loss.
+  test 'a lot whose only missing price is its acquisition fee still decides the verdict' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'AAA', base_amount: 1.to_d, fiat_value: 100.to_d, price_missing: true,
+        value_missing: false, fee_currency: 'AAA', fee_amount: 0.01.to_d, fee_fiat_value: 0.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-unpriced-buy', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'AAA', base_amount: 0.99.to_d, fiat_value: 60.to_d,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'losing-sell', exchange: 'kraken' }
+    ]
+
+    disposal = Tax::Methods::Fifo.new.calculate(transactions).sole
+
+    assert_equal true, disposal[:any_lot_lost]
+    assert_equal 0.to_d, disposal[:unpriced_quantity], 'the units opened at a known price'
+  end
 end

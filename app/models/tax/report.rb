@@ -5,6 +5,17 @@ module Tax
     # Matches the value data-api stamps on wrapper assets.
     TOKENIZED_INSTRUMENT_TYPE = 'tokenized'.freeze
 
+    # A return of capital beyond the basis is a gain realised on the spot, and this report has no
+    # row for it. A file without it would understate the year, so there is no file.
+    class ExcessReturnOfCapital < StandardError
+      attr_reader :symbols
+
+      def initialize(symbols)
+        @symbols = symbols
+        super("Return of capital beyond the cost basis is not reported: #{symbols.join(', ')}")
+      end
+    end
+
     attr_reader :country_code, :jurisdiction, :year, :transactions
 
     def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [])
@@ -53,7 +64,9 @@ module Tax
         # a missing rate for it can surface (enrich short-circuits a fiat base to zero), and the
         # incomplete banner is decided — and counted — before the income section is ever written.
         @income_rows = income_entries.map { |tx| [tx, income_value(tx)] }
-        results = method_class.new.calculate(taxable_entries(enriched), **calculation_options)
+        engine = method_class.new
+        results = engine.calculate(taxable_entries(enriched), **calculation_options)
+        refuse_excess_return_of_capital(engine)
       end
 
       unless wealth_snapshot?
@@ -572,6 +585,13 @@ module Tax
                 "#{(rate * 100).to_i}% #{I18n.t('tax_report.summary.deduction')}", deduction]
         csv << ["  #{I18n.t('tax_report.summary.denied_losses')}", denied_losses.round(2)] if denied_losses.positive?
       end
+    end
+
+    # Only this year's: an earlier year's excess is that year's gain, and its own report refuses.
+    def refuse_excess_return_of_capital(engine)
+      symbols = engine.excess_roc_rows.select { |tx| tx[:transacted_at].utc.year == year }
+                      .map { |tx| tx[:base_currency] }.uniq.sort
+      raise ExcessReturnOfCapital, symbols if symbols.any?
     end
 
     # First data row, not a header row, so CSV.parse(csv, headers: true) still sees the real columns.

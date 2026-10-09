@@ -12,6 +12,7 @@ module Tax
       # Used by: France ("prix moyen pondéré"), Sweden ("genomsnittsmetoden")
       def calculate(transactions, **_options)
         @excess_roc = 0.to_d
+        @excess_roc_rows = []
 
         pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d, assumed: false } }
         disposals = []

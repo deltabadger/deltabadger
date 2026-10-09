@@ -14,7 +14,7 @@
 <% end %>
 <% if @pending_refusal %>
   <div class="flash-stack">
-    <%= render 'tracker/report_refused', symbols: @pending_refusal[:symbols] %>
+    <%= render 'tracker/report_refused', refusal: @pending_refusal %>
   </div>
 <% end %>
 <% if @pending_report %>

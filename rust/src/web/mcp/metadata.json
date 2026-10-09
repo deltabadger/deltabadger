@@ -1163,7 +1163,7 @@
     "app/mcp/tools/get_bot_details_tool.rb": "282f2a975b11cbc5ee0a9659fbe7362f827b6b205592ba5970304fe9cab12e9f",
     "app/mcp/tools/get_exchange_balances_tool.rb": "283fb5f8f9a5abaa388d868330e1f4d0f64ff1f59470430f1eee741c2072a86f",
     "app/mcp/tools/get_portfolio_summary_tool.rb": "a91cb7ae0b87edcaf18739c83794588efc85b40537518757944e64d5b9e8ffe1",
-    "app/mcp/tools/get_tax_report_status_tool.rb": "ce6fc6c1e157926b5cc128608e58876f63c8a5df30979ef4e632424069d69134",
+    "app/mcp/tools/get_tax_report_status_tool.rb": "352501567e0edde91ed62e3de5bbea92b4bc41aac6794098de96e593489b5a2b",
     "app/mcp/tools/limit_buy_tool.rb": "19a4c3f586722a2c390a7229b738abc17778d77a7bb1518ef414bea11cb3984e",
     "app/mcp/tools/limit_sell_tool.rb": "94d5301e03d87c799f3ad94e2a5eea671c38976a0cd76aa9f9e4dcbdcf37d7cd",
     "app/mcp/tools/liquidate_exited_asset_tool.rb": "d594eda44367e248e5c43a3951d971b4f42bda6ec9100d6a8410e47573473f27",

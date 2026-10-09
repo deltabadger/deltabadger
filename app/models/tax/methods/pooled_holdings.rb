@@ -61,7 +61,7 @@ module Tax
         reduction = [roc_reduction(transaction, held), 0.to_d].max
         absorbed = (pool[:total_cost] - pending_pool_cost(pool, units_pending)).clamp(0.to_d, reduction)
         pool[:total_cost] -= absorbed
-        @excess_roc += reduction - absorbed
+        book_excess_roc(transaction, reduction - absorbed)
 
         return unless pending.any? && pool[:total_amount].positive?
 

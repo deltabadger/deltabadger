@@ -38,6 +38,17 @@ class Tax::GenerateReportJob < ApplicationJob
     nil
   end
 
+  # What the user is told, by the refusal's reason.
+  REFUSAL_MESSAGES = {
+    'tokenized_unsupported' => 'tracker.tax_report.refused_tokenized',
+    'excess_return_of_capital' => 'tracker.tax_report.refused_excess_return_of_capital'
+  }.freeze
+
+  def self.refusal_message(refusal)
+    I18n.t(REFUSAL_MESSAGES.fetch(refusal['reason'], REFUSAL_MESSAGES['tokenized_unsupported']),
+           symbols: refusal['symbols'].join(', '))
+  end
+
   def self.report_country(country)
     country.to_s.gsub(/[^A-Za-z]/, '').upcase
   end
@@ -88,16 +99,17 @@ class Tax::GenerateReportJob < ApplicationJob
       partial: 'tracker/report_ready',
       locals: { country: country, year: year, report_scope: report_scope.to_s }
     )
-  rescue TokenizedUnsupported => e
+  rescue TokenizedUnsupported, Tax::Report::ExcessReturnOfCapital => e
     # Persist first, broadcast second: a caller polling the API, or a browser that missed the
     # broadcast, must still find the answer. The stale CSV goes, or a reload would download the
     # earlier report that wrongly applied the exemption.
-    persist_refusal(user_id, country, year, report_scope, e.symbols)
+    reason = e.is_a?(TokenizedUnsupported) ? 'tokenized_unsupported' : 'excess_return_of_capital'
+    refusal = persist_refusal(user_id, country, year, report_scope, reason, e.symbols)
     Turbo::StreamsChannel.broadcast_replace_to(
       "user_#{user_id}", :tax_report,
       target: 'tax-report-progress',
       partial: 'tracker/report_refused',
-      locals: { symbols: e.symbols }
+      locals: { refusal: refusal }
     )
     nil
   rescue StandardError => e
@@ -112,11 +124,13 @@ class Tax::GenerateReportJob < ApplicationJob
 
   private
 
-  def persist_refusal(user_id, country, year, report_scope, symbols)
+  def persist_refusal(user_id, country, year, report_scope, reason, symbols)
     FileUtils.rm_f(self.class.report_path(user_id, country, year, report_scope))
     path = self.class.refusal_path(user_id, country, year, report_scope)
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, JSON.generate({ 'reason' => 'tokenized_unsupported', 'symbols' => symbols }))
+    refusal = { 'reason' => reason, 'symbols' => symbols }
+    File.write(path, JSON.generate(refusal))
+    refusal
   end
 
   def broker_csv(user, country, year)

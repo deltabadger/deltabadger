@@ -23,6 +23,7 @@ module Tax
         @price_service = options[:price_service]
         @currency = options.fetch(:currency, 'EUR')
         @excess_roc = 0.to_d
+        @excess_roc_rows = []
         # PVCT has no lots: one missing acquisition understates the portfolio-wide cost pool used by every later disposal.
         @contaminated = false
 
@@ -82,7 +83,7 @@ module Tax
             reduction = [roc_reduction(tx, balances[asset]), 0.to_d].max
             absorbed = total_acquisition_cost.clamp(0.to_d, reduction)
             total_acquisition_cost -= absorbed
-            @excess_roc += reduction - absorbed
+            book_excess_roc(tx, reduction - absorbed)
 
           when :withdrawal
             # A transfer is not a cession: no disposal, and nothing leaves the acquisition-cost pool.

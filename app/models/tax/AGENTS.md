@@ -87,8 +87,9 @@ Cash journals (`JNLC`, `OCT`, `ACATC`) are ordinary deposits/withdrawals.
 `unsupported_activity` is inert on purpose — half-applying a merger corrupts the share count
 silently. Instead the broker report **refuses** the symbol, and the crypto report leaves it out.
 
-Crypto reports floor a return of capital at zero basis and never surface the excess — the engines
-expose it as `excess_roc`, which nothing reads today. The broker report computes its own excess
+Crypto reports floor a return of capital at zero basis. An excess in the report year has no row in
+the file, so `Tax::Report` refuses the report (`excess_return_of_capital`, naming the assets from the
+engines' `excess_roc_rows`) rather than omit the gain. The broker report computes its own excess
 through `LotLedger` and books it (KAP Z19 / KAP-INV distributions).
 
 ## Transfers Between the User's Own Accounts

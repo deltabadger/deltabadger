@@ -22,8 +22,7 @@ class GetTaxReportStatusTool < ApplicationMCPTool
       # Without this branch the fallback below tells the caller to generate a report we have already
       # declined to produce, and the loop never ends.
       render text: "Report for #{data[:country]} (#{data[:year]}) cannot be generated: " \
-                   "#{Array(data[:symbols]).join(', ')} are tokenized securities, whose tax treatment " \
-                   'differs from crypto. Deltabadger does not report them yet.'
+                   "#{BotApi::Tax::DownloadReport.refused_because(data[:reason], data[:symbols])}"
     else
       render text: "Report for #{data[:country]} (#{data[:year]}) is not ready yet or has not been generated. " \
                    "Use 'generate_tax_report' to start one."

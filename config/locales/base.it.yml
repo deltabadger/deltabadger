@@ -595,6 +595,7 @@ it:
         tax_report:
             failed: 'Non è stato possibile generare il report. Controlla le impostazioni selezionate e riprova.'
             refused_tokenized: 'Impossibile generare il report: %{symbols} sono titoli tokenizzati, il cui trattamento fiscale differisce da quello delle criptovalute. Deltabadger non li gestisce ancora.'
+            refused_excess_return_of_capital: 'Impossibile generare il report: una restituzione di capitale su %{symbols} ha superato il costo di acquisto. L''eccedenza è una plusvalenza per cui questo report non ha una riga, e Deltabadger non la gestisce ancora.'
         holdings: 'Asset detenuti'
         unrealised: 'Non realizzato'
         tiles:
