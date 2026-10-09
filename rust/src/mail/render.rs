@@ -17,11 +17,12 @@ pub struct Urls { pub root: String }
 impl Urls {
     pub fn from_env(env: &dyn Fn(&str) -> Option<String>) -> Self {
         let app_root_url = env("APP_ROOT_URL").unwrap_or_else(|| "http://localhost:3000".into());
-        let https = app_root_url.starts_with("https://");
+        let lower = app_root_url.to_ascii_lowercase(); // same byte offsets: the schemes are ASCII
+        let https = lower.starts_with("https://");
         // Deltabadger::Application.force_ssl_from_env: FORCE_SSL when it is a recognised spelling, else the URL's scheme.
         let ssl = crate::web::env_boolean(env("FORCE_SSL")).unwrap_or(https);
-        // `gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')`: case-sensitive, so `HTTPS://host` keeps its scheme as the host.
-        let rest = app_root_url.strip_prefix("https://").or_else(|| app_root_url.strip_prefix("http://")).unwrap_or(&app_root_url);
+        // `gsub(/^https?:\/\//i, '').gsub(/\/.*$/, '')`: the scheme in any case.
+        let rest = if https { &app_root_url[8..] } else if lower.starts_with("http://") { &app_root_url[7..] } else { &app_root_url[..] };
         let host = rest.split('/').next().unwrap_or(rest);
         Self { root: format!("{}://{host}/", if https || ssl { "https" } else { "http" }) }
     }

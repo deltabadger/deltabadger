@@ -1926,7 +1926,7 @@
       "env": {
         "APP_ROOT_URL": "HTTPS://Bot.Example.com"
       },
-      "root": "http://HTTPS:/"
+      "root": "https://Bot.Example.com/"
     },
     {
       "env": {
