@@ -43,7 +43,7 @@ async fn starttls_then_auth_plain_then_the_envelope_and_the_message_one_command_
 
 #[tokio::test]
 async fn a_server_without_starttls_is_refused_when_a_user_name_is_set_and_nothing_secret_is_sent() {
-    // The listed divergence: Rails (`enable_starttls_auto`) would go on and send AUTH PLAIN in the clear.
+    // As Rails' `enable_starttls: :always`: no STARTTLS offered, so the delivery fails before AUTH.
     let server = smtp::start(Behaviour { starttls: false, auth: true, ..Default::default() }).await;
     let failure = send(&alice(server.port)).await.unwrap_err();
     assert_eq!(said(&failure), "tls: 127.0.0.1 offers no STARTTLS, and a user name or password is never sent unencrypted");

@@ -144,7 +144,7 @@ fn smtp_settings_and_the_sender_resolve_as_rails_resolves_them() {
     let defaults = &v["smtp_defaults"];
     assert_eq!((defaults["open_timeout"].as_u64(), defaults["read_timeout"].as_u64()), (Some(5), Some(5)));
     let cases = v["smtp"].as_array().unwrap();
-    assert_eq!(cases.len(), 20);
+    assert_eq!(cases.len(), 22);
     let (mut configured, mut refused) = (0, 0);
     for c in cases {
         let env = smtp::Env::read(&env_of(c));
@@ -167,11 +167,12 @@ fn smtp_settings_and_the_sender_resolve_as_rails_resolves_them() {
         assert_eq!(ours.domain, text(rails("domain")), "domain of {c}");
         assert_eq!(ours.credentials, (text(rails("user_name")), text(rails("password"))), "credentials of {c}");
         assert_eq!((ours.open_timeout.as_secs(), ours.read_timeout.as_secs()), (5, 5));
-        // STARTTLS is required exactly when there is a user name or a password to protect.
-        assert_eq!(ours.has_secret(), !ours.credentials.0.is_empty() || !ours.credentials.1.is_empty());
+        // STARTTLS is required exactly when Rails requires it (`enable_starttls: :always`): a non-empty user name or
+        // password, whitespace included.
+        assert_eq!(ours.has_secret(), text(rails("enable_starttls")) == "always", "STARTTLS rule of {c}");
         configured += 1;
     }
-    assert_eq!((configured, refused), (13, 1), "of the 20 recorded configurations; the other six are \"not configured\" in Rails too");
+    assert_eq!((configured, refused), (15, 1), "of the 22 recorded configurations; the other six are \"not configured\" in Rails too");
 }
 
 #[test]

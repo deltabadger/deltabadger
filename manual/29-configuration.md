@@ -50,7 +50,7 @@ Email can also be set up in the app; see [Email notifications](28-email-notifica
 | `SMTP_ADDRESS` | SMTP server hostname. Setting it turns on the environment SMTP option. |
 | `SMTP_PORT` | SMTP port. |
 | `SMTP_DOMAIN` | HELO domain sent to the server. |
-| `SMTP_USER_NAME`, `SMTP_PASSWORD` | SMTP login. |
+| `SMTP_USER_NAME`, `SMTP_PASSWORD` | SMTP login. With either set, the server must offer STARTTLS or delivery fails; without them, STARTTLS is used when offered. |
 | `NOTIFICATIONS_SENDER` | From address. Falls back to the SMTP username, then `noreply@localhost`. |
 | `SMTP_PROVIDER_NAME` | Label shown in Settings. Falls back to `SMTP_ADDRESS`. |
 

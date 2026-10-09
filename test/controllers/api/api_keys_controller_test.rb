@@ -27,4 +27,63 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
     assert_equal "-----BEGIN EC PRIVATE KEY-----\nabc123\n-----END EC PRIVATE KEY-----\n",
                  ApiKey.last.secret
   end
+
+  HL_KEY = "0x#{'a' * 40}".freeze
+  HL_SECRET = "0x#{'b' * 64}".freeze
+
+  def hyperliquid_key_with_history
+    api_key = create(:api_key, user: @user, exchange: create(:hyperliquid_exchange), raw_key: HL_KEY, raw_secret: HL_SECRET)
+    [api_key, create(:account_transaction, api_key: api_key)]
+  end
+
+  test 'a rejected replacement keeps the stored key and its ledger links' do
+    api_key, ledger_row = hyperliquid_key_with_history
+
+    post '/api/api_keys', params: { api_key: { key: 'not-a-wallet', secret: 'bad', exchange_id: api_key.exchange_id, key_type: 'trading' } }
+
+    assert_response :unprocessable_entity
+    assert_equal({ 'data' => false }, response.parsed_body)
+    api_key.reload
+    assert_equal [HL_KEY, HL_SECRET, 'correct'], [api_key.key, api_key.secret, api_key.status]
+    assert_equal api_key.id, ledger_row.reload.api_key_id
+  end
+
+  test 'an accepted replacement updates the key in place and keeps its ledger links' do
+    api_key, ledger_row = hyperliquid_key_with_history
+    new_secret = "0x#{'c' * 64}"
+
+    assert_no_difference -> { ApiKey.count } do
+      post '/api/api_keys', params: { api_key: { key: HL_KEY, secret: new_secret, exchange_id: api_key.exchange_id, key_type: 'trading' } }
+    end
+
+    assert_response :created
+    assert_equal({ 'data' => true }, response.parsed_body)
+    replaced = @user.api_keys.sole
+    assert_equal api_key.id, replaced.id
+    assert_equal [new_secret, 'pending_validation'], [replaced.secret, replaced.status]
+    assert_equal api_key.id, ledger_row.reload.api_key_id
+  end
+
+  test 'an accepted replacement drops the previous credential\'s unfinished Rust import' do
+    api_key, = hyperliquid_key_with_history
+    AppConfig.create!(key: "rust_sync.ledger:#{api_key.id}", value: '{"page_token":"old-account"}')
+    AppConfig.create!(key: "rust_sync.ledger_splits:#{api_key.id}", value: '{}')
+
+    post '/api/api_keys', params: { api_key: { key: HL_KEY, secret: "0x#{'c' * 64}", exchange_id: api_key.exchange_id, key_type: 'trading' } }
+
+    assert_response :created
+    assert_nil AppConfig.find_by(key: "rust_sync.ledger:#{api_key.id}")
+    assert_nil AppConfig.find_by(key: "rust_sync.ledger_splits:#{api_key.id}")
+  end
+
+  test 'an accepted replacement drops the previous credential\'s ledger watermark' do
+    api_key, = hyperliquid_key_with_history
+    api_key.update!(last_synced_at: 1.day.ago)
+
+    post '/api/api_keys', params: { api_key: { key: HL_KEY, secret: "0x#{'c' * 64}", exchange_id: api_key.exchange_id, key_type: 'trading' } }
+
+    assert_response :created
+    # The replacement may belong to another account: it syncs its own full history.
+    assert_nil api_key.reload.last_synced_at
+  end
 end

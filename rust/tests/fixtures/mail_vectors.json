@@ -1538,7 +1538,7 @@
         "user_name": "AKIAEXAMPLE",
         "password": "env-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "noreply@deltabadger.com"
     },
@@ -1554,7 +1554,42 @@
         "user_name": "",
         "password": "",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "auto"
+      },
+      "sender": "noreply@localhost"
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "mail.example.com",
+        "SMTP_USER_NAME": " "
+      },
+      "app_config": {},
+      "settings": {
+        "address": "mail.example.com",
+        "port": "587",
+        "domain": "localhost",
+        "user_name": " ",
+        "password": "",
+        "authentication": "plain",
+        "enable_starttls": "always"
+      },
+      "sender": "noreply@localhost"
+    },
+    {
+      "env": {
+        "SMTP_ADDRESS": "mail.example.com",
+        "SMTP_USER_NAME": " ",
+        "SMTP_PASSWORD": " "
+      },
+      "app_config": {},
+      "settings": {
+        "address": "mail.example.com",
+        "port": "587",
+        "domain": "localhost",
+        "user_name": " ",
+        "password": " ",
+        "authentication": "plain",
+        "enable_starttls": "always"
       },
       "sender": "noreply@localhost"
     },
@@ -1581,7 +1616,7 @@
         "user_name": "",
         "password": "",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "auto"
       },
       "sender": ""
     },
@@ -1602,7 +1637,7 @@
         "user_name": "",
         "password": "",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "auto"
       },
       "sender": "me@gmail.com"
     },
@@ -1619,7 +1654,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1638,7 +1673,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1657,7 +1692,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1715,7 +1750,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "MyApp <noreply@example.com>"
     },
@@ -1733,7 +1768,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1751,7 +1786,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1769,7 +1804,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1787,7 +1822,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1805,7 +1840,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     },
@@ -1823,7 +1858,7 @@
         "user_name": "me@gmail.com",
         "password": "app-secret",
         "authentication": "plain",
-        "enable_starttls_auto": true
+        "enable_starttls": "always"
       },
       "sender": "me@gmail.com"
     }
@@ -1914,7 +1949,7 @@
     "app/models/bot/notifyable.rb": "9bcceacb54f86d07b84505e9a1810286ad3305cd245663175ac52030207a77b2",
     "app/models/bot/failable.rb": "520a31d50e1f5733454d20afb2ddb565df27c1c7a062814dace53d770559f0a8",
     "app/models/bot/fundable.rb": "0c93f62231603005acbdff431e9d3cf64e6e83eef212298a01948e09b0dbf9e9",
-    "app/models/smtp_settings.rb": "7a91f938ac3ddfa754208fb0eb1625d161b8c8b771ca2a69d51e839a79d0eb7d",
+    "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
     "config/initializers/smtp_settings.rb": "4cf03e76fa8a93ff005c4a84724fdcdc53b8bd138d7ceab263d2666651999a80",
     "app/jobs/application_mail_delivery_job.rb": "2dc3b95ecf910631d2972a84ab4426ab306062afa805f1ef583da2c8ac5ec75a",
     "app/views/layouts/mailers/transactional.html.erb": "b073b6b35db63bb2812b33bb35b666cc3438d72fc47731fd897dcaba302fedea",

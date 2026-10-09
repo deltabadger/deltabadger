@@ -91,6 +91,8 @@ smtp_cases = [
   { 'env' => { 'SMTP_ADDRESS' => 'email-smtp.us-east-2.amazonaws.com', 'SMTP_PORT' => '587', 'SMTP_DOMAIN' => 'deltabadger.com', 'SMTP_USER_NAME' => 'AKIAEXAMPLE',
                'SMTP_PASSWORD' => 'env-secret', 'NOTIFICATIONS_SENDER' => 'noreply@deltabadger.com' }, 'app_config' => {} },
   { 'env' => { 'SMTP_ADDRESS' => 'mail.example.com' }, 'app_config' => {} },
+  { 'env' => { 'SMTP_ADDRESS' => 'mail.example.com', 'SMTP_USER_NAME' => ' ' }, 'app_config' => {} },
+  { 'env' => { 'SMTP_ADDRESS' => 'mail.example.com', 'SMTP_USER_NAME' => ' ', 'SMTP_PASSWORD' => ' ' }, 'app_config' => {} },
   { 'env' => { 'SMTP_ADDRESS' => '   ' }, 'app_config' => {} },
   { 'env' => { 'SMTP_ADDRESS' => 'mail.example.com', 'SMTP_PORT' => '', 'SMTP_DOMAIN' => '', 'NOTIFICATIONS_SENDER' => '' }, 'app_config' => {} },
   { 'env' => { 'SMTP_ADDRESS' => 'mail.example.com', 'SMTP_PORT' => '2525' },

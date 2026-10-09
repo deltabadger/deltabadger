@@ -34,12 +34,17 @@ class SmtpSettings
       user_name: username,
       password: password,
       authentication: :plain,
-      enable_starttls_auto: true
+      enable_starttls: :always
     }
   end
 
   def self.env_settings
     return nil if ENV['SMTP_ADDRESS'].blank?
+
+    # Credentials are never sent over a connection an attacker could keep
+    # plain by stripping STARTTLS; an open relay without them may stay plain. Any non-empty value
+    # counts, whitespace too: the same rule as the Rust mailer's `has_secret`.
+    credentials = !ENV['SMTP_USER_NAME'].to_s.empty? || !ENV['SMTP_PASSWORD'].to_s.empty?
 
     {
       address: ENV.fetch('SMTP_ADDRESS', 'localhost'),
@@ -48,7 +53,7 @@ class SmtpSettings
       user_name: ENV.fetch('SMTP_USER_NAME', ''),
       password: ENV.fetch('SMTP_PASSWORD', ''),
       authentication: :plain,
-      enable_starttls_auto: true
+      enable_starttls: credentials ? :always : :auto
     }
   end
 
