@@ -21988,7 +21988,7 @@
     }
   },
   "ported_sources": {
-    "app/services/account_transaction_sync.rb": "f3210ed8c9804632a1ac876eba6dd614a382215eede8049acea5538aed6b1222",
+    "app/services/account_transaction_sync.rb": "b6a815cce731424320f73145ef1b889f87593deb60b947b9061014636bd03497",
     "app/services/account_balance/sync.rb": "45afce22508c88bf63b1ba6e7c4e31f7f2571fd20eff0cce36ce76fffda34525",
     "app/services/transfer_matcher.rb": "341aff194da4f3fec54e6b466ca512b7ee764623e2bb26c576d511c7d0d374cd",
     "app/jobs/account_transaction/sync_job.rb": "801dcaad518822936ddec31bba1d6c6e68bcd21a603700c702f35bb6a1e8c724",

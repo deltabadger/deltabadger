@@ -209,9 +209,9 @@ module SyncScenarios
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30)) },
         steps: [P.ledger(night, split_pair('KLAC', '-10', '100', '2026-09-15')),
                 P.ledger(next_night, [split_pair('KLAC', '-10', '100', '2026-09-15')[1]])] },
-      # A split dated ahead of today, then the next night, served as Alpaca serves `after`. Rails' watermark follows the
-      # split into the future, so its second request asks only for what comes after 2026-10-03T23:00:00Z and the fill
-      # and the interest in between never arrive. Rust's watermark stops at the first sync's start. (Listed divergence.)
+      # A split dated ahead of today, then the next night, served as Alpaca serves `after`. The watermark stops at the
+      # first sync's start rather than following the split into the future, so the second request asks from that start
+      # less 25 h and the fill and the interest in between arrive.
       { name: 'ledger-split_future',
         setup: ->(ctx) { P.holder(ctx, 'KLAC', at: Time.utc(2026, 9, 2, 14, 30)) },
         steps: [P.ledger(night, split_pair('KLAC', '-10', '100', '2026-10-05')),
