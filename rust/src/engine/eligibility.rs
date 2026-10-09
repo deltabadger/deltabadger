@@ -111,7 +111,11 @@ fn start_time_reason(bot: &Bot) -> Option<String> {
     if bot.transient.get("rust_continue_start").is_some() {
         return Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into());
     }
-    let start_at = bot.settings.get("start_at").and_then(Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.timestamp_micros());
+    let start_at = match bot.settings.get("start_at").and_then(Value::as_str).map(DateTime::parse_from_rfc3339) {
+        Some(Ok(t)) => Some(t.timestamp_micros()),
+        // A missing or unreadable start_at is refused below, never read as started_at.
+        Some(Err(_)) | None => None,
+    };
     (start_at.is_none() || start_at != bot.started_at_us)
         .then(|| "start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into())
 }

@@ -102,18 +102,24 @@ pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at:
     use chrono::{Datelike, Duration, LocalResult, NaiveDate, NaiveDateTime, TimeZone};
     let mode = mode.ok_or("missing start mode")?;
     if mode == "date" {
-        let at = start_at.and_then(|s| DateTime::parse_from_rfc3339(s).ok()).ok_or("invalid start date")?;
+        let at = DateTime::parse_from_rfc3339(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
         return Ok(StartAt { at: at.with_timezone(&Utc), early: false });
     }
     let weekday = MODES.iter().position(|m| *m == mode).filter(|n| *n < 7);
     if mode != "hour" && weekday.is_none() { return Err("invalid start mode"); }
     // Startable#parse_hhmm: two parts of one or two digits each, 0-23 and 0-59.
     let (h, m) = time_of_day.and_then(|s| s.split_once(':')).ok_or("invalid start time")?;
-    let part = |s: &str| (matches!(s.len(), 1 | 2) && s.bytes().all(|b| b.is_ascii_digit())).then(|| s.parse::<u32>().ok()).flatten();
-    let (hour, minute) = (part(h).ok_or("invalid start time")?, part(m).ok_or("invalid start time")?);
+    let part = |s: &str| -> Result<u32, &'static str> {
+        if !matches!(s.len(), 1 | 2) || !s.bytes().all(|b| b.is_ascii_digit()) { return Err("invalid start time"); }
+        s.parse::<u32>().map_err(|_| "invalid start time")
+    };
+    let (hour, minute) = (part(h)?, part(m)?);
     if hour > 23 || minute > 59 { return Err("invalid start time"); }
     // ActiveSupport::TimeZone[] takes a Rails zone name or an IANA identifier; an unknown name is refused, never UTC.
-    let zone = crate::web::timezone::zone(zone).or_else(|| zone.parse::<chrono_tz::Tz>().ok()).ok_or("unknown time zone")?;
+    let zone = match crate::web::timezone::zone(zone) {
+        Some(zone) => zone,
+        None => zone.parse::<chrono_tz::Tz>().map_err(|_| "unknown time zone")?,
+    };
     // TimeZone#local / TimeWithZone: a wall time in a gap moves forward an hour, a repeated one takes the first (DST) instant.
     let wall = |naive: NaiveDateTime| -> Result<(NaiveDateTime, DateTime<Utc>), &'static str> {
         let (wall, at) = match zone.from_local_datetime(&naive) {

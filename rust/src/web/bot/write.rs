@@ -200,7 +200,8 @@ use crate::engine::accounting::{web_effective_amount as effective_amount, web_se
 /// text) or a settings number. A stored text is a String, never equal to a BigDecimal.
 fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
     let number = |v: &Value| match v {
-        Value::String(s) => BigDec::parse(s).ok(),
+        // A text that is no number equals no stored number.
+        Value::String(s) => match BigDec::parse(s) { Ok(n) => Some(n), Err(_) => None },
         v => Num::from_json(v).and_then(|n| n.to_d()),
     };
     match (stored, assigned) {
