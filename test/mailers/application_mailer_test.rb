@@ -21,6 +21,11 @@ class ApplicationMailerTest < ActionMailer::TestCase
     assert_equal [@user.email], mail.to
   end
 
+  test 'the layout closes every paragraph it opens' do
+    html = TestMailer.test_email(@user).body.to_s
+    assert_equal html.scan('<p').size, html.scan('</p>').size, html
+  end
+
   test 'with no SMTP configured an SMTP mail is not attempted, and that is logged once' do
     SmtpSettings.stubs(:current).returns(nil)
     DynamicSmtpSettingsInterceptor.instance_variable_set(:@said_not_configured, nil)

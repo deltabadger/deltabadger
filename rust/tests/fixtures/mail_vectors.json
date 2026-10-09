@@ -1952,7 +1952,7 @@
     "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
     "config/initializers/smtp_settings.rb": "b98e62829e313750801698ce279f59420748514e0b0c071bfa99e99c7573685c",
     "app/jobs/application_mail_delivery_job.rb": "2dc3b95ecf910631d2972a84ab4426ab306062afa805f1ef583da2c8ac5ec75a",
-    "app/views/layouts/mailers/transactional.html.erb": "b073b6b35db63bb2812b33bb35b666cc3438d72fc47731fd897dcaba302fedea",
+    "app/views/layouts/mailers/transactional.html.erb": "9c8afd4ee04cf13a86fbd69b9deecd2db7840a415b15021ef811d5fa6b938e21",
     "app/views/bot_alerts_mailer/end_of_funds.html.erb": "ecab246f1517eb9f206dc390c8017a0357372ec5f39b0732a643375f9c1b9f6e",
     "app/views/bot_alerts_mailer/notify_about_error.html.erb": "f0b12c547359f41a45af3e0c423c82bb5b4d07d700db7aa1106cede1ca8975b2",
     "app/views/bot_alerts_mailer/stopped_by_error.html.erb": "1b483020ce859fe1f83a8d810a4c8789bdbfa5221826472ae6d2aaf1418737f3",
