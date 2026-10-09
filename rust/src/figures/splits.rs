@@ -23,8 +23,9 @@ pub struct Holding { pub key: String, pub asset_id: Option<i64>, pub strings: Ve
 #[derive(Clone, Debug, PartialEq)]
 pub struct Event { pub at: At, pub key: String, pub factor: Dec }
 
-/// The split rows that apply to one holding on one effective date.
-pub struct Group { pub key: String, pub rows: Vec<SplitRow> }
+/// The split rows that apply to one holding on one effective date. No date: reports whose name stands for more than
+/// one class of asset in the account, which restate nothing and leave the split unresolved.
+pub struct Group { pub key: String, pub date: Option<i64>, pub rows: Vec<SplitRow> }
 
 /// `"10:1"` is 10. Anything else names no factor: a blank, one number, a zero side, words, extra parts. A ratio of
 /// numbers beyond `dec`'s limits is an error: Rails would restate by it.
@@ -61,7 +62,10 @@ fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
 }
 
 /// Bot::Restatable#grouped_split_rows: the marked rows this bot is eligible for, per holding and effective date
-/// (the UTC date of the row). Eligibility is the venues and symbols the bot actually traded.
+/// (the UTC date of the row). Eligibility is the venues and symbols the bot actually traded. A report's asset is the
+/// one its row recorded, else the one asset its name stands for on its venue. With both a holding's and a report's
+/// asset known, only the same asset matches; otherwise the strings decide, and only while the string names one class
+/// of asset in the user's account (`account_classes`) — a name that is both is grouped under no date.
 pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let mut string_pairs = HashSet::new();
     let mut asset_pairs = HashSet::new();
@@ -105,21 +109,39 @@ pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
         for string in &holding.strings { budget::charge(1, 0)?; strings.insert(string.as_str()); }
         holding_strings.push(strings);
     }
+    let mut symbols: Vec<String> = vec![];
+    let mut symbols_seen: HashSet<String> = HashSet::new();
+    for row in &rows { budget::charge(1, 0)?; if symbols_seen.insert(row.base_currency.clone()) { symbols.push(row.base_currency.clone()); } }
+    let mut classes: HashMap<String, Vec<Option<String>>> = HashMap::new();
+    for (symbol, category) in db::account_classes(c, user_id, &symbols)? { classes.entry(symbol).or_default().push(category); }
+    let mut categories: HashMap<i64, Option<String>> = HashMap::new();
     let mut out: Vec<Group> = vec![];
     let mut places = HashMap::new();
     for row in rows {
         budget::charge(1, 0)?;
-        let reported = named.get(&(row.exchange_id, row.base_currency.to_uppercase())).copied().flatten();
-        let date = row.at.0.div_euclid(86_400_000_000_000);
+        let reported = row.base_asset_id.or_else(|| named.get(&(row.exchange_id, row.base_currency.to_uppercase())).copied().flatten());
+        let day = row.at.0.div_euclid(86_400_000_000_000);
         for (holding, strings) in holdings.iter().zip(&holding_strings) {
             budget::charge(1, 0)?;
-            let applies = match (holding.asset_id, reported) {
-                (Some(asset_id), Some(reported)) => reported == asset_id && asset_pairs.contains(&(row.exchange_id, asset_id)),
-                _ => strings.contains(row.base_currency.as_str()) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str())),
+            let date = match (holding.asset_id, reported) {
+                (Some(asset_id), Some(reported)) => {
+                    if !(reported == asset_id && asset_pairs.contains(&(row.exchange_id, asset_id))) { continue; }
+                    Some(day)
+                }
+                (asset_id, reported) => {
+                    if !(strings.contains(row.base_currency.as_str()) && string_pairs.contains(&(row.exchange_id, row.base_currency.as_str()))) { continue; }
+                    let mut named_classes: Vec<Option<String>> = classes.get(&row.base_currency).cloned().unwrap_or_default();
+                    if let Some(id) = asset_id.or(reported) {
+                        if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }
+                        named_classes.push(categories[&id].clone());
+                    }
+                    let mut distinct: Vec<String> = vec![];
+                    for class in named_classes.into_iter().flatten() { if !distinct.contains(&class) { distinct.push(class); } }
+                    (distinct.len() <= 1).then_some(day)
+                }
             };
-            if !applies { continue; }
             let at = *places.entry((holding.key.clone(), date)).or_insert_with(|| {
-                out.push(Group { key: holding.key.clone(), rows: vec![] }); out.len() - 1
+                out.push(Group { key: holding.key.clone(), date, rows: vec![] }); out.len() - 1
             });
             out[at].rows.push(row.clone());
         }
@@ -134,6 +156,7 @@ pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
     let mut out: Vec<Event> = vec![];
     for group in groups(c, user_id, orders, holdings)? {
         budget::charge(1 + group.rows.len() as u64, 0)?;
+        if group.date.is_none() { continue; }
         let (Some(at), Some(factor)) = (group.rows.iter().map(|row| row.at).min(), resolved_factor(&group.rows)?) else { continue };
         if at <= now { out.push(Event { at, key: group.key, factor }); }
     }
@@ -143,11 +166,12 @@ pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
     Ok(out)
 }
 
-/// Bot::Restatable#unresolved_split?: a split in effect that this bot can see and cannot size.
+/// Bot::Restatable#unresolved_split?: a split in effect that this bot can see and cannot size, or whose name stands
+/// for more than one class of asset in the account.
 pub fn unresolved(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
     for group in groups(c, user_id, orders, holdings)? {
         budget::charge(1 + group.rows.len() as u64, 0)?;
-        if group.rows.iter().map(|row| row.at).min().is_none_or(|at| at <= now) && resolved_factor(&group.rows)?.is_none() { return Ok(true); }
+        if group.rows.iter().map(|row| row.at).min().is_none_or(|at| at <= now) && (group.date.is_none() || resolved_factor(&group.rows)?.is_none()) { return Ok(true); }
     }
     Ok(false)
 }

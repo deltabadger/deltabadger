@@ -465,6 +465,47 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_equal [10.to_d], PortfolioSnapshot.series(@user, exchange: @binance).map(&:held_value_usd)
   end
 
+  # Since Alpaca lists a BTC security beside BTC/USD, the symbol alone no longer says which one a row
+  # holds. The row's recorded asset does; a row that recorded none is left unpriced, not guessed.
+  def alpaca_btc
+    alpaca = create(:alpaca_exchange)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    coin = Asset.find_by!(external_id: 'bitcoin')
+    stock = create(:asset, symbol: 'BTC', external_id: 'BTC.US', category: 'Stock', instrument_type: 'etf')
+    create(:ticker, exchange: alpaca, base_asset: stock, quote_asset: usd, ticker: 'BTC', base: 'BTC', quote: 'USD')
+    create(:ticker, exchange: alpaca, base_asset: coin, quote_asset: usd, ticker: 'BTC/USD', base: 'BTC', quote: 'USD')
+    HistoricalPrice.create!(asset: 'stock:BTC', currency: 'USD', date: @d0 + 1, price: 30)
+    price('BTC', 1, 60_000)
+    Exchanges::Alpaca.any_instance.stubs(:set_client)
+    Exchanges::Alpaca.any_instance.stubs(:get_candles).returns(Result::Failure.new('offline'))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    [alpaca, create(:api_key, user: @user, exchange: alpaca), coin]
+  end
+
+  test 'a coin at a broker that also lists a security under its ticker is valued as the coin it recorded' do
+    alpaca, alpaca_key, coin = alpaca_btc
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'BTC', base_asset: coin,
+                                 base_amount: 1, quote_currency: 'USD', quote_amount: 60_000, transacted_at: @day.call(1))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    day = PortfolioSnapshot.series(@user, exchange: alpaca).sole
+    assert_equal 60_000.to_d, day.held_value_usd, 'the coin\'s close, not the security\'s 30'
+    assert_not day.partial
+  end
+
+  test 'a row that recorded no asset under a ticker the broker lists twice is left unpriced rather than guessed' do
+    alpaca, alpaca_key, = alpaca_btc
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'BTC', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 60_000, transacted_at: @day.call(1))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    day = PortfolioSnapshot.series(@user, exchange: alpaca).sole
+    assert_equal 0.to_d, day.held_value_usd, 'neither the security\'s 30 nor the coin\'s 60,000'
+    assert day.partial
+  end
+
   test 'the history knows what it was swept from' do
     tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
     MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))

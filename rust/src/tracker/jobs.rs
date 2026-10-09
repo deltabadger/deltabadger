@@ -348,7 +348,7 @@ mod tests {
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'AAPL', 1), (2, 1, 'BTC', 2);
             CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
-            CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_amount NUMERIC,
+            CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_asset_id INTEGER, base_amount NUMERIC,
                 quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT, transacted_at TEXT, raw_data TEXT,
                 manual_values TEXT, linked_transaction_id INTEGER);").unwrap();
         for (kind, base, amount, usd, when) in rows {

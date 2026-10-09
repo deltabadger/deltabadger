@@ -73,10 +73,53 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
     Ok(partial && crate::app_config::get(c, cipher, &price_key(user_id)).map_err(FiguresError::Data)? != Some(generation(c)?.to_string()))
 }
 
-/// One instrument of `load_prices`: the key its prices are stored under, the symbol, whether it is a stock, and the
-/// first day it was touched.
+/// One instrument of `load_prices`: the key its prices are stored under, the symbol, whether it is a stock, the first
+/// day it was touched, and for a coin the one coin its identity names (its external id), if one is named.
 #[derive(Clone, Debug)]
-pub struct Instrument { pub key: String, pub symbol: String, pub stock: bool, pub from: NaiveDate }
+pub struct Instrument { pub key: String, pub symbol: String, pub stock: bool, pub from: NaiveDate, pub coin: Option<Option<String>> }
+
+/// A stock (true) or a coin with the one class it names.
+type Identity = (bool, Option<Option<String>>);
+
+/// `identity_of` on the stock venue: Some((true, None)) a stock, Some((false, the one coin named)) a coin, None a name
+/// that is both. The assets the venue's rows recorded under the symbol decide; with none recorded, what the venue lists
+/// under it, then the catalogue.
+fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Result<Option<Identity>, FiguresError> {
+    type Candidate = (i64, Option<String>, Option<String>);
+    let read = |sql: &str, params: &[&dyn rusqlite::ToSql]| -> Result<Vec<Candidate>, FiguresError> {
+        let mut s = c.prepare_cached(sql)?;
+        let mut q = s.query(params)?;
+        let mut out: Vec<Candidate> = vec![];
+        while let Some(row) = q.next()? {
+            crate::figures::budget::charge(1, 0)?;
+            let asset: Candidate = (row.get(0)?, row.get(1)?, row.get(2)?);
+            if !out.iter().any(|(id, _, _)| *id == asset.0) { out.push(asset); }
+        }
+        Ok(out)
+    };
+    let mut candidates = read("SELECT a.id, a.category, a.external_id FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                               WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.base_currency = ?3 ORDER BY t.id", rusqlite::params![user_id, venue.id, symbol])?;
+    if candidates.is_empty() {
+        candidates = read("SELECT a.id, a.category, a.external_id FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
+                           WHERE t.exchange_id = ?1 AND t.base = ?2 ORDER BY t.id", rusqlite::params![venue.id, symbol])?;
+    }
+    if candidates.is_empty() { candidates = read("SELECT id, category, external_id FROM assets WHERE symbol = ?1 ORDER BY id", rusqlite::params![symbol])?; }
+    let (stocks, coins): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|(_, category, _)| category.as_deref().is_some_and(|c| STOCK_CATEGORIES.contains(&c)));
+    Ok(match (stocks.is_empty(), coins.len()) {
+        (true, 1) => Some((false, Some(coins[0].2.clone()))),
+        (true, _) => Some((false, None)),
+        (false, 0) => Some((true, None)),
+        _ => None,
+    })
+}
+
+/// The coin a symbol means over each stretch of the window: the one its identity named, else Tax::AssetIdentity's.
+fn coins_of(reference: &prices::Reference, venue: &Venue, i: &Instrument, last: NaiveDate) -> Vec<(NaiveDate, NaiveDate, String)> {
+    match &i.coin {
+        Some(named) => named.iter().map(|coin| (i.from, last, coin.clone())).collect(),
+        None => coin_ids_over(reference, &i.symbol, venue, i.from, last),
+    }
+}
 
 /// A stock's closes to fetch from the broker (`stock_price_range`): the key to read them with, and the window.
 #[derive(Clone, Debug)]
@@ -91,7 +134,8 @@ pub enum Close { Range(Fetch), Bars(Bars) }
 pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close> }
 
 /// `touched` and the instruments over the account's rows: per symbol (cash left out) the first day it was touched,
-/// keyed `stock:SYM` when the venue trades stocks and the catalogue has the symbol as a stock.
+/// keyed `stock:SYM` when its identity (`identity_of`) is a stock. A name that is both a stock and a coin has no
+/// instrument: its days are unpriced.
 pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, last: NaiveDate) -> Result<Plan, FiguresError> {
     let venue = Venue::alpaca(c)?;
     // The catalogue and the stored closes, read once; the venue's key, once.
@@ -104,15 +148,15 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         let date = r.date().max(first);
         for symbol in [Some(r.base.as_str()), r.quote.as_deref()].into_iter().flatten() {
             if fiat(symbol) || stable(symbol) || !seen.insert(symbol) { continue; }
-            let stock = reference.has_category(symbol, &STOCK_CATEGORIES);
+            let Some((stock, coin)) = identity_of(c, user_id, &venue, symbol)? else { continue };
             let key = if stock { format!("stock:{symbol}") } else { symbol.to_string() };
-            plan.instruments.push(Instrument { key, symbol: symbol.into(), stock, from: date });
+            plan.instruments.push(Instrument { key, symbol: symbol.into(), stock, from: date, coin });
         }
     }
     for i in &plan.instruments {
         crate::figures::budget::charge(1, 0)?;
         if !i.stock {
-            for (from, to, coin) in coin_ids_over(&reference, &i.symbol, &venue, i.from, last) {
+            for (from, to, coin) in coins_of(&reference, &venue, i, last) {
                 plan.fetches.push(Close::Range(Fetch { coin, symbol: i.symbol.clone(), from, to, asked: None }));
             }
             continue;
@@ -156,7 +200,7 @@ fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<HashMap
     let mut out = HashMap::new();
     for i in &plan.instruments {
         // ponytail: `coins` holds one stretch per dated alias of the symbol (ALIASES has eight), so this find is bounded.
-        let coins = if i.stock { vec![] } else { coin_ids_over(&reference, &i.symbol, &venue, i.from, last) };
+        let coins = if i.stock { vec![] } else { coins_of(&reference, &venue, i, last) };
         let coin_on = |d: NaiveDate| if i.stock { Some(i.key.clone()) } else { coins.iter().find(|(f, l, _)| *f <= d && d <= *l).map(|(_, _, c)| c.clone()) };
         let observed: HashMap<&NaiveDate, &Dec> = reference.prices_over(&i.key, i.from, last).collect();
         let (mut latest, mut carried, mut days) = (None::<Dec>, 0usize, BTreeMap::new());
@@ -249,6 +293,7 @@ pub fn sweep(c: &Connection, plan: &Plan, rows: &[Stored], terms: &[Term], first
                 let value = if stable(symbol) { Some(quantity.clone()) }
                     else if fiat(symbol) { Some((quantity * &Dec::one())?) }
                     else {
+                        // A symbol with no instrument (`identity_of` found it both a stock and a coin) has no prices.
                         let key = keys.get(symbol.as_str()).copied().unwrap_or(symbol.as_str());
                         match prices.get(key).and_then(|d| d.get(&day)) { Some(p) => Some((quantity * p)?), None => None }
                     };
@@ -314,8 +359,8 @@ mod tests {
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'BTC', 1);
             CREATE TABLE api_keys (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER); INSERT INTO api_keys VALUES (1, 1, 1);
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC);
-            CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, transacted_at TEXT, updated_at TEXT);
-            INSERT INTO account_transactions VALUES (1, 1, 1, '2026-09-01 14:00:00', '2026-09-01 15:00:00');
+            CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, transacted_at TEXT, updated_at TEXT, base_currency TEXT, base_asset_id INTEGER);
+            INSERT INTO account_transactions VALUES (1, 1, 1, '2026-09-01 14:00:00', '2026-09-01 15:00:00', 'USD', NULL);
             CREATE TABLE portfolio_snapshots (id INTEGER PRIMARY KEY, user_id INTEGER, date TEXT, held_cost_usd NUMERIC, partial BOOLEAN);
             CREATE TABLE portfolio_venue_snapshots (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, date TEXT, held_cost_usd NUMERIC, partial BOOLEAN);
             CREATE TABLE app_configs (id INTEGER PRIMARY KEY, key TEXT UNIQUE, value TEXT, created_at TEXT, updated_at TEXT);").unwrap();
@@ -327,15 +372,31 @@ mod tests {
                  group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None }
     }
 
-    /// The coin Alpaca lists is never valued at the closes of a security sharing its symbol, stored or not.
+    /// PortfolioSnapshot::BackfillJob#identity_of under a name Alpaca can list twice (its BTC security beside BTC/USD):
+    /// the asset the venue's rows recorded decides, else what the venue lists, else the catalogue; a name the rows
+    /// recorded as both is not guessed at and stays unpriced. A coin is never valued at the security's stored closes.
     #[test]
     fn a_coin_is_not_valued_at_a_security_s_stored_closes() {
         let c = install();
-        let refused = |c: &Connection| matches!(plan(c, 1, &[bought("BTC")], day("2026-09-02"), day("2026-09-30")),
-                                                Err(FiguresError::NotComputed(ref m)) if m == "the tracker walk is not ported for a stock whose ticker on Alpaca is a coin's");
-        assert!(refused(&c), "nothing stored");
         c.execute("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:BTC', 'USD', '2026-09-30', 41.5)", []).unwrap();
-        assert!(refused(&c), "the security's close stored for the last weekday");
+        let instrument = |c: &Connection| plan(c, 1, &[bought("BTC")], day("2026-09-02"), day("2026-09-30")).map(|p| p.instruments.into_iter().find(|i| i.symbol == "BTC"));
+        // Nothing recorded: the venue lists only the coin.
+        let coin = instrument(&c).unwrap().unwrap();
+        assert_eq!((coin.key.as_str(), coin.stock, coin.coin.clone()), ("BTC", false, Some(Some("bitcoin".to_string()))));
+        // The rows recorded the coin, beside a venue listing both.
+        c.execute_batch("INSERT INTO tickers VALUES (2, 1, 'BTC', 2); INSERT INTO account_transactions VALUES (2, 1, 1, '2026-09-02 14:30:00', '2026-09-02 15:00:00', 'BTC', 1);").unwrap();
+        let coin = instrument(&c).unwrap().unwrap();
+        assert_eq!((coin.key.as_str(), coin.stock), ("BTC", false));
+        assert!(!prices_by_day(&c, &Plan { instruments: vec![coin], fetches: vec![] }, day("2026-09-30")).unwrap()["BTC"].contains_key(&day("2026-09-30")),
+                "never the security's 41.5");
+        // The rows recorded the security alone: a stock, which this build refuses while the venue's first BTC ticker is the coin's.
+        c.execute("UPDATE account_transactions SET base_asset_id = 2 WHERE id = 2", []).unwrap();
+        assert!(matches!(instrument(&c), Err(FiguresError::NotComputed(ref m)) if m == "the tracker walk is not ported for a stock whose ticker on Alpaca is a coin's"));
+        // The rows recorded both: no instrument, so its days are unpriced.
+        c.execute("INSERT INTO account_transactions VALUES (3, 1, 1, '2026-09-03 14:30:00', '2026-09-03 15:00:00', 'BTC', 1)", []).unwrap();
+        assert!(instrument(&c).unwrap().is_none());
+        let swept = sweep(&c, &plan(&c, 1, &[bought("BTC")], day("2026-09-02"), day("2026-09-30")).unwrap(), &[bought("BTC")], &[], day("2026-09-02"), day("2026-09-03")).unwrap();
+        assert!(swept.whole.iter().all(|(_, d)| d.partial && d.held_value.as_ref().is_some_and(Dec::is_zero)), "unpriced, not valued at either close");
     }
 
     /// Every day from the first transaction to yesterday, in both tables, a swept row each: the history a sweep writes.
@@ -396,7 +457,7 @@ mod tests {
     fn the_closes_by_day_hold_only_prices_and_every_day_walked_is_charged() {
         let c = install();
         c.execute("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:AAPL', 'USD', '2026-09-01', 228.5)", []).unwrap();
-        let instrument = |n: usize| { let symbol = if n == 0 { "AAPL".to_string() } else { format!("S{n}") }; Instrument { key: format!("stock:{symbol}"), symbol, stock: true, from: day("2016-10-01") } };
+        let instrument = |n: usize| { let symbol = if n == 0 { "AAPL".to_string() } else { format!("S{n}") }; Instrument { key: format!("stock:{symbol}"), symbol, stock: true, from: day("2016-10-01"), coin: None } };
         let plan = Plan { instruments: (0..500).map(instrument).collect(), fetches: vec![] };
         let (by_day, used) = budget::scope(budget::FIGURE, || prices_by_day(&c, &plan, day("2026-09-30")));
         let by_day = by_day.unwrap();

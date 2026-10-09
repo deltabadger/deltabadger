@@ -34,7 +34,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     # Read before the rows are, so a row landing mid-sweep leaves the history stale.
     version = PortfolioSnapshot.history_version(@user)
     @transactions = AccountTransaction.for_user(@user).by_date_asc
-                                      .includes(:exchange, :inverse_link, linked_transaction: :exchange).to_a
+                                      .includes(:exchange, :base_asset, :inverse_link, linked_transaction: :exchange).to_a
     @last_date = Date.current - 1
     first_date = @transactions.first&.transacted_at&.to_date
     return PortfolioSnapshot.mark_history_swept!(@user, version) if first_date.nil? || first_date > @last_date
@@ -310,23 +310,28 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
   # price key → { date => price }, last observed carried forward. Built once per INSTRUMENT, over the
   # interval it was actually touched, so a coin bought last week costs one small window rather than
-  # the whole history. A [venue, symbol] names its instrument (`@price_keys`): a stock is a stock only
-  # on a venue that trades them — a coin sharing a ticker with a stock is priced as the coin on a
-  # crypto venue, and both can be held at once.
+  # the whole history. A [venue, symbol] names its instrument (`@price_keys`, see `identity_of`), and
+  # one it cannot name has no key: its days are unpriced.
   def load_prices(first_date)
     @prices = {}
     @price_keys = {}
     instruments = {}
     touched(first_date).each do |(venue, symbol), (from, exchange)|
-      stock = Asset.find_by(symbol: symbol, category: STOCK_CATEGORIES) if exchange.stock_venue?
+      kind, coin = identity_of(symbol, exchange)
+      next @price_keys[[venue, symbol]] = nil unless kind
+
+      stock = kind == :stock
       key = stock ? "stock:#{symbol}" : symbol
       @price_keys[[venue, symbol]] = key
       # The venue that first touched a coin is the one its identity is read off (`Tax::AssetIdentity`).
       known = instruments[key]
-      instruments[key] = [symbol, stock, [from, known&.dig(2) || from].min, known&.dig(3) || exchange]
+      instruments[key] = [symbol, stock, [from, known&.dig(2) || from].min, known&.dig(3) || exchange, known&.dig(4) || coin]
     end
-    instruments.each do |key, (symbol, stock, from, exchange)|
-      coins = stock ? [] : Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date)
+    instruments.each do |key, (symbol, stock, from, exchange, coin)|
+      coins = if stock then []
+              elsif coin then [[from..@last_date, coin.external_id]]
+              else Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date)
+              end
       fetch_missing(symbol, stock, from, coins, exchange)
       observed = HistoricalPrice.where(asset: key, currency: 'USD', date: from..@last_date)
                                 .pluck(:date, :price).to_h
@@ -346,6 +351,23 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
         last if carried <= CARRY_LIMIT
       end
     end
+  end
+
+  # [:stock], [:coin, the coin if one is named] or nil. On a crypto venue a symbol is a coin. A broker
+  # can list a security and a coin under one ticker (Alpaca's BTC beside BTC/USD), so there the asset
+  # the venue's rows recorded decides; with none recorded, what the venue lists under the name, then
+  # the catalogue. A name that is still both is not guessed at.
+  def identity_of(symbol, exchange)
+    return [:coin] unless exchange.stock_venue?
+
+    candidates = @transactions.select { |row| row.exchange_id == exchange.id && row.base_currency == symbol }
+                              .filter_map(&:base_asset).presence ||
+                 exchange.tickers.where(base: symbol).includes(:base_asset).map(&:base_asset).presence ||
+                 Asset.where(symbol: symbol).to_a
+    stocks, coins = candidates.uniq.partition { |asset| STOCK_CATEGORIES.include?(asset.category) }
+    return [:coin, (coins.first if coins.one?)] if stocks.empty?
+
+    [:stock] if coins.empty?
   end
 
   # Cash needs no price, and a symbol nothing ever touched needs no window. [venue, symbol] → the

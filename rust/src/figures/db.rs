@@ -244,12 +244,12 @@ pub const ADJUSTMENT: i64 = 15;
 
 /// A corporate-action row of the account's ledger, marked as a split.
 #[derive(Clone, Debug)]
-pub struct SplitRow { pub id: i64, pub exchange_id: i64, pub base_currency: String, pub raw_data: Value, pub at: At }
+pub struct SplitRow { pub id: i64, pub exchange_id: i64, pub base_currency: String, pub base_asset_id: Option<i64>, pub raw_data: Value, pub at: At }
 
 /// The `adjustment` rows marked `corporate_action: split` on these venues (Bot::Restatable#grouped_split_rows).
 pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<Vec<SplitRow>, FiguresError> {
     let mut statement = c.prepare(&format!(
-        "SELECT exchange_id, base_currency, raw_data, transacted_at, id FROM account_transactions \
+        "SELECT exchange_id, base_currency, raw_data, transacted_at, id, base_asset_id FROM account_transactions \
          WHERE user_id = ?1 AND entry_type = ?2 AND exchange_id IN ({}) \
          AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END = 'split'", id_list(exchange_ids)?))?;
     let mut rows = statement.query(params![user_id, ADJUSTMENT])?;
@@ -258,12 +258,38 @@ pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<
         budget::charge(1, 0)?;
         let raw: String = r.get(2)?;
         out.push(SplitRow {
-            id: r.get(4)?, exchange_id: r.get(0)?, base_currency: r.get(1)?,
+            id: r.get(4)?, exchange_id: r.get(0)?, base_currency: r.get(1)?, base_asset_id: r.get(5)?,
             raw_data: serde_json::from_str(&raw).map_err(data)?,
             at: instant(&r.get::<_, String>(3)?)?,
         });
     }
     Ok(out)
+}
+
+/// Bot::Restatable#account_classes: `(symbol, category)` for each asset this user's ledger rows recorded under one of
+/// these names, then each asset their balances hold under it (assets.symbol), distinct per source.
+pub fn account_classes(c: &Connection, user_id: i64, symbols: &[String]) -> Result<Vec<(String, Option<String>)>, FiguresError> {
+    if symbols.is_empty() { return Ok(vec![]); }
+    budget::charge(symbols.len() as u64, 0)?;
+    let names = Value::from(symbols.to_vec()).to_string();
+    let mut out = vec![];
+    for sql in ["SELECT DISTINCT t.base_currency, a.category FROM account_transactions t INNER JOIN assets a ON a.id = t.base_asset_id \
+                 WHERE t.user_id = ?1 AND t.base_currency IN (SELECT value FROM json_each(?2))",
+                "SELECT DISTINCT a.symbol, a.category FROM account_balances b INNER JOIN assets a ON a.id = b.asset_id \
+                 WHERE b.user_id = ?1 AND a.symbol IN (SELECT value FROM json_each(?2))"] {
+        let mut statement = c.prepare(sql)?;
+        for row in statement.query_map(params![user_id, names], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))? {
+            budget::charge(1, 0)?;
+            out.push(row?);
+        }
+    }
+    Ok(out)
+}
+
+/// An asset's category; None for an uncategorised or missing asset.
+pub fn asset_category(c: &Connection, asset_id: i64) -> Result<Option<String>, FiguresError> {
+    budget::charge(1, 0)?;
+    Ok(c.query_row("SELECT category FROM assets WHERE id = ?1", [asset_id], |r| r.get::<_, Option<String>>(0)).optional()?.flatten())
 }
 
 /// Ticker.asset_ids_by_name: `(NAME, asset id)` for every asset the venue lists under one of these names, by its
