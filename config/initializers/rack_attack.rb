@@ -43,6 +43,7 @@ module RackAttackPaths
   # address the caller names. It was the one of the pair without a bound.
   CONFIRMATION = build('/confirmation')
   SETUP       = build('/setup')
+  SETUP_PLATFORM = build('/setup/platform_connection')
   # The OAuth endpoints live outside the locale scope, but still take a format suffix.
   REGISTER    = %r{\A/oauth/register#{FORMAT}\z}
   TOKEN       = %r{\A/oauth/token#{FORMAT}\z}
@@ -80,12 +81,41 @@ end
 # is somehow absent the key is a shared constant rather than nil, because a throttle block
 # returning nil makes rack-attack skip the rule outright, so it has to fail closed.
 #
+# Declaring a proxy does not stop a caller from reaching the listener around it, and such a
+# caller's forwarded-for header is its own words. calculate_ip puts the peer last in its list,
+# so a peer that is no trusted proxy is still keyed on whatever hop it wrote. The headers are
+# therefore read only when the peer itself is a trusted proxy; any other peer, an address that
+# does not parse included, is keyed on itself.
+#
 # The bound that does not depend on IP attribution at all is the per-account one: sign-in,
 # the second factor and password reset are limited on the user row by :lockable.
 def (Rack::Attack).client_ip(req)
-  return req.env['REMOTE_ADDR'].presence || 'unattributed' unless Deltabadger::Application.behind_proxy_from_env
+  peer = canonical_ip(req.env['REMOTE_ADDR'].presence)
+  return peer || 'unattributed' unless Deltabadger::Application.behind_proxy_from_env && trusted_proxy?(peer)
 
-  req.env['action_dispatch.remote_ip']&.to_s.presence || req.env['REMOTE_ADDR'].presence || 'unattributed'
+  req.env['action_dispatch.remote_ip']&.to_s.presence || peer
+end
+
+# A dual-stack socket hands an IPv4 peer over as ::ffff:a.b.c.d: that is the IPv4 address it
+# carries, for the trusted-proxy check and for the key alike (the Rust port's `to_canonical`).
+# Anything else, an address that does not parse included, is left as it came.
+def (Rack::Attack).canonical_ip(addr)
+  return addr if addr.nil?
+
+  ip = IPAddr.new(addr)
+  ip.ipv4_mapped? ? ip.native.to_s : addr
+rescue IPAddr::InvalidAddressError
+  addr
+end
+
+# The list ActionDispatch::RemoteIp walks the forwarded hops with.
+def (Rack::Attack).trusted_proxy?(addr)
+  return false if addr.nil?
+
+  ip = IPAddr.new(addr).native
+  (Rails.application.config.action_dispatch.trusted_proxies || ActionDispatch::RemoteIp::TRUSTED_PROXIES).any? { |proxy| proxy === ip }
+rescue IPAddr::InvalidAddressError
+  false
 end
 
 # rack-attack's default response is a bare "Retry later". These rules now match paths this
@@ -139,6 +169,24 @@ end
 
 Rack::Attack.throttle('setup', limit: 5, period: 60) do |req|
   Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+end
+
+# SETUP_TOKEN arrives as /setup?token=, so a GET (or a HEAD, which Rails routes to the same
+# action) is where it would be guessed. Rails reads body parameters on a GET too, so a body
+# counts as well as a query. Any query or body counts — parsing it here would hand Rack's parser
+# to the caller ahead of the app, and every spelling Rails reads as a token (token[]=, a repeated
+# key, JSON) would need its own rule. A bare GET only renders the form, and it is where the token
+# redirect lands, so it is left free.
+Rack::Attack.throttle('setup/token', limit: 5, period: 60) do |req|
+  carries_input = req.query_string.present? || req.content_length.to_i.positive? || req.get_header('HTTP_TRANSFER_ENCODING').present?
+  if (req.get? || req.head?) && carries_input && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+    Rack::Attack.client_ip(req)
+  end
+end
+
+# Takes a claim code and spends an outbound call to the platform redeeming it.
+Rack::Attack.throttle('setup/platform_connection', limit: 5, period: 60) do |req|
+  Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::SETUP_PLATFORM.match?(RackAttackPaths.normalize(req.path))
 end
 
 # The CSP report endpoint takes an unauthenticated POST and writes a line to the log, so

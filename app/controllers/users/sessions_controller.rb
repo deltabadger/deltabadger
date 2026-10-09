@@ -26,24 +26,39 @@ class Users::SessionsController < Devise::SessionsController
     # as the failed attempt it is, which is also what keeps it inside the throttle and out of
     # the exception log.
     params[:user] = ActionController::Parameters.new unless params[:user].is_a?(ActionController::Parameters)
-    params[:user][:password] = trim_long_password(params[:user][:password].to_s)
+    password = params[:user][:password] = trim_long_password(params[:user][:password].to_s)
     user = User.find_for_authentication(email: params[:user][:email])
 
-    if user&.otp_module_enabled? && user.valid_password?(params[:user][:password])
-      # A locked account must not get a second-factor prompt at all — otherwise the
-      # lock only guards the password stage and TOTP guessing continues through it.
-      return redirect_to(new_user_session_path, alert: t('devise.failure.locked')) if user.access_locked?
+    # Exactly one bcrypt computation on every path, so the time an answer takes says nothing
+    # about the account — whether it exists, and whether it has two-factor on. Devise's
+    # strategy spends one when the password is present (a verification, or in paranoid mode a
+    # throwaway hash for an unknown email) and none when it is blank, so a blank password
+    # spends its one here. A two-factor account spends its one in the check below, and its
+    # wrong password must not then reach the strategy, which would verify it a second time.
+    if user&.otp_module_enabled?
+      if user.valid_password?(password)
+        # A locked account must not get a second-factor prompt at all — otherwise the
+        # lock only guards the password stage and TOTP guessing continues through it.
+        return redirect_to(new_user_session_path, alert: t('devise.failure.locked')) if user.access_locked?
 
-      sign_out(resource)
-      session[:pending_user_id] = user.id
-      session[:remember_me] = params[:user][:remember_me]
-      session[:pending_started_at] = Time.current.to_i
-      redirect_to verify_two_factor_path(locale: pending_sign_in_locale(user))
-    else
-      allow_params_authentication!
-      self.resource = warden.authenticate!(auth_options)
-      continue_sign_in(resource_name, resource)
+        sign_out(resource)
+        session[:pending_user_id] = user.id
+        session[:remember_me] = params[:user][:remember_me]
+        session[:pending_started_at] = Time.current.to_i
+        return redirect_to verify_two_factor_path(locale: pending_sign_in_locale(user))
+      end
+
+      # What the strategy does with a wrong password, minus the verification already done:
+      # lift an expired lock, count the failure, lock at the limit — and, like the strategy,
+      # touch no row for a blank password.
+      user.valid_for_authentication? { false } if password.present?
+      throw :warden, auth_options.merge(message: user.unauthenticated_message)
     end
+
+    Devise::Encryptor.digest(resource_class, password) if password.blank?
+    allow_params_authentication!
+    self.resource = warden.authenticate!(auth_options)
+    continue_sign_in(resource_name, resource)
   end
 
   def verify_two_factor
@@ -140,6 +155,13 @@ class Users::SessionsController < Devise::SessionsController
       location = "#{location}#{separator}locale=#{resource.locale}"
     end
     respond_with resource, location: location
+  end
+
+  # A failed sign-in re-renders the form through #new, and Devise builds its User from these
+  # params: assigning the password hashes it, a second bcrypt computation the form then
+  # discards (clean_up_passwords). The form never shows the password back.
+  def sign_in_params
+    super.except(:password)
   end
 
   def set_new_instance_variables
