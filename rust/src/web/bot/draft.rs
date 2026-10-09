@@ -89,7 +89,7 @@ fn percentage(value: &Value) -> Result<Value, WebError> {
 impl Draft {
     /// Call inside the writer's BEGIN IMMEDIATE. Ownership/type/deletion are checked in SQL
     /// before loading associations, defaults, or any guard reason.
-    pub fn load(c: &Connection, owner: i64, id: i64) -> Result<Option<Self>, WebError> {
+    pub fn load(c: &Connection, owner: i64, id: i64, locale: &str) -> Result<Option<Self>, WebError> {
         let row = c.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1 AND user_id = ?2 AND status <> 3 AND type IN ('Bots::DcaMultiAsset', 'Bots::DcaIndex')",
             (id, owner), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))).optional()?;
         let Some((raw, transient)) = row else { return Ok(None) };
@@ -102,7 +102,7 @@ impl Draft {
         }
         let members: i64 = c.query_row("SELECT count(*) FROM (SELECT 1 FROM bot_index_assets WHERE bot_id=?1 LIMIT 1001)", [id], |r| r.get(0))?;
         if members > 1000 { return Err(start::history_error()); }
-        let Some(bot) = Bot::find(c, owner, id, For::Page)? else { return Ok(None) };
+        let Some(bot) = Bot::find(c, owner, id, For::Page, locale)? else { return Ok(None) };
         let mut draft = Self::from_bot(bot);
         draft.raw_settings = raw_settings;
         draft.raw_transient = raw_transient;

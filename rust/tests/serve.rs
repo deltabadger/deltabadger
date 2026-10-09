@@ -1472,7 +1472,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     });
     // The row lacks every one of them: the bot is read with Rails' defaults, a condition watches the
     // venue's first ticker, and nothing is written.
-    let bare = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    let bare = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
     for (key, value) in defaults.as_object().unwrap() { assert_eq!(bare.settings.get(key), Some(value), "{key}"); }
     for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
         assert_eq!(bare.settings.get(&format!("{rule}_in_ticker_id")), Some(&json!(seeded.ticker_id)), "{rule}");
@@ -1483,25 +1483,25 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let mut whole = settings.clone();
     (whole["quote_amount"], whole["smart_interval_quote_amount"], whole["price_limit"], whole["interval"]) = (json!(25), json!(null), json!(false), json!("day"));
     store(&whole);
-    let filled = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    let filled = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
     assert_eq!((filled.settings.get("smart_interval_quote_amount"), filled.settings.get("price_limit")), (Some(&json!(2.0)), Some(&json!(1000000))));
     for (key, value) in defaults.as_object().unwrap() { settings[key] = value.clone(); }
     store(&settings);
     assert_eq!(refusal(), None);
 
-    let found = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    let found = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
     assert_eq!((found.kind, found.one_asset(), found.dom_id("tile")), (Kind::Basket, true, format!("tile_bots_dca_multi_asset_{id}")));
     assert_eq!((found.allocations_total(), found.allocations_balanced(), found.quote_decimals(), found.api_key_correct()), (1.0, true, Some(2), true));
     assert_eq!((found.tickers.len(), found.quote_symbol(), found.exchange.name_id().as_str()), (1, Some("USD"), "alpaca"));
     // Weekly since 2026-09-01 10:00: the engine's schedule gives the next and the last checkpoint.
     let checkpoints = found.checkpoints(now).unwrap();
     assert_eq!((checkpoints.last_us, checkpoints.next_us), (web::at("2026-09-08T10:00:00Z").timestamp_micros(), web::at("2026-09-15T10:00:00Z").timestamp_micros()));
-    assert!(Bot::find(c, seeded.user_id + 1, id, bot::For::Page).unwrap().is_none(), "another user's bot is not found");
+    assert!(Bot::find(c, seeded.user_id + 1, id, bot::For::Page, "en").unwrap().is_none(), "another user's bot is not found");
 
     // `bot.invalid?(:start)`: valid as it stands; not while its only listing is withdrawn; not with a starting time that has passed.
     let invalid = |settings: &serde_json::Value| {
         store(settings);
-        start::check(c, &Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap(), now, true, "en").unwrap()
+        start::check(c, &Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap(), now, true, "en").unwrap()
     };
     assert!(!invalid(&settings).invalid);
     c.execute("UPDATE tickers SET available = 0", []).unwrap();
@@ -1540,7 +1540,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         (slow["smart_intervaled"], slow["smart_interval_quote_amount"]) = (json!(true), slice);
         store(&slow);
         assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), None, "the row alone does not say it");
-        Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().unrendered()
+        Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().unrendered()
     };
     let too_far = Some("Smart Intervals that leave more than a thousand years between two orders");
     assert_eq!((apart(json!(3_130_000)), apart(json!(3_131_000)), apart(json!(1.7e308))), (None, too_far, too_far));
@@ -1557,7 +1557,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(invalid(&nothing).smart_interval_quote_amount.is_some(), "the floor's message, as for any amount under it");
     c.execute("UPDATE bots SET status = 1 WHERE id = ?1", [id]).unwrap();
     store(&settings);
-    assert_eq!(Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().unrendered(), None);
+    assert_eq!(Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().unrendered(), None);
 
     // One thing at a time that this build does not render.
     let refused = |change: &dyn Fn(&mut serde_json::Value), wash_sale: Option<bool>, deltabadger: bool| {
@@ -1614,7 +1614,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     }
     let read = |change: &dyn Fn(&mut serde_json::Value)| {
         assert_eq!(refused(change, Some(false), true), None);
-        Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap()
+        Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap()
     };
     let texts = read(&|s| (s["allocations"], s["rebalance_threshold"]) = (json!({ btc.clone(): "0.6" }), json!("0.2")));
     assert_eq!((texts.allocations(), texts.rebalance_threshold().map(|share| share.to_s_f())), (vec![(seeded.btc, 0.6)], Some("0.2".to_string())), "as `to_f` and `to_d` read them");
@@ -1655,7 +1655,6 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
     store(&settings);
     for (sql, reason) in [
-        ("UPDATE bots SET label = '  '", "a bot without a label, which Rails writes on load"),
         ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Kraken'", "a bot on an exchange other than Alpaca"),
@@ -1668,10 +1667,17 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         assert_eq!(refusal(), Some(reason), "{sql}");
         c.execute_batch("ROLLBACK TO change; RELEASE change;").unwrap();
     }
+    // A bot stored without a name is served under the one Rails generates on load, which saves nothing.
+    c.execute_batch("SAVEPOINT unnamed; UPDATE bots SET label = '  ';").unwrap();
+    assert_eq!(refusal(), None, "a bot without a label is served");
+    let unnamed = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
+    assert!(unnamed.label_unsaved && !unnamed.label.trim().is_empty(), "named in memory: {:?}", unnamed.label);
+    assert_eq!(c.query_row("SELECT label FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap(), "  ", "and not saved");
+    c.execute_batch("ROLLBACK TO unnamed; RELEASE unnamed;").unwrap();
     // At the bound the bot is served, and what the pages compute from the decimals is computed.
     c.execute_batch(&format!("SAVEPOINT bound; UPDATE tickers SET base_decimals = {0}, quote_decimals = {0};", bot::MAX_DECIMALS)).unwrap();
     assert_eq!((bot::MAX_DECIMALS, refusal()), (14, None));
-    let precise = Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap();
+    let precise = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap();
     assert_eq!(precise.quote_decimals(), Some(14));
     assert!(start::smart_interval_minimum(&precise).value.to_f() > 0.0 && !start::check(c, &precise, now, true, "en").unwrap().invalid);
     assert_eq!(deltabadger::ruby::BigDec::parse("1.23456789").unwrap().round(precise.quote_decimals().unwrap()).to_s_f(), "1.23456789");
@@ -1683,11 +1689,11 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         c.execute_batch("SAVEPOINT stored;").unwrap();
         c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES (?1, ?2, ?3, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
                   (id, seeded.btc, seeded.ticker_id)).unwrap();
-        assert!(Bot::find(c, seeded.user_id, id, bot::For::Page).is_ok());
+        assert!(Bot::find(c, seeded.user_id, id, bot::For::Page, "en").is_ok());
         for stored in ["1_0e1000000000", "1e1000000000", &"9".repeat(600)] {
             c.execute(&format!("UPDATE {table} SET {column} = ?1"), [stored]).unwrap();
             assert_eq!(refusal(), None, "{table}.{column} = {}", &stored[..14]);
-            let failed = Bot::find(c, seeded.user_id, id, bot::For::Page).expect_err("a number this build does not read");
+            let failed = Bot::find(c, seeded.user_id, id, bot::For::Page, "en").expect_err("a number this build does not read");
             assert!(bot::unreadable(&failed), "{table}.{column}: {failed:?}");
         }
         c.execute_batch("ROLLBACK TO stored; RELEASE stored;").unwrap();
@@ -1723,8 +1729,8 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         .unwrap().query_map([id], |r| r.get::<_, String>(3)).unwrap().map(Result::unwrap).collect::<Vec<_>>().join("; ");
     assert_eq!(plan.matches("index_bot_type_created_at (bot_id=? AND transaction_type").count(), 2, "{plan}");
     // The feed is not given the four facts about the bot's orders either: each may walk the history.
-    assert!(Bot::find(c, seeded.user_id, id, bot::For::Page).unwrap().unwrap().has_orders);
-    assert!(!Bot::find(c, seeded.user_id, id, bot::For::Feed).unwrap().unwrap().has_orders);
+    assert!(Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().has_orders);
+    assert!(!Bot::find(c, seeded.user_id, id, bot::For::Feed, "en").unwrap().unwrap().has_orders);
 }
 
 /// A text that is markup if it is printed as it is, and that closes an attribute if it is printed inside one.
@@ -1831,6 +1837,29 @@ async fn two_plain_bots() -> (tempfile::TempDir, deltabadger::store::Opened, com
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     (dir, opened, seeded, app, browser, [working, stopped])
+}
+
+/// A bot stored without a name (NULL or blank) is served under the name Rails generates on load —
+/// on its page, in the other bot's switcher and on the list — and the read saves nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bot_without_a_label_is_shown_under_its_generated_name_and_nothing_is_saved() {
+    use deltabadger::web::bot::{self, Bot};
+    let (_dir, opened, seeded, app, mut browser, [working, stopped]) = two_plain_bots().await;
+    let c = &opened.primary;
+    c.execute("UPDATE bots SET label = NULL WHERE id = ?1", [working]).unwrap();
+    c.execute("UPDATE bots SET label = '  ' WHERE id = ?1", [stopped]).unwrap();
+    let stamps = || c.prepare("SELECT label, updated_at FROM bots ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?))).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    let before = stamps();
+    let name = Bot::find(c, seeded.user_id, stopped, bot::For::Page, "en").unwrap().unwrap().label;
+    assert!(!name.trim().is_empty(), "a generated name");
+    let page = browser.get(&app, &format!("/bots/{working}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    assert!(page.body.contains(&format!("data-turbo-action=\"advance\" href=\"/bots/{stopped}\">{name}</a>")), "the switcher names the other bot");
+    assert!(page.body.contains(&format!("{name}\n</div>")), "the page names its own bot");
+    assert_eq!(browser.get(&app, &format!("/bots/{stopped}")).await.status, 200);
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
+    assert_eq!(stamps(), before, "a read saves no label and touches no row");
 }
 
 /// The span between two orders is checked before any checkpoint is computed from it. A working bot

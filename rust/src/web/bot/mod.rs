@@ -271,6 +271,9 @@ pub struct Bot {
     pub has_waiting_orders: bool,
     pub has_regular_waiting_orders: bool,
     pub has_submitted_orders: bool,
+    /// Stored without a name: `label` is the generated one, in memory only (Automation::Labelable#ensure_label_exists).
+    /// A save writes it only when it is submitted on purpose.
+    pub label_unsaved: bool,
 }
 
 /// What a setting the pages read may be stored as. Rails validates each on every save, so a row a
@@ -401,17 +404,15 @@ pub enum For { Page, Feed, FiguresPage }
 /// Why a bot's pages are not served by this build. Rails serves each of these; porting what
 /// a line names removes it.
 pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, provider_is_deltabadger: bool, asked: For) -> Result<Option<&'static str>, WebError> {
-    let row = c.query_row("SELECT b.type, e.type, b.label, b.settings, b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
-                          [bot_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?)))?;
-    let (class, exchange, label, settings, transient) = row;
+    let row = c.query_row("SELECT b.type, e.type, b.settings, b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
+                          [bot_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
+    let (class, exchange, settings, transient) = row;
     let settings: Value = serde_json::from_str(&settings).unwrap_or(Value::Null);
     let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
     if exchange.as_deref() != Some("Exchanges::Alpaca") { return Ok(Some("a bot on an exchange other than Alpaca")); }
-    // Automation::Labelable#ensure_label_exists writes a label when a page finds none.
-    if label.is_none_or(|label| label.trim().is_empty()) { return Ok(Some("a bot without a label, which Rails writes on load")); }
     // What the wizard always stores and no concern has a default for. Every other setting a row may
     // lack is given the value Rails gives it on load (`Bot::fill_defaults`).
     let needed: &[&str] = if class == "Bots::DcaIndex" { &["quote_asset_id", "interval", "index_type"] } else { &["quote_asset_id", "interval", "allocations"] };
@@ -476,7 +477,8 @@ fn object(text: &str, what: &str) -> Result<Map<String, Value>, WebError> {
 impl Bot {
     /// The user's bot with this id, deleted ones included (`current_user.bots.find`). Call `refusal` first, and `unrendered` on what this returns.
     /// The feed reads none of the four facts about the bot's orders, each of which may walk the whole history, and is not given them.
-    pub fn find(c: &Connection, user_id: i64, id: i64, asked: For) -> Result<Option<Bot>, WebError> {
+    /// `locale` names a bot stored without a label, as the request's I18n would.
+    pub fn find(c: &Connection, user_id: i64, id: i64, asked: For, locale: &str) -> Result<Option<Bot>, WebError> {
         let row = c.query_row(
             "SELECT id, type, status, label, exchange_id, settings, transient_data, started_at, stop_message_key FROM bots WHERE id = ?1 AND user_id = ?2", [id, user_id],
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Option<i64>>(4)?,
@@ -532,14 +534,57 @@ impl Bot {
             if asked == For::Feed { return Ok(false); }
             Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1{condition})"), [id], |r| r.get(0))?)
         };
+        let label_unsaved = label.as_deref().is_none_or(|label| label.trim().is_empty());
         let mut bot = Bot {
-            id, kind, status, label: label.unwrap_or_default(), exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,
+            id, kind, status, label: label.unwrap_or_default(), label_unsaved, exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,
             tickers, api_key, index, last_order, has_orders: exists("")?, has_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1)")?,
             has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
             has_submitted_orders: exists(" AND status = 0")?,
         };
         bot.fill_defaults();
+        if bot.label_unsaved { bot.label = bot.default_label(locale); }
         Ok(Some(bot))
+    }
+
+    /// Automation::Labelable#generate_label: `default_label`, else the translated "New bot".
+    /// An index bot's clamps its count first, in memory, as Bots::DcaIndex#default_label does.
+    fn default_label(&mut self, locale: &str) -> String {
+        let label = match self.kind {
+            Kind::Index => {
+                if !self.holds_whole_universe() {
+                    if let (Some(max), Some(count)) = (self.bounded_universe_size(), self.effective_num_coins()) {
+                        if count > max { self.settings.insert("num_coins".into(), Value::from(max)); }
+                    }
+                }
+                let mut name = self.display_index_name().unwrap_or_else(|| super::i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[]));
+                let category = self.text("index_category_id").map(str::to_string);
+                if self.text("index_type") == Some("category") && category.as_deref() != Some("nasdaq-100") {
+                    if self.text("index_name").is_none_or(|name| name.trim().is_empty()) {
+                        // Category IDs are slugs; Rails titleizes the ID when no display name is saved.
+                        name = category.map_or_else(|| "Index".into(), |category| {
+                            category.replace(['-', '_'], " ").split_whitespace().map(|word| {
+                                let mut chars = word.chars();
+                                chars.next().map_or_else(String::new, |first| first.to_uppercase().collect::<String>() + chars.as_str())
+                            }).collect::<Vec<_>>().join(" ")
+                        });
+                    }
+                    // Rails default_label appends num_coins even when hold_all uses the whole universe.
+                    if let Some(count) = self.setting("num_coins").and_then(Value::as_i64) { name.push_str(&format!(" · {count}")); }
+                }
+                name
+            }
+            Kind::Basket => {
+                let ids = allocation_ids(&self.settings);
+                let asset = |id: i64| self.base_assets.iter().find(|asset| asset.id == id);
+                if ids.len() == 1 { asset(ids[0]).and_then(|asset| asset.name.clone()).unwrap_or_default() } else {
+                    // Automation::Labelable#basket_label
+                    let symbols = ids.iter().filter_map(|id| asset(*id).and_then(|asset| asset.symbol.as_deref())).collect::<Vec<_>>();
+                    let label = symbols.iter().take(3).copied().collect::<Vec<_>>().join(", ");
+                    if symbols.len() > 3 { format!("{label} + {}", symbols.len() - 3) } else { label }
+                }
+            }
+        };
+        if label.trim().is_empty() { super::i18n::text(locale, "bot.new", &[]) } else { label }
     }
 
     /// What each concern's `after_initialize` gives a setting the row lacks, in memory, on every load

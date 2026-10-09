@@ -21,15 +21,15 @@ end
 McpParity.singleton_class.define_method(:snapshot) { McpControl.snapshot }
 loaded = Queue.new
 release = Queue.new
-BotApi::Bots::UpdateSettings.prepend(Module.new do
-  define_method(:build_updates) do |bot|
-    if Thread.current[:pause_m4_label]
-      loaded << bot.quote_amount
-      release.pop
-    end
-    super(bot)
-  end
-end)
+# Pauses the rename right after its first load of the bot, before it takes the write lock: the
+# window in which the amount edit commits.
+Bot.after_find do |bot|
+  next unless Thread.current[:pause_m4_label]
+
+  Thread.current[:pause_m4_label] = false
+  loaded << bot.quote_amount
+  release.pop
+end
 dir = File.join(root, 'settings_lost_update')
 FileUtils.mkdir_p(dir)
 %w[production.sqlite3 production_queue.sqlite3 secret_key_base].each { |f| FileUtils.cp(File.join(template, f), File.join(dir, f)) }
@@ -48,8 +48,8 @@ McpParity.travel_to(Time.iso8601(Pages::AT), with_usec: true) do
   release << true
   label = thread.value
   final = Bot.find(1).quote_amount
-  unless amount.success? && label.success? && read == 50 && committed == 20 && final == 50
-    raise "lost-update schedule changed: #{[read, committed, final, amount.to_h,
+  unless amount.success? && label.success? && read == 50 && committed == 20 && final == 20
+    raise "rename-vs-amount schedule changed: #{[read, committed, final, amount.to_h,
                                             label.to_h].inspect}"
   end
 

@@ -41,6 +41,43 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     assert_equal 'Retirement', bot.label
   end
 
+  # Loading a bot is a read (the page, MCP get_bot / list_bots): a missing name is computed for
+  # display, never saved, so the row and its updated_at stay as they were.
+  test 'a bot loaded without a name shows one but the read saves nothing' do
+    bot = create(:dca_single_asset, user: @user, base_asset: @btc, quote_asset: @usd)
+    ['', nil].each do |blank|
+      bot.update_columns(label: blank, updated_at: 1.day.ago.round)
+      stamp = bot.reload.updated_at
+
+      loaded = Bot.find(bot.id)
+
+      assert_equal 'Bitcoin', loaded.label
+      assert_not loaded.label_changed?, 'nothing for a later save to write'
+      assert_equal [blank, stamp], Bot.where(id: bot.id).pick(:label, :updated_at)
+    end
+  end
+
+  # The shown name is the bot's name: saving it on purpose writes it, so later settings changes
+  # cannot rename the bot behind the user's back.
+  test 'saving the shown name of a bot loaded without one writes it' do
+    bot = create(:dca_single_asset, user: @user, base_asset: @btc, quote_asset: @usd)
+    bot.update_columns(label: nil)
+
+    loaded = Bot.find(bot.id)
+    loaded.update!(label: loaded.label)
+
+    assert_equal 'Bitcoin', Bot.where(id: bot.id).pick(:label)
+  end
+
+  test 'a save that names nothing leaves a bot loaded without a name unnamed' do
+    bot = create(:dca_single_asset, user: @user, base_asset: @btc, quote_asset: @usd)
+    bot.update_columns(label: nil)
+
+    Bot.find(bot.id).update!(status: :stopped)
+
+    assert_nil Bot.where(id: bot.id).pick(:label)
+  end
+
   # --- a basket of assets ------------------------------------------------------
 
   test 'a two-asset bot is named by its tickers' do

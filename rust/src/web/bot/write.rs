@@ -73,7 +73,7 @@ fn settings_inner<T>(
     let Some(class) = class else { return Ok(Outcome::Missing) };
     let kind = if class == "Bots::DcaIndex" { Kind::Index } else { Kind::Basket };
     let fields = submitted.permitted(kind);
-    let Some(mut draft) = Draft::load(&tx, owner, id)? else { return Ok(Outcome::Missing) };
+    let Some(mut draft) = Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Outcome::Missing) };
     let fields = match fields {
         Ok(fields) => fields,
         Err(_) => {
@@ -151,7 +151,8 @@ fn settings_inner<T>(
         }
     }
     let class = match draft.original.kind { Kind::Basket => "Bots::DcaMultiAsset", Kind::Index => "Bots::DcaIndex" };
-    let label_changed = draft.candidate.label != draft.original.label;
+    // A bot loaded without a name shows a generated one; submitting it on purpose saves it (Automation::Labelable#label=).
+    let label_changed = draft.candidate.label != draft.original.label || (draft.original.label_unsaved && draft.submitted_label.is_some());
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
     let changed = label_changed || exchange_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
@@ -174,7 +175,10 @@ fn settings_inner<T>(
         return Ok(Outcome::GuardRefused(response.response));
     }
     if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Page)? { return Ok(Outcome::Unported(reason)); } }
-    draft.candidate = Bot::find(&tx, owner, id, For::Page)?.ok_or_else(|| error("saved bot disappeared"))?;
+    // Rails keeps the name it showed in memory: a label the save did not write is not regenerated from the new settings.
+    let shown = std::mem::take(&mut draft.candidate.label);
+    draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
+    if draft.candidate.label_unsaved { draft.candidate.label = shown; }
     if !submitted.mcp() { if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let prepared = response_builder(&tx, &ctx, &draft)?;
     tx.commit()?;
@@ -385,7 +389,7 @@ fn lifecycle_inner<T>(
         tx.rollback()?;
         return Ok(Outcome::GuardRefused(prepared.response));
     }
-    view.draft = match Draft::load(&tx,owner,id) {
+    view.draft = match Draft::load(&tx,owner,id,ctx.locale) {
         Ok(draft) => draft,
         Err(WebError::Engine(crate::engine::EngineError::Data(_))) if safety => None,
         Err(e) if safety && super::unreadable(&e) => None,
@@ -525,7 +529,9 @@ fn lifecycle_inner<T>(
         one(tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,?2,0,NULL,?3,?4)",(id,event,details.to_string(),&at))?)?;
     }
     if let Some(draft)=view.draft.as_mut() {
-        draft.candidate=Bot::find(&tx,owner,id,For::Page)?.ok_or_else(||error("lifecycle bot disappeared"))?;
+        let shown=std::mem::take(&mut draft.candidate.label);
+        draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
+        if draft.candidate.label_unsaved { draft.candidate.label=shown; }
         if safety {
             let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
             let (provider,_)=bots::market_data(&tx,&ctx.app)?;

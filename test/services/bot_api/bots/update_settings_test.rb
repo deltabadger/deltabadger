@@ -92,4 +92,47 @@ class BotApi::Bots::UpdateSettingsTest < ActiveSupport::TestCase
     assert BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, num_coins: 101).success?
     assert bot.reload.hold_all?, 'and back at the ceiling it follows the universe again'
   end
+
+  # The interleaving: the service has loaded the bot when the user's own edit commits. The call
+  # writes only what it changes, against the row as committed, so the other edit survives.
+  test 'a concurrent edit to another setting survives a label update' do
+    bot = create(:dca_single_asset, :stopped, user: @user, quote_amount: 100)
+    concurrently(bot) { |other| other.update!(quote_amount: 77) }
+
+    assert BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, label: 'Renamed').success?
+    bot.reload
+    assert_equal 'Renamed', bot.label
+    assert_equal 77, bot.quote_amount, 'the bot must trade the amount the user just saved'
+  end
+
+  test 'a concurrent edit to another key survives an amount update' do
+    bot = create(:dca_single_asset, :stopped, user: @user, quote_amount: 100, interval: 'day')
+    concurrently(bot) { |other| other.update!(interval: 'week') }
+
+    assert BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, quote_amount: '50').success?
+    bot.reload
+    assert_equal 50, bot.quote_amount
+    assert_equal 'week', bot.interval
+  end
+
+  private
+
+  # Commits `edit` from another instance the first time the service loads `bot`.
+  def concurrently(bot, &edit)
+    fired = false
+    hook = lambda do |record|
+      next if fired || record.id != bot.id
+
+      fired = true
+      other = Bot.find(bot.id)
+      other.set_missed_quote_amount # as the settings form does
+      edit.call(other)
+    end
+    Bot.after_find(hook)
+    teardown_hooks << -> { Bot.skip_callback(:find, :after, hook) }
+  end
+
+  def teardown_hooks = (@teardown_hooks ||= [])
+
+  teardown { teardown_hooks.each(&:call) }
 end

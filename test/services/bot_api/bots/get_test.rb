@@ -71,6 +71,25 @@ class BotApi::Bots::GetTest < ActiveSupport::TestCase
     assert_equal '0', BotApi::Bots::Get.call(user: @user, bot_id: bot.id).data[:redeploy_offer]
   end
 
+  # A GET never rewrites the user's saved decline, even when it reads as the bug state.
+  test 'reading a stranded decline offset leaves it as saved' do
+    bot = create(:dca_index, user: @user, status: :stopped)
+    bot.update_columns(redeploy_declined_offset: 100)
+
+    assert_equal '0', BotApi::Bots::Get.call(user: @user, bot_id: bot.id).data[:redeploy_offer]
+    assert_equal 100, bot.reload.redeploy_declined_offset.to_d
+  end
+
+  test 'reading a bot without a name names it without saving' do
+    bot = create(:dca_index, user: @user, status: :stopped)
+    bot.update_columns(label: nil, updated_at: 1.day.ago.round)
+    stamp = bot.reload.updated_at
+
+    assert BotApi::Bots::Get.call(user: @user, bot_id: bot.id).data[:label].present?
+    assert BotApi::Bots::List.call(user: @user).success?
+    assert_equal [nil, stamp], Bot.where(id: bot.id).pick(:label, :updated_at)
+  end
+
   private
 
   def holding(bot)

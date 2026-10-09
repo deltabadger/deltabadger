@@ -181,33 +181,15 @@ fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
     let pair=if kind=="Bots::DcaMultiAsset"{Some(format!("{}/{}",members.iter().map(|(_,s,_)|s.as_str()).collect::<Vec<_>>().join("+"),quote))}else if pair_kind(&kind){base.as_ref().filter(|_|!quote.is_empty()).map(|base|format!("{base}/{quote}"))}else{None};
     let label=match label.filter(|s|!s.trim().is_empty()){
         Some(label)=>label,
-        None=>generated_label(c,user,id,&kind,&settings)?,
+        None=>generated_label(c,user,id,&kind,&settings,"en")?,
     };
     Ok(Some(Bot{id,label,kind,status,settings,transient,exchange:exchange.unwrap_or_else(||"N/A".into()),quote,base,pair,started}))
 }
-fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value)->Result<String,WebError>{
+/// Automation::Labelable#generate_label for a bot stored without a name, any type. Only a read's
+/// view of it: nothing is saved. An index bot is named by `Bot::find`, which names what it loads.
+pub(crate) fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value,locale:&str)->Result<String,WebError>{
     let label=if kind=="Bots::DcaIndex"{
-        let mut view=crate::web::bot::Bot::find(c,user,id,crate::web::bot::For::Feed)?.ok_or_else(error)?;
-        if !view.holds_whole_universe(){
-            if let (Some(max),Some(count))=(view.bounded_universe_size(),view.effective_num_coins()){
-                if count>max{view.settings.insert("num_coins".into(),serde_json::json!(max));}
-            }
-        }
-        let mut name=view.display_index_name().unwrap_or_else(||crate::web::i18n::text("en","bot.dca_index.setup.pick_index.top_coins",&[]));
-        if s["index_type"]=="category" && s["index_category_id"]!="nasdaq-100"{
-            if s["index_name"].as_str().is_none_or(|name|name.trim().is_empty()){
-                // Category IDs are slugs; Rails titleizes the ID when no display name is saved.
-                name=s["index_category_id"].as_str().map_or_else(||"Index".into(),|category|{
-                    category.replace(['-','_']," ").split_whitespace().map(|word|{
-                        let mut chars=word.chars();
-                        chars.next().map_or_else(String::new,|first|first.to_uppercase().collect::<String>()+chars.as_str())
-                    }).collect::<Vec<_>>().join(" ")
-                });
-            }
-            // Rails default_label appends num_coins even when hold_all uses the whole universe.
-            if let Some(count)=view.settings.get("num_coins").and_then(Value::as_i64){name.push_str(&format!(" · {count}"));}
-        }
-        name
+        crate::web::bot::Bot::find(c,user,id,crate::web::bot::For::Feed,locale)?.ok_or_else(error)?.label
     }else{
         let ids=if pair_kind(kind){s["base_asset_id"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s["allocations"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect()}else{s["base_asset_ids"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};
         let assets=figures::db::asset_names(c,&ids).map_err(fail_fig)?;
@@ -217,7 +199,7 @@ fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value)->Result<Str
             if symbols.len()>3{format!("{label} + {}",symbols.len()-3)}else{label}
         }
     };
-    Ok(if label.trim().is_empty(){crate::web::i18n::text("en","bot.new",&[])}else{label})
+    Ok(if label.trim().is_empty(){crate::web::i18n::text(locale,"bot.new",&[])}else{label})
 }
 fn members(c:&Connection,kind:&str,s:&Value)->Result<Vec<(i64,String,f64)>,WebError>{
     if kind!="Bots::DcaMultiAsset"{return Ok(vec![])}

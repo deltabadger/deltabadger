@@ -50,7 +50,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
     let (_,configured) = bots::market_data(c,&ctx.app)?;
     let bot = match &view.draft {
         Some(d) => Some(d.candidate.clone()),
-        None if action == Action::Archive => match Bot::find(c,user.id,id,super::For::Page) {
+        None if action == Action::Archive => match Bot::find(c,user.id,id,super::For::Page,ctx.locale) {
             Ok(bot) => bot,
             Err(e) if super::unreadable(&e) => None,
             Err(e) => return Err(e),
@@ -81,7 +81,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
                 if action == Action::Stop {
                     let ids = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status<>3 ORDER BY id")?.query_map([user.id],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
                     for id in ids {
-                        let Some(other) = Bot::find(c,user.id,id,super::For::Page)? else { return Ok(None) };
+                        let Some(other) = Bot::find(c,user.id,id,super::For::Page,ctx.locale)? else { return Ok(None) };
                         if other.unrendered().is_some() { return Ok(None); }
                         let state = status::render(c,ctx,&csrf,&other,configured)?;
                         body += "\n"; body += &turbo::stream("replace",&other.dom_id("status_button"),&state.button);

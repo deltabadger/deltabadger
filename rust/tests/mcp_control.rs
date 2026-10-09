@@ -259,7 +259,7 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
     let boot=tempfile::tempdir().unwrap();
     common::rails(boot.path(),"test",&["runner","script/rust/mcp_control_races.rb",output.to_str().unwrap()]);
     let lost=read(output.join("settings_lost_update/race.json"));
-    assert_eq!((lost["read"].as_f64(),lost["committed"].as_f64(),lost["final"].as_f64()),(Some(50.0),Some(20.0),Some(50.0)));
+    assert_eq!((lost["read"].as_f64(),lost["committed"].as_f64(),lost["final"].as_f64()),(Some(50.0),Some(20.0),Some(20.0)),"the rename keeps the amount committed after its load");
     for name in deltabadger::web::mcp::control::NAMES {
         let dir=output.join(name);let rails=read(dir.join("race.json"));
         let rust=tempfile::tempdir().unwrap();

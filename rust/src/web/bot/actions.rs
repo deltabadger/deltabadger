@@ -12,7 +12,13 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>) -> 
     let result = app.db(move |c| {
         if let Some(action) = action {
             write::lifecycle(c,&view,user.id,id,action,&params,|c,ctx,state| {
-                let label: Option<String> = c.query_row("SELECT label FROM bots WHERE id=?1 AND user_id=?2",(id,user.id),|r|r.get(0))?;
+                let (label,class,settings): (Option<String>,Option<String>,String) = c.query_row("SELECT label,type,settings FROM bots WHERE id=?1 AND user_id=?2",(id,user.id),|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+                // Rails flashes the deleted bot's loaded label: one stored without a name is named for it.
+                let label = match label.filter(|label| !label.trim().is_empty()) {
+                    Some(label) => Some(label),
+                    None if action != Action::Delete => None,
+                    None => Some(crate::web::mcp::reads::generated_label(c,user.id,id,class.as_deref().unwrap_or_default(),&serde_json::from_str(&settings).unwrap_or(serde_json::Value::Null),ctx.locale)?),
+                };
                 let prepared = action_view::lifecycle_response(c,ctx,id,action,state)?;
                 Ok(write::Prepared { response: (prepared.response,label), broadcasts: prepared.broadcasts })
             })
@@ -59,7 +65,7 @@ async fn form(app: App, ctx: Ctx, segment: String, form: &'static str) -> Result
     let result = app.db(move |c| {
         let tx = c.unchecked_transaction()?;
         view.now = inner.now();
-        let (found,_) = page::find(&tx,&inner,&owner,&segment,false,super::For::Page)?;
+        let (found,_) = page::find(&tx,&inner,&owner,&segment,false,super::For::Page,view.locale)?;
         let page::Found::Bot(bot) = found else { return Ok(Err(found)) };
         let csrf = if form == "start" && !bot.restarting() { String::new() } else { view.csrf_token() };
         let body = action_view::modal(&tx,&view,&bot,form,&csrf)?;
