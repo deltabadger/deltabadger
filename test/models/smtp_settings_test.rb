@@ -45,4 +45,13 @@ class SmtpSettingsTest < ActiveSupport::TestCase
 
     assert_equal :auto, Mail::SMTP.new(settings).send(:smtp_starttls)
   end
+
+  # Byte-for-byte the Rust mailer's rule (`Settings::has_secret`): any non-empty user name or
+  # password, whitespace included, is a credential to protect.
+  test 'env SMTP with a whitespace-only user name still requires STARTTLS' do
+    ENV['SMTP_ADDRESS'] = 'smtp.example.com'
+    ENV['SMTP_USER_NAME'] = ' '
+
+    assert_equal :always, Mail::SMTP.new(SmtpSettings.current).send(:smtp_starttls)
+  end
 end

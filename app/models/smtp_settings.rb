@@ -42,8 +42,9 @@ class SmtpSettings
     return nil if ENV['SMTP_ADDRESS'].blank?
 
     # Credentials are never sent over a connection an attacker could keep
-    # plain by stripping STARTTLS; an open relay without them may stay plain.
-    credentials = ENV['SMTP_USER_NAME'].present? || ENV['SMTP_PASSWORD'].present?
+    # plain by stripping STARTTLS; an open relay without them may stay plain. Any non-empty value
+    # counts, whitespace too: the same rule as the Rust mailer's `has_secret`.
+    credentials = !ENV['SMTP_USER_NAME'].to_s.empty? || !ENV['SMTP_PASSWORD'].to_s.empty?
 
     {
       address: ENV.fetch('SMTP_ADDRESS', 'localhost'),
