@@ -30,7 +30,7 @@
       <p class="set-api__note"><%= t('settings.market_data.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
     <% else %>
       <%# The switch: one segmented control over a hidden field, submitted as soon as it moves. A
-          saved CoinGecko key rides along, so switching back to it needs no re-paste. %>
+          saved CoinGecko key stays on the server, which uses it when switching back: no re-paste. %>
       <%= form_with url: settings_update_market_data_path, method: :patch, class: "set-api__mode",
                     data: { form__market_data_target: "providerForm", turbo_frame: "market_data_settings" } do |f| %>
         <%= render 'shared/segmented', fluid: true, label: t('settings.index.resync_assets_section'), options: [
@@ -41,9 +41,6 @@
                 active: selected == MarketDataSettings::PROVIDER_DELTABADGER }
             ] %>
         <%= f.hidden_field :market_data_provider, value: selected, data: { form__market_data_target: "provider" } %>
-        <% if AppConfig.coingecko_api_key.present? %>
-          <%= hidden_field_tag :coingecko_api_key, AppConfig.coingecko_api_key %>
-        <% end %>
       <% end %>
 
       <% if is_coingecko_configured %>

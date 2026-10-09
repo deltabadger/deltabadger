@@ -72,6 +72,32 @@ class LocaleHelperTest < ActionView::TestCase
     assert result.start_with?('/pl/tracker'), "expected a /pl path, got #{result}"
   end
 
+  # A language link is a visible URL: one copied, bookmarked or logged must not carry a credential
+  # that happened to arrive in the query string, at any nesting depth or letter case.
+  test 'drops credential parameters and keeps the rest' do
+    request_for({ controller: 'tracker', action: 'index', locale: 'en' },
+                'page=2&password=p1&API_TOKEN=t1&user[password]=p2&user[name]=n&' \
+                'smtp_password=p3&coingecko_api_key=k1&key=k2&rows[][secret]=s1&rows[][id]=7')
+
+    result = locale_switch_path('de')
+
+    %w[p1 t1 p2 p3 k1 k2 s1].each { |secret| refute_includes result, secret }
+    assert_includes result, 'page=2'
+    assert_includes result, "#{CGI.escape('user[name]')}=n"
+    assert_includes result, "#{CGI.escape('rows[][id]')}=7"
+  end
+
+  test 'drops account-recovery and one-time tokens' do
+    request_for({ controller: 'tracker', action: 'index', locale: 'en' },
+                'page=2&reset_password_token=r1&user[reset_password_token]=r2&confirmation_token=c1&' \
+                'unlock_token=u1&token=t1&claim_code=c2&code=c3&otp_code_token=o1')
+
+    result = locale_switch_path('de')
+
+    %w[r1 r2 c1 u1 t1 c2 c3 o1].each { |secret| refute_includes result, secret }
+    assert_includes result, 'page=2'
+  end
+
   test 'always returns a path, never an absolute URL' do
     request_for({ controller: 'home', action: 'index', locale: 'en' }, 'host=evil.com')
 

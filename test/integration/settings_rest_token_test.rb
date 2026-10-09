@@ -17,7 +17,7 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
 
   # ---- widget renders the token (lazy mint) --------------------------------
 
-  test 'GET /settings/connect creates the personal token lazily on first visit and renders it' do
+  test 'GET /settings/connect creates the personal token lazily on first visit without rendering it' do
     # Pre-condition: no personal app exists yet.
     assert_equal 0, Doorkeeper::Application.where(personal_owner_id: @user.id,
                                                   personal_access_token: true).count
@@ -25,21 +25,20 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     get settings_api_path
     assert_response :success
 
-    # Post-condition: exactly one personal app + token, both surfaced in the page.
+    # Post-condition: exactly one personal app + token; the page never carries the secret.
     @user.reload
     token = @user.personal_api_application&.access_tokens&.where(revoked_at: nil)&.first
     assert token, 'personal token was not created on first visit'
-    assert_includes response.body, token.token
+    assert_not_includes response.body, token.token
   end
 
-  # Shown in full as well as copied: over plain http from another machine there is no Clipboard
-  # API, so the text itself has to be the fallback.
-  test 'the token chip shows the full token and copies it' do
+  # A page load shows the token redacted, as text and as what the chip copies; only the response to
+  # Regenerate shows the new one, once, in full (over plain http there is no Clipboard API).
+  test 'the token chip is redacted on a page load' do
     get settings_api_path
-    token = @user.reload.personal_api_token.token
 
-    assert_select 'turbo-frame#rest_settings .tag--copy[data-clipboard-text-value=?]', token do |chips|
-      assert_equal token, chips.first.text.strip
+    assert_select 'turbo-frame#rest_settings .tag--copy[data-clipboard-text-value=?]', '[redacted]' do |chips|
+      assert_equal '[redacted]', chips.first.text.strip
     end
   end
 
@@ -105,6 +104,12 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     # string is in the rendered fragment.
     assert_includes response.body, new_token
     assert_not_includes response.body, old_token
+    assert_select 'turbo-frame#rest_settings .tag--copy[data-clipboard-text-value=?]', new_token do |chips|
+      assert_equal new_token, chips.first.text.strip
+    end
+
+    get settings_api_path
+    assert_not_includes response.body, new_token
   end
 
   # ---- isolation from MCP widget ------------------------------------------
@@ -156,7 +161,7 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     assert_select '#rest_api_url_display[data-controller=?][data-action=?][data-clipboard-text-value=?]',
                   'clipboard', 'click->clipboard#copy', AppConfig.api_url
     assert_select '.tag--copy[data-controller=?][data-action=?][data-clipboard-text-value=?]',
-                  'clipboard', 'click->clipboard#copy', @user.personal_api_token.token
+                  'clipboard', 'click->clipboard#copy', '[redacted]'
     assert_select '.tag--copy[onclick]', false, 'an inline handler cannot run under the policy'
   end
 end

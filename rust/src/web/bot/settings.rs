@@ -396,10 +396,10 @@ impl Forms<'_> {
 
 /// The subject of a condition that has no choice of one, as markup: the label of the only option,
 /// escaped, and `None` when there are several. The sentence takes its subject as markup (it is a
-/// select when there is a choice), and a label is an asset's symbol out of the database. Rails hands
-/// the symbol over raw (`base_html.html_safe`, bots/settings/_price_limit.html.erb and its three
-/// siblings); no sentence prints it today, because the form of the
-/// sentence for one member names no subject in any locale, and one edited translation would.
+/// select when there is a choice), and a label is an asset's symbol out of the database, escaped here
+/// as Rails escapes it (`h(...)`, bots/settings/_price_limit.html.erb and its three siblings). No
+/// sentence prints it today, because the form of the sentence for one member names no subject in
+/// any locale, but one edited translation would.
 pub fn lone_subject(options: &[(String, String)]) -> Option<String> {
     (options.len() <= 1).then(|| options.first().map(|(label, _)| escape(label)).unwrap_or_default())
 }

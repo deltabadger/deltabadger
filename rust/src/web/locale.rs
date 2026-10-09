@@ -50,6 +50,19 @@ pub fn path(locale: &str, path: &str) -> String {
 const RESERVED: [&str; 16] = ["host", "protocol", "port", "script_name", "anchor", "only_path", "trailing_slash", "subdomain", "domain",
                               "tld_length", "params", "relative_url_root", "controller", "action", "format", "locale"];
 
+/// The credential parameters locale_switch_path drops at any nesting depth
+/// (LocaleHelper::SENSITIVE_QUERY; keep the two lists identical).
+const SENSITIVE: [&str; 27] = ["confirmation_token", "password", "password_confirmation", "current_password", "otp_secret_key",
+                               "otp_secret", "otp_code_token", "key", "secret", "passphrase", "access_token", "refresh_token",
+                               "rsa_signature_key", "rsa_encryption_key", "dh_param", "api_token", "smtp_username", "smtp_password",
+                               "coingecko_api_key", "alpaca_api_key", "alpaca_api_secret", "market_data_token", "reset_password_token",
+                               "unlock_token", "token", "claim_code", "code"];
+
+/// A query key naming a credential: any part of it (`user[password]`, `rows[][secret]`), in any letter case.
+pub fn sensitive_query(key: &str) -> bool {
+    key.split(['[', ']']).any(|part| SENSITIVE.iter().any(|secret| part.eq_ignore_ascii_case(secret)))
+}
+
 /// Ruby's CGI.escape, which `to_query` uses: letters, digits and `_.-~` stay, a space is `+`.
 fn cgi_escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -64,14 +77,14 @@ fn cgi_escape(text: &str) -> String {
 }
 
 /// The query locale_switch_path gives every language link: the page's own, without the reserved
-/// keys, as `Hash#to_query` writes it. Each key is one entry: a repeated key keeps its last value,
+/// keys and the credentials (`sensitive_query`), as `Hash#to_query` writes it. Each key is one entry: a repeated key keeps its last value,
 /// as Rack parsed it, and a list (`a[]`) keeps all its values in the order they came. The entries
 /// are then sorted as whole strings, so keys are in order and a list's values are not reordered.
 /// One pass over the query, made once per page (`Ctx::languages`), whatever the number of links.
 /// ponytail: Rack's nesting beyond that (`a[][b]`, `a` beside `a[b]`) is not modelled; no link of this app writes such a query.
 pub fn switch_query(query: &[(String, String)]) -> String {
     let mut by_key: HashMap<&str, String> = HashMap::new();
-    for (key, value) in query.iter().filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key))) {
+    for (key, value) in query.iter().filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key)) && !sensitive_query(key)) {
         let pair = format!("{}={}", cgi_escape(key), cgi_escape(value));
         match by_key.entry(key.as_str()) {
             Entry::Occupied(mut entry) if key.ends_with("[]") => { entry.get_mut().push('&'); entry.get_mut().push_str(&pair); }
