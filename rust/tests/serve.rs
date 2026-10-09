@@ -78,6 +78,17 @@ async fn up_is_rails_health_page_without_a_session() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn health_check_is_rails_liveness_probe_without_a_session() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let answer = Browser::default().get(&app, "/health-check").await;
+    assert_eq!((answer.status, answer.body.as_str()), (200, r#"{"health":"check"}"#));
+    assert_eq!(answer.header("content-type"), Some("application/json; charset=utf-8"));
+    assert_eq!(answer.header("set-cookie"), None);
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
     let (dir, opened, _) = common::install();
     drop(opened);
