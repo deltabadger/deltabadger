@@ -66673,9 +66673,9 @@
           "X-Forwarded-Host: ,"
         ],
         "xhr": false,
-        "status": 500,
-        "content_type": null,
-        "body": "Puma caught this error: undefined method 'sub' for nil (NoMethodError)\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/actionpack-8.1.4/lib/action_dispatch/http/url.rb:325:in 'ActionDispatch::Http::URL#host'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/actionpack-8.1.4/lib/action_dispatch/middleware/host_authorization.rb:169:in 'ActionDispatch::HostAuthorization#mark_as_authorized'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/actionpack-8.1.4/lib/action_dispatch/middleware/host_authorization.rb:143:in 'ActionDispatch::HostAuthorization#call'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/response.rb:79:in 'block in Puma::Response#handle_request'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/thread_pool.rb:434:in 'Puma::ThreadPool#with_force_shutdown'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/response.rb:78:in 'Puma::Response#handle_request'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/server.rb:508:in 'Puma::Server#process_client'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/server.rb:263:in 'block in Puma::Server#run'\n/Users/d/.asdf/installs/ruby/4.0.7/lib/ruby/gems/4.0.0/gems/puma-8.0.2/lib/puma/thread_pool.rb:246:in 'block in Puma::ThreadPool#spawn_thread'",
+        "status": 403,
+        "content_type": "text/html; charset=UTF-8",
+        "body": "",
         "other_headers": []
       },
       {
@@ -67928,7 +67928,7 @@
             "c0de"
           ]
         ],
-        "query": null,
+        "query": "https://client.example/cb?code=c0de&a+b=c%2Fd&e=%FF",
         "fragment": "https://client.example/cb?code=theirs&a+b=c%2Fd&e=%FF#code=c0de"
       },
       {

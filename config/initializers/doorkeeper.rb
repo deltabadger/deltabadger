@@ -82,3 +82,17 @@ Doorkeeper.configure do
     end
   end
 end
+
+# A registered redirect URI whose own query holds a byte that is not text (`?e=%FF`) made the
+# approval raise: Doorkeeper's URIBuilder asks `blank?` of the decoded value, and a regexp cannot
+# read invalid UTF-8. The blank test reads such a value through `scrub`, so it is kept and
+# Rack writes it back as it stood (`e=%FF`).
+module RedirectQueryBytes
+  private
+
+  def build_query(parameters = {})
+    parameters.reject! { |_, value| value.is_a?(String) ? value.scrub.blank? : value.blank? }
+    Rack::Utils.build_query(parameters)
+  end
+end
+Doorkeeper::OAuth::Authorization::URIBuilder.singleton_class.prepend(RedirectQueryBytes)

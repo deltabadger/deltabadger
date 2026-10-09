@@ -18,6 +18,8 @@ es:
                             larger_than_withdrawal: "no debe tener un importe superior al del retiro"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "Se desconoce el importe gastado hasta ahora: una orden se cerró sin informar de su coste."
                         smart_interval_quote_amount:
                             not_a_number: "Debes especificar una cantidad para los Smart Intervals"
                             greater_than_or_equal_to: "Para esta configuración, la cantidad de Smart Intervals no puede ser menor que %{count}"

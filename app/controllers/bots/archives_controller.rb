@@ -3,6 +3,7 @@ class Bots::ArchivesController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_bot
+  before_action :require_turbo_stream, only: :create
 
   def edit; end
 

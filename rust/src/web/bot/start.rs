@@ -84,7 +84,8 @@ pub fn smart_interval_minimum_message(bot: &Bot, minimum: &Minimum, locale: &str
 /// Bot::QuoteAmountLimitable: what is left of the spending cap, and whether that is nothing.
 pub struct Limit {
     /// `quote_amount_available_before_limit_reached`, in whichever of Ruby's number classes the sums came out as.
-    pub left: Num,
+    /// `None` when a closed buy never reported its cost: Rails' nil, the spend unknown.
+    pub left: Option<Num>,
     pub reached: bool,
 }
 
@@ -113,7 +114,9 @@ pub fn amount_limit(c: &Connection, bot: &Bot) -> Result<Option<Limit>, WebError
     while let Some(row) = rows.next()? {
         work += 1;
         if work > HISTORY_WORK_BUDGET { return Err(history_error()); }
-        total = add(total, Num::Dec(decimal(row, 0)?.ok_or_else(missing)?)).ok_or_else(missing)?;
+        // `return nil if closed_quote_amounts.include?(nil)`: nothing after it is read.
+        let Some(spent) = decimal(row, 0)? else { return Ok(Some(Limit { left: None, reached: false })) };
+        total = add(total, Num::Dec(spent)).ok_or_else(missing)?;
     }
     // Waiting orders: what they ask for. `quote_amount || (amount * price)`.
     let mut open = c.prepare(&format!("SELECT quote_amount, amount, price {scope} AND external_status IN (0, 1) LIMIT 100001"))?;
@@ -148,11 +151,11 @@ pub fn amount_limit(c: &Connection, bot: &Bot) -> Result<Option<Limit>, WebError
         Num::Dec(decimal) => BigDec::parse(&float_to_s(floor)).is_ok_and(|floor| *decimal < floor),
         other => other.to_f() < floor,
     };
-    Ok(Some(Limit { left, reached }))
+    Ok(Some(Limit { left: Some(left), reached }))
 }
 
 /// Bot::QuoteAmountLimitable#minimum_quote_amount_limit: the smallest amount the quote of the bot's
-/// tickers can state, and 0 when it has none (app/models/bot/quote_amount_limitable.rb:87). Only
+/// tickers can state, and 0 when it has none (app/models/bot/quote_amount_limitable.rb:94). Only
 /// `bot.tickers`: a basket whose members are no longer listed has none, whatever its memberships say.
 pub fn minimum_quote_amount_limit(bot: &Bot) -> f64 {
     bot.tickers.iter().map(|ticker| ticker.quote_decimals).min().map_or(0.0, |decimals| 1.0 / 10f64.powi(i32::from(decimals)))

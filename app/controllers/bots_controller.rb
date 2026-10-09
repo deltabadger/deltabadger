@@ -4,6 +4,7 @@ class BotsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_bot, only: %i[show edit update reverse]
+  before_action :require_turbo_stream, only: :update
 
   def index
     non_deleted_bots = current_user.bots.not_deleted
@@ -123,6 +124,10 @@ class BotsController < ApplicationController
       # flash.now[:notice] = t('alert.bot.bot_updated')
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      # An exchange, quote or interval that does not exist cannot be drawn: show the bot as stored, with the error.
+      # A Signal bot has no schedule, so no interval to miss.
+      unknown_interval = @bot.respond_to?(:interval_duration) && @bot.interval_duration.nil?
+      @bot = current_user.bots.find(@bot.id) if @bot.exchange.nil? || @bot.quote_asset.nil? || unknown_interval
       render :update, status: :unprocessable_entity
     end
   end

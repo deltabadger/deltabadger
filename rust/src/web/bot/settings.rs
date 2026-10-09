@@ -239,14 +239,20 @@ impl Forms<'_> {
         let mut info = String::new();
         if !self.hide_balances && active && bot.number("quote_amount_limit").is_some_and(|limit| limit.is_positive()) {
             if let Some(limit) = start::amount_limit(c, bot)? {
-                let text = if limit.reached {
-                    format!("<span class=\"text-success\">\n          {}\n        </span>", self.t("bot.settings.extra_amount_limit.info.spent", &[]))
-                } else {
-                    // Rails rounds to `decimals[:quote]`; without a ticker it has none and raises.
-                    let decimals = bot.quote_decimals().ok_or_else(|| WebError::Config(format!("bot {}: a spending cap and no ticker to round it by", bot.id)))?;
-                    self.t("bot.settings.extra_amount_limit.info.left", &[("amount", Arg::Text(&limit.left.round(decimals).to_s())), ("quote", Arg::Text(bot.quote_symbol().unwrap_or("")))])
+                info = match &limit.left {
+                    // An unknown spend (a closed buy that never reported its cost): the figure is left out, and every line of that branch is ERB code.
+                    None => "<span id=\"settings-amount-limit-info\">\n  </span>\n".to_string(),
+                    Some(left) => {
+                        let text = if limit.reached {
+                            format!("<span class=\"text-success\">\n          {}\n        </span>", self.t("bot.settings.extra_amount_limit.info.spent", &[]))
+                        } else {
+                            // Rails rounds to `decimals[:quote]`; without a ticker it has none and raises.
+                            let decimals = bot.quote_decimals().ok_or_else(|| WebError::Config(format!("bot {}: a spending cap and no ticker to round it by", bot.id)))?;
+                            self.t("bot.settings.extra_amount_limit.info.left", &[("amount", Arg::Text(&left.round(decimals).to_s())), ("quote", Arg::Text(bot.quote_symbol().unwrap_or("")))])
+                        };
+                        format!("<span id=\"settings-amount-limit-info\">\n      {text}\n  </span>\n")
+                    }
                 };
-                info = format!("<span id=\"settings-amount-limit-info\">\n      {text}\n  </span>\n");
             }
         }
         Ok(self.rule(active, "quote_amount_limited", active, self.locked(), &format!("            {sentence}\n          {info}\n")))

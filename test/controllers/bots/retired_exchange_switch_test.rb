@@ -44,7 +44,7 @@ class RetiredExchangeSwitchTest < ActionDispatch::IntegrationTest
     history = create(:transaction, bot: @bot, exchange: @retired, status: :submitted,
                                    external_status: :closed, external_id: 'bm-hist')
 
-    patch bot_path(id: @bot.id), params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    patch bot_path(id: @bot.id), params: { bots_dca_single_asset: { exchange_id: @binance.id } }, as: :turbo_stream
 
     assert_equal @binance.id, @bot.reload.exchange_id
     assert_equal @retired.id, history.reload.exchange_id, 'the old trade keeps the venue it happened on'
@@ -57,7 +57,7 @@ class RetiredExchangeSwitchTest < ActionDispatch::IntegrationTest
     create(:transaction, bot: @bot, exchange: @retired, status: :submitted,
                          external_status: :abandoned, external_id: 'bm-abandoned')
 
-    patch bot_path(id: @bot.id), params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    patch bot_path(id: @bot.id), params: { bots_dca_single_asset: { exchange_id: @binance.id } }, as: :turbo_stream
 
     assert_equal @binance.id, @bot.reload.exchange_id
   end

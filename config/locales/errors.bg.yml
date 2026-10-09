@@ -18,6 +18,8 @@ bg:
                             larger_than_withdrawal: "не трябва да е с по-голяма сума от тегленето"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "Изразходваната досега сума е неизвестна: поръчка е затворена, без да отчете стойността си."
                         smart_interval_quote_amount:
                             not_a_number: "Трябва да зададете сума за умните интервали"
                             greater_than_or_equal_to: "Сумата на умните интервали не може да бъде по-малка от %{count} за този график"

@@ -18,6 +18,8 @@ de:
                             larger_than_withdrawal: "darf keinen höheren Betrag als die Auszahlung haben"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "Der bisher ausgegebene Betrag ist unbekannt: Eine Order wurde geschlossen, ohne ihre Kosten zu melden."
                         smart_interval_quote_amount:
                             not_a_number: "Sie müssen einen Betrag für die Smart Intervals angeben"
                             greater_than_or_equal_to: "Für diesen Zeitplan kann der Smart Intervals-Betrag nicht kleiner als %{count} sein"

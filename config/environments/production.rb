@@ -139,6 +139,11 @@ Rails.application.configure do
     # This provides flexibility for users running on their own domains/servers
     config.hosts.clear
   end
+  # An X-Forwarded-Host that names no host is refused before HostAuthorization raises on it.
+  if ENV['ALLOWED_HOSTS'].present?
+    require_relative '../../lib/middleware/empty_forwarded_host'
+    config.middleware.insert_before ActionDispatch::HostAuthorization, EmptyForwardedHost
+  end
 
   config.exceptions_app = self.routes
 

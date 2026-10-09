@@ -71,19 +71,9 @@ class ApplicationController < ActionController::Base
   def redirect_to_setup_if_needed
     return if setup_controller?
 
-    # If no admin exists, redirect to step 1 (account creation)
-    unless User.exists?(admin: true)
-      redirect_to new_setup_path
-      return
-    end
-
-    # If current user is admin and hasn't completed setup (API key step),
-    # redirect to step 2 with user's locale preference
-    return unless user_signed_in? && current_user.admin? && !current_user.setup_completed?
-
-    # Use params[:locale] first (if user explicitly chose), then saved preference
-    locale_param = params[:locale].presence || current_user.locale.presence
-    redirect_to setup_sync_path(locale: locale_param)
+    # Setup is one step (account creation). An admin whose setup_completed is still false
+    # from the removed second step gets the app.
+    redirect_to new_setup_path unless User.exists?(admin: true)
   end
 
   def setup_controller?

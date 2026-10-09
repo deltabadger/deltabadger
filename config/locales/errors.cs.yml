@@ -18,6 +18,8 @@ cs:
                             larger_than_withdrawal: "nesmí mít vyšší částku než částka výběru"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "Dosud utracená částka není známa: objednávka byla uzavřena bez uvedení své ceny."
                         smart_interval_quote_amount:
                             not_a_number: "Musíte zadat částku pro chytré intervaly"
                             greater_than_or_equal_to: "Pro tento rozvrh nesmí být částka chytrých intervalů menší než %{count}"

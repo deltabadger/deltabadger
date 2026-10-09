@@ -18,6 +18,8 @@ sk:
                             larger_than_withdrawal: "nesmie mať vyššiu sumu ako suma výberu"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "Doteraz minutá suma nie je známa: objednávka bola uzavretá bez uvedenia svojej ceny."
                         smart_interval_quote_amount:
                             not_a_number: "Musite zadat sumu pre inteligentne intervaly"
                             greater_than_or_equal_to: "Pre tento rozvrh nesmie byt suma inteligentnych intervalov mensia ako %{count}"
