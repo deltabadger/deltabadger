@@ -18,6 +18,8 @@ it:
                             larger_than_withdrawal: "non deve avere un importo superiore a quello del prelievo"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "L'importo speso finora è sconosciuto: un ordine è stato chiuso senza riportare il suo costo."
                         smart_interval_quote_amount:
                             not_a_number: "Devi specificare un importo per gli Smart Intervals"
                             greater_than_or_equal_to: "Per questo programma, l'importo degli Smart Intervals non può essere inferiore a %{count}"

@@ -18,6 +18,8 @@ en:
                             larger_than_withdrawal: "must not be larger than the withdrawal"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "The amount spent so far is unknown: an order closed without reporting its cost."
                         smart_interval_quote_amount:
                             not_a_number: "You must specify an amount for the Smart Intervals"
                             greater_than_or_equal_to: "For this schedule, the Smart Intervals amount cannot be smaller than %{count}"

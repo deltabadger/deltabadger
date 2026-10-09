@@ -18,6 +18,8 @@ nl:
                             larger_than_withdrawal: "mag geen hoger bedrag hebben dan de opname"
                 bot:
                     attributes:
+                        settings:
+                            quote_amount_spent_unknown: "Het tot nu toe uitgegeven bedrag is onbekend: een order is gesloten zonder de kosten te melden."
                         smart_interval_quote_amount:
                             not_a_number: "U moet een bedrag opgeven voor de Smart Intervals"
                             greater_than_or_equal_to: "Voor dit schema kan het Smart Intervals-bedrag niet kleiner zijn dan %{count}"

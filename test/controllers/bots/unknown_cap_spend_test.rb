@@ -37,4 +37,12 @@ class Bots::UnknownCapSpendTest < ActionDispatch::IntegrationTest
 
     assert_response :success
   end
+
+  test 'a fresh start is refused with the reason in words' do
+    patch bot_start_path(bot_id: @bot.id, start_fresh: true), headers: { 'Accept' => 'text/vnd.turbo-stream.html, text/html' }
+
+    assert_response :unprocessable_entity
+    assert_match I18n.t('activerecord.errors.models.bot.attributes.settings.quote_amount_spent_unknown'), response.body
+    assert_no_match(/translation missing/i, response.body)
+  end
 end
