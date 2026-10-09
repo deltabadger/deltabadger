@@ -9,6 +9,7 @@ class ApplicationMailer < ActionMailer::Base
   private
 
   def set_locale(user)
-    I18n.locale = user.try(:locale) || I18n.default_locale
+    locale = user.try(:locale)
+    I18n.locale = I18n.locale_available?(locale) ? locale : I18n.default_locale
   end
 end

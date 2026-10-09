@@ -1942,7 +1942,7 @@
     258
   ],
   "ported_sources": {
-    "app/mailers/application_mailer.rb": "9c90abb241615339d9e6bc175d18d4cbfd0d77ce6d98af1f82d32b4e44336006",
+    "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
     "app/mailers/bot_alerts_mailer.rb": "c51464854f152de35833cb4b13387bb1fafec9a566b133a4594ff1402deede16",
     "app/mailers/custom_devise_mailer.rb": "0679bd874fec06f72928b6b4f49e9fce5b13ff21d3bff3ed2f3beb17ef6ef7f2",
     "app/mailers/test_mailer.rb": "4ed384a5039dd883d7530888996777d6d668b2deba897ae27cd2af0f99a81540",

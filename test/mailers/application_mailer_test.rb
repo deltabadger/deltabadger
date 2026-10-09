@@ -14,6 +14,13 @@ class ApplicationMailerTest < ActionMailer::TestCase
     ENV['NOTIFICATIONS_SENDER'] = original
   end
 
+  test 'a stored locale Rails does not know falls back to the default locale' do
+    @user.update_column(:locale, 'xx')
+    mail = TestMailer.test_email(@user)
+    assert_equal I18n.t('test_mailer.test_email.subject', locale: I18n.default_locale), mail.subject
+    assert_equal [@user.email], mail.to
+  end
+
   test 'with no SMTP configured an SMTP mail is not attempted, and that is logged once' do
     SmtpSettings.stubs(:current).returns(nil)
     DynamicSmtpSettingsInterceptor.instance_variable_set(:@said_not_configured, nil)

@@ -32,8 +32,7 @@ impl Urls {
 /// Whom a mail greets and where it goes.
 pub struct Recipient { pub email: String, pub name: String, pub locale: &'static str }
 
-/// `users.locale` as ApplicationMailer#set_locale reads it: NULL is the default. A value Rails does not know makes
-/// Rails raise and send nothing; here the mail goes out in English (a listed divergence).
+/// `users.locale` as ApplicationMailer#set_locale reads it: NULL, or a value Rails does not know, is the default.
 pub fn user_locale(stored: Option<&str>) -> &'static str { stored.and_then(locale::known).unwrap_or(locale::DEFAULT) }
 
 fn layout(urls: &Urls, body: &str) -> String {
