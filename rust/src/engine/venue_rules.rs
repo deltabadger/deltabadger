@@ -17,7 +17,7 @@ pub enum MinimumLogic {
 pub enum WireFormat {
     /// Honeymaker's Kraken client: BigDecimal#to_s('F'); a market buy may be `viqc` (volume in quote).
     Kraken,
-    /// Exchanges::Alpaca#set_market_order / #set_limit_order: format('%.Nf', BigDecimal), which goes through Float;
+    /// Exchanges::Alpaca#set_market_order / #set_limit_order: #wire_decimal, the floored decimal at N places;
     /// a market buy is `notional`, a limit buy `qty` + `limit_price`.
     Alpaca,
 }
