@@ -174,6 +174,19 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     end
   end
 
+  # A tokenized share (an xStock) and the company's share are one class: both are added together,
+  # as before shared symbols were separated. A stock and a coin under one symbol still refuse.
+  test 'tracker treats a stock and its tokenized share under one symbol as one class' do
+    user = create(:user)
+    token = create(:asset, symbol: 'BTC', name: 'Trust (tokenized)', category: 'Tokenized Stock', external_id: 'btc-tokenized')
+    [[@stock, 10, 30], [token, 2, 30]].each do |asset, qty, price|
+      AccountBalance.create!(user: user, exchange: @exchange, asset: asset, free: qty, locked: 0,
+                             usd_price: price, usd_value: qty * price, synced_at: Time.current)
+    end
+    balances = AccountBalance.for_user(user).to_a
+    assert_nothing_raised { Tracker::Figures.for(user, ledger: Tracker::Ledger.for(user), balances: balances) }
+  end
+
   test 'tracker refuses when the user moved one class of a symbol and holds the other' do
     user = create(:user)
     AccountBalance.create!(user: user, exchange: @exchange, asset: @coin, free: 2, locked: 0,

@@ -5,7 +5,7 @@
   "app/models/account_balance.rb": "a7f3296994800366f5aa255d2342a57598c05cf839584b7d9c96421c22f1ba25",
   "app/models/portfolio_snapshot.rb": "b13f74f516f4f787ab22e469ed20803f681edbd049139a2a38db81f2ff249ac0",
   "app/models/portfolio_venue_snapshot.rb": "994232bb4bd2a3287cd16e9a8be6bbebd35ac3cb4e18970daba4f66462b73c71",
-  "app/models/tracker/figures.rb": "06ae27dbde347f18a180553096b636aefc443ded4724a5878b1acba65ebb17fd",
+  "app/models/tracker/figures.rb": "bfae57d2a68f14c67b4718d850f176730c1ff50f133fff58f1efff7cb20f4f28",
   "app/models/tracker/ledger.rb": "82ee03e708359b06aa46919f096f94715a26a3c69072632bea3d64ec55793fc4",
   "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
   "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",

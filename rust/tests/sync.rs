@@ -1521,6 +1521,23 @@ async fn collision_tracker_treats_both_cash_categories_as_one_class() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn collision_tracker_treats_a_stock_and_its_tokenized_share_as_one_class() {
+    let (_dir,db,s)=install();
+    db.run(move |c,_| {
+        for (ext,cat) in [("amzn-stock","Stock"),("amzn-token","Tokenized Stock")] {
+            c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES (?1,'AMZN','Amazon',?2,'2026-01-01','2026-01-01')",rusqlite::params![ext,cat]).unwrap();
+            let asset=c.last_insert_rowid();
+            c.execute("INSERT INTO account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at) VALUES (?1,?2,?3,2,0,200,400,'2026-01-01 00:00:00','2026-01-01','2026-01-01')",rusqlite::params![s.user_id,s.exchange_id,asset]).unwrap();
+        }
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
+        let figures=result.unwrap_or_else(|e| panic!("a stock and its tokenized share are one class: {e:?}"));
+        assert_eq!(figures.value.to_s_f(),"800.0","both AMZN rows are counted");
+        Ok(())
+    }).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn collision_tracker_refuses_to_merge_stock_and_crypto_quantities() {
     let (_dir,db,s)=install();
     db.run(move |c,_| {
