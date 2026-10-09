@@ -1911,7 +1911,7 @@ async fn submitting_the_shown_name_of_an_unnamed_bot_saves_it() -> Result<(),Box
     let mut spec=seed::BotSpec::weekly(5.0,"2026-09-10 12:00:00"); spec.status=2;
     let id=seed::insert_bot(&opened.primary,&seeded,&spec);
     opened.primary.execute("UPDATE bots SET label=NULL WHERE id=?1",[id])?;
-    let name=Bot::find(&opened.primary,seeded.user_id,id,For::Page,"en")?.ok_or("bot")?.label;
+    let name=Bot::find(&opened.primary,seeded.user_id,id,For::Page,"en").map_err(|e|format!("{e:?}"))?.ok_or("bot")?.label;
     let app=common::web::app(dir.path(),"engine-test-secret",common::web::TestClock::at("2026-09-10T12:00:30Z"));
     let mut browser=Browser { cookie:Some(session::seal(&app.keys.session,&SessionData { user:Some((seeded.user_id,hash.get(..29).ok_or("salt")?.into())),..Default::default() },app.now())),page:None };
     let path=format!("/bots/{id}");
