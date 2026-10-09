@@ -228,7 +228,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let mut bots = vec![];
         for id in &ids {
             if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage })? { return Ok((shell, Listing::NotPorted(reason))); }
-            if let Some(bot) = Bot::find(c, user.id, *id, bot::For::Page)? {
+            if let Some(bot) = Bot::find(c, user.id, *id, bot::For::Page, ctx.locale)? {
                 if let Some(reason) = bot.unrendered() { return Ok((shell, Listing::NotPorted(reason))); }
                 bots.push(bot);
             }

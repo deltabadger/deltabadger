@@ -22,11 +22,10 @@ pub(super) fn asset(c: &Connection,id: &Value) -> Result<Option<String>,WebError
 pub(super) const STATUSES: [&str;8] = ["created","scheduled","stopped","deleted","executing","retrying","waiting","archived"];
 fn bots(c: &Connection,user:i64,args:&Value) -> Result<String,WebError> {
     let filter = args["status"].as_str().filter(|s| !s.trim().is_empty());
-    let mut q = c.prepare("SELECT b.type,b.label,b.settings,b.status,e.name FROM bots b LEFT JOIN exchanges e ON b.exchange_id=e.id WHERE b.user_id=?1 AND b.status != 3")?;
-    let rows = q.query_map([user],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<String>>(4)?)))?;
+    let mut q = c.prepare("SELECT b.type,b.label,b.settings,b.status,e.name,b.id FROM bots b LEFT JOIN exchanges e ON b.exchange_id=e.id WHERE b.user_id=?1 AND b.status != 3")?;
+    let rows = q.query_map([user],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,i64>(5)?)))?.collect::<Result<Vec<_>,_>>()?;
     let mut lines=vec![];
-    for row in rows {
-        let (kind,label,settings,status,exchange) = row?;
+    for (kind,label,settings,status,exchange,id) in rows {
         if !["Bots::DcaMultiAsset","Bots::DcaSingleAsset","Bots::DcaIndex","Bots::Signal"].contains(&kind.as_str()){return Err(WebError::Config("unknown bot class".into()));}
         let name = usize::try_from(status).ok().and_then(|i|STATUSES.get(i)).copied().unwrap_or("");
         if filter.is_some_and(|f| f != name && f.parse::<i64>().ok() != Some(status)) {continue;}
@@ -39,9 +38,11 @@ fn bots(c: &Connection,user:i64,args:&Value) -> Result<String,WebError> {
             for id in ids {if let Some(symbol)=asset(c,&id)? {symbols.push(symbol);}}
             Some(symbols.join("+"))
         } else {asset(c,&s["base_asset_id"])?};
+        // A bot stored without a name is listed under its generated one, as Rails loads it.
+        let label=match label.filter(|l|!l.trim().is_empty()){Some(l)=>l,None=>super::reads::generated_label(c,user,id,&kind,&s,"en")?};
         let pair=if multi || (base.is_some() && quote.is_some()) {format!("{}/{}",base.unwrap_or_default(),quote.clone().unwrap_or_default())} else {"N/A".into()};
         let type_name=type_name(&kind);
-        lines.push(format!("- {} | {type_name} | {pair} | {} | {name} | {} {}/{}",label.unwrap_or_default(),exchange.unwrap_or_else(||"N/A".into()),str_value(&s["quote_amount"]),quote.unwrap_or_default(),s.get("interval").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||"N/A".into())));
+        lines.push(format!("- {} | {type_name} | {pair} | {} | {name} | {} {}/{}",label,exchange.unwrap_or_else(||"N/A".into()),str_value(&s["quote_amount"]),quote.unwrap_or_default(),s.get("interval").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||"N/A".into())));
     }
     Ok(if lines.is_empty(){"No bots found.".into()}else{format!("Bots ({}):\n{}",lines.len(),lines.join("\n"))})
 }

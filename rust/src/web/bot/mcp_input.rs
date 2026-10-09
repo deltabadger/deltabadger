@@ -85,6 +85,7 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value) -> Result<InputO
     for (key,value) in updates {
         if key=="label" {
             draft.candidate.label=value.as_str().ok_or_else(||super::data("MCP label has invalid shape".into()))?.to_owned();
+            draft.submitted_label=Some(value.clone());
         } else {
             if key=="allocations" { draft.candidate.settings.insert("weighting".into(),json!("manual")); }
             if key=="num_coins" { draft.candidate.settings.insert("hold_all".into(),json!(value.as_i64().is_some_and(|n|n>=draft.candidate.max_coins()))); }

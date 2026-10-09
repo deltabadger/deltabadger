@@ -389,7 +389,7 @@ mod action_draft {
             c.execute("UPDATE tickers SET available = ?1 WHERE exchange_id = 1 AND base = 'QQQM'", [!case.get("delisted").and_then(Value::as_bool).unwrap_or(false)])?;
             let provider = case.get("provider").and_then(Value::as_bool).unwrap_or(true);
             let before: String = c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
-            let mut draft = Draft::load(&c, 1, id).map_err(|e| format!("{e:?}"))?.ok_or("owned bot")?;
+            let mut draft = Draft::load(&c, 1, id,"en").map_err(|e| format!("{e:?}"))?.ok_or("owned bot")?;
             compare!(json!(draft.baseline), *field(case, "baseline"), "{name}: default-filled baseline");
             draft.candidate.settings.extend(field(case, "stored").as_object().ok_or("stored")?.clone());
             draft.candidate.transient.extend(field(case, "transient").as_object().ok_or("transient")?.clone());
@@ -469,7 +469,7 @@ mod action_draft {
         // replacing the actual cap aggregation or collecting an unbounded history in memory.
         c.execute("DELETE FROM transactions", [])?;
         c.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x + 1 FROM n WHERE x < 100000) INSERT INTO transactions(bot_id, exchange_id, side, status, external_status, quote_amount_exec, created_at, updated_at) SELECT 3, 1, 0, 0, 2, 0, '2026-09-09 00:00:00', '2026-09-09 00:00:00' FROM n")?;
-        let budget = Draft::load(&c, 1, 3).map_err(|e| format!("{e:?}"))?.ok_or("budget bot")?;
+        let budget = Draft::load(&c, 1, 3,"en").map_err(|e| format!("{e:?}"))?.ok_or("budget bot")?;
         assert!(deltabadger::web::bot::start::amount_limit(&c, &budget.candidate).is_ok());
         c.execute("INSERT INTO transactions(bot_id, exchange_id, side, status, external_status, quote_amount_exec, created_at, updated_at) VALUES(3, 1, 0, 0, 2, 0, '2026-09-09 00:00:00', '2026-09-09 00:00:00')", [])?;
         let error = match deltabadger::web::bot::start::amount_limit(&c, &budget.candidate) {
@@ -587,7 +587,7 @@ mod action_write {
     fn action_write_unfilled_cancel_preserves_numeric_class() -> Result {
         let f=Fixture::new()?;
         seed::insert_row(&f.c,&f.seed,f.id,f.seed.btc,&json!({"external_status":3,"created_at":"2026-09-10 12:00:00"}));
-        let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e|format!("{e:?}"))?.ok_or("draft")?;
+        let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("draft")?;
         let pending=write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e|format!("{e:?}"))?;
         assert!(matches!(pending,web::format::Num::Float(5.0)),"{pending:?}");
         Ok(())
@@ -680,7 +680,7 @@ mod action_write {
     fn action_write_history_and_input_bounds() -> Result {
         let f=Fixture::new()?;
         f.c.execute_batch(&format!("WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<100000) INSERT INTO transactions(bot_id,exchange_id,status,side,external_status,quote_amount_exec,created_at,updated_at) SELECT {},{},0,0,3,0,'2026-09-10 12:00:00','2026-09-10 12:00:00' FROM n",f.id,f.seed.exchange_id))?;
-        let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+        let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
         assert!(write::pending(&f.c,&draft.original,harness::at(NOW)).is_ok());
         f.c.execute("INSERT INTO transactions(bot_id,exchange_id,status,side,external_status,quote_amount_exec,created_at,updated_at) VALUES(?1,?2,0,0,3,0,'2026-09-10 12:00:00','2026-09-10 12:00:00')",(f.id,f.seed.exchange_id))?;
         let before=f.snapshot()?;
@@ -712,7 +712,7 @@ mod action_write {
             stored["transient"]["missed_quote_amount"]=json!("0.0");
             stored["transient"].as_object_mut().ok_or("transient")?.extend(transient.as_object().ok_or("transient")?.clone());
             f.c.execute("UPDATE bots SET settings=?1,transient_data=?2,started_at=?3,settings_changed_at=?4 WHERE id=?5",(stored["settings"].to_string(),stored["transient"].to_string(),started,changed,f.id))?;
-            let draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
             let amount=write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
             assert_eq!(amount.to_s(),expected,"{name}");
         }
@@ -876,7 +876,7 @@ mod action_write {
             f.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,encrypted))?;
         }
         for id in [1,2,3] {
-            let bot=Draft::load(&f.c,1,id).map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
+            let bot=Draft::load(&f.c,1,id,"en").map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
             let root=bot.original.param_key();
             let p=Params {json:Some(json!({root:{"quote_amount":"37.25"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
             let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
@@ -1074,7 +1074,7 @@ mod action_write {
         assert!(cases.len()>=6);
         let f=Fixture::new()?;
         for case in cases {
-            let mut draft=Draft::load(&f.c,f.seed.user_id,f.id).map_err(|e|format!("{e:?}"))?.ok_or("draft missing")?;
+            let mut draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("draft missing")?;
             draft.candidate.settings.extend(case["settings"].as_object().ok_or("settings missing")?.clone());
             let now=case["now"].as_str().ok_or("now missing")?.parse()?;
             let actual=draft.initial_start_at(now,case["zone"].as_str().ok_or("zone missing")?).map_err(|e|format!("{e:?}"))?;
@@ -1896,4 +1896,34 @@ mod auth_decision_clock {
             }
         } Ok(())
     }
+}
+
+/// A bot stored without a name shows a generated one. A save that does not name it leaves the row
+/// unnamed (Rails' in-memory name is not dirty); submitting the shown name saves it
+/// (Automation::Labelable#label=).
+#[tokio::test(flavor="current_thread")]
+async fn submitting_the_shown_name_of_an_unnamed_bot_saves_it() -> Result<(),Box<dyn std::error::Error>> {
+    use common::{seed,web::{Browser,Csrf}};
+    use deltabadger::web::{bot::{Bot,For},session::{self,SessionData}};
+    let (dir,opened,seeded) = common::install_alpaca();
+    let hash = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    opened.primary.execute("UPDATE users SET encrypted_password=?1,confirmed_at='2026-01-01 00:00:00',wash_sale_enabled=0",[hash])?;
+    let mut spec=seed::BotSpec::weekly(5.0,"2026-09-10 12:00:00"); spec.status=2;
+    let id=seed::insert_bot(&opened.primary,&seeded,&spec);
+    opened.primary.execute("UPDATE bots SET label=NULL WHERE id=?1",[id])?;
+    let name=Bot::find(&opened.primary,seeded.user_id,id,For::Page,"en")?.ok_or("bot")?.label;
+    let app=common::web::app(dir.path(),"engine-test-secret",common::web::TestClock::at("2026-09-10T12:00:30Z"));
+    let mut browser=Browser { cookie:Some(session::seal(&app.keys.session,&SessionData { user:Some((seeded.user_id,hash.get(..29).ok_or("salt")?.into())),..Default::default() },app.now())),page:None };
+    let path=format!("/bots/{id}");
+    assert_eq!(browser.get(&app,&path).await.status,200);
+    let headers=[("accept","text/vnd.turbo-stream.html")];
+    let label=|| opened.primary.query_row("SELECT label FROM bots WHERE id=?1",[id],|r|r.get::<_,Option<String>>(0));
+    let unnamed=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[quote_amount]","7")]),Csrf::Header,&headers).await;
+    assert_eq!(unnamed.status,200,"{}",unnamed.body);
+    assert!(unnamed.body.contains(&format!("<template>{name}</template>")),"the label stream shows the generated name: {}",unnamed.body);
+    assert_eq!(label()?,None,"a save that names nothing leaves the row unnamed");
+    let named=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[label]",name.as_str())]),Csrf::Header,&headers).await;
+    assert_eq!(named.status,200,"{}",named.body);
+    assert_eq!(label()?,Some(name),"the shown name, submitted, is saved");
+    Ok(())
 }

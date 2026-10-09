@@ -138,7 +138,7 @@ pub(super) enum Found {
 
 /// The bot of a request: the signed-in user's and one this build renders. The page treats a deleted
 /// bot as missing (Bots::Botable#set_bot); the chart's frame finds it, as `current_user.bots.find` does.
-pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, deleted_too: bool, asked: super::For) -> Result<(Found, bool), WebError> {
+pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, deleted_too: bool, asked: super::For, locale: &str) -> Result<(Found, bool), WebError> {
     let (deltabadger, configured) = market_data(c, app)?;
     let Some(id) = super::id_from_path(segment) else { return Ok((Found::Missing, configured)) };
     let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2", [id, user.id], |r| r.get(0)).optional()?;
@@ -149,7 +149,7 @@ pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, delete
     }
     let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
     if let Some(reason) = refusal(c, id, wash_sale, deltabadger, asked)? { return Ok((Found::NotPorted(reason), configured)); }
-    let found = match Bot::find(c, user.id, id, asked)? {
+    let found = match Bot::find(c, user.id, id, asked, locale)? {
         None => Found::Missing,
         Some(bot) => bot.unrendered().map_or_else(|| Found::Bot(Box::new(bot)), Found::NotPorted),
     };
@@ -182,7 +182,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     // Whose bot it is comes first: neither a redirect nor a refusal renders a form, so neither gives the session a token.
     let (inner, owner, id_part) = (app.clone(), user.clone(), id_part.to_string());
     let asked = if feed { super::For::Feed } else if matches!(app.figure_source, crate::web::figure::loading::Source::Disabled) { super::For::Page } else { super::For::FiguresPage };
-    let (bot, configured) = match app.db(move |c| find(c, &inner, &owner, &id_part, false, asked)).await {
+    let locale = ctx.locale;
+    let (bot, configured) = match app.db(move |c| find(c, &inner, &owner, &id_part, false, asked, locale)).await {
         Ok((Found::Bot(bot), configured)) => (*bot, configured),
         Ok((Found::Missing, _)) => return Ok(not_found(&ctx)),
         Ok((Found::NotPorted(reason), _)) => return Ok(layout::refused(&ctx, reason)),
@@ -203,9 +204,18 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let (ctx, csrf, user) = (&view, token.as_str(), &owner);
         let shell = Shell::load(c, &inner, user)?;
         let path = ctx.path(&format!("/bots/{}", bot.id));
-        let mut others = c.prepare("SELECT id, label FROM bots WHERE user_id = ?1 AND status NOT IN (3, 7) AND id != ?2 ORDER BY position, id")?;
-        let other_bots = others.query_map([user.id, bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
-            .map(|row| row.map(|(id, label)| (ctx.path(&format!("/bots/{id}")), label.unwrap_or_default()))).collect::<Result<Vec<_>, _>>()?;
+        let mut others = c.prepare("SELECT id, label, type, settings FROM bots WHERE user_id = ?1 AND status NOT IN (3, 7) AND id != ?2 ORDER BY position, id")?;
+        let rows = others.query_map([user.id, bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, String>(3)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        // Each switcher entry is a loaded bot in Rails: one stored without a name shows its generated one.
+        let mut other_bots = Vec::with_capacity(rows.len());
+        for (id, label, class, settings) in rows {
+            let label = match label.filter(|label| !label.trim().is_empty()) {
+                Some(label) => label,
+                None => crate::web::mcp::reads::generated_label(c, user.id, id, class.as_deref().unwrap_or_default(), &serde_json::from_str(&settings).unwrap_or(serde_json::Value::Null), ctx.locale)?,
+            };
+            other_bots.push((ctx.path(&format!("/bots/{id}")), label));
+        }
         let hide_money = user.hide_balances;
         let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
         let metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
@@ -248,7 +258,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
 pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let (inner, owner) = (app.clone(), user.clone());
-    let bot = match app.db(move |c| find(c, &inner, &owner, &segment, true, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { super::For::Page } else { super::For::FiguresPage })).await {
+    let locale = ctx.locale;
+    let bot = match app.db(move |c| find(c, &inner, &owner, &segment, true, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { super::For::Page } else { super::For::FiguresPage }, locale)).await {
         Ok((Found::Bot(bot), _)) => *bot,
         Ok((Found::Missing, _)) => return Ok(layout::missing()),
         Ok((Found::NotPorted(reason), _)) => return Ok(layout::refused(&ctx, reason)),
