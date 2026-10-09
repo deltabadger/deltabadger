@@ -492,6 +492,66 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_equal 10.to_d, result.data[aapl.id][:free]
   end
 
+  # == get_balances on a malformed answer: fail, never read the gap as an empty holding ==
+
+  # nil.to_d is 0: an account with no cash figure would remove the cash balance and report success.
+  [{ 'id' => 'paper-account', 'status' => 'ACTIVE', 'buying_power' => '200000' }, { 'cash' => nil }].each do |account|
+    test "get_balances fails on an account answer without a cash figure: #{account.inspect}" do
+      usd = usd_with_ticker
+      Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new(account))
+      Clients::Alpaca.any_instance.stubs(:get_positions).returns(Result::Success.new([]))
+
+      result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
+
+      assert_predicate result, :failure?
+      assert_equal ['the account has no cash figure'], result.errors
+    end
+  end
+
+  [{}, { 'qty' => nil }].each do |qty|
+    test "get_balances fails on a held position without a quantity: #{qty.inspect}" do
+      aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+      usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+      create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+      Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
+      Clients::Alpaca.any_instance.stubs(:get_positions)
+                     .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'asset_class' => 'us_equity' }.merge(qty)]))
+
+      result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aapl.id]) }
+
+      assert_predicate result, :failure?
+      assert_equal ['a position without a quantity'], result.errors
+    end
+  end
+
+  # A held position with no symbol cannot be matched to the holding it is: skipping it would read that
+  # holding as 0 and the sync would delete its stored balance. Fail instead, as the Rust sync does.
+  [{}, { 'symbol' => nil }, { 'symbol' => ' ' }, { 'symbol' => 5 }].each do |symbol|
+    test "get_balances fails on a held position without a symbol: #{symbol.inspect}" do
+      usd = usd_with_ticker
+      Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
+      Clients::Alpaca.any_instance.stubs(:get_positions)
+                     .returns(Result::Success.new([{ 'asset_class' => 'us_equity', 'qty' => '10.5' }.merge(symbol)]))
+
+      result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
+
+      assert_predicate result, :failure?
+      assert_equal ['a position without a symbol'], result.errors
+    end
+  end
+
+  test 'get_balances still skips a position of an unsupported class, symbol or not' do
+    usd = usd_with_ticker
+    Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
+    Clients::Alpaca.any_instance.stubs(:get_positions)
+                   .returns(Result::Success.new([{ 'asset_class' => 'us_option', 'qty' => '1' }]))
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
+
+    assert_predicate result, :success?
+    assert_equal 100.to_d, result.data[usd.id][:free]
+  end
+
   # == get_balances spend figures (margin: cash is not what the venue checks) ==
 
   test 'get_balances reports settled cash as free and carries both buying-power figures' do

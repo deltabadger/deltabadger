@@ -228,7 +228,7 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, cr
 /// it), `WRITE_GAP` apart. A stop or a deadline drops the run between two units.
 ///
 /// The watermark never passes the moment the sync began (as Rails'). Deliberately not Rails' (a listed divergence, with
-/// Rails' result beside it in the grid): a page token that comes back is a failure. Split rows are Rails' own, to the
+/// Rails' result beside it in the grid): a page token that comes back raises (Rails returns the same failure). Split rows are Rails' own, to the
 /// row: its grouping of consecutive legs, its dedup by the group's first id.
 pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, credentials: &Credentials, clock: &dyn Clock, limits: Limits)
                                        -> Result<Result<Outcome, Failure>, SyncError> {
@@ -374,7 +374,7 @@ const SPLIT_TOO_LONG: &str = "a split longer than a run of the ledger import may
 /// `after` when incremental. Ends on an empty page or a short page; stops, with more to read, after `limits.pages`
 /// full pages. Fails, with nothing read, on a page over `MAX_PAGE_BYTES`, `PAGE_SIZE` items or its budget of values,
 /// on a page token met before in any position, in this run or as the stop of an earlier run of the same import
-/// (`passed`; Rails ends the ledger at one that did not move, and follows any other cycle for ever), or on a full page
+/// (`passed`; Rails fails on one met before within its single read), or on a full page
 /// whose last activity has no id. Each page is parsed on the blocking pool.
 ///
 /// A run that stops at its cap does not cut a split in two. Rails merges split legs that are neighbours in one read,

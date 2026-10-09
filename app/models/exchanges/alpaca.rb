@@ -26,6 +26,9 @@ class Exchanges::Alpaca < Exchange
   # GET /v2/assets?asset_class=crypto response before each production sync, not just when
   # Alpaca visibly adds a pair. Keyed by the BASE symbol only (Alpaca's `symbol` field is the
   # full pair, e.g. "AAVE/USD" — parsed before this lookup).
+  # The position classes #get_balances maps to a holding; any other class is skipped.
+  ALPACA_POSITION_CLASSES = { 'us_equity' => 'Stock', 'crypto' => 'Cryptocurrency' }.freeze
+
   CRYPTO_COINGECKO_IDS = {
     'AAVE' => 'aave',
     'ADA' => 'cardano',
@@ -245,6 +248,15 @@ class Exchanges::Alpaca < Exchange
     positions_result = client.get_positions
     return positions_result if positions_result.failure?
 
+    # A gap is a malformed answer, not an empty holding: nil.to_d is 0, and a zero balance is deleted.
+    return Result::Failure.new('the account has no cash figure') if account_result.data['cash'].nil?
+
+    # Nor is a held position with no symbol: skipped, its holding would read as 0 and be deleted.
+    unnamed = positions_result.data.any? do |position|
+      ALPACA_POSITION_CLASSES.key?(position['asset_class']) && !(position['symbol'].is_a?(String) && position['symbol'].present?)
+    end
+    return Result::Failure.new('a position without a symbol') if unnamed
+
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|
       [asset_id, { free: 0, locked: 0 }]
@@ -271,7 +283,7 @@ class Exchanges::Alpaca < Exchange
     # Venue class and native spelling identify holdings, even while trading is unavailable.
     position_index = live_ticker_index
     positions_result.data.each do |position|
-      category = { 'us_equity' => 'Stock', 'crypto' => 'Cryptocurrency' }[position['asset_class']]
+      category = ALPACA_POSITION_CLASSES[position['asset_class']]
       candidates = position_index.fetch([category, position['symbol']], []).map(&:base_asset).uniq(&:id)
       unless candidates.one?
         Rails.logger.warn('Alpaca position skipped: unsupported class or unmapped/ambiguous identity')
@@ -280,6 +292,7 @@ class Exchanges::Alpaca < Exchange
 
       asset = candidates.first
       next unless asset_ids.include?(asset.id)
+      return Result::Failure.new('a position without a quantity') if position['qty'].nil?
 
       qty = position['qty'].to_d
       balances[asset.id] = { free: qty, locked: 0 }
@@ -499,6 +512,7 @@ class Exchanges::Alpaca < Exchange
 
     entries = []
     page_token = nil
+    seen_tokens = Set.new
     loop do
       params = { direction: 'asc', page_size: 100, page_token: page_token }.compact
       params[:after] = start_time.iso8601 if start_time
@@ -508,21 +522,21 @@ class Exchanges::Alpaca < Exchange
       activities = Array(result.data)
       break if activities.empty?
 
-      # page_token is an EXCLUSIVE cursor on id, so the last id of a page is always past the
-      # token that fetched it. If it isn't, the cursor was ignored and we'd re-fetch the same
-      # page forever — stop instead of hanging the sync on an unbounded loop.
+      # page_token is an EXCLUSIVE cursor on id, so every page ends past each token before it. A
+      # token met again means the cursor was ignored or cycles: ending there would report half a
+      # ledger as synced and move the watermark, following it would fetch for ever. Fail instead.
       next_token = activities.last['id']
-      if next_token == page_token
-        Rails.logger.warn("[#{name_id}] Alpaca ledger pagination stalled at page token #{page_token}")
-        break
-      end
+      return Result::Failure.new("the ledger's page tokens repeat: nothing was read") if next_token && !seen_tokens.add?(next_token)
 
       activities.each do |activity|
         entry = normalize_activity(activity)
         entries << entry if entry
       end
-      page_token = next_token
       break if activities.size < 100
+      # A full page with no cursor to continue from: the rest of the ledger cannot be reached.
+      return Result::Failure.new('a full page of the ledger ends with an activity that has no id: nothing was read') if next_token.nil?
+
+      page_token = next_token
     end
 
     Result::Success.new(merge_split_entries(entries))

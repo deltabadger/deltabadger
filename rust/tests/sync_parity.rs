@@ -77,8 +77,6 @@ fn without_columns(out: &mut Value, table: &str, columns: &[&str]) {
         if let Some(after) = row["after"].as_object_mut() { for c in columns { after.shift_remove(*c); } }
     }
 }
-/// Takes every changed row of `table` out.
-fn without_rows(out: &mut Value, table: &str) { out["changes"][table] = json!([]); }
 /// With the permitted differences taken out of both, Rails' output and Rust's are the same: every other row, column,
 /// request, raise and counter.
 fn rest_is_identical(rails: &Value, rust: &Value, permitted: &dyn Fn(&mut Value)) -> Result<(), String> {
@@ -136,18 +134,14 @@ fn oracle_split_verdict(rows: &[Value]) -> &'static str {
 fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let tx = |out: &Value| rows(out, "account_transactions");
     Some(match name {
-        // A page token that did not move: Rails ends the ledger there and keeps the first page; Rust fails the run.
+        // A page token that did not move: both fail the sync, store nothing, leave the watermark and record the same
+        // reason. Rails returns the failure (its job records it and goes on to the transfer matcher); Rust raises.
         "ledger-pages_stalled" => (|| {
-            check(tx(rails).len() == 100 && rows(rails, "api_keys")[0]["after"]["last_synced_at"] == "2026-04-10 00:00:00" && rails["steps"][0]["raised"] == false,
-                  "Rails no longer reads an unmoved page token as the end of the ledger: drop the listed divergence")?;
+            check(rails["steps"][0]["raised"] == false, "Rails now raises on repeated page tokens: drop the listed divergence")?;
             let key = rows(rust, "api_keys")[0].clone();
             check(tx(rust).is_empty() && rust["steps"][0]["raised"] == true && key["after"]["last_sync_error"] == "the ledger's page tokens repeat: nothing was read"
                   && key["after"]["last_synced_at"] == key["before"]["last_synced_at"], &format!("Rust: nothing stored, the watermark unmoved, the reason on the key: {key}"))?;
-            rest_is_identical(rails, rust, &|out| {
-                without_rows(out, "account_transactions");
-                without_columns(out, "api_keys", &["last_synced_at", "updated_at", "last_sync_error"]);
-                out["steps"][0]["raised"] = Value::Null;
-            })
+            rest_is_identical(rails, rust, &|out| { out["steps"][0]["raised"] = Value::Null; })
         })(),
         // A split quantity no ratio can be made of: both fail the sync and store nothing.
         "ledger-split_hostile_quantity" => only_the_error_text_differs(rails, rust, "FloatDomainError: NaN", "unreadable qty: beyond 10^±40")
@@ -181,32 +175,12 @@ fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(),
             only_requests(out, usize::MAX, "GET /api/v1/prices");
         })
     };
-    // A malformed answer Rails reads as an empty holding: it removes balances and stamps the key; Rust fails the sync,
-    // removes nothing and stamps nothing. Permitted: the balance rows, the key's two columns, and the requests after
-    // the positions (Rails goes on to price what it kept).
-    let refused = |rust_text: &str, rails_removed: &[i64]| -> Result<(), String> {
-        let removed: Vec<i64> = rows(rails, "account_balances").iter().filter(|r| r["after"].is_null()).filter_map(|r| r["id"].as_i64()).collect();
-        check(removed == rails_removed && rows(rails, "api_keys")[0]["after"]["balances_synced_at"] == fresh.clone().unwrap() && key_error(rails).is_null(),
-              &format!("Rails no longer removes {rails_removed:?} and reports success (it removed {removed:?}): drop the listed divergence"))?;
-        check(rows(rust, "account_balances").is_empty(), "Rust: no balance row is touched")?;
-        let key = rows(rust, "api_keys")[0].clone();
-        check(key["after"]["last_sync_error"] == rust_text && key["after"]["balances_synced_at"] == key["before"]["balances_synced_at"], &format!("Rust: the error, and the clock unmoved: {key}"))?;
-        rest_is_identical(rails, rust, &|out| {
-            without_rows(out, "account_balances");
-            without_columns(out, "api_keys", &["last_sync_error", "balances_synced_at"]);
-            only_requests(out, 2, "");
-        })
-    };
     Some(match name {
         "balances-no_trade_market_price" => no_trade((Some(226.4), Some(2377.2), fresh.clone()), (0, 1)),
         "balances-no_trade_keeps_last_price" => no_trade((Some(220.5), Some(2315.25), Some("2026-09-10 02:30:00".to_string())), (0, 1)),
         "balances-no_trade_unpriced" => no_trade((None, None, None), (0, 1)),
         "balances-account_null" => only_the_error_text_differs(rails, rust, "NoMethodError: undefined method '[]' for nil", "unreadable account"),
         "balances-positions_not_array" => only_the_error_text_differs(rails, rust, "TypeError: no implicit conversion of String into Integer", "unreadable positions"),
-        "balances-account_no_cash" => refused("the account has no cash figure", &[1]),
-        "balances-cash_only_null_cash" => refused("the account has no cash figure", &[1, 2, 3, 4]),
-
-        "balances-position_no_quantity" => refused("a position without a quantity", &[2]),
         _ => return None,
     })
 }
@@ -245,9 +219,8 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    assert_eq!(divergences, ["balances-account_no_cash", "balances-account_null", "balances-cash_only_null_cash", "balances-no_trade_keeps_last_price",
-                             "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-position_no_quantity",
-                             "balances-positions_not_array",
+    assert_eq!(divergences, ["balances-account_null", "balances-no_trade_keeps_last_price",
+                             "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array",
                              "ledger-pages_stalled", "ledger-split_hostile_quantity"], "the listed divergences");
 
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing

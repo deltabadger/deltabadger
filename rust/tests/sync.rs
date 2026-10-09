@@ -263,6 +263,31 @@ async fn a_price_or_a_value_outside_a_venue_numbers_range_fails_the_balance_sync
     assert_eq!(one::<String>(&db, state).await, "1 1.0e+300, synced never", "the stored row as it was, and no cash row");
 }
 
+/// A held position with no symbol cannot be matched to the holding it is. Skipped, the holding would read as 0 and its
+/// stored balance would be deleted; the sync fails instead, removes nothing and leaves the key's clock (as Rails does).
+/// A position of a class this build does not map is still skipped, symbol or not.
+#[tokio::test(flavor = "current_thread")]
+async fn a_held_position_without_a_symbol_fails_the_balance_sync_and_keeps_the_stored_balances() {
+    let (_dir, db, s) = install();
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    db.run(|c, _| c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-01 00:00:00'", []).map_err(|e| e.to_string())).await.unwrap();
+    let state = "SELECT (SELECT count(*) || ' ' || group_concat(asset_id || ':' || free, ',') FROM account_balances) || ', synced ' || coalesce((SELECT balances_synced_at FROM api_keys), 'never')";
+    let stored = one::<String>(&db, state).await;
+    assert!(stored.starts_with("3 ") && stored.ends_with(", synced 2026-09-01 00:00:00"), "cash, AAPL and BTC stored: {stored}");
+    let btc = json!({ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.5" });
+    for aapl in [json!({ "asset_class": "us_equity", "qty": "2" }), json!({ "symbol": null, "asset_class": "us_equity", "qty": "2" }),
+                 json!({ "symbol": " ", "asset_class": "us_equity", "qty": "2" }), json!({ "symbol": 5, "asset_class": "us_equity", "qty": "2" })] {
+        let (_, v) = venue(json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([aapl.clone(), btc.clone()]))] }));
+        let failure = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
+        assert_eq!((failure.error.as_str(), failure.raised), ("a position without a symbol", false), "{aapl}");
+        assert_eq!(one::<String>(&db, state).await, stored, "{aapl}: nothing removed, the clock unmoved");
+    }
+    let (_, v) = venue(json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "asset_class": "us_option", "qty": "1" }]))] }));
+    balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+}
+
 /// A venue date is read only within 1970-01-01 ..= 9999-12-31 (UTC); one outside it is an unreadable activity time,
 /// which fails the run and stores nothing, as any unreadable time does. Times read back from the database (the
 /// watermark, a withdrawal Rails stored) go through checked arithmetic: none of them panics a sync.
@@ -522,7 +547,7 @@ async fn a_read_of_the_ledger_past_any_limit_fails_the_run_and_moves_nothing() {
          json!({ ACTIVITIES: [text(format!("[{{\"id\":\"long\",\"list\":[{}]}}]", vec!["0"; 100_000].join(",")))] }),
          "an activities page with more values than one answer may hold".into()),
         ("page tokens that come round again", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-b"), page(200..299, "token-a")] }), repeat.clone()),
-        ("a page token that does not move (Rails reads this one as the end of the ledger)", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-a")] }), repeat.clone()),
+        ("a page token that does not move (Rails fails this one too)", json!({ ACTIVITIES: [page(0..99, "token-a"), page(100..199, "token-a")] }), repeat.clone()),
         ("a short last page that ends on a token already used", json!({ ACTIVITIES: [page(0..99, "token-a"), ok(json!([item("token-a".into())]))] }), repeat.clone()),
         ("a full page whose last activity has no id", json!({ ACTIVITIES: [ok(Value::Array((0..100).map(|i| if i == 99 { json!({ "activity_type": "INT", "net_amount": "1", "date": "2026-09-01" }) } else { item(format!("i{i}")) }).collect()))] }),
          "a full page of the ledger ends with an activity that has no id: nothing was read".into()),
@@ -1575,7 +1600,9 @@ async fn collision_positions_identify_before_decoding_bare_numbers() {
         let raw = format!(r#"[{{"symbol":"{symbol}","asset_class":"{class}","qty":1e400}},{{"symbol":"AAPL","asset_class":"us_equity","qty":"2"}}]"#);
         let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(raw))],"GET /v2/stocks/snapshots":[ok(json!({"AAPL":{"latestTrade":{"p":30}}}))]}));
         let result = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap();
-        assert!(result.is_ok(), "unidentified {symbol}/{class} must not decode qty: {result:?}");
+        // A supported class with no symbol fails the sync on the identity, never on the number.
+        if symbol.is_empty() { assert_eq!(result.as_ref().err().map(|f| f.error.as_str()), Some("a position without a symbol"), "unidentified {symbol}/{class} must not decode qty: {result:?}"); }
+        else { assert!(result.is_ok(), "unidentified {symbol}/{class} must not decode qty: {result:?}"); }
         assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
     }
     let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e400}]"#))]}));
