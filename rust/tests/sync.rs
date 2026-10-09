@@ -1600,7 +1600,9 @@ async fn collision_positions_identify_before_decoding_bare_numbers() {
         let raw = format!(r#"[{{"symbol":"{symbol}","asset_class":"{class}","qty":1e400}},{{"symbol":"AAPL","asset_class":"us_equity","qty":"2"}}]"#);
         let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(raw))],"GET /v2/stocks/snapshots":[ok(json!({"AAPL":{"latestTrade":{"p":30}}}))]}));
         let result = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap();
-        assert!(result.is_ok(), "unidentified {symbol}/{class} must not decode qty: {result:?}");
+        // A supported class with no symbol fails the sync on the identity, never on the number.
+        if symbol.is_empty() { assert_eq!(result.as_ref().err().map(|f| f.error.as_str()), Some("a position without a symbol"), "unidentified {symbol}/{class} must not decode qty: {result:?}"); }
+        else { assert!(result.is_ok(), "unidentified {symbol}/{class} must not decode qty: {result:?}"); }
         assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
     }
     let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e400}]"#))]}));
