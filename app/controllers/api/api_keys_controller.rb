@@ -44,11 +44,15 @@ module Api
     # In place, so the key keeps its id and the ledger rows linked to it. The update validates
     # before it writes: a rejected replacement leaves the stored key exactly as it was. The ledger
     # watermark belonged to the old credential, which may have been another account: the new one
-    # syncs its own full history.
+    # syncs its own full history. So does an import the Rust sync had not finished for the old one.
     def replace(api_key, params)
-      replaced = api_key.update(key: params[:key], secret: params[:secret], passphrase: params[:passphrase],
-                                german_trading_agreement: params[:german_trading_agreement],
-                                status: :pending_validation, last_sync_error: nil, last_synced_at: nil)
+      replaced = ApiKey.transaction do
+        api_key.update(key: params[:key], secret: params[:secret], passphrase: params[:passphrase],
+                       german_trading_agreement: params[:german_trading_agreement],
+                       status: :pending_validation, last_sync_error: nil, last_synced_at: nil).tap do |ok|
+          AppConfig.where(key: %W[rust_sync.ledger:#{api_key.id} rust_sync.ledger_splits:#{api_key.id}]).delete_all if ok
+        end
+      end
       return Result::Failure.new(api_key.errors.full_messages) unless replaced
 
       ApiKeyValidatorJob.perform_later(api_key.id)

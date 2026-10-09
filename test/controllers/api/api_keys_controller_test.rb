@@ -64,6 +64,18 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
     assert_equal api_key.id, ledger_row.reload.api_key_id
   end
 
+  test 'an accepted replacement drops the previous credential\'s unfinished Rust import' do
+    api_key, = hyperliquid_key_with_history
+    AppConfig.create!(key: "rust_sync.ledger:#{api_key.id}", value: '{"page_token":"old-account"}')
+    AppConfig.create!(key: "rust_sync.ledger_splits:#{api_key.id}", value: '{}')
+
+    post '/api/api_keys', params: { api_key: { key: HL_KEY, secret: "0x#{'c' * 64}", exchange_id: api_key.exchange_id, key_type: 'trading' } }
+
+    assert_response :created
+    assert_nil AppConfig.find_by(key: "rust_sync.ledger:#{api_key.id}")
+    assert_nil AppConfig.find_by(key: "rust_sync.ledger_splits:#{api_key.id}")
+  end
+
   test 'an accepted replacement drops the previous credential\'s ledger watermark' do
     api_key, = hyperliquid_key_with_history
     api_key.update!(last_synced_at: 1.day.ago)
