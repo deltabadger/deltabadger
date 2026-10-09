@@ -240,7 +240,7 @@ class AppConfig < ApplicationRecord
   end
 
   def self.notifications_sender
-    ENV.fetch('NOTIFICATIONS_SENDER', nil) ||
+    ENV['NOTIFICATIONS_SENDER'].presence ||
       smtp_username.presence ||
       'noreply@localhost'
   end

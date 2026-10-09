@@ -1618,7 +1618,7 @@
         "authentication": "plain",
         "enable_starttls": "auto"
       },
-      "sender": ""
+      "sender": "noreply@localhost"
     },
     {
       "env": {
