@@ -189,8 +189,8 @@ module Tax
       result = MarketData.get_historical_price_range(
         coin_id: coin_id,
         currency: currency.downcase,
-        from: from.to_time.beginning_of_day,
-        to: (to + 1.day).to_time.beginning_of_day
+        from: from.to_time(:utc),
+        to: (to + 1.day).to_time(:utc)
       )
 
       return if result.failure?
