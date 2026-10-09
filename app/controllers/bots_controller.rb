@@ -125,7 +125,9 @@ class BotsController < ApplicationController
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
       # An exchange, quote or interval that does not exist cannot be drawn: show the bot as stored, with the error.
-      @bot = current_user.bots.find(@bot.id) if @bot.exchange.nil? || @bot.quote_asset.nil? || @bot.interval_duration.nil?
+      # A Signal bot has no schedule, so no interval to miss.
+      unknown_interval = @bot.respond_to?(:interval_duration) && @bot.interval_duration.nil?
+      @bot = current_user.bots.find(@bot.id) if @bot.exchange.nil? || @bot.quote_asset.nil? || unknown_interval
       render :update, status: :unprocessable_entity
     end
   end

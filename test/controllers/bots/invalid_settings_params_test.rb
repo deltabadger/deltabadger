@@ -33,4 +33,16 @@ class Bots::InvalidSettingsParamsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_equal before, @bot.reload.attributes
   end
+
+  test 'a refused Signal bot update answers 422' do
+    btc, eth = @bot.base_assets.sort_by(&:symbol) # BTC, ETH
+    signal = create(:signal_bot, user: @user, status: :stopped, exchange: @bot.exchange, base_asset: btc, quote_asset: @bot.quote_asset)
+    create(:transaction, bot: signal, exchange: signal.exchange)
+    before = signal.reload.attributes
+
+    patch bot_path(id: signal.id), params: { bots_signal: { base_asset_id: eth.id } }, as: :turbo_stream
+
+    assert_response :unprocessable_entity
+    assert_equal before, signal.reload.attributes
+  end
 end
