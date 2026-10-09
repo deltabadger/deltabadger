@@ -106,11 +106,11 @@ Rails.application.configure do
   # Determine protocol from APP_ROOT_URL, or from the same SSL signal as above so that a
   # FORCE_SSL of any spelling still produces https links.
   app_root_url = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
-  default_protocol = app_root_url.start_with?('https://') ? 'https' : 'http'
+  default_protocol = app_root_url.match?(/\Ahttps:\/\//i) ? 'https' : 'http'
   default_protocol = 'https' if ssl_enabled
 
   # Extract host from URL (remove protocol)
-  app_host = app_root_url.gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')
+  app_host = app_root_url.gsub(/^https?:\/\//i, '').gsub(/\/.*$/, '')
 
   config.action_mailer.default_url_options = { host: app_host, protocol: default_protocol }
   config.action_mailer.asset_host = "#{default_protocol}://#{app_host}"

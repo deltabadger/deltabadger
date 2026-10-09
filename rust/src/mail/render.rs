@@ -17,11 +17,12 @@ pub struct Urls { pub root: String }
 impl Urls {
     pub fn from_env(env: &dyn Fn(&str) -> Option<String>) -> Self {
         let app_root_url = env("APP_ROOT_URL").unwrap_or_else(|| "http://localhost:3000".into());
-        let https = app_root_url.starts_with("https://");
+        let lower = app_root_url.to_ascii_lowercase(); // same byte offsets: the schemes are ASCII
+        let https = lower.starts_with("https://");
         // Deltabadger::Application.force_ssl_from_env: FORCE_SSL when it is a recognised spelling, else the URL's scheme.
         let ssl = crate::web::env_boolean(env("FORCE_SSL")).unwrap_or(https);
-        // `gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')`: case-sensitive, so `HTTPS://host` keeps its scheme as the host.
-        let rest = app_root_url.strip_prefix("https://").or_else(|| app_root_url.strip_prefix("http://")).unwrap_or(&app_root_url);
+        // `gsub(/^https?:\/\//i, '').gsub(/\/.*$/, '')`: the scheme in any case.
+        let rest = if https { &app_root_url[8..] } else if lower.starts_with("http://") { &app_root_url[7..] } else { &app_root_url[..] };
         let host = rest.split('/').next().unwrap_or(rest);
         Self { root: format!("{}://{host}/", if https || ssl { "https" } else { "http" }) }
     }
@@ -32,8 +33,7 @@ impl Urls {
 /// Whom a mail greets and where it goes.
 pub struct Recipient { pub email: String, pub name: String, pub locale: &'static str }
 
-/// `users.locale` as ApplicationMailer#set_locale reads it: NULL is the default. A value Rails does not know makes
-/// Rails raise and send nothing; here the mail goes out in English (a listed divergence).
+/// `users.locale` as ApplicationMailer#set_locale reads it: NULL, or a value Rails does not know, is the default.
 pub fn user_locale(stored: Option<&str>) -> &'static str { stored.and_then(locale::known).unwrap_or(locale::DEFAULT) }
 
 fn layout(urls: &Urls, body: &str) -> String {
@@ -64,7 +64,6 @@ fn layout(urls: &Urls, body: &str) -> String {
       {body}
 
       <p style="margin: 5em 0 1em 0;"></p>
-      </p>
     </div>
   </body>
 </html>

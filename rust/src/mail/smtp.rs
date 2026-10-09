@@ -128,10 +128,10 @@ impl Settings {
     pub fn has_secret(&self) -> bool { !self.credentials.0.is_empty() || !self.credentials.1.is_empty() }
 }
 
-/// AppConfig.notifications_sender: NOTIFICATIONS_SENDER when it is set (an empty value too, which then sends nothing),
-/// else the saved SMTP user name, else `noreply@localhost`.
+/// AppConfig.notifications_sender: NOTIFICATIONS_SENDER when it is not blank, else the saved SMTP user name, else
+/// `noreply@localhost`.
 pub fn notifications_sender(env: &Env, config: &dyn Fn(&str) -> Option<String>) -> String {
-    env.notifications_sender.clone().or_else(|| present(config("smtp_username"))).unwrap_or_else(|| "noreply@localhost".into())
+    present(env.notifications_sender.clone()).or_else(|| present(config("smtp_username"))).unwrap_or_else(|| "noreply@localhost".into())
 }
 
 /// Why a delivery failed, in a form that is safe to log: where in the dialogue, and either the server's reply code
