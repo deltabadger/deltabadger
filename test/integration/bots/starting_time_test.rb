@@ -321,4 +321,39 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
                    'next run must be Monday 10:00, not anchored to Sunday 12:34'
     end
   end
+
+  # The first run's order is still open when the rule turns off, and is later cancelled part-filled. Turning the rule
+  # off leaves the schedule where it is (the anchor was started_at all along), so it must not close the carry window
+  # over that order: the part it never filled is owed again with the next contribution.
+  test 'turning the starting time off keeps an open first order in the window, so its unfilled part is owed again' do
+    order = nil
+    travel_to @sunday do
+      bot = create(:dca_single_asset, :hourly, user: @user, status: :stopped)
+      bot.start_time_enabled = true
+      bot.start_time_mode = 'monday'
+      bot.start_time_of_day = '09:00'
+      bot.set_missed_quote_amount
+      bot.save!
+      assert bot.start(start_fresh: true)
+    end
+    bot = Bots::DcaSingleAsset.last
+    t0 = bot.started_at
+    quote = bot.effective_quote_amount
+    travel_to(t0 + 0.5) do
+      order = create(:transaction, bot:, status: :submitted, external_status: :open, external_id: 'o1',
+                                   quote_amount: quote, amount_exec: nil, quote_amount_exec: nil, created_at: Time.current)
+      assert_equal 0, Bot.find(bot.id).pending_quote_amount
+    end
+    changed_at = bot.reload.settings_changed_at
+    travel_to(t0 + 1) { Bot.find(bot.id).disable_starting_time! }
+    bot.reload
+    assert_equal false, bot.start_time_enabled?
+    assert_equal changed_at, bot.settings_changed_at, 'the carry window stays where it was'
+
+    order.update!(external_status: :cancelled, quote_amount_exec: quote / 4)
+    travel_to(t0 + 1.hour + 1) do
+      assert_equal (quote * 2) - (quote / 4), Bot.find(bot.id).pending_quote_amount,
+                   'the next contribution plus what the cancelled order never bought'
+    end
+  end
 end

@@ -105,12 +105,24 @@ module Bot::Startable
   # runs follow the normal interval cadence from `started_at`). Disabling
   # it post-first-run lets users re-enable with a new value to schedule
   # another delayed start in the future.
+  #
+  # When the stored start_at is the bot's started_at (what a delayed fresh start writes), the schedule
+  # does not move: repeat_anchor_at is started_at either way. Then the carry window must not move
+  # either. A capture would close it over the first run's order while it may still be open, reserved at
+  # its full quote, and whatever it never fills would never be owed again. So only the flag is written,
+  # without the settings-change capture. A start_at edited away from started_at does move the anchor,
+  # and takes the settings-change path.
   def disable_starting_time!
     return unless start_time_enabled?
 
     self.start_time_enabled = false
-    set_missed_quote_amount
-    save!
+    anchor = parse_persisted_start_at
+    if anchor.nil? || anchor == read_attribute(:started_at)
+      update_columns(settings:, updated_at: Time.current)
+    else
+      set_missed_quote_amount
+      save!
+    end
   end
 
   # The persisted baseline for interval math. May be in the past once started.
