@@ -23,8 +23,12 @@ fn fragments(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<(String, String
     Ok((forms,exchange,state))
 }
 pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<Prepared<Response>, WebError> {
-    let (forms,exchange,state) = fragments(c,ctx,draft)?;
-    let bot = &draft.candidate;
+    // BotsController#update: an exchange, quote or interval that does not exist cannot be drawn, so a
+    // refused update redraws the bot as stored, with the refusal only in the flash.
+    let stored;
+    let shown = if !draft.errors.is_empty() && draft.undrawable() { stored = Draft::from_bot(draft.original.clone()); &stored } else { draft };
+    let (forms,exchange,state) = fragments(c,ctx,shown)?;
+    let bot = &shown.candidate;
     let body = turbo::stream("update",&bot.dom_id("label"),&i18n::escape(&bot.label))
         + "\n" + &turbo::stream("replace","settings",&format!("\n{forms}\n"))
         + "\n" + &turbo::stream("replace","exchange_select",exchange.trim_end())

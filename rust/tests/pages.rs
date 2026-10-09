@@ -666,14 +666,13 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
             let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive");
-            let bad_render=matches!(n,"update_bad_interval"|"update_quote_bad"|"update_exchange_bad");
             let scope=matches!(n,"start_invalid"|"modal_within_modal"|"start_within_true"|"start_within_false"|"update_exchange_ibkr");
             let safety=matches!(n,"stop_invalid"|"archive_invalid"|"stop_archived");
             let flag=matches!(n,"start_missing"|"start_junk");
             let empty=n=="extra_empty_root";
-            if start_guard || working_start || working_settings || html || bad_render || scope || safety || flag || empty {
+            if start_guard || working_start || working_settings || html || scope || safety || flag || empty {
                 let rails_status=if html {406} else if flag {500}
-                    else if empty {400} else if bad_render || matches!(n,"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
+                    else if empty {400} else if matches!(n,"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
                 if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
                 // HTML update, stop and archive are refused before they write; HTML start still commits first.
@@ -695,7 +694,7 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if n=="archive_invalid" && stream_targets(b)!=vec!["status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","menu_bots_dca_multi_asset_1","bot-count"] { return Err("safety Archive fragments differ".into()) }
                     if n=="stop_archived" && stream_targets(b)!=vec!["settings","exchange_select","status_button_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_2"] { return Err("archived Stop fragments differ".into()) }
                 } else {
-                    let six=working_start || working_settings || bad_render || empty;
+                    let six=working_start || working_settings || empty;
                     let targets=stream_targets(b);
                     let wanted=if six { vec!["label_bots_dca_multi_asset_1","settings","exchange_select","status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","flash"] } else {vec!["flash"]};
                     if targets!=wanted { return Err(format!("{n}: stream targets {targets:?}, expected {wanted:?}")) }
