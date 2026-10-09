@@ -8,6 +8,11 @@ module Automation::Statusable
     scope :working, -> { where(status: %i[scheduled executing retrying waiting]) }
   end
 
+  # What a fenced tick returns instead of a plain Success: it no longer owns the run, so neither the
+  # bot (no :waiting) nor Bot::ActionJob (no :scheduled, no next job) may write anything after it.
+  # A stop leaves the bot stopped; a restart's own tick and chain carry on untouched.
+  FENCED = Result::Success.new({ fenced: true }.freeze).freeze
+
   def working?
     scheduled? || executing? || retrying? || waiting?
   end

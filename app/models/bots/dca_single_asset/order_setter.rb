@@ -80,7 +80,7 @@ module Bots::DcaSingleAsset::OrderSetter
     # Stopped while this order was sized: place nothing (Automation::Statusable#stopped_mid_tick?).
     if stopped_mid_tick?
       Rails.logger.info("set_order bot=#{id} event=order_not_placed_stopped #{order_log_fields(order_data)}")
-      return Result::Success.new
+      return Automation::Statusable::FENCED
     end
 
     Rails.logger.info("set_order bot=#{id} event=order_creating #{order_log_fields(order_data)}")

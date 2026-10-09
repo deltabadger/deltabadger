@@ -62,7 +62,7 @@ module Bot::Composition::OrderSetter
         # Ahead of the wash-sale claim below, which must not be taken for a sale that never leaves.
         if stopped_mid_tick?
           Rails.logger.info("set_orders composition bot=#{id} event=order_not_placed_stopped #{order_log_fields(order_data)}")
-          return Result::Success.new
+          return Automation::Statusable::FENCED
         end
 
         # A sale at a loss locks the name BEFORE it leaves, as the rebalance and liquidation legs do: the

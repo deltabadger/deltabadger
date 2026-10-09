@@ -75,7 +75,7 @@ class Bots::DcaSingleAsset < Bot
                else
                  set_order(order_amount_in_quote: pending_quote_amount, update_missed_quote_amount: true)
                end
-      return result if result.failure?
+      return result if result.failure? || result.equal?(FENCED)
 
       transition_working!(:waiting)
       broadcast_below_minimums_warning

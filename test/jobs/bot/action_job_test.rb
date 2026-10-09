@@ -131,6 +131,35 @@ module ActionJobBehaviorTests
       end
     end
 
+    # The fenced old tick no longer owns the run: it must not write :waiting over the new tick's
+    # claim, nor schedule a second chain. Otherwise the new tick's own fence reads nil and that
+    # interval places nothing.
+    test 'a fenced old tick leaves the restarted run it no longer owns untouched' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.unstub(:market_buy)
+      bot.exchange.expects(:market_buy).never
+      new_tick = nil
+      bot.define_singleton_method(:pending_quote_amount) do
+        if Bot.find(id).executing? && new_tick.nil?
+          Bot.find(id).stop
+          Bot.find(id).start(start_fresh: true)
+          new_tick = Bot.find(id)
+          new_tick.update!(last_action_job_at: 1.second.from_now)
+          new_tick.transition_working!(:executing)
+        end
+        super()
+      end
+      Bot::ActionJob.unstub(:set)
+      Bot::ActionJob.expects(:set).never
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_empty bot.transactions
+      assert_equal 'executing', Bot.find(bot.id).status
+      assert_not new_tick.stopped_mid_tick?, 'the new tick still owns its claim and may place'
+    end
+
     test 'does not flip an externally stopped bot to retrying when execution raises' do
       bot = create_bot
       setup_action_job_mocks(bot)
