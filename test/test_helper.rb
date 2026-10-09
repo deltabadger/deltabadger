@@ -52,6 +52,17 @@ require_relative 'support/holding_payload_helpers'
 
 WebMock.disable_net_connect!(allow_localhost: true)
 
+# Linux's Time.now carries nanoseconds; SQLite stores timestamps to the microsecond. A time kept
+# in memory (created_at on a just-saved record, `at = 3.days.ago` passed to a factory) then never
+# equals the same time read back from the database. macOS's clock is microsecond-precise already,
+# so this only ever failed on Linux. Truncating the test clock to the precision the database keeps
+# makes the two sides agree everywhere. An alias rather than a prepended module, so travel_to's
+# alias-and-restore of Time.now (ActiveSupport SimpleStubs) puts this method back on travel_back.
+class << Time
+  alias nanosecond_now now
+  def now(...) = nanosecond_now(...).floor(6)
+end
+
 # Tax::EcbFxRates.ensure_loaded! runs from every Tax::PriceService.new, so any test that builds a
 # tax report reaches for the ECB feed. Its `rescue StandardError` cannot absorb that here —
 # WebMock::NetConnectNotAllowedError descends from Exception, not StandardError — so the suite is
