@@ -1032,7 +1032,7 @@ async fn r9_each_stored_time_refuses_check_guard_web_draft_and_tick() {
         assert!(result.is_err(),"tick {field}: {result:?}");assert!(t.posted_orders().is_empty());
         let after:String=o.primary.query_row("SELECT json_array(settings,transient_data,started_at,settings_changed_at,status) FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();assert_eq!(before,after,"no save {field}");
         let ledger_after:String=o.primary.query_row("SELECT json_group_array(json_array(id,status,external_status,created_at,updated_at)) FROM transactions WHERE bot_id=?1",[id],|r|r.get(0)).unwrap();assert_eq!(ledger_before,ledger_after,"no ledger writes {field}");
-        if !matches!(field,"created_at"|"updated_at") {
+        {
             // The read/settings fixture starts stopped. Prove a real safety transition,
             // not the MCP "already stopped" no-op; the damaged evidence stays untouched.
             o.primary.execute("UPDATE bots SET status=1 WHERE id=?1",[id]).unwrap();
