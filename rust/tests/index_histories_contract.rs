@@ -11,5 +11,5 @@ fn the_index_history_oracle_pins_the_rails_it_was_recorded_from() {
         let got = format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap()));
         assert_eq!(&got, hash.as_str().unwrap(), "{path} changed: re-record script/rust/index_histories.rb and re-check the port");
     }
-    assert_eq!(v["scenarios"].as_array().unwrap().len(), 38);
+    assert_eq!(v["scenarios"].as_array().unwrap().len(), 40);
 }

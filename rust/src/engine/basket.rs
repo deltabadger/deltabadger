@@ -63,6 +63,7 @@ fn walk_bounded(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk
         let fill = match fill::special_sell_for_engine(&order).map_err(data)? {
             Some(sell) if sell.unpriced() => { books.unpriced_liquidation(&mut ledger, &key, &sell.executed).map_err(data)?; continue; }
             Some(sell) => sell.fill(),
+            None if fill::skipped_special_buy(&order).map_err(data)? => return Err(data("a REBALANCE/REDEPLOY buy the Rails walk skips cannot size orders")),
             None => fill::for_engine(&order).map_err(data)?,
         };
         let Some(fill) = fill else { continue };

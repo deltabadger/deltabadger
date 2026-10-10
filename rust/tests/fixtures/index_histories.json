@@ -8655,6 +8655,500 @@
           "pending_after": {}
         }
       }
+    },
+    {
+      "name": "redeploy_zero_quote",
+      "note": "a closed redeploy reporting 0 proceeds: Rails skips it, so its units do not count",
+      "members": [
+        {
+          "symbol": "AAA",
+          "target": "0.5",
+          "in_index": true
+        },
+        {
+          "symbol": "BBB",
+          "target": "0.3",
+          "in_index": true
+        },
+        {
+          "symbol": "DDD",
+          "target": "0.2",
+          "in_index": true
+        },
+        {
+          "symbol": "CCC",
+          "target": null,
+          "in_index": false
+        }
+      ],
+      "declined_offset": "0",
+      "transient": {},
+      "resolve_abandoned": false,
+      "rows": [
+        {
+          "base": "AAA",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "100",
+          "amount": "0.3",
+          "amount_exec": "0.3",
+          "quote_amount": "30.0",
+          "quote_amount_exec": "30.0",
+          "created_at": "2026-08-03T15:00:00.000000Z"
+        },
+        {
+          "base": "BBB",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "200",
+          "amount": "0.09",
+          "amount_exec": "0.09",
+          "quote_amount": "18.0",
+          "quote_amount_exec": "18.0",
+          "created_at": "2026-08-03T15:00:00.000000Z"
+        },
+        {
+          "base": "CCC",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "300",
+          "amount": "0.04",
+          "amount_exec": "0.04",
+          "quote_amount": "12.0",
+          "quote_amount_exec": "12.0",
+          "created_at": "2026-08-03T15:00:00.000000Z"
+        },
+        {
+          "base": "AAA",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "100",
+          "amount": "0.3",
+          "amount_exec": "0.3",
+          "quote_amount": "30.0",
+          "quote_amount_exec": "30.0",
+          "created_at": "2026-08-10T15:00:00.000000Z"
+        },
+        {
+          "base": "BBB",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "200",
+          "amount": "0.09",
+          "amount_exec": "0.09",
+          "quote_amount": "18.0",
+          "quote_amount_exec": "18.0",
+          "created_at": "2026-08-10T15:00:00.000000Z"
+        },
+        {
+          "base": "CCC",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "300",
+          "amount": "0.04",
+          "amount_exec": "0.04",
+          "quote_amount": "12.0",
+          "quote_amount_exec": "12.0",
+          "created_at": "2026-08-10T15:00:00.000000Z"
+        },
+        {
+          "base": "CCC",
+          "side": "sell",
+          "transaction_type": "LIQUIDATION",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "330",
+          "amount": "0.08",
+          "amount_exec": "0.08",
+          "quote_amount": "26.4",
+          "quote_amount_exec": "26.4",
+          "created_at": "2026-08-13T15:00:00.000000Z"
+        },
+        {
+          "base": "DDD",
+          "side": "buy",
+          "transaction_type": "REDEPLOY",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "400",
+          "amount": "0.03",
+          "amount_exec": "0.03",
+          "quote_amount": "12.0",
+          "quote_amount_exec": "0",
+          "created_at": "2026-08-14T15:00:00.000000Z"
+        }
+      ],
+      "rails": {
+        "walk": {
+          "holdings": {
+            "AAA": {
+              "amount": "0.6",
+              "invested": "60.0"
+            },
+            "BBB": {
+              "amount": "0.18",
+              "invested": "36.0"
+            },
+            "CCC": {
+              "amount": "0.0",
+              "invested": "0.0"
+            }
+          },
+          "contributed": "120.0",
+          "uninvested_cash": "26.4",
+          "realised_cash": "26.4",
+          "estimated_proceeds": "0.0",
+          "realised_pnl": "2.4",
+          "external_sales": false
+        },
+        "state": {
+          "rebalance_pending": false,
+          "liquidation_in_flight": false,
+          "liquidation_halted": false,
+          "redeploy_in_flight": false,
+          "exited_symbols": []
+        },
+        "redeploy": {
+          "banked": "26.4",
+          "spent": "0.0",
+          "declined_offset": "0.0",
+          "smallest_placeable": "1.0",
+          "offer": "26.4"
+        },
+        "pending_quote_amount": "120.0",
+        "tick": {
+          "result": "success",
+          "swept": false,
+          "orders": [
+            {
+              "base": "AAA",
+              "side": "buy",
+              "order_type": "market_order",
+              "transaction_type": "REGULAR",
+              "price": "100.0",
+              "amount": "0.48",
+              "quote_amount": "48.0",
+              "amount_type": "quote",
+              "submitted_amount": "48.0"
+            },
+            {
+              "base": "BBB",
+              "side": "buy",
+              "order_type": "market_order",
+              "transaction_type": "REGULAR",
+              "price": "200.0",
+              "amount": "0.144",
+              "quote_amount": "28.8",
+              "amount_type": "quote",
+              "submitted_amount": "28.8"
+            },
+            {
+              "base": "DDD",
+              "side": "buy",
+              "order_type": "market_order",
+              "transaction_type": "REGULAR",
+              "price": "400.0",
+              "amount": "0.108",
+              "quote_amount": "43.2",
+              "amount_type": "quote",
+              "submitted_amount": "43.2"
+            }
+          ],
+          "rows": [
+            {
+              "base": "AAA",
+              "side": "buy",
+              "status": "submitted",
+              "external_status": "unknown",
+              "transaction_type": "REGULAR",
+              "price": "100.0",
+              "amount": "0.48",
+              "quote_amount": "48.0"
+            },
+            {
+              "base": "BBB",
+              "side": "buy",
+              "status": "submitted",
+              "external_status": "unknown",
+              "transaction_type": "REGULAR",
+              "price": "200.0",
+              "amount": "0.144",
+              "quote_amount": "28.8"
+            },
+            {
+              "base": "DDD",
+              "side": "buy",
+              "status": "submitted",
+              "external_status": "unknown",
+              "transaction_type": "REGULAR",
+              "price": "400.0",
+              "amount": "0.108",
+              "quote_amount": "43.2"
+            }
+          ],
+          "activity": [],
+          "pending_after": {}
+        }
+      }
+    },
+    {
+      "name": "redeploy_unpriced_positive_quote",
+      "note": "a closed redeploy with proceeds and no price: Rails skips it too",
+      "members": [
+        {
+          "symbol": "AAA",
+          "target": "0.5",
+          "in_index": true
+        },
+        {
+          "symbol": "BBB",
+          "target": "0.3",
+          "in_index": true
+        },
+        {
+          "symbol": "DDD",
+          "target": "0.2",
+          "in_index": true
+        },
+        {
+          "symbol": "CCC",
+          "target": null,
+          "in_index": false
+        }
+      ],
+      "declined_offset": "0",
+      "transient": {},
+      "resolve_abandoned": false,
+      "rows": [
+        {
+          "base": "AAA",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "100",
+          "amount": "0.3",
+          "amount_exec": "0.3",
+          "quote_amount": "30.0",
+          "quote_amount_exec": "30.0",
+          "created_at": "2026-08-03T15:00:00.000000Z"
+        },
+        {
+          "base": "BBB",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "200",
+          "amount": "0.09",
+          "amount_exec": "0.09",
+          "quote_amount": "18.0",
+          "quote_amount_exec": "18.0",
+          "created_at": "2026-08-03T15:00:00.000000Z"
+        },
+        {
+          "base": "CCC",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "300",
+          "amount": "0.04",
+          "amount_exec": "0.04",
+          "quote_amount": "12.0",
+          "quote_amount_exec": "12.0",
+          "created_at": "2026-08-03T15:00:00.000000Z"
+        },
+        {
+          "base": "AAA",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "100",
+          "amount": "0.3",
+          "amount_exec": "0.3",
+          "quote_amount": "30.0",
+          "quote_amount_exec": "30.0",
+          "created_at": "2026-08-10T15:00:00.000000Z"
+        },
+        {
+          "base": "BBB",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "200",
+          "amount": "0.09",
+          "amount_exec": "0.09",
+          "quote_amount": "18.0",
+          "quote_amount_exec": "18.0",
+          "created_at": "2026-08-10T15:00:00.000000Z"
+        },
+        {
+          "base": "CCC",
+          "side": "buy",
+          "transaction_type": "REGULAR",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "300",
+          "amount": "0.04",
+          "amount_exec": "0.04",
+          "quote_amount": "12.0",
+          "quote_amount_exec": "12.0",
+          "created_at": "2026-08-10T15:00:00.000000Z"
+        },
+        {
+          "base": "CCC",
+          "side": "sell",
+          "transaction_type": "LIQUIDATION",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": "330",
+          "amount": "0.08",
+          "amount_exec": "0.08",
+          "quote_amount": "26.4",
+          "quote_amount_exec": "26.4",
+          "created_at": "2026-08-13T15:00:00.000000Z"
+        },
+        {
+          "base": "DDD",
+          "side": "buy",
+          "transaction_type": "REDEPLOY",
+          "status": "submitted",
+          "external_status": "closed",
+          "price": null,
+          "amount": "0.03",
+          "amount_exec": "0.03",
+          "quote_amount": null,
+          "quote_amount_exec": "12.0",
+          "created_at": "2026-08-14T15:00:00.000000Z"
+        }
+      ],
+      "rails": {
+        "walk": {
+          "holdings": {
+            "AAA": {
+              "amount": "0.6",
+              "invested": "60.0"
+            },
+            "BBB": {
+              "amount": "0.18",
+              "invested": "36.0"
+            },
+            "CCC": {
+              "amount": "0.0",
+              "invested": "0.0"
+            }
+          },
+          "contributed": "120.0",
+          "uninvested_cash": "26.4",
+          "realised_cash": "26.4",
+          "estimated_proceeds": "0.0",
+          "realised_pnl": "2.4",
+          "external_sales": false
+        },
+        "state": {
+          "rebalance_pending": false,
+          "liquidation_in_flight": false,
+          "liquidation_halted": false,
+          "redeploy_in_flight": false,
+          "exited_symbols": []
+        },
+        "redeploy": {
+          "banked": "26.4",
+          "spent": "12.0",
+          "declined_offset": "0.0",
+          "smallest_placeable": "1.0",
+          "offer": "14.4"
+        },
+        "pending_quote_amount": "120.0",
+        "tick": {
+          "result": "success",
+          "swept": false,
+          "orders": [
+            {
+              "base": "AAA",
+              "side": "buy",
+              "order_type": "market_order",
+              "transaction_type": "REGULAR",
+              "price": "100.0",
+              "amount": "0.48",
+              "quote_amount": "48.0",
+              "amount_type": "quote",
+              "submitted_amount": "48.0"
+            },
+            {
+              "base": "BBB",
+              "side": "buy",
+              "order_type": "market_order",
+              "transaction_type": "REGULAR",
+              "price": "200.0",
+              "amount": "0.144",
+              "quote_amount": "28.8",
+              "amount_type": "quote",
+              "submitted_amount": "28.8"
+            },
+            {
+              "base": "DDD",
+              "side": "buy",
+              "order_type": "market_order",
+              "transaction_type": "REGULAR",
+              "price": "400.0",
+              "amount": "0.108",
+              "quote_amount": "43.2",
+              "amount_type": "quote",
+              "submitted_amount": "43.2"
+            }
+          ],
+          "rows": [
+            {
+              "base": "AAA",
+              "side": "buy",
+              "status": "submitted",
+              "external_status": "unknown",
+              "transaction_type": "REGULAR",
+              "price": "100.0",
+              "amount": "0.48",
+              "quote_amount": "48.0"
+            },
+            {
+              "base": "BBB",
+              "side": "buy",
+              "status": "submitted",
+              "external_status": "unknown",
+              "transaction_type": "REGULAR",
+              "price": "200.0",
+              "amount": "0.144",
+              "quote_amount": "28.8"
+            },
+            {
+              "base": "DDD",
+              "side": "buy",
+              "status": "submitted",
+              "external_status": "unknown",
+              "transaction_type": "REGULAR",
+              "price": "400.0",
+              "amount": "0.108",
+              "quote_amount": "43.2"
+            }
+          ],
+          "activity": [],
+          "pending_after": {}
+        }
+      }
     }
   ]
 }
