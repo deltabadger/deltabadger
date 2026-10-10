@@ -24,9 +24,11 @@ fn ago(seconds: i64) -> String { codec::format_time(chrono::Utc::now() - chrono:
 
 struct Rig { _dir: tempfile::TempDir, engine: Engine<FakeFactory>, app: App, listener: tokio::net::TcpListener, port: u16, bot: i64, db: PathBuf, s: seed::Seeded }
 
-/// The longest any stretch of a full pass may hold the runtime thread (a debug build). /cable pings every 3 s and
-/// a client calls the connection stale after 6 s; a page request waits for the thread too.
-const RUNTIME_THREAD_BOUND: Duration = Duration::from_millis(250);
+/// The longest any stretch of a full pass may hold the runtime thread. /cable pings every 3 s and a client calls the
+/// connection stale after 6 s; a page request waits for the thread too. A debug build on a busy runner held it for
+/// 269–306 ms, so debug gets 750 ms: still far below those, and below the 1,200 ms busy wait the engine-stop test
+/// must tell apart. The meter test scales with the bound.
+const RUNTIME_THREAD_BOUND: Duration = Duration::from_millis(if cfg!(debug_assertions) { 750 } else { 250 });
 
 /// A task on this test's runtime thread that wakes every millisecond and records the longest gap between two wakes:
 /// how long something else held the thread.
