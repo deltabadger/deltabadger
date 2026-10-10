@@ -59,7 +59,7 @@ pub async fn prepare(app:&App,owner:i64)->Result<Prepared,WebError>{
     let key=(identity_key.clone(),requested.clone());let now=app.now().timestamp();
     if let Some(entry)=cache.get(&key).filter(|e|e.until>now){return Ok(Prepared{identity,requested,rate:entry.rate.clone(),until:entry.until});}
     let result=if matches!(app.figure_source,crate::web::figure::loading::Source::Script(_)) {
-        let credentials=crate::crypto::Credentials{key:String::new(),secret:String::new(),passphrase:None};
+        let credentials=crate::crypto::Credentials{ redaction_values:vec![],key:String::new(),secret:String::new(),passphrase:None};
         let wire=||crate::web::figure::loading::Wire::new(&credentials,app.figure_source.clone());
         DataApi::new(config,wire(),wire()).exchange_rates().await
     } else {DataApi::live(config).exchange_rates().await};

@@ -1,0 +1,11 @@
+<turbo-frame id="registration_settings">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">
+      {{ v.t("settings.index.registration_section")|safe }}:
+        {% if registration_open %}<span class="text-success">ON</span>{% else %}<span class="text-danger">OFF</span>{% endif %}
+    </h4>
+    <form class="setting-form" data-turbo-frame="registration_settings" action="{{ v.path("/settings/update_registration") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        <input value="{% if registration_open %}0{% else %}1{% endif %}" type="hidden" name="registration_open" id="registration_open" />
+        <input type="submit" name="commit" value="{% if registration_open %}{{ v.t("settings.registration.disable_sign_up")|safe }}{% else %}{{ v.t("settings.registration.enable_sign_up")|safe }}{% endif %}" class="button {% if registration_open %}button--danger{% else %}button--sky{% endif %}" data-disable-with="{% if registration_open %}{{ v.t("settings.registration.disable_sign_up")|safe }}{% else %}{{ v.t("settings.registration.enable_sign_up")|safe }}{% endif %}" />
+</form>  </div>
+</turbo-frame>

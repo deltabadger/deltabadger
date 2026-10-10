@@ -278,6 +278,13 @@ fn scenario(dir: &Path) -> Value {
 }
 
 /// Runs one scenario's steps against this crate; returns what Rails' rails.json holds.
+struct TestMail;
+impl deltabadger::web::settings::mail::Mailer for TestMail{
+    fn deliver(&self,message:deltabadger::mail::Message,_settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery{
+        Box::pin(async move{message.encode(now,"fixture@deltabadger").expect("real message encodes");Ok(())})
+    }
+}
+
 async fn run(dir: &Path) -> Value {
     let scenario = scenario(dir);
     assert_eq!(scenario["page_parity_scratch"], true, "{} is not a page-parity scratch copy", dir.display());
@@ -293,9 +300,10 @@ async fn run(dir: &Path) -> Value {
         wiremock::Mock::given(wiremock::matchers::path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID",key)).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(&key_server).await;
     }
     wiremock::Mock::given(wiremock::matchers::path("/v2/positions")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
-    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone());
+    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(key_server.uri(),deltabadger::web::settings::keys::logger()).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
+    app.attach_jobs(Default::default()).unwrap();
     let mut observer = None;
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
     let mut responses = vec![];
@@ -304,6 +312,12 @@ async fn run(dir: &Path) -> Value {
         clock.set(now);
         if let Some(what) = step["before"].as_str() { before(dir, what); }
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
+        let request_path=if step["confirmation_token_from_user"]==true{
+            let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            let token:String=c.query_row("SELECT confirmation_token FROM users ORDER BY id LIMIT 1",[],|row|row.get(0)).unwrap();
+            let token:String=form_urlencoded::byte_serialize(token.as_bytes()).collect();
+            step["path"].as_str().unwrap().replace("__R2_TOKEN__",&token)
+        }else{step["path"].as_str().unwrap().to_string()};
         let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
         let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
         let wanted = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, Some("both") => Csrf::Both, _ => Csrf::None };
@@ -327,8 +341,8 @@ async fn run(dir: &Path) -> Value {
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let before = snapshot.then(|| action_rows(dir).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let answer = match step["json"].as_str() {
-            Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), Some(json.to_string()), csrf, &headers).await,
-            None => browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await,
+            Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
+            None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
         let mut response = rust_answer(&answer);
@@ -591,9 +605,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 157, "completed read-only baseline");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 406, "complete S1 inventory");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413, "complete S1 inventory");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 154, "action inventory");
-        assert_eq!(dirs.len(), 157 + 154 + 406, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 157 + 154 + 413, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }

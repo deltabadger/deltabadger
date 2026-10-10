@@ -1,0 +1,38 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+      
+  <div class="modal modal--2fa">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      <svg class="icon-24" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z" fill="#2948A1"></path>
+</svg>
+
+</button>    <div class="modal__header">
+       <h1 class="modal__title">2FA</h1>
+    </div>
+
+    <div class="form__row">
+      {{ v.t("helpers.label.settings.current_status")|safe }}
+      <b class="{% if enabled %}text-success{% else %}text-secondary{% endif %}">
+        {{ status_label|safe }}
+      </b>
+    </div>
+
+    <form class="setting-form" data-controller="form--html5-validations form--label-animations" data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ v.path("/settings/update_two_fa") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <div class="form__row">
+        {{ qr|safe }}
+      </div>
+      <div class="form__row form__row--input">
+        <input class="form__input{% if invalid %} is-invalid{% endif %}" required="required" pattern="\d{6}" type="text" name="user[otp_code_token]" id="user_otp_code_token" />{% if invalid %}
+             <div class="form__info form__info--invalid">{{ v.t("errors.messages.wrong_two_fa_token")|safe }}</div>
+{% endif %}
+        <label class="form__label" for="user_otp_label">{{ v.t("helpers.label.settings.enter_two_fa_code")|safe }}</label>
+      </div>
+
+      <input type="submit" name="commit" value="{{ button|safe }}" class="button button--success mt-1" data-disable-with="{{ button|safe }}" />
+</form>  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>

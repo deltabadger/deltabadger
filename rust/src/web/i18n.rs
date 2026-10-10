@@ -12,6 +12,7 @@ pub const DEFAULT: &str = "en";
 /// of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[
     ("en.devise.failure.locked", "Your account is locked."),
+    ("en.errors.messages.taken", "has already been taken"),
     ("da.datetime.dotiw.days.one", "1 dag"), ("da.datetime.dotiw.days.other", "%{count} dage"), ("da.datetime.dotiw.hours.one", "1 time"),
     ("da.datetime.dotiw.hours.other", "%{count} timer"), ("da.datetime.dotiw.less_than_x", "mindre end %{distance}"),
     ("da.datetime.dotiw.minutes.one", "1 minut"), ("da.datetime.dotiw.minutes.other", "%{count} minutter"), ("da.datetime.dotiw.months.one", "1 måned"),

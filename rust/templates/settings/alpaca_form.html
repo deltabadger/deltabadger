@@ -1,0 +1,50 @@
+<div class="set-api set-api--connect">
+  <header class="set-api__brand">
+  <span class="set-api__mark sbutton--exchange--alpaca" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M8.6656 23L9.5365 13.6156H9.45729C8.75983 13.6157 8.18293 13.3613 7.65211 12.8981C7.12123 12.4349 6.76893 11.7931 6.65841 11.088L8.30253 9.99974V9.98623C8.30248 9.24448 8.58213 8.5314 9.08306 7.99567C9.5841 7.45989 10.2677 7.14292 10.9914 7.11082V7.1078H11.4803V5.3557C11.8269 5.35571 12.1623 5.4814 12.427 5.71049C12.6918 5.93959 12.8686 6.25726 12.9264 6.60719H12.9469V5.3557C13.2075 5.35571 13.4634 5.42678 13.6881 5.5616C13.913 5.69643 14.0987 5.89013 14.2261 6.12282C14.3536 6.35551 14.4182 6.61871 14.4134 6.88545C14.4085 7.15219 14.3343 7.41279 14.1986 7.64041C14.6401 7.93592 15.0027 8.33951 15.2538 8.81467C15.5047 9.28979 15.6361 9.82147 15.6358 10.3617V21.6876C15.6358 21.8536 15.7003 22.0128 15.8148 22.1301C15.9295 22.2475 16.0849 22.3133 16.2469 22.3133H16.9717C20.524 20.4117 23 16.6355 23 12.2634C23 6.0428 18.0751 1 12 1C5.92486 1 1 6.0428 1 12.2634C1 17.2938 4.22055 21.554 8.6656 23ZM9.95934 10.2749C9.89642 10.3394 9.861 10.4268 9.86085 10.518L9.83005 10.8625H10.5022C10.6806 10.8625 10.8516 10.79 10.9776 10.6609C11.1036 10.5317 11.1745 10.3566 11.1745 10.174H10.1967C10.1077 10.1742 10.0223 10.2105 9.95934 10.2749Z"/>
+</svg>
+</span>
+  <h2 class="set-api__title">{{ connect_title|safe }}</h2>
+</header>
+
+  <form class="set-api__form form" {{ form_data|safe }} action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    
+    <div class="set-api__mode" data-controller="form--segmented-field"
+         data-action="segmented:change->form--segmented-field#set">
+      
+<div class="segmented" role="radiogroup" aria-label="Mode" data-controller="segmented" data-action="click-&gt;segmented#toggle">
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+            <button type="button" class="segmented__option{% if !live %} is-on{% endif %}" role="radio" aria-checked="{% if live %}false{% else %}true{% endif %}" tabindex="{% if live %}-1{% else %}0{% endif %}" data-value="paper" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ v.t("settings.stocks.mode_paper")|safe }}</button>
+            <button type="button" class="segmented__option{% if live %} is-on{% endif %}" role="radio" aria-checked="{% if live %}true{% else %}false{% endif %}" tabindex="{% if live %}0{% else %}-1{% endif %}" data-value="live" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ v.t("settings.stocks.mode_live")|safe }}</button>
+      </div>
+    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    <svg class="icon-16" fill="none" viewbox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z" fill-rule="evenodd"></path>
+</svg>
+
+</span></div>
+      <input value="{% if live %}live{% else %}paper{% endif %}" data-form--segmented-field-target="field" type="hidden" name="api_key[passphrase]" id="api_key_passphrase" />
+    </div>
+  <div class="form__row form__row--input">
+    <input autofocus="autofocus" autocomplete="off" data-controller="autofocus" class="form__input" type="text" name="api_key[key]" id="api_key_key" />
+    <label class="form__label" for="api_key_key">{{ v.t("bot.api.public_key_label")|safe }}</label>
+  </div>
+  <div class="form__row form__row--input">
+    <input autocomplete="off" class="form__input" type="text" name="api_key[secret]" id="api_key_secret" />
+    <label class="form__label" for="api_key_secret">{{ v.t("bot.api.private_key_label")|safe }}</label>
+  </div>
+
+    <div class="set-api__actions">
+      <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="button button--sky" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />
+      
+    </div>
+</form>    <section class="set-api__instructions">
+      <h3 class="set-api__eyebrow">{{ instructions_title|safe }}</h3>
+      {{ instructions|safe }}
+    </section>
+</div>

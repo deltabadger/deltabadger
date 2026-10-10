@@ -1,0 +1,18 @@
+<turbo-frame id="advanced_bots">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">
+      {{ v.t("settings.advanced_bots.title")|safe }}:
+        {% if advanced %}<span class="text-success">ON</span>{% else %}<span class="text-danger">OFF</span>{% endif %}
+    </h4>
+
+    <form class="toggle-group" data-controller="form--submit" data-turbo-frame="advanced_bots" action="{{ v.path("/settings/update_advanced_bots") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <input value="{% if advanced %}0{% else %}1{% endif %}" type="hidden" name="enabled" id="enabled" />
+      <label class="toggle-group__label {% if advanced %}toggle-group__label--active{% else %}{% endif %}">
+        <div class="toggle">
+          <input type="checkbox" {% if advanced %}checked{% endif %} data-action="change->form--submit#submit" />
+          <div class="toggle__style"></div>
+        </div>
+        <span>{{ v.t("settings.advanced_bots.toggle_label")|safe }}</span>
+      </label>
+</form>  </div>
+</turbo-frame>

@@ -1,0 +1,15 @@
+  <div class="flash__message salert salert--danger" data-controller="removals" role="alert">
+    <button class="modal__close" data-action="removals#remove">
+      {% include "svg/_24x24_close.html" %}
+    </button>
+    {{ title|safe }}
+{% for fix in fixes %}      <p class="key-fix__line">
+        {{ fix.message|safe }}
+        <span class="key-fix">
+{% if fix.trading %}    <a class="rbutton rbutton--small" data-turbo-frame="modal" href="{{ fix.trading_path }}">{{ fix.trading_label|safe }}</a>
+    <a class="rbutton rbutton--small" data-turbo-frame="modal" href="{{ fix.reading_path }}">{{ fix.add_label|safe }}</a>
+{% else %}    <a class="rbutton rbutton--small" data-turbo-frame="modal" href="{{ fix.reading_path }}">{{ fix.replace_label|safe }}</a>
+{% endif %}</span>
+
+      </p>
+{% endfor %}  </div>

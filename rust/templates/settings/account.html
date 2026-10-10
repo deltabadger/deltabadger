@@ -1,0 +1,191 @@
+<div class="page-head">
+  <div class="stitle">{{ version }}</div>
+</div>
+
+<div class="columns">
+  <div class="column gap-1">
+    
+<div class="widget widget--settings">
+  <h4 class="modal__title">{{ v.t("settings.language_and_timezone.title")|safe }}</h4>
+
+  <div class="settings-prefs">
+    <turbo-frame id="update_locale_form">
+      <form data-controller="form--submit" data-turbo-frame="update_locale_form" action="{{ v.path("/settings/update_locale") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        <div class="sinput sinput--select">
+          {{ locale_label }}
+          <select data-action="change-&gt;form--submit#submit" name="user[locale]" id="user_locale">{{ locale_options|safe }}</select>
+        </div>
+</form></turbo-frame>
+    <turbo-frame id="update_time_zone_form">
+      <form data-controller="form--submit" data-turbo-frame="update_time_zone_form" action="{{ v.path("/settings/update_time_zone") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        <div class="sinput sinput--select">
+          {{ zone_label }}
+          <select data-action="change-&gt;form--submit#submit" name="user[time_zone]" id="user_time_zone">{{ zone_options|safe }}</select>
+        </div>
+</form></turbo-frame>  </div>
+
+  <div class="settings-prefs__notes">
+    <small data-controller="clock" data-clock-time-zone-value="{{ zone_id }}">
+      {{ v.t("settings.language_and_timezone.current_time_is")|safe }} <b data-clock-target="timestamp">{{ local_time }}</b>
+    </small>
+  </div>
+</div>
+
+    <div class="widget widget--settings">
+  <h4 class="modal__title">
+    {{ v.t("settings.index.two_factor_section")|safe }}:
+      {% if two_fa %}<span class="text-success">ON</span>{% else %}<span class="text-danger">OFF</span>{% endif %}
+  </h4>
+  <div class="setting-form">
+    <a class="button button--sky" data-turbo-frame="modal" href="{{ v.path("/settings/edit_two_fa") }}">{{ two_fa_button|safe }}</a>
+  </div>
+</div>
+
+
+      {% if user.admin %}{{ excluded_registration_settings|safe }}{% endif %}
+
+    {{ excluded_advanced_bots|safe }}
+    {{ wash_widget|safe }}
+
+      {% if user.admin %}{{ excluded_email_notifications|safe }}{% endif %}
+
+      
+
+
+    
+  </div>
+
+  <div class="column gap-1">
+    <div class="widget widget--settings">
+  <h4 class="modal__title">{{ v.t("settings.index.name_section")|safe }}</h4>
+  <turbo-frame id="update_name_form">
+    <form class="setting-form" data-controller="form--html5-validations form--label-animations" data-turbo-frame="update_name_form" action="{{ v.path("/settings/update_name") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+      <div class="form__row form__row--input">
+        <input class="form__input{% if self.invalid("name") %} is-invalid{% endif %}" value="" placeholder="{{ name }}" pattern="^\p{L}+(\s+\p{L}+)*$" type="text" name="user[name]" id="user_name" />{% if self.invalid("name") %}
+             <div class="form__info form__info--invalid">{{ self.error("name") }}</div>
+{% endif %}
+        <label class="form__label" for="user_name">{{ v.t("helpers.label.user.new_name")|safe }}</label>
+      </div>
+
+      <input type="submit" name="commit" value="{{ v.t("button.update")|safe }}" class="button button--sky" data-disable-with="{{ v.t("button.update")|safe }}" />
+
+</form></turbo-frame></div>
+
+    <div class="widget widget--settings">
+  <h4 class="modal__title">{{ v.t("settings.index.email_section")|safe }}</h4>
+  <turbo-frame id="update_email_form">
+    <form class="setting-form" data-controller="form--html5-validations form--label-animations" data-turbo-frame="update_email_form" action="{{ v.path("/settings/update_email") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+
+      {% if !pending_email.is_empty() %}<div class="form__row form__row--input" style="text-align: center;"> {{ pending_label|safe }} </div>{% endif %}
+      <div class="form__row form__row--input">
+        <input autocomplete="username" class="form__input{% if self.invalid("email") %} is-invalid{% endif %}" value="" placeholder="{{ user.email }}" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("devise.registrations.new.email_invalid")|safe }}" type="email" name="user[email]" id="user_email" />{% if self.invalid("email") %}
+             <div class="form__info form__info--invalid">{{ self.error("email") }}</div>
+{% endif %}
+        <label class="form__label" for="user_email">{{ v.t("helpers.label.user.new_email")|safe }}</label>
+      </div>
+
+      <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+        <input autocomplete="current-password" class="form__input form__input--has-icon{% if self.invalid("current_password") %} is-invalid{% endif %}" data-form--password-unmask-target="input" type="password" name="user[current_password]" id="user_current_password" />{% if self.invalid("current_password") %}
+             <div class="form__info form__info--invalid">{{ self.error("current_password") }}</div>
+{% endif %}
+        <label class="form__label" for="user_current_password">{{ v.t("helpers.label.user.current_password")|safe }}</label>
+        <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+          <svg class="db-svg--mi db-svg--mi-visibility" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0z" fill="none"></path>
+<path d="M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"></path>
+</svg>
+
+          <svg class="db-svg--mi db-svg--mi-visibility-off" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z" fill="none"></path>
+<path d="M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z"></path>
+</svg>
+
+        </div>
+</div>
+      <input type="submit" name="commit" value="{{ v.t("button.update")|safe }}" class="button button--sky" data-disable-with="{{ v.t("button.update")|safe }}" />
+</form></turbo-frame></div>
+
+    <div class="widget widget--settings">
+  <h4 class="modal__title">{{ v.t("settings.email_notifications.smtp_password")|safe }}</h4>
+  <turbo-frame id="update_password_form">
+    <form class="setting-form" data-controller="form--html5-validations form--label-animations form--password-strength form--password-match" data-turbo-frame="update_password_form" data-form--password-match-success-class-value="form__validation--success" data-form--password-strength-success-class-value="form__validation--success" data-form--password-strength-length-pattern-value=".{8,}" data-form--password-strength-uppercase-pattern-value="(?=.*[A-Z])" data-form--password-strength-lowercase-pattern-value="(?=.*[a-z])" data-form--password-strength-digit-pattern-value="(?=.*\d)" data-form--password-strength-symbol-pattern-value="(?=.*[\W_])" action="{{ v.path("/settings/update_password") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+      <div class="hidden">
+        <input autocomplete="username" id="email_for_password_update" class="form__input{% if self.invalid("email") %} is-invalid{% endif %}" readonly="{% if self.invalid("email") %}{% else %}readonly{% endif %}" type="email" value="{{ user.email }}" name="user[email]" />{% if self.invalid("email") %}
+             <div class="form__info form__info--invalid">{{ self.error("email") }}</div>
+{% endif %}
+        <label class="form__label" for="user_email">{{ v.t("helpers.label.user.email")|safe }}</label>
+      </div>
+
+      <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+        <input autocomplete="current-password" class="form__input form__input--has-icon{% if self.invalid("current_password") %} is-invalid{% endif %}" id="current_password_for_password_update" data-form--password-unmask-target="input" type="password" name="user[current_password]" />{% if self.invalid("current_password") %}
+             <div class="form__info form__info--invalid">{{ self.error("current_password") }}</div>
+{% endif %}
+        <label class="form__label" for="user_current_password">{{ v.t("helpers.label.user.current_password")|safe }}</label>
+        <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+          <svg class="db-svg--mi db-svg--mi-visibility" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0z" fill="none"></path>
+<path d="M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"></path>
+</svg>
+
+          <svg class="db-svg--mi db-svg--mi-visibility-off" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z" fill="none"></path>
+<path d="M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z"></path>
+</svg>
+
+        </div>
+</div>
+      <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+        <input autocomplete="new-password" class="form__input form__input--has-icon{% if self.invalid("password") %} is-invalid{% endif %}" data-form--password-unmask-target="input" data-form--password-strength-target="input" data-form--password-match-target="input0" data-action="input-&gt;form--password-strength#checkPasswordStrength" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}" type="password" name="user[password]" id="user_password" />{% if self.invalid("password") %}
+             <div class="form__info form__info--invalid">{{ self.error("password") }}</div>
+{% endif %}
+        <label class="form__label" for="user_password">{{ v.t("helpers.label.user.new_password")|safe }}</label>
+        <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+          <svg class="db-svg--mi db-svg--mi-visibility" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0z" fill="none"></path>
+<path d="M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"></path>
+</svg>
+
+          <svg class="db-svg--mi db-svg--mi-visibility-off" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z" fill="none"></path>
+<path d="M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z"></path>
+</svg>
+
+        </div>
+</div>
+      <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+        <input autocomplete="new-password" class="form__input form__input--has-icon{% if self.invalid("password_confirmation") %} is-invalid{% endif %}" data-form--password-unmask-target="input" data-form--password-match-target="input1" data-action="input-&gt;form--password-match#checkPasswordMatch" type="password" name="user[password_confirmation]" id="user_password_confirmation" />{% if self.invalid("password_confirmation") %}
+             <div class="form__info form__info--invalid">{{ self.error("password_confirmation") }}</div>
+{% endif %}
+        <label class="form__label" for="user_password_confirmation">{{ v.t("helpers.label.user.new_password_confirmation")|safe }}</label>
+        <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+          <svg class="db-svg--mi db-svg--mi-visibility" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0z" fill="none"></path>
+<path d="M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"></path>
+</svg>
+
+          <svg class="db-svg--mi db-svg--mi-visibility-off" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z" fill="none"></path>
+<path d="M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z"></path>
+</svg>
+
+        </div>
+</div>
+      <div data-form--password-strength-target="requirementsList" class="hidden">
+        <ul class="password-requirements">
+          <li class="form__validation" data-form--password-strength-target="length">{{ length_label|safe }}</li>
+          <li class="form__validation" data-form--password-strength-target="uppercase">{{ v.t("devise.passwords.validations.uppercase")|safe }}</li>
+          <li class="form__validation" data-form--password-strength-target="lowercase">{{ v.t("devise.passwords.validations.lowercase")|safe }}</li>
+          <li class="form__validation" data-form--password-strength-target="digit">{{ v.t("devise.passwords.validations.digit")|safe }}</li>
+          <li class="form__validation" data-form--password-strength-target="symbol">{{ v.t("devise.passwords.validations.symbol")|safe }}</li>
+          <li class="form__validation" data-form--password-match-target="match">{{ v.t("devise.passwords.validations.match")|safe }}</li>
+        </ul>
+      </div>
+
+      <input type="submit" name="commit" value="{{ v.t("button.update")|safe }}" class="button button--sky" data-disable-with="{{ v.t("button.update")|safe }}" />
+</form></turbo-frame></div>
+
+  </div>
+</div>

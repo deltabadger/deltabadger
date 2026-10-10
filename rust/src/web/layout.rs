@@ -86,7 +86,7 @@ impl Ctx {
     /// the locale in effect: without the parameter English is hidden, whatever the page is in.
     pub fn languages(&self) -> Vec<Language> {
         let param = self.params.locale();
-        let query = locale::switch_query(&self.params.query);
+        let query = locale::switch_query(&self.params.query.iter().filter(|(key,_)|!locale::sensitive_query(key)).cloned().collect::<Vec<_>>());
         LANGUAGES.iter()
             .filter(|(code, _)| if *code == "en" { param.is_some_and(|p| p != "en") } else { param != Some(code) })
             .map(|(code, label)| Language { href: locale::switch_path(code, &self.params.route_path, &query), label })
@@ -97,6 +97,8 @@ impl Ctx {
 /// A redirect with an empty body. Rails sends an absolute URL; a path is the same resource and does
 /// not depend on knowing the public host.
 pub fn redirect(status: StatusCode, location: &str) -> Response {
+    let safe=locale::without_secret_query(location);
+    let location=safe.as_ref();
     let mut response = (status, [(header::CONTENT_TYPE, "text/html; charset=utf-8")]).into_response();
     if let Ok(value) = HeaderValue::from_str(location) {
         response.headers_mut().insert(header::LOCATION, value);
@@ -191,7 +193,8 @@ pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
 /// Never a redirect, so a missing page cannot pass for a working one. The message sits in a
 /// `<turbo-frame>` with the id the request asked for, so Turbo shows it where the content would have gone.
 pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>) -> Response {
-    let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path };
+    let safe=locale::without_secret_query(path);
+    let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path:&safe };
     match page.render() {
         Ok(body) => html(StatusCode::NOT_IMPLEMENTED, body),
         Err(error) => WebError::from(error).into_response(),
@@ -211,7 +214,7 @@ pub fn missing() -> Response {
 /// The same answer from a handler that knows why it does not serve a page Rails serves. The reason
 /// goes to the log: the page names the request, which is what its reader can act on.
 pub fn refused(ctx: &Ctx, reason: &str) -> Response {
-    eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, ctx.params.fullpath);
+    eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, locale::without_secret_query(&ctx.params.fullpath));
     not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())
 }
 

@@ -1,0 +1,61 @@
+<turbo-frame id="email_notifications">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">
+      {{ v.t("settings.index.email_notifications_section")|safe }}:
+        {% if mail_configured %}<span class="text-success">ON</span>{% else %}<span class="text-danger">OFF</span>{% endif %}
+    </h4>
+
+    <form data-controller="form--email-notifications" data-turbo-frame="email_notifications" action="{{ v.path("/settings/update_email_notifications") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <div class="form__radios" style="display: flex; justify-content: center;">
+{% if env_available %}          <label class="form__radio">
+            <input type="radio" name="smtp_provider" id="smtp_provider_env_smtp" value="env_smtp" checked="checked" disabled="disabled" />
+            <span>{{ env_name }}</span>
+          </label>
+{% else %}          <label class="form__radio">
+            <input type="radio" name="smtp_provider" id="smtp_provider_" value="" data-action="form--email-notifications#selectNone" {% if !mail_configured %}checked="checked"{% endif %} />
+            <span>{{ v.t("settings.email_notifications.none")|safe }}</span>
+          </label>
+
+          <label class="form__radio">
+            <input type="radio" name="smtp_provider" id="smtp_provider_custom_smtp" value="custom_smtp" data-action="form--email-notifications#selectCustom" {% if custom %}checked="checked"{% endif %} />
+            <span>Custom SMTP</span>
+          </label>
+{% endif %}      </div>
+
+{% if env_available %}{% else if custom %}        <p style="text-align: center; margin-top: 3rem">{{ configured_label|safe }}</p>
+        <div class="setting-form">
+          <a data-turbo-method="post" data-turbo-frame="_top" class="button button--outline" href="{{ v.path("/settings/send_test_email") }}">{{ v.t("settings.email_notifications.send_test")|safe }}</a>
+          <a data-turbo-method="delete" data-turbo-frame="email_notifications" class="button button--danger" style="margin-top: 0" href="{{ v.path("/settings/disconnect_email") }}">{{ v.t("settings.email_notifications.disconnect")|safe }}</a>
+        </div>
+{% else if has_credentials %}        <input type="hidden" name="smtp_username" id="smtp_username" value="[redacted]" />
+        <input type="hidden" name="smtp_password" id="smtp_password" value="[redacted]" />
+        <input type="hidden" name="smtp_host" id="smtp_host"{% if let Some(host) = host %} value="{{ host }}"{% endif %} />
+        <input type="hidden" name="smtp_port" id="smtp_port"{% if let Some(port) = port %} value="{{ port }}"{% endif %} />
+{% else %}        <div class="setting-form" data-form--email-notifications-target="smtpFields" style="margin: 4rem auto; display: none;">
+          <div class="form__row form__row--input">
+            <input class="form__input" type="text" name="smtp_host" id="smtp_host" value="smtp.gmail.com" placeholder=" ">
+            <label class="form__label" for="smtp_host">{{ v.t("settings.email_notifications.smtp_host")|safe }}</label>
+          </div>
+          <div class="form__row form__row--input">
+            <input class="form__input" type="number" name="smtp_port" id="smtp_port" value="587" placeholder=" ">
+            <label class="form__label" for="smtp_port">{{ v.t("settings.email_notifications.smtp_port")|safe }}</label>
+          </div>
+          <div class="form__row form__row--input">
+            <input class="form__input" type="text" name="smtp_username" id="smtp_username" placeholder=" ">
+            <label class="form__label" for="smtp_username">{{ v.t("settings.email_notifications.smtp_username")|safe }}</label>
+          </div>
+          <div class="form__row form__row--input">
+            <input class="form__input" type="password" name="smtp_password" id="smtp_password" placeholder=" ">
+            <label class="form__label" for="smtp_password">{{ v.t("settings.email_notifications.smtp_password")|safe }}</label>
+          </div>
+          <p class="form__info">{{ v.t("settings.email_notifications.smtp_hint_html")|safe }}</p>
+        </div>
+        <div class="setting-form" data-form--email-notifications-target="smtpButtons" style="display: none; margin-top: 2rem;">
+          <input type="submit" name="commit" value="{{ v.t("settings.email_notifications.set")|safe }}" class="button button--sky" style="margin-top: 0" data-disable-with="{{ v.t("settings.email_notifications.set")|safe }}" />
+        </div>
+{% endif %}
+{% if env_configured %}        <div class="setting-form" data-form--email-notifications-target="envButtons" style="margin-top: 2rem;">
+          <a data-turbo-method="post" data-turbo-frame="_top" class="button button--outline" href="{{ v.path("/settings/send_test_email") }}">{{ v.t("settings.email_notifications.send_test")|safe }}</a>
+        </div>
+{% endif %}</form>  </div>
+</turbo-frame>

@@ -302,7 +302,7 @@ pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Opt
     // Only Alpaca reads the passphrase (its mode). Elsewhere it is never decrypted, so an unreadable unused value cannot
     // fail a Kraken bot's otherwise valid key: Kraken's credential loading stays exactly as merged.
     let passphrase = if exchange_type.as_deref() == Some("Exchanges::Alpaca") { open(passphrase)? } else { None };
-    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { key, secret, passphrase }), _ => None })
+    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { redaction_values:vec![], key, secret, passphrase }), _ => None })
 }
 
 /// api_keys.key, secret, passphrase and the exchange's STI type, all still encrypted.

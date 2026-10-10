@@ -1,0 +1,114 @@
+<turbo-frame id="market_data_settings">
+  <div class="widget widget--settings" data-controller="form--market-data"
+       data-action="segmented:change->form--market-data#select"
+       data-form--market-data-platform-connected-value="{{ platform_connected }}">
+    <h4 class="modal__title">
+      {{ v.t("settings.index.resync_assets_section")|safe }}:
+        {% if configured %}<span class="text-success">ON</span>{% else %}<span class="text-danger">OFF</span>{% endif %}
+    </h4>
+
+    {% if hosted %}<p class="set-api__note">{{ hosted_note|safe }}</p>{% else %}
+      <form class="set-api__mode" data-form--market-data-target="providerForm" data-turbo-frame="market_data_settings" action="{{ v.path("/settings/update_market_data") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        
+<div class="segmented segmented--fluid" role="radiogroup" aria-label="{{ v.t("settings.index.resync_assets_section")|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle">
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+            <button type="button" class="segmented__option{% if selected == "" %} is-on{% endif %}" role="radio" aria-checked="{% if selected == "" %}true{% else %}false{% endif %}" tabindex="{% if selected == "" %}0{% else %}-1{% endif %}" data-value="" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ v.t("settings.market_data.none")|safe }}</button>
+            <button type="button" class="segmented__option{% if selected == "coingecko" %} is-on{% endif %}" role="radio" aria-checked="{% if selected == "coingecko" %}true{% else %}false{% endif %}" tabindex="{% if selected == "coingecko" %}0{% else %}-1{% endif %}" data-value="coingecko" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">CoinGecko</button>
+            <button type="button" class="segmented__option{% if selected == "deltabadger" %} is-on{% endif %}" role="radio" aria-checked="{% if selected == "deltabadger" %}true{% else %}false{% endif %}" tabindex="{% if selected == "deltabadger" %}0{% else %}-1{% endif %}" data-value="deltabadger" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ v.t("settings.platform.option")|safe }}</button>
+      </div>
+    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    <svg class="icon-16" fill="none" viewbox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z" fill-rule="evenodd"></path>
+</svg>
+
+</span></div>
+        <input value="{{ selected }}" data-form--market-data-target="provider" type="hidden" name="market_data_provider" id="market_data_provider" />
+</form>
+      {% if coingecko %}<div data-form--market-data-target="coingeckoFields">
+          <p class="set-api__note">{{ v.t("settings.market_data.coingecko_configured")|safe }}</p>
+          <div class="setting-form">
+            <form class="button_to" method="post" action="{{ v.path("/settings/resync_assets") }}"><button class="button button--outline" data-turbo-frame="_top" type="submit">{{ v.t("settings.resync_assets.button")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+            <a data-turbo-method="delete" data-turbo-frame="market_data_settings" class="button button--danger" style="margin-top: 0" href="{{ v.path("/settings/disconnect_market_data") }}">{{ v.t("settings.market_data.disconnect")|safe }}</a>
+          </div>
+        </div>
+      {% elif !deltabadger && !has_coingecko_key %}        <div data-form--market-data-target="coingeckoFields" hidden>
+          <div class="set-api set-api--connect">
+  <header class="set-api__brand">
+  <span class="set-api__mark " aria-hidden="true"><svg viewBox="0 0 510 510" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#coingecko-clip)">
+<path d="M509.997 253.85C510.635 394.685 396.978 509.361 256.159 509.997C115.32 510.635 0.64021 396.983 0.00266909 256.15C-0.634872 115.316 113.021 0.640028 253.86 0.00251049C394.679 -0.615689 509.359 113.017 509.997 253.85Z" fill="#FFE866"/>
+<path d="M381.781 163.839C363.395 158.485 344.357 150.869 325.05 143.195C323.937 138.325 319.658 132.255 310.983 124.814C298.374 113.796 274.692 114.086 254.234 118.957C231.645 113.603 209.326 111.689 187.908 116.869C12.7658 165.482 112.063 284.026 47.752 403.228C56.9064 422.77 157.872 516.658 298.24 506.233C298.24 506.233 249.436 388.113 359.576 331.402C448.913 285.418 513.454 200.023 381.761 163.819L381.781 163.839Z" fill="#4BCC00"/>
+<path d="M266.363 192.26C266.363 219.514 244.427 241.588 217.386 241.588C190.345 241.588 168.409 219.514 168.409 192.26C168.409 165.006 190.345 142.952 217.386 142.952C244.427 142.952 266.363 165.025 266.363 192.26Z" fill="white"/>
+<path d="M443.077 263.251C403.408 291.413 358.25 312.771 294.247 312.771C264.289 312.771 258.205 280.705 238.399 296.419C228.17 304.537 192.129 322.687 163.514 321.315C134.65 319.923 88.571 303.03 75.6167 241.544C70.4926 303.03 67.8825 348.337 44.9487 400.254C101.246 482.993 199.405 524.157 298.239 506.255C287.626 431.587 352.416 358.465 388.919 321.044C402.736 306.876 429.221 283.739 443.077 263.251Z" fill="#4BCC00"/>
+<path d="M238.03 232.159C253.903 232.159 266.77 214.145 266.77 191.923C266.77 169.701 253.903 151.687 238.03 151.687C222.157 151.687 209.29 169.701 209.29 191.923C209.29 214.145 222.157 232.159 238.03 232.159Z" fill="#0D1217"/>
+<path d="M249.526 118.863C265.206 125.131 322.467 144.203 347.242 151.689C321.947 109.717 283.613 112.139 249.526 118.863Z" fill="#35AF00"/>
+<path d="M238.03 191.918L203.541 168.926V214.91L238.03 191.918Z" fill="white"/>
+</g>
+<defs>
+<clipPath id="coingecko-clip">
+<rect width="510" height="510" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+</span>
+  <h2 class="set-api__title">{{ connect_coingecko|safe }}</h2>
+</header>
+
+  <form class="set-api__form form" data-turbo-frame="market_data_settings" data-controller="form--html5-validations form--label-animations" action="{{ v.path("/settings/update_market_data") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    
+            <input value="coingecko" type="hidden" name="market_data_provider" id="market_data_provider" />
+            <div class="form__row form__row--input">
+              <input required="required" autocomplete="off" class="form__input" type="text" name="coingecko_api_key" id="coingecko_api_key" />
+              <label class="form__label" for="coingecko_api_key">{{ v.t("setup.coingecko_api_key")|safe }}</label>
+            </div>
+
+    <div class="set-api__actions">
+      <input type="submit" name="commit" value="{{ v.t("button.connect")|safe }}" class="button button--sky" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating")|safe }}" data-disable-with="{{ v.t("button.connect")|safe }}" />
+      
+    </div>
+</form>    <section class="set-api__instructions">
+      <h3 class="set-api__eyebrow">{{ instructions_coingecko|safe }}</h3>
+      {{ v.t("setup.coingecko_api_key_hint_html")|safe }}
+    </section>
+</div>
+        </div>
+
+{% endif %}
+      {% if platform_connected %}<p class="set-api__note">{{ platform_note|safe }}</p><div class="setting-form"><a data-turbo-method="delete" data-turbo-frame="market_data_settings" class="button button--danger" style="margin-top: 0" href="{{ v.path("/settings/platform_connection") }}">{{ v.t("settings.platform.disconnect")|safe }}</a></div>{% else %}
+        <div data-form--market-data-target="deltabadgerButtons" hidden>
+          <div class="set-api set-api--connect">
+  <header class="set-api__brand">
+  <span class="set-api__mark " aria-hidden="true"><svg class="signet" fill="none" viewbox="0 0 36 26" xmlns="http://www.w3.org/2000/svg">
+<path class="fill--logo" clip-rule="evenodd" d="M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z"></path>
+<path class="fill--logo" d="M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3"></path>
+</svg>
+</span>
+  <h2 class="set-api__title">{{ connect_platform|safe }}</h2>
+</header>
+
+  <form class="set-api__form form" data-turbo-frame="market_data_settings" data-controller="form--html5-validations form--label-animations" action="{{ v.path("/settings/platform_connection") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    
+            <div class="form__row form__row--input">
+              <input required="required" autocomplete="off" class="form__input" type="text" name="claim_code" id="claim_code" />
+              <label class="form__label" for="claim_code">{{ v.t("settings.platform.code")|safe }}</label>
+            </div>
+
+    <div class="set-api__actions">
+      <input type="submit" name="commit" value="{{ v.t("button.connect")|safe }}" class="button button--sky" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating")|safe }}" data-disable-with="{{ v.t("button.connect")|safe }}" />
+      
+    </div>
+</form>    <section class="set-api__instructions">
+      <h3 class="set-api__eyebrow">{{ v.t("settings.platform.subscription_title")|safe }}</h3>
+      <p>{{ v.t("settings.platform.subscription_html")|safe }}</p>
+    </section>
+</div>
+        </div>
+{% endif %}
+{% endif %}
+  </div>
+</turbo-frame>

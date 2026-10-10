@@ -205,7 +205,7 @@ async fn live_factory_connects_paper_only() {
     use deltabadger::crypto::Credentials;
     use deltabadger::venue::VenueFactory;
     let f = alpaca::LiveFactory::new();
-    let creds = |p: Option<&str>| Some(Credentials { key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
+    let creds = |p: Option<&str>| Some(Credentials { redaction_values:vec![], key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
     for p in [Some("paper"), None, Some("Live"), Some("live ")] {
         assert_eq!(f.for_bot("Exchanges::Alpaca", creds(p)).urls().trading, PAPER_TRADING_URL, "{p:?}");
     }

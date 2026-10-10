@@ -1,0 +1,27 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+      
+  <div class="modal">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      <svg class="icon-24" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z" fill="#2948A1"></path>
+</svg>
+
+</button>    <div class="modal__header">
+      <h1 class="modal__title">{{ name }}</h1>
+    </div>
+    <div class="modal__body text-center">
+    <p>
+      {{ v.t("settings.api_keys.confirm_delete")|safe }}
+    </p>
+    <div class="buttons buttons--row--2">
+      <button name="button" type="button" class="button button--outline button--large" data-action="modal--base#animateOutCloseAndCleanUp">
+        {{ v.t("button.cancel")|safe }}
+</button>      <form class="button_to" method="post" action="{{ v.path(&format!("/settings/destroy_api_key/{}", self.id)) }}"><input type="hidden" name="_method" value="delete" /><button class="button button--danger button--large" data-turbo-frame="api_keys" data-action="modal--base#animateOutCloseAndCleanUp" type="submit">{{ v.t("button.delete")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    </div>
+  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>

@@ -187,7 +187,7 @@ pub fn credentials(c: &Connection, cipher: &Cipher, key_id: i64) -> Result<Crede
 /// Stored (key, secret, passphrase) decrypted, with no read: an error is only ever an unreadable value.
 pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Option<String>, Option<String>, Option<String>)) -> Result<Credentials, SyncError> {
     let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|_| SyncError(format!("api key {key_id} is unreadable (is SECRET_KEY_BASE this instance's own?)")))).transpose();
-    Ok(Credentials {
+    Ok(Credentials { redaction_values:vec![],
         key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
         secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
         passphrase: open(passphrase)?,

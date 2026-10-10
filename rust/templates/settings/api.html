@@ -1,0 +1,45 @@
+<div class="page-head">
+  <div class="stitle">{{ v.t("links.api")|safe }}</div>
+</div>
+
+<div class="columns columns--stretch">
+  {{ mcp_widget|safe }}
+  <turbo-frame id="rest_settings">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">{{ v.t("settings.rest.title")|safe }}</h4>
+    <p class="text-center" style="text-wrap: balance">{{ v.t("settings.rest.description")|safe }}</p>
+
+    <dl class="settings-kv">
+      <dt class="label">URL</dt>
+      <dd><span class="tag tag--copy" id="rest_api_url_display" title="{{ v.t("button.copy")|safe }}" data-controller="clipboard" data-clipboard-text-value="{{ root }}/api/v1" data-action="click-&gt;clipboard#copy"><svg class="icon-16" fill="none" viewbox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+<path class="fill--icon" clip-rule="evenodd" d="M14 7q0-1-1-1H7a1 1 0 0 0-1 1v6q0 1 1 1h6q1 0 1-1zM7 4a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" fill-rule="evenodd"></path>
+<path class="fill--icon" d="M10 3q0-1-1-1H3a1 1 0 0 0-1 1v6q0 1 1 1h2v2H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v2h-2z"></path>
+</svg>
+{{ root.trim_start_matches("https://").trim_start_matches("http://") }}/api/v1</span>
+</dd>
+
+      <dt class="label">{{ v.t("settings.rest.token")|safe }}</dt>
+      <dd>
+        <span class="tag tag--copy" title="{{ v.t("button.copy")|safe }}" data-controller="clipboard" data-clipboard-text-value="[redacted]" data-action="click-&gt;clipboard#copy"><svg class="icon-16" fill="none" viewbox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+<path class="fill--icon" clip-rule="evenodd" d="M14 7q0-1-1-1H7a1 1 0 0 0-1 1v6q0 1 1 1h6q1 0 1-1zM7 4a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" fill-rule="evenodd"></path>
+<path class="fill--icon" d="M10 3q0-1-1-1H3a1 1 0 0 0-1 1v6q0 1 1 1h2v2H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v2h-2z"></path>
+</svg>
+[redacted]</span>
+
+        <form data-turbo-frame="rest_settings" data-turbo-confirm="{{ v.t("settings.rest.regenerate_confirm")|safe }}" class="button_to" method="post" action="{{ v.path("/settings/regenerate_api_token") }}"><button class="sbutton sbutton--outline" type="submit">{{ v.t("settings.rest.regenerate_token")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+      </dd>
+
+      <dt class="label">{{ v.t("settings.rest.docs")|safe }}</dt>
+      <dd>
+        <a class="tag tag--copy" title="{{ v.t("settings.rest.download_api_docs")|safe }}" data-turbo="false" href="{{ v.path("/settings/download_api_docs") }}"><svg class="icon-24 icon-24--doc" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path class="fill--icon" d="M13.8 2q.3 0 .7.3l5.2 5.4q.3.3.3.7V21q0 1-1 1H5a1 1 0 0 1-1-1V3q0-1 1-1zM6 20h12V10h-5a1 1 0 0 1-1-1V4H6zm8-12h3.2L14 4.7z"></path>
+</svg>
+deltabadger-api.md</a>
+      </dd>
+    </dl>
+  </div>
+</turbo-frame>
+</div>
+
+{{ tools|safe }}
+{{ connected|safe }}

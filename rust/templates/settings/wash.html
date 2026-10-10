@@ -1,0 +1,16 @@
+<turbo-frame id="wash_sale">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">{{ v.t("settings.wash_sale.title")|safe }}</h4>
+
+    <form class="setting-form" data-controller="form--checkbox-enables" data-action="change-&gt;form--checkbox-enables#toggleSubmitButton" data-turbo-frame="wash_sale" action="{{ v.path("/settings/update_wash_sale") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      {{ question|safe }}
+      <button name="button" type="submit"{% if enabled.is_none() %} disabled="disabled"{% endif %} class="button button--sky" data-form--checkbox-enables-target="submit">{{ v.t("settings.wash_sale.confirm")|safe }}</button>
+</form>
+    {% if enabled == Some(true) %}
+      <div class="settings-prefs__notes">
+        <span class="label">{{ v.t("settings.wash_sale.locked_title")|safe }}</span>
+        {{ locked|safe }}
+      </div>
+    {% endif %}
+  </div>
+</turbo-frame>

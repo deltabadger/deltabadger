@@ -181,7 +181,7 @@ fn login_path(ctx: &Ctx) -> String {
 /// A path too long to keep is forgotten, and the sign-in then lands on the root.
 fn failure(ctx: &Ctx, message: &str) -> Response {
     if ctx.method == Method::GET {
-        ctx.session.lock().return_to = Some(ctx.params.fullpath.clone()).filter(|path| path.len() <= MAX_RETURN_TO_BYTES);
+        ctx.session.lock().return_to = Some(super::locale::without_secret_query(&ctx.params.fullpath).into_owned()).filter(|path| path.len() <= MAX_RETURN_TO_BYTES);
     }
     flash::set(&ctx.session, flash::ALERT, i18n::text(ctx.locale, &format!("devise.failure.{message}"), &[]));
     let mut response = layout::early_redirect(StatusCode::FOUND, &login_path(ctx));
@@ -270,7 +270,7 @@ enum PasswordStage {
 ///
 /// Exactly one bcrypt computation per request, on every path: a hash for an unknown email, one
 /// verification for a known one. How long the answer takes then says nothing about the account,
-/// including whether it has two-factor on (Rails verifies a two-factor account's wrong password twice).
+/// including whether it has two-factor on, as Rails now does (#499).
 fn password_stage(c: &Connection, user_id: i64, verified_against: &str, correct: bool, password: &str, now: DateTime<Utc>) -> Result<PasswordStage, WebError> {
     let Some(mut user) = User::find(c, user_id)?.filter(|user| user.encrypted_password == verified_against) else {
         return Ok(PasswordStage::Invalid);
@@ -378,7 +378,7 @@ fn abandon(ctx: &Ctx) -> Response {
 
 /// Users::VerifyOtp: TOTP (SHA1, 6 digits, 30 s) for the previous, current and next step, but only
 /// steps later than the last one spent. The last match wins and is recorded.
-fn verify_otp(c: &Connection, cipher: &Cipher, user: &User, code: &str, now: DateTime<Utc>) -> Result<bool, WebError> {
+pub(crate) fn verify_otp(c: &Connection, cipher: &Cipher, user: &User, code: &str, now: DateTime<Utc>) -> Result<bool, WebError> {
     let Some(stored) = user.otp_secret_key.as_deref().filter(|s| !s.trim().is_empty()) else { return Ok(false) };
     let seed = cipher.decrypt(stored).map_err(|e| WebError::Engine(EngineError::Data(format!("users.otp_secret_key: {e:?}"))))?;
     let spent = user.last_otp_at.map(|at| at.timestamp().div_euclid(30));

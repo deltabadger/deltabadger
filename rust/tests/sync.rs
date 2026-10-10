@@ -26,7 +26,7 @@ const ACTIVITIES: &str = "GET /v2/account/activities";
 const NOW: &str = "2026-09-20T02:00:00Z";
 
 fn clock() -> FixedClock { FixedClock(NOW.parse().unwrap()) }
-fn paper() -> Credentials { Credentials { key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn paper() -> Credentials { Credentials { redaction_values:vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 fn ok(body: Value) -> Value { json!({ "status": 200, "body": body }) }
 fn interest(id: &str, date: &str) -> Value { json!({ "id": id, "activity_type": "INT", "net_amount": "0.07", "date": date }) }
 fn split(id: &str, qty: &str) -> Value { json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": qty, "date": "2026-09-15" }) }

@@ -27,6 +27,7 @@ pub mod rate_limit;
 pub mod ring;
 pub mod server;
 pub mod session;
+pub mod settings;
 pub mod shell;
 pub mod timezone;
 pub mod tracker;
@@ -319,6 +320,12 @@ pub struct Inner {
     pub figure_service: figure::service::Service,
     pub figure_source: figure::loading::Source,
     pub mcp_instructions: String,
+    settings_jobs:std::sync::OnceLock<crate::jobs::Wakers>,
+    pub settings_smtp:crate::mail::smtp::Env,
+    settings_smtp_provider_name:String,
+    pub settings_key_url:String,
+    pub settings_key_logger:Arc<dyn settings::keys::Logger>,
+    pub settings_mailer:Arc<dyn settings::mail::Mailer>,
     pub config: Config,
     pub keys: Keys,
     pub cipher: Cipher,
@@ -343,7 +350,6 @@ pub struct Inner {
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
-    jobs: std::sync::OnceLock<crate::jobs::Wakers>,
 }
 
 pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
@@ -379,12 +385,13 @@ impl App {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
+            settings_key_url:crate::venue::alpaca::PAPER_TRADING_URL.into(),settings_key_logger:settings::keys::logger(),
+            settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
             db: Mutex::new(primary),
             engine: std::sync::OnceLock::new(),
-            jobs: std::sync::OnceLock::new(),
         })))
     }
 
@@ -401,6 +408,20 @@ impl App {
         Ok(Self(Arc::new(inner)))
     }
 
+    /// Test SMTP boundary; the account controller, transaction and message renderer remain real.
+    pub fn with_settings_mailer(self,mailer:Arc<dyn settings::mail::Mailer>)->Result<Self,WebError>{
+        let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
+        inner.settings_mailer=mailer;Ok(Self(Arc::new(inner)))
+    }
+
+    /// Scripted account HTTP and application logger, only before sharing the App.
+    pub fn with_settings_key_boundary(self,url:String,logger:Arc<dyn settings::keys::Logger>)->Result<Self,WebError>{
+        let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
+        inner.settings_key_url=url;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
+    }
+
+    pub fn attach_jobs(&self,wakers:crate::jobs::Wakers)->Result<(),WebError>{self.settings_jobs.set(wakers).map_err(|_|WebError::Config("job scheduler already attached".into()))}
+    pub fn job_wakers(&self)->Result<crate::jobs::Wakers,WebError>{self.settings_jobs.get().cloned().ok_or_else(||WebError::Config("job scheduler unavailable".into()))}
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
 
     /// Called once, by `supervisor::serve`, before the first request is served. A second call is ignored.
@@ -408,13 +429,9 @@ impl App {
         let _ = self.engine.set(wake);
     }
 
-    pub fn attach_jobs(&self, wake: crate::jobs::Wakers) -> Result<(), WebError> {
-        self.jobs.set(wake).map_err(|_| WebError::Config("job scheduler already attached".into()))
-    }
-
     /// Delivery stays in the blocking writer immediately after its successful commit.
     pub fn wake_job(&self, name: &'static str, scope: &str) {
-        if let Some(wake) = self.jobs.get() { wake.wake(name,Some(scope),None); }
+        if let Some(wake) = self.settings_jobs.get() { wake.wake(name,Some(scope),None); }
     }
 
     /// After a committed write the engine must act on (a bot started, stopped, deleted or archived, or its settings
@@ -478,7 +495,14 @@ impl App {
     /// handler must not hold up the other tasks of this process, the engine loop among them.
     pub async fn db<T: Send + 'static>(&self, work: impl FnOnce(&Connection) -> Result<T, WebError> + Send + 'static) -> Result<T, WebError> {
         let app = self.clone();
-        tokio::task::spawn_blocking(move || work(&app.0.db.lock().unwrap_or_else(PoisonError::into_inner)))
+        tokio::task::spawn_blocking(move || {
+            let c=app.0.db.lock().unwrap_or_else(PoisonError::into_inner);let out=work(&c);
+            if !c.is_autocommit(){
+                c.execute_batch("ROLLBACK").map_err(|_|WebError::Config("web transaction rollback failed".into()))?;
+                if out.is_ok(){return Err(WebError::Config("web left an uncommitted transaction".into()))}
+            }
+            out
+        })
             .await
             .map_err(|e| WebError::Task(e.to_string()))?
     }
@@ -539,6 +563,10 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/confirmation", only(get(settings::confirmation::show).post(settings::confirmation::create)))
+        .route("/confirmation/new", only(get(settings::confirmation::new)))
+        .route("/settings", only(get(settings::root)))
+        .route("/settings/{*action}", only(get(settings::show).patch(settings::write).post(settings::write).delete(settings::write)))
         .route("/tracker", only(get(tracker::index::index)))
         .route("/tracker/save_export_settings", only(patch(tracker::save_export_settings)))
         .route("/tracker/fund_classifications", only(patch(tracker::fund_classifications)))

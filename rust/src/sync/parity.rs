@@ -107,7 +107,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     if scenario["parity_scratch"] != true { return Err(SyncError(format!("{} is not a parity scratch copy (no parity_scratch marker)", dir.display()))); }
     let key_id = scenario["api_key_id"].as_i64().ok_or_else(|| data("api_key_id"))?;
     let text = |k: &str| scenario["credentials"][k].as_str().map(str::to_string);
-    let credentials = Credentials { key: text("key").unwrap_or_default(), secret: text("secret").unwrap_or_default(), passphrase: text("passphrase") };
+    let credentials = Credentials { redaction_values:vec![], key: text("key").unwrap_or_default(), secret: text("secret").unwrap_or_default(), passphrase: text("passphrase") };
     let paths = Paths::from_env(&|_| None, dir);
     // The same exclusive lock every command takes, judged at the real clock.
     let _lock = lease::lock(&paths, Utc::now()).map_err(|e| SyncError(format!("{e:?}")))?;

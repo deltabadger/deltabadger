@@ -42,7 +42,7 @@ fn every_recorded_scrub_and_its_stored_cut_is_reproduced() {
     let mut failures = vec![];
     for c in &cases {
         let text = |k: &str| c["key"][k].as_str().map(str::to_string);
-        let credentials = Credentials { key: text("key").unwrap_or_default(), secret: text("secret").unwrap_or_default(), passphrase: text("passphrase") };
+        let credentials = Credentials { redaction_values:vec![], key: text("key").unwrap_or_default(), secret: text("secret").unwrap_or_default(), passphrase: text("passphrase") };
         let scrubbed = scrub(c["text"].as_str().unwrap(), &credentials);
         let stored: String = scrubbed.chars().take(SYNC_ERROR_LIMIT).collect();
         if scrubbed != c["scrubbed"] || stored != c["stored"] { failures.push(format!("{}\n  rust: {scrubbed}\n  ruby: {}", c["text"], c["scrubbed"])); }

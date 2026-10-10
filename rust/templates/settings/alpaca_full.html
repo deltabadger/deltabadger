@@ -1,0 +1,37 @@
+<turbo-frame id="modal">
+  <dialog data-controller="modal--base" data-modal--base-close-url-value="{{ v.path("/tracker") }}" class="dialogview" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialogview__vertical-center">
+      <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+        <svg class="icon-24" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z" fill="#2948A1"></path>
+</svg>
+
+</button>      <turbo-frame id="modal_content">
+        
+  <div class="bot-creation-layout">
+    
+<div class="process-progress">
+  <h4>{{ progress_title|safe }}</h4>
+  <div class="slider">
+    <div class="slider__style">
+      <div class="slider__style__track">
+        <div class="slider__style__progress" style="width: 100%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <div class="conversational conversational--bot-setup"
+         data-controller="conversational-sentence"
+         data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
+      {{ v.t("tracker.import_from")|safe }}
+      <form class="conversational__link filled" data-turbo-frame="modal_content" data-wizard-dir="back" action="{{ v.path("/tracker/pick_exchange/new") }}" accept-charset="UTF-8" method="get">
+        <input value="Alpaca" readonly tabindex="-1">
+</form>    </div>
+    {{ card|safe }}
+
+  </div>
+
+</turbo-frame>    </div>
+  </dialog>
+</turbo-frame>
