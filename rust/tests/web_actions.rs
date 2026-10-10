@@ -1095,11 +1095,10 @@ mod action_write {
         let Outcome::GuardRefused(errors)=result else { return Err("an hour-early start must be refused".into()) };
         assert!(errors.to_string().contains("daylight-saving"),"{errors}");
         assert_eq!(f.snapshot()?,before);
-        // The spring change makes it an hour late: Rails' answer, started.
+        // The spring change makes it an hour late (10:30 local): not the chosen time either, refused without a write.
         clock.set(harness::at("2026-03-28T09:00:00Z"));
-        assert!(matches!(write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?,Outcome::Committed(_)));
-        let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
-        assert_eq!(anchor,"2026-03-29 08:30:00");
+        assert!(matches!(write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?,Outcome::GuardRefused(_)));
+        assert_eq!(f.snapshot()?,before);
         Ok(())
     }
 

@@ -26,6 +26,12 @@ fn spec(v: &Value) -> BotSpec {
               settings_changed_at: started["settings_changed_at"].as_str().map(str::to_owned), settings, transient: started["transient_data"].clone() }
 }
 
+/// The bot as Rails left it, its owner in the vector's zone.
+fn insert(c: &Connection, s: &seed::Seeded, v: &Value) -> i64 {
+    c.execute("UPDATE users SET time_zone = ?1", [v["zone"].as_str().unwrap()]).unwrap();
+    seed::insert_bot(c, s, &spec(v))
+}
+
 fn stored(c: &Connection, id: i64) -> (Value, Value, String) {
     c.query_row("SELECT settings, transient_data, settings_changed_at FROM bots WHERE id = ?1", [id],
                 |r| Ok((serde_json::from_str(&r.get::<_, String>(0)?).unwrap(), serde_json::from_str(&r.get::<_, String>(1)?).unwrap(), r.get(2)?))).unwrap()
@@ -37,7 +43,7 @@ fn the_amount_and_the_disable_match_rails() {
     for v in vectors()["schedule"].as_array().unwrap() {
         let (_d, o, s) = common::install();
         let c = &o.primary;
-        let id = seed::insert_bot(c, &s, &spec(v));
+        let id = insert(c, &s, v);
         let pending = |at: DateTime<Utc>| amount::pending_quote_amount(c, &model::load_bot(c, id).unwrap(), at.timestamp_micros()).unwrap();
         for read in v["reads"].as_array().unwrap() {
             assert_eq!(pending(time(&read["now"])), dec(read["pending"].as_str().unwrap()), "{read}");
@@ -72,13 +78,13 @@ fn the_amount_and_the_disable_match_rails() {
     assert_eq!((reads, disables), (144, 27));
 }
 
-fn engine(spec: &BotSpec, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64) {
+fn engine(v: &Value, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory>, i64) {
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, "2026-01-01T00:00:00Z".parse().unwrap()).unwrap();
     let o = store::open(&p).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
-    let id = seed::insert_bot(&o.primary, &s, spec);
+    let id = insert(&o.primary, &s, v);
     (dir, Engine::new(o.primary, FakeFactory(venue), seed::cipher(), lock), id)
 }
 
@@ -88,8 +94,17 @@ fn engine(spec: &BotSpec, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFa
 async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
     let all = vectors();
     for v in all["schedule"].as_array().unwrap().iter().filter(|v| v["bought"].is_null()) {
+        // A start Rails moved off the chosen wall time (a spring-gap time) is refused instead (see below).
+        let at = time(&json!(v["started"]["settings"]["start_at"]));
+        let chosen = v["settings"]["start_time_of_day"].as_str();
+        let local = deltabadger::web::timezone::local(at, v["zone"].as_str().unwrap()).format("%H:%M").to_string();
+        if chosen.is_some_and(|chosen| format!("{chosen:0>5}") != local) {
+            let (_d, e, id) = engine(v, FakeVenue::new());
+            assert!(!eligibility::check_install(&e.primary).unwrap().eligible.contains(&id), "{v}");
+            continue;
+        }
         let venue = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0");
-        let (_d, mut e, id) = engine(&spec(v), venue.clone());
+        let (_d, mut e, id) = engine(v, venue.clone());
         let t0 = time(&v["wait_until"]);
         let us = |d: i64| FixedClock(t0 + chrono::Duration::microseconds(d));
         assert!(eligibility::check_install(&e.primary).unwrap().eligible.contains(&id), "{v}");
@@ -128,7 +143,7 @@ fn only_a_fresh_starts_starting_time_runs() {
     // Whether the engine runs the bot, and every reason it gives for not running it (refusals, then unreadable rows).
     let refused = |edit: &str| {
         let (_d, o, s) = common::install();
-        let id = seed::insert_bot(&o.primary, &s, &spec(v));
+        let id = insert(&o.primary, &s, v);
         o.primary.execute(edit, [id]).unwrap();
         let r = eligibility::check_install(&o.primary).unwrap();
         let unreadable = r.unreadable.iter().map(|(_, e)| e.clone());
@@ -156,7 +171,7 @@ fn only_a_fresh_starts_starting_time_runs() {
     // Off, or stopped: nothing to refuse.
     assert!(refused("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false'), '$.start_at', '2026-09-12T07:30:00Z') WHERE id = ?1").0);
     let (_d, o, s) = common::install();
-    let id = seed::insert_bot(&o.primary, &s, &spec(v));
+    let id = insert(&o.primary, &s, v);
     o.primary.execute("UPDATE bots SET status = 2, settings = json_remove(settings, '$.start_at') WHERE id = ?1", [id]).unwrap();
     assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty());
 }
@@ -169,11 +184,34 @@ fn turning_off_a_moved_or_unreadable_starting_time_is_refused() {
     for start_at in ["2026-09-12T07:30:00Z", "garbage"] {
         let (_d, o, s) = common::install();
         let c = &o.primary;
-        let id = seed::insert_bot(c, &s, &spec(v));
+        let id = insert(c, &s, v);
         c.execute("UPDATE bots SET settings = json_set(settings, '$.start_at', ?2) WHERE id = ?1", rusqlite::params![id, start_at]).unwrap();
         let before = stored(c, id);
         let now: DateTime<Utc> = "2026-09-12T08:00:00Z".parse().unwrap();
         assert!(amount::disable_starting_time(c, id, now).is_err(), "{start_at}");
         assert_eq!(stored(c, id), before, "{start_at}: nothing written");
     }
+}
+
+/// Rails' fixed-day step can store a start an hour off the chosen time: Warsaw, 09:30 chosen on Saturday 2026-10-24 after
+/// 09:30 leaves both anchors at 2026-10-25T07:30Z, 08:30 local after the change. Matching anchors do not make it the chosen
+/// time, so it is refused whether imported or written here; a spring start an hour late (10:30 local) is refused too.
+#[test]
+fn a_start_that_is_not_the_chosen_local_time_is_refused() {
+    let v = &vectors()["schedule"][6]; // Warsaw, every day at 09:30
+    let check = |at: &str| {
+        let (_d, o, s) = common::install();
+        let id = insert(&o.primary, &s, v);
+        o.primary.execute("UPDATE bots SET started_at = ?2, settings = json_set(settings, '$.start_at', ?3) WHERE id = ?1",
+                          rusqlite::params![id, at, format!("{}Z", at.replace(' ', "T"))]).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        (r.eligible.contains(&id), r.problems.join("; "))
+    };
+    for at in ["2026-10-25 07:30:00", "2026-03-29 08:30:00"] {
+        let (ok, why) = check(at);
+        assert!(!ok && why.contains("not the chosen"), "{at}: {why}");
+    }
+    // 09:30 in Warsaw on either side of the change runs.
+    assert!(check("2026-10-26 08:30:00").0);
+    assert!(check("2026-03-30 07:30:00").0);
 }
