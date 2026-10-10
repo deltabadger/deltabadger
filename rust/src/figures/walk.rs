@@ -305,6 +305,14 @@ fn unresolved_shadows(c: &Connection, s: &Subject, keys: &[(Identity, String)]) 
     Ok(out)
 }
 
+/// Lots of the same asset recorded without it may be the ones FIFO consumed: the sale's verdict is unknown.
+fn shadowed(walk: &Walk, shadowed_by: &[(i64, Vec<String>)], order: &Order) -> bool {
+    let Some((_, shadows)) = order.asset_id.and_then(|id| shadowed_by.iter().find(|(asset, _)| *asset == id)) else { return false };
+    // Rails sums the lots' units for every sale. No lot is ever below zero (one opens on a positive fill, shrinks to what is
+    // left of it, and is multiplied by a positive factor), so the sum is positive exactly when a lot is.
+    shadows.iter().any(|key| walk.lots.iter().find(|(k, _)| k == key).is_some_and(|(_, list)| list.iter().any(|lot| lot.amount.is_positive())))
+}
+
 /// Bot::Composition::Measurable#metrics, uncached, within one figure's budget.
 pub fn metrics(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError> {
     budget::within(|| walked(c, s, now))
@@ -372,6 +380,28 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
         budget::charge(1, 0)?;
         let base = key_of(order);
         pending = walk.apply_due_splits(pending, Some(order.at))?;
+        // A non-REGULAR sell Rails does not price (MQ6): its tax view on the raw proceeds, then gate 1. A priced one is
+        // the fill below.
+        if let Some(sell) = super::fill::special_sell(order)?.filter(|sell| sell.fill().is_none()) {
+            let held = match walk.ledger.get(&base) { Some(entry) => entry.amount.to_d()?, None => Dec::zero() };
+            if sell.executed > held { walk.external_sales = true; }
+            if sell.executed.is_positive() {
+                let list: &Lots = walk.lots(&base);
+                let mut verdict = match &sell.reported {
+                    Some(proceeds) => { tax_pnl.push((order.id, (proceeds - &lots::cost_of(list, &sell.executed)?)?)); lots::loss_in(list, &sell.executed, proceeds)? }
+                    None => if list.is_empty() { Some(false) } else { None }, // #unpriced_sale_verdict
+                };
+                if shadowed(&walk, &shadowed_by, order) { verdict = None; }
+                loss_lot.push((order.id, verdict));
+                lots::consume(walk.lots(&base), &sell.executed)?;
+            }
+            if sell.unpriced() {
+                let released = walk.books.unpriced_liquidation(&mut walk.ledger, &base, &sell.executed)?;
+                walk.estimated_proceeds = walk.estimated_proceeds.add(&released)?;
+                walk.point(order.at)?; // at the marks that already stand
+            }
+            continue;
+        }
         let Some(fill)=fill else{continue};
         let price=fill.unit_price()?;
         let executed=fill.quantity;
@@ -387,16 +417,7 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
                 let list: &Lots = walk.lots(&base); // read where it stands: a copy per sale would be the whole history each time
                 tax_pnl.push((order.id, (&value - &lots::cost_of(list, &executed)?)?));
                 let mut verdict=lots::loss_in(list,&executed,&value)?;
-                // Lots of the same asset recorded without it may be the ones FIFO consumed: unknown.
-                if let Some((_, shadows)) = order.asset_id.and_then(|id| shadowed_by.iter().find(|(asset, _)| *asset == id)) {
-                    for key in shadows {
-                        let Some((_, list)) = walk.lots.iter().find(|(k, _)| k == key) else { continue };
-                        // Rails sums the lots' units for every sale. No lot is ever below zero (one opens on a
-                        // positive fill, shrinks to what is left of it, and is multiplied by a positive factor), so
-                        // the sum is positive exactly when a lot is, and the first lot answers.
-                        if list.iter().any(|lot| lot.amount.is_positive()) { verdict = None; }
-                    }
-                }
+                if shadowed(&walk, &shadowed_by, order) { verdict = None; }
                 loss_lot.push((order.id, verdict));
                 lots::consume(walk.lots(&base), &executed)?;
             } else {
