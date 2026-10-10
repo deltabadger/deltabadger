@@ -2,6 +2,7 @@
 //! dca_index.rb:126-143; IndexAllocatable#derive_composition, index_allocatable.rb:61-123) from the data-api `indices` row
 //! (MarketData.get_top_coins, market_data.rb:117-143), and written as Rails writes it (basket::write_members). The buy leg is
 //! the basket's (tick::buy). It never sells: a member that leaves is only marked out of the index.
+use crate::venue::Attributed;
 use super::model::{self, Bot, Ticker};
 use super::tick::PriceCache;
 use super::{basket, Clock, EngineError};
@@ -51,11 +52,13 @@ fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>) -> Re
 /// Ticker#priced?(side) through Rails' 5 s price cache (Exchange#get_*_price fills it), so Step 1's read of a newcomer reuses
 /// the probe's answer. A zero or failed price is false; a transport failure raises (retry_on); a rejected key raises
 /// Exchange#raise_on_invalid_key!'s error.
-async fn priced<V: Venue>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache) -> Result<bool, Refusal> {
+async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
     let key = (bot.exchange_id, t.id, side);
-    if prices.get(key, clock.now()).is_some() { return Ok(true); }
-    match venue.price(t, side).await {
-        Ok(p) => { prices.put(key, clock.now(), p.clone()); Ok(p.is_positive()) }
+    if prices.get(key, clock.now(), version).is_some() { return Ok(true); }
+    let result=venue.price_result(t,side).await;
+    let origin=result.origin().clone();
+    match result.value {
+        Ok(p) => { prices.put_result(key,clock.now(),model::Produced::new(p.clone(),origin)); Ok(p.is_positive()) }
         Err(VenueError::Transient(m)) => Err(Refusal::Transient(m)),
         // ponytail: Exchange#invalid_key_error? also reads the HTTP status; Alpaca's own 401 says "unauthorized", and an HTML
         // 401 is "HTTP 401". Another 401 body would read as unpriced here.
@@ -67,6 +70,12 @@ async fn priced<V: Venue>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clo
 
 /// Bot::Composition::Allocatable#refresh_composition for an index bot: derive_composition, then update_bot_index_assets.
 pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache) -> Result<Result<(), Refusal>, EngineError> {
+    let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
+    let version=handle.producer();
+    let venue=&handle;
+    refresh_composition_captured(c, venue, bot, clock, prices, &version).await
+}
+pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
     let before = super::placement::composition_snapshot(c, bot)?;
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
@@ -109,7 +118,7 @@ pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot,
         let ticker = model::ticker_by_id(c, bot.exchange_id, ticker_id)?
             .ok_or_else(|| EngineError::Data(format!("bot {}: ticker {ticker_id} vanished mid-derivation", bot.id)))?;
         if !incumbents.contains(&ticker_id) {
-            match priced(venue, bot, &ticker, side, clock, prices).await {
+            match priced(venue, bot, &ticker, side, clock, prices, version).await {
                 Ok(true) => {}
                 Ok(false) => continue,
                 Err(r) => return Ok(Err(r)),
@@ -131,7 +140,7 @@ pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot,
     let weights = blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), bot.allocation_flattening().unwrap_or(0.0));
     let by_asset: HashMap<i64, f64> = caps.into_iter().map(|(id, _)| id).zip(weights).collect();
     let members: Vec<(i64, i64, f64)> = chosen.iter().map(|(asset, ticker, _)| (*asset, *ticker, by_asset[asset])).collect();
-    model::locked(c, |tx| {
+    model::credential_write(c, version, |tx| {
         let current = model::load_bot(tx, bot.id)?;
         let source_now: Option<(Option<String>, Option<String>, Option<String>)> = tx.query_row(
             "SELECT source, top_coins, weights FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category],

@@ -1,0 +1,42 @@
+<turbo-frame id="connected_clients">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">{{ v.t("settings.mcp.connected_clients")|safe }}</h4>
+{% if !clients.is_empty() %}      <p class="text-center" style="text-wrap: balance">{{ v.t("settings.mcp.client_permissions_hint")|safe }}</p>
+      <div class="connected-clients">
+        {% for client in clients %}<div class="connected-client">
+  <div class="connected-client__head">
+    <b>{{ client.name }}</b>
+    <small>{{ client.date }}</small>
+    <a data-turbo-frame="modal" class="text-danger" href="{{ v.path(&format!("/settings/confirm_revoke_mcp_client/{}", client.id)) }}">{{ v.t("settings.mcp.revoke_client")|safe }}</a>
+  </div>
+  <table class="permissions">
+    <thead>
+      <tr>
+        <th></th>
+        <th class="permissions__surface">MCP</th>
+        <th class="permissions__surface">{{ v.t("settings.rest.title")|safe }}</th>
+      </tr>
+    </thead>
+    <tbody>
+{% for group in client.groups %}        <tr class="permissions__tool" data-group="{{ group.name }}">
+          <td class="permissions__name">{{ group.label|safe }}</td>
+{% for switch in group.switches %}            <td class="permissions__cell" data-surface="{{ switch.surface }}">
+{% if switch.present %}                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="connected_clients" action="{{ v.path(&format!("/settings/update_client_tool_permissions/{}", client.id)) }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="{{ switch.surface }}" type="hidden" name="surface" /><input value="{{ group.name }}" type="hidden" name="group" />
+  <input value="{{ switch.enabled }}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if switch.state == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if switch.state != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>{% else %}
+                <span class="permissions__none">–</span>
+{% endif %}
+            </td>
+{% endfor %}        </tr>
+{% endfor %}    </tbody>
+  </table>
+</div>
+{% endfor %}
+      </div>
+{% else %}      <p class="text-center">{{ v.t("settings.mcp.no_clients")|safe }}</p>
+{% endif %}  </div>
+</turbo-frame>

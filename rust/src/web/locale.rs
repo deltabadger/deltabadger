@@ -103,3 +103,13 @@ pub fn switch_path(target: &str, route_path: &str, query: &str) -> String {
     let base = if route_path == "/" { format!("/{target}") } else { format!("/{target}{route_path}") };
     if query.is_empty() { base } else { format!("{base}?{query}") }
 }
+
+pub fn without_secret_query(path:&str)->std::borrow::Cow<'_,str>{
+    use std::borrow::Cow;
+    let Some((base,query))=path.split_once('?') else{return Cow::Borrowed(path)};
+    let pairs:Vec<_>=form_urlencoded::parse(query.as_bytes()).collect();
+    if !pairs.iter().any(|(key,_)|sensitive_query(key)){return Cow::Borrowed(path)}
+    let mut safe=form_urlencoded::Serializer::new(String::new());
+    for (key,value) in pairs{if !sensitive_query(&key){safe.append_pair(&key,&value);}}
+    let safe=safe.finish();Cow::Owned(if safe.is_empty(){base.to_string()}else{format!("{base}?{safe}")})
+}

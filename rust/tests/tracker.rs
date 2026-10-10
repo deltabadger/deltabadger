@@ -88,7 +88,18 @@ fn record(dir: &Path, job: &str, scope: i64) -> (String, String) {
 }
 
 fn ran(dir: &Path, job: &str, scope: i64, at: &str) {
-    state::record_success(&Connection::open(dir.join("production.sqlite3")).unwrap(), job, Some(&scope.to_string()), at.parse().unwrap()).unwrap();
+    let c=Connection::open(dir.join("production.sqlite3")).unwrap();
+    let at=at.parse().unwrap();
+    if job==sync_jobs::LEDGER_SYNC {
+        // The fixture explicitly declares this known key's seeded ledger complete.
+        let producer=deltabadger::engine::model::credential_version_by_id(&c,scope).unwrap().unwrap();
+        deltabadger::engine::model::credential_write(&c,&Some(producer.clone()),|fenced|{
+            deltabadger::sync::cache::record_ledger(fenced,scope,&producer,at)?;
+            state::record_success(fenced,job,Some(&scope.to_string()),at).map_err(deltabadger::engine::EngineError::Data)
+        }).unwrap();
+    } else {
+        state::record_success(&c,job,Some(&scope.to_string()),at).unwrap();
+    }
 }
 
 /// (date, value, invested, held value, held cost, partial) of every whole-account row, as text.
@@ -105,7 +116,7 @@ fn every_user_with_a_reading_key_gets_a_walk_and_a_backfill() {
     let (dir, user, _) = install();
     let specs: Vec<_> = jobs(dir.path(), &Scripted(ScriptedTransport::default()), tokio_clock("2026-09-20T02:25:00Z")).iter().map(|j| j.spec()).map(|s| (s.name, s.scope, s.schedule)).collect();
     let me = Some(user.to_string());
-    assert_eq!(specs[2..], [(TRACKER_LEDGER, me.clone(), None), (PORTFOLIO_BACKFILL, me, Some(Schedule::Daily { hour: 3, minute: 0 }))]);
+    assert_eq!(specs[2..], [("credential_scope_factory",None,None), (TRACKER_LEDGER, me.clone(), None), (PORTFOLIO_BACKFILL, me, Some(Schedule::Daily { hour: 3, minute: 0 }))]);
 }
 
 /// Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!: the balance sync at 02:30 wakes the user's walk,
@@ -166,6 +177,9 @@ async fn many_held_symbols_record_in_linear_work_or_are_refused_before_the_write
         UPDATE api_keys SET balances_synced_at = '2026-09-20 02:30:00' WHERE id = {key};")).unwrap();
     let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    // These rows are created for this key by this fixture; provide its actual construction stamp.
+    let producer=deltabadger::engine::model::credential_version_by_id(&c,key).unwrap().unwrap();
+    deltabadger::engine::model::credential_write(&c,&Some(producer.clone()),|fenced|deltabadger::sync::cache::record(fenced,user,exchange,&producer,true,at)).unwrap();
     let clock = deltabadger::engine::FixedClock(at);
     let walls = std::sync::Arc::new(AtomicUsize::new(0));
     let w = walls.clone();

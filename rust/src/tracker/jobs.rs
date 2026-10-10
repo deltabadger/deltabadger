@@ -90,16 +90,19 @@ pub fn system_wall() -> Wall { std::sync::Arc::new(Utc::now) }
 
 /// What a pass hands its result to: the connection, the rows walked, the walk, and the job clock's reading as the
 /// pass began.
-type Then<'a, R> = &'a dyn Fn(&Connection, &Cipher, &[super::rows::Stored], &Walked, DateTime<Utc>) -> Result<R, FiguresError>;
+type Then<'a, R> = &'a dyn Fn(&Connection, &Cipher, &[super::rows::Stored], &Walked, DateTime<Utc>, &crate::sync::cache::ReadOrigin) -> Result<R, FiguresError>;
 
 /// One pass of a walk: the rows loaded, priced and walked, then `then` on the result. A price that must be fetched
 /// first ends the pass with that fetch.
 fn pass<R>(c: &Connection, cipher: &Cipher, user_id: i64, fetched: &HashMap<(String, NaiveDate), u32>, now: DateTime<Utc>,
            then: Then<R>) -> Result<Result<R, Fetch>, FiguresError> {
+    let tx=c.unchecked_transaction()?;
+    let reader=&*tx;
+    let origin=crate::sync::cache::capture_read(reader,user_id,None).map_err(|_|FiguresError::Data("snapshot provenance unavailable".into()))?;
     let today = now.date_naive();
-    let rows = super::rows::load(c, user_id)?;
-    let venue = Venue::alpaca(c)?;
-    let reference = prices::Reference::load(c, &venue, &prices::symbols(&rows))?;
+    let rows = super::rows::load(reader, user_id)?;
+    let venue = Venue::alpaca(reader)?;
+    let reference = prices::Reference::load(reader, &venue, &prices::symbols(&rows))?;
     let mut book = PriceBook { r: &reference, venue, today, fetched, warnings: 0 };
     let prepared = match walk::prepare(&rows, &mut book) {
         Ok(p) => p,
@@ -107,23 +110,25 @@ fn pass<R>(c: &Connection, cipher: &Cipher, user_id: i64, fetched: &HashMap<(Str
         Err(Halt::Fail(e)) => return Err(e),
     };
     let walked = walk::walk(&prepared, book.warnings, today)?;
-    Ok(Ok(then(c, cipher, &rows, &walked, now)?))
+    tx.commit()?;
+    let produced=origin.derive((rows,walked));
+    Ok(Ok(then(c,cipher,&produced.value.0,&produced.value.1,now,&produced.origin)?))
 }
 
 /// One write unit (`BEGIN IMMEDIATE` … `COMMIT`, rolled back on an error), dated by the wall clock read once the
 /// write lock is held, after every load and walk before it, as Rails' `Date.current` is read when the row is built.
 pub fn written<R>(c: &Connection, wall: &dyn Fn() -> DateTime<Utc>, write: impl FnOnce(&Connection, DateTime<Utc>) -> Result<R, FiguresError>) -> Result<R, FiguresError> {
-    c.execute_batch("BEGIN IMMEDIATE")?;
-    match write(c, wall()) {
-        Ok(out) => { c.execute_batch("COMMIT")?; Ok(out) }
-        Err(e) => { let _ = c.execute_batch("ROLLBACK"); Err(e) }
+    let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate)?;
+    match write(&tx, wall()) {
+        Ok(out) => { tx.commit()?; Ok(out) }
+        Err(e) => { tx.rollback().map_err(|_|FiguresError::Data("tracker transaction rollback failed".into()))?; Err(e) }
     }
 }
 
 /// The walk of one user's ledger as Rails' `walk(user)` makes it, then `then` on its result: the prices Rails
 /// prefetches fetched first, then each price a pass halts for, while the run's allowance lasts.
 pub async fn with_walk<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, user_id: i64, clock: &dyn Clock, allowance: &mut Allowance,
-    then: impl Fn(&Connection, &Cipher, &[super::rows::Stored], &Walked, DateTime<Utc>) -> Result<R, FiguresError> + Send + Sync + 'static) -> Result<R, String> {
+    then: impl Fn(&Connection, &Cipher, &[super::rows::Stored], &Walked, DateTime<Utc>, &crate::sync::cache::ReadOrigin) -> Result<R, FiguresError> + Send + Sync + 'static) -> Result<R, String> {
     let wanted = metered(db, allowance, move |c, _| {
         let rows = super::rows::load(c, user_id)?;
         let venue = Venue::alpaca(c)?;
@@ -149,15 +154,22 @@ pub async fn with_walk<T: Transport, R: Send + 'static>(db: &Db, api: Option<&Da
 /// Tracker::LedgerJob#perform: the walk, today's snapshot rows from it, and the wash-sale locks, the two writes in one
 /// unit, dated when they are written. Returns the walk. The run spends from `allowance` (`Allowance::run()` for a job).
 pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&DataApi<T>>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
-    with_walk(db, api, user_id, clock, allowance, move |c, _, _, walked, began| {
+    ledger_run_produced(db,api,user_id,clock,wall,allowance).await.map(|produced|produced.value)
+}
+async fn ledger_run_produced<T: Transport>(db:&Db,api:Option<&DataApi<T>>,user_id:i64,clock:&dyn Clock,wall:Wall,allowance:&mut Allowance)->Result<crate::sync::cache::ReadValue<Walked>,String>{
+    with_walk(db, api, user_id, clock, allowance, move |c, _, _, walked, began, origin| {
         // Everything read and computed first, so the write lock is held for the writes alone.
-        let rows = super::snapshot::today_rows(c, user_id, walked)?;
-        let locks = super::wash::targets(c, user_id, &walked.whole.loss_sales)?;
-        written(c, &*wall, |c, now| {
-            super::snapshot::write(c, user_id, &rows, now.date_naive())?;
+        let read=c.unchecked_transaction()?;
+        let snapshot_origin=origin.with_balance_producers(&read).map_err(|_|FiguresError::Data("snapshot balance provenance unavailable".into()))?;
+        let rows = super::snapshot::today_rows(&read, user_id, walked)?;
+        let locks = super::wash::targets(&read, user_id, &walked.whole.loss_sales)?;
+        read.commit()?;
+        let produced=snapshot_origin.derive((rows,locks));
+        written_for(c, &produced.origin, &*wall, |c, now| {
+            super::snapshot::write(c, user_id, &produced.value.0, now.date_naive())?;
             // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
-            super::wash::confirm_all(c, user_id, &locks, began)?;
-            Ok(walked.clone())
+            super::wash::confirm_all(c, user_id, &produced.value.1, began)?;
+            Ok(produced.origin.clone().derive(walked.clone()))
         })
     }).await
 }
@@ -182,9 +194,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let Some((version, first, plan)) = begun else { return Ok(false) };
     fetch_closes(db, venues, api, &plan).await?;
     let (plan, version) = (std::sync::Arc::new(plan), std::sync::Arc::new(version));
-    with_walk(db, api, user_id, clock, &mut allowance, move |c, cipher, rows, walked, _| {
+    with_walk(db, api, user_id, clock, &mut allowance, move |c, cipher, rows, walked, _, origin| {
         let swept = backfill::sweep(c, &plan, rows, &walked.terms, first, last)?;
-        backfill::store(c, cipher, user_id, &swept, last, &version, now)?;
+        written_for(c,origin,&||now,|fenced,_|backfill::store(fenced,cipher,user_id,&swept,last,&version,now))?;
         Ok(true)
     }).await
 }
@@ -197,7 +209,7 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
     let (keys, stored) = db.run(move |c, cipher| {
         let mut keys = HashMap::new();
         for b in &wanted {
-            if let std::collections::hash_map::Entry::Vacant(e) = keys.entry(b.api_key_id) { e.insert(crate::sync::credentials(c, cipher, b.api_key_id).map_err(|e| e.0)?); }
+            if let std::collections::hash_map::Entry::Vacant(e) = keys.entry(b.api_key_id) { e.insert(crate::sync::credentials_with_version(c, cipher, b.api_key_id).map_err(|e| e.0)?); }
         }
         let venue = Venue::alpaca(c).map_err(message)?;
         let reference = prices::Reference::load(c, &venue, &wanted.iter().map(|b| b.symbol.clone()).collect()).map_err(message)?;
@@ -207,19 +219,23 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
     }).await?;
     for close in &plan.fetches {
         let bars = match close { backfill::Close::Range(f) => { fetch(db, api, f.clone()).await?; continue } backfill::Close::Bars(b) => b };
-        let (Some(credentials), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
+        let (Some((credentials, version)), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
         let start = format!("{}T00:00:00Z", bars.from);
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
-        let Ok(body) = venues.connect(credentials).read(true, &format!("/v2/stocks/{}/bars", bars.symbol),
-                                                        vec![("limit", "10000".into()), ("start", start), ("timeframe", "1Day".into())], 8 * 1024 * 1024).await else { continue };
+        let raw=venues.connect(credentials);
+        let handle=crate::venue::alpaca::Captured::new(&raw,version.clone());
+        let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol),
+                                                        vec![("limit", "10000".into()), ("start", start), ("timeframe", "1Day".into())], 8 * 1024 * 1024).await.value else { continue };
         let Ok(text) = body.text() else { continue };
         let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else { continue };
         let Some(rows) = backfill::bar_rows(&json, bars, have) else { continue };
         if rows.is_empty() { continue; }
+        let version = version.clone();
         db.run(move |c, _| {
-            c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
-            prices::store(c, &rows).map_err(message)?;
-            c.execute_batch("COMMIT").map_err(|e| e.to_string())
+            let tx = crate::engine::model::immediate(c).map_err(|_| "cannot begin bar cache write")?;
+            let fenced=crate::engine::model::check_credential_result(&tx, &Some(version)).map_err(|e| match e { crate::engine::EngineError::CredentialsChanged => crate::engine::model::CREDENTIALS_CHANGED.to_string(), _ => "cannot check bar cache credentials".into() })?;
+            prices::store_bars(&fenced, &rows).map_err(message)?;
+            tx.commit().map_err(|e| e.to_string())
         }).await?;
     }
     Ok(())
@@ -249,12 +265,25 @@ const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during ca
 async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall)->Result<Walked,String> {
     let mut allowance=Allowance::run();
     for _ in 0..3 {
-        let (before,venue)=cx.db.run(move|c,_|Ok((super::cache::version(c,owner).map_err(message)?,Venue::alpaca(c).map_err(message)?.id))).await?;
-        let result=ledger_run(&cx.db,api,owner,cx.clock,wall.clone(),&mut allowance).await;
-        let cached=match &result {Ok(walked)=>Some(walked.clone()),Err(_)=>None};
+        let (before,venue,origin)=cx.db.run(move|c,_|{
+            let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
+            let before=super::cache::version(&tx,owner).map_err(message)?;
+            let venue=Venue::alpaca(&tx).map_err(message)?.id;
+            let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
+            tx.commit().map_err(|e|e.to_string())?;Ok((before,venue,origin))
+        }).await?;
+        let result=ledger_run_produced(&cx.db,api,owner,cx.clock,wall.clone(),&mut allowance).await;
+        let cache_origin=match &result {Ok(produced)=>produced.origin.clone(),Err(_)=>origin};
+        let cached=match &result {Ok(produced)=>Some(produced.value.clone()),Err(_)=>None};
         let clock=wall.clone();
-        let published=cx.db.run(move|c,_|written(c,&*clock,|c,now|super::cache::publish(c,owner,&before,cached.as_ref(),venue,now)).map_err(message)).await?;
-        if published {return result;}
+        let (published,historical)=cx.db.run(move|c,_|written_for(c,&cache_origin,&*clock,|c,now|{
+            // A historical-only rebuild still completes its existing writes. With no healthy
+            // reading slot it cannot publish a current page cache, so that cache stays cold.
+            let historical:bool=c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)",[owner],|r|r.get(0))?;
+            if historical {return Ok((false,super::cache::version(c,owner)?==before))}
+            super::cache::publish(c,owner,&before,cached.as_ref(),venue,now).map(|published|(published,false))
+        }).map_err(message)).await?;
+        if published || historical {return result.map(|produced|produced.value);}
     }
     cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);
     Err(CACHE_MOVING.into())
@@ -312,10 +341,17 @@ pub fn register<C: Connect + Clone + 'static, T: Transport + 'static>(c: &Connec
 }
 
 /// What a sync job calls when its run ends: the tracker of the key's user walks again.
-pub async fn wake_for_key(cx: &Cx<'_>, key_id: i64) {
-    if let Ok(user) = cx.db.run(move |c, _| c.query_row("SELECT user_id FROM api_keys WHERE id = ?1", [key_id], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string())).await {
-        cx.wakers.wake(TRACKER_LEDGER, Some(&user.to_string()), None);
-    }
+pub async fn wake_for_key(cx: &Cx<'_>, key_id: i64) -> Result<(), String> {
+    let user = cx.db.run(move |c, _| c.query_row("SELECT user_id FROM api_keys WHERE id = ?1", [key_id], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string())).await?;
+    cx.wakers.wake(TRACKER_LEDGER, Some(&user.to_string()), None);
+    Ok(())
+}
+
+/// Q/R1: check the captured producer set only after obtaining the writing lock.
+pub fn written_for<R>(c:&Connection,origin:&crate::sync::cache::ReadOrigin,wall:&dyn Fn()->DateTime<Utc>,write:impl FnOnce(&crate::engine::model::FencedTransaction<'_>,DateTime<Utc>)->Result<R,FiguresError>)->Result<R,FiguresError>{
+    let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate)?;
+    let fenced=crate::sync::cache::fence_read(&tx,origin).map_err(|_|FiguresError::Data(crate::engine::model::CREDENTIALS_CHANGED.into()))?;
+    let out=write(&fenced,wall())?;tx.commit()?;Ok(out)
 }
 
 #[cfg(test)]
@@ -346,7 +382,7 @@ mod tests {
             CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT, symbol TEXT, market_cap_rank INTEGER);
             INSERT INTO assets VALUES (1, 'AAPL.US', 'Stock', 'AAPL', NULL), (2, 'bitcoin', 'Cryptocurrency', 'BTC', 1);
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'AAPL', 1), (2, 1, 'BTC', 2);
-            CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
+            CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
             CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_asset_id INTEGER, base_amount NUMERIC,
                 quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT, transacted_at TEXT, raw_data TEXT,
@@ -368,11 +404,11 @@ mod tests {
     async fn a_failed_price_is_fetched_again_and_never_walked_at_zero() {
         let (api, t) = data_api(vec![prices(&[]), prices(&[(day("2026-09-09"), 250.0)])]);
         let db = install(&SOLD_FIRST);
-        let losses = with_walk(&db, Some(&api), 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run(), |_, _, _, w, _| Ok(w.whole.loss_sales.clone())).await;
+        let losses = with_walk(&db, Some(&api), 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run(), |_, _, _, w, _, _| Ok(w.whole.loss_sales.clone())).await;
         assert_eq!(losses.unwrap(), [("AAPL".to_string(), day("2026-09-10"))]);
         assert_eq!(t.requests().len(), 2);
         let (api, t) = data_api(vec![prices(&[])]);
-        let out = with_walk(&install(&SOLD_FIRST), Some(&api), 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run(), |_, _, _, _, _| Ok(())).await;
+        let out = with_walk(&install(&SOLD_FIRST), Some(&api), 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await;
         assert!(out.as_ref().is_err_and(|e| e.starts_with("no price of AAPL on 2026-09-09 after 2 fetches")), "{out:?}");
         assert_eq!(t.requests().len(), 2);
     }
@@ -393,7 +429,7 @@ mod tests {
             SELECT 1, 1, 0, 'AAPL', 0.001, 'USD', 0.2, '2026-09-03 14:30:00', '{}', '{}' FROM n").map_err(|e| e.to_string())).await.unwrap();
         let clock = wall(std::time::Instant::now());
         let dated = with_walk(&db, None::<&DataApi<ScriptedTransport>>, 1, &FixedClock(late), &mut Allowance::run(),
-                              move |c, _, _, _, began| written(c, &*clock, |_, now| Ok((began.date_naive(), now.date_naive())))).await;
+                              move |c, _, _, _, began, _| written(c, &*clock, |_, now| Ok((began.date_naive(), now.date_naive())))).await;
         assert_eq!(dated, Ok((day("2026-09-30"), day("2026-10-01"))), "the pass began before midnight; its work crossed it");
         // Another writer holds the lock for 50 ms past the pass.
         let file = tempfile::NamedTempFile::new().unwrap();
@@ -411,7 +447,7 @@ mod tests {
         held.1.recv().unwrap();
         let clock = wall(std::time::Instant::now());
         let dated = with_walk(&db, None::<&DataApi<ScriptedTransport>>, 1, &FixedClock(late), &mut Allowance::run(),
-                              move |c, _, _, _, _| written(c, &*clock, |_, now| Ok(now.date_naive()))).await;
+                              move |c, _, _, _, _, _| written(c, &*clock, |_, now| Ok(now.date_naive()))).await;
         assert_eq!(dated, Ok(day("2026-10-01")), "waiting for the lock");
         writer.join().unwrap();
     }
@@ -421,10 +457,10 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn an_unported_price_provider_refuses_the_walk_that_needs_it() {
         let clock = FixedClock(at("2026-10-01T03:00:00Z"));
-        let out = with_walk(&install(&SOLD_FIRST), None::<&DataApi<ScriptedTransport>>, 1, &clock, &mut Allowance::run(), |_, _, _, _, _| Ok(())).await;
+        let out = with_walk(&install(&SOLD_FIRST), None::<&DataApi<ScriptedTransport>>, 1, &clock, &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await;
         assert_eq!(out, Err("the tracker walk is not ported for historical prices from CoinGecko".to_string()));
         let bought = [(4, "USD", "1000", None, "2026-09-01 14:00:00"), (0, "AAPL", "2", Some("400"), "2026-09-02 14:30:00")];
-        assert_eq!(with_walk(&install(&bought), None::<&DataApi<ScriptedTransport>>, 1, &clock, &mut Allowance::run(), |_, _, _, _, _| Ok(())).await, Ok(()));
+        assert_eq!(with_walk(&install(&bought), None::<&DataApi<ScriptedTransport>>, 1, &clock, &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await, Ok(()));
     }
 
     /// 120 coin fees on 120 days, each day's price arriving only with its own fetch: a run spends at most `MAX_FETCHES`
@@ -441,7 +477,7 @@ mod tests {
         let (api, t) = data_api(answers);
         let clock = FixedClock(at("2026-10-01T03:00:00Z"));
         let mut first = Allowance::run();
-        let out = with_walk(&db, Some(&api), 1, &clock, &mut first, |_, _, _, _, _| Ok(())).await;
+        let out = with_walk(&db, Some(&api), 1, &clock, &mut first, |_, _, _, _, _, _| Ok(())).await;
         assert_eq!(out, Err(FETCHES_SPENT.to_string()));
         assert_eq!((t.requests().len(), first.fetches), (1 + MAX_FETCHES, 0));
         assert!(first.steps > WALK.steps - WALK.steps / 100, "{} steps spent", WALK.steps - first.steps);
@@ -450,7 +486,7 @@ mod tests {
         let mut runs = 1;
         loop {
             runs += 1;
-            if with_walk(&db, Some(&api), 1, &clock, &mut Allowance::run(), |_, _, _, _, _| Ok(())).await.is_ok() { break; }
+            if with_walk(&db, Some(&api), 1, &clock, &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await.is_ok() { break; }
             assert!(runs < 3, "a run that fetched nothing new");
         }
         assert_eq!(runs, 3, "120 days: 50, then 51, then the last 19");

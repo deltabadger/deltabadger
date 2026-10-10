@@ -35,6 +35,9 @@ impl JobState {
     /// The latest run ended in an error (an error after the last success, or errors only). `None < Some`.
     pub fn failing(&self) -> bool { self.last_error_at > self.last_success_at }
 
+    /// Venue text stays in the stored state, while CLI diagnostics omit its free text.
+    pub fn describe_venue(&self)->String { let mut public=self.clone(); if public.last_error.is_some(){public.last_error=Some("venue diagnostic omitted".into())} public.describe() }
+
     /// One line, for `check` and the staleness refusal.
     pub fn describe(&self) -> String {
         let t = |at: Option<DateTime<Utc>>| at.map_or_else(|| "never".to_string(), |t| t.to_rfc3339_opts(SecondsFormat::Secs, true));

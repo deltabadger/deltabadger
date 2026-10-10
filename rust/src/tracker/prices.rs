@@ -289,6 +289,9 @@ pub fn store(c: &Connection, rows: &[PriceRow]) -> Result<(), FiguresError> {
     Ok(())
 }
 
+/// Authenticated bar results require Q's capability; public market-data writes use store.
+pub fn store_bars(c:&crate::engine::model::FencedTransaction<'_>,rows:&[PriceRow])->Result<(),FiguresError>{store(c,rows)}
+
 #[cfg(test)]
 mod tests {
     use super::*;

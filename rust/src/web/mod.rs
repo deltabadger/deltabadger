@@ -27,6 +27,7 @@ pub mod rate_limit;
 pub mod ring;
 pub mod server;
 pub mod session;
+pub mod settings;
 pub mod shell;
 pub mod timezone;
 pub mod tracker;
@@ -314,11 +315,21 @@ fn derive(secret: &str, label: &str) -> Result<[u8; 32], WebError> {
     Ok(mac.finalize().into_bytes().into())
 }
 
+type ValidationObserver=Box<dyn FnMut(Option<crate::engine::model::CredentialVersion>)+Send>;
+
 pub struct Inner {
     pub fx_cache: tracker::fx::Cache,
     pub figure_service: figure::service::Service,
     pub figure_source: figure::loading::Source,
     pub mcp_instructions: String,
+    settings_jobs:std::sync::OnceLock<crate::jobs::Wakers>,
+    pub settings_smtp:crate::mail::smtp::Env,
+    settings_smtp_provider_name:String,
+    settings_market_provider_name:String,
+    pub settings_key_url:String,
+    pub settings_key_logger:Arc<dyn settings::keys::Logger>,
+    settings_validation_observer:Mutex<Option<ValidationObserver>>,
+    pub settings_mailer:Arc<dyn settings::mail::Mailer>,
     pub config: Config,
     pub keys: Keys,
     pub cipher: Cipher,
@@ -343,7 +354,6 @@ pub struct Inner {
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
-    jobs: std::sync::OnceLock<crate::jobs::Wakers>,
 }
 
 pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
@@ -379,12 +389,13 @@ impl App {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
+            settings_key_url:crate::venue::alpaca::PAPER_TRADING_URL.into(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
+            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
             db: Mutex::new(primary),
             engine: std::sync::OnceLock::new(),
-            jobs: std::sync::OnceLock::new(),
         })))
     }
 
@@ -401,20 +412,39 @@ impl App {
         Ok(Self(Arc::new(inner)))
     }
 
+    /// Test SMTP boundary; the account controller, transaction and message renderer remain real.
+    pub fn with_settings_mailer(self,mailer:Arc<dyn settings::mail::Mailer>)->Result<Self,WebError>{
+        let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
+        inner.settings_mailer=mailer;Ok(Self(Arc::new(inner)))
+    }
+
+    /// Scripted account HTTP and application logger, only before sharing the App.
+    pub fn with_settings_key_boundary(self,url:String,logger:Arc<dyn settings::keys::Logger>)->Result<Self,WebError>{
+        let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
+        inner.settings_key_url=url;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
+    }
+
+    #[doc(hidden)]
+    pub fn set_validation_observer(&self,observer:impl FnMut(Option<crate::engine::model::CredentialVersion>)+Send+'static)->Result<(),WebError>{
+        *self.settings_validation_observer.lock().map_err(|_|WebError::Config("validation observer unavailable".into()))?=Some(Box::new(observer));Ok(())
+    }
+    pub(crate) fn observe_validation(&self,producer:Option<crate::engine::model::CredentialVersion>)->Result<(),WebError>{
+        let mut observer=self.settings_validation_observer.lock().map_err(|_|WebError::Config("validation observer unavailable".into()))?;
+        if let Some(observer)=observer.as_mut(){observer(producer);}Ok(())
+    }
+
+    pub fn attach_jobs(&self,wakers:crate::jobs::Wakers)->Result<(),WebError>{if let Some(wake)=self.engine.get(){wakers.attach_engine(wake.clone());}self.settings_jobs.set(wakers).map_err(|_|WebError::Config("job scheduler already attached".into()))}
+    pub fn job_wakers(&self)->Result<crate::jobs::Wakers,WebError>{self.settings_jobs.get().cloned().ok_or_else(||WebError::Config("job scheduler unavailable".into()))}
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
 
     /// Called once, by `supervisor::serve`, before the first request is served. A second call is ignored.
     pub fn attach_engine(&self, wake: Arc<tokio::sync::Notify>) {
-        let _ = self.engine.set(wake);
-    }
-
-    pub fn attach_jobs(&self, wake: crate::jobs::Wakers) -> Result<(), WebError> {
-        self.jobs.set(wake).map_err(|_| WebError::Config("job scheduler already attached".into()))
+        if self.engine.set(wake.clone()).is_ok(){if let Some(jobs)=self.settings_jobs.get(){jobs.attach_engine(wake);}}
     }
 
     /// Delivery stays in the blocking writer immediately after its successful commit.
     pub fn wake_job(&self, name: &'static str, scope: &str) {
-        if let Some(wake) = self.jobs.get() { wake.wake(name,Some(scope),None); }
+        if let Some(wake) = self.settings_jobs.get() { wake.wake(name,Some(scope),None); }
     }
 
     /// After a committed write the engine must act on (a bot started, stopped, deleted or archived, or its settings
@@ -478,7 +508,14 @@ impl App {
     /// handler must not hold up the other tasks of this process, the engine loop among them.
     pub async fn db<T: Send + 'static>(&self, work: impl FnOnce(&Connection) -> Result<T, WebError> + Send + 'static) -> Result<T, WebError> {
         let app = self.clone();
-        tokio::task::spawn_blocking(move || work(&app.0.db.lock().unwrap_or_else(PoisonError::into_inner)))
+        tokio::task::spawn_blocking(move || {
+            let c=app.0.db.lock().unwrap_or_else(PoisonError::into_inner);let out=work(&c);
+            if !c.is_autocommit(){
+                c.execute_batch("ROLLBACK").map_err(|_|WebError::Config("web transaction rollback failed".into()))?;
+                if out.is_ok(){return Err(WebError::Config("web left an uncommitted transaction".into()))}
+            }
+            out
+        })
             .await
             .map_err(|e| WebError::Task(e.to_string()))?
     }
@@ -506,8 +543,13 @@ async fn health_check() -> Response {
 /// CspReportsController: a browser posts policy violations here on its own, with no CSRF token.
 /// Accepted and dropped.
 /// ponytail: Rails logs nine sanitised fields of each report; port that when the policy is enforced.
-async fn csp_report() -> StatusCode {
-    StatusCode::NO_CONTENT
+async fn csp_report(State(app): State<App>, request: Request) -> Response {
+    let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
+    let address = rate_limit::client_key(&app.config, request.headers(), peer);
+    match app.limiter.hit(request.method(), "/csp-report", &address, app.now()) {
+        Some(retry_after) => rate_limit::throttled(retry_after),
+        None => StatusCode::NO_CONTENT.into_response(),
+    }
 }
 
 /// A route that exists for these methods only; any other method is a page this build does not serve.
@@ -539,6 +581,15 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/api/api_keys",only(post(settings::keys::legacy)))
+        .route("/bots/{id}/add_api_key",only(post(settings::keys::save)))
+        .route("/bots/{id}/add_api_key/new",only(get(settings::keys::bot_form)))
+        .route("/tracker/add_api_key",only(post(settings::keys::save)))
+        .route("/tracker/add_api_key/new",only(get(settings::keys::form)))
+        .route("/confirmation", only(get(settings::confirmation::show).post(settings::confirmation::create)))
+        .route("/confirmation/new", only(get(settings::confirmation::new)))
+        .route("/settings", only(get(settings::root)))
+        .route("/settings/{*action}", only(get(settings::show).patch(settings::write).post(settings::write).delete(settings::write)))
         .route("/tracker", only(get(tracker::index::index)))
         .route("/tracker/save_export_settings", only(patch(tracker::save_export_settings)))
         .route("/tracker/fund_classifications", only(patch(tracker::fund_classifications)))
@@ -571,7 +622,7 @@ fn routes(app: App) -> Router {
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
-        // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
+        // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
         .route("/csp-report", only(post(csp_report)))
@@ -729,7 +780,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
     let broadcast_json = original_method == Method::POST && route_path.starts_with("/broadcasts/");
-    let json_post = (bot_json || broadcast_json || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    let json_post = (bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
     let (form, body) = if form_post || json_post {
@@ -827,7 +878,12 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     // rack-attack: after the session middleware, before everything else.
     let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
     let address = rate_limit::client_key(&app.config, request.headers(), peer);
-    if let Some(retry_after) = app.limiter.hit(request.method(), &params.route_path, &address, now) {
+    let carries_input=request.uri().query().is_some_and(|q|!q.is_empty())
+        || request.headers().get(header::CONTENT_LENGTH).is_some_and(|v|v.to_str().is_ok_and(|v|v.parse::<u64>().is_ok_and(|n|n>0)))
+        || request.headers().contains_key(header::TRANSFER_ENCODING);
+    let limited=app.limiter.hit(request.method(), &params.route_path, &address, now)
+        .or_else(||app.limiter.setup_token(request.method(), &params.route_path, &address, now,carries_input));
+    if let Some(retry_after) = limited {
         return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
     }
 

@@ -229,6 +229,7 @@ async fn round1_historical_user_without_startup_key_runs_real_rebuild() {
             }
         }).await.unwrap();
         assert_eq!(manual(&c,id),json!({"price":"1.0"}));
+        assert!(deltabadger::app_config::get_plain(&c,&tracker::cache::key(owner)).unwrap().is_none(),"historical-only rebuild must not publish a current page cache");
         stop.send(true).unwrap();
     };
     let ((),result)=tokio::join!(requests,scheduler.run(stopped,clock.as_ref()));result.unwrap();

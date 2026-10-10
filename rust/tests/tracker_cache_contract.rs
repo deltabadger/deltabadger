@@ -12,10 +12,10 @@ fn cache_oracle_sources_stay_pinned(){
 #[test]
 fn cache_lifecycle_matches_rails_with_documented_eviction_miss(){
     let c=rusqlite::Connection::open_in_memory().unwrap();
-    c.execute_batch("CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT);CREATE TABLE historical_prices(id INTEGER);").unwrap();
+    c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT);CREATE TABLE historical_prices(id INTEGER);").unwrap();
     let now:DateTime<Utc>="2026-10-08T12:00:00Z".parse().unwrap();
     let w=Walked{whole:Summary::empty(),venue:None,terms:vec![]};
-    let warm=||{assert!(cache::publish(&c,1,&cache::version(&c,1).unwrap(),Some(&w),7,now).unwrap());};
+    let warm=||{let tx=c.unchecked_transaction().unwrap();let fenced=deltabadger::engine::model::fence_versions(&tx,&[]).unwrap();assert!(cache::publish(&fenced,1,&cache::version(&fenced,1).unwrap(),Some(&w),7,now).unwrap());tx.commit().unwrap();};
     let read=|owner,at|match cache::read(&c,owner,None,at).unwrap(){State::Warm(_)=>"warm",State::Cold=>"cold",State::Failed(_)=>"failed"};
     let mut states=serde_json::Map::new();states.insert("absent".into(),json!(read(1,now)));warm();states.insert("computed".into(),json!(read(1,now)));states.insert("other_owner".into(),json!(read(42,now)));
     let State::Warm(empty)=cache::read(&c,1,Some(99),now).unwrap() else {panic!("empty scope")};states.insert("other_scope".into(),json!(empty.total_invested.to_s_f()));

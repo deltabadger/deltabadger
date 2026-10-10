@@ -117,6 +117,54 @@ fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
     Some((v.get("p")?.as_str()?.to_string(), v.get("h")?.as_object()?.clone()))
 }
 
+/// R2: the sole venue-text decision, before storing, returning or logging it.
+pub const VENUE_TEXT_REDACTED: &str = "Venue diagnostic omitted to protect stored credentials.";
+pub fn scrub_known(text: &str, values: &[&str]) -> String {
+    let mut seen=std::collections::HashSet::new();
+    let mut pending=vec![text.to_string()];
+    while let Some(value)=pending.pop(){
+        if !seen.insert(value.clone()){continue;}
+        if values.iter().any(|secret|!secret.is_empty()&&value.contains(secret)){
+            return VENUE_TEXT_REDACTED.into();
+        }
+        let percent=decode_percent(&value);
+        let form=value.replace('+'," ");
+        let json=unescape_json(&value);
+        let html=html_escape::decode_html_entities(&value).into_owned();
+        for next in [percent,form,json,html]{if next!=value&&!seen.contains(&next){pending.push(next);}}
+    }
+    text.into()
+}
+fn decode_percent(text:&str)->String{
+    let mut out=Vec::with_capacity(text.len());let bytes=text.as_bytes();let mut i=0;
+    while i<bytes.len(){
+        if bytes[i]==b'%'&&i+2<bytes.len(){
+            let digit=|c:u8|char::from(c).to_digit(16).map(|n|n as u8);
+            if let (Some(a),Some(b))=(digit(bytes[i+1]),digit(bytes[i+2])){out.push(a*16+b);i+=3;continue;}
+        }
+        out.push(bytes[i]);i+=1;
+    }
+    // Invalid UTF-8 cannot contain a UTF-8 stored value across the invalid byte.
+    String::from_utf8_lossy(&out).into_owned()
+}
+fn unescape_json(text:&str)->String{
+    let mut out=String::new();let mut rest=text;
+    while !rest.is_empty(){
+        if rest.starts_with('\\'){
+            let lengths=if rest.starts_with("\\u"){[12,6]}else{[2,2]};
+            let mut decoded=None;
+            for n in lengths{
+                if let Some(escape)=rest.get(..n){
+                    match serde_json::from_str::<String>(&format!("\"{escape}\"")){Ok(value)=>{decoded=Some((value,n));break;},Err(_)=>{ /* A literal malformed escape is retained and other decoded variants are still checked. */ }}
+                }
+            }
+            if let Some((value,n))=decoded{out.push_str(&value);rest=&rest[n..];continue;}
+        }
+        let Some(ch)=rest.chars().next() else{break};out.push(ch);rest=&rest[ch.len_utf8()..];
+    }
+    out
+}
+
 /// Devise's database_authenticatable with this app's settings (stretches 11, no pepper).
 /// Ruby's bcrypt truncates the password at 72 bytes; the bcrypt crate's `hash`/`verify` do too.
 /// An error only when the system's random source has no salt to give: no password causes one.
@@ -154,5 +202,15 @@ fn base32_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 /// A venue API key, decrypted. `passphrase` is Alpaca's mode ("paper"/"live"; nil reads as paper); Kraken has none.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Credentials { pub key: String, pub secret: String, pub passphrase: Option<String> }
+#[derive(Clone)]
+pub struct Credentials { pub key: String, pub secret: String, pub passphrase: Option<String>, pub redaction_values: Vec<String> }
+impl std::fmt::Debug for Credentials { fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{f.write_str("Credentials { [redacted] }")} }
+impl PartialEq for Credentials { fn eq(&self,other:&Self)->bool{self.key==other.key&&self.secret==other.secret&&self.passphrase==other.passphrase} }
+impl Eq for Credentials {}
+impl Credentials {
+    pub fn venue_text(&self,text:&str)->String{
+        let mut values=self.redaction_values.iter().map(String::as_str).collect::<Vec<_>>();
+        values.extend([self.key.as_str(),self.secret.as_str()]);if let Some(passphrase)=&self.passphrase{values.push(passphrase);}
+        scrub_known(text,&values)
+    }
+}

@@ -8,20 +8,52 @@ pub const NAMES:[&str;4]=["get_exchange_balances","list_open_orders","get_bot_de
 const ONLY:&str="this build reads Alpaca only";
 fn error()->WebError{WebError::Config("MCP read unavailable".into())}
 fn done(text:impl AsRef<str>)->Called{Called::Done(tool_text(read_limits::text(text.as_ref()),false))}
+#[derive(Clone)]
+pub struct Material { credentials:Credentials, origin:crate::engine::model::CredentialVersion }
+impl Material {
+    pub fn load(c:&Connection,cipher:&crate::crypto::Cipher,id:i64)->Result<Self,WebError>{
+        let (credentials,origin)=sync::credentials_with_version(c,cipher,id).map_err(|_|error())?;
+        Ok(Self{credentials,origin})
+    }
+}
+impl std::ops::Deref for Material { type Target=Credentials;fn deref(&self)->&Credentials{&self.credentials} }
 pub enum Fetch {
-    Balances{user:i64,exchange:i64,name:String,credentials:Credentials},
-    Orders{user:i64,local:Vec<String>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Credentials>)>},
-    Summary{user:i64,credentials:Option<Credentials>,now:At},
+    Bound{inner:Box<Fetch>,versions:Vec<crate::engine::model::CredentialVersion>},
+    Balances{user:i64,exchange:i64,name:String,credentials:Material},
+    Orders{user:i64,local:Vec<String>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Material>)>},
+    Summary{user:i64,credentials:Option<Material>,now:At},
+}
+impl Fetch {
+    fn producers(&self)->Vec<crate::engine::model::CredentialVersion>{
+        match self {
+            Self::Bound{versions,..}=>versions.clone(),
+            Self::Balances{credentials,..}=>vec![credentials.origin.clone()],
+            Self::Orders{venues,..}=>venues.iter().filter_map(|(_,_,c)|c.as_ref().map(|c|c.origin.clone())).collect(),
+            Self::Summary{credentials,..}=>credentials.iter().map(|c|c.origin.clone()).collect(),
+        }
+    }
 }
 type RawOrders = Vec<Box<serde_json::value::RawValue>>;
-pub enum Fetched { Text(String,bool), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), Orders(i64,Vec<String>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>), Summary(i64,Cache,At,bool) }
-fn credentials(c:&Connection,app:&App,user:i64,exchange:i64)->Result<Option<Credentials>,WebError>{
+pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Text(String,bool), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), Orders(i64,Vec<String>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>), Summary(i64,Cache,At,bool) }
+fn credentials(c:&Connection,app:&App,user:i64,exchange:i64)->Result<Option<Material>,WebError>{
     let id=c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 LIMIT 1",[user,exchange],|r|r.get(0)).optional()?;
-    id.map(|id|sync::credentials(c,&app.cipher,id).map_err(|_|error())).transpose()
+    id.map(|id|sync::credentials_with_version(c,&app.cipher,id).map(|(credentials,origin)|Material{credentials,origin}).map_err(|_|error())).transpose()
 }
 fn exchange(c:&Connection,name:&str)->Result<Option<(i64,String,String)>,WebError>{Ok(c.query_row("SELECT id,name,type FROM exchanges WHERE lower(name)=?1 AND type!='Exchanges::Bitmart' LIMIT 1",[name.to_lowercase()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?)}
 fn unknown(c:&Connection,name:&str)->Result<Called,WebError>{Ok(done(format!("Exchange '{name}' not found. Available exchanges: {}",super::tradeable(c)?.join(", "))))}
 pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Called,WebError>{
+    let tx=c.unchecked_transaction()?;
+    let planned=plan_inner(&tx,app,user,name,args)?;
+    let out=match planned {
+        Called::Fetch(inner)=>{
+            let versions=inner.producers();
+            Called::Fetch(Fetch::Bound{inner:Box::new(inner),versions})
+        }
+        done=>done,
+    };
+    tx.commit()?;Ok(out)
+}
+fn plan_inner(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Called,WebError>{
     if !read_limits::check(c,user)?{return Ok(done(read_limits::REFUSAL))}
     let now=At::from_utc(app.now()).ok_or_else(error)?;
     match name {
@@ -59,7 +91,7 @@ pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Calle
                 }Ok(false)
             })?;
             if refused{return Ok(done(ONLY))}
-            let credentials=figure::loading::read_info(c,app,user)?.map(|i|i.credentials);
+            let credentials=figure::loading::read_info(c,app,user)?.map(|i|Material{credentials:i.credentials,origin:i.origin});
             Ok(Called::Fetch(Fetch::Summary{user,credentials,now}))
         },_=>Err(error())
     }
@@ -70,9 +102,15 @@ async fn balance_read(venue:&AlpacaVenue<Wire>)->Result<(crate::ruby::BigDec,Vec
     match (cash,held){(Ok(c),Ok(h))=>Ok((c,h)),(Err(e),_)|(_,Err(e))=>Err((e,false))}
 }
 pub async fn fetch(app:&App,fetch:Fetch)->Fetched{
+    let versions=fetch.producers();
+    let value=fetch_inner(app,fetch).await;
+    if matches!(value,Fetched::Bound(..)){value}else{Fetched::Bound(Box::new(value),versions)}
+}
+async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
     match fetch{
+        Fetch::Bound{inner,versions}=>Fetched::Bound(Box::new(Box::pin(self::fetch_inner(app,*inner)).await),versions),
         Fetch::Balances{user,exchange,name,credentials}=>{
-            let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()),Urls::for_passphrase(credentials.passphrase.as_deref()));
+            let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()),Urls::for_passphrase(credentials.passphrase.as_deref()));
             match balance_read(&venue).await {Ok((cash,held))=>Fetched::Balances(user,exchange,name,cash,held),Err((_,true))=>Fetched::Text("An unexpected error occurred.".into(),true),Err((why,false))=>Fetched::Text(format!("Failed to fetch balances from {name}: {}",sync::scrub(&why,&credentials)),false)}
         },
         Fetch::Orders{user,local,ids,venues}=>{
@@ -80,7 +118,7 @@ pub async fn fetch(app:&App,fetch:Fetch)->Fetched{
             for (id,name,credentials) in venues {
                 let Some(credentials)=credentials else{out.push((id,name,Err("no usable trading key".into())));continue};
                 if credentials.passphrase.as_deref()==Some("live"){out.push((id,name,Err("this build reads Alpaca paper only".into())));continue}
-                let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()),Urls::for_passphrase(None));
+                let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()),Urls::for_passphrase(None));
                 let result=match venue.read(false,"/v2/orders",vec![("status","open".into()),("limit","50".into())],sync::balances::MAX_LIST_BYTES).await {
                     Err(e)=>Err(sync::venue_failure(e)),
                     Ok(body)=>sync::parsed(body,|text|serde_json::from_str::<RawOrders>(text).map_err(|_|sync::Unread::Raised("Unreadable orders".into()))).await
@@ -92,7 +130,7 @@ pub async fn fetch(app:&App,fetch:Fetch)->Fetched{
         Fetch::Summary{user,credentials,now}=>{
             let mut cache=Cache::default();
             let ready=if let Some(credentials)=credentials{
-                let wire=Wire::new(&credentials,app.figure_source.clone());
+                let wire=Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone());
                 figure::loading::fill_with(app,user,&mut cache,&wire,now,read_limits::check,move|c,r|global(c,user,r,now).is_ok()).await
             }else{true}; // An empty market cache can still compute local cash-only USD totals.
             Fetched::Summary(user,cache,now,ready)
@@ -100,9 +138,24 @@ pub async fn fetch(app:&App,fetch:Fetch)->Fetched{
     }
 }
 pub fn finish(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
-    let user=match &fetch{Fetched::Balances(u,..)|Fetched::Orders(u,..)|Fetched::Summary(u,..)=>Some(*u),Fetched::Text(..)=>None};
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=finish_in(&tx,fetch)?;tx.commit()?;Ok(out)}else{finish_in(c,fetch)}
+}
+/// Every envelope and derived reply consumes the same finishing SQLite snapshot.
+fn finish_in(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
+    if let Fetched::Bound(inner,versions)=fetch {
+        for version in versions {
+            if !crate::engine::model::credential_is_current(c,&version)? {
+                crate::engine::log(crate::engine::model::CREDENTIALS_CHANGED);
+                return Ok(tool_text("Figures unavailable: credentials changed; retry with current credentials",false));
+            }
+        }
+        return finish_in(c,*inner)
+    }
+
+    let user=match &fetch{Fetched::Balances(u,..)|Fetched::Orders(u,..)|Fetched::Summary(u,..)=>Some(*u),Fetched::Text(..)|Fetched::Bound(..)=>None};
     if let Some(user)=user{if !read_limits::check(c,user)?{return Ok(tool_text(read_limits::REFUSAL,false))}}
     let text=match fetch{
+        Fetched::Bound(..)=>return Err(error()),
         Fetched::Text(text,is_error)=>return Ok(tool_text(read_limits::text(&text),is_error)),
         Fetched::Balances(user,exchange,name,cash,held)=>{
             let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
@@ -360,7 +413,7 @@ fn summary(c:&Connection,user:i64,cache:&Cache,now:At,ready:bool)->Result<String
     let count=|statuses:&[i64]|bots.iter().filter(|b|statuses.contains(&b.status)).count();
     let archived=count(&[7]);
     let mut lines=vec!["Portfolio Summary".into(),"================".into(),format!("Total bots: {} ({} active, {} stopped, {} not started{})",bots.len(),count(&[1,4,5,6]),count(&[2]),count(&[0]),if archived>0{format!(", {archived} archived")}else{String::new()}),String::new()];
-    let reader=Reader::new(cache,now.utc().timestamp()).with_symbols(figure::loading::symbols(c,user).map_err(fail_fig)?);
+    let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(figure::loading::symbols(c,user).map_err(fail_fig)?);
     let reason=if bots.iter().any(|b|b.quote.trim().is_empty()){Some("quote currency unavailable")}
         else if bots.iter().any(|b|matches!(metrics(c,b,now),Err(WebError::Config(why)) if why=="executed fill value unavailable")){Some("executed fill value unavailable")}
         else{None};

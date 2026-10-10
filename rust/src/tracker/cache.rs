@@ -12,10 +12,14 @@ const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 #[derive(Clone, Debug)]
 pub enum State { Cold, Failed(&'static str), Warm(Box<Summary>) }
-#[derive(Clone, Debug, PartialEq)]
-pub struct Version { history: String, prices: i64 }
+#[derive(Clone, Debug)]
+pub struct Version { history: String, prices: i64, producers:Value }
+impl PartialEq for Version {
+    fn eq(&self,other:&Self)->bool {self.history==other.history && self.prices==other.prices && crate::engine::model::stamp_set_current_for(&self.producers,&other.producers)}
+}
 pub fn version(c:&Connection,owner:i64)->Result<Version,FiguresError> {
-    Ok(Version { history:backfill::history_version(c,owner)?, prices:backfill::generation(c)? })
+    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    Ok(Version { history:backfill::history_version(c,owner)?, prices:backfill::generation(c)?,producers:origin.producer_stamps() })
 }
 pub fn key(owner:i64)->String { format!("rust_tracker_ledger.{owner}") }
 fn encode(s:&Summary)->Value {
@@ -46,9 +50,11 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
         total_invested:decimal(&v["total_invested"] )?,cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
 }
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
-pub fn publish(c:&Connection,owner:i64,before:&Version,walked:Option<&Walked>,venue:i64,now:DateTime<Utc>)->Result<bool,FiguresError> {
+pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,venue:i64,now:DateTime<Utc>)->Result<bool,FiguresError> {
     if &version(c,owner)? != before { return Ok(false); }
-    let payload=json!({"schema":1,"owner":owner,"history":before.history,"prices":before.prices,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venue":walked.and_then(|w|w.venue.as_ref()).map(|s|json!([venue,encode(s)]))}).to_string();
+    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
+    let payload=json!({"schema":1,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venue":walked.and_then(|w|w.venue.as_ref()).map(|s|json!([venue,encode(s)]))}).to_string();
     if payload.len()>MAX_PAYLOAD {return Err(FiguresError::NotComputed("ledger cache exceeds its size limit".into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     Ok(true)
@@ -56,6 +62,7 @@ pub fn publish(c:&Connection,owner:i64,before:&Version,walked:Option<&Walked>,ve
 /// Cold includes absent/expired/obsolete/malformed cache entries, as Rails' shape guard does.
 /// SQL failures propagate; a computed failure has its own safe, stated reason.
 pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read(&tx,owner,exchange,now)?;tx.commit()?;return Ok(out)}
     let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(State::Cold)};
     if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(State::Cold)}
     let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(State::Cold)};
@@ -64,6 +71,9 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
     if now>=expires {return Ok(State::Cold)}
     let current=version(c,owner)?;
     if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(State::Cold)}
+    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(State::Cold)}
+    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(State::Cold)}
     if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venue")) {return Ok(State::Cold)}
     if v["whole"].is_null() && v["venue"].is_null() {return Ok(State::Failed(UNAVAILABLE))}
     type Scopes=(Summary,Option<(i64,Summary)>);
@@ -91,9 +101,13 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn publish(c:&Connection,owner:i64,before:&Version,walked:Option<&Walked>,venue:i64,now:DateTime<Utc>)->Result<bool,FiguresError>{
+        let tx=c.unchecked_transaction()?;let fenced=crate::engine::model::fence_versions(&tx,&[]).map_err(|_|malformed())?;
+        let out=super::publish(&fenced,owner,before,walked,venue,now)?;tx.commit()?;Ok(out)
+    }
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c
     }
     fn now()->DateTime<Utc> {"2026-10-08T12:00:00Z".parse().unwrap()}
     fn walked()->Walked {

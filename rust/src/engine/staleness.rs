@@ -265,14 +265,27 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
 }
 
 pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    // Timestamp, incomplete marker, producer stamp and current ciphertext share one read snapshot.
+    // Placement already calls this inside its intent transaction; other callers get the same consistency.
+    if c.is_autocommit() {
+        let tx = c.unchecked_transaction()?;
+        let stale = ledger_stale(&tx, bot, now)?;
+        tx.commit()?;
+        return Ok(stale);
+    }
     if model::exchange_type(c, bot)? != "Exchanges::Alpaca" || model::all_crypto(c, bot)? { return Ok(None); }
     let key: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1", rusqlite::params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
     let state = match key {
         Some(key) => crate::jobs::state::read(c, "ledger_sync", Some(&key.to_string())).map_err(EngineError::Data)?,
         None => crate::jobs::state::JobState::default(),
     };
-    if state.incomplete_since.is_none() && state.last_success_at.is_some_and(|at| at <= now && (now-at).num_seconds() <= bound_secs(24)) { return Ok(None); }
-    Ok(Some(Stale { source: "Alpaca account ledger", message: format!("reference data stale: Alpaca account ledger; ledger_sync:{}: {}; a complete ledger refresh is required before this bot can trade", key.map_or_else(|| "missing".into(), |k| k.to_string()), state.describe()) }))
+    let produced_by_current = match key {
+        Some(id) => crate::sync::cache::ledger_current_for(c,id)?,
+        None => false,
+    };
+    if produced_by_current && state.incomplete_since.is_none() && state.last_success_at.is_some_and(|at| at <= now && (now-at).num_seconds() <= bound_secs(24)) { return Ok(None); }
+    let provenance = if produced_by_current { "" } else { "credential provenance missing or changed; " };
+    Ok(Some(Stale { source: "Alpaca account ledger", message: format!("reference data stale: Alpaca account ledger; ledger_sync:{}: {provenance}{}; a complete ledger refresh is required before this bot can trade", key.map_or_else(|| "missing".into(), |k| k.to_string()), state.describe_venue()) }))
 }
 
 pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict, EngineError> {

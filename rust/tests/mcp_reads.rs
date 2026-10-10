@@ -271,7 +271,9 @@ async fn polled_open_market_zero_price_uses_the_nil_branch() {
     let bot=seed::insert_bot(&o.primary,&s,&BotSpec::weekly(60.0,"2026-09-01 10:00:00"));
     let tx=seed::insert_tx(&o.primary,&s,bot,&TxSpec{status:0,external_status:Some(0),external_id:Some("polled-market".into()),order_type:0,amount:Some("2"),quote_amount:None,price:None,quote_amount_exec:None,amount_exec:None,created_at:"2026-09-10 12:00:00".into()});
     let state=parse_order("polled-market",&json!({"status":"new","side":"buy","type":"market","qty":"2","filled_qty":"0","symbol":"BTC/USD"})).unwrap();
-    polling::apply_in(&o.primary,bot,tx,&state,true,AT.parse().unwrap()).unwrap();
+    { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
+    polling::apply_in(&fenced,bot,tx,&state,true,AT.parse().unwrap()).unwrap();
+    unit.commit().unwrap(); }
     let stored:(f64,f64,i64)=o.primary.query_row("SELECT price,amount_exec,external_status FROM transactions WHERE id=?1",[tx],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
     assert_eq!(stored,(0.0,0.0,1),"polling persists its unknown sentinel");
     o.primary.execute("DELETE FROM api_keys",[]).unwrap();

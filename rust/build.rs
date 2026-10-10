@@ -6,9 +6,12 @@ use std::{env, fs, path::{Path, PathBuf}};
 use yaml_rust2::parser::{Event, EventReceiver, Parser};
 use yaml_rust2::scanner::TScalarStyle;
 
+mod provenance_build_gate;
+
 fn main() {
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
+    if let Err(error)=provenance_build_gate::check(&root){eprintln!("R4 provenance gate: {error}");std::process::exit(1);}
     migrations(&root, &out);
     locales(&root, &out);
     assets(&root, &out);

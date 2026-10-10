@@ -29,6 +29,8 @@ pub fn log(line: &str) { println!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M
 
 #[derive(Debug)]
 pub enum EngineError {
+    /// A venue answer belongs to credentials replaced while its request ran.
+    CredentialsChanged,
     Sqlite(rusqlite::Error),
     /// A stored value this build cannot read the way Rails wrote it.
     Data(String),

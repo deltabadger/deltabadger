@@ -194,9 +194,14 @@ async fn the_real_transport_speaks_to_alpaca_shaped_endpoints() {
     Mock::given(method("POST")).and(path("/v2/orders"))
         .and(body_json(json!({ "symbol": "BTC/USD", "side": "buy", "type": "market", "time_in_force": "gtc", "notional": "60.00", "client_order_id": "c-1" })))
         .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"id":"OTX-1","status":"pending_new"}"#)).expect(1).mount(&server).await;
-    let v = AlpacaVenue::new(ReqwestTransport::new(client(), "PKTEST".into(), "s".into()), Urls { trading: server.uri(), data: server.uri() });
+    // Keep the ordinary protocol response free of this fixture's credential.
+    let v = AlpacaVenue::new(ReqwestTransport::new(client(), "PKTEST".into(), "alpaca-fixture-secret-0123456789".into()), Urls { trading: server.uri(), data: server.uri() });
     assert_eq!(v.price(&btc_usd(), PriceSide::Ask).await, Ok(bd("64321.5")));
     assert_eq!(v.add_order(&market("60.00")).await, Ok("OTX-1".into()));
+    // R2 also protects a one-character credential inside successful venue text.
+    let short = AlpacaVenue::new(ReqwestTransport::new(client(), "PKTEST".into(), "s".into()), Urls { trading: server.uri(), data: server.uri() });
+    assert_eq!(short.price(&btc_usd(), PriceSide::Ask).await,
+        Err(VenueError::Rejected(vec![deltabadger::crypto::VENUE_TEXT_REDACTED.into()])));
 }
 
 // Paper only before 3.0: the factory never connects a live key or another exchange, and preflight refuses both before run claims.
@@ -205,7 +210,7 @@ async fn live_factory_connects_paper_only() {
     use deltabadger::crypto::Credentials;
     use deltabadger::venue::VenueFactory;
     let f = alpaca::LiveFactory::new();
-    let creds = |p: Option<&str>| Some(Credentials { key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
+    let creds = |p: Option<&str>| Some(Credentials { redaction_values:vec![], key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
     for p in [Some("paper"), None, Some("Live"), Some("live ")] {
         assert_eq!(f.for_bot("Exchanges::Alpaca", creds(p)).urls().trading, PAPER_TRADING_URL, "{p:?}");
     }

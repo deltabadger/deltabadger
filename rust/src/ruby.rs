@@ -455,3 +455,24 @@ pub fn time_as_json(raw: &str, t: &chrono::DateTime<chrono::FixedOffset>) -> Str
     let base = t.format("%Y-%m-%dT%H:%M:%S%.3f").to_string();
     if raw.ends_with(['Z', 'z']) { format!("{base}Z") } else { format!("{base}{}", t.format("%:z")) }
 }
+
+
+/// Ruby String#strip: ASCII whitespace plus NUL, never Unicode separators.
+pub fn strip(value: &str) -> &str { value.trim_matches(|c| matches!(c, '\0'|' '|'\t'|'\n'|'\r'|'\x0b'|'\x0c')) }
+/// ActiveSupport String#blank? uses the Unicode POSIX space class.
+pub fn blank(value: &str) -> bool { value.chars().all(char::is_whitespace) }
+/// Ruby \s is ASCII; keep Unicode letter classes enabled in the same expression.
+pub fn validation_regex(pattern: &str) -> Result<regex::Regex, regex::Error> {
+    regex::Regex::new(&pattern.replace(r"\s", r"[\x09-\x0d\x20]"))
+}
+
+#[cfg(test)]
+mod settings_whitespace_tests {
+    #[test]
+    fn ruby_whitespace_separates_regexp_strip_and_blank_semantics(){
+        let name=super::validation_regex(r"\A\p{L}+(\s+\p{L}+)*\z").unwrap();
+        for separator in [" ","\t","\n","\r","\x0b","\x0c"]{assert!(name.is_match(&format!("Alice{separator}Smith")));}
+        for separator in ["\u{a0}","\u{2003}"]{assert!(!name.is_match(&format!("Alice{separator}Smith")));assert_eq!(super::strip(separator),separator);assert!(super::blank(separator));}
+        assert_eq!(super::strip("\0 \t Alice \n\0"),"Alice");
+    }
+}

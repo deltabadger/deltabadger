@@ -61,7 +61,57 @@ pub enum VenueError {
     Transient(String),
 }
 
+/// Credentials and their digest are captured once, before this handle is built.
+/// The raw transport is private: production consumers use the attributed methods below.
+pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion> }
+impl<V:Venue> Handle<V> {
+    pub(crate) fn new(venue:V,producer:Option<crate::engine::model::CredentialVersion>)->Self { Self{venue,producer} }
+    pub(crate) fn for_bot(venue:V,c:&rusqlite::Connection,bot:&crate::engine::model::Bot)->Result<Self,crate::engine::EngineError>{
+        let producer=match venue.producer(){Some(origin)=>Some(origin),None=>crate::engine::model::credential_version(c,bot)?};
+        Ok(Self::new(venue,producer))
+    }
+}
+impl<V:Venue> Venue for &V {
+    fn producer(&self)->Option<crate::engine::model::CredentialVersion>{(*self).producer()}
+    fn rules(&self)->&'static VenueRules{(*self).rules()}
+    async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{(*self).positions().await}
+    async fn clock(&self)->Result<ClockAnswer,VenueError>{(*self).clock().await}
+    async fn price(&self,t:&Ticker,s:PriceSide)->Result<BigDec,VenueError>{(*self).price(t,s).await}
+    async fn add_order(&self,o:&NewOrder)->Result<String,VenueError>{(*self).add_order(o).await}
+    async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{(*self).orders(ids).await}
+    async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).orders_identified(ids,identify).await}
+    async fn order_by_client_id(&self,id:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).order_by_client_id(id,since).await}
+    async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{(*self).fills_from_trades(ids,since).await}
+    async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{(*self).balance(symbol,crypto).await}
+}
+impl<V:Venue> Venue for Handle<V> {
+    fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
+    fn rules(&self)->&'static VenueRules{self.venue.rules()}
+    async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{self.venue.positions().await}
+    async fn clock(&self)->Result<ClockAnswer,VenueError>{self.venue.clock().await}
+    async fn price(&self,t:&Ticker,s:PriceSide)->Result<BigDec,VenueError>{self.venue.price(t,s).await}
+    async fn add_order(&self,o:&NewOrder)->Result<String,VenueError>{self.venue.add_order(o).await}
+    async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{self.venue.orders(ids).await}
+    async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_identified(ids,identify).await}
+    async fn order_by_client_id(&self,id:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,since).await}
+    async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.venue.fills_from_trades(ids,since).await}
+    async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
+}
+/// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
+mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
+pub trait Attributed:Venue + sealed::Sealed {
+    async fn clock_result(&self)->crate::engine::model::Produced<Result<ClockAnswer,VenueError>>{let origin=self.producer();let value=self.clock().await;crate::engine::model::Produced::new(value,origin)}
+    async fn price_result(&self,t:&Ticker,s:PriceSide)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.price(t,s).await;crate::engine::model::Produced::new(value,origin)}
+    async fn positions_result(&self)->crate::engine::model::Produced<Result<std::collections::HashMap<String,BigDec>,VenueError>>{let origin=self.producer();let value=self.positions().await;crate::engine::model::Produced::new(value,origin)}
+    async fn balance_result(&self,s:&str,crypto:bool)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.balance(s,crypto).await;crate::engine::model::Produced::new(value,origin)}
+    async fn orders_result<F>(&self,ids:&[String],identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.orders_identified(ids,identify).await;crate::engine::model::Produced::new(value,origin)}
+    async fn fills_result(&self,ids:&[String],since:DateTime<Utc>)->crate::engine::model::Produced<Result<Vec<OrderState>,VenueError>>{let origin=self.producer();let value=self.fills_from_trades(ids,since).await;crate::engine::model::Produced::new(value,origin)}
+    async fn placement_result(&self,o:&NewOrder)->crate::engine::model::Produced<Result<String,VenueError>>{let origin=self.producer();let value=self.add_order(o).await;crate::engine::model::Produced::new(value,origin)}
+    async fn recovery_result(&self,id:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,since).await;crate::engine::model::Produced::new(value,origin)}
+}
+impl<V:Venue> Attributed for Handle<V> {}
 pub trait Venue {
+    fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { Err(VenueError::Rejected(vec!["positions unavailable".into()])) }
 
     /// The market clock. Asked only where VenueRules::market_hours. A transport failure that Client.network_failure raises
@@ -95,6 +145,8 @@ pub trait VenueFactory {
     /// `exchange_type` is the bot's exchanges.type. `None` credentials is Rails' unsaved fallback key: private calls
     /// fail at the venue, per bot.
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
+    /// Full stored material is used only to redact diagnostics, never venue financial data.
+    fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,_sensitive:Vec<String>)->Self::V{self.for_bot(exchange_type,credentials)}
 }
 
 /// GET /v2/clock as Clients::Alpaca#get_clock returns it: the 2xx body as text, or the failure with its HTTP status (None for

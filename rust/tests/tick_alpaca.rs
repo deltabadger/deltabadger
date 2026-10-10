@@ -214,7 +214,7 @@ async fn a_retry_within_five_seconds_reuses_the_cached_price() {
                                                  { "status": 200, "body": { "trades": { "BTC/USD": { "p": 70000 } } } }],
         "POST /v2/orders": [{ "network": "pre_send", "message": PRE_SEND }, { "status": 200, "body": { "id": "OTX-1", "status": "new" } }] }));
     let prices = PriceCache::default();
-    let cx = TickContext { prices: &prices, process_start: at(T0), stopping: &|| false };
+    let cx = TickContext { credential_version: model::credential_version(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), prices: &prices, process_start: at(T0), stopping: &|| false };
     let (mut now, mut attempts) = (at(T0), Attempts::default());
     loop {
         match tick::tick_recovering(&o.primary, &venue(&t), id, &FixedClock(now), &mut attempts, &mut None, &cx).await.unwrap() {
@@ -653,7 +653,8 @@ fn collision_untracked_orders_require_class_and_resolve_native_tombstones() {
         o.primary.execute("UPDATE transactions SET base_asset_id=NULL,quote_asset_id=NULL,base=NULL,quote=NULL WHERE id=?1",[tx]).unwrap();
         let raw=json!({"symbol":symbol,"asset_class":class,"status":"filled","filled_qty":"2","filled_avg_price":"30","side":"buy","type":"market"});
         let state=deltabadger::venue::alpaca::parse_order("NEW",&raw).unwrap();
-        deltabadger::engine::polling::apply_in(&o.primary,_id,tx,&state,false,at(T0)).unwrap();
+        let version=deltabadger::engine::model::credential_version(&o.primary,&deltabadger::engine::model::load_bot(&o.primary,_id).unwrap()).unwrap();
+        deltabadger::engine::model::credential_write(&o.primary,&version,|fenced|deltabadger::engine::polling::apply_in(fenced,_id,tx,&state,false,at(T0))).unwrap();
         let actual:Option<i64>=o.primary.query_row("SELECT base_asset_id FROM transactions WHERE id=?1",[tx],|r|r.get(0)).unwrap();
         assert_eq!(actual,want,"{symbol} {class:?}");
         o.primary.execute("DELETE FROM transactions WHERE id=?1",[tx]).unwrap();

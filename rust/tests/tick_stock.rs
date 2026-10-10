@@ -126,7 +126,7 @@ async fn a_closed_market_parks_the_bot_until_next_open_and_writes_nothing_else()
     let t = script(json!({ "GET /v2/clock": closed_clock() }));
     let untouched: String = one(&o, "SELECT updated_at FROM bots");
     let out = tick_at(&o, &t, id, at(T0)).await;
-    assert!(matches!(out, TickOutcome::MarketClosed { until } if until == at("2026-09-02T13:30:00Z")), "{out:?}");
+    assert!(matches!(out, TickOutcome::MarketClosed { until, .. } if until == at("2026-09-02T13:30:00Z")), "{out:?}");
     assert_eq!(events(&o), vec!["market_closed"]);
     assert_eq!(one::<String>(&o, "SELECT details FROM bot_activity_logs"), r#"{"next_market_open_at":"2026-09-02T09:30:00.000-04:00"}"#,
                "Time.parse(next_open).as_json: the clock's own offset, three fraction digits");

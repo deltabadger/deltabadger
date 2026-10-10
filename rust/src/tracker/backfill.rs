@@ -318,9 +318,8 @@ pub fn sweep(c: &Connection, plan: &Plan, rows: &[Stored], terms: &[Term], first
 }
 
 /// `store`: both tables and the version they were swept from, in one transaction; then the price generation.
-pub fn store(c: &Connection, cipher: &Cipher, user_id: i64, swept: &Swept, last: NaiveDate, version: &str, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
+pub fn store(c: &crate::engine::model::FencedTransaction<'_>, cipher: &Cipher, user_id: i64, swept: &Swept, last: NaiveDate, version: &str, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
     let exchange_id = Venue::alpaca(c)?.id;
-    c.execute_batch("BEGIN IMMEDIATE")?;
     let written = (|| -> Result<(), FiguresError> {
         for (date, day) in &swept.whole { crate::figures::budget::charge(1, 0)?; upsert_whole(c, user_id, *date, day)?; }
         c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
@@ -335,10 +334,7 @@ pub fn store(c: &Connection, cipher: &Cipher, user_id: i64, swept: &Swept, last:
         }
         crate::app_config::set(c, cipher, &history_key(user_id), version, now).map_err(FiguresError::Data)
     })();
-    match written {
-        Ok(()) => c.execute_batch("COMMIT")?,
-        Err(e) => { let _ = c.execute_batch("ROLLBACK"); return Err(e); }
-    }
+    written?;
     crate::app_config::set(c, cipher, &price_key(user_id), &generation(c)?.to_string(), now).map_err(FiguresError::Data)
 }
 

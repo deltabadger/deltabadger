@@ -61,7 +61,13 @@ pub fn insert_bot(c: &Connection, s: &Seeded, b: &BotSpec) -> i64 {
         "INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, settings_changed_at, created_at, updated_at) \
          VALUES ('Bots::DcaMultiAsset', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
         params![b.status, s.exchange_id, s.user_id, settings.to_string(), b.transient.to_string(), b.started_at, b.settings_changed_at, T]).unwrap();
-    c.last_insert_rowid()
+    let id=c.last_insert_rowid();
+    if b.transient.get("last_failure_kind").is_some() {
+        let bot=deltabadger::engine::model::load_bot(c,id).unwrap();
+        let producer=deltabadger::engine::model::credential_version(c,&bot).unwrap();
+        deltabadger::engine::model::credential_write(c,&producer,|fenced|deltabadger::engine::model::record_failure_origin(fenced,id)).unwrap();
+    }
+    id
 }
 
 pub struct TxSpec { pub status: i64, pub external_status: Option<i64>, pub external_id: Option<String>, pub order_type: i64,
@@ -200,7 +206,12 @@ pub fn fresh_stock_jobs(c: &Connection, now: chrono::DateTime<chrono::Utc>) {
     }
     let mut stmt=c.prepare("SELECT id FROM api_keys WHERE key_type=0").unwrap();
     for id in stmt.query_map([],|r|r.get::<_,i64>(0)).unwrap() {
-        deltabadger::jobs::state::record_success(c,"ledger_sync",Some(&id.unwrap().to_string()),now).unwrap();
+        let id = id.unwrap();
+        let version = deltabadger::engine::model::credential_version_by_id(c,id).unwrap().unwrap();
+        deltabadger::engine::model::credential_write(c,&Some(version.clone()),|tx| {
+            deltabadger::sync::cache::record_ledger(tx,id,&version,now)?;
+            deltabadger::jobs::state::record_success(tx,"ledger_sync",Some(&id.to_string()),now).map_err(deltabadger::engine::EngineError::Data)
+        }).unwrap();
     }
 }
 

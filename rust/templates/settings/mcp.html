@@ -1,0 +1,27 @@
+<turbo-frame id="mcp_settings">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">{{ v.t("settings.mcp.title")|safe }}</h4>
+    <p class="text-center" style="text-wrap: balance">{{ v.t("settings.mcp.description")|safe }}</p>
+
+    <dl class="settings-kv">
+      <dt class="label">URL</dt>
+      <dd><span class="tag tag--copy" id="mcp_url_display" title="{{ v.t("button.copy")|safe }}" data-controller="clipboard" data-clipboard-text-value="{{ root }}/mcp" data-action="click-&gt;clipboard#copy"><svg class="icon-16" fill="none" viewbox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+<path class="fill--icon" clip-rule="evenodd" d="M14 7q0-1-1-1H7a1 1 0 0 0-1 1v6q0 1 1 1h6q1 0 1-1zM7 4a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" fill-rule="evenodd"></path>
+<path class="fill--icon" d="M10 3q0-1-1-1H3a1 1 0 0 0-1 1v6q0 1 1 1h2v2H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v2h-2z"></path>
+</svg>
+{{ root.trim_start_matches("https://").trim_start_matches("http://") }}/mcp</span>
+</dd>
+    </dl>
+
+    <form class="switch-row" data-controller="form--submit" data-turbo-frame="mcp_settings" action="{{ v.path("/settings/update_mcp_dry_run") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <input value="{% if dry_run %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+      <div>
+        <div class="switch-row__title">{{ v.t("settings.mcp.dry_run_title")|safe }}</div>
+        <p class="switch-row__hint">{{ v.t("settings.mcp.dry_run_description")|safe }}</p>
+      </div>
+      <label class="toggle" title="{{ v.t("settings.mcp.dry_run_label")|safe }}">
+        <input type="checkbox" {% if dry_run %}checked{% endif %} data-action="change->form--submit#submit" />
+        <div class="toggle__style"></div>
+      </label>
+</form>  </div>
+</turbo-frame>

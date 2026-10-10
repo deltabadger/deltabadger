@@ -26,7 +26,7 @@ const ACTIVITIES: &str = "GET /v2/account/activities";
 const NOW: &str = "2026-09-20T02:00:00Z";
 
 fn clock() -> FixedClock { FixedClock(NOW.parse().unwrap()) }
-fn paper() -> Credentials { Credentials { key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn paper() -> Credentials { Credentials { redaction_values:vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 fn ok(body: Value) -> Value { json!({ "status": 200, "body": body }) }
 fn interest(id: &str, date: &str) -> Value { json!({ "id": id, "activity_type": "INT", "net_amount": "0.07", "date": date }) }
 fn split(id: &str, qty: &str) -> Value { json!({ "id": id, "activity_type": "SPLIT", "symbol": "AAPL", "asset_class": "us_equity", "qty": qty, "date": "2026-09-15" }) }
@@ -42,6 +42,9 @@ impl Ids {
 fn install() -> (tempfile::TempDir, Db, Ids) {
     let (dir, o, s) = common::install_alpaca();
     let c = &o.primary;
+    // This fixture names one known account, including its simulated Rails handbacks.
+    let producer=deltabadger::engine::model::credential_version_by_id(c,s.api_key_id).unwrap().unwrap();
+    { let tx=c.unchecked_transaction().unwrap(); sync::cache::record_ledger(&deltabadger::engine::model::check_credential_result(&tx,&Some(producer.clone())).unwrap(),s.api_key_id,&producer,clock().now()).unwrap(); tx.commit().unwrap(); }
     c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('AAPL.US', 'AAPL', 'Apple', 'Stock', '2026-01-01', '2026-01-01')", []).unwrap();
     let aapl = c.last_insert_rowid();
     c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
@@ -257,6 +260,14 @@ async fn a_price_or_a_value_outside_a_venue_numbers_range_fails_the_balance_sync
     // The last stored price, kept when no fresh one comes: 1e300 times a billion is no number.
     db.run(move |c, _| c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, priced_at, usd_value, synced_at, created_at, updated_at) \
                                   VALUES (?1, ?2, ?3, 1, 0, 1e300, '2026-09-01', 1e300, '2026-09-01', '2026-09-01', '2026-09-01')", [s.user_id, s.exchange_id, s.btc]).map_err(|e| e.to_string())).await.unwrap();
+    // This numeric-cap control represents a cache actually produced by this key.
+    // Unknown legacy cache prices are discarded under R, and are tested separately.
+    db.run(move |c,_| {
+        let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
+        let version=deltabadger::engine::model::credential_version_by_id(&tx,s.api_key_id).map_err(|e|format!("{e:?}"))?.ok_or("missing fixture key")?;
+        sync::cache::record(&deltabadger::engine::model::check_credential_result(&tx,&Some(version.clone())).map_err(|e|format!("{e:?}"))?,s.user_id,s.exchange_id,&version,true,clock().0).map_err(|e|format!("{e:?}"))?;
+        tx.commit().map_err(|e|e.to_string())
+    }).await.unwrap();
     let (_, v) = venue(script);
     let failure = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
     assert!(failure.error.contains("outside a venue number's range"), "{}", failure.error);
@@ -368,6 +379,7 @@ async fn expire_restated_is_one_guarded_unit_and_a_refusal_rolls_all_of_it_back(
 async fn a_live_key_is_refused_and_nothing_is_sent() {
     let (_dir, db, s) = install();
     let live = Credentials { passphrase: Some("live".into()), ..paper() };
+    db.run(move |c,cipher| c.execute("UPDATE api_keys SET passphrase=?1 WHERE id=?2",(cipher.encrypt("live"),s.api_key_id)).map_err(|e|e.to_string())).await.unwrap();
     let (t, v) = venue(json!({}));
     let failure = ledger::sync(&db, &v, s.api_key_id, &live, &clock()).await.unwrap().unwrap_err();
     assert_eq!((failure.error.as_str(), failure.raised), (LIVE_REFUSED, true));
@@ -445,9 +457,9 @@ fn each_reading_key_gets_a_ledger_job_and_a_balance_job_scoped_by_its_id() {
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let names = |c: &Connection| jobs::register(c, &venues, Rc::new(NoPrices)).unwrap().iter().map(|j| (j.spec().name, j.spec().scope)).collect::<Vec<_>>();
     let key = Some(s.api_key_id.to_string());
-    assert_eq!(names(&c), vec![("ledger_sync", key.clone()), ("balance_sync", key)], "the record is rust_job.ledger_sync:<api_key_id>");
+    assert_eq!(names(&c), vec![("ledger_sync", key.clone()), ("balance_sync", key), ("credential_scope_factory", None)], "the record is rust_job.ledger_sync:<api_key_id>");
     c.execute("UPDATE api_keys SET status = 2", []).unwrap();
-    assert!(names(&c).is_empty(), "a key Rails marked incorrect is not a reading key");
+    assert_eq!(names(&c), vec![("credential_scope_factory", None)], "incorrect keys have no sync jobs; the factory waits for a later settings write");
 }
 
 #[tokio::test(flavor = "current_thread")]

@@ -94,7 +94,7 @@ async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
-    for path in ["/tracker/import/new", "/de/settings/account?tab=x", "/setup", "/zz/login", "/assets/application.css"] {
+    for path in ["/tracker/import/new", "/de/exports?tab=x", "/setup", "/zz/login", "/assets/application.css"] {
         let answer = browser.get(&app, path).await;
         assert_eq!(answer.status, 501, "{path}");
         assert!(answer.body.contains(&format!("GET {path}")), "{path}: {}", answer.body);
@@ -236,11 +236,11 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     assert_eq!(browser.get(&app, "/bots").await.status, 200, "no bots, no balances: the empty page");
 
-    // The tracker's ring is drawn now, so holdings no longer refuse the page.
+    // Ruling R: a legacy balance with no credential producer remains unavailable.
     opened.primary.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
                             VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4)", (seeded.user_id, seeded.exchange_id, seeded.btc, "2026-01-01 00:00:00")).unwrap();
     let with_holdings = browser.get(&app, "/bots").await;
-    assert!(with_holdings.status == 200 && with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "one holding: one arc around the whole ring");
+    assert!(with_holdings.status == 200 && with_holdings.body.contains("class=\"stroke--icon\"") && !with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "unknown credential provenance must not draw a current holding");
 
     // One bot: the list is its page. The seeded bot is on Kraken, which this build's pages do not serve.
     let first = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));

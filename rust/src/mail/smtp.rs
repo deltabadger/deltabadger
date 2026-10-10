@@ -250,7 +250,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Wire<S> {
     /// AUTH PLAIN, the envelope, the message, QUIT: the same on a plain and on an encrypted connection.
     /// `accepted` turns true the moment the server has answered the end of DATA with a 2xx: from then on the mail is
     /// delivered, and QUIT is a courtesy with a short deadline of its own.
-    async fn submit(&mut self, s: &Settings, from: &str, to: &str, message: &str, accepted: &std::cell::Cell<bool>) -> Result<(), Failure> {
+    async fn submit(&mut self, s: &Settings, from: &str, to: &str, message: &str, accepted: &std::sync::atomic::AtomicBool) -> Result<(), Failure> {
         let ok = |code: u16| code / 100 == 2;
         let token = base64::engine::general_purpose::STANDARD.encode(format!("\0{}\0{}", s.credentials.0, s.credentials.1));
         let auth = format!("AUTH PLAIN {token}");
@@ -279,7 +279,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Wire<S> {
         body.push_str(".\r\n");
         self.send("data", body.as_bytes()).await?;
         self.reply("data", ok).await?;
-        accepted.set(true);
+        accepted.store(true,std::sync::atomic::Ordering::Relaxed);
         let _ = tokio::time::timeout(QUIT_WAIT.min(self.read_timeout), self.command("quit", "QUIT", ok)).await; // a lost QUIT changes nothing
         Ok(())
     }
@@ -308,7 +308,7 @@ pub async fn deliver(s: &Settings, from: &str, to: &str, message: &str) -> Resul
     if !address_ok(to) { return Err(failed("address", "the recipient is not an address")); }
     // Net::SMTP raises SocketError for a port it cannot resolve.
     let port: u16 = s.port.trim().parse().map_err(|_| failed("connect", "the port is not a number"))?;
-    let accepted = std::cell::Cell::new(false);
+    let accepted = std::sync::atomic::AtomicBool::new(false);
     let dialogue = async {
         let tcp = match tokio::time::timeout(s.open_timeout, tokio::net::TcpStream::connect((s.address.as_str(), port))).await {
             Ok(Ok(tcp)) => tcp,
@@ -342,7 +342,7 @@ pub async fn deliver(s: &Settings, from: &str, to: &str, message: &str) -> Resul
     match tokio::time::timeout(s.total_timeout, dialogue).await {
         Ok(outcome) => outcome,
         // The deadline fell while QUIT was out: the server has the mail, and saying otherwise would send it twice.
-        Err(_) if accepted.get() => Ok(()),
+        Err(_) if accepted.load(std::sync::atomic::Ordering::Relaxed) => Ok(()),
         Err(_) => Err(failed("delivery", format!("not finished within {} s", s.total_timeout.as_secs()))),
     }
 }

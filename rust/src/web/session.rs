@@ -44,6 +44,8 @@ pub struct SessionData {
     pub return_to: Option<String>,
     /// Set at sign-in; the first bots page with no bots consumes it to open the wizard.
     pub auto_open_bot_wizard: bool,
+    /// The tracker remembers the venue chosen before submitting its key form.
+    pub tracker_connect: Option<i64>,
 }
 
 impl SessionData {
@@ -59,6 +61,7 @@ impl SessionData {
             "pending": self.pending.as_ref().map(|p| json!([p.user_id, p.started_at])),
             "return_to": self.return_to,
             "auto_open_bot_wizard": self.auto_open_bot_wizard,
+            "tracker_connect": self.tracker_connect,
         })
     }
 
@@ -71,6 +74,7 @@ impl SessionData {
             pending: v["pending"].as_array().and_then(|a| Some(Pending { user_id: a.first()?.as_i64()?, started_at: a.get(1)?.as_i64()? })),
             return_to: text(&v["return_to"]),
             auto_open_bot_wizard: v["auto_open_bot_wizard"] == true,
+            tracker_connect: v["tracker_connect"].as_i64(),
         }
     }
 }

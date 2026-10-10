@@ -1,0 +1,1044 @@
+<turbo-frame id="tool_permissions">
+  <div class="widget widget--settings">
+    <h4 class="modal__title">{{ v.t("settings.mcp.tools_title")|safe }}</h4>
+    <p class="text-center" style="text-wrap: balance">{{ v.t("settings.mcp.tools_description")|safe }}</p>
+
+    <table class="permissions">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="permissions__surface">{{ v.t("settings.mcp.title")|safe }}</th>
+          <th class="permissions__surface">{{ v.t("settings.rest.title")|safe }}</th>
+        </tr>
+      </thead>
+        <tbody>
+          <tr class="permissions__group" data-group="read">
+            <th>{{ v.t("settings.mcp.tools_read")|safe }}</th>
+              <td class="permissions__cell" data-surface="mcp">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="read" type="hidden" name="group" />
+  <input value="{% if self.group_state("mcp", "read") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("mcp", "read") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("mcp", "read") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+              <td class="permissions__cell" data-surface="rest">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="read" type="hidden" name="group" />
+  <input value="{% if self.group_state("rest", "read") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("rest", "read") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("rest", "read") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+          </tr>
+            <tr class="permissions__tool" data-tool="list_bots">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_bots.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_bots.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_bots" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_bots") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_bots") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_bots" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_bots") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_bots") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="get_bot_details">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.get_bot_details.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.get_bot_details.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_bot_details" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "get_bot_details") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "get_bot_details") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_bot_details" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "get_bot_details") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "get_bot_details") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="list_exchanges">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_exchanges.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_exchanges.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_exchanges" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_exchanges") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_exchanges") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_exchanges" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_exchanges") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_exchanges") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="get_exchange_balances">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.get_exchange_balances.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.get_exchange_balances.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_exchange_balances" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "get_exchange_balances") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "get_exchange_balances") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_exchange_balances" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "get_exchange_balances") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "get_exchange_balances") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="get_portfolio_summary">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.get_portfolio_summary.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.get_portfolio_summary.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_portfolio_summary" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "get_portfolio_summary") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "get_portfolio_summary") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_portfolio_summary" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "get_portfolio_summary") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "get_portfolio_summary") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="list_transactions">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_transactions.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_transactions.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_transactions" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_transactions") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_transactions") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_transactions" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_transactions") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_transactions") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="list_open_orders">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_open_orders.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_open_orders.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_open_orders" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_open_orders") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_open_orders") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_open_orders" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_open_orders") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_open_orders") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="list_rules">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_rules.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_rules.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_rules" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_rules") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_rules") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_rules" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_rules") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_rules") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="list_indices">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_indices.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_indices.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_indices" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_indices") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_indices") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_indices" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_indices") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_indices") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+        </tbody>
+        <tbody>
+          <tr class="permissions__group" data-group="control">
+            <th>{{ v.t("settings.mcp.tools_control")|safe }}</th>
+              <td class="permissions__cell" data-surface="mcp">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="control" type="hidden" name="group" />
+  <input value="{% if self.group_state("mcp", "control") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("mcp", "control") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("mcp", "control") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+              <td class="permissions__cell" data-surface="rest">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="control" type="hidden" name="group" />
+  <input value="{% if self.group_state("rest", "control") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("rest", "control") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("rest", "control") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+          </tr>
+            <tr class="permissions__tool" data-tool="create_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.create_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.create_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "create_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "create_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "create_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "create_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="start_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.start_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.start_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="start_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "start_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "start_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="start_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "start_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "start_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="stop_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.stop_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.stop_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="stop_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "stop_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "stop_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="stop_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "stop_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "stop_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="update_bot_settings">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.update_bot_settings.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.update_bot_settings.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="update_bot_settings" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "update_bot_settings") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "update_bot_settings") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="update_bot_settings" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "update_bot_settings") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "update_bot_settings") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="start_rule">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.start_rule.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.start_rule.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="start_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "start_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "start_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="start_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "start_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "start_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="stop_rule">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.stop_rule.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.stop_rule.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="stop_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "stop_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "stop_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="stop_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "stop_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "stop_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="update_rule_settings">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.update_rule_settings.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.update_rule_settings.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="update_rule_settings" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "update_rule_settings") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "update_rule_settings") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="update_rule_settings" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "update_rule_settings") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "update_rule_settings") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="create_rule">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.create_rule.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.create_rule.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "create_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "create_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "create_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "create_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="delete_rule">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.delete_rule.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.delete_rule.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="delete_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "delete_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "delete_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="delete_rule" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "delete_rule") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "delete_rule") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="create_index_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.create_index_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.create_index_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_index_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "create_index_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "create_index_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_index_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "create_index_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "create_index_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="create_signal_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.create_signal_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.create_signal_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_signal_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "create_signal_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "create_signal_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="create_signal_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "create_signal_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "create_signal_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="delete_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.delete_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.delete_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="delete_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "delete_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "delete_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="delete_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "delete_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "delete_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="archive_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.archive_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.archive_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="archive_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "archive_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "archive_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="archive_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "archive_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "archive_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="unarchive_bot">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.unarchive_bot.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.unarchive_bot.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="unarchive_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "unarchive_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "unarchive_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="unarchive_bot" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "unarchive_bot") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "unarchive_bot") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="sync_tracker">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.sync_tracker.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.sync_tracker.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="sync_tracker" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "sync_tracker") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "sync_tracker") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="sync_tracker" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "sync_tracker") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "sync_tracker") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="set_transfer_link">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.set_transfer_link.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.set_transfer_link.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="set_transfer_link" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "set_transfer_link") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "set_transfer_link") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="set_transfer_link" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "set_transfer_link") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "set_transfer_link") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="set_transaction_price">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.set_transaction_price.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.set_transaction_price.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="set_transaction_price" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "set_transaction_price") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "set_transaction_price") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="set_transaction_price" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "set_transaction_price") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "set_transaction_price") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+        </tbody>
+        <tbody>
+          <tr class="permissions__group" data-group="trade">
+            <th>{{ v.t("settings.mcp.tools_trade")|safe }}</th>
+              <td class="permissions__cell" data-surface="mcp">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="trade" type="hidden" name="group" />
+  <input value="{% if self.group_state("mcp", "trade") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("mcp", "trade") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("mcp", "trade") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+              <td class="permissions__cell" data-surface="rest">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="trade" type="hidden" name="group" />
+  <input value="{% if self.group_state("rest", "trade") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("rest", "trade") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("rest", "trade") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+          </tr>
+            <tr class="permissions__tool" data-tool="market_buy">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.market_buy.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.market_buy.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="market_buy" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "market_buy") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "market_buy") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="market_buy" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "market_buy") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "market_buy") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="market_sell">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.market_sell.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.market_sell.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="market_sell" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "market_sell") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "market_sell") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="market_sell" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "market_sell") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "market_sell") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="limit_buy">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.limit_buy.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.limit_buy.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="limit_buy" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "limit_buy") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "limit_buy") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="limit_buy" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "limit_buy") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "limit_buy") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="limit_sell">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.limit_sell.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.limit_sell.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="limit_sell" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "limit_sell") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "limit_sell") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="limit_sell" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "limit_sell") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "limit_sell") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="cancel_order">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.cancel_order.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.cancel_order.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="cancel_order" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "cancel_order") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "cancel_order") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="cancel_order" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "cancel_order") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "cancel_order") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="liquidate_exited_asset">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.liquidate_exited_asset.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.liquidate_exited_asset.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="liquidate_exited_asset" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "liquidate_exited_asset") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "liquidate_exited_asset") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="liquidate_exited_asset" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "liquidate_exited_asset") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "liquidate_exited_asset") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="answer_redeploy_offer">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.answer_redeploy_offer.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.answer_redeploy_offer.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="answer_redeploy_offer" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "answer_redeploy_offer") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "answer_redeploy_offer") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="answer_redeploy_offer" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "answer_redeploy_offer") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "answer_redeploy_offer") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+        </tbody>
+        <tbody>
+          <tr class="permissions__group" data-group="tax">
+            <th>{{ v.t("settings.mcp.tools_tax")|safe }}</th>
+              <td class="permissions__cell" data-surface="mcp">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="tax" type="hidden" name="group" />
+  <input value="{% if self.group_state("mcp", "tax") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("mcp", "tax") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("mcp", "tax") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+              <td class="permissions__cell" data-surface="rest">
+                <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_group_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="tax" type="hidden" name="group" />
+  <input value="{% if self.group_state("rest", "tax") == "on" %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small{% if self.group_state("rest", "tax") == "partial" %} toggle--partial{% endif %}">
+    <input type="checkbox" {% if self.group_state("rest", "tax") != "off" %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+              </td>
+          </tr>
+            <tr class="permissions__tool" data-tool="list_tax_jurisdictions">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_tax_jurisdictions.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_tax_jurisdictions.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_tax_jurisdictions" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_tax_jurisdictions") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_tax_jurisdictions") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_tax_jurisdictions" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_tax_jurisdictions") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_tax_jurisdictions") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="generate_tax_report">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.generate_tax_report.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.generate_tax_report.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="generate_tax_report" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "generate_tax_report") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "generate_tax_report") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="generate_tax_report" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "generate_tax_report") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "generate_tax_report") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="get_tax_report_status">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.get_tax_report_status.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.get_tax_report_status.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_tax_report_status" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "get_tax_report_status") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "get_tax_report_status") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="get_tax_report_status" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "get_tax_report_status") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "get_tax_report_status") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="download_tax_report">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.download_tax_report.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.download_tax_report.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="download_tax_report" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "download_tax_report") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "download_tax_report") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="download_tax_report" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "download_tax_report") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "download_tax_report") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="export_transactions_csv">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.export_transactions_csv.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.export_transactions_csv.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="export_transactions_csv" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "export_transactions_csv") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "export_transactions_csv") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="export_transactions_csv" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "export_transactions_csv") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "export_transactions_csv") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+            <tr class="permissions__tool" data-tool="list_account_transactions">
+              <td>
+                <span class="permissions__name">{{ v.t("settings.mcp.tools.list_account_transactions.label")|safe }}</span>
+                <span class="permissions__desc">{{ v.t("settings.mcp.tools.list_account_transactions.description")|safe }}</span>
+              </td>
+                <td class="permissions__cell" data-surface="mcp">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_mcp_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_account_transactions" type="hidden" name="tool_name" />
+  <input value="{% if self.on("mcp", "list_account_transactions") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("mcp", "list_account_transactions") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+                <td class="permissions__cell" data-surface="rest">
+                  <form class="permissions__switch" data-controller="form--submit" data-turbo-frame="tool_permissions" action="{{ v.path("/settings/update_rest_tool_permissions") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+  <input value="list_account_transactions" type="hidden" name="tool_name" />
+  <input value="{% if self.on("rest", "list_account_transactions") %}0{% else %}1{% endif %}" type="hidden" name="enabled" />
+  <label class="toggle toggle--small">
+    <input type="checkbox" {% if self.on("rest", "list_account_transactions") %}checked{% endif %} data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+</label></form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+  </div>
+</turbo-frame>

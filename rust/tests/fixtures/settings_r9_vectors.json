@@ -1,0 +1,107 @@
+{
+  "sources": {
+    "app/controllers/settings_controller.rb": "3ea24992ae5ba9d657340c17f8e39dafd03cb8f96d522c097b2be6d4cb24f98c",
+    "app/controllers/api/api_keys_controller.rb": "61dffd76014c70045a8f4f4972dc4e91c458b8e157fd915f2d7bc4fc0f963a04",
+    "app/controllers/users/sessions_controller.rb": "ba98149ca299f09f1f813c689aa4285e1fa0300144710fab6dff8add5359ffff",
+    "config/initializers/rack_attack.rb": "b25478892de782257f505cb1eb3203a7b9495dd4a223d0d4179bcfd7301c3a29",
+    "app/helpers/locale_helper.rb": "827f9f4c25c1003ecfb10094502e6ba4a38a396323601e5448b1bdc49c34e678",
+    "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
+    "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
+    "app/models/exchanges/alpaca.rb": "fa540e23eea313c33610dc8ee5484e733ac6af299b0c9dc39f3d4b84ed8352d4",
+    "app/services/account_transaction_sync.rb": "fdb8852cb464e4010a94b123b783105987c9854499949a6a2a66690733579da1",
+    "app/views/settings/widgets/_rest.html.erb": "8e64257817c240aa610b17fe90acba3b4e48697216087fdc5277c90eabef3794",
+    "app/views/settings/widgets/_market_data.html.erb": "b1c0f18834ee98bdf2696d3d0d44924ce2818c09454f2a976184ce3b0c49f246",
+    "app/views/settings/widgets/_email_notifications.html.erb": "5e43547f94a0fd657df40d7176a7b334ac973a6aad7ed25266629be707b10f2f"
+  },
+  "throttles": {
+    "oauth/register": {
+      "limit": 5,
+      "period": 60
+    },
+    "oauth/token": {
+      "limit": 20,
+      "period": 60
+    },
+    "oauth/authorize": {
+      "limit": 10,
+      "period": 60
+    },
+    "users/login": {
+      "limit": 10,
+      "period": 60
+    },
+    "users/verify_two_factor": {
+      "limit": 5,
+      "period": 60
+    },
+    "users/password": {
+      "limit": 5,
+      "period": 60
+    },
+    "users/confirmation": {
+      "limit": 5,
+      "period": 60
+    },
+    "setup": {
+      "limit": 5,
+      "period": 60
+    },
+    "setup/token": {
+      "limit": 5,
+      "period": 60
+    },
+    "setup/platform_connection": {
+      "limit": 5,
+      "period": 60
+    },
+    "csp-report": {
+      "limit": 30,
+      "period": 60
+    }
+  },
+  "sign_in_email": {
+    "nbsp": {
+      "submitted": " STRIP@Example.com ",
+      "lookup_matches": false
+    },
+    "em_space": {
+      "submitted": " STRIP@Example.com ",
+      "lookup_matches": false
+    },
+    "nul": {
+      "submitted": "\u0000STRIP@Example.com\u0000",
+      "lookup_matches": true
+    }
+  },
+  "redacted": "[redacted]",
+  "sensitive_query": [
+    "confirmation_token",
+    "password",
+    "password_confirmation",
+    "current_password",
+    "otp_secret_key",
+    "otp_secret",
+    "otp_code_token",
+    "key",
+    "secret",
+    "passphrase",
+    "access_token",
+    "refresh_token",
+    "rsa_signature_key",
+    "rsa_encryption_key",
+    "dh_param",
+    "api_token",
+    "smtp_username",
+    "smtp_password",
+    "coingecko_api_key",
+    "alpaca_api_key",
+    "alpaca_api_secret",
+    "market_data_token",
+    "reset_password_token",
+    "unlock_token",
+    "token",
+    "claim_code",
+    "code"
+  ],
+  "smtp_custom_requires_starttls": "always"
+}

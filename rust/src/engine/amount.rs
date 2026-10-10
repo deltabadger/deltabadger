@@ -175,7 +175,7 @@ impl OrderPlan {
 pub enum RowKind { Submitted { external_id: String }, Failed { errors: Vec<String> }, Skipped }
 
 /// Bot::OrderCreator: persist_accepted_order! / create_failed_order! / create_skipped_order!.
-pub fn write_order_row(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>) -> Result<i64, EngineError> {
+pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>) -> Result<i64, EngineError> {
     let zero = Some(0.0f64);
     let (status, external_status, external_id, errors, exec) = match kind {
         RowKind::Submitted { external_id } => (TxStatus::Submitted, Some(TxExternalStatus::Unknown as i64), Some(external_id), vec![], None),

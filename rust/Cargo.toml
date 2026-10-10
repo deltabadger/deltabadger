@@ -32,6 +32,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 pbkdf2 = { version = "0.12", features = ["hmac"] }
 rand = "0.8"
+regex = "1"
 rusqlite = { version = "0.37", features = ["bundled", "functions"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 rust_decimal = { version = "1", features = ["std"] }
@@ -46,8 +47,12 @@ tokio = { version = "1", features = ["rt", "time", "macros", "sync", "signal", "
 tokio-rustls = { version = "0.26", default-features = false, features = ["aws-lc-rs", "tls12"] }
 tower = { version = "0.5", features = ["util"] }
 uuid = { version = "1", features = ["v4"] }
+qrcode = { version = "0.14", default-features = false }
+
+html-escape = "0.2"
 
 [build-dependencies]
+serde_json = "1" # existing locked crate; native R4 source gate has no external tool dependency
 sha2 = "0.10"
 yaml-rust2 = "0.13"
 

@@ -7,8 +7,8 @@ use super::balances;
 use crate::engine::events::EngineEvent;
 use crate::jobs::data_api::PriceSource;
 use crate::jobs::schedule::{Jitter, Schedule};
-use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
-use super::{credentials, ledger, reading_keys, Failure, SyncError, ALPACA};
+use crate::jobs::{Cx, Db, Job, JobFuture, AttributedJobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
+use super::{credentials_with_version, ledger, reading_keys, Failure, SyncError, ALPACA};
 use crate::crypto::Credentials;
 use crate::venue::alpaca::{AlpacaVenue, LiveFactory};
 use crate::venue::http::{ReqwestTransport, Transport};
@@ -17,6 +17,7 @@ use rusqlite::Connection;
 use std::rc::Rc;
 use std::time::Duration;
 
+pub const API_KEY_VALIDATOR: &str = "api_key_validator";
 pub const LEDGER_SYNC: &str = "ledger_sync";
 pub const BALANCE_SYNC: &str = "balance_sync";
 /// A ledger sync's own deadline (2f R1 lets it declare one): a first sync reads an account's whole history, a page
@@ -35,8 +36,8 @@ impl Connect for LiveFactory {
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<ReqwestTransport> { self.for_bot(ALPACA, Some(credentials.clone())) }
 }
 
-async fn key_credentials(db: &Db, key: i64) -> Result<Credentials, SyncError> {
-    db.run(move |c, cipher| credentials(c, cipher, key).map_err(|e| e.0)).await.map_err(SyncError)
+async fn key_credentials(db: &Db, key: i64) -> Result<(Credentials, crate::engine::model::CredentialVersion), SyncError> {
+    db.run(move |c, cipher| credentials_with_version(c, cipher, key).map_err(|e| e.0)).await.map_err(SyncError)
 }
 
 /// `Done` is a sync that reached the end of what the venue has, with or without anything to import: its
@@ -48,22 +49,25 @@ fn outcome<T>(done: Result<Result<T, Failure>, SyncError>, complete: impl Fn(&T)
         Ok(Ok(done)) if !complete(&done) => Outcome::NothingNew,
         Ok(Ok(_)) => Outcome::Done,
         Ok(Err(failure)) => Outcome::Failed(failure.error),
+        Err(SyncError(e)) if e == crate::engine::model::CREDENTIALS_CHANGED => Outcome::NothingNew,
         Err(SyncError(e)) => Outcome::Failed(e),
     }
 }
 
 /// One run of a job outside the scheduler (the hand-run command), held to the deadline the scheduler's runner would
 /// hold it to: past `Spec::deadline` the run is dropped at its next await and reported in the runner's words.
-pub async fn run_within_deadline(job: &dyn Job, cx: Cx<'_>, wakes: Vec<Wake>) -> Outcome {
-    let spec = job.spec();
-    let deadline = spec.deadline;
-    let db = cx.db.clone();
-    let owner = db.completion_owner(spec.name, spec.scope.as_deref()).await;
-    match tokio::time::timeout(deadline, job.run(cx, wakes)).await {
-        Ok(outcome) => outcome,
-        Err(_) => {
-            db.deadline_completion(owner, spec.name, spec.scope.as_deref()).await;
-            Outcome::Failed(format!("dropped past its {}s deadline", deadline.as_secs()))
+pub async fn run_within_deadline(job:&dyn Job,cx:Cx<'_>,wakes:Vec<Wake>)->Outcome {
+    run_within_deadline_attributed(job,cx,wakes).await.value
+}
+pub async fn run_within_deadline_attributed(job:&dyn Job,cx:Cx<'_>,wakes:Vec<Wake>)->crate::engine::model::Produced<Outcome> {
+    let spec=job.spec();let deadline=spec.deadline;
+    let db=cx.db.clone();
+    let owner=db.completion_owner(spec.name,spec.scope.as_deref()).await;
+    match tokio::time::timeout(deadline,job.run_attributed(cx,wakes)).await {
+        Ok(result)=>result,
+        Err(_)=>{
+            db.deadline_completion(owner,spec.name,spec.scope.as_deref()).await;
+            crate::engine::model::Produced::new(Outcome::Failed(format!("dropped past its {}s deadline",deadline.as_secs())),None)
         },
     }
 }
@@ -89,29 +93,33 @@ impl<C: Connect> Job for LedgerSync<C> {
     /// takes the database. On an install with several keys each key's job runs and the others find nothing new.
     fn wants(&self, event: &EngineEvent) -> bool { matches!(event, EngineEvent::OrderRecorded { .. }) }
     /// Whatever woke it (the schedule, a manual wake, any number of orders), a run is one sync of this key.
-    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
+    fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{ Box::pin(async move{self.run_attributed(cx,wakes).await.value}) }
+    fn run_attributed<'a>(&'a self,cx:Cx<'a>,_wakes:Vec<Wake>)->AttributedJobFuture<'a>{
         Box::pin(async move {
             let key_id = self.key_id;
             let owner = match cx.db.run(move |c, _| c.query_row("SELECT user_id FROM api_keys WHERE id=?1", [key_id], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string())).await {
                 Ok(owner) => owner,
-                Err(e) => return Outcome::Failed(e),
+                Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e),None),
             };
-            let outcome = async {
-                let credentials = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return Outcome::Failed(e) };
-                let key = self.key_id.to_string();
-                let at = cx.clock.now();
-                if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-                let outcome = outcome(ledger::sync_within(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits).await, |out| out.complete);
-                // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
-                // whole history at once; other due jobs run in between.
-                if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
-                // Rails' SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
-                else { crate::tracker::jobs::wake_for_key(&cx, self.key_id).await; }
-                outcome
-            }.await;
-            // A capped import continues; only its final success/failure completes the Rails job.
-            if outcome != Outcome::NothingNew { cx.db.notifications.sync_done(owner); }
+            let completion=async {
+            let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
+            let result=async {
+            let key = self.key_id.to_string();
+            let at = cx.clock.now();
+            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            let outcome = outcome(ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await, |out| out.complete);
+            // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
+            // whole history at once; other due jobs run in between.
+            if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
+            // Rails' SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
+            else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
             outcome
+
+            }.await;
+            crate::engine::model::Produced::new(result,Some(version))
+            }.await;
+            if completion.value != Outcome::NothingNew { cx.db.notifications.sync_done(owner); }
+            completion
         })
     }
 }
@@ -130,29 +138,93 @@ impl<C: Connect> Job for BalanceSync<C> {
         Spec { name: BALANCE_SYNC, scope: Some(self.key_id.to_string()), schedule: Some(Schedule::Daily { hour: 2, minute: 30 }), jitter: Jitter::NONE, retry: Retry::None,
                deadline: DEADLINE }
     }
-    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
+    fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{ Box::pin(async move{self.run_attributed(cx,wakes).await.value}) }
+    fn run_attributed<'a>(&'a self,cx:Cx<'a>,_wakes:Vec<Wake>)->AttributedJobFuture<'a>{
         Box::pin(async move {
-            let credentials = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return Outcome::Failed(e) };
+            let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
+            let result=async {
             // As the ledger: from before the first write unit until a complete success, the key's balances may be half
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-            let outcome = outcome(balances::sync(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock).await, |_| true);
+            let outcome = outcome(balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await, |_| true);
             // Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
             // rewrites today's rows.
-            crate::tracker::jobs::wake_for_key(&cx, self.key_id).await;
+            if outcome == Outcome::NothingNew { cx.wakers.wake(BALANCE_SYNC, Some(&self.key_id.to_string()), None); }
+            else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
             outcome
+
+            }.await;
+            crate::engine::model::Produced::new(result,Some(version))
         })
     }
 }
 
 /// The jobs of an install, for the scheduler's start: per reading Alpaca key (`ApiKey.reading`, what Rails' nightly
 /// jobs iterate) one ledger job and one balance job, every ledger job before every balance job, so jobs due together
-/// run in Rails' order. Keys are read once, here: a key added or condemned later is picked up at the next start.
+/// run in Rails' order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
     let keys = reading_keys(c)?;
     let mut jobs: Vec<Box<dyn Job>> = vec![];
     for key in &keys { jobs.push(Box::new(LedgerSync::new(venues.clone(), *key))); }
     for key in &keys { jobs.push(Box::new(BalanceSync::new(venues.clone(), prices.clone(), *key))); }
+    jobs.push(Box::new(ScopeFactory { venues: venues.clone(), prices }));
     Ok(jobs)
+}
+
+struct ScopeFactory<C: Connect> { venues:C, prices:Rc<dyn PriceSource> }
+impl<C: Connect + Clone + 'static> Job for ScopeFactory<C> {
+    fn spec(&self)->Spec { Spec{name:"credential_scope_factory",scope:None,schedule:None,jitter:Jitter::NONE,retry:Retry::None,deadline:DEADLINE} }
+    fn spawn(&self,name:&str,scope:Option<&str>)->Option<Box<dyn Job>> {
+        let id=scope?.parse::<i64>().ok().filter(|id|*id>0)?;
+        match name {
+            API_KEY_VALIDATOR => Some(Box::new(Validator{venues:self.venues.clone(),key_id:id})),
+            LEDGER_SYNC => Some(Box::new(LedgerSync::new(self.venues.clone(),id))),
+            BALANCE_SYNC => Some(Box::new(BalanceSync::new(self.venues.clone(),self.prices.clone(),id))),
+            _ => None,
+        }
+    }
+    fn run<'a>(&'a self,_cx:Cx<'a>,_wakes:Vec<Wake>)->JobFuture<'a> {Box::pin(async {Outcome::Failed("scope factory cannot run as a job".into())})}
+}
+
+/// Rails ApiKeyValidatorJob: validate a committed credential, then enqueue its trading balance sync.
+pub struct Validator<C:Connect>{pub venues:C,pub key_id:i64}
+impl<C:Connect> Job for Validator<C>{
+    fn spec(&self)->Spec{Spec{name:API_KEY_VALIDATOR,scope:Some(self.key_id.to_string()),schedule:None,jitter:Jitter::NONE,retry:Retry::None,deadline:DEADLINE}}
+    fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{ Box::pin(async move{self.run_attributed(cx,wakes).await.value}) }
+    fn run_attributed<'a>(&'a self,cx:Cx<'a>,_wakes:Vec<Wake>)->AttributedJobFuture<'a>{
+        Box::pin(async move {
+        let id=self.key_id;
+        let (credentials,version,values)=match cx.db.run(move|c,cipher|super::validation_material(c,cipher,id).map_err(|e|e.0)).await{Ok(v)=>v,Err(e)=>return crate::engine::model::Produced::new(Outcome::Failed(e),None)};
+        let handle=crate::web::settings::validator::ValidationHandle::stored(credentials,version);
+        let before_result=|value|crate::engine::model::Produced::new(value,Some(handle.producer().clone()));
+        let exchange=match cx.db.run(move|c,_|c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[id],|r|r.get::<_,String>(0)).map_err(|_|"cannot read credential exchange".into())).await{Ok(e)=>e,Err(e)=>return before_result(Outcome::Failed(e))};
+        if exchange!=ALPACA{return before_result(Outcome::Failed("credential validation unavailable for this exchange".into()))}
+        let kind=match cx.db.run(move|c,_|c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).map_err(|_|"cannot read credential capability".into())).await{Ok(k)=>k,Err(e)=>return before_result(Outcome::Failed(e))};
+        if super::live(handle.credentials()){return before_result(Outcome::NothingNew);}
+        let venue=self.venues.connect(handle.credentials());
+        let result=match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))};
+        use crate::web::settings::validator::Validity;
+        let status=result.map(|result|match result{Validity::Correct=>(1,None),Validity::Incorrect=>(2,Some("incorrect key".to_string())),Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&safe);(0,Some(safe))}});
+        let origin=status.origin().clone();
+        let Some(version)=origin.clone() else{return crate::engine::model::Produced::new(Outcome::NothingNew,None)};
+        let error=status.value.1.clone();
+        let status=status.map(|(status,_)|status);
+        let outcome=async {
+        let at=cx.clock.now();
+        if let Err(SyncError(e))=super::commit_bots_for(&cx.db,&version,move|c|{
+            crate::web::settings::keys::store_status(c,&status,id,at)?;
+            Ok(((),true))
+        }).await{
+            if e==crate::engine::model::CREDENTIALS_CHANGED{cx.wakers.wake(API_KEY_VALIDATOR,Some(&id.to_string()),None);return Outcome::NothingNew;}
+            return Outcome::Failed(e)
+        }
+        cx.wakers.wake_engine();
+        if let Some(error)=error {return Outcome::Failed(error)}
+        if kind==0 {cx.wakers.wake(BALANCE_SYNC,Some(&id.to_string()),None);}
+        Outcome::Done
+        }.await;
+        crate::engine::model::Produced::new(outcome,origin)
+        })}
+
 }

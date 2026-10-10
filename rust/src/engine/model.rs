@@ -164,7 +164,7 @@ impl Bot {
             None | Some(Value::Null) => Ok(None),
             Some(v) => v["until"].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).zip(v["schedule"].as_str())
                 .map(|(t, s)| Some((t.with_timezone(&Utc).timestamp_micros(), s.to_string())))
-                .ok_or_else(|| EngineError::Data(format!("bot {}: rust_defer_until {v}", self.id))),
+                .ok_or_else(|| EngineError::Data(format!("bot {}: malformed rust_defer_until", self.id))),
         }
     }
     /// Tests only: `rust_defer`'s time.
@@ -289,24 +289,202 @@ pub fn exchange_type(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
     Ok(t.unwrap_or_default())
 }
 
-/// Bot#api_key: `user.api_keys.find_by(exchange_id:, key_type: :trading)`, any status.
-pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
-    let row: Option<KeyRow> = c.query_row(
-        "SELECT k.key, k.secret, k.passphrase, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND k.key_type = 0 LIMIT 1",
-        params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
-    let Some((key, secret, passphrase, exchange_type)) = row else { return Ok(None) };
-    // A row that does not decrypt is not "no key": sent keyless, the venue would answer invalid key and the bot
-    // would be stopped as invalid_key. As in Rails (ActiveRecord::Encryption raises), the tick fails instead.
-    let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|e| EngineError::Data(format!("api key unreadable for bot {}: {e:?}", bot.id)))).transpose();
-    // Only Alpaca reads the passphrase (its mode). Elsewhere it is never decrypted, so an unreadable unused value cannot
-    // fail a Kraken bot's otherwise valid key: Kraken's credential loading stays exactly as merged.
-    let passphrase = if exchange_type.as_deref() == Some("Exchanges::Alpaca") { open(passphrase)? } else { None };
-    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { key, secret, passphrase }), _ => None })
+/// Bot#api_key: any status, trading slot. P versions stored ciphertext, never metadata.
+#[derive(Clone)]
+pub struct CredentialVersion { pub id: i64, digest: [u8; 32] }
+impl PartialEq for CredentialVersion {
+    fn eq(&self,other:&Self)->bool { self.same_credentials(other) }
+}
+impl Eq for CredentialVersion {}
+impl std::fmt::Debug for CredentialVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CredentialVersion").field("id", &self.id).finish_non_exhaustive()
+    }
+}
+impl CredentialVersion {
+    pub(crate) fn same_credentials(&self, other:&Self)->bool { current_for(Some(self),Some(other)).is_fresh() }
+    /// R's opaque cache provenance, stored only in Rust-owned state. Never log it.
+    pub(crate) fn cache_stamp(&self) -> Value {
+        serde_json::json!({"key_id": self.id, "ciphertext_digest": hex::encode(self.digest)})
+    }
+    pub(crate) fn from_stamp(stamp:&Value)->Option<Self> {
+        let bytes=hex::decode(stamp["ciphertext_digest"].as_str()?).ok()?;
+        Some(Self{id:stamp["key_id"].as_i64()?,digest:bytes.try_into().ok()?})
+    }
+
+}
+/// The only credential-provenance comparison. Missing or malformed producers are stale.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum Freshness { Fresh, Stale(&'static str) }
+impl Freshness { pub fn is_fresh(self)->bool { matches!(self,Self::Fresh) } }
+pub fn current_for(state_digest:Option<&CredentialVersion>,current_credential_digest:Option<&CredentialVersion>)->Freshness {
+    use subtle::ConstantTimeEq;
+    match (state_digest,current_credential_digest) {
+        (Some(state),Some(current)) if state.id==current.id && bool::from(state.digest.ct_eq(&current.digest))=>Freshness::Fresh,
+        _=>Freshness::Stale("credential provenance missing or changed"),
+    }
 }
 
-/// api_keys.key, secret, passphrase and the exchange's STI type, all still encrypted.
-type KeyRow = (Option<String>, Option<String>, Option<String>, Option<String>);
+pub fn stamp_current_for(state:&Value,current:&Value)->Freshness {
+    current_for(CredentialVersion::from_stamp(state).as_ref(),CredentialVersion::from_stamp(current).as_ref())
+}
+/// Identity-set adapter; every member delegates to the one digest comparison.
+pub fn stamp_set_current_for(state:&Value,current:&Value)->bool {
+    match (state.as_array(),current.as_array()) {
+        (Some(state),Some(current)) if state.len()==current.len()=>state.iter().zip(current).all(|(a,b)|stamp_current_for(a,b).is_fresh()),
+        _=>false,
+    }
+}
+pub fn identity_current_for(state:&str,current:&str)->Freshness {
+    let state=serde_json::from_str::<Value>(state).ok();
+    let current=serde_json::from_str::<Value>(current).ok();
+    match (state,current) {
+        (Some(a),Some(b)) if a[0]==b[0]=>stamp_current_for(&a[1],&b[1]),
+        _=>Freshness::Stale("credential provenance missing or changed"),
+    }
+}
+/// A venue-derived value keeps its immutable handle producer through maps and across awaits.
+#[derive(Clone,Debug)]
+pub struct Produced<T> { pub value:T, origin:Option<CredentialVersion>, complete:bool }
+impl<T> Produced<T> {
+    pub(crate) fn new(value:T,origin:Option<CredentialVersion>)->Self { Self{value,origin,complete:true} }
+    pub fn origin(&self)->&Option<CredentialVersion> { &self.origin }
+    pub fn map<U>(self,f:impl FnOnce(T)->U)->Produced<U> { Produced{value:f(self.value),origin:self.origin,complete:self.complete} }
+    pub(crate) fn with_completion(mut self,complete:bool)->Self {self.complete=complete;self}
+    pub fn current_for(&self,current:&Option<CredentialVersion>)->Freshness {
+        if !self.complete {return Freshness::Stale("incomplete venue-derived set")}
+        current_for(self.origin.as_ref(),current.as_ref())
+    }
+}
+/// Fixed column order; tagged, length-prefixed values distinguish NULL and empty values.
+/// Hash the exact stored encryption envelopes. Never decrypt or log this digest.
+fn ciphertext_version(id: i64, columns: &[Option<String>; 7]) -> CredentialVersion {
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(b"deltabadger.credentials.v1");
+    for value in columns {
+        match value {
+            None => hash.update([0]),
+            Some(value) => {
+                hash.update([1]);
+                hash.update((value.len() as u64).to_be_bytes());
+                hash.update(value.as_bytes());
+            }
+        }
+    }
+    CredentialVersion { id, digest: hash.finalize().into() }
+}
+/// A submitted validation handle owns these exact encryption envelopes before HTTP.
+/// Zero is a private pending slot; it is never used to label persisted account state.
+pub(crate) fn prepared_credential_version(id:i64,columns:&[Option<String>;7])->CredentialVersion {
+    ciphertext_version(id,columns)
+}
+fn stored_columns(r: &rusqlite::Row<'_>) -> rusqlite::Result<[Option<String>; 7]> {
+    Ok([r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?])
+}
+pub const CREDENTIALS_CHANGED: &str = "credentials changed; venue result discarded";
+
+pub fn credential_version_by_id(c: &Connection, id: i64) -> Result<Option<CredentialVersion>, EngineError> {
+    Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param FROM api_keys WHERE id=?1",
+        [id], |r| Ok(ciphertext_version(id, &stored_columns(r)?))).optional()?)
+}
+
+/// Shared Q check. Call only inside the transaction that writes the venue result.
+/// A deleted row is a mismatch too. The digest and ciphertext never enter logs.
+/// Compare cache/presentation provenance without decrypting or exposing credential material.
+pub fn credential_is_current(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    produced_is_current(c,&Produced::new((),Some(version.clone())))
+}
+/// Completeness and immutable producer are compared in the transaction consuming the set.
+pub fn produced_is_current<T>(c:&Connection,value:&Produced<T>)->Result<bool,EngineError>{
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let fresh=produced_is_current(&tx,value)?;tx.commit()?;return Ok(fresh)}
+    let current=match value.origin(){Some(version)=>credential_version_by_id(c,version.id)?,None=>None};
+    Ok(value.current_for(&current).is_fresh())
+}
+
+/// Durable waits are explicit local decisions or results from a producing venue handle.
+/// Legacy rows without either label or producer fail the common freshness check.
+pub fn wait_is_current(c:&Connection,wait:&Value)->Result<bool,EngineError>{
+    match wait["origin"].as_str(){
+        Some("local") if wait["producer"].is_null()=>Ok(true),
+        Some("venue") | None=>{
+            let produced=Produced::new((),CredentialVersion::from_stamp(&wait["producer"]));
+            produced_is_current(c,&produced)
+        }
+        _=>Ok(false),
+    }
+}
+
+pub struct FencedTransaction<'a> { connection: &'a Connection, versions: Vec<CredentialVersion> }
+impl FencedTransaction<'_> {
+    pub(crate) fn producer_version(&self)->Option<CredentialVersion> { self.versions.first().cloned() }
+    pub(crate) fn producer_stamp(&self)->Value { Value::Array(self.versions.iter().map(CredentialVersion::cache_stamp).collect()) }
+}
+/// Shared writer for a failure decision's immutable producer; also used by explicit fixtures.
+pub fn record_failure_origin(c:&FencedTransaction<'_>,bot_id:i64)->Result<(),EngineError>{
+    let stamp=c.producer_version().map_or(Value::Null,|producer|producer.cache_stamp());
+    let changed=c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_failure_origin',json(?2)) WHERE id=?1 AND json_type(transient_data)='object'",params![bot_id,stamp.to_string()])?;
+    if changed==0{return Err(not_an_object(bot_id))}
+    Ok(())
+}
+impl std::ops::Deref for FencedTransaction<'_> {
+    type Target=Connection;
+    fn deref(&self)->&Connection { self.connection }
+}
+pub fn fence_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
+    for version in versions { check_credential_result(tx,&Some(version.clone()))?; }
+    Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
+}
+pub fn check_credential_result<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
+    if c.is_autocommit() { return Err(EngineError::Data("credential result check requires a write transaction".into())); }
+    if let Some(version) = version {
+        if !credential_is_current(c,version)? {
+            super::log(CREDENTIALS_CHANGED);
+            return Err(EngineError::CredentialsChanged);
+        }
+    }
+    Ok(FencedTransaction{connection:c,versions:version.iter().cloned().collect()})
+}
+
+pub fn credential_write<T>(c: &Connection, version: &Option<CredentialVersion>, work: impl FnOnce(&FencedTransaction<'_>) -> Result<T, EngineError>) -> Result<T, EngineError> {
+    let tx=immediate(c)?;
+    let out=work(&check_credential_result(&tx,version)?)?;
+    tx.commit()?;Ok(out)
+}
+pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
+    Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1",
+        params![bot.user_id,bot.exchange_id], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)
+}
+pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
+    Ok(credentials_with_version(c,cipher,bot)?.0)
+}
+/// ONE read captures the encrypted version alongside the values used to build the venue.
+pub fn credentials_with_version(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<(Option<Credentials>, Option<CredentialVersion>), EngineError> {
+    let (credentials,version,_)=credentials_with_redaction(c,cipher,bot)?;
+    Ok((credentials,version))
+}
+
+/// Diagnostic material comes from the same row snapshot as the credential digest.
+pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>,Vec<String>);
+pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
+    type KeyRow = ([Option<String>;7], Option<String>, i64);
+    let row: Option<KeyRow> = c.query_row(
+        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.exchange_id=?2 AND k.key_type=0 LIMIT 1",
+        params![bot.user_id,bot.exchange_id], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
+    let Some((columns,exchange_type,id)) = row else { return Ok((None,None,Vec::new())) };
+    let version = ciphertext_version(id,&columns);
+    let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
+    let passphrase = if exchange_type.as_deref()==Some("Exchanges::Alpaca") {open(&columns[2])?} else {None};
+    let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase}), _=>None };
+    let mut sensitive=Vec::new();
+    for value in columns.iter().flatten() {
+        // An unused unreadable field remains unavailable; its stored envelope is still redacted.
+        let plain=match cipher.decrypt(value){Ok(plain)=>plain,Err(_)=>value.clone()};
+        sensitive.push(plain);
+    }
+    let credentials=credentials.map(|mut credentials|{credentials.redaction_values=sensitive.clone();credentials});
+    Ok((credentials,Some(version),sensitive))
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Level { Info = 0, Warning = 1, Error = 2 }
@@ -427,4 +605,37 @@ pub fn all_crypto(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
                     [serde_json::to_string(&ids).map_err(|_| EngineError::Data("unreadable member ids".into()))?], |r| Ok((r.get(0)?, r.get(1)?)))?
     };
     Ok(members > 0 && members == crypto)
+}
+
+#[cfg(test)]
+mod r4_provenance_tests {
+    use super::*;
+    #[test]
+    fn r4_current_for_rejects_missing_and_malformed_producers_and_map_keeps_origin(){
+        let a=CredentialVersion{id:1,digest:[1;32]};let b=CredentialVersion{id:1,digest:[2;32]};
+        assert!(current_for(Some(&a),Some(&a)).is_fresh());
+        for (state,current) in [(None,None),(Some(&a),None),(None,Some(&a)),(Some(&a),Some(&b))]{assert!(!current_for(state,current).is_fresh(),"R4 absent or changed producer is stale");}
+        assert!(!stamp_current_for(&serde_json::json!({"key_id":1,"ciphertext_digest":"bad"}),&a.cache_stamp()).is_fresh());
+        let value=Produced::new(100,Some(a.clone())).map(|n|n*2);
+        assert_eq!(value.value,200);assert!(value.current_for(&Some(a)).is_fresh());assert!(!value.current_for(&Some(b)).is_fresh(),"R4 map keeps original producer");
+    }
+    #[test]
+    fn r5_incomplete_produced_values_stay_stale_through_maps(){
+        let a=CredentialVersion{id:1,digest:[7;32]};
+        let incomplete=Produced::new(10,Some(a.clone())).with_completion(false);
+        assert!(!incomplete.current_for(&Some(a.clone())).is_fresh(),"R5 completeness is part of provenance");
+        assert!(!incomplete.map(|n|n*2).current_for(&Some(a.clone())).is_fresh(),"R5 transformations cannot complete a partial set");
+        assert!(Produced::new(20,Some(a.clone())).current_for(&Some(a)).is_fresh(),"R5 complete same-producer positive control");
+    }
+
+    #[test]
+    fn r6_wait_origin_matrix_refuses_legacy_unknown_and_conflicting_rows(){
+        use serde_json::json;
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        for wait in [json!({}),json!({"origin":"venue"}),json!({"origin":"unexpected"}),json!({"origin":"local","producer":{"id":1}})] {
+            assert!(!wait_is_current(&c,&wait).unwrap(),"R6 unknown or conflicting wait provenance is stale: {wait}");
+        }
+        assert!(wait_is_current(&c,&json!({"origin":"local"})).unwrap(),"R6 explicit engine-local positive control");
+    }
+
 }

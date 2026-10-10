@@ -2,6 +2,7 @@
 //! same frozen clock, and every response must be the same page (script/rust/pages.rb is the Rails half).
 //! `PAGES=login,two_factor cargo test --test pages` runs only the scenarios with those name prefixes.
 mod common;
+#[path="support/settings_snapshot.rs"] mod settings_snapshot;
 use common::html;
 use common::web::{self, Answer, Browser, Csrf, TestClock};
 use deltabadger::web::{cable, csrf, session, App};
@@ -115,8 +116,10 @@ fn rails_answer(recorded: &Value) -> Value {
     }).collect();
     let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
     let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
-    let mut answer = comparable(status, &headers, body);
-    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception"] {
+    let safe_body=body.to_string();
+    // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
+    let mut answer = comparable(status, &headers, &safe_body);
+    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
     answer
@@ -275,14 +278,32 @@ fn scenario(dir: &Path) -> Value {
 }
 
 /// Runs one scenario's steps against this crate; returns what Rails' rails.json holds.
+struct TestMail;
+impl deltabadger::web::settings::mail::Mailer for TestMail{
+    fn deliver(&self,message:deltabadger::mail::Message,_settings:Option<deltabadger::mail::smtp::Settings>,now:chrono::DateTime<chrono::Utc>)->deltabadger::web::settings::mail::Delivery{
+        Box::pin(async move{message.encode(now,"fixture@deltabadger").expect("real message encodes");Ok(())})
+    }
+}
+
 async fn run(dir: &Path) -> Value {
     let scenario = scenario(dir);
     assert_eq!(scenario["page_parity_scratch"], true, "{} is not a page-parity scratch copy", dir.display());
     let mut now: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
     let clock = TestClock::at(scenario["at"].as_str().unwrap());
-    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone());
+    let key_server=wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path("/v2/account")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path("/v2/positions")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([]))).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::header("APCA-API-KEY-ID","incorrect-key")).respond_with(wiremock::ResponseTemplate::new(401)).with_priority(1).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::header("APCA-API-KEY-ID","failure-key")).respond_with(wiremock::ResponseTemplate::new(503).set_body_json(json!({"message":"unavailable"}))).with_priority(1).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::path("/v2/positions")).and(wiremock::matchers::header("APCA-API-KEY-ID","positions-bad")).respond_with(wiremock::ResponseTemplate::new(401).set_body_json(json!({"message":"unauthorized"}))).with_priority(1).mount(&key_server).await;
+    for (key,body) in [("r9-no-cash",json!({"status":"ACTIVE"})),("r9-null-cash",json!({"status":"ACTIVE","cash":null}))]{
+        wiremock::Mock::given(wiremock::matchers::path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID",key)).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(&key_server).await;
+    }
+    wiremock::Mock::given(wiremock::matchers::path("/v2/positions")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
+    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(key_server.uri(),deltabadger::web::settings::keys::logger()).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
+    app.attach_jobs(Default::default()).unwrap();
     let mut observer = None;
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
     let mut responses = vec![];
@@ -291,6 +312,12 @@ async fn run(dir: &Path) -> Value {
         clock.set(now);
         if let Some(what) = step["before"].as_str() { before(dir, what); }
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
+        let request_path=if step["confirmation_token_from_user"]==true{
+            let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            let token:String=c.query_row("SELECT confirmation_token FROM users ORDER BY id LIMIT 1",[],|row|row.get(0)).unwrap();
+            let token:String=form_urlencoded::byte_serialize(token.as_bytes()).collect();
+            step["path"].as_str().unwrap().replace("__R2_TOKEN__",&token)
+        }else{step["path"].as_str().unwrap().to_string()};
         let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
         let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
         let wanted = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, Some("both") => Csrf::Both, _ => Csrf::None };
@@ -314,11 +341,12 @@ async fn run(dir: &Path) -> Value {
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let before = snapshot.then(|| action_rows(dir).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let answer = match step["json"].as_str() {
-            Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), Some(json.to_string()), csrf, &headers).await,
-            None => browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await,
+            Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
+            None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
         let mut response = rust_answer(&answer);
+        if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
         if let Some((rows_before, other_before)) = before {
             let (rows_after, other_after) = action_rows(dir).unwrap_or_else(|error| panic!("action rows after: {error}"));
             let changed = rows_before != rows_after;
@@ -371,6 +399,7 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     }
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
         if a == b { continue; }
+        if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
             return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
         }
@@ -432,6 +461,39 @@ fn recorded_grid() -> (tempfile::TempDir, tempfile::TempDir, Vec<PathBuf>) {
 ///   with public/404.html and the headers of a response made below the controllers.
 /// - `stricter_*`: only the `Location` may differ. Rails sends the browser back to a referer on its
 ///   host whatever the scheme; this crate requires its own origin and otherwise goes to `/`.
+///
+/// Ruling R: these five legacy fixtures contain priced balances but no producer digest.
+/// Compare the whole response after replacing only Rails' measured tracker SVG with
+/// Rust's asserted unavailable SVG. No amount, other icon, header or row is masked.
+fn unknown_origin_ring(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if !["bot_page_ring", "bots_empty_cash_shown", "bots_empty_with_holdings", "bots_list_ring", "bots_list_ring_with_cash"].contains(&name) { return None; }
+    Some((|| {
+        let mut expected=rails.clone();
+        let responses=expected["responses"].as_array_mut().ok_or("missing responses")?;
+        let actual=rust["responses"].as_array().ok_or("missing actual responses")?;
+        if responses.len()!=actual.len(){return Err("response count changed".into());}
+        let mut reviewed=0;
+        for (left,right) in responses.iter_mut().zip(actual) {
+            let Some(lines)=left["body"].as_array_mut() else { continue; };
+            let Some(ours)=right["body"].as_array() else {continue;};
+            let Some(anchor)=lines.iter().position(|v|v.as_str().is_some_and(|s|s.contains("data-tile=\"tracker\""))) else {continue;};
+            let start=anchor+1;
+            let end=start+lines[start..].iter().position(|v|v.as_str().is_some_and(|s|s.trim()=="</svg>" )).ok_or("missing Rails tracker svg end")?;
+            let ours_anchor=ours.iter().position(|v|v.as_str().is_some_and(|s|s.contains("data-tile=\"tracker\""))).ok_or("missing Rust tracker anchor")?;
+            let ours_start=ours_anchor+1;
+            let ours_end=ours_start+ours[ours_start..].iter().position(|v|v.as_str().is_some_and(|s|s.trim()=="</svg>" )).ok_or("missing Rust tracker svg end")?;
+            let original=lines[start..=end].iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n");
+            let replacement=ours[ours_start..=ours_end].iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n");
+            if !original.contains("stroke-dasharray=") || original.contains("stroke--icon") {return Err("Rails no longer presents the legacy balances as current: review R divergence".into());}
+            if replacement.contains("stroke-dasharray=") || !replacement.contains("<circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" fill=\"none\" r=\"9\" stroke-width=\"2\">") || replacement.matches("<circle").count()!=1 {return Err("Rust rendered a current legacy holding".into());}
+            lines.splice(start..=end,ours[ours_start..=ours_end].iter().cloned());
+            reviewed+=1;
+        }
+        if reviewed==0{return Err("R divergence exercised no tracker ring".into());}
+        match difference(name,&expected,rust){Some(message)=>Err(message),None=>Ok(())}
+    })())
+}
+
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let kind = ["unrouted_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
@@ -532,7 +594,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
                 countdown_pages += 1;
             }
         }
-        match action_divergence(&name, &scenario, &rails, &rust).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
+        match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name} (listed divergence): {message}")),
             None => if let Some(message) = difference(&name, &rails, &rust) { failures.push(message); },
@@ -542,9 +604,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 157, "completed read-only baseline");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 157, "completed read-only baseline");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3, "complete S1 inventory");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 154, "action inventory");
-        assert_eq!(dirs.len(), 157 + 154, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 157 + 154 + 413 + 3, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -672,7 +735,7 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let empty=n=="extra_empty_root";
             if start_guard || working_start || working_settings || html || scope || safety || flag || empty {
                 let rails_status=if html {406} else if flag {500}
-                    else if empty {400} else if matches!(n,"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
+                    else if empty {400} else if matches!(n,"start_no_key"|"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
                 if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
                 // HTML update, stop and archive are refused before they write; HTML start still commits first.

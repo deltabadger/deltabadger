@@ -39,7 +39,7 @@ fn main() {
                 deltabadger::engine::provider::bind(&c,&Cipher::new(&keys),&env).unwrap_or_else(|_|fail("index configuration reader unavailable"));
             }
             // Every background job's last run and every reference source's age (informational, no keys needed).
-            for (name, s) in deltabadger::jobs::state::all(&c).unwrap_or_default() { println!("job {name}: {}", s.describe()); }
+            for (name, s) in match deltabadger::jobs::state::all(&c){Ok(states)=>states,Err(_)=>fail("cannot read job state")} { let description=if ["ledger_sync","balance_sync","api_key_validator"].iter().any(|job|name.starts_with(job)){s.describe_venue()}else{s.describe()};println!("job {name}: {description}"); }
             for line in deltabadger::engine::staleness::report(&c, chrono::Utc::now()).unwrap_or_default() { println!("reference {line}"); }
             // The words `serve` refuses with too (Refusal::message). A source with no stamp is noted, never refused.
             match check_install_at(&c, chrono::Utc::now()).map_err(Refusal::Failed) {
@@ -152,7 +152,7 @@ fn mail_service<'a>(mail: deltabadger::mail::sender::Sender<SystemClock>, stop: 
 
 /// The scheduler owns its connection, cipher and event subscription and follows the supervisor's one stop signal.
 /// Construction logs nothing, preserving the takeover and running lines before any service starts.
-fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, engine: &mut Engine<LiveFactory>, clock: &'a dyn Clock, web: Option<&deltabadger::web::App>)
+fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, engine: &mut Engine<LiveFactory>, clock: &'a dyn Clock, app: Option<&deltabadger::web::App>)
     -> Result<supervisor::Service<'a>, String> {
     let secret = env("SECRET_KEY_BASE").unwrap_or_default();
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
@@ -164,7 +164,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(jobs::resolve::all(LiveFactory::new(),api,deltabadger::tracker::jobs::system_wall()));
-    let scheduler = if let Some(web) = web {
+    scheduler.wakers().attach_engine(engine.wake_handle());
+    let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;
         scheduler.with_notifications(web.job_notifications())
     } else { scheduler };
@@ -318,15 +319,20 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let spec = job.spec();
         let name = format!("{}:{}", spec.name, spec.scope.as_deref().unwrap_or_default());
-        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock, wakers: Default::default() }, vec![Wake::Manual(None)]));
+        let result=rt.block_on(deltabadger::sync::jobs::run_within_deadline_attributed(job.as_ref(),Cx{db:db.clone(),clock:&SystemClock,wakers:Default::default()},vec![Wake::Manual(None)]));
+        let version=result.origin().clone();
+        let outcome=result.value;
         let recorded = rt.block_on(db.run(move |c, _| {
             use deltabadger::jobs::state;
             let at = chrono::Utc::now();
+            let tx=deltabadger::engine::model::immediate(c).map_err(|_|"cannot begin job result write")?;
+            let fenced=deltabadger::engine::model::check_credential_result(&tx,&version).map_err(|_|"job credentials changed; result discarded")?;
             match &outcome {
-                Outcome::Done => state::record_success(c, spec.name, spec.scope.as_deref(), at)?,
-                Outcome::NothingNew => state::record_run(c, spec.name, spec.scope.as_deref(), at)?,
-                Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => state::record_error(c, spec.name, spec.scope.as_deref(), at, m)?,
+                Outcome::Done => state::record_success(&fenced, spec.name, spec.scope.as_deref(), at)?,
+                Outcome::NothingNew => state::record_run(&fenced, spec.name, spec.scope.as_deref(), at)?,
+                Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => state::record_error(&fenced, spec.name, spec.scope.as_deref(), at, m)?,
             }
+            tx.commit().map_err(|_|"cannot commit job result")?;
             Ok(outcome)
         }));
         let outcome = match recorded { Ok(outcome) => outcome, Err(_) => { eprintln!("deltabadger: {name}: cannot save job outcome"); code = EXIT_ENGINE_ERROR; continue; } };
@@ -334,7 +340,11 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Outcome::Done => println!("{name}: done"),
             // An import larger than one run reads: what was read is stored, and the next run continues.
             Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),
-            Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => { eprintln!("deltabadger: {name} failed: {m}"); code = EXIT_ENGINE_ERROR; }
+            Outcome::Failed(error) | Outcome::Transient(error) | Outcome::RateLimited(error) => {
+                // Emit only this trusted application constant or fixed text; never a venue body.
+                let text=if error==deltabadger::sync::LIVE_REFUSED { deltabadger::sync::LIVE_REFUSED } else { "venue diagnostic omitted" };
+                eprintln!("deltabadger: {name} failed: {text}");code=EXIT_ENGINE_ERROR;
+            }
         }
     }
     code

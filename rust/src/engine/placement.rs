@@ -3,6 +3,7 @@
 //! found order is recorded, filled and cleared in one transaction. "Not placed" is concluded only from a
 //! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
 //! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
+use crate::venue::Attributed;
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
 use super::schedule::{checkpoints, effective};
@@ -23,7 +24,10 @@ pub const ABSENCE_AFTER_SECONDS: i64 = 60;
 pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
 
 #[derive(Debug, Clone)]
-pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan }
+pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan,
+    /// In-memory only; no secret, digest or credential is persisted in an intent.
+    credential_version: Option<model::CredentialVersion>,
+}
 
 impl Intent {
     /// `Err` when a value would not read back through `from_json` (BigDec::to_persisted): such an intent is never written.
@@ -35,7 +39,7 @@ impl Intent {
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
                    "quote_type": p.quote_type, "volume": d("volume", &p.volume)? }))
     }
-    fn from_json(c: &Connection, bot: &Bot, v: &Value) -> Result<Self, EngineError> {
+    fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
         let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);
         let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);
@@ -43,7 +47,7 @@ impl Intent {
         // The intent names its own ticker: a basket's leg k is not the bot's first member. base_asset_id is for the logs; an
         // intent written by an earlier build has none.
         let ticker = model::ticker_by_id(c, bot.exchange_id, v["ticker_id"].as_i64().ok_or_else(bad)?)?.ok_or_else(bad)?;
-        Ok(Self { cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+        Ok(Self { credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
@@ -115,6 +119,14 @@ pub fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -
     wait_until(c, bot, now, |cps| cps.next_us)
 }
 
+/// A failure deferral uses the producing fenced handle, never a post-call lookup.
+pub fn defer_failure(c:&model::FencedTransaction<'_>,bot:&Bot,now:DateTime<Utc>)->Result<(),EngineError>{
+    defer_to_next_checkpoint(c,bot,now)?;
+    let producer=c.producer_version().map(|version|version.cache_stamp());
+    c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_defer_until.origin','venue','$.rust_defer_until.producer',json(?1)) WHERE id=?2",params![serde_json::to_string(&producer).map_err(|_|EngineError::Data("failure producer serialization failed".into()))?,bot.id])?;
+    Ok(())
+}
+
 /// A wait that has already ended (at the bot's last checkpoint): the bot is due at once, across a restart too, until its next
 /// tick removes it. What a continue start that Rails runs at once leaves (run::step_bot).
 pub fn run_now(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
@@ -133,14 +145,14 @@ fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::sch
     let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?);
     let until = DateTime::from_timestamp_micros(at).ok_or_else(super::schedule::time_range_error)?.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
-              params![json!({ "until": until, "schedule": schedule }).to_string(), bot.id])?;
+              params![json!({ "until": until, "schedule": schedule, "origin": "local" }).to_string(), bot.id])?;
     Ok(())
 }
 
 /// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
 /// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    Ok(begin_checked(c, bot, plan, clock, None)?.expect("unfenced"))
+    match begin_checked(c, bot, plan, clock, None, None)? { Begun::Intent(intent) => Ok(*intent), _ => Err(EngineError::Data("unfenced placement skipped".into())) }
 }
 
 /// `begin`, fenced: under the same write lock, the bot must still be working and its composition (exchange, quote asset and
@@ -151,14 +163,27 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
-    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)))
+    Ok(match begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)? { Begun::Intent(intent) => Some(*intent), _ => None })
 }
 
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>) -> Result<Option<Intent>, EngineError> {
+pub enum Begun { Intent(Box<Intent>), Changed, CredentialsChanged }
+/// Production placement always passes the version captured with the venue credentials (L).
+#[allow(clippy::too_many_arguments)]
+pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version))
+}
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>) -> Result<Begun, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
+    }
+    if let Some(version) = version {
+        let fresh=match version {Some(v)=>model::credential_is_current(&tx,v)?,None=>false};
+        if !fresh {
+            super::log(&format!("[engine] bot {}: credentials changed; order not placed; retry with fresh credentials", bot.id));
+            return Ok(Begun::CredentialsChanged);
+        }
     }
     if let Some((tickers, composition, reconciled)) = fence {
         let mut ticker_changed = false;
@@ -180,17 +205,17 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
             else { None };
         if let Some(reason) = reason {
             super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));
-            return Ok(None);
+            return Ok(Begun::Changed);
         }
     }
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let intent = Intent { credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
     // intent's own ticker by its id, as recovery will.
     let mut v = intent.to_json()?;
-    Intent::from_json(&tx, bot, &v)?;
+    Intent::from_json(&tx, bot, &v,intent.credential_version.clone())?;
     // What the order is sent under: `stranded` refuses any change to it until the order settles.
     v["exchange_id"] = json!(current.exchange_id);
     v["quote_asset_id"] = json!(current.quote_asset_id());
@@ -198,13 +223,15 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     v["composition"] = composition_snapshot(&tx, &current)?;
     set_intent(&tx, bot.id, Some(&v))?;
     tx.commit()?; // durable before the send
-    Ok(Some(intent))
+    Ok(Begun::Intent(Box::new(intent)))
 }
 
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
 
 pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
+    let handle=crate::venue::Handle::new(venue,intent.credential_version.clone());
+    let venue=&handle;
     let Some(send_until) = intent.at.checked_add_signed(Duration::seconds(SEND_WINDOW_SECONDS)) else { return Sent::NotSent(format!("{:?}", super::schedule::time_range_error())); };
     if clock.now() > send_until {
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
@@ -214,7 +241,7 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Se
         Ok(o) => o,
         Err(e) => return Sent::NotSent(format!("{e}; not sent")),
     };
-    match venue.add_order(&order).await {
+    match venue.placement_result(&order).await.value {
         Ok(txid) => Sent::Accepted(txid),
         Err(VenueError::Rejected(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),
@@ -225,8 +252,9 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Se
 
 pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
     let tx = model::immediate(c)?;
+    let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
     if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
-    let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
+    let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
     set_intent(&tx, bot.id, None)?;
     tx.commit()?;
     Ok(id)
@@ -234,9 +262,10 @@ pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -
 
 pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
     let tx = model::immediate(c)?;
+    let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
     if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
     let safe = errors.iter().any(|m| PLACEMENT_SAFE_TRANSIENT_ERRORS.iter().any(|p| m.contains(p)));
-    if !safe { write_order_row(&tx, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
+    if !safe { write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
     set_intent(&tx, bot.id, None)?;
     tx.commit()?;
     Ok(!safe)
@@ -255,7 +284,9 @@ pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn
 /// `recover` by a process that started at `process_start`.
 pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<Recovery, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(Recovery::NoIntent) };
-    let intent = Intent::from_json(c, bot, &raw)?;
+    let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
+    let venue=&handle;
+    let intent = Intent::from_json(c, bot, &raw,venue.producer())?;
     let rules = venue.rules();
     // Kraken drops an order after the deadline it was sent with, so absence is provable from deadline + 60 s whatever the
     // process start. A venue without one (VenueRules::absence_margin_secs): the lookup must start a full margin after the
@@ -264,29 +295,31 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let absent_from = if rules.deadline_sent { intent.deadline.checked_add_signed(Duration::seconds(ABSENCE_AFTER_SECONDS)).ok_or_else(super::schedule::time_range_error)? }
                       else { intent.at.max(process_start).checked_add_signed(Duration::try_seconds(rules.absence_margin_secs).ok_or_else(super::schedule::time_range_error)?).ok_or_else(super::schedule::time_range_error)? };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
-    match venue.order_by_client_id(&intent.cl_ord_id, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await {
+    match venue.recovery_result(&intent.cl_ord_id, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await.value {
         Ok(Some(state)) => {
             let now = clock.now();
             let tx = model::immediate(c)?;
+            let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
-            let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
+            let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
             // The intent goes before the fill is applied: the amount cap counts an unresolved intent as spent, and this one is
             // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
             // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
-            if polling::apply_in(&tx, bot.id, id, &state, true, now)? {
+            if polling::apply_in(&fenced, bot.id, id, &state, true, now)? {
                 polling::owe_limit_mail(&tx, bot.id, now)?;
                 super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
             }
-            defer_to_next_checkpoint(&tx, bot, now)?;
+            defer_failure(&fenced, bot, now)?;
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
         Ok(None) if started >= absent_from => {
             let tx = model::immediate(c)?;
+            let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
-            defer_to_next_checkpoint(&tx, bot, started)?;
+            defer_failure(&fenced, bot, started)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -307,13 +340,13 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
     let tx = model::immediate(c)?;
     let bot = model::load_bot(&tx, bot_id)?; // under the write lock, so two resolvers cannot both pass
     let raw = bot.rust_placement().ok_or_else(|| EngineError::Data(format!("bot {bot_id} has no unresolved order")))?;
-    let intent = Intent::from_json(&tx, &bot, &raw)?;
+    let intent = Intent::from_json(&tx, &bot, &raw,None)?;
     if let OperatorResolution::Placed(t) = &resolution {
         let dup: i64 = tx.query_row("SELECT count(*) FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, t], |r| r.get(0))?;
         if dup > 0 { return Err(EngineError::Data(format!("order {t} is already recorded"))); }
     }
     let (label, txid) = match resolution {
-        OperatorResolution::Placed(txid) => { write_order_row(&tx, &bot, &intent.plan, RowKind::Submitted { external_id: txid.clone() }, intent.at)?; ("placed", Some(txid)) }
+        OperatorResolution::Placed(txid) => { let fenced=model::check_credential_result(&tx,&intent.credential_version)?; write_order_row(&fenced, &bot, &intent.plan, RowKind::Submitted { external_id: txid.clone() }, intent.at)?; ("placed", Some(txid)) }
         OperatorResolution::NotPlaced => ("not_placed", None),
     };
     set_intent(&tx, bot_id, None)?;

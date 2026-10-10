@@ -107,11 +107,15 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     if scenario["parity_scratch"] != true { return Err(SyncError(format!("{} is not a parity scratch copy (no parity_scratch marker)", dir.display()))); }
     let key_id = scenario["api_key_id"].as_i64().ok_or_else(|| data("api_key_id"))?;
     let text = |k: &str| scenario["credentials"][k].as_str().map(str::to_string);
-    let credentials = Credentials { key: text("key").unwrap_or_default(), secret: text("secret").unwrap_or_default(), passphrase: text("passphrase") };
+    let credentials = Credentials { redaction_values:vec![], key: text("key").unwrap_or_default(), secret: text("secret").unwrap_or_default(), passphrase: text("passphrase") };
     let paths = Paths::from_env(&|_| None, dir);
     // The same exclusive lock every command takes, judged at the real clock.
     let _lock = lease::lock(&paths, Utc::now()).map_err(|e| SyncError(format!("{e:?}")))?;
     let opened = store::open(&paths).map_err(|e| SyncError(format!("{e:?}")))?;
+    // The oracle fixture explicitly describes a single known account. Bind its seeded
+    // incremental watermark to that producer; unknown real installations reread fully.
+    let producer=crate::engine::model::credential_version_by_id(&opened.primary,key_id)?.ok_or_else(||data("credential producer"))?;
+    { let tx=opened.primary.unchecked_transaction()?; super::cache::record_ledger(&crate::engine::model::check_credential_result(&tx,&Some(producer.clone()))?,key_id,&producer,Utc::now())?; tx.commit()?; }
     let before = snapshot(&opened.primary)?;
     let reading = reading_keys(&opened.primary)?;
     let db = Db::new(opened.primary, (*cipher).clone());

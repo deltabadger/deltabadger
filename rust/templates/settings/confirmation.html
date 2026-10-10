@@ -1,0 +1,32 @@
+<form data-controller="form--html5-validations form--label-animations" action="{{ v.path("/confirmation") }}" accept-charset="UTF-8" method="post">{% if persisted %}<input type="hidden" name="_method" value="patch" />{% endif %}<input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+
+  <h1>{{ v.t("devise.confirmations.new.title")|safe }}</h1>
+
+  <div class="form__row">
+    <input autofocus="autofocus" autocomplete="email"{% if new %} value=""{% endif %} class="form__input form__input--large{% if error.is_some() %} is-invalid{% endif %}"{% if new %} pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"{% endif %} data-html5-error-message="{{ v.t("devise.registrations.new.email_invalid")|safe }}" type="email" name="user[email]" id="user_email" />
+{% if let Some(message) = error %}
+             <div class="form__info form__info--invalid">{{ message }}</div>
+{% endif %}
+    <label class="form__label" for="user_email">{{ v.t("helpers.label.user.email")|safe }}</label>
+  </div>
+  <div class="form__row form__row--final-button">
+    <input type="submit" name="commit" value="{{ v.t("devise.confirmations.new.submit")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("devise.confirmations.new.submit")|safe }}" />
+  </div>
+
+  <div class="devise__links">
+    <a class="button button--link" href="{{ v.path("/login") }}">{{ v.t("links.log_in")|safe }}</a>
+    <span class="db-middot">●</span>
+{% if registration_open %}
+    <a class="button button--link" href="{{ v.path("/signup") }}">{{ v.t("links.sign_up")|safe }}</a>
+    <span class="db-middot">●</span>
+{% endif %}
+
+
+
+
+  {% include "layouts/_language_dropdown.html" %}
+</div>
+</form>

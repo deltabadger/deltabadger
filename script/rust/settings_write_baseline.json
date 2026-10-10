@@ -1,0 +1,657 @@
+{
+  "base": "c7f3a65db7de4a6b23919125884b8822ddc50aa1",
+  "pattern": "\\.unwrap\\s*\\(|\\.expect\\s*\\(|\\.unwrap_or_default\\s*\\(|\\.unwrap_or\\s*\\(|\\.unwrap_or_else\\s*\\(|\\blet\\s+_\\s*=|\\.ok\\s*\\(|\\bpanic!|\\bif\\s+let\\s+Ok\\b",
+  "files": {
+    "rust/src/crypto.rs": {
+      "upstream": {
+        "z.write_all(plain.as_bytes()).expect(\"in-memory write\");": 1,
+        "(z.finish().expect(\"in-memory finish\"), true)": 1,
+        "let mut sealed = self.aead.encrypt(Nonce::from_slice(&iv), bytes.as_slice()).expect(\"AES-GCM encrypt\");": 1,
+        "let v: Value = serde_json::from_str(stored).ok()?;": 1,
+        "bcrypt::verify(plain, stored_hash).unwrap_or(false)": 1,
+        "let mut mac = <hmac::Hmac<sha1::Sha1> as Mac>::new_from_slice(&key).ok()?;": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/engine/index.rs": {
+      "upstream": {
+        "match v { Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0), Some(Value::String(s)) => s.trim().parse().unwrap_or(0.0), _ => 0.0 }": 1,
+        "let mut value = cap.unwrap_or(0.0);": 1,
+        "let category = bot.index_category_id().unwrap_or_default();": 1,
+        "let top: Vec<String> = top.and_then(|t| serde_json::from_str::<Vec<Value>>(&t).ok()).unwrap_or_default()": 1,
+        "let weights: Map<String, Value> = weights.and_then(|w| serde_json::from_str::<Value>(&w).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();": 1,
+        "let n = match bounded { Some(b) if bot.hold_all() => b, _ => bot.num_coins().unwrap_or(0) };": 1,
+        "let limit = bounded.unwrap_or(n.saturating_mul(3).min(250)).clamp(0, 1000) as usize;": 1,
+        "let weights = blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), bot.allocation_flattening().unwrap_or(0.0));": 1,
+        "[bot.index_category_id().unwrap_or_default()], |r| r.get(0)).optional()?;": 1,
+        "let top = top.flatten().filter(|t| t.trim_start().starts_with('[')).unwrap_or_else(|| \"[]\".into());": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/engine/mod.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/engine/model.rs": {
+      "upstream": {
+        "id, user_id: user.unwrap_or(0), exchange_id: exchange.unwrap_or(0),": 1,
+        "bot_type: ty.unwrap_or_default(), settings: json_col(settings)?, transient: json_col(transient)?,": 1,
+        "match self.settings.get(\"num_coins\")? { Value::Number(n) => n.as_i64(), Value::String(s) => s.trim().parse().ok(), _ => None }": 1,
+        "Some(Value::String(s)) => s.trim().parse().ok(),": 1,
+        "None | Some(Value::Null) | Some(Value::Bool(false)) => BigDec::parse(\"0.001\").ok(),": 1,
+        "Some(Value::String(s)) if s.trim().is_empty() => BigDec::parse(\"0.001\").ok(),": 1,
+        "Some(Value::Array(a)) if a.is_empty() => BigDec::parse(\"0.001\").ok(),": 1,
+        "Some(Value::Object(o)) if o.is_empty() => BigDec::parse(\"0.001\").ok(),": 1,
+        "Some(Value::Number(n)) => match n.as_i64() { Some(i) => Some(BigDec::from_i64(i)), None => BigDec::from_f64(n.as_f64()?).ok() },": 1,
+        "Some(Value::String(s)) => BigDec::parse(s).ok(),": 1,
+        "self.settings.get(\"allocations\").and_then(Value::as_object).map(|m| m.keys().filter_map(|k| k.parse().ok()).collect()).unwrap_or_default()": 1,
+        "m.iter().map(|(k, v)| Some((k.parse().ok()?, v.as_f64()?))).collect()": 1,
+        "if let Ok(t) = DateTime::parse_from_rfc3339(s) { return Ok(Some(t.with_timezone(&Utc).timestamp_micros())); }": 1,
+        "None => BigDec::from_f64(n.as_f64().unwrap()).map_err(data),": 1,
+        "Some(v) => v[\"until\"].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).zip(v[\"schedule\"].as_str())": 1,
+        "Some((v[\"count\"].as_i64().unwrap_or(0), !continued && v[\"key\"].as_str() == Some(self.amount_limit_key().as_str())))": 1,
+        "Some(v) => v.as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok())": 1,
+        "id: r.get(0)?, ticker: r.get(1)?, base_code: r.get(14)?, quote_code: r.get(15)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),": 1,
+        "quote_symbol: r.get::<_, Option<String>>(3)?.unwrap_or_default(), exchange_name: r.get::<_, Option<String>>(4)?.unwrap_or_default(),": 1,
+        "minimum_base_size: dec(10)?.unwrap_or_else(BigDec::zero), minimum_quote_size: dec(11)?.unwrap_or_else(BigDec::zero),": 1,
+        "trading_enabled: r.get::<_, Option<bool>>(12)?.unwrap_or(false), available: r.get::<_, Option<bool>>(13)?.unwrap_or(false), crypto: r.get::<_, Option<String>>(16)?.as_deref() == Some(\"Cryptocurrency\"),": 1,
+        "Ok(name.unwrap_or_default())": 1,
+        "Ok(t.unwrap_or_default())": 1,
+        "Ok(s.flatten().unwrap_or_default())": 1
+      },
+      "reviewed": {
+        "let bytes=hex::decode(stamp[\"ciphertext_digest\"].as_str()?).ok()?;": 1,
+        "Some(Self{id:stamp[\"key_id\"].as_i64()?,digest:bytes.try_into().ok()?})": 1,
+        "let state=serde_json::from_str::<Value>(state).ok();": 1,
+        "let current=serde_json::from_str::<Value>(current).ok();": 1
+      }
+    },
+    "rust/src/engine/placement.rs": {
+      "upstream": {
+        "let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);": 1,
+        "let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);": 1,
+        "|| bot.settings.get(\"allocations\").unwrap_or(&Value::Null) != sent": 1,
+        "let allocations = bot.settings.get(\"allocations\").cloned().unwrap_or(Value::Null);": 1,
+        "Ok(begin_checked(c, bot, plan, clock, None)?.expect(\"unfenced\"))": 1,
+        "v[\"allocations\"] = current.settings.get(\"allocations\").cloned().unwrap_or(Value::Null);": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/engine/polling.rs": {
+      "upstream": {
+        "if row.base.as_deref().unwrap_or(\"\").is_empty() { sets.push((\"base\", Sql::Text(t.base_symbol.clone()))); }": 1,
+        "if row.quote.as_deref().unwrap_or(\"\").is_empty() { sets.push((\"quote\", Sql::Text(t.quote_symbol.clone()))); }": 1,
+        "let rows = s.query_map(params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, String>(2)?)))?": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/engine/run.rs": {
+      "upstream": {
+        "let _ = rx.wait_for(|stopped| *stopped).await;": 1,
+        "let mut term = signal(SignalKind::terminate()).expect(\"a SIGTERM handler\");": 1,
+        "let mut int = signal(SignalKind::interrupt()).expect(\"a SIGINT handler\");": 1,
+        "let mut ctrl_c = tokio::signal::windows::ctrl_c().expect(\"a Ctrl-C handler\");": 1,
+        "match placement::recover_since(&e.primary, &venue, &bot, clock, e.process_start.expect(\"set by step\")).await? {": 1,
+        "let stranded = placement::stranded(c).unwrap_or_default();": 1,
+        "if request.get(\"requested_at\").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {": 1,
+        "let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect(\"set by step\"), stopping: &stopping };": 1
+      },
+      "reviewed": {
+        "let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.expect(\"set by step\"), stopping: &stopping };": 1
+      }
+    },
+    "rust/src/engine/tick.rs": {
+      "upstream": {
+        "model::merge_transient_compact(c, bot_id, &[(\"last_failure_kind\", kind.map(Value::from).unwrap_or(Value::Null))])": 1,
+        "let key = kind.unwrap_or(\"unknown\");": 1,
+        "let budget = bot.transient.get(\"failure_notifications\").and_then(Value::as_object).cloned().unwrap_or_default();": 1,
+        "let mut values = vec![(\"last_failure_kind\", kind.map(Value::from).unwrap_or(Value::Null))];": 1,
+        "let buffer = BigDec::from_f64(bot.quote_amount().unwrap_or_default() / interval_seconds * THREE_DAYS).map_err(|e| EngineError::Data(format!(\"{e:?}\")))?;": 1
+      },
+      "reviewed": {
+        "None => { let result=venue.price_result(&member.ticker,side).await; if let Ok(price)=&result.value { cx.prices.put_result(key,clock.now(),result.clone().map(|_|price.clone())); } result.value },": 1
+      }
+    },
+    "rust/src/jobs/mod.rs": {
+      "upstream": {
+        "let Some(id) = scope.and_then(|s| s.parse::<i64>().ok()) else {": 1,
+        "pub fn note_write_hold(&self, held: Duration) { self.longest_hold_us.fetch_max(u64::try_from(held.as_micros()).unwrap_or(u64::MAX), std::sync::atomic::Ordering::Relaxed); }": 1,
+        "let c = me.conn.lock().unwrap_or_else(PoisonError::into_inner);": 1,
+        "if !bound { crate::engine::provider::bind(&c,&me.cipher,&|k|std::env::var(k).ok()).map_err(|_|\"index configuration reader unavailable\".to_string())?; }": 1,
+        "if !c.is_autocommit() { let _ = c.execute_batch(\"ROLLBACK\"); }": 1,
+        "self.0.pending.lock().unwrap_or_else(PoisonError::into_inner).push((job.to_string(), scope.map(String::from), Wake::Manual(key)));": 1,
+        "std::mem::take(&mut *self.0.pending.lock().unwrap_or_else(PoisonError::into_inner))": 1,
+        "let wait = self.slots.iter().filter_map(Slot::due).min().map_or(IDLE, |t| (t - now).to_std().unwrap_or_default().min(IDLE));": 1,
+        "s.retry_at = Some(end + chrono::Duration::from_std(wait).expect(\"a short wait\"));": 1,
+        "}).await.unwrap_or_else(|e| Err(format!(\"the blocking pool lost the write: {e}\"))),": 1
+      },
+      "reviewed": {
+        "let id=scope.as_deref().and_then(|s|s.parse::<i64>().ok()).ok_or_else(||\"invalid credential job scope\".to_string())?;": 1,
+        "o = run => o.unwrap_or_else(|_| crate::engine::model::Produced::new(Outcome::Failed(format!(\"dropped past its {deadline:?} deadline\")),None)),": 1
+      }
+    },
+    "rust/src/mail/smtp.rs": {
+      "upstream": {
+        "return settings(address, env.port.clone().unwrap_or_else(|| \"587\".into()), &env.domain.clone().unwrap_or_else(|| \"localhost\".into()),": 1,
+        "(env.user_name.clone().unwrap_or_default(), env.password.clone().unwrap_or_default()));": 1,
+        "let port = crate::ruby::to_i(&present(config(\"smtp_port\")).unwrap_or_else(|| \"587\".into()));": 1,
+        "return settings(present(config(\"smtp_host\")).unwrap_or_else(|| \"smtp.gmail.com\".into()), port.to_string(), \"localhost.localdomain\", (user, password));": 1,
+        "present(env.notifications_sender.clone()).or_else(|| present(config(\"smtp_username\"))).unwrap_or_else(|| \"noreply@localhost\".into())": 1,
+        "let code = line.get(..3).filter(|d| d.bytes().all(|b| b.is_ascii_digit())).and_then(|d| d.parse::<u16>().ok()).filter(|c| (200..600).contains(c));": 1,
+        "reply.lines.push(line.get(4..).unwrap_or_default().to_string());": 1,
+        "let _ = self.command(\"auth\", \"*\", |_| true).await;": 1,
+        "let _ = tokio::time::timeout(QUIT_WAIT.min(self.read_timeout), self.command(\"quit\", \"QUIT\", ok)).await; // a lost QUIT changes nothing": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/main.rs": {
+      "upstream": {
+        "let env = |k: &str| std::env::var(k).ok();": 1,
+        ".unwrap_or_else(|e| fail(&format!(\"{e}\")));": 1,
+        "let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail(\"index encryption configuration unreadable\"));": 1,
+        "deltabadger::engine::provider::bind(&c,&Cipher::new(&keys),&env).unwrap_or_else(|_|fail(\"index configuration reader unavailable\"));": 1,
+        "for (name, s) in deltabadger::jobs::state::all(&c).unwrap_or_default() { println!(\"job {name}: {}\", s.describe()); }": 1,
+        "for line in deltabadger::engine::staleness::report(&c, chrono::Utc::now()).unwrap_or_default() { println!(\"reference {line}\"); }": 1,
+        "let bot_id: i64 = args.first().and_then(|a| a.parse().ok()).unwrap_or_else(|| fail(\"usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed\"));": 1,
+        "let storage = env(\"STORAGE_DIR\").unwrap_or_else(|| \"storage\".into());": 2,
+        "let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!(\"{e:?}\")));": 1,
+        "let o = store::open(&paths).unwrap_or_else(|e| fail(&format!(\"{e:?}\")));": 1,
+        ".unwrap_or_else(|e| fail(&format!(\"{e:?}\")));": 1,
+        "let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();": 1,
+        "[\"run\", dir] => rt.block_on(deltabadger::parity::decide(std::path::Path::new(dir))).unwrap_or_else(|e| fail(&format!(\"{e:?}\"))),": 1,
+        "let tickers = std::fs::read_to_string(tickers).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| fail(\"tickers.json is unreadable\"));": 1,
+        "let now = now.parse().unwrap_or_else(|_| fail(\"<now> must be RFC 3339, e.g. 2026-09-10T00:00:00Z\"));": 1,
+        "let n = deltabadger::parity::plan_copy(std::path::Path::new(src), &tickers, std::path::Path::new(out), now).unwrap_or_else(|e| fail(&format!(\"{e:?}\")));": 1,
+        "println!(\"{}\", serde_json::to_string_pretty(&out).unwrap());": 1,
+        "let secret = env(\"SECRET_KEY_BASE\").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail(\"SECRET_KEY_BASE is not set: use the instance's own\"));": 1,
+        "let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail(&format!(\"encryption keys: {e:?}\")));": 1,
+        "let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));": 1,
+        "deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail(\"index configuration reader unavailable\"));": 1,
+        "let own = store::open(&paths(env)).unwrap_or_else(|e| fail(&explain(e))).primary;": 2,
+        "let secret = env(\"SECRET_KEY_BASE\").unwrap_or_default();": 1,
+        "let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect(\"a tokio runtime\");": 4,
+        "Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail(\"PORT must be a port number\")),": 1,
+        "let config = deltabadger::web::Config::from_env(env).unwrap_or_else(|e| fail(&web_problem(e)));": 1,
+        "let app = deltabadger::web::App::new(config, env, own, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));": 1,
+        "let listener = rt.block_on(deltabadger::web::server::bind(&app, port)).unwrap_or_else(|e| fail(&web_problem(e)));": 1,
+        "let key = args.get(1).map(|k| k.parse::<i64>().unwrap_or_else(|_| fail(USAGE)));": 1,
+        "None => deltabadger::sync::reading_keys(&o.primary).unwrap_or_else(|e| fail(&e.0)),": 1,
+        "let name = format!(\"{}:{}\", spec.name, spec.scope.as_deref().unwrap_or_default());": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/parity.rs": {
+      "upstream": {
+        "if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }": 1,
+        "let mut changes: Vec<(i64, Value)> = after[table].as_object().unwrap().iter()": 1,
+        ".map(|(id, row)| { let n = id.parse::<i64>().unwrap(); (n, json!({ \"id\": n, \"before\": before[table].get(id.as_str()).cloned().unwrap_or(Value::Null), \"after\": row })) })": 1,
+        "out.sort_by_key(|m| m[\"mail\"].as_str().unwrap_or_default().to_string());": 1,
+        "let start: DateTime<Utc> = scenario[\"at\"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(\"scenario.at\".into()))?;": 1,
+        "TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),": 1,
+        "let env=|k:&str|std::env::var(k).ok();": 1,
+        "\"/0/public/Ticker\": [recorded.first().cloned().unwrap_or(Value::Null)],": 1,
+        "let pair = match asset { Some(a) => crate::engine::model::ticker_for_asset(c, bot, a)?.map(|t| t.ticker).unwrap_or_default(), None => String::new() };": 1,
+        "if REFERENCE_JSON.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }": 1,
+        "let id = if table == \"app_configs\" { row.remove(\"id\"); row[\"key\"].as_str().unwrap_or_default().to_string() } else { row[\"id\"].to_string() };": 1,
+        "if by_key { ids.sort(); } else { ids.sort_by_key(|k| k.parse::<i64>().unwrap_or(0)); }": 1,
+        "let (x, y) = (b.get(&k).cloned().unwrap_or(Value::Null), a.get(&k).cloned().unwrap_or(Value::Null));": 1,
+        "let id = if by_key { json!(k) } else { json!(k.parse::<i64>().unwrap_or(0)) };": 1,
+        "let at: DateTime<Utc> = scenario[\"at\"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(\"scenario.at\".into()))?;": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/sync/balances.rs": {
+      "upstream": {
+        "Value::String(s) => s.trim().parse().unwrap_or(0.0),": 1,
+        "Self { replies: RefCell::new(script[format!(\"GET {PRICES_PATH}\")].as_array().cloned().unwrap_or_default().into()), requests: RefCell::default() }": 1,
+        "if q.is_empty() { panic!(\"unscripted call GET {PRICES_PATH}\"); }": 1,
+        "if q.len() > 1 { q.pop_front().unwrap_or(Value::Null) } else { q[0].clone() }": 1,
+        "let message = reply[\"message\"].as_str().unwrap_or_default().to_string();": 1,
+        "match (reply[\"network\"].as_str(), reply[\"status\"].as_u64().unwrap_or(200)) {": 1,
+        "if let Node::Scalar(token) = value { serde_json::from_str::<String>(token).ok() } else { None }": 1,
+        "Some(Price::Float(f)) => BigDec::from_f64(*f).ok(),": 1,
+        "if let Some(price) = trade.number(\"p\").ok().flatten().filter(BigDec::is_positive) { prices.insert(symbol.clone(), price); }": 1,
+        "}).unwrap_or(native)": 1,
+        "fn places<T: TryInto<u8>>(scale: T) -> u8 { scale.try_into().unwrap_or(u8::MAX) }": 1,
+        "BigDec::parse(&format!(\"{rounded:.15e}\")).ok().map(|d| d.round(places(scale)))": 1,
+        "Price::Float(f) => (cast_float(*f, 8), BigDec::from_f64(*f).ok()),": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/sync/cache.rs": {
+      "upstream": {},
+      "reviewed": {
+        "let stamp = app_config::get_plain(c, &key(user, exchange)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());": 1,
+        ".and_then(|s| serde_json::from_str::<Value>(&s).ok());": 1,
+        "let stamp=app_config::get_plain(c,&state::key(\"ledger_origin\",Some(&id.to_string()))).map_err(EngineError::Data)?.and_then(|s|serde_json::from_str::<Value>(&s).ok());": 1,
+        "let producer=stamp.and_then(|stamp|serde_json::from_str::<Value>(&stamp).ok()).and_then(|stamp|CredentialVersion::from_stamp(&stamp));": 1,
+        "let stamp=app_config::get_plain(c,&key(self.user,exchange)).map_err(EngineError::Data)?.and_then(|s|serde_json::from_str::<Value>(&s).ok());": 1
+      }
+    },
+    "rust/src/sync/jobs.rs": {
+      "upstream": {},
+      "reviewed": {
+        "let id=scope?.parse::<i64>().ok().filter(|id|*id>0)?;": 1
+      }
+    },
+    "rust/src/sync/ledger.rs": {
+      "upstream": {
+        "let Some(v) = raw.and_then(|text| serde_json::from_str::<Value>(&text).ok()) else { return Ok((true, None)) };": 1,
+        "let count = |k: &str| v[k].as_u64().unwrap_or(0) as usize;": 1,
+        "let v = raw.flatten().and_then(|text| serde_json::from_str::<Value>(&text).ok()).unwrap_or(Value::Null);": 1,
+        "let import = resumed.unwrap_or_else(|| Import { cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),": 1,
+        "let to = (from..end).find(|i| split(&entries[*i])).unwrap_or(end);": 1,
+        "rest.unwrap_or(base).to_uppercase()": 1,
+        "let base = base_currency.unwrap_or_default().to_uppercase();": 1,
+        "let symbol = raw[\"symbol\"].as_str().unwrap_or_default().to_uppercase();": 1,
+        "merged.extend(merged_ids(&raw?.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null)));": 1,
+        "raw.get(\"merged_activity_ids\").and_then(Value::as_array).map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_string)).collect()).unwrap_or_default()": 1,
+        "let raw: Value = raw.as_deref().and_then(|r| serde_json::from_str(r).ok()).unwrap_or(Value::Null);": 2,
+        "withdrawals.push((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, number::stored(r.get_ref(2)?).map_err(SyncError)?.unwrap_or_else(BigDec::zero), parse_time(&r.get::<_, String>(3)?)?));": 1
+      },
+      "reviewed": {
+        "let import = resumed.unwrap_or_else(|| Import { credential_origin: version.cache_stamp(), cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),": 1
+      }
+    },
+    "rust/src/sync/mod.rs": {
+      "upstream": {
+        "work.await.unwrap_or_else(|_| Err((\"reading the venue's answer was interrupted\".into(), true)))": 1,
+        "key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string": 1,
+        "secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string": 1,
+        "VenueError::Rejected(errors) => (errors.into_iter().next().unwrap_or_default(), false),": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/sync/parity.rs": {
+      "upstream": {
+        "if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = exact(s).unwrap_or(v); } }": 1,
+        "let id = |id: &String| id.parse::<i64>().unwrap_or_default();": 1,
+        ".map(|(k, row)| (id(k), json!({ \"id\": id(k), \"before\": b.get(k.as_str()).cloned().unwrap_or(Value::Null), \"after\": row }))).collect());": 1,
+        "let after = r.query.iter().find(|(k, _)| *k == \"after\").and_then(|(_, v)| v.parse::<DateTime<Utc>>().ok());": 1,
+        "text.parse::<DateTime<Utc>>().ok().or_else(|| chrono::NaiveDate::parse_from_str(text, \"%Y-%m-%d\").ok()?.and_hms_opt(0, 0, 0).map(|t| t.and_utc()))": 1,
+        "let credentials = Credentials { key: text(\"key\").unwrap_or_default(), secret: text(\"secret\").unwrap_or_default(), passphrase: text(\"passphrase\") };": 1,
+        "let at: DateTime<Utc> = step[\"at\"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| data(\"step.at\"))?;": 1
+      },
+      "reviewed": {
+        "let credentials = Credentials { redaction_values:vec![], key: text(\"key\").unwrap_or_default(), secret: text(\"secret\").unwrap_or_default(), passphrase: text(\"passphrase\") };": 1
+      }
+    },
+    "rust/src/tracker/jobs.rs": {
+      "upstream": {
+        "Err(e) => { let _ = c.execute_batch(\"ROLLBACK\"); Err(e) }": 1,
+        "let last = today.pred_opt().unwrap_or(today);": 1,
+        "if let Ok(user) = cx.db.run(move |c, _| c.query_row(\"SELECT user_id FROM api_keys WHERE id = ?1\", [key_id], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string())).await {": 1
+      },
+      "reviewed": {
+        "let user_id=scope?.parse::<i64>().ok().filter(|id|*id>0)?;": 1
+      }
+    },
+    "rust/src/tracker/snapshot.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/venue.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/venue/alpaca.rs": {
+      "upstream": {
+        "pub fn ruby_to_d(v: &Value) -> Result<BigDec, String> { ruby_opt_to_d(v).map(|d| d.unwrap_or_else(BigDec::zero)) }": 1,
+        "match http::decode_json(body).ok().as_ref().and_then(|v| v.get(\"message\")) {": 1,
+        "let mut identity: std::collections::HashMap<String, Box<serde_json::value::RawValue>> = serde_json::from_str(raw).unwrap_or_default();": 1,
+        "let string = |value: Option<Box<serde_json::value::RawValue>>| value.and_then(|v| serde_json::from_str::<String>(v.get()).ok());": 1,
+        "_ => limit_price.unwrap_or_else(BigDec::zero),": 1,
+        "quote_amount_exec: &filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero), amount_exec: filled_qty,": 1,
+        "let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(super::http::TOTAL_TIMEOUT).expect(\"45 s\")),": 1,
+        "v => v.unwrap_or(Value::Null),": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/venue/http.rs": {
+      "upstream": {
+        "parsed.unwrap_or_else(|e| panic!(\"{u} is not a URL: {e}\"))": 1,
+        "let t = token.strip_prefix('-').unwrap_or(token);": 1,
+        "let (mantissa, exp) = t.split_once(['e', 'E']).unwrap_or((t, \"0\"));": 1,
+        "let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, \"\"));": 1,
+        "let last = int.len() + frac.len() - 1 - digits().rev().position(|d| d != b'0').unwrap_or(0);": 1,
+        ".expect(\"a static reqwest configuration builds\")": 1,
+        "let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect(\"a static method name\");": 1,
+        "match (not_after - Utc::now()).to_std().ok().filter(|left| !left.is_zero()) {": 1,
+        "let io = io.get_ref().and_then(|i| i.downcast_ref::<std::io::Error>()).unwrap_or(io);": 1,
+        "t.s.borrow_mut().replies.insert(key.clone(), replies.as_array().cloned().unwrap_or_default().into());": 1,
+        "let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!(\"unscripted Alpaca call {key}\"));": 1,
+        "if q.len() > 1 { q.pop_front().expect(\"non-empty\") } else { q[0].clone() }": 1,
+        "let message = reply[\"message\"].as_str().unwrap_or_default().to_string();": 1,
+        "Some(other) => panic!(\"unknown network kind {other:?} scripted for {key}\"),": 1,
+        "status: reply[\"status\"].as_u64().unwrap_or_else(|| panic!(\"scripted reply for {key} has no status: {reply}\")) as u16,": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/web/auth.rs": {
+      "upstream": {
+        "failed_attempts: r.get::<_, Option<i64>>(9)?.unwrap_or(0), locked_at: None, otp_enabled: r.get::<_, Option<i64>>(11)? == Some(1),": 1,
+        "self.encrypted_password.get(..29).unwrap_or(&self.encrypted_password)": 1,
+        "let location = ctx.session.lock().return_to.take().unwrap_or_else(|| \"/\".to_string());": 1,
+        "login_page(&app, &ctx, StatusCode::OK, ctx.params.query(\"user[email]\").unwrap_or(\"\"), Vec::new()).await": 1,
+        "let mut location = session.return_to.take().unwrap_or_else(|| ctx.path(\"/\"));": 1,
+        "let email = ctx.params.form(\"user[email]\").unwrap_or(\"\").to_string();": 1,
+        "let password = ctx.params.form(\"user[password]\").unwrap_or(\"\").to_string();": 1,
+        "let wanted = ctx.params.locale().or(user.locale.as_deref()).and_then(locale::known).unwrap_or(locale::DEFAULT);": 1,
+        "let spent_at = DateTime::from_timestamp(step * 30, 0).unwrap_or(now);": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/web/figure/loading.rs": {
+      "upstream": {
+        "Ok(HttpResponse{status:reply[\"status\"].as_u64().unwrap_or(200) as u16,body:reply[\"body\"].as_str().map(str::to_string).unwrap_or_else(||reply[\"body\"].to_string())})": 1,
+        "Ok(result.ok()) // allow-swallow: computation failure becomes a failed fill; only the safe reason above is retained": 1,
+        "Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision))},": 1,
+        "let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(Err(None));": 1,
+        "if engine_gone { let _=stop.wait_for(|stopped|*stopped).await; } // allow-swallow: an error means no stop can come, and returning is the stop": 1
+      },
+      "reviewed": {
+        "Ok(HttpResponse{status:reply[\"status\"].as_u64().unwrap_or(200) as u16,body:self.redact_diagnostic(&reply[\"body\"].as_str().map(str::to_string).unwrap_or_else(||reply[\"body\"].to_string()))})": 1,
+        "let current=cache.producer().as_ref().map(|origin|crate::engine::model::credential_is_current(c,origin)).transpose().map_err(|_|unavailable())?.unwrap_or(false);": 1
+      }
+    },
+    "rust/src/web/layout.rs": {
+      "upstream": {
+        "if let Ok(value) = HeaderValue::from_str(location) {": 1,
+        "early_redirect(StatusCode::FOUND, &back(&ctx.app.config, headers).unwrap_or_else(|| \"/\".to_string()))": 1,
+        "let page = NotPorted { frame: frame.unwrap_or(\"not-ported\"), method: method.as_str(), path };": 1
+      },
+      "reviewed": {
+        "let page = NotPorted { frame: frame.unwrap_or(\"not-ported\"), method: method.as_str(), path:&safe };": 1
+      }
+    },
+    "rust/src/web/locale.rs": {
+      "upstream": {
+        "let rest = path.strip_prefix('/').unwrap_or(path);": 1,
+        "Some(locale) if !UNSCOPED.contains(&tail.split('/').next().unwrap_or(\"\")) => {": 1,
+        "param.filter(|p| !p.is_empty()).or(user).and_then(known).unwrap_or(DEFAULT)": 1,
+        "for (key, value) in query.iter().filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key)) && !sensitive_query(key)) {": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/web/mcp/reads.rs": {
+      "upstream": {
+        "\"get_bot_details\"=>Ok(done(budget::within(||details(c,user,args[\"bot_id\"].as_f64().unwrap_or(0.0) as i64,now))?)),": 1,
+        "let name=args[\"exchange_name\"].as_str().unwrap_or(\"\");": 1,
+        "lines.push(format!(\"- {}: {}\",symbol.unwrap_or_else(||format!(\"Unknown({id})\")),float_to_s(n)));": 1,
+        "let id=id.as_deref().unwrap_or(\"\");if ids.contains(id){continue}": 1,
+        "let amount=parsed.amount.map(|a|a.to_s_f()).unwrap_or_else(||\"N/A\".into());": 1,
+        "let price=parsed.price.map(|p|format!(\"@ {}\",p.to_s_f())).unwrap_or_default(); // Rails omits the price only when nil.": 1,
+        "let side=raw[\"side\"].as_str().map(str::to_uppercase).unwrap_or_else(||\"?\".into());": 1,
+        "let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in Rails.": 1,
+        "lines.push(format!(\"- [{date}] #{id} {} {} {}/{} {} ({}) | {name} | ext: {ext}\",match side{Some(0)=>\"BUY\",Some(1)=>\"SELL\",_=>\"\"},amount.unwrap_or_else(||\"N/A\".into()),base.unwrap_or_default(),quote.unwrap_or_default(),price.map(|v|format!(\"@ {v}\")).unwrap_or_default(),match kind{Some(0)=>\"Market order\",Some(1)=>\"Limit order\",_=>\"Unknown\"}));": 1,
+        "let quote=tools::asset(c,&settings[\"quote_asset_id\"])?.unwrap_or_default(); // nil quote interpolates as empty.": 1,
+        "Ok(Some(Bot{id,label,kind,status,settings,transient,exchange:exchange.unwrap_or_else(||\"N/A\".into()),quote,base,pair,started}))": 1,
+        "let ids=if pair_kind(kind){s[\"base_asset_id\"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s[\"allocations\"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect()}else{s[\"base_asset_ids\"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};": 1,
+        "if ids.len()==1{assets.first().and_then(|(_,_,name)|name.clone()).unwrap_or_default()}else{ // allow-swallow: absent asset/name is an Option; Rails generates bot.new below.": 1,
+        "let ids=if let Some(a)=s[\"allocations\"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect::<Vec<_>>()}else{s[\"base_asset_ids\"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};": 1,
+        "let symbol=symbol.clone().unwrap_or_default(); // nil symbol joins as empty in a pair.": 1,
+        "let weight=s[\"allocations\"][id.to_string()].as_f64().unwrap_or(0.0); // nil.to_f in allocation_for.": 1,
+        "crate::web::timezone::zone(zone).unwrap_or(chrono_tz::Tz::UTC).from_local_datetime(&local).earliest().ok_or_else(error)?.to_utc()": 1,
+        "if let Ok((s,m))=&result {if !pair_kind(&b.kind){": 1,
+        "let minimum=crate::figures::dec::Dec::from_sql((&value).into()).map_err(|_|error())?.unwrap_or_else(figures::dec::Dec::zero); // nil.to_d is zero.": 1,
+        "let jurisdiction=jurisdiction.as_deref().filter(|s|!s.trim().is_empty()).unwrap_or(\"US\");": 1,
+        "if until>now.utc(){let days=(crate::web::timezone::local(until,&zone).date_naive()-crate::web::timezone::local(now.utc(),&zone).date_naive()).num_days();locks.push(format!(\"{} {days}d\",symbol.unwrap_or_default()));} // nil symbol interpolates empty, as Rails.": 1,
+        "lines.push(format!(\"Interval: {}\",b.settings[\"interval\"].as_str().unwrap_or(\"N/A\")));": 1,
+        "lines.push(format!(\"Total acquired: {} {}\",num(&p.amount)?,b.base.as_deref().unwrap_or(\"units\")));": 1,
+        "let amount=row.map(|(_,r)|r.amount.clone()).unwrap_or(Num::Int(0));": 1,
+        "let name=format!(\"- {} ({}) | {} | \",b.label,b.pair.as_deref().unwrap_or(\"N/A\"),tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?);": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/web/mod.rs": {
+      "upstream": {
+        "format!(\"{scheme}://{}\", authority.strip_suffix(default_port).unwrap_or(&authority))": 1,
+        "let lines: Vec<&str> = headers.get_all(name).iter().filter_map(|v| v.to_str().ok()).collect();": 1,
+        "Some(hosts.split(',').map(|host| host.strip_prefix([' ', '\\t']).unwrap_or(host)).rfind(|host| !host.is_empty()).map(str::to_string))": 1,
+        "let force_ssl = env_boolean(env(\"FORCE_SSL\")).unwrap_or_else(|| app_root_url.as_deref().is_some_and(|url| url.trim().to_ascii_lowercase().starts_with(\"https://\")));": 1,
+        "Some(canonical_origin(scheme, rest.split(['/', '?', '#']).next().unwrap_or(rest)))": 1,
+        "behind_proxy: env_boolean(env(\"BEHIND_PROXY\")).unwrap_or(force_ssl),": 1,
+        ".unwrap_or(if proto.is_some_and(|value| value.starts_with(\"https\")) || scheme.as_deref() == Some(\"https\") { \"https\" } else { \"http\" })": 1,
+        "blocked.push(host.unwrap_or_default());": 1,
+        "let _ = self.engine.set(wake);": 1,
+        "None => { let _ = hash_password(&password); false }": 1,
+        "tokio::task::spawn_blocking(move || work(&app.0.db.lock().unwrap_or_else(PoisonError::into_inner)))": 1,
+        "headers.get(name).and_then(|v| v.to_str().ok())": 1,
+        "let raw_query = parts.uri.query().unwrap_or(\"\");": 1,
+        "let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();": 1,
+        "let content_type = header_text(&parts.headers, \"content-type\").unwrap_or(\"\");": 1,
+        "let before = session::from_request(&app.keys.session, request.headers(), now).map(|opened| opened.data).unwrap_or_default();": 1
+      },
+      "reviewed": {
+        "settings_market_provider_name:env(\"MARKET_DATA_PROVIDER_NAME\").or_else(||env(\"MARKET_DATA_URL\")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env(\"SMTP_PROVIDER_NAME\").or_else(||env(\"SMTP_ADDRESS\")).unwrap_or_default(),settings_mailer:settings::mail::live(),": 1,
+        "let c=app.0.db.lock().unwrap_or_else(PoisonError::into_inner);let out=work(&c);": 1
+      }
+    },
+    "rust/src/web/session.rs": {
+      "upstream": {
+        "flash: v[\"flash\"].as_array().map(|entries| entries.iter().filter_map(|e| Some((text(&e[0])?, text(&e[1])?))).collect()).unwrap_or_default(),": 1,
+        ".unwrap_or_default();": 1,
+        "let bytes = B64URL.decode(cookie).ok()?;": 1,
+        "let plain = Aes256Gcm::new(key.into()).decrypt(Nonce::from_slice(nonce), Payload { msg: sealed, aad: COOKIE.as_bytes() }).ok()?;": 1,
+        "let value: Value = serde_json::from_slice(&plain).ok()?;": 1,
+        ".filter_map(|line| line.to_str().ok())": 1,
+        ".unwrap_or(HeaderValue::from_static(\"\"))": 1,
+        "self.0.lock().unwrap_or_else(PoisonError::into_inner)": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/web/settings/account.rs": {
+      "upstream": {},
+      "reviewed": {
+        "let google=|email:&str|if email.ends_with(\"@gmail.com\")||email.ends_with(\"@googlemail.com\"){email.split('@').next().map(|s|s.split('+').next().unwrap_or(s).to_lowercase())}else{None};": 1,
+        ".unwrap_or(\"\")": 2,
+        "let password=view.params.form(\"user[password]\").filter(|p|!p.trim().is_empty()).unwrap_or(\"\");": 1,
+        "salt=Some(encrypted.get(..29).unwrap_or(&encrypted).to_string());": 1,
+        "let email=view.params.form(\"user[email]\").unwrap_or(&current.email).trim().to_lowercase();": 1,
+        "tx.execute(\"UPDATE users SET unconfirmed_email=?1,confirmation_token=NULL,confirmation_sent_at=NULL,updated_at=?2 WHERE id=?3\",(view.params.form(\"user[email]\").unwrap_or(&email),&now,user.id))?;": 1,
+        "let email=draft.email.as_deref().unwrap_or(\"\");let mut messages=vec![];": 1,
+        "let mut messages=vec![];let p=view.params.form(\"user[password]\").unwrap_or(\"\");": 1,
+        "let p=view.params.form(\"user[password]\").unwrap_or(\"\");": 1,
+        "let mut chars=message.chars();let capitalized=chars.next().map(|ch|ch.to_uppercase().collect::<String>()+chars.as_str()).unwrap_or_default();": 1,
+        ".unwrap_or(i18n::DEFAULT);": 1,
+        "let password=view.params.form(\"user[password]\").filter(|p|!crate::ruby::blank(p)).unwrap_or(\"\");": 1
+      }
+    },
+    "rust/src/web/settings/api.rs": {
+      "upstream": {},
+      "reviewed": {
+        ".unwrap_or(&[]);": 1,
+        ".unwrap_or(Value::Null);": 1,
+        ".unwrap_or_else(|| \"http://localhost:3000\".into());": 2,
+        "let action = ctx.params.route_path.rsplit('/').next().unwrap_or(\"\");": 1,
+        ".unwrap_or(\"\")": 1,
+        ".unwrap_or_default()": 2,
+        ".unwrap_or_else(|| serde_json::json!({}));": 1
+      }
+    },
+    "rust/src/web/settings/clients.rs": {
+      "upstream": {},
+      "reviewed": {
+        ".unwrap_or(Value::Null);": 2,
+        ".and_then(|s| s.parse::<i64>().ok());": 2,
+        "let surface = ctx.params.form(\"surface\").unwrap_or(\"\").to_string();": 1,
+        "let group = ctx.params.form(\"group\").unwrap_or(\"\").to_string();": 1
+      }
+    },
+    "rust/src/web/settings/confirmation.rs": {
+      "upstream": {},
+      "reviewed": {
+        "let token=ctx.params.query(\"confirmation_token\").unwrap_or(\"\").to_string();": 1,
+        "let error=error.map(|key|{let text=i18n::text(ctx.locale,key,&[]);let mut chars=text.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+chars.as_str()).unwrap_or_default()});": 1,
+        "let address=ctx.params.form(\"user[email]\").unwrap_or(\"\").trim().to_lowercase();": 1,
+        "tx.commit()?;Ok(Some((id,pending.unwrap_or(email),token)))": 1,
+        "let address=crate::ruby::strip(ctx.params.form(\"user[email]\").unwrap_or_default()).to_lowercase();": 1
+      }
+    },
+    "rust/src/web/settings/keys.rs": {
+      "upstream": {},
+      "reviewed": {
+        "let requested=ctx.params.form(\"exchange_id\").or_else(||ctx.params.query(\"exchange_id\")).and_then(|s|s.parse::<i64>().ok());": 1,
+        "let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};": 1,
+        ".unwrap_or(\"\")": 1,
+        "let provider=setting(\"market_data_provider\")?.unwrap_or_default();let hosted=app.config.market_data_url;": 1,
+        "let display_mode=stored_mode.map(|mode|{let mut chars=mode.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+&chars.as_str().to_lowercase()).unwrap_or_default()}).unwrap_or_else(||\"Paper\".into());": 1,
+        "let stocks=Stocks{v,csrf,configured:has(\"alpaca_api_key\")?&&has(\"alpaca_api_secret\")?,catalog_active,paper:mode==\"paper\",mode:mode.into(),hosted:deltabadger,hosted_note:hosted_note(\"settings.stocks.deltabadger_configured\"),configured_note:i18n::t(v.locale,\"settings.stocks.configured\",&[(\"mode\",i18n::Arg::Text(&display_mode))]),connect_alpaca:connect(\"Alpaca\"),instructions_alpaca:instruction(\"Alpaca\"),instructions_alpaca_body:format!(\"<p>{}</p>\",lookup(v.locale,\"bot.api.alpaca.instructions\").unwrap_or(\"\"))}.render()?;": 1,
+        ".and_then(|s| s.parse::<i64>().ok());": 1,
+        "lookup(ctx.locale, \"bot.api.alpaca.instructions\").unwrap_or(\"\")": 1,
+        ".and_then(|s| s.parse::<i64>().ok())": 1,
+        "let exchange = parameter(\"exchange_id\").and_then(|s| s.parse::<i64>().ok());": 1,
+        "if !address.is_match(key.as_deref().unwrap_or(\"\"))||!agent.is_match(secret.as_deref().unwrap_or(\"\")){return Ok(Err(None));}": 1,
+        "let stamp=if !same_keys||current.status!=0 {now.clone()} else {current.updated_at.clone().unwrap_or_else(||now.clone())};": 1,
+        "let card=AlpacaForm{v:&ctx,csrf:&csrf,action:ctx.path(&format!(\"/tracker/add_api_key?exchange_id={exchange}&key_type={}\",if kind==0{\"trading\"}else{\"read_only\"})),form_data:if modal{\"data-controller=\\\"\\\" data-action=\\\"turbo:submit-end-&gt;modal--base#submitEnd\\\"\"}else{\"data-controller=\\\"form--label-animations form--html5-validations\\\" data-turbo-frame=\\\"modal_content\\\"\"},connect_title:i18n::t(ctx.locale,\"bot.setup.connect_to\",&[(\"name\",i18n::Arg::Text(\"Alpaca\"))]),instructions_title:i18n::t(ctx.locale,\"bot.setup.how_to_get_keys\",&[(\"exchange\",i18n::Arg::Text(\"Alpaca\"))]),instructions:format!(\"<p>{}</p>\",lookup(ctx.locale,instructions_key).unwrap_or(\"\")),live:key.passphrase.as_deref()==Some(\"live\")}.render()?;": 1,
+        "let id=ctx.params.route_path.split('/').nth(2).and_then(|s|s.parse::<i64>().ok());": 1,
+        "let card=AlpacaForm{v:&ctx,csrf:&csrf,action,form_data:\"data-controller=\\\"\\\" data-action=\\\"turbo:submit-end-&gt;modal--base#submitEnd\\\"\",connect_title:i18n::t(ctx.locale,\"bot.setup.connect_to\",&[(\"name\",i18n::Arg::Text(\"Alpaca\"))]),instructions_title:i18n::t(ctx.locale,\"bot.setup.how_to_get_keys\",&[(\"exchange\",i18n::Arg::Text(\"Alpaca\"))]),instructions:format!(\"<p>{}</p>\",lookup(ctx.locale,\"bot.api.alpaca.instructions\").unwrap_or(\"\")),live:key.passphrase.as_deref()==Some(\"live\")}.render()?;": 1,
+        "let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);": 1,
+        "let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},producer);": 1
+      }
+    },
+    "rust/src/web/settings/mail.rs": {
+      "upstream": {},
+      "reviewed": {
+        ".unwrap_or_else(|| \"http://localhost:3000\".into())": 1
+      }
+    },
+    "rust/src/web/settings/mod.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/web/settings/qr.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/web/settings/tax.rs": {
+      "upstream": {},
+      "reviewed": {
+        "layout::back(&app.config, &headers).unwrap_or_else(|| ctx.path(\"/settings/account\"));": 1
+      }
+    },
+    "rust/src/web/settings/two_fa.rs": {
+      "upstream": {},
+      "reviewed": {
+        ".unwrap_or(\"\")": 1,
+        "seed.unwrap_or_default()": 1
+      }
+    },
+    "rust/src/web/settings/validator.rs": {
+      "upstream": {},
+      "reviewed": {
+        "if kind==2 && !(200..300).contains(&status) && value.get(\"message\").and_then(|v|v.as_str()).unwrap_or(&body).contains(\"unauthorized\"){return Ok(Validity::Incorrect);}": 1,
+        ".unwrap_or(&body)": 1,
+        "let value=serde_json::from_str::<serde_json::Value>(&text).ok();": 1,
+        "let message=value.as_ref().and_then(|v|v.get(\"message\")).and_then(|v|v.as_str()).unwrap_or(&text);": 1,
+        ".unwrap_or(&body),": 1
+      }
+    },
+    "rust/src/web/settings/view.rs": {
+      "upstream": {},
+      "reviewed": {
+        "self.messages.get(field).cloned().unwrap_or_default()": 1,
+        ".unwrap_or(\"US\");": 1,
+        ".unwrap_or_default();": 1,
+        ".unwrap_or(\"smtp.gmail.com\"),": 1,
+        "name.unwrap_or_default(),": 1,
+        "email.unwrap_or_default(),": 1,
+        "language_options(user.locale.as_deref().unwrap_or(i18n::DEFAULT));": 1,
+        "let draft = draft.unwrap_or_default();": 1,
+        "name: draft.name.unwrap_or(name),": 1,
+        ".unwrap_or(\"0.0.0\"),": 1
+      }
+    },
+    "rust/src/web/shell.rs": {
+      "upstream": {
+        "single_bot_path: single_bot.map(|id| format!(\"/bots/{id}\")).unwrap_or_default(),": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/ruby.rs": {
+      "upstream": {
+        "Self(self.0.with_precision_round(std::num::NonZeroU64::new(digits).expect(\"digits > 0\"), RoundingMode::HalfUp).normalized())": 1,
+        "pub fn to_f(&self) -> f64 { f64::from_str(&self.to_s_f()).expect(\"plain decimal parses\") }": 1,
+        "let s = v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string());": 1,
+        "let e_min = parts.iter().map(|&(_, e)| e).min().unwrap_or(0).min(0);": 1,
+        "let e_min = parts.iter().map(|(_, e)| *e).min().unwrap_or(0).min(0);": 1,
+        "let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, \"0\"));": 1,
+        "let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (Ruby's decpt)": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/engine/amount.rs": {
+      "upstream": {
+        "dec(4)?.unwrap_or_else(BigDec::zero) // cancelled or abandoned: `quote_amount_exec || 0`": 1,
+        "let owed = BigDec::from_f64(smart.unwrap_or(quote_amount) * intervals as f64).map_err(data)?;": 1,
+        "let minimum_quote_amount_in_base = minimum_quote_amount.div(&price).expect(\"price is non-zero\");": 1,
+        "let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect(\"price is non-zero\").ceil(base_decimals);": 1,
+        "let qty = self.volume.div(&price).map(|q| q.floor(base_decimals)).unwrap_or_else(BigDec::zero);": 1,
+        "let bot_quote_amount = BigDec::from_f64(bot.quote_amount().unwrap_or_default()).map_err(data)?;": 1,
+        "bot.interval().map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),": 1,
+        "serde_json::to_string(&errors).unwrap(), format_time(created_at),": 1,
+        "let quote = intent[\"quote_amount\"].as_str().and_then(|q| BigDec::parse(q).ok()).ok_or_else(|| EngineError::Data(format!(\"rust_placement {intent}\")))?;": 1,
+        "params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).expect(\"ids serialise\")], |r| r.get(0))?;": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/engine/staleness.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/jobs/state.rs": {
+      "upstream": {
+        "fn time(v: &Value) -> Option<DateTime<Utc>> { v.as_str()?.parse().ok() }": 1,
+        "let v: Value = app_config::get_plain(c, &key(job, scope))?.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);": 1,
+        "pub fn read(c: &Connection, job: &str, scope: Option<&str>) -> Result<JobState, String> { Ok(find(c, job, scope)?.unwrap_or_default()) }": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/tracker/backfill.rs": {
+      "upstream": {
+        "Ok(format!(\"{HISTORY_VERSION}_{count}_{}\", latest.unwrap_or_default()))": 1,
+        "let yesterday = today.pred_opt().unwrap_or(today);": 1,
+        "Ok(days.into_iter().filter_map(|(d, unswept, partial)| NaiveDate::parse_from_str(&d, \"%Y-%m-%d\").ok().map(|d| (d, unswept, partial))).collect())": 1,
+        "let last_weekday = (0..prices::span(i.from, last)).map(|n| last.checked_sub_days(Days::new(n as u64)).unwrap_or(last))": 1,
+        ".find(|d| (1..=5).contains(&d.weekday().number_from_sunday().saturating_sub(1))).unwrap_or(last);": 1,
+        "let day = bar[\"t\"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.naive_utc().date())?;": 1,
+        "candles.push((day, Dec::to_d(&bar[\"c\"]).ok()?));": 1,
+        "if day > i.from && coin_on(day) != coin_on(day.pred_opt().unwrap_or(day)) { latest = None; }": 1,
+        "let key = keys.get(symbol.as_str()).copied().unwrap_or(symbol.as_str());": 1,
+        "let value = value.unwrap_or_else(Dec::zero);": 1,
+        "held_value: Some(sum(&|d| d.held_value.clone().unwrap_or_else(Dec::zero))?), held_cost: Some(sum(&|d| d.held_cost.clone().unwrap_or_else(Dec::zero))?),": 1,
+        "Err(e) => { let _ = c.execute_batch(\"ROLLBACK\"); return Err(e); }": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/tracker/prices.rs": {
+      "upstream": {
+        "Ok(Venue { id: id.unwrap_or(0), name_id: super::VENUE.into(), stock: true })": 1,
+        "fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }": 1,
+        "let starts: Vec<NaiveDate> = std::iter::once(from).chain(cuts.iter().map(|cut| cut.succ_opt().unwrap_or(*cut))).collect();": 1,
+        "fn plus(d: NaiveDate, n: u64) -> NaiveDate { d.checked_add_days(Days::new(n)).unwrap_or(d) }": 1,
+        "fn minus(d: NaiveDate, n: u64) -> NaiveDate { d.checked_sub_days(Days::new(n)).unwrap_or(d) }": 1,
+        "if self.fetched.get(&(asset.to_string(), date)).copied().unwrap_or(0) < LOOKUPS { return Err(Halt::Fetch(fetch)); }": 1,
+        "Ok(days.iter().filter_map(|d| NaiveDate::parse_from_str(d, \"%Y-%m-%d\").ok()).collect())": 1
+      },
+      "reviewed": {}
+    },
+    "rust/src/web/tracker/fx.rs": {
+      "upstream": {},
+      "reviewed": {}
+    },
+    "rust/src/tracker/cache.rs": {
+      "reviewed": {},
+      "upstream": {
+        "let unsigned=text.strip_prefix('-').unwrap_or(text);": 1,
+        "let Some(expires)=v[\"expires\"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(State::Cold)};": 1
+      }
+    }
+  },
+  "reviewed_reason": "New allowed forms are Option defaults for absent UI data; strict ID parse -> explicit missing/refusal; malformed provenance -> stale; malformed diagnostic JSON -> preserved Pending message. The single process_start expect is the existing step-initialized internal invariant with the added version field. No database or write Result is allowed to default or be discarded.",
+  "r2_reviewed_notes": {
+    "sync/parity.rs": "unchanged optional fixture defaults with an empty diagnostic-material vector",
+    "web/figure/loading.rs": "scripted response defaults stay unchanged; body goes through shared sink",
+    "web/settings/keys.rs": "unchanged optional submitted credential defaults; every old stored column is captured alongside the candidate before validation"
+  }
+}

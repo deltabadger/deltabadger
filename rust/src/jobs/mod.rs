@@ -49,6 +49,7 @@ enum Record { Success, Run, Error(String) }
 /// pull, is two 60 s reads and a chunked import. A job that may need longer (a full ledger sync) declares its own.
 pub const DEADLINE: Duration = Duration::from_secs(600);
 
+pub type AttributedJobFuture<'a> = Pin<Box<dyn Future<Output=crate::engine::model::Produced<Outcome>>+'a>>;
 pub type JobFuture<'a> = Pin<Box<dyn Future<Output = Outcome> + 'a>>;
 
 /// Rows per write unit of a bulk import (import::publish): no other writer waits on SQLite's write lock for longer
@@ -139,7 +140,10 @@ impl Db {
             let out = f(&c, &me.cipher);
             // A closure that returned early inside its own transaction must not leave the shared connection holding the
             // write lock into the next job.
-            if !c.is_autocommit() { let _ = c.execute_batch("ROLLBACK"); }
+            if !c.is_autocommit() {
+                c.execute_batch("ROLLBACK").map_err(|_|"job transaction rollback failed".to_string())?;
+                if out.is_ok(){return Err("job left an uncommitted transaction".into())}
+            }
             out
         })
             .await
@@ -204,10 +208,15 @@ pub enum Outcome {
 pub enum Wake { Schedule, Manual(Option<i64>), Event(EngineEvent) }
 
 pub trait Job {
+    /// S1: registered scope factories create a real job when a newly saved key/user is first woken.
+    fn spawn(&self, _name: &str, _scope: Option<&str>) -> Option<Box<dyn Job>> { None }
     fn spec(&self) -> Spec;
     /// Engine events this job runs on. None by default.
     fn wants(&self, _event: &EngineEvent) -> bool { false }
     fn run<'a>(&'a self, cx: Cx<'a>, wakes: Vec<Wake>) -> JobFuture<'a>;
+    fn run_attributed<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->AttributedJobFuture<'a>{
+        Box::pin(async move { crate::engine::model::Produced::new(self.run(cx,wakes).await,None) })
+    }
 }
 
 /// Wakes jobs on demand from anywhere in the process. It is Send + Sync, because the web runs on other threads.
@@ -217,9 +226,13 @@ pub struct Wakers(Arc<Shared>);
 type Pending = (String, Option<String>, Wake);
 
 #[derive(Default)]
-struct Shared { pending: Mutex<Vec<Pending>>, notify: Notify }
+struct Shared { pending: Mutex<Vec<Pending>>, notify: Notify, engine:std::sync::OnceLock<Arc<Notify>> }
 
 impl Wakers {
+    /// Bind the process's engine once; every clone shares its wake handle.
+    pub fn attach_engine(&self,wake:Arc<Notify>){self.0.engine.get_or_init(||wake);}
+    pub fn wake_engine(&self){if let Some(wake)=self.0.engine.get(){wake.notify_one();}}
+
     /// Runs `job` (in `scope`, for a job registered per scope) as soon as the runner is free. `key` is the job's own to
     /// interpret (an api key id, a user id). If it is running, it runs again right after. A wake for a name and scope that
     /// has no slot is resolved and registered by the scheduler before delivery.
@@ -318,7 +331,7 @@ impl Scheduler {
             let now = clock.now();
             self.collect(now)?;
             if let Some(i) = self.pick(now) {
-                if !self.run_slot(i, &mut stop, clock).await { return Ok(()); }
+                if !self.run_slot(i, &mut stop, clock).await? { return Ok(()); }
                 continue;
             }
             let wait = self.slots.iter().filter_map(Slot::due).min().map_or(IDLE, |t| (t - now).to_std().unwrap_or_default().min(IDLE));
@@ -385,7 +398,7 @@ impl Scheduler {
 
     /// Runs slot `i` once, within its deadline, and records its outcome. False: a stop arrived mid-run (the run was
     /// dropped, nothing recorded).
-    async fn run_slot(&mut self, i: usize, stop: &mut watch::Receiver<bool>, clock: &dyn Clock) -> bool {
+    async fn run_slot(&mut self, i: usize, stop: &mut watch::Receiver<bool>, clock: &dyn Clock) -> Result<bool,String> {
         let now = clock.now();
         let s = &mut self.slots[i];
         let fired = s.scheduled.is_some_and(|t| t <= now);
@@ -396,20 +409,22 @@ impl Scheduler {
         s.pending_since = None;
         let (name, scope, deadline) = (s.spec.name, s.spec.scope.clone(), s.spec.deadline);
         let completion_owner = self.db.completion_owner(name, scope.as_deref()).await;
-        let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock, wakers: self.wakers.clone() }, wakes.clone()));
+        let run=tokio::time::timeout(deadline,self.slots[i].job.run_attributed(Cx{db:self.db.clone(),clock,wakers:self.wakers.clone()},wakes.clone()));
         let outcome = tokio::select! {
             o = run => match o {
                 Ok(outcome) => outcome,
                 Err(_) => {
                     self.db.deadline_completion(completion_owner, name, scope.as_deref()).await;
-                    Outcome::Failed(format!("dropped past its {deadline:?} deadline"))
+                    crate::engine::model::Produced::new(Outcome::Failed(format!("dropped past its {deadline:?} deadline")),None)
                 }
             },
             _ = stop.wait_for(|stopped| *stopped) => {
                 log(&format!("[jobs] {name} {scope:?}: stopped mid-run; a scheduled run is due again at the next start"));
-                return false;
+                return Ok(false);
             }
         };
+        let version=outcome.origin().clone();
+        let outcome=outcome.value;
         let end = clock.now();
         let s = &mut self.slots[i];
         if fired { s.scheduled = s.spec.schedule.map(|sch| sch.next_fire(end) + s.spec.jitter.draw()); }
@@ -417,8 +432,7 @@ impl Scheduler {
             Outcome::Done | Outcome::NothingNew => {
                 (s.transient, s.rate) = (0, 0);
                 let what = if outcome == Outcome::Done { Record::Success } else { Record::Run };
-                log(&format!("[jobs] {name} {scope:?}: {what:?}"));
-                return self.record(name, scope, end, what, stop).await;
+                return self.record(name, scope, end, what, stop, version).await;
             }
             Outcome::Failed(m) => (None, m),
             Outcome::Transient(m) => { s.transient += 1; (Some(s.transient), m) }
@@ -432,8 +446,7 @@ impl Scheduler {
             }
             None => { (s.transient, s.rate) = (0, 0); message }
         };
-        log(&format!("[jobs] {name} {scope:?}: {line}"));
-        self.record(name, scope, end, Record::Error(line), stop).await
+        self.record(name, scope, end, Record::Error(line), stop, version).await
     }
 
     /// The runner's own state write, stop-aware: a stop that lands while it waits returns at once
@@ -441,11 +454,24 @@ impl Scheduler {
     /// start. (The abandoned write may still land within RECORD_BUSY if the lock frees: either way the record is true.)
     /// On the blocking pool, on a connection of its own, so never behind the job connection's mutex; it waits for SQLite's
     /// write lock at most RECORD_BUSY, then gives up (logged; the in-memory schedule still drives the next run).
-    async fn record(&self, name: &'static str, scope: Option<String>, at: DateTime<Utc>, what: Record, stop: &mut watch::Receiver<bool>) -> bool {
-        let write = move |c: &Connection| match &what {
-            Record::Success => state::record_success(c, name, scope.as_deref(), at),
-            Record::Run => state::record_run(c, name, scope.as_deref(), at),
-            Record::Error(m) => state::record_error(c, name, scope.as_deref(), at, m),
+    async fn record(&self, name: &'static str, scope: Option<String>, at: DateTime<Utc>, what: Record, stop: &mut watch::Receiver<bool>, version:Option<crate::engine::model::CredentialVersion>) -> Result<bool,String> {
+        let retry_scope=scope.clone();
+        let write = move |c: &Connection| {
+            let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate).map_err(|_|"cannot begin scheduler state write".to_string())?;
+            if version.is_none() && matches!(name,crate::sync::jobs::LEDGER_SYNC|crate::sync::jobs::BALANCE_SYNC|crate::sync::jobs::API_KEY_VALIDATOR) && matches!(what,Record::Success|Record::Run) {
+                return Err(crate::engine::model::CREDENTIALS_CHANGED.to_string());
+            }
+            crate::engine::model::check_credential_result(&tx,&version).map_err(|e|match e{crate::engine::EngineError::CredentialsChanged=>crate::engine::model::CREDENTIALS_CHANGED.to_string(),_=>"cannot check scheduler credential origin".into()})?;
+            match &what{
+                Record::Success=>state::record_success(&tx,name,scope.as_deref(),at),
+                Record::Run=>state::record_run(&tx,name,scope.as_deref(),at),
+                Record::Error(m)=>state::record_error(&tx,name,scope.as_deref(),at,m),
+            }?;
+            tx.commit().map_err(|_|"cannot commit scheduler state write".to_string())?;
+            if matches!(name,crate::sync::jobs::LEDGER_SYNC|crate::sync::jobs::BALANCE_SYNC|crate::sync::jobs::API_KEY_VALIDATOR) {
+                log(&format!("[jobs] {name} {scope:?}: venue job result recorded"));
+            } else { log(&format!("[jobs] {name} {scope:?}: {what:?}")); }
+            Ok(())
         };
         let writing = async {
             match self.records.clone() {
@@ -459,12 +485,15 @@ impl Scheduler {
         };
         tokio::select! {
             written = writing => {
-                if let Err(e) = written { log(&format!("[jobs] {name}: the state write failed: {e}")); }
-                true
+                if let Err(e) = written {
+                    if e==crate::engine::model::CREDENTIALS_CHANGED{self.wakers.wake(name,retry_scope.as_deref(),None);}
+                    else{return Err(format!("[jobs] {name}: the state write failed: {e}"));}
+                }
+                Ok(true)
             }
             _ = stop.wait_for(|stopped| *stopped) => {
                 log(&format!("[jobs] {name}: stopped while recording; the record is skipped"));
-                false
+                Ok(false)
             }
         }
     }

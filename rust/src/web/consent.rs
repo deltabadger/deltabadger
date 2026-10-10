@@ -177,7 +177,14 @@ fn refusal_status(refused: &Refusal) -> StatusCode {
 
 /// An answer for the client, sent through the owner's browser to the verified redirect URI.
 fn to_client(asked: &Asked, redirect_uri: &str, parameters: &[(&str, &str)]) -> Response {
-    cached_as_rails(layout::redirect(StatusCode::FOUND, &redirect_with(redirect_uri, parameters, asked.on_fragment())))
+    // This verified client callback delivers the OAuth protocol's freshly issued code.
+    // Page-navigation redaction must not remove protocol response parameters.
+    let location = redirect_with(redirect_uri, parameters, asked.on_fragment());
+    let mut response = (StatusCode::FOUND, [(header::CONTENT_TYPE, "text/html; charset=utf-8")]).into_response();
+    if let Ok(value) = axum::http::HeaderValue::from_str(&location) {
+        response.headers_mut().insert(header::LOCATION, value);
+    }
+    cached_as_rails(response)
 }
 
 struct Group {

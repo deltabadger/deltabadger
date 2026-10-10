@@ -328,7 +328,7 @@ async fn a_failing_exit_writes_its_budget_its_marker_and_its_log_line_together_o
         (one::<Option<String>>(o, &format!("SELECT last_end_of_funds_notification FROM bots WHERE id = {id}")), transient(o, id).get("failure_notifications").cloned(),
          notice::all_pending(&o.primary).unwrap().len(), bot(o, id).status)
     };
-    let nothing = (None, None, 0, BotStatus::Retrying); // `retrying` is the tick's own, written before the exit
+    let nothing = (None, None, 0, BotStatus::Executing); // The rejected Q transaction rolls back the retry transition too.
 
     // An ordinary failure (no order row, so the exit logs): the per-kind budget and the error marker, then the log line.
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
@@ -349,7 +349,7 @@ async fn a_failing_exit_writes_its_budget_its_marker_and_its_log_line_together_o
     let mut attempts = Attempts::default();
     for _ in 0..3 { tick::tick(&o.primary, &throttled, id, &clock("2026-09-08T10:00:01Z"), &mut attempts).await.unwrap(); }
     assert!(tick::tick(&o.primary, &throttled, id, &clock("2026-09-08T10:00:01Z"), &mut attempts).await.is_err());
-    assert_eq!(written(&o, id), nothing, "an exhausted rate limit");
+    assert_eq!(written(&o, id), (None, None, 0, BotStatus::Retrying), "the previous successful retry remains after the exhausted exit rolls back");
 
     // The second blocking failure: the budget, then the stop with its marker, then the stop's log line.
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_failure_kind", json!("invalid_key")));

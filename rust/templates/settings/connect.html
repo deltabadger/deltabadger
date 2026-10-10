@@ -1,0 +1,17 @@
+<div class="page-head">
+  <div class="stitle">{{ v.t("links.connections")|safe }}</div>
+</div>
+
+<div class="columns">
+  <div class="column gap-1">
+      {% if admin %}{{ market_data|safe }}{% endif %}
+
+    {{ keys|safe }}
+
+  </div>
+
+  <div class="column gap-1">
+      {% if admin %}{{ stocks|safe }}{% endif %}
+    
+  </div>
+</div>

@@ -1,7 +1,7 @@
 //! The Rust half of the decision-parity harness (script/rust/decisions.rb is the Rails half): the same
 //! ticks, with retries, on a marked scratch copy, reported in the canonical shape Rails reports.
 use crate::engine::notice::{self, Notice, Pending};
-use crate::engine::polling;
+use crate::engine::{model, polling};
 use crate::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use crate::engine::{EngineError, FixedClock};
 use crate::crypto::{Cipher, EncryptionKeys};
@@ -25,7 +25,7 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 3] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending"];
+const RUST_KEYS: [&str; 4] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin"];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -131,7 +131,22 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         for job in [reference::STOCKS,reference::INDICES,reference::ASSETS] { jobs::state::record_success(&o.primary,job,None,start).map_err(EngineError::Data)?; }
         let mut stmt=o.primary.prepare("SELECT id FROM api_keys WHERE key_type=0")?;
         let ids=stmt.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
-        for id in ids { jobs::state::record_success(&o.primary,"ledger_sync",Some(&id.to_string()),start).map_err(EngineError::Data)?; }
+        for id in ids {
+            let version=model::credential_version_by_id(&o.primary,id)?.ok_or_else(||EngineError::Data("parity credential missing".into()))?;
+            model::credential_write(&o.primary,&Some(version.clone()),|tx| {
+                crate::sync::cache::record_ledger(tx,id,&version,start)?;
+                jobs::state::record_success(tx,"ledger_sync",Some(&id.to_string()),start).map_err(EngineError::Data)
+            })?;
+        }
+    }
+    // The recorder explicitly seeded this prior failure with the scratch account's key.
+    // Unknown live rows receive no inferred producer and are stale.
+    if scenario["parity_scratch"] == true {
+        let bot=model::load_bot(&o.primary,bot_id)?;
+        if bot.last_failure_kind().is_some() {
+            let producer=model::credential_version(&o.primary,&bot)?;
+            model::credential_write(&o.primary,&producer,|c|model::record_failure_origin(c,bot_id))?;
+        }
     }
     let before = snapshot(&o.primary)?;
     let owed = notice::all_pending(&o.primary)?;
@@ -169,7 +184,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     -> Result<(Option<polling::PollFailure>, Option<usize>), EngineError> {
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
-    let cx = TickContext { prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
+    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
     let at = |key: &str| -> Result<Option<DateTime<Utc>>, EngineError> {
         scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
     };

@@ -28,6 +28,13 @@ pub struct Shell {
 
 impl Shell {
     pub fn load(c: &Connection, app: &Inner, user: &User) -> Result<Shell, WebError> {
+        if c.is_autocommit(){
+            let tx=c.unchecked_transaction()?;let origin=crate::sync::cache::capture_read(&tx,user.id,None)?;
+            let mut shell=Self::load(&tx,app,user)?;tx.commit()?;
+            if !crate::sync::cache::read_is_current(c,&origin)?{shell.arcs.clear();}
+            return Ok(shell)
+        }
+
         let mut not_deleted = c.prepare("SELECT id, status FROM bots WHERE user_id = ?1 AND status != 3 ORDER BY id")?;
         let bots = not_deleted.query_map([user.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
         let single_bot = match bots.as_slice() { [(id, _)] => Some(*id), _ => None };
@@ -48,7 +55,10 @@ impl Shell {
             let value = row.get::<_, super::format::Stored>(2)?.0;
             if let Some(value) = value { values.push((value.round(8), color)); }
         }
-        let arcs = ring::icon_arcs(values).ok_or_else(|| WebError::Config("an asset's colour is not a colour".into()))?;
+        // Preserve Rails' unreadable-colour error even for an unknown legacy producer.
+        // Only the checked arcs may reach the navbar; stale holdings remain unavailable.
+        let mut arcs = ring::icon_arcs(values).ok_or_else(|| WebError::Config("an asset's colour is not a colour".into()))?;
+        if crate::sync::cache::stale(c, user.id, None)? { arcs.clear(); }
         Ok(Shell {
             syncing: app_config(c, &app.cipher, "setup_sync_status")?.as_deref() == Some("in_progress"),
             bot_count: bots.iter().filter(|(_, status)| *status != 7).count() as i64,

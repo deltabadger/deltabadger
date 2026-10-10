@@ -1,0 +1,3076 @@
+[
+  {
+    "label": "csrf-settings-update_name",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_name\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_email",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_email\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_password",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_password\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_time_zone",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_time_zone\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_locale",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_locale\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_two_fa",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_two_fa\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_wash_sale",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_wash_sale\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_client_tool_permissions-1",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_client_tool_permissions/1\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_mcp_tool_permissions",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_mcp_tool_permissions\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_rest_tool_permissions",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_rest_tool_permissions\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_mcp_tool_group_permissions",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_mcp_tool_group_permissions\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_rest_tool_group_permissions",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_rest_tool_group_permissions\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-update_mcp_dry_run",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/update_mcp_dry_run\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-destroy_api_key-1",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/destroy_api_key/1\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-settings-revoke_mcp_client-1",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/settings/revoke_mcp_client/1\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-tracker-add_api_key",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/tracker/add_api_key\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-bots-1-add_api_key",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/bots/1/add_api_key\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-api-api_keys",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/api/api_keys\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "csrf-confirmation",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "&& !context.csrf_verified(request.headers())",
+        "new": "&& !context.csrf_verified(request.headers()) && context.params.route_path != \"/confirmation\"",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(every_settings_write)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validator-wake",
+    "edits": [
+      {
+        "file": "sync/jobs.rs",
+        "old": "cx.wakers.wake_engine();",
+        "new": "/* deliberately remove committed-status wake */",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(validator_status_commit_wakes)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "passive-extra-redaction",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "e.log_text()",
+        "new": "e.text.clone()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(stored_extra_credential_material) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "job-extra-redaction",
+    "edits": [
+      {
+        "file": "sync/jobs.rs",
+        "old": "let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);",
+        "new": "let safe=e.text.clone();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(stored_extra_credential_material) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "figure-snapshot",
+    "edits": [
+      {
+        "file": "web/figure/loading.rs",
+        "old": "if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_info(&tx,app,user)?;tx.commit()?;return Ok(out)}",
+        "new": "/* deliberately permit a torn auth/origin capture */",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_figure_auth)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "scheduler-swallow",
+    "edits": [
+      {
+        "file": "jobs/mod.rs",
+        "old": "else{return Err(format!(\"[jobs] {name}: the state write failed: {e}\"));}",
+        "new": "else{log(&format!(\"[jobs] {name}: the state write failed: {e}\"));}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(scheduler_state_write_failure)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "guard-tax",
+    "edits": [
+      {
+        "file": "web/settings/tax.rs",
+        "old": "eligibility::guard(&tx,&inner.cipher,None)",
+        "new": "Ok::<(),crate::engine::eligibility::Refusal>(())",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(tax_guard)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "guard-validator",
+    "edits": [
+      {
+        "file": "sync/mod.rs",
+        "old": "crate::engine::eligibility::guard(&tx, cipher, None)",
+        "new": "Ok::<(),crate::engine::eligibility::Refusal>(())",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(each_credential_status)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "reauth-email",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if !correct{draft.errors.push(\"current_password\".into());}",
+        "new": "if !correct&&action!=\"update_email\"{draft.errors.push(\"current_password\".into());}",
+        "count": 2,
+        "which": null
+      }
+    ],
+    "expression": "test(account_writes_validate)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "reauth-password",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if !correct{draft.errors.push(\"current_password\".into());}",
+        "new": "if !correct&&action!=\"update_password\"{draft.errors.push(\"current_password\".into());}",
+        "count": 2,
+        "which": null
+      }
+    ],
+    "expression": "test(account_writes_validate)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-otp",
+    "edits": [
+      {
+        "file": "web/settings/two_fa.rs",
+        "old": "auth::verify_otp(&tx, &inner.cipher, &user, &code, inner.now())?",
+        "new": "true",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(missing_otp_seed_get)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-jurisdiction",
+    "edits": [
+      {
+        "file": "web/settings/tax.rs",
+        "old": "if jurisdiction.as_deref().is_some_and",
+        "new": "if false && jurisdiction.as_deref().is_some_and",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(malformed_settings_values)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-name",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if previous.as_deref()!=Some(name)&&!matches",
+        "new": "if false && previous.as_deref()!=Some(name)&&!matches",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(account_writes_validate)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-zone",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if crate::web::timezone::zone(zone).is_none()",
+        "new": "if false && crate::web::timezone::zone(zone).is_none()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(account_writes_validate)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-locale",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if locale.is_some_and",
+        "new": "if false && locale.is_some_and",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(account_writes_validate)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-global",
+    "edits": [
+      {
+        "file": "web/settings/api.rs",
+        "old": "if !dry_run && names.is_empty()",
+        "new": "if false && !dry_run && names.is_empty()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(malformed_settings_values)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-client",
+    "edits": [
+      {
+        "file": "web/settings/clients.rs",
+        "old": "if !revoke\n        &&",
+        "new": "if false && !revoke\n        &&",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(connected_client_grants)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-password",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if password.chars().count()<8||password.chars().count()>128||!password_complexity(password)",
+        "new": "if false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(malformed_settings_values)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "validation-confirmation",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if view.params.form(\"user[password_confirmation]\").is_some_and",
+        "new": "if false && view.params.form(\"user[password_confirmation]\").is_some_and",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(malformed_settings_values)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "guard-key-0",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "eligibility::guard(&tx,&inner.cipher,None)",
+        "new": "Ok::<(),crate::engine::eligibility::Refusal>(())",
+        "count": 4,
+        "which": 0
+      }
+    ],
+    "expression": "test(credential_save_and_delete_guard) | test(each_credential_status)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "guard-key-1",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "eligibility::guard(&tx,&inner.cipher,None)",
+        "new": "Ok::<(),crate::engine::eligibility::Refusal>(())",
+        "count": 4,
+        "which": 1
+      }
+    ],
+    "expression": "test(credential_save_and_delete_guard) | test(each_credential_status)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "guard-key-2",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "eligibility::guard(&tx,&inner.cipher,None)",
+        "new": "Ok::<(),crate::engine::eligibility::Refusal>(())",
+        "count": 4,
+        "which": 2
+      }
+    ],
+    "expression": "test(credential_save_and_delete_guard) | test(each_credential_status)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "guard-key-3",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "eligibility::guard(&tx,&inner.cipher,None)",
+        "new": "Ok::<(),crate::engine::eligibility::Refusal>(())",
+        "count": 4,
+        "which": 3
+      }
+    ],
+    "expression": "test(credential_save_and_delete_guard) | test(each_credential_status)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-clock",
+    "edits": [
+      {
+        "file": "engine/tick.rs",
+        "old": "model::credential_write(c, &clock_origin, |tx| park",
+        "new": "model::credential_write(c, &None, |tx| park",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_clock)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-funds",
+    "edits": [
+      {
+        "file": "engine/tick.rs",
+        "old": "model::credential_write(c, &funds_origin, |tx| stamp_funds_low",
+        "new": "model::credential_write(c, &None, |tx| stamp_funds_low",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_funds)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-failure",
+    "edits": [
+      {
+        "file": "engine/tick.rs",
+        "old": "model::credential_write(c, version, |tx| {\n        let outcome",
+        "new": "model::credential_write(c, &None, |tx| {\n        let outcome",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_failure)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-skipped",
+    "edits": [
+      {
+        "file": "engine/tick.rs",
+        "old": "model::credential_write(c, &cx.credential_version, |tx| record_skipped",
+        "new": "model::credential_write(c, &None, |tx| record_skipped",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_skipped)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-index",
+    "edits": [
+      {
+        "file": "engine/index.rs",
+        "old": "model::credential_write(c, version, |tx| {",
+        "new": "model::credential_write(c, &None, |tx| {",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_index)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-bars",
+    "edits": [
+      {
+        "file": "tracker/jobs.rs",
+        "old": "check_credential_result(&tx, &Some(version))",
+        "new": "check_credential_result(&tx, &Some(version).filter(|_|false))",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_tracker)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-wrapper-binding",
+    "edits": [
+      {
+        "file": "sync/mod.rs",
+        "old": "if !same(&current.key, &supplied.key) || !same(&current.secret, &supplied.secret) || !phrase {",
+        "new": "if false && (!same(&current.key, &supplied.key) || !same(&current.secret, &supplied.secret) || !phrase) {",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_direct)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-market-wait",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "!until.current_for(&credential_version).is_fresh() || ",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_replacement_invalidates)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-m3-origin",
+    "edits": [
+      {
+        "file": "web/figure/loading.rs",
+        "old": "let identity=serde_json::json!([user,version.cache_stamp()]).to_string();",
+        "new": "let stored:(Option<String>,Option<String>,Option<String>)=c.query_row(\"SELECT key,secret,passphrase FROM api_keys WHERE id=?1\",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;let _=version;let identity=serde_json::json!([user,stored]).to_string();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_each_credential_column)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r-passive-status",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "crate::engine::model::check_credential_result(&tx,status.origin())?;",
+        "new": "crate::engine::model::check_credential_result(&tx,&status.origin().clone().filter(|_|false))?;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_passive_validation) | test(reconnect_get_revalidates)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-validator-status",
+    "edits": [
+      {
+        "file": "sync/jobs.rs",
+        "old": "let origin=status.origin().clone();",
+        "new": "let status=crate::engine::model::Produced::new(status.value,match cx.db.run(move|c,_|crate::engine::model::credential_version_by_id(c,id).map_err(|e|format!(\"{e:?}\"))).await{Ok(current)=>current,Err(_)=>return crate::engine::model::Produced::new(Outcome::NothingNew,None)});\n        let origin=status.origin().clone();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_validator_job)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-scheduler-state",
+    "edits": [
+      {
+        "file": "jobs/mod.rs",
+        "old": "crate::engine::model::check_credential_result(&tx,&version)",
+        "new": "crate::engine::model::check_credential_result(&tx,&None)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_scheduler)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-old-balance-price",
+    "edits": [
+      {
+        "file": "sync/balances.rs",
+        "old": "let allowed = super::cache::produced_by",
+        "new": "let allowed = true || super::cache::produced_by",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_new_account)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-navbar",
+    "edits": [
+      {
+        "file": "web/shell.rs",
+        "old": "if crate::sync::cache::stale(c, user.id, None)?",
+        "new": "if false && crate::sync::cache::stale(c, user.id, None)?",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_navbar)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-mcp-result",
+    "edits": [
+      {
+        "file": "web/mcp/reads.rs",
+        "old": "if !crate::engine::model::credential_is_current(c,&version)?",
+        "new": "if false && !crate::engine::model::credential_is_current(c,&version)?",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_mcp)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-balance-origin",
+    "edits": [
+      {
+        "file": "sync/cache.rs",
+        "old": "if !fresh { return Ok(true); }",
+        "new": "if false { return Ok(true); }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(previously_committed_balances)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-price-origin",
+    "edits": [
+      {
+        "file": "engine/tick.rs",
+        "old": "!price.current_for(version).is_fresh()",
+        "new": "false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_price_cache)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-tracker-reader",
+    "edits": [
+      {
+        "file": "tracker/snapshot.rs",
+        "old": "if !crate::sync::cache::read_is_current(c,&origin).map_err",
+        "new": "if false && !crate::sync::cache::read_is_current(c,&origin).map_err",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_tracker_reader)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-navbar-reader",
+    "edits": [
+      {
+        "file": "web/shell.rs",
+        "old": "if !crate::sync::cache::read_is_current(c,&origin)?",
+        "new": "if false && !crate::sync::cache::read_is_current(c,&origin)?",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_navbar_reader)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "google-alias-request",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "Ok(stored.iter().any(|email|google(email).as_deref()==Some(wanted.as_str())))",
+        "new": "let _=(stored,wanted);Ok(false)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(google_alias_privacy)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "google-alias-confirmation",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if email_taken(c,email,id)?",
+        "new": "if false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(a_google_alias_taken)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "password-symbol",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "!c.is_ascii_alphanumeric()",
+        "new": "!c.is_alphanumeric()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(password_non_ascii_letter)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "password-digit",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "c.is_ascii_digit()",
+        "new": "c.is_numeric()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(password_non_ascii_digit)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "password-newline",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "password.split('\\n')",
+        "new": "std::iter::once(password)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(password_complexity)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "password-whitespace",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": ".filter(|p|!crate::ruby::blank(p))",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(whitespace_password)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "password-presence",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if password.is_empty()&&view.params.form",
+        "new": "if false && password.is_empty()&&view.params.form",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(confirmation_without_a_password)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "reauth-current-hash",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "let correct=correct&&bool::from(subtle::ConstantTimeEq::ct_eq(current.encrypted_password.as_bytes(),old_hash.as_bytes()));",
+        "new": "let correct=correct;let _=old_hash;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(hash_changes_during_bcrypt)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "email-raw-pending",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "(view.params.form(\"user[email]\").unwrap_or(&email),&now,user.id)",
+        "new": "(&email,&now,user.id)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(retains_the_raw_pending)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "query-language",
+    "edits": [
+      {
+        "file": "web/layout.rs",
+        "old": "!locale::sensitive_query(key)",
+        "new": "true || !locale::sensitive_query(key)",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "web/locale.rs",
+        "old": "&& !sensitive_query(key)",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(query_parameters_are_omitted)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "query-refusal",
+    "edits": [
+      {
+        "file": "web/layout.rs",
+        "old": "let safe=locale::without_secret_query(path);",
+        "new": "let safe=std::borrow::Cow::Borrowed(path);",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(query_parameters_are_omitted)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "job-rollback",
+    "edits": [
+      {
+        "file": "jobs/mod.rs",
+        "old": "c.execute_batch(\"ROLLBACK\").map_err(|_|\"job transaction rollback failed\".to_string())?;",
+        "new": "let _=c.execute_batch(\"ROLLBACK\");",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(job_connection_reports)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "job-uncommitted",
+    "edits": [
+      {
+        "file": "jobs/mod.rs",
+        "old": "if out.is_ok(){return Err(\"job left an uncommitted transaction\".into())}",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(job_connection_does_not_claim)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "web-rollback",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "c.execute_batch(\"ROLLBACK\").map_err(|_|WebError::Config(\"web transaction rollback failed\".into()))?;",
+        "new": "let _=c.execute_batch(\"ROLLBACK\");",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(web_connection_reports)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "web-uncommitted",
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "if out.is_ok(){return Err(WebError::Config(\"web left an uncommitted transaction\".into()))}",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(web_connection_does_not_claim)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "k-save",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "current.id.is_some() && settling(&tx,user.id,exchange)?",
+        "new": "false && current.id.is_some() && settling(&tx,user.id,exchange)?",
+        "count": 2,
+        "which": 0
+      }
+    ],
+    "expression": "test(credential_fence_covers)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "k-legacy",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "current.id.is_some() && settling(&tx,user.id,exchange)?",
+        "new": "false && current.id.is_some() && settling(&tx,user.id,exchange)?",
+        "count": 2,
+        "which": 1
+      }
+    ],
+    "expression": "test(credential_fence_covers)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "k-delete",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "if settling(&tx,user.id,exchange)?",
+        "new": "if false && settling(&tx,user.id,exchange)?",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_fence_covers)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "l-intent",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": "let fresh=match version {Some(v)=>model::credential_is_current(&tx,v)?,None=>false};",
+        "new": "let fresh=true;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(replacement_before_intent_prevents)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "p-omit-key",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 0 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: key"
+  },
+  {
+    "label": "p-omit-secret",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 1 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: secret"
+  },
+  {
+    "label": "p-omit-passphrase",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 2 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: passphrase"
+  },
+  {
+    "label": "p-omit-access_token",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 3 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: access_token"
+  },
+  {
+    "label": "p-omit-rsa_signature_key",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 4 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: rsa_signature_key"
+  },
+  {
+    "label": "p-omit-rsa_encryption_key",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 5 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: rsa_encryption_key"
+  },
+  {
+    "label": "p-omit-dh_param",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "for value in columns {",
+        "new": "for (index,value) in columns.iter().enumerate() { if index == 6 { continue; }",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_digest)",
+    "lib": false,
+    "marker": "each encrypted credential column must prevent an intent after re-encryption: dh_param"
+  },
+  {
+    "label": "q-shared-helper",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "if !credential_is_current(c,version)? {",
+        "new": "if false {",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_) | test(a_balance_sync_started) | test(old_balance_failure) | test(old_ledger_failure) | test(finishing_a_paused_ledger)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-accepted",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": "model::check_credential_result(&tx, &intent.credential_version)?;",
+        "new": "model::check_credential_result(&tx, &None)?;",
+        "count": 4,
+        "which": 0
+      }
+    ],
+    "expression": "test(q_placement_result)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-rejected",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": "model::check_credential_result(&tx, &intent.credential_version)?;",
+        "new": "model::check_credential_result(&tx, &None)?;",
+        "count": 4,
+        "which": 1
+      }
+    ],
+    "expression": "test(q_rejected_placement)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-recovered-found",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": "model::check_credential_result(&tx, &intent.credential_version)?;",
+        "new": "model::check_credential_result(&tx, &None)?;",
+        "count": 4,
+        "which": 2
+      }
+    ],
+    "expression": "test(q_recovery_result)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-recovered-absent",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": "model::check_credential_result(&tx, &intent.credential_version)?;",
+        "new": "model::check_credential_result(&tx, &None)?;",
+        "count": 4,
+        "which": 3
+      }
+    ],
+    "expression": "test(q_absent_recovery)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-polled-fill",
+    "edits": [
+      {
+        "file": "engine/polling.rs",
+        "old": "model::check_credential_result(&tx, version)?;",
+        "new": "model::check_credential_result(&tx, &None)?;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_poll_result)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "e-live-refusal",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "if candidate.passphrase.as_deref() == Some(\"live\") {",
+        "new": "if false && candidate.passphrase.as_deref() == Some(\"live\") {",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "web/settings/validator.rs",
+        "old": "if key.passphrase.as_deref()==Some(\"live\")",
+        "new": "if false && key.passphrase.as_deref()==Some(\"live\")",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(live_submitted_or_inherited)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "g-legacy-delete-before-validation",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "if !address.is_match(key.as_deref().unwrap_or(\"\"))||!agent.is_match(secret.as_deref().unwrap_or(\"\")){return Ok(Err(None));}",
+        "new": "if !address.is_match(key.as_deref().unwrap_or(\"\"))||!agent.is_match(secret.as_deref().unwrap_or(\"\")){if let Some(id)=current.id{tx.execute(\"UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1\",[id])?;tx.execute(\"DELETE FROM api_keys WHERE id=?1\",[id])?;}tx.commit()?;return Ok(Err(None));}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(legacy_rejected_hyperliquid)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-failed-save-log",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "diagnostic.log_text()",
+        "new": "diagnostic.text.clone()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(credential_value_is_absent) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "tracker-rollback",
+    "edits": [
+      {
+        "file": "tracker/jobs.rs",
+        "old": "tx.rollback().map_err(|_|FiguresError::Data(\"tracker transaction rollback failed\".into()))?;",
+        "new": "let _=tx.rollback();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(tracker_write_reports)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "m-retain-old-token",
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "confirmation_token=NULL,confirmation_sent_at=NULL,",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(taken_email_request_must_not_rebind)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "j-repeat-token",
+    "edits": [
+      {
+        "file": "web/settings/confirmation.rs",
+        "old": "email=?1,unconfirmed_email=NULL,confirmed_at=?2",
+        "new": "email=?1,confirmed_at=?2",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(confirmation_is_single_use)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "g-modern-delete-before-validation",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "Validity::Incorrect => {",
+        "new": "Validity::Incorrect => { let owner=user.id;app.db(move|c|{let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;tx.execute(\"UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id IN(SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3)\",(owner,exchange,kind))?;tx.execute(\"DELETE FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3\",(owner,exchange,kind))?;tx.commit()?;Ok(())}).await?;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(rejected_replacement_preserves)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "p-timestamp",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "dh_param,id FROM api_keys",
+        "new": "dh_param,id,updated_at FROM api_keys",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "engine/model.rs",
+        "old": "k.dh_param,e.type,k.id FROM",
+        "new": "k.dh_param,e.type,k.id,k.updated_at FROM",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "engine/model.rs",
+        "old": "Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))",
+        "new": "Ok(ciphertext_version(r.get(7)?, &[r.get(8)?,None,None,None,None,None,None]))",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "engine/model.rs",
+        "old": "type KeyRow = ([Option<String>;7], Option<String>, i64);",
+        "new": "type KeyRow = ([Option<String>;7], Option<String>, i64, Option<String>);",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "engine/model.rs",
+        "old": "(stored_columns(r)?,r.get(7)?,r.get(8)?)",
+        "new": "(stored_columns(r)?,r.get(7)?,r.get(8)?,r.get(9)?)",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "engine/model.rs",
+        "old": "Some((columns,exchange_type,id))",
+        "new": "Some((columns,exchange_type,id,stamp))",
+        "count": 1,
+        "which": null
+      },
+      {
+        "file": "engine/model.rs",
+        "old": "let version = ciphertext_version(id,&columns);",
+        "new": "let version = ciphertext_version(id,&[stamp,None,None,None,None,None,None]);",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(replacement_at_the_same_persisted_timestamp)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-json-escaped-credentials",
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "let json=unescape_json(&value);",
+        "new": "let json=value.clone();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-url-encoded-credentials",
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "let percent=decode_percent(&value);",
+        "new": "let percent=value.clone();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "owner-legacy-explicit-refusal",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "if venue!=\"Exchanges::Alpaca\"{return Ok(Err(Some(\"credential venue is not ported\".into())));}",
+        "new": "if false && venue!=\"Exchanges::Alpaca\"{return Ok(Err(Some(\"credential venue is not ported\".into())));}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(owner_slice_refuses)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-return-to-storage",
+    "edits": [
+      {
+        "file": "web/auth.rs",
+        "old": "Some(super::locale::without_secret_query(&ctx.params.fullpath).into_owned()).filter",
+        "new": "Some(ctx.params.fullpath.clone()).filter",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(stored_query_credentials_are_not_echoed_by_the_after_login_redirect)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-redirect-header",
+    "edits": [
+      {
+        "file": "web/layout.rs",
+        "old": "let safe=locale::without_secret_query(location);",
+        "new": "let safe=std::borrow::Cow::Borrowed(location);",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(stored_query_credentials_are_not_echoed_by_the_tax_referer_redirect)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-ascii-json-credentials",
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "let json=unescape_json(&value);",
+        "new": "let json=value.clone();",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-mixed-percent-hex",
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "char::from(c).to_digit(16)",
+        "new": "if c.is_ascii_uppercase(){None}else{char::from(c).to_digit(16)}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "g-successful-legacy-history",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "let id=if let Some(id)=current.id{",
+        "new": "let id=if let Some(id)=current.id{tx.execute(\"UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1\",[id])?;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(successful_legacy_replacement)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "e-legacy-paper-realm",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "if same_keys {\n    tx.execute(\"UPDATE api_keys SET status=0,updated_at=?1 WHERE id=?2\",(&stamp,id))?;",
+        "new": "if same_keys {\n    tx.execute(\"UPDATE api_keys SET status=0,updated_at=?1 WHERE id=?2\",(&stamp,id))?;\n    tx.execute(\"UPDATE api_keys SET passphrase=?1 WHERE id=?2\",(passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),id))?;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(legacy_same_key_revalidation_keeps_the_stored_realm) | test(r9_same_key_revalidation)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-ledger-cursor-origin",
+    "edits": [
+      {
+        "file": "sync/ledger.rs",
+        "old": "!crate::engine::model::stamp_current_for(&v[\"credential_origin\"],&version.cache_stamp()).is_fresh() || ",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_ledger_cursor_must_restart)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-ledger-watermark-origin",
+    "edits": [
+      {
+        "file": "sync/ledger.rs",
+        "old": "if !super::cache::ledger_produced_by(c,key_id,&captured)?",
+        "new": "if false && !super::cache::ledger_produced_by(c,key_id,&captured)?",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_ledger_watermark_) | test(r_ledger_unknown_)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-ledger-completed-producer",
+    "edits": [
+      {
+        "file": "sync/ledger.rs",
+        "old": "super::cache::record_ledger(c,key_id,&producer,now)?;",
+        "new": "if false {super::cache::record_ledger(c,key_id,&producer,now)?;}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_ledger_watermark_must_restart)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-ledger-empty-watermark",
+    "edits": [
+      {
+        "file": "sync/ledger.rs",
+        "old": "micros(watermark) != raw_watermark ||",
+        "new": "micros(watermark) != micros(key.last_synced_at) ||",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_ledger_empty_replacement)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r-legacy-diagnostic-origin",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "passphrase=?3,status=0,last_sync_error=NULL,last_synced_at=NULL,updated_at=?4 WHERE id=?5",
+        "new": "passphrase=?3,status=0,last_synced_at=NULL,updated_at=?4 WHERE id=?5",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r_legacy_replacement_clears)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-poll-log-once",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "if announce_retry {super::log",
+        "new": "if true {super::log",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_changed_poll_logs_once)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-idle-log-once",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "if !changed {super::log",
+        "new": "if true {super::log",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_changed_idle_recovery_logs_once)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "q-idle-fresh-retry",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "let delay=if changed {0}else{RECONCILE_EVERY_US};",
+        "new": "let delay=if changed {RECONCILE_EVERY_US}else{RECONCILE_EVERY_US};",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_changed_idle_recovery_logs_once)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-engine-diagnostic-redaction",
+    "edits": [
+      {
+        "file": "venue/http.rs",
+        "old": "crate::crypto::scrub_known(text,&self.sensitive.iter().map(String::as_str).collect::<Vec<_>>())",
+        "new": "text.to_string()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(i_engine_diagnostics)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "i-engine-all-stored-material",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "sensitive.push(plain);",
+        "new": "if false {sensitive.push(plain);}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(i_engine_diagnostics)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r1-log-save-body",
+    "expression": "test(r1_validation_logs_no_venue_body) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "diagnostic.log_text()",
+        "new": "diagnostic.text.clone()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-log-sync-body",
+    "expression": "test(r1_sync_and_validation_scheduler) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "jobs/mod.rs",
+        "old": "log(&format!(\"[jobs] {name} {scope:?}: venue job result recorded\"));",
+        "new": "log(&format!(\"[jobs] {name} {scope:?}: {what:?}\"));",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-log-validator-body",
+    "expression": "test(r1_sync_and_validation_scheduler) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "sync/jobs.rs",
+        "old": "let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);",
+        "new": "let safe=e.text.clone();",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-http-body",
+    "expression": "test(r1_sync_and_validation_scheduler)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/http.rs",
+        "old": "eprintln!(\"{}\",self.redact_diagnostic(&diagnostic(Some(response.status),&response.body)));",
+        "new": "eprintln!(\"{}\",response.body);",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-ruby-unicode-whitespace",
+    "expression": "test(r1_ruby_name_whitespace)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "ruby.rs",
+        "old": "regex::Regex::new(&pattern.replace(r\"\\s\", r\"[\\x09-\\x0d\\x20]\"))",
+        "new": "regex::Regex::new(pattern)",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-snapshot-check-outside-transaction",
+    "expression": "test(r1_snapshot_checks_provenance_after_waiting)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "tracker/jobs.rs",
+        "old": "    let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate)?;\n    let fenced=crate::sync::cache::fence_read(&tx,origin).map_err(|_|FiguresError::Data(crate::engine::model::CREDENTIALS_CHANGED.into()))?;",
+        "new": "    { let read=c.unchecked_transaction()?;crate::sync::cache::fence_read(&read,origin).map_err(|_|FiguresError::Data(crate::engine::model::CREDENTIALS_CHANGED.into()))?;read.commit()?; }\n    let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate)?;\n    let fenced=crate::engine::model::fence_versions(&tx,&[]).map_err(|_|FiguresError::Data(\"probe fence failed\".into()))?;",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-sync-check-outside-transaction",
+    "expression": "test(r1_each_sync_kind_checks_after_waiting)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "sync/mod.rs",
+        "old": "    let (out,held)=db.run(move |c,cipher| write_timed(c,cipher,|tx| {\n        let fenced=crate::engine::model::check_credential_result(tx,&version)?;\n        work(&fenced)\n    }).map_err(|e|e.0)).await.map_err(SyncError)?;",
+        "new": "    let checked=version.clone();\n    db.run(move|c,_|{let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;crate::engine::model::check_credential_result(&tx,&checked).map_err(|e|format!(\"{e:?}\"))?;tx.commit().map_err(|e|e.to_string())}).await.map_err(SyncError)?;\n    let (out,held)=db.run(move |c,cipher| write_timed(c,cipher,|tx| {\n        let fenced=crate::engine::model::check_credential_result(tx,&None)?;\n        work(&fenced)\n    }).map_err(|e|e.0)).await.map_err(SyncError)?;",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-snapshot-producer-stamp",
+    "expression": "test(r1_snapshot_checks_provenance_after_waiting)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "tracker/snapshot.rs",
+        "old": "record_origin(c,user_id,None,date)?;",
+        "new": "// mutation: producer stamp omitted",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r1-stale-job-log-body",
+    "expression": "test(r1_sync_and_validation_scheduler) | test(r2_every_venue_text_sink)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "engine/staleness.rs",
+        "old": "state.describe_venue()",
+        "new": "state.describe()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-http-body",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/http.rs",
+        "old": "response.body=self.redact_diagnostic(&response.body);",
+        "new": "response.body=response.body.clone();",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-http-log",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/http.rs",
+        "old": "self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))",
+        "new": "diagnostic(Some(response.status),&response.body)",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-wire-body",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/figure/loading.rs",
+        "old": "body:self.redact_diagnostic(&reply[\"body\"].as_str().map(str::to_string).unwrap_or_else(||reply[\"body\"].to_string()))",
+        "new": "body:reply[\"body\"].as_str().map(str::to_string).unwrap_or_else(||reply[\"body\"].to_string())",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-wire-redactor",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/figure/loading.rs",
+        "old": "fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}",
+        "new": "fn redact_diagnostic(&self,text:&str)->String{text.into()}",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-body",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/validator.rs",
+        "old": "let body=key.venue_text(&body);",
+        "new": "let body=body;",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-positions",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/validator.rs",
+        "old": "let text=key.venue_text(&text);",
+        "new": "let text=text;",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-save-log",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "scrub(&diagnostic.log_text(),&redaction_material)",
+        "new": "diagnostic.log_text()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-passive-log",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "scrub(&e.log_text(),&values)",
+        "new": "e.log_text()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-job-log",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "sync/jobs.rs",
+        "old": "crate::web::settings::keys::scrub(&e.log_text(),&values)",
+        "new": "e.log_text()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-stored-sync-error",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "sync/mod.rs",
+        "old": "scrub(text, credentials).chars().take(SYNC_ERROR_LIMIT)",
+        "new": "text.chars().take(SYNC_ERROR_LIMIT)",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-sync-redactor",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "sync/mod.rs",
+        "old": "let text=credentials.venue_text(text);",
+        "new": "let text=text.to_string();",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-mcp-balances-0",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/mcp/reads.rs",
+        "old": "sync::scrub(&why,&credentials)",
+        "new": "why.clone()",
+        "count": 2,
+        "which": 0
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-mcp-balances-1",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/mcp/reads.rs",
+        "old": "sync::scrub(&why,&credentials)",
+        "new": "why.clone()",
+        "count": 2,
+        "which": 1
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-activity-rejected",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/alpaca.rs",
+        "old": "messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()",
+        "new": "messages",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-activity-transient",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/alpaca.rs",
+        "old": "VenueError::Transient(self.transport.redact_diagnostic(&message))",
+        "new": "VenueError::Transient(message)",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-activity-ambiguous",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/alpaca.rs",
+        "old": "VenueError::Ambiguous(self.transport.redact_diagnostic(&message))",
+        "new": "VenueError::Ambiguous(message)",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-clock-diagnostic",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/alpaca.rs",
+        "old": "message:self.transport.redact_diagnostic(&message)",
+        "new": "message:message",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-material",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "redaction_values:values",
+        "new": "redaction_values:vec![]",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-sync-material",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "sync/mod.rs",
+        "old": "credentials.redaction_values=columns.iter().flatten()",
+        "new": "credentials.redaction_values=columns[..3].iter().flatten()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-live-material",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "venue/alpaca.rs",
+        "old": ".with_sensitive_values(c.redaction_values)",
+        "new": ".with_sensitive_values(Vec::new())",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-wire-material",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/figure/loading.rs",
+        "old": ".with_sensitive_values(credentials.redaction_values.clone())",
+        "new": ".with_sensitive_values(Vec::new())",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-shared-credentials",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "scrub_known(text,&values)",
+        "new": "text.into()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-stale-job-log",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_stored_errors_and_mcp) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "engine/staleness.rs",
+        "old": "state.describe_venue()",
+        "new": "state.describe()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-confirm-normalization",
+    "expression": "test(r2_confirmation_normalizes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/confirmation.rs",
+        "old": "let email=crate::ruby::strip(&email).to_lowercase();",
+        "new": "let email=email;",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-confirm-validations",
+    "expression": "test(r2_confirmation_normalizes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/confirmation.rs",
+        "old": "super::account::confirmation_validation(&tx,&email,id)?",
+        "new": "None::<&str>",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-confirm-uniqueness",
+    "expression": "test(r2_confirmation_normalizes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/account.rs",
+        "old": "if email_taken(c,email,id)?",
+        "new": "if false",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-json-parser",
+    "expression": "test(r2_json_api_key)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "(original_method == Method::POST && route_path==\"/api/api_keys\")",
+        "new": "false",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-json-scalar",
+    "expression": "test(r2_json_api_key)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "value.is_number()||value.is_boolean()",
+        "new": "false",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-html-decoder",
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "html_escape::decode_html_entities(&value).into_owned()",
+        "new": "value.clone()",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-form-decoder",
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "let form=value.replace('+',\" \");",
+        "new": "let form=value.clone();",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-repeated-decoder",
+    "expression": "test(r2_repeated_decoding_closes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "crypto.rs",
+        "old": "if next!=value&&!seen.contains(&next){pending.push(next);}",
+        "new": "if next!=value&&!seen.contains(&next)&&seen.len()==1{pending.push(next);}",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-rebase-tracker-route",
+    "expression": "test(r2_every_venue_text_sink)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/mod.rs",
+        "old": "        .route(\"/tracker/sync\", only(post(tracker::sync)))\n",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r2-sink-validation-original-material",
+    "expression": "test(r2_every_venue_text_sink) | test(r2_validation_logs_flashes)",
+    "lib": false,
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());",
+        "new": "let _ = original;",
+        "count": 1,
+        "which": null
+      }
+    ]
+  },
+  {
+    "label": "r3-ledger-origin",
+    "edits": [
+      {
+        "file": "engine/staleness.rs",
+        "old": "if produced_by_current && state.incomplete_since.is_none()",
+        "new": "if state.incomplete_since.is_none()",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "lib": false,
+    "expression": "test(r3_replacement_cannot_inherit)",
+    "marker": "R3 must refuse A freshness for B"
+  },
+  {
+    "label": "r3-bot-replacement-wake",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "  jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);",
+        "new": "  if !bot_request {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "lib": false,
+    "expression": "test(r3_bot_replacement_wakes)",
+    "marker": "R3 replacement through bot must wake"
+  },
+  {
+    "label": "r3-settings-replacement-wake",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "  jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);",
+        "new": "  if bot_request {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "lib": false,
+    "expression": "test(r3_settings_replacement_wakes)",
+    "marker": "R3 replacement through settings must wake"
+  },
+  {
+    "label": "r3-api-replacement-wake",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}",
+        "new": "jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "lib": false,
+    "expression": "test(r3_json_api_replacement_wakes)",
+    "marker": "R3 replacement through api must wake"
+  },
+  {
+    "label": "r3-html-json-refusal",
+    "edits": [
+      {
+        "file": "web/settings/mod.rs",
+        "old": "    // R3: HTML settings use form parameters; JSON clients use /api routes.\n    // Reject JSON uniformly before any settings writer can infer missing fields as defaults.\n    use axum::response::IntoResponse;\n    let json = match headers.get(axum::http::header::CONTENT_TYPE) {\n        Some(value) => match value.to_str() {\n            Ok(value) => value.split(';').next().is_some_and(|media|media.trim_ascii().eq_ignore_ascii_case(\"application/json\")),\n            Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()),\n        },\n        None => false,\n    };\n    if json { return Ok(StatusCode::BAD_REQUEST.into_response()); }\n",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "lib": false,
+    "expression": "test(r3_html_settings_refuse_json_bodies_without_writes)",
+    "marker": "R3 HTML settings are form-only: /settings/update_wash_sale"
+  },
+  {
+    "label": "r4-post-call-db-label",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "model::Produced::new(until.timestamp_micros(),producer)",
+        "new": "model::Produced::new(until.timestamp_micros(),model::credential_version(&e.primary,&model::load_bot(&e.primary,id)?)?)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_rotation_between_park)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-wait-current-for",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "!until.current_for(&credential_version).is_fresh() || ",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_rotation_between_park)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-page-reader-current-for",
+    "edits": [
+      {
+        "file": "figures/page_market.rs",
+        "old": "let Some(c)=self.current else { return Ok(true) };",
+        "new": "return Ok(true); let Some(c)=self.current else { return Ok(true) };",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_page_entries_and_heads)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-page-head-current-for",
+    "edits": [
+      {
+        "file": "figures/page_market.rs",
+        "old": "!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()",
+        "new": "false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_candle_head_rotation)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-missing-job-producer",
+    "edits": [
+      {
+        "file": "jobs/mod.rs",
+        "old": "if version.is_none() && matches!(name,",
+        "new": "if false && version.is_none() && matches!(name,",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_credential_job_success)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-map-producer",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "Produced{value:f(self.value),origin:self.origin,complete:self.complete}",
+        "new": "Produced{value:f(self.value),origin:None,complete:self.complete}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_current_for_rejects)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-service-begin-current-for",
+    "edits": [
+      {
+        "file": "web/figure/service.rs",
+        "old": "    pub fn begin(&self,user:i64,identity:&str,revision:u64,now:i64)->Load {\n        let mut state=self.state();\n        // One fill per account, whatever revision it was started for: its end starts the next one if a page still waits.\n        if state.entries.get(&user).is_some_and(|e|!crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()) {\n            state.entries.remove(&user);state.latest.remove(&user);\n        }\n        if state.active_users.contains(&user){return Load::Cold;}\n        if let Some(entry)=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()&&e.revision==revision) {\n            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }\n        }\n        if state.wanted.get(&user)==Some(&0) { return Load::Failed(None); }\n        // Waiting for capacity spends nothing.\n        if state.active>=2 { return Load::Busy; }\n        if state.entries.len()>=ACCOUNTS && !state.entries.contains_key(&user) {\n            let victim=state.entries.iter().filter(|(_,e)|!e.loading).min_by_key(|(_,e)|e.started).map(|(id,_)|*id);\n            if let Some(id)=victim { state.entries.remove(&id);state.latest.remove(&id); } else { return Load::Busy; }\n        }\n        if let Some(allowance)=state.wanted.get_mut(&user) { *allowance-=1; }\n        let cache=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty\n        state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;state.active_users.insert(user);\n        state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone()});\n        Load::Start(Ticket{service:self.clone(),user,serial,finished:false},cache)\n    }\n",
+        "new": "    pub fn begin(&self,user:i64,identity:&str,revision:u64,now:i64)->Load {\n        let mut state=self.state();\n        // One fill per account, whatever revision it was started for: its end starts the next one if a page still waits.\n        if state.entries.get(&user).is_some_and(|e|!true) {\n            state.entries.remove(&user);state.latest.remove(&user);\n        }\n        if state.active_users.contains(&user){return Load::Cold;}\n        if let Some(entry)=state.entries.get(&user).filter(|e|true&&e.revision==revision) {\n            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }\n        }\n        if state.wanted.get(&user)==Some(&0) { return Load::Failed(None); }\n        // Waiting for capacity spends nothing.\n        if state.active>=2 { return Load::Busy; }\n        if state.entries.len()>=ACCOUNTS && !state.entries.contains_key(&user) {\n            let victim=state.entries.iter().filter(|(_,e)|!e.loading).min_by_key(|(_,e)|e.started).map(|(id,_)|*id);\n            if let Some(id)=victim { state.entries.remove(&id);state.latest.remove(&id); } else { return Load::Busy; }\n        }\n        if let Some(allowance)=state.wanted.get_mut(&user) { *allowance-=1; }\n        let cache=state.entries.get(&user).filter(|e|true).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty\n        state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;state.active_users.insert(user);\n        state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone()});\n        Load::Start(Ticket{service:self.clone(),user,serial,finished:false},cache)\n    }\n",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_service_begin)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-service-publish-current-for",
+    "edits": [
+      {
+        "file": "web/figure/service.rs",
+        "old": "e.serial==serial&&crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()",
+        "new": "e.serial==serial",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_service_publication)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-service-latest-current-for",
+    "edits": [
+      {
+        "file": "web/figure/service.rs",
+        "old": "!crate::engine::model::identity_current_for(&entry.identity,identity).is_fresh()",
+        "new": "false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_service_latest)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-current-for-missing",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "        _=>Freshness::Stale(\"credential provenance missing or changed\"),\n    }\n}\n\npub fn stamp_current_for",
+        "new": "        _=>Freshness::Fresh,\n    }\n}\n\npub fn stamp_current_for",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_current_for_rejects)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r4-snapshot-balance-producer",
+    "edits": [
+      {
+        "file": "sync/cache.rs",
+        "old": "if !fresh{return Err(EngineError::CredentialsChanged)}",
+        "new": "if false{return Err(EngineError::CredentialsChanged)}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_snapshot_cannot_relabel)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-snapshot-carries-balance-producer",
+    "edits": [
+      {
+        "file": "sync/cache.rs",
+        "old": "versions:self.versions.clone(),balance_producers,balance_inputs:true})",
+        "new": "versions:self.versions.clone(),balance_producers:vec![],balance_inputs:false})",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_snapshot_cannot_relabel)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-validation-producer-missing",
+    "edits": [
+      {
+        "file": "web/settings/validator.rs",
+        "old": "Produced::new(value,Some(self.producer.clone()))",
+        "new": "Produced::new(value,None)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_submitted_validation)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-candidate-post-call-encryption",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "let key=validated.columns[0].clone();",
+        "new": "let key=candidate.key.as_ref().map(|value|inner.cipher.encrypt(value));",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_submitted_validation)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-validation-post-call-label",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "let handle=super::validator::ValidationHandle::stored(credentials,version);\n    let result=handle.check(&app.settings_key_url,kind).await?;",
+        "new": "let handle=super::validator::ValidationHandle::stored(credentials,version);\n    let result=handle.check(&app.settings_key_url,kind).await?;\n    let result=app.db(move|c|Ok(crate::engine::model::Produced::new(result.value,crate::engine::model::credential_version_by_id(c,id)?))).await?;",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(q_passive_validation)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r4-status-current-for",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "!status.current_for(&c.producer_version()).is_fresh()",
+        "new": "false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r4_validation_status_consumer)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r5-completeness",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "if !self.complete",
+        "new": "if false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_incomplete_produced)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r5-completeness-map",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "complete:self.complete}",
+        "new": "complete:true}",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_incomplete_produced)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r5-balance-captured-completion",
+    "edits": [
+      {
+        "file": "sync/cache.rs",
+        "old": ".with_completion(complete)",
+        "new": ".with_completion(true)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_snapshot_refuses)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-balance-current-completion",
+    "edits": [
+      {
+        "file": "sync/cache.rs",
+        "old": "&& model::produced_is_current(tx,current)?",
+        "new": "&& model::credential_is_current(tx,current.origin().as_ref().ok_or(EngineError::CredentialsChanged)?)?",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_completed_snapshot_capture)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-retry-budget",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "if e.attempts.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh())",
+        "new": "if false && e.attempts.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh())",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_rotation_drops_a_wait)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-retry-wait",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "if e.retry_at.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh())",
+        "new": "if false && e.retry_at.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh())",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_rotation_drops_a_wait)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-persisted-failure-wait",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "model::wait_is_current(&wait_tx,&wait_bot.transient[\"rust_defer_until\"])?",
+        "new": "true",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_rotation_drops_exhausted) | test(r5_rotation_drops_persisted)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-cache-reader",
+    "edits": [
+      {
+        "file": "tracker/cache.rs",
+        "old": "if !crate::engine::model::stamp_set_current_for(&v[\"producers\"],&current.producers)",
+        "new": "if false",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_tracker_ledger_cache)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-keying-by-bot",
+    "edits": [
+      {
+        "file": "engine/run.rs",
+        "old": "    // Failure counters and retry waits belong to the immutable handle that produced them.\n    if e.attempts.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh()) {e.attempts.remove(&id);}\n    if e.retry_at.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh()) {e.retry_at.remove(&id);}",
+        "new": "    // Mutant keys failure state only by bot id.",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_rotation_drops_a_wait)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r5-blocking-failure",
+    "edits": [
+      {
+        "file": "engine/tick.rs",
+        "old": "let previous=if state.current_for(&tx.producer_version()).is_fresh()",
+        "new": "let previous=if true",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r5_rotation_discards_a_blocking)",
+    "lib": false,
+    "marker": "R5 first B blocking failure cannot inherit A failure decision"
+  },
+  {
+    "label": "r6-legacy-default",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "        Some(\"venue\") | None=>{",
+        "new": "        None if wait[\"producer\"].is_null()=>Ok(true),\n        Some(\"venue\") | None=>{",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r6_legacy_unclassified)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r6-unknown-origin",
+    "edits": [
+      {
+        "file": "engine/model.rs",
+        "old": "        _=>Ok(false),",
+        "new": "        _=>Ok(true),",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r6_wait_origin_matrix)",
+    "lib": true,
+    "marker": null
+  },
+  {
+    "label": "r6-local-writer",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": ", \"origin\": \"local\"",
+        "new": "",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r6_explicit_local)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r6-venue-writer",
+    "edits": [
+      {
+        "file": "engine/placement.rs",
+        "old": "'$.rust_defer_until.origin','venue'",
+        "new": "'$.rust_defer_until.origin','local'",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r6_failure_wait_origin)",
+    "lib": false,
+    "marker": null
+  },
+  {
+    "label": "r9-replacement-watermark",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "last_sync_error=NULL,last_synced_at=NULL,updated_at=?4",
+        "new": "last_sync_error=NULL,updated_at=?4",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_replacement_resets)",
+    "lib": false,
+    "marker": "R9 replacement clears the previous credential watermark"
+  },
+  {
+    "label": "r9-replacement-cursors",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "DELETE FROM app_configs WHERE key IN (?1,?2)",
+        "new": "DELETE FROM app_configs WHERE key IN (?1,?2) AND 0",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_replacement_resets)",
+    "lib": false,
+    "marker": "R9 replacement clears both old import cursors"
+  },
+  {
+    "label": "r9-revalidation-realm",
+    "edits": [
+      {
+        "file": "web/settings/keys.rs",
+        "old": "if same_keys {\n    tx.execute",
+        "new": "if false {\n    tx.execute",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_same_key_revalidation)",
+    "lib": false,
+    "marker": "R9 revalidation never rotates ciphertexts or adopts a submitted realm"
+  },
+  {
+    "label": "r9-confirmation-throttle",
+    "edits": [
+      {
+        "file": "web/rate_limit.rs",
+        "old": "(\"users/confirmation\",\"/confirmation\",5)",
+        "new": "(\"users/confirmation\",\"/confirmation\",500)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_confirmation_resend)",
+    "lib": false,
+    "marker": "R9 sixth resend is refused by the shared rate pipeline"
+  },
+  {
+    "label": "r9-reset-throttle",
+    "edits": [
+      {
+        "file": "web/rate_limit.rs",
+        "old": "(\"users/password\",\"/password\",5)",
+        "new": "(\"users/password\",\"/password\",500)",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_password_reset_methods)",
+    "lib": false,
+    "marker": "R9 reset methods share the five-attempt budget"
+  },
+  {
+    "label": "r9-read-only-cash",
+    "edits": [
+      {
+        "file": "web/settings/validator.rs",
+        "old": "if value.get(\"cash\").is_none_or(serde_json::Value::is_null){",
+        "new": "if false {",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_read_only_validation)",
+    "lib": false,
+    "marker": "R9 read-only validation matches the malformed-balance oracle"
+  },
+  {
+    "label": "r9-read-only-position",
+    "edits": [
+      {
+        "file": "web/settings/validator.rs",
+        "old": "if positions.iter().any(",
+        "new": "if false && positions.iter().any(",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_read_only_validation)",
+    "lib": false,
+    "marker": "R9 read-only validation matches the malformed-balance oracle"
+  },
+  {
+    "label": "r9-setup-token-throttle",
+    "edits": [
+      {
+        "file": "web/rate_limit.rs",
+        "old": "&& carries_input {",
+        "new": "&& false {",
+        "count": 1,
+        "which": null
+      }
+    ],
+    "expression": "test(r9_setup_token_reads)",
+    "lib": false,
+    "marker": "R9 setup token GET and HEAD share one guessing budget"
+  }
+]

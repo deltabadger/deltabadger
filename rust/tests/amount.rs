@@ -101,7 +101,12 @@ fn rows_bind_decimals_as_rails_does() {
     let p = bd("50000.2");
     let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
     assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "Ruby's 31 digits, unrounded");
-    let id = amount::write_order_row(&o.primary, &bot, &plan, amount::RowKind::Skipped, "2026-09-01T10:00:01Z".parse().unwrap()).unwrap();
+    let id = {
+        let tx=o.primary.unchecked_transaction().unwrap();
+        let fenced=deltabadger::engine::model::check_credential_result(&tx,&None).unwrap();
+        let id = amount::write_order_row(&fenced, &bot, &plan, amount::RowKind::Skipped, "2026-09-01T10:00:01Z".parse().unwrap()).unwrap();
+        tx.commit().unwrap();id
+    };
     let (amount, created): (f64, String) = o.primary.query_row("SELECT amount, created_at FROM transactions WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(amount.to_bits(), bd("0.000007999968000127999488002047991808").round(18).to_f().to_bits());
     assert_eq!(created, "2026-09-01 10:00:01");

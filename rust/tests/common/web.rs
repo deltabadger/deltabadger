@@ -19,6 +19,7 @@ const COOKIE: &str = "_deltabadger_rust_session";
 pub struct TestClock(Mutex<DateTime<Utc>>);
 impl TestClock {
     pub fn at(time: &str) -> Arc<Self> { Arc::new(Self(Mutex::new(at(time)))) }
+    pub fn starting(time: DateTime<Utc>) -> Arc<Self> { Arc::new(Self(Mutex::new(time))) }
     pub fn set(&self, time: DateTime<Utc>) { *self.0.lock().unwrap() = time; }
 }
 impl Clock for TestClock {
