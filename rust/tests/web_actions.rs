@@ -686,7 +686,9 @@ mod action_write {
         let before=f.snapshot()?;
         assert!(matches!(f.write(json!({"quote_amount":"7"}))?,Outcome::Unported(_)));
         assert_eq!(f.snapshot()?,before);
-        assert!(matches!(f.write(json!({"quote_amount":"1e999"}))?,Outcome::Invalid(_)));
+        // Stored history refusal precedes submitted-input validation; neither writes.
+        assert!(matches!(f.write(json!({"quote_amount":"1e999"}))?,Outcome::Unported(_)));
+        assert_eq!(f.snapshot()?,before);
         f.c.execute("UPDATE bots SET transient_data='{' WHERE id=?1",[f.id])?;
         let before=f.snapshot()?; assert!(matches!(f.write(json!({"label":"bad"}))?,Outcome::Unported(_))); assert_eq!(f.snapshot()?,before);
         Ok(())
@@ -1037,6 +1039,7 @@ mod action_write {
             let f=Fixture::new()?;
             f.c.execute("UPDATE users SET time_zone='UTC'",[])?;
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode',?1,'$.start_at',?2,'$.start_time_of_day',?2)",(mode,time))?;
+            if mode=="hour" { f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_at','2026-09-11T13:45:00Z')",[])?; }
             let before=f.snapshot()?;
             let result=write::lifecycle(&f.c,&f.ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|c,_,_| {
                 let (anchor,updated,transient):(String,String,String)=c.query_row("SELECT started_at,updated_at,transient_data FROM bots WHERE id=?1",[f.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
@@ -1083,23 +1086,19 @@ mod action_write {
         Ok(())
     }
 
-    /// A closed buy that never reported its cost (NULL quote_amount_exec) leaves the cap's spend
-    /// unknown: Rails reads nil, draws no remainder and refuses a start with
-    /// `quote_amount_spent_unknown` (test/controllers/bots/unknown_cap_spend_test.rb).
+    /// B2-1 normalization takes precedence over #503's raw-NULL cap refusal:
+    /// the accepted quantity/price prove $5 spent, so $995 remains and start succeeds.
+
     #[test]
-    fn action_lifecycle_unknown_cap_spend_refuses_start_and_draws_no_remainder() -> Result {
+    fn action_lifecycle_reconstructed_cap_spend_allows_start() -> Result {
         let f=Fixture::new()?;
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',1000),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at','2026-09-01T00:00:00Z')",[])?;
         seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("nocost".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("5"),price:Some("5000"),quote_amount_exec:None,amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()});
         let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
         let limit=deltabadger::web::bot::start::amount_limit(&f.c,&draft.candidate).map_err(|e|format!("{e:?}"))?.ok_or("the cap is on")?;
-        assert!(limit.left.is_none() && !limit.reached);
-        let before=f.snapshot()?;
-        let Outcome::Invalid(refused)=f.lifecycle(write::Action::Start,None)? else { return Err("the start must be refused".into()) };
-        let message=deltabadger::web::i18n::text("en","activerecord.errors.models.bot.attributes.settings.quote_amount_spent_unknown",&[]);
-        assert!(!message.starts_with("Translation missing"),"{message}");
-        assert!(refused["errors"].as_array().ok_or("errors")?.iter().any(|e|e==&json!(message)),"{refused}");
-        assert_eq!(f.snapshot()?,before);
+        assert_eq!(limit.left.as_ref().and_then(|n|n.to_d()).ok_or("normalized cap")?.to_s_f(),"995.0");
+        assert!(!limit.reached);
+        assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)));
         Ok(())
     }
 

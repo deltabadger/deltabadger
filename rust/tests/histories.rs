@@ -160,8 +160,8 @@ async fn merged_histories_drive_real_ticks_without_early_or_duplicate_buys() {
     }
 }
 
-#[test]
-fn every_remaining_eligibility_branch_has_a_named_witness() {
+#[tokio::test(flavor="current_thread")]
+async fn every_remaining_eligibility_branch_has_a_named_witness() {
     use deltabadger::engine::eligibility;
     let (_d,o,id,ids)=build(&vectors()["cases"][0]);
     o.primary.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
@@ -207,8 +207,56 @@ fn every_remaining_eligibility_branch_has_a_named_witness() {
     for (sql,reason) in dynamic.iter().map(|(sql,reason)|(sql.as_str(),*reason)).chain(fixed) {
         let tx=model::immediate(&o.primary).unwrap();
         tx.execute_batch(sql).unwrap();
-        let bot=model::load_bot(&tx,id).unwrap();
+        let bot=model::load_bot(&tx,id).expect("R9e: timestamp damage does not prevent loading");
+        if reason=="quote_amount_limit_enabled_at" {
+            let error=bot.quote_amount_limit_enabled_at_us().unwrap_err();
+            assert!(error.contains(reason) && error.contains("unreadable stored timestamp"),"{error}");
+            let report=eligibility::check_install(&tx).unwrap();
+            assert_eq!(report.unreadable.len(),1,"{:?}",report.problems);
+            assert_eq!(report.unreadable[0].0,id);
+            assert!(report.unreadable[0].1.contains("Time(") && report.unreadable[0].1.contains("unreadable stored timestamp"));
+            assert!(matches!(report.refusal(),Err(eligibility::Refusal::Unreadable(_))));
+            assert!(matches!(eligibility::guard(&tx,cipher(),Some(id)),Err(eligibility::Refusal::Unreadable(_))));
+            drop(tx);
+            r9e_damaged_cap_tick_and_stop().await;
+            continue;
+        }
         let reasons=eligibility::bot_reasons(&tx,&bot).unwrap();
         assert!(reasons.iter().any(|r|r.contains(reason)),"{reason}: {reasons:?}");
     }
+}
+
+// The same damaged cap witness must reach real tick and STOP entrypoints. A valid-market
+// control in merged_histories_drive_real_ticks_without_early_or_duplicate_buys trades $60/$40.
+async fn r9e_damaged_cap_tick_and_stop() {
+    use deltabadger::{engine::{eligibility,tick,FixedClock},web};
+    use axum::{body::{Body,to_bytes},http::Request};
+    use tower::ServiceExt;
+    let (d,o,id,_)=build(&vectors()["cases"][0]);
+    o.primary.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',200),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at',json('{}')) WHERE id=?1",[id]).unwrap();
+    let bot=model::load_bot(&o.primary,id).unwrap();
+    // Like the other web-action fixtures, authenticate a confirmed owner.
+    o.primary.execute("UPDATE users SET confirmed_at=created_at WHERE id=?1",[bot.user_id]).unwrap();
+    assert_eq!(bot.status,deltabadger::enums::BotStatus::Scheduled);
+    let before=bot.transient.clone();
+    let report=eligibility::check_install(&o.primary).unwrap();
+    assert_eq!(report.unreadable.len(),1);
+    let t=common::scripted::script(json!({"GET /v1beta3/crypto/us/latest/quotes":[common::scripted::ok(json!({"quotes":{"AAA/USD":{"ap":10},"BBB/USD":{"ap":10}}}))]}));
+    let result=tick::tick(&o.primary,&common::scripted::venue(&t),id,&FixedClock(now()+Duration::seconds(1)),&mut Default::default()).await;
+    assert!(matches!(result,Err(deltabadger::engine::EngineError::Data(ref e)) if e.contains("Time(") && e.contains("unreadable stored timestamp")),"{result:?}");
+    assert!(t.posted_orders().is_empty());
+    assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
+    assert_eq!(eligibility::check_install(&o.primary).unwrap().unreadable,report.unreadable);
+    let app=common::web::app(d.path(),"engine-test-secret",common::web::TestClock::at("2026-01-05T12:00:01Z"));
+    let token=web::csrf::new_token();
+    let session=web::session::SessionData{user:Some((bot.user_id,"x".into())),csrf:Some(token.clone()),..Default::default()};
+    let cookie=web::session::seal(&app.keys.session,&session,app.now());
+    let request=Request::builder().method("PATCH").uri(format!("/bots/{id}/stop")).header("host","localhost:3000").header("cookie",format!("{}={cookie}",web::session::COOKIE)).header("x-csrf-token",web::csrf::masked(&token)).header("content-type","application/json").header("accept","text/vnd.turbo-stream.html").body(Body::from("{}")).unwrap();
+    let response=web::router(app).oneshot(request).await.unwrap();let status=response.status();
+    let body=to_bytes(response.into_body(),1_000_000).await.unwrap();
+    assert!(status.is_success(),"STOP {status}: {}",String::from_utf8_lossy(&body));
+    let stopped=model::load_bot(&o.primary,id).unwrap();
+    assert_eq!(stopped.status,deltabadger::enums::BotStatus::Stopped);
+    assert_eq!(stopped.transient,before,"STOP preserves timestamp evidence");
+    assert_eq!(eligibility::check_install(&o.primary).unwrap().unreadable,report.unreadable);
 }

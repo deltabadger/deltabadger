@@ -652,9 +652,28 @@ alpaca_tickers = [
         else
           alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
         end
+        # R1c: keep the actual Float-formatted wire beside the conservative serialization.
+        # All floors below are Rails Ticker's existing floors; only a later Float round-up is removed.
+        guarded = captured.dup
+        floor_text = lambda do |number, scale|
+          whole, fraction = number.floor(scale).to_s('F').split('.')
+          scale.zero? ? whole : "#{whole}.#{fraction.to_s.ljust(scale, '0')}"
+        end
+        protect = lambda do |key, exact, scale|
+          guarded[key] = floor_text.call(exact, scale) if BigDecimal(captured.fetch(key).to_s) > exact.floor(scale)
+        end
+        quote_floor = ticker.adjusted_amount(amount: info[:amount], amount_type: :quote)
+        if order_type == :limit_order
+          limit_price = ticker.adjusted_price(price:)
+          qty = ticker.adjusted_amount(amount: quote_floor / limit_price, amount_type: :base)
+          protect.call(:qty, qty, ticker.base_decimals)
+          protect.call(:limit_price, limit_price, ticker.price_decimals)
+        else
+          protect.call(:notional, quote_floor, ticker.quote_decimals)
+        end
         alpaca_sizing << { 'ticker' => t.transform_values(&:to_s), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
                            'price' => price.to_s('F'), 'amount' => (x / price).to_s('F'), 'amount_type' => info[:amount_type].to_s,
-                           'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s) }
+                           'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s), 'r1c_wire' => guarded.transform_keys(&:to_s).transform_values(&:to_s) }
       end
     end
   end

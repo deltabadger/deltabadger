@@ -112,6 +112,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
         if DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
             if let Err(e) = intent_kept(&rust_root.path().join(&name), &rails_out, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")); }
             continue;
@@ -252,6 +253,7 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
         }
         let rust_dir = rust_root.path().join(&name);
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
         let listed = if name.contains(UNREADABLE) {
             Some(unreadable_number_refused(&name, &rust_dir, &rails_out, &rust_out, true))
         } else if name.ends_with("-untradable_clock_closed") {
@@ -367,6 +369,24 @@ fn an_unscripted_call_fails_the_run_on_both_venues() {
     }
 }
 
+/// R5: failure bookkeeping preserves unrelated NULL evidence. The recorded grids expose
+/// Rails deleting this pre-existing NULL flag; require Rust to preserve it explicitly.
+/// Return a comparison copy of Rails; never rewrite either recorded output or any money field.
+fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) -> serde_json::Value {
+    const KEY: &str = "missed_quote_amount_was_set";
+    let mut expected = rails.clone();
+    for row in expected["changes"]["bots"].as_array_mut().unwrap() {
+        if row["before"]["transient_data"].get(KEY) != Some(&serde_json::Value::Null)
+            || !row["after"]["transient_data"].is_object()
+            || row["after"]["transient_data"].get(KEY).is_some() { continue; }
+        let mine = rust["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == row["id"]).unwrap();
+        assert_eq!(mine["before"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 same initial NULL flag");
+        assert_eq!(mine["after"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 failure cleanup preserves unrelated NULL flag");
+        row["after"]["transient_data"][KEY] = serde_json::Value::Null;
+    }
+    expected
+}
+
 type Outputs = Vec<(String, PathBuf, serde_json::Value, serde_json::Value)>;
 
 /// Builds `command`'s grid, records Rails over it, and decides every scenario in Rust on a pristine copy, asserting the grid's
@@ -398,6 +418,7 @@ async fn grid_outputs(command: &str, expected: usize) -> (tempfile::TempDir, Out
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_dir = rust_root.path().join(&name);
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
         out.push((name, rust_dir, rails_out, rust_out));
     }
     (rust_root, out)
@@ -575,13 +596,9 @@ fn landed_matches_reference(dir: &Path, rails_out: &serde_json::Value, rust_out:
     for k in ["status", "stop_message_key", "stopped_at", "settings"] {
         if theirs[k] != mine[k] { return Err(format!("the bot's {k} ends differently\n  reference: {}\n  rust:      {}", theirs[k], mine[k])); }
     }
-    // transient_data: the reference never ran the first tick, whose failure record (Bot::Failable's merge_transient_data!,
-    // `.compact`) drops every null-valued key; Rails' own run did, and ends with exactly Rust's blob. So: equal to Rails' own
-    // run as it is, and to the reference once null-valued keys are dropped (the one authorised difference).
-    let compact = |v: &serde_json::Value| -> serde_json::Value {
-        v.as_object().map(|m| m.iter().filter(|(_, x)| !x.is_null()).map(|(k, x)| (k.clone(), x.clone())).collect()).unwrap_or_default()
-    };
-    if mine["transient_data"] != rails_own["transient_data"] || compact(&mine["transient_data"]) != compact(&theirs["transient_data"]) {
+    // R5's comparison copy requires the unrelated NULL flag to survive the first tick's failure.
+    // The reference never failed: now both complete blobs must match, with no broad NULL filtering.
+    if mine["transient_data"] != rails_own["transient_data"] || mine["transient_data"] != theirs["transient_data"] {
         return Err(format!("the bot's transient_data ends differently\n  rails:     {}\n  reference: {}\n  rust:      {}",
                            rails_own["transient_data"], theirs["transient_data"], mine["transient_data"]));
     }
@@ -860,6 +877,7 @@ async fn rails_and_rust_decide_identically_across_the_stock_grid() -> Result<(),
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
         let rust_dir = rust_root.path().join(&name);
         let rust_out = deltabadger::parity::decide(&rust_dir).await.map_err(|e| format!("{e:?}"))?;
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
         let variant = STOCK_DIVERGENCES.iter().find(|v| name.ends_with(&format!("-{v}")));
         let listed = match variant.copied() {
             Some("add_server_error") => Some(intent_kept(&rust_dir, &rails_out, &rust_out)),
@@ -905,6 +923,7 @@ async fn rails_and_rust_decide_identically_across_the_index_grid() -> Result<(),
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.map_err(|e| format!("{e:?}"))?;
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
         // Pinned on Rails' side, so a vacuous pass is impossible: what each composition names really happened there.
         let members: Vec<&serde_json::Value> = rails_out["changes"]["bot_index_assets"].as_array().ok_or("expected JSON array")?.iter().collect();

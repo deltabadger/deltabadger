@@ -28,7 +28,7 @@ pub fn scaled(v: rusqlite::types::ValueRef<'_>, scale: i32) -> Result<Option<Dec
 }
 
 fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
-    text.map(|t| At::from_sql(&t).ok_or_else(|| FiguresError::Data(format!("a time Rails did not write: {t:?}")))).transpose()
+    text.map(|t| At::from_sql(&t).map_err(|e| FiguresError::Data(format!("{e:?}")))).transpose()
 }
 
 /// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.

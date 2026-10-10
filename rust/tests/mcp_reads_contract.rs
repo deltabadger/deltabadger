@@ -115,7 +115,9 @@ fn fill_completeness_covers_every_quantity_value_column_combination() {
         let dec=|v:Option<i64>|v.map(Dec::from_i64);
         let row=Order{id:1,at:At(0),exchange_id:None,raw:fill::Raw::new(dec(price),dec(amount),dec(exec),dec(quote)),base:None,asset_id:None,sell,buy:!sell,closed,kind:"REGULAR".into()};
         let quantity=exec.or(if closed{amount}else{None}).unwrap_or(0);
-        let complete=quantity<=0||price.unwrap_or(0)>0||quote.unwrap_or(0)>0;
+        // RULING-B2A-R3: invalid supplied fields refuse even when a fallback is usable.
+        let malformed=[amount,exec,price,quote].into_iter().flatten().any(|n|n<0);
+        let complete=!malformed && (quantity<=0||price.unwrap_or(0)>0||quote.unwrap_or(0)>0);
         let parsed=fill::parse(&row);
         assert_eq!(parsed.is_ok(),complete,"closed={closed} sell={sell} amount={amount:?} exec={exec:?} price={price:?} quote={quote:?}");
         if complete {

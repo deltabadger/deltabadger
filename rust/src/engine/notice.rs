@@ -71,7 +71,7 @@ impl Notice {
 pub struct Pending { pub bot_id: i64, pub stamped_at: String, pub notice: Notice }
 
 impl Pending {
-    pub fn raised_at(&self) -> Option<DateTime<Utc>> { DateTime::parse_from_rfc3339(&self.stamped_at).ok().map(|t| t.with_timezone(&Utc)) }
+    pub fn raised_at(&self) -> Result<DateTime<Utc>, crate::codec::CodecError> { crate::codec::parse_time(&self.stamped_at) }
 }
 
 pub fn funds_marker(quote_asset_id: Option<i64>, now: DateTime<Utc>) -> Value { json!({ "quote_asset": quote_asset_id, "stamped_at": iso8601_ms(now) }) }

@@ -308,8 +308,8 @@ async fn a_continued_bot_with_nothing_owed_waits_for_its_next_checkpoint() {
 async fn a_continue_discards_a_pending_amount_limit_stop_and_an_old_wait() {
     let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
     // A stop counted under the bot's current fingerprint before the user's resume, and a wait for a later checkpoint.
-    let key = model::load_bot(&e.primary, id).unwrap().amount_limit_key();
-    let schedule = model::load_bot(&e.primary, id).unwrap().schedule_key().unwrap();
+    let key = model::load_bot(&e.primary, id).unwrap().amount_limit_key().unwrap();
+    let schedule = model::load_bot(&e.primary, id).unwrap().schedule_key().unwrap().unwrap();
     e.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', json(?1), '$.rust_defer_until', json(?2)) WHERE id = ?3",
         rusqlite::params![json!({ "count": 1, "key": key }).to_string(), json!({ "until": "2026-09-15T10:00:00.000000Z", "schedule": schedule }).to_string(), id]).unwrap();
     run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
@@ -321,12 +321,15 @@ async fn a_continue_discards_a_pending_amount_limit_stop_and_an_old_wait() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_malformed_continue_request_is_removed_and_the_decision_still_runs() {
-    for bad in [json!("yesterday"), json!({ "requested_at": 7 }), json!({})] {
-        let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], bad.clone());
-        run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
-        assert_eq!(v.sent().len(), 1, "{bad}: owed, so it runs now");
-        assert!(!transient_has(&e, id, "rust_continue_start"), "{bad}");
+async fn r9_malformed_continue_timestamp_refuses_and_preserves_request() {
+    for bad in [json!("yesterday"), json!({"requested_at":7}), json!({}), json!({"requested_at":"garbage"})] {
+        let (_d,mut e,id,v)=continued(&["2026-09-01 10:00:01"],requested());
+        e.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_continue_start',json(?1)) WHERE id=?2",rusqlite::params![bad.to_string(),id]).unwrap();
+        let before:String=e.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
+        for _ in 0..2 {run::step(&mut e,&at("2026-09-08T12:00:00Z")).await.unwrap();}
+        assert!(v.sent().is_empty(),"{bad}: unreadable timestamp must not trade");
+        let after:String=e.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();assert_eq!(before,after);
+        assert!(!deltabadger::engine::eligibility::check_install(&e.primary).unwrap().unreadable.is_empty());
     }
 }
 
