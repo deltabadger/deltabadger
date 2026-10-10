@@ -339,15 +339,35 @@ fn a_partly_executed_unpriced_redeploy_is_read_at_what_executed() {
     assert_eq!((banked.to_s_f(), spent.to_s_f()), ("26.4".into(), "12.0".into()));
 }
 
-/// A status outside Rails' enum (submitted, failed, skipped) proves nothing about the order: the row is unreadable, and
-/// the bot refused. Here a still-working $24 DDD redeploy would otherwise vanish from every check.
-#[test]
-fn a_status_rails_never_writes_refuses_the_bot() {
+/// A status outside Rails' enum (submitted, failed, skipped) proves nothing about the order: here a still-working $24 DDD
+/// redeploy. It refuses the takeover whatever the bot's own status (a stopped, archived or deleted bot's order still sits at
+/// the venue), and the tick's sweep refuses rather than skipping the row.
+#[tokio::test(flavor = "current_thread")]
+async fn a_status_rails_never_writes_refuses_the_install_and_the_sweep() {
     for status in ["NULL", "99"] {
-        let b = build(scenario("redeploy_waiting"));
-        b.o.primary.execute_batch(&format!("UPDATE transactions SET status = {status} WHERE transaction_type = 'REDEPLOY'")).unwrap();
-        let report = eligibility::check_install(&b.o.primary).unwrap();
-        assert!(report.eligible.is_empty(), "status {status}");
-        assert!(report.problems.iter().any(|p| p.contains("row(s) with a status Rails never writes")), "status {status}: {:?}", report.problems);
+        for bot_status in [2, 7, 3, 1] {
+            let b = build(scenario("redeploy_waiting"));
+            let c = &b.o.primary;
+            c.execute_batch(&format!("UPDATE transactions SET status = {status} WHERE transaction_type = 'REDEPLOY'; UPDATE bots SET status = {bot_status}")).unwrap();
+            let report = eligibility::check_install(c).unwrap();
+            assert!(report.eligible.is_empty(), "status {status}, bot {bot_status}");
+            assert!(report.problems.iter().any(|p| p.contains("row(s) with a status Rails never writes")), "status {status}, bot {bot_status}: {:?}", report.problems);
+            assert!(report.refusal().is_err());
+            // Engine start follows up every outstanding order of any bot: the row is unresolved, never skipped.
+            let row: i64 = c.query_row("SELECT id FROM transactions WHERE transaction_type = 'REDEPLOY'", [], |r| r.get(0)).unwrap();
+            let t = transport();
+            let followed = deltabadger::engine::polling::follow_up(c, &venue(&t), b.id, row, at()).await;
+            assert!(format!("{followed:?}").contains("status Rails never writes"), "status {status}, bot {bot_status}: {followed:?}");
+            assert!(t.requests().is_empty(), "status {status}, bot {bot_status}");
+            if bot_status == 1 {
+                let t = transport();
+                let _ = tick::tick(c, &venue(&t), b.id, &FixedClock(at()), &mut tick::Attempts::default()).await;
+                let refused: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed' \
+                    AND (details LIKE '%unreadable transaction status%' OR details LIKE '%status Rails never writes%')", [b.id], |r| r.get(0)).unwrap();
+                assert_eq!(refused, 1, "status {status}: the tick refuses (at the shared row reader, or else at the sweep)");
+                assert!(t.posted_orders().is_empty() && !t.requests().iter().any(|r| r.path.starts_with("/v2/orders/")), "status {status}");
+            }
+        }
     }
 }
+
