@@ -10,7 +10,7 @@ class ListIndicesTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Indices::List.call(exchange_name: exchange_name)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     lines = result.data[:indices].map do |row|
       "- #{row[:id]} | #{row[:name]} | #{row[:coins]} assets | #{row[:exchanges].join(', ').presence || 'no exchange'}"

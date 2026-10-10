@@ -36,6 +36,19 @@ class GetBotDetailsToolTest < ActiveSupport::TestCase
     assert_equal 'Bot not found.', text
   end
 
+  test 'labels the start time with the zone it is shown in' do
+    bot = create(:dca_single_asset, user: @user, status: :scheduled, started_at: Time.utc(2026, 1, 15, 12, 0))
+    Bots::DcaSingleAsset.any_instance.stubs(:metrics).returns(nil)
+
+    text = Time.use_zone('Tallinn') { GetBotDetailsTool.call('bot_id' => bot.id).contents.first.text }
+
+    assert_match(/Started: 2026-01-15 14:00 EET/, text)
+  end
+
+  test 'a missing bot is a tool error' do
+    assert GetBotDetailsTool.call('bot_id' => 99_999).to_h[:isError]
+  end
+
   test 'does not find deleted bots' do
     bot = create(:dca_single_asset, :deleted, user: @user)
 

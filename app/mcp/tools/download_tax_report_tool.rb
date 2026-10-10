@@ -10,7 +10,7 @@ class DownloadTaxReportTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Tax::DownloadReport.call(user: current_user, country: country, year: year)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: result.data[:csv]
   end

@@ -11,7 +11,7 @@ class SetTransferLinkTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Tracker::SetTransferLink.call(user: current_user, transaction_id: transaction_id, linked: linked)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     d = result.data
     text = if d[:linked]

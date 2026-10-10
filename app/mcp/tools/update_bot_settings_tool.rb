@@ -19,7 +19,7 @@ class UpdateBotSettingsTool < ApplicationMCPTool
       user: current_user, bot_id: bot_id, quote_amount: quote_amount, label: label,
       num_coins: num_coins, allocation_flattening: allocation_flattening, allocations: allocations
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: "Bot '#{result.data[:label]}' settings updated: #{result.data[:updated].join(', ')}."
   end

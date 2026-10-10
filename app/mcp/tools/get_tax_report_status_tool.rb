@@ -10,7 +10,7 @@ class GetTaxReportStatusTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Tax::ReportStatus.call(user: current_user, country: country, year: year)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     data = result.data
     case data[:state]

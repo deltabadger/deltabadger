@@ -20,7 +20,7 @@ class GenerateTaxReportTool < ApplicationMCPTool
   def perform
     result = BotApi::Tax::GenerateReport.call(user: current_user, country: country, year: year,
                                               stablecoin_as_fiat: stablecoin_as_fiat, force: force)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: "Tax report generation started for #{result.data[:name]} (#{result.data[:year]}). " \
                  'This runs in the background and may take a few minutes depending on transaction volume. ' \

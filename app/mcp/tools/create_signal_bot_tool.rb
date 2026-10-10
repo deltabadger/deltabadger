@@ -15,7 +15,7 @@ class CreateSignalBotTool < ApplicationMCPTool
     result = BotApi::Bots::CreateSignal.call(
       user: current_user, exchange_name: exchange_name, base_asset: base_asset, quote_asset: quote_asset, label: label
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     d = result.data
     render text: "Signal bot '#{d[:label]}' created and started — #{d[:pair]} on #{d[:exchange]}. " \

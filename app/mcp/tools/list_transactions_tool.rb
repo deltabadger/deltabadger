@@ -10,7 +10,7 @@ class ListTransactionsTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Transactions::List.call(user: current_user, bot_id: bot_id, limit: limit)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     if result.data[:count].zero?
       render text: 'No transactions found.'
@@ -26,7 +26,7 @@ class ListTransactionsTool < ApplicationMCPTool
     lines = data[:transactions].map do |row|
       date = row[:created_at].strftime('%Y-%m-%d %H:%M')
       amount_str = row[:amount_exec] ? "#{row[:amount_exec]} #{row[:base]}" : 'N/A'
-      price_str = row[:price] ? "@ #{row[:price]} #{row[:quote]}" : ''
+      price_str = row[:price]&.to_d&.nonzero? ? "@ #{row[:price]} #{row[:quote]}" : ''
       cost_str = row[:quote_amount_exec] ? "(#{row[:quote_amount_exec]} #{row[:quote]})" : ''
       "- [#{date}] #{row[:side].upcase} #{amount_str} #{price_str} #{cost_str} | #{row[:status]}"
     end

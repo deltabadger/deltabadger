@@ -8,7 +8,7 @@ class UnarchiveBotTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Bots::Unarchive.call(user: current_user, bot_id: bot_id)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: "Bot '#{result.data[:label]}' reactivated (stopped)."
   end

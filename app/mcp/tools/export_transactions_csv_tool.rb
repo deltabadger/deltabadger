@@ -14,7 +14,7 @@ class ExportTransactionsCsvTool < ApplicationMCPTool
       user: current_user,
       exchange_id: exchange_id, from_date: from_date, to_date: to_date
     )
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     data = result.data
     if data[:truncated]

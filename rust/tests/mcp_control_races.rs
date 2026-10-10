@@ -408,14 +408,14 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
         for branch in ["missing_bot","missing_key","pending_key","incorrect_key","fence","validation","unported","conflict","nochange"] {
             let f=Fixture::new().await?;
             let (suffix,expected)=match branch {
-                "missing_bot"=>{f.c.execute("UPDATE bots SET status=3 WHERE id=?1",[f.id])?;("/start",false)},
+                "missing_bot"=>{f.c.execute("UPDATE bots SET status=3 WHERE id=?1",[f.id])?;("/start",true)},
                 "missing_key"=>{f.c.execute("DELETE FROM api_keys",[])?;("/start",true)},
                 "pending_key"=>{f.c.execute("UPDATE api_keys SET status=0",[])?;("/start",true)},
                 "incorrect_key"=>{f.c.execute("UPDATE api_keys SET status=2",[])?;("/start",true)},
                 "fence"=>{f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement',json('{}')) WHERE id=?1",[f.id])?;("/start",true)},
-                "validation"=>{f.c.execute("UPDATE bots SET settings=json_set(settings,'$.rebalance_threshold',0) WHERE id=?1",[f.id])?;("/archive",false)},
+                "validation"=>{f.c.execute("UPDATE bots SET settings=json_set(settings,'$.rebalance_threshold',0) WHERE id=?1",[f.id])?;("/archive",true)},
                 "unported"=>{f.c.execute("UPDATE bots SET transient_data=?2 WHERE id=?1",(f.id," ".repeat(65537)+"{}"))?;("/start",true)},
-                "conflict"=>("/stop",false),
+                "conflict"=>("/stop",true),
                 "nochange"=>{f.ok("PATCH","",&[("label","Race")]).await?;f.woke(true).await?;("",false)},
                 _=>unreachable!(),
             };
@@ -439,7 +439,7 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
             let before=f.snapshot()?;
             let answer=f.send(if suffix=="unarchive" {"DELETE"}else{"PATCH"},if suffix=="unarchive" {"/archive"}else{suffix},&[]).await?;
             let response:Value=serde_json::from_str(&answer.body)?;
-            assert_eq!(response["result"]["isError"],Value::Null,"R1 lifecycle {suffix}: {}",answer.body);
+            assert_eq!(response["result"]["isError"],if suffix=="/stop" {Value::Null}else{json!(true)},"R1 lifecycle {suffix}: {}",answer.body);
             if suffix=="/stop" {
                 assert_eq!(response["result"]["content"][0]["text"],"Bot 'Race' stopped.","R1 lifecycle /stop");
                 assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);

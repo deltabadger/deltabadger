@@ -12,7 +12,7 @@ class SetTransactionPriceTool < ApplicationMCPTool
   def perform
     result = BotApi::Tracker::SetTransactionPrice.call(user: current_user, transaction_id: transaction_id,
                                                        price_usd: price_usd)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     text = if result.data[:price_usd]
              "Transaction ##{result.data[:id]} priced at #{result.data[:price_usd]} USD."

@@ -27,7 +27,7 @@ class CancelOrderTool < ApplicationMCPTool
       if result.error_code == 'exchange_name_required'
         msg = "Exchange name is required when cancelling by exchange order ID. Use: cancel_order(order_id: '...', exchange_name: 'Alpaca')"
       end
-      render text: "#{prefix}#{msg}"
+      report_error("#{prefix}#{msg}")
       return
     end
 

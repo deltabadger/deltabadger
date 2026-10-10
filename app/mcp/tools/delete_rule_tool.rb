@@ -8,7 +8,7 @@ class DeleteRuleTool < ApplicationMCPTool
 
   def perform
     result = BotApi::Rules::Delete.call(user: current_user, rule_id: rule_id)
-    return render(text: result.error_message) unless result.success?
+    return report_error(result.error_message) unless result.success?
 
     render text: "Rule ##{result.data[:id]} deleted."
   end

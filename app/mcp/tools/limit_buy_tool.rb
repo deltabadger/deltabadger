@@ -23,7 +23,7 @@ class LimitBuyTool < ApplicationMCPTool
     )
 
     prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
-    return render(text: "#{prefix}#{result.error_message}") unless result.success?
+    return report_error("#{prefix}#{result.error_message}") unless result.success?
 
     data = result.data
     render text: "#{prefix}Limit buy order placed on #{data[:exchange]}: #{data[:pair]} @ #{price}. #{data[:upstream]}"

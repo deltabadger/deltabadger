@@ -29,7 +29,7 @@ fn lifecycle_response(c:&Connection,_:&Ctx,id:i64,action:Action,view:&LifecycleV
         }
     } else {
         let errors=mcp_input::full_messages(&view.errors);
-        // Service conflict messages are ordinary successful tool results in Rails.
+        // Service conflict messages are failures in Rails too, reported as they are.
         if errors.starts_with("Bot '") || errors.starts_with("This app can't run that yet:") {errors} else {match action {
             Action::Start=>format!("Failed to start bot '{label}': {errors}"),
             Action::Stop=>format!("Failed to stop bot '{label}'."),
@@ -48,10 +48,10 @@ fn classified(response:Value,is_error:bool)->Result<Value,WebError> {
 }
 fn finish(out:Outcome<Value>,ctx:&Ctx)->Result<Value,WebError> {
     match out {
-        Outcome::Missing=>Ok(tool_text("Bot not found.",false)), // Rails refusal: ordinary text.
+        Outcome::Missing=>Ok(tool_text("Bot not found.",true)), // BotApi failure: report_error.
         Outcome::Unported(reason)=>classified(guard_text(ctx,reason),true), // Rust boundary divergence.
         Outcome::GuardRefused(response)=>classified(response,true), // Rust guard/key/fence divergence.
-        Outcome::Invalid(response)=>classified(response,false), // Rails validation/conflict transcript.
+        Outcome::Invalid(response)=>classified(response,true), // BotApi validation/conflict failure: report_error.
         Outcome::NoChange(response)=>classified(response,false), // Rails unchanged result.
         Outcome::Committed(response)=>classified(response,false),
     }
@@ -65,7 +65,7 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Val
     // Rails' query treats ids outside SQLite INTEGER range as not found, rather
     // than saturating onto an owned row at the boundary.
     if !(i64::MIN as f64..-(i64::MIN as f64)).contains(&numeric_id) {
-        return Ok(tool_text("Bot not found.",false));
+        return Ok(tool_text("Bot not found.",true));
     }
     let id=numeric_id as i64;
     let submitted=ActionParams::from_mcp(args.clone()).map_err(|_|WebError::Config("MCP arguments exceed parameter bounds".into()))?;

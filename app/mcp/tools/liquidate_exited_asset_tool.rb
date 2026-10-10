@@ -17,7 +17,7 @@ class LiquidateExitedAssetTool < ApplicationMCPTool
     result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: bot_id, symbol: symbol,
                                                 dry_run: current_user.mcp_dry_run?)
     prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
-    return render(text: "#{prefix}#{result.error_message}") unless result.success?
+    return report_error("#{prefix}#{result.error_message}") unless result.success?
 
     verb = result.data[:dry_run] ? 'Would sell' : 'Selling'
     tail = result.data[:dry_run] ? 'nothing was queued.' : "queued; check the bot's transactions for the fill."

@@ -139,8 +139,8 @@ async fn four_reads_match_rails() {
         if name.starts_with("m3_start_") && name!="m3_start_combined" {
             let inactive=name.starts_with("m3_start_index_");
             assert_eq!(oracle_texts[0].contains("Started:"),inactive,"{name}: pending condition");
-            assert!(oracle_texts[1].contains(if inactive{"Started: 2026-03-02 15:30 UTC"}else{"Started: 2026-09-09 16:00 UTC"}),"{name}: later condition");
-            assert!(oracle_texts[2].contains("Started: 2026-03-02 15:30 UTC"),"{name}: older condition");
+            assert!(oracle_texts[1].contains(if inactive{"Started: 2026-03-02 15:30 CET"}else{"Started: 2026-09-09 16:00 CEST"}),"{name}: later condition");
+            assert!(oracle_texts[2].contains("Started: 2026-03-02 15:30 CET"),"{name}: older condition");
         }
         if ["m3_pair_locked","m3_signal_locked"].contains(&name){assert!(oracle_texts[0].contains("Locked out of buying (wash sale): AAA 10d"));}
         if name.ends_with("_known_price") && EXPECTED_READS.len()==4 {
@@ -156,7 +156,7 @@ async fn four_reads_match_rails() {
             "m3_other_venue_figures"=>vec![("Portfolio Summary\n================\nTotal bots: 3 (3 active, 0 stopped, 0 not started)\n\nGlobal P/L: +1.14%\nProfit (USD): +$9.64\n\n--- Per-Bot Summary ---\n- Basket (AAA+BBB/USD) | scheduled | P/L: +0.08% | Invested: 200.0 USD\n- Limited (AAA/USD) | scheduled | P/L: +3.64% | Invested: 346.99 USD\n- ND100 (N/A) | scheduled | P/L: -1.05% | Invested: 300.0 USD","this build reads Alpaca only")],
             "m3_other_venue"=>vec![("Failed to fetch balances from Kraken: EAPI:Invalid key","this build reads Alpaca only")],
             "m3_unpriced"=>vec![("Global P/L: -13.83%\nProfit (USD): $-117.15","Global P/L: Not available (needs market data)")],
-            "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)"),("@ 0.0 USD","")],
+            "m3_stored_zero_price"=>vec![("AAA/USD @ 0.0 (Market order)","AAA/USD  (Market order)")], // list_transactions drops a zero price in Rails too.
             "m3_market_no_price"=>vec![("AAA/USD @ 0 (Market order)","AAA/USD  (Market order)")],
             "m3_limit_no_price"=>vec![("AAA/USD @ 0 (Limit order)","AAA/USD  (Limit order)")],
             "m3_empty_redeploy_minimum"=>vec![("Redeploy offer (answer with answer_redeploy_offer): 0.01 USD","Redeploy unavailable: no composition minimum")],
