@@ -99,7 +99,7 @@ pub struct StartAt { pub at: DateTime<Utc>, pub early: bool }
 /// :start validation refuses those first, and nil must never read as "start now" here.
 pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at: Option<&str>, now: DateTime<Utc>, zone: &str)
     -> Result<StartAt, &'static str> {
-    use chrono::{Datelike, Duration, LocalResult, NaiveDate, NaiveDateTime, TimeZone};
+    use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
     let mode = mode.ok_or("missing start mode")?;
     if mode == "date" {
         let at = crate::codec::parse_time(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
@@ -120,17 +120,9 @@ pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at:
         Some(zone) => zone,
         None => zone.parse::<chrono_tz::Tz>().map_err(|_| "unknown time zone")?,
     };
-    // TimeZone#local / TimeWithZone: a wall time in a gap moves forward an hour, a repeated one takes the first (DST) instant.
+    // TimeZone#local / TimeWithZone: a wall time in a one-hour gap moves forward an hour; a repeated one is refused.
     let wall = |naive: NaiveDateTime| -> Result<(NaiveDateTime, DateTime<Utc>), &'static str> {
-        let (wall, at) = match zone.from_local_datetime(&naive) {
-            LocalResult::Single(at) => (naive, at),
-            LocalResult::Ambiguous(a, b) => (naive, a.min(b)),
-            LocalResult::None => {
-                let later = naive.checked_add_signed(Duration::hours(1)).ok_or("start date overflow")?;
-                (later, zone.from_local_datetime(&later).earliest().ok_or("unresolvable start time")?)
-            }
-        };
-        Ok((wall, at.with_timezone(&Utc)))
+        crate::web::timezone::resolve_local(zone, naive).map(|(wall, at)| (wall, at.with_timezone(&Utc)))
     };
     let local = now.with_timezone(&zone);
     let at = |day: NaiveDate| day.and_hms_opt(hour, minute, 0).ok_or("invalid start time");
