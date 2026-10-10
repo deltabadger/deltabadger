@@ -1228,7 +1228,7 @@ async fn tick_with_a_possible_pre_intent_replacement(replace: bool, same_stamp: 
     let engine_db=rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap();
     let mut attempts=tick::Attempts::default();let tick_clock=FixedClock(at);
     let prices=tick::PriceCache::default();
-    let cx=tick::TickContext{credential_version,prices:&prices,process_start:chrono::DateTime::<chrono::Utc>::MIN_UTC,stopping:&||false};
+    let cx=tick::TickContext{credential_version,prices:&prices,process_start:chrono::DateTime::<chrono::Utc>::MIN_UTC,stopping:&||false,below_minimum:&|_,_|{}};
     let mut recovered=None;
     let running=tick::tick_recovering(&engine_db,&venue,bot_id,&tick_clock,&mut attempts,&mut recovered,&cx);
     async fn rotate_only(h:&mut Harness,bot:&model::Bot,version:&Option<model::CredentialVersion>,at:chrono::DateTime<chrono::Utc>,flags:(bool,bool,bool)) {
@@ -1762,7 +1762,7 @@ async fn r_price_cache_must_refetch_for_replacement_credentials() {
         if replace { assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200); }
         let (credentials,version)=model::credentials_with_version(&h.c,&h.app.cipher,&bot).unwrap();let credentials=credentials.unwrap();
         let venue=AlpacaVenue::new(ReqwestTransport::new(http::client(),credentials.key,credentials.secret),Urls{trading:server.uri(),data:server.uri()});
-        let cx=TickContext{credential_version:version,prices:&prices,process_start:chrono::DateTime::<chrono::Utc>::MIN_UTC,stopping:&||false};
+        let cx=TickContext{credential_version:version,prices:&prices,process_start:chrono::DateTime::<chrono::Utc>::MIN_UTC,stopping:&||false,below_minimum:&|_,_|{}};
         tick::tick_recovering(&h.c,&venue,bot.id,&FixedClock(h.app.now()),&mut attempts,&mut recovered,&cx).await.unwrap();
     }
     let b_requests=server.received_requests().await.unwrap().into_iter().filter(|r|r.url.path().ends_with("/quotes") && r.headers.get("APCA-API-KEY-ID").is_some_and(|v|v=="account-b-key")).count();

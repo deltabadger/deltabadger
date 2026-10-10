@@ -83,7 +83,7 @@ async fn r1_merged_first_tick_warning_matches_rails_and_never_repeats(){
         let notices=std::cell::RefCell::new(Vec::new());
         let notify=|bot,ids|notices.borrow_mut().push((bot,ids));
         let prices=PriceCache::default();
-        let cx=TickContext{prices:&prices,process_start:now(),stopping:&||false,below_minimum:&notify};
+        let cx=TickContext{credential_version:model::credential_version(&o.primary,&model::load_bot(&o.primary,id).unwrap()).unwrap(),prices:&prices,process_start:now(),stopping:&||false,below_minimum:&notify};
         tick::tick_recovering(&o.primary,&venue(&transport),id,&FixedClock(now()),&mut Default::default(),&mut None,&cx).await.unwrap();
         assert!(transport.posted_orders().is_empty());
         assert_eq!(notices.borrow().len(),1,"merged first tick warning");
@@ -195,7 +195,7 @@ async fn r2_reduced_below_minimum_records_rails_row_activity_and_notice(){
     let (_d,o,s,id)=r2_setup(case);
     let t=script(json!({"GET /v1beta3/crypto/us/latest/trades":[ok(json!({"trades":{"AAA/USD":{"p":case["price"]}}}))]}));
     let notices=std::cell::RefCell::new(Vec::new());let notify=|bot,ids|notices.borrow_mut().push((bot,ids));
-    let prices=PriceCache::default();let cx=TickContext{prices:&prices,process_start:now(),stopping:&||false,below_minimum:&notify};
+    let prices=PriceCache::default();let cx=TickContext{credential_version:model::credential_version(&o.primary,&model::load_bot(&o.primary,id).unwrap()).unwrap(),prices:&prices,process_start:now(),stopping:&||false,below_minimum:&notify};
     tick::tick_recovering(&o.primary,&venue(&t),id,&FixedClock(now()),&mut Default::default(),&mut None,&cx).await.unwrap();
     assert!(t.posted_orders().is_empty(),"R2 reduced below minimum must skip");
     assert_eq!(notices.borrow().len(),1,"R2 skipped notice");
