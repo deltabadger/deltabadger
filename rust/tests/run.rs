@@ -333,8 +333,8 @@ async fn a_malformed_continue_request_is_removed_and_the_decision_still_runs() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_continue_decision_that_cannot_be_read_skips_the_bot_and_is_retried_next_pass() {
     let (_d, mut e, id, v) = continued(&["2026-09-01 10:00:01"], requested());
-    // A closed row without its executed quote: pending_quote_amount cannot be read.
-    e.primary.execute("UPDATE transactions SET quote_amount_exec = NULL", []).unwrap();
+    // A closed fill with neither reported value nor a usable price is unreadable.
+    e.primary.execute("UPDATE transactions SET quote_amount_exec = NULL, price = NULL", []).unwrap();
     run::step(&mut e, &at("2026-09-08T12:00:00Z")).await.unwrap();
     assert!(v.sent().is_empty());
     assert!(transient_has(&e, id, "rust_continue_start"), "kept for the next pass");

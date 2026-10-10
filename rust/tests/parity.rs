@@ -380,6 +380,17 @@ async fn grid_outputs(command: &str, expected: usize) -> (tempfile::TempDir, Out
     dirs.sort();
     assert_eq!(dirs.len(), expected, "{command} has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    if command == "grid-basket" {
+        let normalized = tempfile::tempdir().unwrap();
+        let paired: Vec<_> = dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().contains("-zero_quote_exec-")).collect();
+        assert_eq!(paired.len(), 2);
+        for d in &paired { copy_dir(d, &normalized.path().join(d.file_name().unwrap())); }
+        rails(&["record-normalized", normalized.path().to_str().unwrap()]);
+        for d in &paired {
+            let name = d.file_name().unwrap();
+            std::fs::copy(normalized.path().join(name).join("rails.json"), rust_root.path().join(name).join("rails-normalized.json")).unwrap();
+        }
+    }
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut out = vec![];
     for d in &dirs {
@@ -632,7 +643,11 @@ async fn rails_and_rust_decide_identically_across_the_basket_grid() {
         if name.starts_with("basket-exited-") {
             if let Err(e) = exited_member_admitted(dir) { failures.push(format!("{name}: {e}")); }
         }
-        let listed = if name.contains("-ambiguous_5xx-") {
+        let listed = if name.contains("-zero_quote_exec-") {
+            let normalized: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails-normalized.json")).unwrap()).unwrap();
+            assert_ne!(&normalized, rails_out, "{name}: the recorded normalization divergence disappeared");
+            Some(if &normalized == rust_out { Ok(()) } else { Err(format!("normalized Rails: {normalized}\nRust: {rust_out}")) })
+        } else if name.contains("-ambiguous_5xx-") {
             Some(leg_intent_kept(dir, rails_out, rust_out, k))
         } else if name == "basket-exited-intent-tiers-k3-landed" {
             // SOL's leg was ambiguous, then SOL was delisted and exited while its intent was unresolved. The reconciliation
