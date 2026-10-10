@@ -1,5 +1,5 @@
 {
-  "rust/src/ruby.rs": "a9c56c3a6df4a69e97f4ac42e0f086ca0b823bdfc810fd3810d33cddd8146439",
+  "rust/src/ruby.rs": "adec8edc618e779dc8a737fd4dc7a704660c76ba51142b142246bc1028f1ea5b",
   "rust/src/figures/num.rs": "05a0cc80dc5a469184b957a77cfe165ec6f9cf71d361ec1ab5855407ae4a2bd5",
   "rust/src/web/format.rs": "ae5402d269594bfefe5e5ba7f4189d77c0cf4446dcba0825acf74e485c0ea0f6",
   "rust/src/codec.rs": "24cbeb953d2e6471fb44c31b4dae966adc87ced34c22539a3de0e985a9ced731"
