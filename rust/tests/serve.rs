@@ -2235,6 +2235,8 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 Err(e) => return Err(e.to_string()),
             };
+            // accept() inherits the listener's nonblocking mode on macOS.
+            socket.set_nonblocking(false).map_err(|e| e.to_string())?;
             socket
                 .set_read_timeout(Some(Duration::from_secs(20)))
                 .map_err(|e| e.to_string())?;
