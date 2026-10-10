@@ -16,5 +16,83 @@
     "Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),": 1,
     "let ids = serde_json::to_string(members).expect(\"ids serialise\");": 1
   },
-  "rust/src/figures/fill.rs": {}
+  "rust/src/figures/fill.rs": {},
+  "rust/src/engine/placement.rs": {
+    "let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);": 1,
+    "let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);": 1,
+    "Ok(begin_checked(c, bot, plan, clock, None)?.expect(\"unfenced\"))": 1
+  },
+  "rust/src/engine/tick.rs": {},
+  "rust/src/engine/run.rs": {
+    "let _ = rx.wait_for(|stopped| *stopped).await;": 1,
+    "let mut term = signal(SignalKind::terminate()).expect(\"a SIGTERM handler\");": 1,
+    "let mut int = signal(SignalKind::interrupt()).expect(\"a SIGINT handler\");": 1,
+    "let mut ctrl_c = tokio::signal::windows::ctrl_c().expect(\"a Ctrl-C handler\");": 1,
+    "match placement::recover_since(&e.primary, &venue, &bot, clock, e.process_start.expect(\"set by step\")).await? {": 1,
+    "if request.get(\"requested_at\").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {": 1,
+    "let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect(\"set by step\"), stopping: &stopping };": 1
+  },
+  "rust/src/engine/events.rs": {
+    "if wants(&e) { let _ = s.send(e.clone()); } // allow-swallow: a dropped subscriber is not the engine's concern": 1
+  },
+  "rust/src/web/below_minimum.rs": {},
+  "rust/src/web/bot/write.rs": [],
+  "rust/src/web/bot/start.rs": [
+    "let amount = input_value(&Num::Dec(BigDec::parse(&minimum.value.to_s()).ok()?))?;",
+    "let since = bot.transient.get(\"quote_amount_limit_enabled_at\").and_then(Value::as_str).and_then(|text| DateTime::parse_from_rfc3339(text).ok())"
+  ],
+  "rust/src/web/bot/draft.rs": [
+    "let _ = e;",
+    ".iter().find_map(|pattern| NaiveDateTime::parse_from_str(s, pattern).ok())",
+    ".or_else(|| NaiveDate::parse_from_str(s, \"%Y-%m-%d\").ok()?.and_hms_opt(0, 0, 0))",
+    "let n = whole.parse::<u32>().ok()?;",
+    "return day.with_day(s.parse().ok()?)?.and_hms_opt(0, 0, 0);",
+    "let n = match &value { Value::Number(n) => n.as_f64(), Value::String(s) => s.trim().parse::<f64>().ok(), _ => None }.filter(|n| n.is_finite());",
+    "let split = BigDec::from_f64(amount).ok().and_then(|n| n.div(&BigDec::from_i64(10)));",
+    "let at = self.candidate.text(\"start_at\").and_then(|s| DateTime::parse_from_rfc3339(s).ok());",
+    "let amount = numeric(&self.read(\"sell_amount\"), false).ok().and_then(|v| v.as_f64()).unwrap_or(0.0);",
+    ".and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|at| crate::codec::format_time(at.with_timezone(&Utc)));",
+    "\"start_at\" => check.start_at = Some(if self.candidate.text(\"start_at\").and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_some() { \"must_be_future\" } else { \"blank\" }),",
+    "return self.candidate.text(\"start_at\").and_then(|s|DateTime::parse_from_rfc3339(s).ok()).map(|t|Some(t.with_timezone(&Utc))).ok_or_else(||failure(\"invalid start date\"));"
+  ],
+  "rust/src/web/bot/orders.rs": [
+    "let at = DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Utc);",
+    "error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()",
+    "details: r.get::<_, Option<String>>(4)?.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null) })"
+  ],
+  "rust/src/web/bot/mod.rs": [
+    "Value::String(text) if plain_decimal(text) => text.parse().ok(),",
+    "if plain_decimal(text) { text.parse().ok() } else { None }",
+    "error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()",
+    "Some(Value::String(text)) if !text.trim().is_empty() => BigDec::parse(text).ok(),",
+    "_ => BigDec::parse(\"0.05\").ok(),",
+    "let stored = || self.text(\"start_at\").filter(|text| !text.trim().is_empty()).and_then(|text| DateTime::parse_from_rfc3339(text).ok()).map(|time| time.with_timezone(&Utc));",
+    "DateTime::parse_from_rfc3339(text).ok().map(|time| time.with_timezone(&Utc))",
+    "weights.iter().filter_map(|(asset_id, stored)| Some((asset_id.parse().ok()?, weight(stored)?))).collect()",
+    "Some(Value::Object(weights)) if !weights.is_empty() => weights.keys().filter_map(|key| key.parse().ok()).collect(),",
+    "top_coins: top_coins.and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok()).unwrap_or_default(),",
+    "weights: weights.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default(),",
+    "i64::try_from(super::format::to_i(segment)).ok().filter(|id| *id > 0)"
+  ],
+  "rust/src/web/mcp/tools.rs": [
+    "let name = usize::try_from(status).ok().and_then(|i|STATUSES.get(i)).copied().unwrap_or(\"\");",
+    "if filter.is_some_and(|f| f != name && f.parse::<i64>().ok() != Some(status)) {continue;}",
+    "lines.push(format!(\"- [{date}] {} {} {} {} | {}\",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|[\"BUY\",\"SELL\"].get(s).copied()).unwrap_or(\"\"),amount.map(|v|format!(\"{v} {}\",base.unwrap_or_default())).unwrap_or_else(||\"N/A\".into()),price.map(|v|format!(\"@ {v} {quote}\")).unwrap_or_default(),cost.map(|v|format!(\"({v} {quote})\")).unwrap_or_default(),[\"submitted\",\"failed\",\"skipped\"].get(status).copied().unwrap_or(\"\")));"
+  ],
+  "rust/src/web/mcp/reads.rs": [],
+  "rust/src/sync/ledger.rs": [
+    "let Some(v) = raw.and_then(|text| serde_json::from_str::<Value>(&text).ok()) else { return Ok((true, None)) };",
+    "let v = raw.flatten().and_then(|text| serde_json::from_str::<Value>(&text).ok()).unwrap_or(Value::Null);",
+    "merged.extend(merged_ids(&raw?.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null)));",
+    "let raw: Value = raw.as_deref().and_then(|r| serde_json::from_str(r).ok()).unwrap_or(Value::Null);",
+    "let raw: Value = raw.as_deref().and_then(|r| serde_json::from_str(r).ok()).unwrap_or(Value::Null);"
+  ],
+  "rust/src/web/format.rs": [
+    "Num::Float(f) => BigDec::from_f64(*f).ok(),",
+    "let exact = |float: f64| BigDec::parse(&float_to_s(float)).ok();",
+    "Num::Float(f) => BigDec::parse(&float_to_s(*f)).ok()?,"
+  ],
+  "rust/src/engine/accounting.rs": [
+    "let since = bot.transient.get(\"quote_amount_limit_enabled_at\").and_then(Value::as_str).and_then(|text| DateTime::parse_from_rfc3339(text).ok()).map(|time| format_time(time.with_timezone(&Utc)));"
+  ]
 }

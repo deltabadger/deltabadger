@@ -36,15 +36,13 @@ fn raw(v: ValueRef<'_>) -> Value {
 pub fn snapshot(c: &Connection) -> Result<Value, SyncError> {
     let mut out = Map::new();
     for table in TABLES {
-        let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
-        let names: Vec<String> = s.column_names().iter().map(|n| n.to_string()).collect();
+        let (names, snapshot) = crate::figures::fill::parity_rows(c,table,"id")?;
         let mut rows = Map::new();
-        let mut q = s.query([])?;
-        while let Some(r) = q.next()? {
+        for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
                 if SECRET_COLUMNS.contains(&name.as_str()) { continue; }
-                let mut v = raw(r.get_ref(i)?);
+                let mut v = raw((&r[i]).into());
                 // raw_data is compared twice: as the text in the column, byte for byte, and parsed (for what reads it).
                 if name == "raw_data" { row.insert("raw_data_text".into(), v.clone()); }
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = exact(s).unwrap_or(v); } }

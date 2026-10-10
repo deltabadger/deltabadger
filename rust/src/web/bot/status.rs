@@ -219,22 +219,22 @@ pub fn job_time_us(checkpoint_us: i64) -> i64 {
 /// Rails has no time either while a tick is due or in hand: its job is then ready, claimed or
 /// blocked, no longer scheduled (Automation::Schedulable#next_action_job_at). There is no job table
 /// here, so "due" is read from the row: the checkpoint has come and the bot has not acted on it.
-pub fn next_action_at(bot: &Bot, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
-    if bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false)) { return None; }
-    let checkpoints = bot.checkpoints(now)?;
-    let due = match bot.last_action_job_at() {
+pub fn next_action_at(bot: &Bot, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>,WebError> {
+    if bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false)) { return Ok(None); }
+    let Some(checkpoints) = bot.checkpoints(now)? else {return Ok(None)};
+    let due = match bot.last_action_job_at()? {
         // Bot::ActionJob writes `last_action_job_at` as it starts a tick: an older one means the last checkpoint's tick has not
         // started. The stored time is cut to the millisecond and a checkpoint is not, so the two are compared in milliseconds,
         // as the engine compares them (engine::run): a tick that began within its checkpoint's millisecond has begun.
         Some(acted) => acted.timestamp_millis() < checkpoints.last_us.div_euclid(1000),
         // A start clears it: until the first tick runs, a bot whose start has come is due.
-        None => bot.anchor().is_some_and(|anchor| anchor <= now),
+        None => bot.anchor()?.is_some_and(|anchor| anchor <= now),
     };
     // On the grid to the microsecond, the checkpoint is this instant.
-    if due || checkpoints.next_us <= now.timestamp_micros() { return None; }
+    if due || checkpoints.next_us <= now.timestamp_micros() { return Ok(None); }
     // The job is enqueued for the checkpoint as it is before any rounding.
-    let (next, _) = bot.unrounded(now)?;
-    DateTime::from_timestamp_micros(Instant::of(&next).held_micros())
+    let Some((next, _)) = bot.unrounded(now)? else {return Ok(None)};
+    Ok(DateTime::from_timestamp_micros(Instant::of(&next).held_micros()))
 }
 
 pub struct Status {
@@ -264,9 +264,9 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
         BotStatus::Waiting => (text, dots) = (Some(t("bot.status.waiting")), true),
         BotStatus::Scheduled | BotStatus::Retrying => {
             let scheduled = bot.status == BotStatus::Scheduled;
-            let end = next_action_at(bot, ctx.now);
+            let end = next_action_at(bot, ctx.now)?;
             // `last_action_job_at || last_interval_checkpoint_at`: the second is not on the microsecond grid, and Rails measures from where it is.
-            let start = bot.last_action_job_at().map(|at| Instant::from_micros(at.timestamp_micros())).or_else(|| bot.unrounded(ctx.now).map(|(_, last)| Instant::of(&last)));
+            let start = bot.last_action_job_at()?.map(|at| Instant::from_micros(at.timestamp_micros())).or(bot.unrounded(ctx.now)?.map(|(_, last)| Instant::of(&last)));
             let failure = bot.last_order.as_ref().filter(|order| order.failed).and_then(|order| humanized_error(bot, &order.error_messages, ctx.locale));
             let prefix = if !scheduled {
                 Some(match failure {

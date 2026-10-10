@@ -59,6 +59,8 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
 type SplitRows = std::collections::HashMap<(i64, i64), Vec<(Option<i64>, String)>>;
 
 fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result<Vec<String>, EngineError> {
+    bot.validate_times()?;
+    model::merged_history_cutoff(c, bot)?;
     let mut r = rails_work(c, bot)?;
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
@@ -80,7 +82,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         r.push("smart interval amount missing, not a JSON number, or not positive".into());
     }
     if bot.limit_ordered() && bot.limit_distance().is_none() { r.push("limit_order_pcnt_distance is not a number".into()); }
-    if BOT_WORKING.contains(&bot.status) && bot.started_at_us.is_none() { r.push("started_at missing (never ticks)".into()); }
+    if BOT_WORKING.contains(&bot.status) && bot.started_at_us()?.is_none() { r.push("started_at missing (never ticks)".into()); }
     if bot.interval().is_none() { r.push("interval".into()); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
     if bot.restatement_generation > 0 && model::all_crypto(c, bot)? { r.push("restated prices".into()); }
@@ -95,6 +97,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     history_reasons(c, bot, alpaca, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     if alpaca && r.is_empty() { super::basket::walk(c, bot, Utc::now())?; }
+    if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
 }
 
@@ -126,6 +129,7 @@ fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64>
 /// Alpaca REGULAR buys/sells and merged rows are covered by the normalized walk. Other histories
 /// retain their named refusals. Stock split matching and trust checks remain in engine::splits.
 fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+    crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
     let (sells, other, imported, no_asset): (i64, i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(side = 1), 0), coalesce(sum(transaction_type <> 'REGULAR'), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
                 coalesce(sum(transaction_type = 'REGULAR' AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",

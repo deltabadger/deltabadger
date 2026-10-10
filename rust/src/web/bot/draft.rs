@@ -27,7 +27,7 @@ use super::{action_params, start, Asset, Bot, Exchange, For, Kind, Ticker};
 use crate::enums::BotStatus;
 use crate::ruby::BigDec;
 use crate::web::{format, i18n, timezone, WebError};
-use chrono::{DateTime, Datelike, Duration, LocalResult, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Duration, LocalResult, NaiveDate, TimeZone, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::json;
 
@@ -146,7 +146,7 @@ impl Draft {
                 if !value.is_null() && value.as_str() != Some("") { self.parsed.insert(key.clone(), json!(super::cast_boolean(Some(value)))); }
                 continue;
             }
-            if key == "start_at" { self.parsed.insert(key.clone(), date(value, zone, now)?); continue; }
+            if key == "start_at" { self.parsed.insert(key.clone(), crate::codec::parse_form_time(value, zone, now)?); continue; }
             if !present(value) {
                 if explicit_null { self.parsed.insert(key.clone(), Value::Null); }
                 continue;
@@ -161,6 +161,9 @@ impl Draft {
                 Ok(json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true"))))
             } else if key.ends_with("_id") || key.ends_with("_period") { numeric(value, true) }
             else if matches!(key.as_str(), "limit_order_pcnt_distance" | "price_drop_limit" | "sell_price_drop_limit" | "rebalance_threshold") { percentage(value) }
+            else if matches!(key.as_str(), "quote_amount" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "sell_amount" | "sell_quote_amount" | "quote_amount_limit" | "base_amount_limit") {
+                action_params::accounting_numeric(value).map_err(|_| failure("accounting magnitude exceeds 2^53"))
+            }
             else if matches!(key.as_str(), "quote_amount" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "sell_amount" | "sell_quote_amount" | "quote_amount_limit" | "base_amount_limit" | "allocation_flattening")
                 || key.ends_with("_range_lower_bound") || key.ends_with("_range_upper_bound") || matches!(key.as_str(), "price_limit" | "sell_price_limit" | "indicator_limit" | "sell_indicator_limit") { numeric(value, false) }
             else { Ok(value.clone()) };
@@ -288,45 +291,6 @@ fn normalize(weights: &mut Map<String, Value>) -> Result<(), WebError> {
     Ok(())
 }
 
-/// Bounded forms accepted by datetime-local and ISO8601 callers, plus the short numeric
-/// fragments exercised by Rails' Date._parse vectors. No unbounded calendar search.
-fn date(value: &Value, name: &str, now: DateTime<Utc>) -> Result<Value, WebError> {
-    let Some(input) = value.as_str() else { return Ok(Value::Null) };
-    if input.len() > 128 { return Err(failure("start date exceeds its bound")); }
-    let s = input.trim();
-    if s.is_empty() { return Ok(Value::Null); }
-    if let Ok(at) = DateTime::parse_from_rfc3339(s) { return Ok(json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))); }
-    let zone = timezone::zone(name).unwrap_or(chrono_tz::UTC);
-    let naive = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
-        .iter().find_map(|pattern| NaiveDateTime::parse_from_str(s, pattern).ok())
-        .or_else(|| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()?.and_hms_opt(0, 0, 0))
-        .or_else(|| {
-            // Date._parse's compact numeric fragments: decimal-separated digits are a
-            // right-aligned HHMMSS, while a three-digit run supplies only yday. Time.zone.parse
-            // ignores yday when it supplies the missing calendar fields from today's date.
-            let day = now.with_timezone(&zone).date_naive();
-            let runs: Vec<&str> = s.split(|ch: char| !ch.is_ascii_digit()).filter(|part| !part.is_empty()).collect();
-            if let Some((whole, fraction)) = s.split_once(['.', ',']) {
-                if !fraction.starts_with(|ch: char| ch.is_ascii_digit()) || whole.is_empty() || whole.len() > 6 || !whole.bytes().all(|b| b.is_ascii_digit()) { return None; }
-                let n = whole.parse::<u32>().ok()?;
-                return day.and_hms_opt(n / 10000, n / 100 % 100, n % 100);
-            }
-            if runs.last().is_some_and(|run| run.len() == 3) { return day.and_hms_opt(0, 0, 0); }
-            if runs.len() == 1 && s.bytes().all(|b| b.is_ascii_digit()) && s.len() <= 2 {
-                return day.with_day(s.parse().ok()?)?.and_hms_opt(0, 0, 0);
-            }
-            None
-        });
-    let Some(naive) = naive else { return Ok(Value::Null) };
-    if !(1..=9999).contains(&naive.year()) { return Err(failure("start date exceeds its bound")); }
-    // ActiveSupport chooses DST on overlap, and moves a nonexistent local time forward an hour.
-    let at = match zone.from_local_datetime(&naive) {
-        LocalResult::Single(at) => Some(at), LocalResult::Ambiguous(a, b) => Some(a.min(b)),
-        LocalResult::None => naive.checked_add_signed(Duration::hours(1)).and_then(|next| zone.from_local_datetime(&next).earliest()),
-    };
-    Ok(at.map_or(Value::Null, |at| json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))))
-}
-
 fn sentence(messages: &[&str], locale: &str) -> String {
     let connector = |key: &str, fallback: &str| {
         let value = i18n::text(locale, key, &[]);
@@ -417,19 +381,21 @@ impl Draft {
 
     /// Shared writer boundary, after Rails validation so Rails refusals keep their order/text.
     /// Returns true only for an additional Rust schedule-range refusal.
-    pub fn validate_schedule_bounds(&mut self, locale: &str, now: DateTime<Utc>) -> bool {
-        if !self.errors.is_empty() { return false; }
+    pub fn validate_schedule_bounds(&mut self, locale: &str, now: DateTime<Utc>) -> Result<bool,WebError> {
+        if !self.errors.is_empty() { return Ok(false); }
         let bot = &self.candidate;
-        let outside = bot.schedule_bounds().is_some() || bot.checkpoints(now).is_none_or(|cp| {
+        let outside = bot.schedule_bounds().is_some() || bot.checkpoints(now)?.is_none_or(|cp| {
             DateTime::from_timestamp_micros(cp.next_us).is_none() || DateTime::from_timestamp_micros(cp.last_us).is_none()
         });
-        if !outside { return false; }
+        if !outside { return Ok(false); }
         let field = if bot.effective().is_some_and(|eff| eff.seconds() < super::MIN_SPAN_SECONDS) { "smart_interval_quote_amount" } else { "quote_amount" };
         self.error(locale, field, "greater_than", Some(0.0));
-        true
+        Ok(true)
     }
 
     pub fn validate(&mut self, c: &Connection, context: ValidationContext, now: DateTime<Utc>, provider: bool, locale: &str) -> Result<(), WebError> {
+        crate::codec::validate_bot_times(&Value::Object(self.candidate.settings.clone()), &Value::Object(self.candidate.transient.clone())).map_err(|e|failure(&format!("{e:?}")))?;
+        crate::engine::accounting::validate_stored_amounts(&Value::Object(self.candidate.settings.clone()), &Value::Object(self.candidate.transient.clone()))?;
         self.errors = self.parse_errors.clone();
         self.error_codes.clear();
         let starting = context == ValidationContext::Start;
@@ -448,16 +414,22 @@ impl Draft {
         if sells_base && self.read("smart_intervaled") == json!(true) && !present(&self.read("smart_interval_base_amount")) && present(&self.read("sell_amount")) {
             let minimum = self.base_minimum();
             let amount = numeric(&self.read("sell_amount"), false)?.as_f64().unwrap_or(0.0);
-            let split = BigDec::from_f64(amount).ok().and_then(|n| n.div(&BigDec::from_i64(10)));
-            let floor = format::Num::Float(minimum.value.to_f() * 10.0);
-            let amount = split.map(format::Num::Dec).filter(|n| n.to_f() >= floor.to_f()).unwrap_or(floor);
-            self.candidate.settings.insert("smart_interval_base_amount".into(), json!(amount.round(minimum.decimals).to_f()));
+            self.candidate.settings.insert("smart_interval_base_amount".into(), crate::engine::accounting::default_sell_split(amount, &minimum)?);
         }
         // Inheritance and concern order is observable in errors.messages. Group fields only after
         // every callback, retaining each field's first position and all duplicate messages.
         if starting && self.candidate.exchange.retired() { self.add("base", i18n::text(locale, "errors.exchange_retired", &[])); }
         if self.candidate.label.trim().is_empty() { self.error(locale, "label", "blank", None); }
         if starting && self.original.status == BotStatus::Archived { self.add("status", i18n::text(locale, "errors.bots.archived", &[])); }
+        // #507: Bot#trading_key_ready runs in the start validation context, before subclass fields.
+        if starting {
+            let key: Option<i64> = c.query_row(
+                "SELECT k.status FROM api_keys k JOIN bots b ON b.user_id=k.user_id WHERE b.id=?1 AND k.exchange_id=?2 AND k.key_type=0 ORDER BY k.id LIMIT 1",
+                (self.candidate.id,self.candidate.exchange.id), |row| row.get(0)).optional()?;
+            if key != Some(crate::enums::ApiKeyStatus::Correct as i64) {
+                self.add("base", i18n::text(locale, "engine.api_key_not_ready", &[]));
+            }
+        }
         self.presence(locale, "quote_amount");
         self.number(locale, "quote_amount", Some((0.0, false)), None, false);
         if self.candidate.kind == Kind::Basket { self.inclusion(locale, "weighting", &["manual", "market_cap"]); }
@@ -552,7 +524,7 @@ impl Draft {
         if starting && self.candidate.start_time_enabled() {
             match self.candidate.text("start_time_mode") {
                 Some("date") => {
-                    let at = self.candidate.text("start_at").and_then(|s| DateTime::parse_from_rfc3339(s).ok());
+                    let at = crate::codec::optional_time(self.candidate.settings.get("start_at")).map_err(|e|failure(&format!("{e:?}")))?;
                     if at.is_none() { self.error(locale, "start_at", "blank", None); }
                     else if at.is_some_and(|at| at <= now) { self.error(locale, "start_at", "must_be_future", None); }
                 }
@@ -602,30 +574,14 @@ impl Draft {
         let interval = self.read("sell_interval");
         let seconds = match interval.as_str() { Some("hour") => 3600.0, Some("day") => 86400.0, Some("week") => 604800.0, Some("month") => 2629746.0, _ => 0.0 };
         let amount = numeric(&self.read("sell_amount"), false).ok().and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let frequency = if amount > 0.0 && seconds > 0.0 { amount / seconds * 300.0 } else { 0.0 };
-        let scale = 10f64.powi(i32::from(decimals));
-        let precision = 1.0 / scale;
-        start::Minimum { value: format::Num::Float(start::round_up(frequency, scale).max(precision)),
-            reason: if frequency >= precision { start::Reason::Frequency } else { start::Reason::Precision }, decimals }
+        crate::engine::accounting::sell_minimum(amount, seconds, decimals)
     }
 
     fn base_cap_reached(&self, c: &Connection) -> Result<bool, WebError> {
         let limit = numeric(&self.read("base_amount_limit"), false)?;
         let limit = BigDec::parse(&limit.to_string()).map_err(|_| failure("base cap exceeds numeric bounds"))?;
-        let since = self.candidate.transient.get("base_amount_limit_enabled_at").and_then(Value::as_str)
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|at| crate::codec::format_time(at.with_timezone(&Utc)));
-        let mut statement = c.prepare("SELECT CASE WHEN external_status = 2 THEN COALESCE(amount_exec, amount) WHEN external_status IN (0, 1) THEN amount ELSE COALESCE(amount_exec, 0) END FROM transactions WHERE bot_id = ?1 AND side = 1 AND status = 0 AND transaction_type = 'REGULAR' AND created_at >= ?2 AND external_status IN (0, 1, 2, 3, 4) LIMIT 100001")?;
-        let mut rows = statement.query((self.candidate.id, since))?;
-        let mut total = BigDec::zero();
-        let mut count = 0;
-        while let Some(row) = rows.next()? {
-            count += 1;
-            if count > start::HISTORY_WORK_BUDGET { return Err(start::history_error()); }
-            if let Some(amount) = row.get::<_, super::Stored>(0)?.0 { total = &total + &amount; }
-        }
-        let floor = self.candidate.tickers.iter().map(|t| t.base_decimals).min().map_or(0.0, |d| 10f64.powi(-i32::from(d)));
-        let floor = BigDec::from_f64(floor).map_err(|_| failure("base cap floor exceeds numeric bounds"))?;
-        Ok((&limit - &total).max(BigDec::zero()) < floor)
+        let since = crate::codec::optional_time(self.candidate.transient.get("base_amount_limit_enabled_at")).map_err(|e|failure(&format!("{e:?}")))?.map(crate::codec::format_time);
+        crate::engine::accounting::base_cap_reached(c, self.candidate.id, &limit, since.as_deref(), self.candidate.tickers.iter().map(|t| t.base_decimals).min())
     }
 
     fn conditions(&mut self, locale: &str) {
@@ -722,7 +678,7 @@ impl Draft {
         for error in &self.errors {
             match error.field.as_str() {
                 "smart_interval_quote_amount" if check.smart_interval_quote_amount.is_none() => check.smart_interval_quote_amount = Some(error.message.clone()),
-                "start_at" => check.start_at = Some(if self.candidate.text("start_at").and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_some() { "must_be_future" } else { "blank" }),
+                "start_at" => check.start_at = Some(if self.candidate.setting("start_at").is_some() { "must_be_future" } else { "blank" }),
                 "start_time_mode" => check.start_time_mode = true, "start_time_of_day" => check.start_time_of_day = true, _ => {},
             }
         }
@@ -808,7 +764,7 @@ impl Draft {
         if !self.candidate.start_time_enabled() { return Ok(None); }
         let mode=self.candidate.text("start_time_mode").ok_or_else(||failure("missing start mode"))?;
         if mode=="date" {
-            return self.candidate.text("start_at").and_then(|s|DateTime::parse_from_rfc3339(s).ok()).map(|t|Some(t.with_timezone(&Utc))).ok_or_else(||failure("invalid start date"));
+            return crate::codec::optional_time(self.candidate.settings.get("start_at")).map_err(|e|failure(&format!("{e:?}")));
         }
         let zone=timezone::zone(name).unwrap_or(chrono_tz::UTC);
         let local=now.with_timezone(&zone);

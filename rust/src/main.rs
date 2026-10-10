@@ -254,7 +254,9 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let figures = supervisor::Service { name: "figures",
             run: Box::pin(deltabadger::web::figure::loading::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_order), engine.stop_handle().subscribe())) };
-        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler, figures];
+        let warnings = supervisor::Service { name: "bot warnings",
+            run: Box::pin(deltabadger::web::below_minimum::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_warning), engine.stop_handle().subscribe())) };
+        let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler, figures, warnings];
         log(&format!("running, with the web UI on port {port}: SIGTERM finishes the tick in hand and stops both; \
                       then run `deltabadger handback` before starting Rails"));
         match supervisor::serve(engine, Some((app, listener)), &SystemClock, services).await {

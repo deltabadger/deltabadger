@@ -376,6 +376,13 @@ impl NumericError {
 /// MRI String#to_f / #to_i consume a prefix, including digit-separated underscores. All
 /// arithmetic stays finite and bounded; overflow is an explicit submitted-value error, never 0.
 pub fn numeric(value: &Value, integer: bool) -> Result<Value, NumericError> {
+    numeric_with_bound(value, integer, false)
+}
+/// R8 checks the exact submitted prefix before Rails' deliberate String#to_f conversion.
+pub fn accounting_numeric(value: &Value) -> Result<Value, NumericError> {
+    numeric_with_bound(value, false, true)
+}
+fn numeric_with_bound(value: &Value, integer: bool, accounting: bool) -> Result<Value, NumericError> {
     if value.is_boolean() || value.is_array() || value.is_object() { return Err(NumericError::Shape); }
     let input = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
     if input.len() > crate::ruby::MAX_INPUT_LEN { return Err(NumericError::Bound); }
@@ -407,6 +414,10 @@ pub fn numeric(value: &Value, integer: bool) -> Result<Value, NumericError> {
             else if ch != '_' || count == 0 || !chars.peek().is_some_and(|c| c.is_ascii_digit()) { break; }
         }
         if count > 0 { prefix.push_str(&exponent); }
+    }
+    if accounting {
+        let exact = crate::ruby::BigDec::parse(&prefix).map_err(|_| NumericError::Bound)?;
+        crate::engine::accounting::bounded_decimal(&exact).map_err(|_| NumericError::Bound)?;
     }
     if integer {
         prefix.parse::<i64>().map(|n| serde_json::json!(n)).map_err(|_| NumericError::Bound)

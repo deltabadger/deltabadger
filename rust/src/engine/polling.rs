@@ -141,9 +141,9 @@ fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now:
         } else {
             // Counted under the bot's start and limit (Bot::amount_limit_key); a stale count from before a restart restarts at 1.
             let bot = model::load_bot(&tx, bot_id)?;
-            let n = match bot.pending_amount_limit_stops() { Some((n, true)) => n + 1, _ => 1 };
+            let n = match bot.pending_amount_limit_stops()? { Some((n, true)) => n + 1, _ => 1 };
             tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_amount_limit_stops_pending', json(?1)) WHERE id = ?2",
-                       params![serde_json::json!({ "count": n, "key": bot.amount_limit_key() }).to_string(), bot_id])?;
+                       params![serde_json::json!({ "count": n, "key": bot.amount_limit_key()? }).to_string(), bot_id])?;
         }
     }
     tx.commit()?;

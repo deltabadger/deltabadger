@@ -174,14 +174,14 @@ async fn control_transcripts() {
             continue; // R1 named safety divergence; no row normalization claims parity.
         }
         if name.starts_with("start_bot_r1_key_") {
-            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(rails["result"]["isError"],Value::Null);
-            assert_eq!(want["rows"]["bots"][0]["status"],1);
-            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["isError"],true,"R1 key refusal {name}");
-            assert!(response["result"]["content"][0]["text"].as_str().unwrap().starts_with("This app can't run that yet:"));
-            assert_eq!(got["rows"]["bots"][0]["status"],0);
-            continue; // Rails arms a bot without a ready key; explicit guard divergence.
+            // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
+            for transcript in [&want, &got] {
+                let response:Value=serde_json::from_str(transcript["responses"][2]["body"].as_str().unwrap()).unwrap();
+                assert_eq!(response["result"]["isError"],Value::Null,"Rails validation classification {name}");
+                assert_eq!(response["result"]["content"][0]["text"],"Failed to start bot 'Control': A valid trading API key is required to start this bot.","{name}");
+                assert_eq!(transcript["rows"]["bots"][0]["status"],0,"key refusal does not arm {name}");
+            }
+            // Fall through to the full transcript/row comparison: no normalization or divergence.
         }
         if name=="settings_r2_unicode_symbol" {
             let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();

@@ -57,7 +57,7 @@ fn missed_amount_blank_is_zero_and_a_number_goes_through_float_to_d() {
 }
 
 #[test]
-fn update_transient_keeps_nulls_and_merge_compact_drops_them() {
+fn update_transient_keeps_nulls_and_merge_compact_drops_only_owned_keys() {
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("keep", json!(1)));
     model::update_transient(&o.primary, id, &[("waiting_for_market_open", json!(null)), ("last_action_job_at", json!("x"))], now()).unwrap();
@@ -65,7 +65,8 @@ fn update_transient_keeps_nulls_and_merge_compact_drops_them() {
     assert!(b.transient.as_object().unwrap().contains_key("waiting_for_market_open"));
     model::merge_transient_compact(&o.primary, id, &[("last_failure_kind", json!(null))]).unwrap();
     let b = model::load_bot(&o.primary, id).unwrap();
-    assert!(!b.transient.as_object().unwrap().contains_key("waiting_for_market_open"), "compact drops every null key");
+    assert!(b.transient.as_object().unwrap().contains_key("waiting_for_market_open"), "R5 compact preserves other keys");
+    assert!(!b.transient.as_object().unwrap().contains_key("last_failure_kind"));
     assert_eq!(b.transient["keep"], 1);
     let updated: String = o.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
     assert_eq!(updated, "2026-09-30 12:00:00.123456", "merge_compact leaves updated_at where update_transient put it");
@@ -162,6 +163,27 @@ fn transient_writes_touch_only_their_own_keys() {
     assert_eq!(raw(&o), r#"{"zeta":1.50,"big":12345678901234567890123,"alpha":null,"web":"x","last_action_job_at":"2026-09-30T12:00:00.123Z","waiting_for_market_open":null}"#,
                "store_accessor stores the null; every other key is untouched, byte for byte");
     model::merge_transient_compact(&o.primary, id, &[("last_failure_kind", json!("transient"))]).unwrap();
-    assert_eq!(raw(&o), r#"{"zeta":1.50,"big":12345678901234567890123,"web":"x","last_action_job_at":"2026-09-30T12:00:00.123Z","last_failure_kind":"transient"}"#,
-               ".compact drops every null key, and nothing else changes");
+    assert_eq!(raw(&o), r#"{"zeta":1.50,"big":12345678901234567890123,"alpha":null,"web":"x","last_action_job_at":"2026-09-30T12:00:00.123Z","waiting_for_market_open":null,"last_failure_kind":"transient"}"#,
+               "R5 compacts only supplied keys; every other byte stays");
+}
+
+#[test]
+fn r9c_damaged_timestamp_loading_is_lazy_and_stopping_preserves_evidence() {
+    let (_d, o, s) = install();
+    for field in ["last_action_job_at", "quote_amount_limit_enabled_at", "started_at", "settings_changed_at"] {
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        if matches!(field, "started_at" | "settings_changed_at") {
+            o.primary.execute(&format!("UPDATE bots SET {field}='garbage' WHERE id=?1"), [id]).unwrap();
+        } else {
+            o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,?1,'garbage') WHERE id=?2", (format!("$.{field}"), id)).unwrap();
+        }
+        let bot = model::load_bot(&o.primary, id).expect("loading does not read timestamps");
+        assert_eq!(bot.quote_amount(), Some(60.0));
+        if field == "last_action_job_at" { assert!(bot.last_action_job_at_us().is_err()); }
+        if field == "quote_amount_limit_enabled_at" { assert!(bot.quote_amount_limit_enabled_at_us().is_err()); }
+        model::update_status(&o.primary, id, BotStatus::Stopped, now()).unwrap();
+        let stopped = model::load_bot(&o.primary, id).unwrap();
+        assert_eq!(stopped.status, BotStatus::Stopped);
+        assert_eq!(stopped.transient, bot.transient);
+    }
 }

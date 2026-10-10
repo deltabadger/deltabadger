@@ -424,6 +424,9 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
             let answer=f.send("PATCH",suffix,&fields).await?;
             let response:Value=serde_json::from_str(&answer.body)?;
             assert_eq!(response["result"]["isError"],if expected {json!(true)}else{Value::Null},"R1 refusal {branch}: {}",answer.body);
+            if matches!(branch,"missing_key"|"pending_key"|"incorrect_key") {
+                assert_eq!(response["result"]["content"][0]["text"],"Failed to start bot 'Race': A valid trading API key is required to start this bot.","#507 validation {branch}");
+            }
             if branch=="fence" {assert!(response["result"]["content"][0]["text"].as_str().ok_or("fence text")?.contains("an order is still being reconciled"),"R1 fence reason: {}",answer.body);}
             assert_eq!(f.snapshot()?,before,"R1 refusal {branch} committed");
             f.woke(false).await?;

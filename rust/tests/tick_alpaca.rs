@@ -214,7 +214,7 @@ async fn a_retry_within_five_seconds_reuses_the_cached_price() {
                                                  { "status": 200, "body": { "trades": { "BTC/USD": { "p": 70000 } } } }],
         "POST /v2/orders": [{ "network": "pre_send", "message": PRE_SEND }, { "status": 200, "body": { "id": "OTX-1", "status": "new" } }] }));
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: model::credential_version(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), prices: &prices, process_start: at(T0), stopping: &|| false };
+    let cx = TickContext { credential_version: model::credential_version(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), prices: &prices, process_start: at(T0), stopping: &|| false, below_minimum: &|_, _| {} };
     let (mut now, mut attempts) = (at(T0), Attempts::default());
     loop {
         match tick::tick_recovering(&o.primary, &venue(&t), id, &FixedClock(now), &mut attempts, &mut None, &cx).await.unwrap() {
@@ -508,8 +508,8 @@ async fn a_plan_whose_intent_would_not_read_back_is_refused_before_anything_is_w
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_tick_whose_order_would_not_read_back_places_nothing() {
-    // 1e300 USD a week sizes a notional of 301 digits: the intent could not be read back, so nothing is committed or sent.
+async fn a_tick_with_an_amount_above_the_accounting_bound_places_nothing() {
+    // R8 refuses 1e300 USD at the input bound before sizing or committing an intent.
     let (_d, o, id, _) = setup(BotSpec::weekly(1e300, "2026-09-01 10:00:00"));
     let t = script(json!({}));
     let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
@@ -518,7 +518,7 @@ async fn a_tick_whose_order_would_not_read_back_places_nothing() {
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
     let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
-    assert!(details.contains("read back"), "{details}");
+    assert!(details.contains("accounting magnitude exceeds 2^53"), "{details}");
 }
 
 // A bare JSON number serde would turn into 0.0 (1e-350), ±Inf or an error (1e400), or a 70-digit float: the whole raw

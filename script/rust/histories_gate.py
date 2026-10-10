@@ -17,19 +17,26 @@ def check():
         found = collections.Counter(line.strip() for line in code.splitlines()
                                     if not line.lstrip().startswith('//') and pattern.search(line))
         assert not found - collections.Counter(old), f'new unchecked/discarded data: {relative}'
-    for folder in ['rust/src/engine', 'rust/src/figures']:
-        for path in (root / folder).glob('*.rs'):
-            if path.name == 'fill.rs':
-                continue
-            code = path.read_text()
-            # Match SQL statements across Rust's line continuations, excluding mutation SQL.
-            for query in re.findall(r'"((?:[^"\\]|\\.)*)"', code, re.S):
-                selects = re.search(r'\bSELECT\b', query, re.I)
-                execution = re.search(r'\b(?:amount_exec|quote_amount_exec)\b', query, re.I)
-                transaction = re.search(r'\bFROM\s+transactions\b', query, re.I)
-                raw = re.search(r'\b(?:price|amount|quote_amount)\b|\bSELECT\s+(?:\w+\.)?\*', query, re.I)
-                if selects and (execution or (transaction and raw)):
-                    raise AssertionError(f'raw fill SELECT outside normalizer: {path}')
+    # Whole-tree boundary. Only the shared normalizer owns stored fill SELECTs.
+    # Venue parsers produce fill columns from responses; they get no SQL exemption.
+    allow = {'rust/src/figures/fill.rs': 'normalization and explicitly typed display/polling snapshots'}
+    for path in (root / 'rust/src').rglob('*.rs'):
+        if path.relative_to(root).as_posix() in allow:
+            continue
+        code = path.read_text()
+        for query in re.findall(r'"((?:[^"\\]|\\.)*)"', code, re.S):
+            query = re.sub(r'[\[\]`]', '', query)
+            selects = re.search(r'\bSELECT\b', query, re.I)
+            execution = re.search(r'\b(?:amount_exec|quote_amount_exec)\b', query, re.I)
+            transaction = re.findall(r'\bSELECT\b((?:(?!\bSELECT\b).)*?)\b(?:FROM|JOIN)\s+transactions\b', query, re.I | re.S)
+            raw = re.search(r'\b(?:price|amount|quote_amount)\b|\bSELECT\s+(?:\w+\.)?\*', query, re.I)
+            fragmented = raw and re.search(r'\{(?:scope|table|from|naming)\}', query)
+            reads_fill = any(re.search(r'\b(?:price|amount|quote_amount)\b|(?:^|,)\s*(?:\w+\.)?\*', fields, re.I) for fields in transaction)
+            if selects and (execution or reads_fill or fragmented):
+                raise AssertionError(f'raw fill SELECT outside normalizer: {path}')
+    subprocess.run([sys.executable, str(root / 'script/rust/histories_accounting_gate.py')], check=True)
+    fill = (root / 'rust/src/figures/fill.rs').read_text()
+    assert not re.search(r'f64|Num::Float|ruby_sum',fill), 'Float arithmetic in fill normalizer'
     subprocess.run([sys.executable, str(root / 'script/rust/mcp_reads_gate.py')], check=True)
     print('PASS B2a error and raw-fill gates', flush=True)
 
@@ -48,5 +55,24 @@ if '--sensitivity' in sys.argv:
             assert run.returncode != 0 and marker in run.stderr, run.stderr
         finally:
             path.write_text(original)
+    for relative in ['rust/src/engine/amount.rs','rust/src/figures/fill.rs']:
+        path = root / relative
+        original = path.read_text()
+        try:
+            path.write_text(original + '\nfn probe() { let amount: f64 = 1.0; }\n')
+            run = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
+            assert run.returncode != 0 and 'Float' in run.stderr, run.stderr
+        finally:
+            path.write_text(original)
+    for relative in ['rust/src/web/bot/write.rs', 'rust/src/web/bot/start.rs', 'rust/src/web/bot/draft.rs', 'rust/src/web/mcp/tools.rs', 'rust/src/sync/ledger.rs', 'rust/src/tracker/rows.rs']:
+        path = root / relative
+        original = path.read_text()
+        for probe in ['SELECT quote_amount_exec FROM transactions', 'SELECT t.price FROM transactions t', 'SELECT t.* FROM transactions t', 'SELECT t.amount FROM bots b JOIN transactions t ON t.bot_id=b.id', 'SELECT amount {scope}']:
+            try:
+                path.write_text(original + '\nfn raw_probe() { let sql = "' + probe + '"; }\n')
+                run = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
+                assert run.returncode != 0 and 'raw fill SELECT' in run.stderr, (relative, run.stderr)
+            finally:
+                path.write_text(original)
     print('PASS B2a gate sensitivity; sources restored', flush=True)
 check()

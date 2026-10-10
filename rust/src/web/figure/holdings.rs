@@ -70,16 +70,7 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
 /// Bot::Composition::Redeployable#redeploy_offer: what may be put back, zero when nothing (or less than the smallest
 /// placeable amount) is; None where Rails would rewrite the stored decline first (offset above the banked total).
 pub(crate) fn redeploy_offer(c: &Connection, s: &Subject, m: &Metrics, _members: &HashSet<i64>) -> Result<Option<Dec>, FiguresError> {
-    let (mut banked,mut spent)=(Dec::zero(),Dec::zero());
-    for order in &s.orders {
-        crate::figures::budget::charge(1,0)?;
-        let Some(fill)=crate::figures::fill::parse(order)? else{continue};
-        match order.kind.as_str(){
-            "LIQUIDATION"=>banked=(&banked+&fill.value)?,
-            "REDEPLOY"=>spent=(&spent+&fill.value)?,
-            _=>{},
-        }
-    }
+    let (banked,spent)=crate::engine::accounting::index_redeploy_totals(&s.orders)?;
     let offset = decimal(c,"SELECT redeploy_declined_offset FROM bots WHERE id=?1",s.bot.id)?;
     let offer = (&(&banked - &spent)? - &offset)?;
     if offer.is_negative() { return Ok(None); }
@@ -121,10 +112,11 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     if enabled == Some(true) && ["US","GB","IE"].contains(&jurisdiction) {
         let locks = c.prepare("SELECT l.asset_id,a.symbol,l.buy_locked_until,l.source FROM wash_sale_locks l JOIN assets a ON a.id=l.asset_id WHERE l.user_id=?1 AND l.asset_id IN (SELECT asset_id FROM bot_index_assets WHERE bot_id=?2) ORDER BY l.id")?
             .query_map([s.bot.user_id,s.bot.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
-        let live: Vec<_> = locks.into_iter().filter_map(|(id,symbol,until,source)| {
-            let until = until.as_deref().and_then(At::from_sql)?;
-            (until > now).then_some((id,symbol,until,source.unwrap_or_default())) // allow-swallow: an Option; a lock with no source label keeps an empty label
-        }).collect();
+        let mut live = vec![];
+        for (id,symbol,until,source) in locks {
+            let Some(until)=until.as_deref().map(At::from_sql).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))? else {continue};
+            if until > now {live.push((id,symbol,until,source.unwrap_or_default()));} // allow-swallow: optional source label
+        }
         let candidates = live.iter().filter(|(id,_,_,_)| !m.key_assets.iter().any(|(_,asset)| *asset == Some(*id)))
             .map(|(id,symbol,_,_)| (crate::figures::keys::Identity::Asset(*id),symbol.as_deref().filter(|s| !s.is_empty()).map(str::to_string).unwrap_or_else(|| format!("#{id}")))).collect::<Vec<_>>();
         let mut keys = crate::figures::keys::call(&candidates)?;

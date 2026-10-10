@@ -298,23 +298,22 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
 /// Rails' decision (amount::continue_runs_now) becomes a persisted wait: one that has ended (run now) or one for the next
 /// checkpoint. In the same transaction the request goes, with any amount-limit stop still counted (the user's resume
 /// overrides a stop Rails would already have run) and the old wait (the decision replaces it). A request whose value is not
-/// `{"requested_at": ISO 8601}` is logged; the decision still runs. The web also sends
+/// `{"requested_at": a readable timestamp}` refuses without deleting the request (R9). The web also sends
 /// `was_stopped`: only an originally stopped bot may wait. Older requests omit it and
 /// retain the stopped-bot contract that preceded lifecycle writes.
 fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
     let bot = model::load_bot(&tx, id)?;
     let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(()) };
-    if request.get("requested_at").and_then(serde_json::Value::as_str).and_then(|s| DateTime::parse_from_rfc3339(s).ok()).is_none() {
-        super::log(&format!("[engine] warning: bot {id}: rust_continue_start {request} is malformed; removed, and the bot continues as Rails would"));
-    }
-    if let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) {
+    crate::codec::optional_time(request.get("requested_at")).map_err(|_|EngineError::Data("unreadable stored timestamp".into()))?
+        .ok_or_else(||EngineError::Data("missing continue timestamp".into()))?;
+    if let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) {
         checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?.validate_times()?;
     }
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending') \
                 WHERE id = ?1", [id])?;
     placement::remove_wait(&tx, Some(id))?;
-    let decision = if bot.started_at_us.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
+    let decision = if bot.started_at_us()?.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
         "never ticks" // step_bot skips it as before
     } else if request.get("was_stopped").and_then(serde_json::Value::as_bool) == Some(false)
         || amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
@@ -335,12 +334,13 @@ fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value
     let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
         [bot.index_category_id()], |r| r.get(0))?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
-        "started":bot.started_at_us, "stopped":stopped, "changed":bot.settings_changed_at_us}))
+        "started":bot.started_at_us()?, "stopped":stopped, "changed":bot.settings_changed_at_us()?}))
 }
 
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let now_us = clock.now().timestamp_micros();
     let mut bot = model::load_bot(&e.primary, id)?;
+    bot.validate_times()?;
     if bot.transient.get("rust_continue_start").is_some() {
         e.closed_until.remove(&id);
         match continue_start(&e.primary, id, clock.now()) {
@@ -365,7 +365,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
 
-    let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
+    let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) else { return Ok(()) };
     let eff = effective(interval, quote, bot.smart_quote_amount());
     let cps = checkpoints(anchor, now_us, eff)?;
     cps.validate_times()?;
@@ -378,7 +378,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             Some((t,schedule)) => {
                 let fresh=model::wait_is_current(&wait_tx,&wait_bot.transient["rust_defer_until"])?;
                 if !fresh {placement::remove_wait(&wait_tx,Some(id))?;None}
-                else {Some((Some(schedule)==bot.schedule_key()).then_some(t))}
+                else {let key = bot.schedule_key()?; Some((Some(schedule)==key).then_some(t))}
             }
             None=>None,
         },
@@ -417,7 +417,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let mut recovered = None;
         let stop = e.stop.clone();
         let stopping = move || stop.load(Ordering::SeqCst);
-        let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
+        let below_minimum = |bot_id, transaction_ids| e.events.send(EngineEvent::BelowMinimum { bot_id, transaction_ids });
+        let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.ok_or_else(||EngineError::Data("engine start time missing".into()))?, stopping: &stopping, below_minimum: &below_minimum };
         // What this tick records is announced after it returns, when its writes have committed: rows by id (every row
         // the tick inserts, as Rails' after_create_commit hears every create), and a new funds mail marker.
         let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;
