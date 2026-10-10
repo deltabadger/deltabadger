@@ -199,14 +199,11 @@ use crate::engine::accounting::{web_effective_amount as effective_amount, web_se
 /// A stored transient value against the one assigned, by Ruby's `==`: `assigned` is nil, a BigDecimal (written as its
 /// text) or a settings number. A stored text is a String, never equal to a BigDecimal.
 fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
-    let number = |v: &Value| match v {
+    let Some(old) = Num::from_json(stored).and_then(|n| n.to_d()) else { return stored.is_null() && assigned.is_null() };
+    match assigned {
         // A text that is no number equals no stored number.
-        Value::String(s) => match BigDec::parse(s) { Ok(n) => Some(n), Err(_) => None },
-        v => Num::from_json(v).and_then(|n| n.to_d()),
-    };
-    match (stored, assigned) {
-        (Value::Null, Value::Null) => true,
-        (Value::Number(_), Value::String(_) | Value::Number(_)) => number(stored).is_some() && number(stored) == number(assigned),
+        Value::String(text) => match BigDec::parse(text) { Ok(new) => old == new, Err(_) => false },
+        Value::Number(_) => Num::from_json(assigned).and_then(|n| n.to_d()) == Some(old),
         _ => false,
     }
 }
