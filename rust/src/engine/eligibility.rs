@@ -22,6 +22,8 @@ const ALLOCATION_TOLERANCE: f64 = 0.001;
 /// One rule set with the page and the write path (web/bot/mod.rs, web/figure/holdings.rs): a selling batch is in flight too.
 const PENDING_KEYS: [&str; 4] = ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"];
 
+const UNKNOWN_STATUS: &str = "row(s) with a status Rails never writes";
+
 fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v != "false" && v != 0 && v != "" }
 
 /// Work only Rails carries out: Bot::LiquidationState#liquidation_in_flight?, Bot::Composition::Redeployable#redeploy_in_flight?,
@@ -30,6 +32,10 @@ fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v 
 /// Bot::Resolve*Job) take any bot, and an archived bot's page offers them.
 fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let mut r = vec![];
+    // Transaction.statuses is submitted, failed, skipped. Any other status proves neither a fill nor a rejection: the order
+    // may still be working at the venue, whatever this bot's own status.
+    let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
+    if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
     // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
     for key in PENDING_KEYS { if bot.transient.get(key).is_some_and(|v| !v.is_null()) { r.push(key.to_string()); } }
     // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
@@ -71,6 +77,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     bot.validate_times()?;
     model::merged_history_cutoff(c, bot)?;
     let mut r = rails_work(c, bot)?;
+    // Nothing else in such a history can be read (the shared row reader refuses it): name it and stop.
+    if r.iter().any(|reason| reason.ends_with(UNKNOWN_STATUS)) { return Ok(r); }
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
@@ -149,9 +157,6 @@ fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], spl
     if alpaca && bot.bot_type == "Bots::DcaIndex" { special_reasons(c, bot, r)?; }
     else if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
-    // Transaction.statuses is submitted, failed, skipped. Anything else proves neither a fill nor a rejection.
-    let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
-    if unknown > 0 { r.push(format!("{unknown} row(s) with a status Rails never writes")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
     if !model::all_crypto(c, bot)? { return Ok(()); }
     // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
