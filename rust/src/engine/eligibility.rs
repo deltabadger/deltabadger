@@ -19,7 +19,8 @@ const SUPPORTED_FLAGS: [&str; 3] = ["limit_ordered", "smart_intervaled", "quote_
 pub const MAX_ASSETS: usize = 100;
 /// Bots::DcaMultiAsset::Allocatable::ALLOCATION_TOLERANCE: Rails starts a manual basket only this close to 100 %.
 const ALLOCATION_TOLERANCE: f64 = 0.001;
-const PENDING_KEYS: [&str; 3] = ["rebalance_pending", "liquidation_pending", "redeploy_pending"];
+/// One rule set with the page and the write path (web/bot/mod.rs, web/figure/holdings.rs): a selling batch is in flight too.
+const PENDING_KEYS: [&str; 4] = ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"];
 
 fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v != "false" && v != 0 && v != "" }
 
@@ -47,6 +48,14 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND transaction_type = 'LIQUIDATION' AND external_status = 4")?;
     let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().filter(|id| !resolved.contains(id)).count();
     if abandoned > 0 { r.push(format!("{abandoned} unresolved abandoned LIQUIDATION order(s)")); }
+    // An abandoned REDEPLOY (RULING-B2B-1 MQ1) or REBALANCE leg (RULING-B2B-R1 item 1) has an unknown fill and Rails trades
+    // on: its spent counts 0, so a Yes could buy the proceeds twice, and a rebalance's flight cash may already be the asset.
+    // Rails has no way to account for either, so the refusal stands until the row itself is settled.
+    for (kind, label) in [("REDEPLOY", "unresolved abandoned REDEPLOY"), ("REBALANCE", "abandoned REBALANCE")] {
+        let n: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = ?2 AND external_status = 4",
+                                 params![bot.id, kind], |r| r.get(0))?;
+        if n > 0 { r.push(format!("{n} {label} order(s) (fill unknown)")); }
+    }
     Ok(r)
 }
 
@@ -96,7 +105,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if !alpaca && bot.merged_history() { r.push("merged history (merged_history_until_id)".into()); }
     history_reasons(c, bot, alpaca, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
-    if alpaca && r.is_empty() { super::basket::walk(c, bot, Utc::now())?; }
+    // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
+    if alpaca && r.is_empty() { super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX))?; }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
 }
@@ -126,16 +136,18 @@ fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64>
     ids
 }
 
-/// Alpaca REGULAR buys/sells and merged rows are covered by the normalized walk. Other histories
-/// retain their named refusals. Stock split matching and trust checks remain in engine::splits.
+/// Alpaca REGULAR buys/sells and merged rows are covered by the normalized walk, and an Alpaca index bot's settled
+/// REBALANCE/LIQUIDATION/REDEPLOY rows too (B2b). Other histories retain their named refusals. Stock split matching and
+/// trust checks remain in engine::splits.
 fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
     let (sells, other, imported, no_asset): (i64, i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(side = 1), 0), coalesce(sum(transaction_type <> 'REGULAR'), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
-                coalesce(sum(transaction_type = 'REGULAR' AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
+                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     if !alpaca && sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
-    if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
+    if alpaca && bot.bot_type == "Bots::DcaIndex" { special_reasons(c, bot, r)?; }
+    else if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
     if !model::all_crypto(c, bot)? { return Ok(()); }
@@ -158,6 +170,24 @@ fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], spl
     let names = s.query_map(params![bot.exchange_id, ids], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
     let splits = rows.iter().filter(|(asset, currency)| asset.is_some_and(|a| members.contains(&a)) || names.contains(&Some(currency.clone()))).count();
     if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)")); }
+    Ok(())
+}
+
+/// What of an index bot's special history the walk does not read as Rails writes it. Waiting, pending and abandoned rows
+/// are rails_work's; a rejected row that executed nothing is ignored, as Rails' `submitted` scope ignores it.
+fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(), EngineError> {
+    let (kinds, sides, statuses): (i64, i64, i64) = c.query_row(
+        "SELECT coalesce(sum(transaction_type NOT IN ('LIQUIDATION', 'REBALANCE', 'REDEPLOY')), 0), \
+                coalesce(sum((transaction_type = 'LIQUIDATION' AND side IS NOT 1) OR (transaction_type = 'REDEPLOY' AND side IS NOT 0) \
+                             OR side IS NULL OR side NOT IN (0, 1)), 0), \
+                coalesce(sum(external_status IS NULL OR external_status NOT IN (0, 1, 2, 3, 4)), 0) \
+         FROM transactions WHERE bot_id = ?1 AND status = 0 AND transaction_type <> 'REGULAR'",
+        [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    if kinds > 0 { r.push(format!("{kinds} row(s) of an unsupported transaction type")); }
+    if sides > 0 { r.push(format!("{sides} special row(s) with a side Rails never writes (LIQUIDATION buy, REDEPLOY sell or none)")); }
+    if statuses > 0 { r.push(format!("{statuses} special row(s) with an unknown external status")); }
+    let executed = crate::figures::fill::rejected_special_executions(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;
+    if executed > 0 { r.push(format!("{executed} rejected LIQUIDATION/REDEPLOY/REBALANCE order(s) reporting an execution")); }
     Ok(())
 }
 
