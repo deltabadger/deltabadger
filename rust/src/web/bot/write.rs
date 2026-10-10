@@ -293,6 +293,8 @@ fn lifecycle_inner<T>(
     }
     view.draft = match Draft::load(&tx,owner,id,ctx.locale) {
         Ok(draft) => draft,
+        // STOP sets only status and stop fields: it never depends on reading history, however a column is stored.
+        Err(_) if action == Action::Stop => None,
         Err(WebError::Engine(crate::engine::EngineError::Data(_))) if safety => None,
         Err(e) if safety && super::unreadable(&e) => None,
         Err(e) => return Err(e),
@@ -437,13 +439,21 @@ fn lifecycle_inner<T>(
         one(tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,?2,0,NULL,?3,?4)",(id,event,details.to_string(),&at))?)?;
     }
     if let Some(draft)=view.draft.as_mut() {
-        let shown=std::mem::take(&mut draft.candidate.label);
-        draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
-        if draft.candidate.label_unsaved { draft.candidate.label=shown; }
-        if safety {
+        let redrawn=(|| -> Result<bool, WebError> {
+            let shown=std::mem::take(&mut draft.candidate.label);
+            draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
+            if draft.candidate.label_unsaved { draft.candidate.label=shown; }
+            if !safety { return Ok(true); }
             let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
             let (provider,_)=bots::market_data(&tx,&ctx.app)?;
-            if draft.candidate.unrendered().is_some() || super::refusal(&tx,id,wash,provider,For::Page)?.is_some() { view.draft=None; }
+            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,wash,provider,For::Page)?.is_none())
+        })();
+        match redrawn {
+            Ok(true) => {}
+            Ok(false) => view.draft=None,
+            // The redraw is display only: a STOP that cannot redraw still commits.
+            Err(_) if action == Action::Stop => view.draft=None,
+            Err(e) => return Err(e),
         }
     }
     let prepared=response_builder(&tx,&ctx,&view)?;

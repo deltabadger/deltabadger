@@ -1159,3 +1159,42 @@ async fn r11_null_deferral_marker_refuses_before_the_checkpoint() {
         assert_eq!(before,after,"{case}: the marker is kept");
     }
 }
+
+// R11: STOP persists however a history timestamp is stored: text garbage, BLOB or integer, over HTTP and MCP.
+// Check and every other writer still refuse the damage; STOP leaves it in place.
+#[tokio::test(flavor="current_thread")]
+async fn r11_stop_persists_with_non_text_history_timestamps() {
+    use deltabadger::web;
+    use axum::{body::{Body,to_bytes},http::Request};
+    use tower::ServiceExt;
+    for column in ["created_at","updated_at"] {
+        for value in ["X'67617262616765'","20260105","'garbage'"] {
+            for via in ["http","mcp"] {
+                let (d,o,s,id)=r9_history("2026-01-01T00:00:00Z");
+                o.primary.execute(&format!("UPDATE transactions SET {column}={value} WHERE bot_id=?1"),[id]).unwrap();
+                o.primary.execute("UPDATE bots SET status=1 WHERE id=?1",[id]).unwrap();
+                let refusal=eligibility::check_install(&o.primary).unwrap().unreadable;
+                assert!(refusal.iter().any(|(bot,_)|*bot==id),"{column}={value}: check refuses the damage");
+                let ledger:String=o.primary.query_row("SELECT json_group_array(json_array(id,quote(created_at),quote(updated_at))) FROM transactions WHERE bot_id=?1",[id],|r|r.get(0)).unwrap();
+                let app=common::web::app(d.path(),"engine-test-secret",common::web::TestClock::at("2026-01-05T12:00:01Z"));
+                if via=="mcp" {
+                    let sid=r9_mcp(&app,&o.primary,s.user_id).await;
+                    let result=r9_call(&app,&sid,"stop_bot",json!({"bot_id":id})).await;
+                    assert_ne!(result["result"]["isError"],true,"MCP STOP {column}={value}: {result}");
+                } else {
+                    let token=web::csrf::new_token();
+                    let session=web::session::SessionData{user:Some((s.user_id,"x".into())),csrf:Some(token.clone()),..Default::default()};
+                    let cookie=web::session::seal(&app.keys.session,&session,app.now());
+                    let request=Request::builder().method("PATCH").uri(format!("/bots/{id}/stop")).header("host","localhost:3000").header("cookie",format!("{}={cookie}",web::session::COOKIE)).header("x-csrf-token",web::csrf::masked(&token)).header("content-type","application/json").header("accept","text/vnd.turbo-stream.html").body(Body::from("{}")).unwrap();
+                    let response=web::router(app.clone()).oneshot(request).await.unwrap();let status=response.status();
+                    let body=to_bytes(response.into_body(),1_000_000).await.unwrap();
+                    assert!(status.is_success(),"HTTP STOP {column}={value} {status}: {}",String::from_utf8_lossy(&body));
+                }
+                assert_eq!(model::load_bot(&o.primary,id).unwrap().status,deltabadger::enums::BotStatus::Stopped,"{via} STOP {column}={value} persists");
+                assert_eq!(eligibility::check_install(&o.primary).unwrap().unreadable,refusal,"{via} STOP keeps the {column} refusal");
+                let after:String=o.primary.query_row("SELECT json_group_array(json_array(id,quote(created_at),quote(updated_at))) FROM transactions WHERE bot_id=?1",[id],|r|r.get(0)).unwrap();
+                assert_eq!(ledger,after,"{via} STOP leaves the history untouched");
+            }
+        }
+    }
+}
