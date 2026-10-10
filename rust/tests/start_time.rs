@@ -137,3 +137,21 @@ fn a_repeated_or_unproven_missing_local_time_is_refused() {
     assert_eq!(at("2026-03-28T23:30:00Z", "02:30", "Warsaw").map(|s| s.at.to_rfc3339()), Ok("2026-03-29T01:30:00+00:00".into()));
 }
 
+/// A date start reads its wall time in the owner's zone as ActiveSupport::TimeZone[] does: a Rails name or an IANA id.
+/// An unknown name is refused, in the form and at the start, never read as UTC.
+#[test]
+fn a_date_start_reads_the_owners_zone_strictly() {
+    use deltabadger::codec::parse_form_time;
+    use serde_json::json;
+    let now: DateTime<Utc> = "2026-09-10T12:00:00Z".parse().unwrap();
+    for zone in ["America/New_York", "Eastern Time (US & Canada)"] {
+        let got = parse_form_time(&json!("2026-09-11T09:30"), zone, now).map_err(|e| format!("{e:?}"));
+        assert_eq!(got, Ok(json!("2026-09-11T13:30:00Z")), "{zone}");
+    }
+    assert!(parse_form_time(&json!("2026-09-11T09:30"), "Mars/Olympus", now).is_err());
+    // A date that repeats in the owner's zone is refused as in hour mode.
+    assert!(parse_form_time(&json!("2026-10-25T01:30"), "Europe/Dublin", now).is_err());
+    let start = |zone: &str| initial_start_at(Some("date"), None, Some("2026-09-11T13:30:00Z"), now, zone).map(|s| s.at.to_rfc3339());
+    assert_eq!(start("America/New_York"), Ok("2026-09-11T13:30:00+00:00".into()));
+    assert_eq!(start("Mars/Olympus"), Err("unknown time zone"));
+}
