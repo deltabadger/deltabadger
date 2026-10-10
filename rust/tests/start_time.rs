@@ -99,7 +99,7 @@ fn the_checkpoints_around_the_first_run_match_rails() {
 #[test]
 fn a_stored_float_zero_is_true_as_in_active_model() {
     // ActiveModel's FALSE_VALUES is a Set matched by eql?: it holds 0, not 0.0.
-    use deltabadger::ruby::cast_boolean;
+    use deltabadger::web::bot::cast_boolean;
     use serde_json::json;
     assert!(!cast_boolean(Some(&json!(0))));
     assert!(cast_boolean(Some(&json!(0.0))));

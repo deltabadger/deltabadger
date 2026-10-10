@@ -78,7 +78,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
             if flag && set(v) && !SUPPORTED_FLAGS.contains(&k.as_str()) { r.push(k.clone()); }
         }
     }
-    if bot.settings.get("start_time_enabled").is_some_and(set) && BOT_WORKING.contains(&bot.status) { r.extend(start_time_reason(bot)); }
+    if bot.settings.get("start_time_enabled").is_some_and(set) && BOT_WORKING.contains(&bot.status) { r.extend(start_time_reason(bot)?); }
     if bot.settings.get("smart_intervaled").is_some_and(set) && !bot.smart_quote_amount().is_some_and(|a| a > 0.0) {
         r.push("smart interval amount missing, not a JSON number, or not positive".into());
     }
@@ -107,17 +107,18 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
 /// time, and no continue waiting. Rails' continue (start_fresh: false) ignores the starting time but still anchors the grid
 /// on start_at: it can buy at once and count every interval up to a start_at that was moved later; a start_at edited on a
 /// running bot moves the grid the same way. Read by truthiness, like the flags: anything Rails might treat as on.
-fn start_time_reason(bot: &Bot) -> Option<String> {
+fn start_time_reason(bot: &Bot) -> Result<Option<String>, EngineError> {
     if bot.transient.get("rust_continue_start").is_some() {
-        return Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into());
+        return Ok(Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into()));
     }
-    let start_at = match bot.settings.get("start_at").and_then(Value::as_str).map(DateTime::parse_from_rfc3339) {
-        Some(Ok(t)) => Some(t.timestamp_micros()),
-        // A missing or unreadable start_at is refused below, never read as started_at.
-        Some(Err(_)) | None => None,
+    // A missing start_at is refused below, never read as started_at; an unreadable one refuses the bot as unreadable, here
+    // at its point of use, never at load.
+    let start_at = match bot.settings.get("start_at").and_then(Value::as_str) {
+        None => None,
+        Some(text) => Some(crate::codec::parse_time(text).map_err(|e| EngineError::Data(format!("start_at: {e:?}")))?.timestamp_micros()),
     };
-    (start_at.is_none() || start_at != bot.started_at_us)
-        .then(|| "start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into())
+    Ok((start_at.is_none() || start_at != bot.started_at_us()?)
+        .then(|| "start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into()))
 }
 
 /// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;

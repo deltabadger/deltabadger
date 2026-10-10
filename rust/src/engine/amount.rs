@@ -8,7 +8,7 @@ use crate::ruby::{to_sql, BigDec};
 use super::venue_rules::{MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
@@ -170,9 +170,11 @@ pub fn disable_starting_time(c: &Connection, bot_id: i64, now: DateTime<Utc>) ->
 }
 
 fn disable_locked(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
-    if !crate::ruby::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
+    if !crate::web::bot::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
     let start_at = bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty());
-    if !start_at.is_none_or(|s| DateTime::parse_from_rfc3339(s).is_ok_and(|t| Some(t.timestamp_micros()) == bot.started_at_us)) {
+    // An unreadable start_at refuses here, at its point of use; loading the bot never fails on it.
+    let start_at_us = match start_at { Some(text) => Some(crate::codec::parse_time(text).map_err(data)?.timestamp_micros()), None => None };
+    if start_at_us.is_some() && start_at_us != bot.started_at_us()? {
         return Err(EngineError::Data(format!("start_at {start_at:?} is not the bot's started_at")));
     }
     c.execute("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false')), updated_at = ?2 WHERE id = ?1",

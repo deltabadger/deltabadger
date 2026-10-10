@@ -102,8 +102,8 @@ pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at:
     use chrono::{Datelike, Duration, LocalResult, NaiveDate, NaiveDateTime, TimeZone};
     let mode = mode.ok_or("missing start mode")?;
     if mode == "date" {
-        let at = DateTime::parse_from_rfc3339(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
-        return Ok(StartAt { at: at.with_timezone(&Utc), early: false });
+        let at = crate::codec::parse_time(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
+        return Ok(StartAt { at, early: false });
     }
     let weekday = MODES.iter().position(|m| *m == mode).filter(|n| *n < 7);
     if mode != "hour" && weekday.is_none() { return Err("invalid start mode"); }
