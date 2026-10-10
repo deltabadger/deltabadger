@@ -124,12 +124,19 @@ use crate::enums::{TxExternalStatus,TxSide,TxStatus};
 use super::budget;
 pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresError> {
     let mut statement = c.prepare(
-        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type \
-         FROM transactions WHERE bot_id = ?1 AND status = ?2 ORDER BY created_at ASC, id ASC")?;
-    let mut rows = statement.query(params![bot_id, TxStatus::Submitted as i64])?;
+        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type, status \
+         FROM transactions WHERE bot_id = ?1 ORDER BY created_at ASC, id ASC")?;
+    let mut rows = statement.query(params![bot_id])?;
     let mut out = vec![];
     while let Some(r) = rows.next()? {
         budget::charge(1, 0)?;
+        // Every row's status is read before any is filtered: one outside Transaction.statuses (submitted, failed,
+        // skipped) proves neither a fill nor a rejection, so nothing is computed from this history.
+        match r.get::<_, Option<i64>>(12)? {
+            Some(s) if s == TxStatus::Submitted as i64 => {}
+            Some(1 | 2) => continue,
+            _ => return Err(FiguresError::NotComputed("unreadable transaction status".into())),
+        }
         let (side, status): (Option<i64>, Option<i64>) = (r.get(9)?, r.get(10)?);
         out.push(Order {
             id: r.get(0)?, at: super::db::instant(&r.get::<_, String>(1)?)?, exchange_id: r.get(2)?,

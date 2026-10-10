@@ -371,3 +371,16 @@ async fn a_status_rails_never_writes_refuses_the_install_and_the_sweep() {
     }
 }
 
+/// The figures read every row's status before filtering: a completed liquidation stored with an unreadable status makes
+/// the figures unavailable, never a holding of 0.08 CCC at $24 with no proceeds.
+#[test]
+fn figures_refuse_a_history_with_an_unreadable_status() {
+    for status in ["NULL", "99"] {
+        let b = build(scenario("liquidated_proceeds_waiting"));
+        let c = &b.o.primary;
+        c.execute_batch(&format!("UPDATE transactions SET status = {status} WHERE transaction_type = 'LIQUIDATION'")).unwrap();
+        let figures = db::Subject::load(c, b.id).and_then(|s| walk::metrics(c, &s, At::from_utc(at()).unwrap()));
+        assert!(format!("{figures:?}").contains("unreadable transaction status"), "status {status}: {figures:?}");
+        assert!(format!("{:?}", db::orders(c, b.id)).contains("unreadable transaction status"), "status {status}");
+    }
+}
