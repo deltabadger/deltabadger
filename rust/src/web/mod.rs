@@ -543,8 +543,13 @@ async fn health_check() -> Response {
 /// CspReportsController: a browser posts policy violations here on its own, with no CSRF token.
 /// Accepted and dropped.
 /// ponytail: Rails logs nine sanitised fields of each report; port that when the policy is enforced.
-async fn csp_report() -> StatusCode {
-    StatusCode::NO_CONTENT
+async fn csp_report(State(app): State<App>, request: Request) -> Response {
+    let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
+    let address = rate_limit::client_key(&app.config, request.headers(), peer);
+    match app.limiter.hit(request.method(), "/csp-report", &address, app.now()) {
+        Some(retry_after) => rate_limit::throttled(retry_after),
+        None => StatusCode::NO_CONTENT.into_response(),
+    }
 }
 
 /// A route that exists for these methods only; any other method is a page this build does not serve.
@@ -617,7 +622,7 @@ fn routes(app: App) -> Router {
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
-        // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
+        // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
         .route("/csp-report", only(post(csp_report)))

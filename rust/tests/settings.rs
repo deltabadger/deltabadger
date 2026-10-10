@@ -3499,3 +3499,29 @@ async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_posi
         server.verify().await;
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn csp_report_throttles_after_thirty_posts_without_session_or_csrf() {
+    let (dir, opened, _) = fixture::install();
+    let clock = web::TestClock::at("2026-09-10T12:00:30.123456Z");
+    let env = web::env(web::SECRET);
+    let app = App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock.clone()).unwrap();
+    let mut browser = Browser::default();
+    for number in 1..=31 {
+        let answer = browser.send_body(
+            &app, "POST", "/csp-report",
+            Some(r#"{"csp-report":{"violated-directive":"script-src"}}"#.into()),
+            Csrf::None,
+            &[("content-type", "application/csp-report"), ("origin", "https://foreign.example")],
+        ).await;
+        assert_eq!(answer.status, if number <= 30 { 204 } else { 429 }, "CSP report POST {number}");
+        assert_eq!(answer.header("set-cookie"), None, "CSP reports never open a session");
+        if number == 31 {
+            assert_eq!(answer.header("retry-after"), Some("30"));
+            assert_eq!(answer.header("content-type"), Some("text/plain; charset=utf-8"));
+        }
+    }
+    clock.set(web::at("2026-09-10T12:01:00.123456Z"));
+    assert_eq!(browser.send(&app, "POST", "/csp-report", None, Csrf::None, &[]).await.status, 204);
+    drop(dir);
+}
