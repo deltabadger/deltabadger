@@ -79,9 +79,10 @@ pub(super) fn number(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<St
 pub(super) fn price(r:&rusqlite::Row<'_>,col:usize)->rusqlite::Result<Option<String>> {
     Ok(decimal(r,col)?.filter(|d|!d.is_zero()).map(|d|d.to_s_f()))
 }
-fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
+/// The text and whether it is a BotApi failure (isError).
+fn transactions(c:&Connection,user:i64,args:&Value)->Result<(String,bool),WebError>{
     let bot=args["bot_id"].as_f64().map(|v|v as i64);
-    if let Some(id)=bot {if c.query_row("SELECT id FROM bots WHERE id=?1 AND user_id=?2 AND status!=3",(id,user),|r|r.get::<_,i64>(0)).optional()?.is_none(){return Ok("Bot not found.".into());}}
+    if let Some(id)=bot {if c.query_row("SELECT id FROM bots WHERE id=?1 AND user_id=?2 AND status!=3",(id,user),|r|r.get::<_,i64>(0)).optional()?.is_none(){return Ok(("Bot not found.".into(),true));}}
     let raw=args["limit"].as_f64().unwrap_or(20.0) as i64;
     let limit=if raw<=0{20}else{raw.min(100)};
     let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
@@ -95,7 +96,7 @@ fn transactions(c:&Connection,user:i64,args:&Value)->Result<String,WebError>{
         let quote=quote.unwrap_or_default();
         lines.push(format!("- [{date}] {} {} {} {} | {}",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|["BUY","SELL"].get(s).copied()).unwrap_or(""),amount.map(|v|format!("{v} {}",base.unwrap_or_default())).unwrap_or_else(||"N/A".into()),price.map(|v|format!("@ {v} {quote}")).unwrap_or_default(),cost.map(|v|format!("({v} {quote})")).unwrap_or_default(),["submitted","failed","skipped"].get(status).copied().unwrap_or("")));
     }
-    Ok(if lines.is_empty(){"No transactions found.".into()}else{format!("Transactions ({}):\n{}",lines.len(),lines.join("\n"))})
+    Ok((if lines.is_empty(){"No transactions found.".into()}else{format!("Transactions ({}):\n{}",lines.len(),lines.join("\n"))},false))
 }
 /// What a call answers now, or the venue or market read it needs first (`reads`).
 pub enum Called { Done(Value), Fetch(reads::Fetch) }
@@ -116,13 +117,13 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Cal
     if !errors.is_empty(){return Ok(Called::Done(tool_text(&format!("Invalid input: {}",errors.join(", ")),true)));}
     if reads::NAMES.contains(&name){return Ok(reads::plan(c,app,who.user_id,name,args).unwrap_or_else(|_|Called::Done(tool_text("An unexpected error occurred.",true))));}
     let text=match name {
-        "list_bots"=>bots(c,who.user_id,args),
-        "list_exchanges"=>exchanges(c,who.user_id),
+        "list_bots"=>bots(c,who.user_id,args).map(|t|(t,false)),
+        "list_exchanges"=>exchanges(c,who.user_id).map(|t|(t,false)),
         "list_transactions"=>transactions(c,who.user_id,args),
         "list_tax_jurisdictions"=>{
             let rows:Vec<_>=metadata()["tax"]["jurisdictions"].as_array().into_iter().flatten().map(|r|format!("- {} — {} | Method: {} | Currency: {}",str_value(&r["code"]),str_value(&r["name"]),str_value(&r["method"]),str_value(&r["currency"]))).collect();
-            Ok(format!("Supported tax jurisdictions ({}):\n{}",rows.len(),rows.join("\n")))
+            Ok((format!("Supported tax jurisdictions ({}):\n{}",rows.len(),rows.join("\n")),false))
         },_=>Err(WebError::Config("unregistered MCP tool".into()))
     };
-    Ok(Called::Done(match text{Ok(t)=>tool_text(&t,false),Err(_)=>tool_text("An unexpected error occurred.",true)}))
+    Ok(Called::Done(match text{Ok((t,is_error))=>tool_text(&t,is_error),Err(_)=>tool_text("An unexpected error occurred.",true)}))
 }

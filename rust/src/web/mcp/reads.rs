@@ -17,6 +17,8 @@ impl Material {
     }
 }
 impl std::ops::Deref for Material { type Target=Credentials;fn deref(&self)->&Credentials{&self.credentials} }
+/// A BotApi failure, which the Rails tool reports with report_error (isError).
+fn failed(text:impl AsRef<str>)->Called{Called::Done(tool_text(read_limits::text(text.as_ref()),true))}
 pub enum Fetch {
     Bound{inner:Box<Fetch>,versions:Vec<crate::engine::model::CredentialVersion>},
     Balances{user:i64,exchange:i64,name:String,credentials:Material},
@@ -40,7 +42,7 @@ fn credentials(c:&Connection,app:&App,user:i64,exchange:i64)->Result<Option<Mate
     id.map(|id|sync::credentials_with_version(c,&app.cipher,id).map(|(credentials,origin)|Material{credentials,origin}).map_err(|_|error())).transpose()
 }
 fn exchange(c:&Connection,name:&str)->Result<Option<(i64,String,String)>,WebError>{Ok(c.query_row("SELECT id,name,type FROM exchanges WHERE lower(name)=?1 AND type!='Exchanges::Bitmart' LIMIT 1",[name.to_lowercase()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?)}
-fn unknown(c:&Connection,name:&str)->Result<Called,WebError>{Ok(done(format!("Exchange '{name}' not found. Available exchanges: {}",super::tradeable(c)?.join(", "))))}
+fn unknown(c:&Connection,name:&str)->Result<Called,WebError>{Ok(failed(format!("Exchange '{name}' not found. Available exchanges: {}",super::tradeable(c)?.join(", "))))}
 pub fn plan(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Called,WebError>{
     let tx=c.unchecked_transaction()?;
     let planned=plan_inner(&tx,app,user,name,args)?;
@@ -57,18 +59,18 @@ fn plan_inner(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Cal
     if !read_limits::check(c,user)?{return Ok(done(read_limits::REFUSAL))}
     let now=At::from_utc(app.now()).ok_or_else(error)?;
     match name {
-        "get_bot_details"=>Ok(done(budget::within(||details(c,user,args["bot_id"].as_f64().unwrap_or(0.0) as i64,now))?)),
+        "get_bot_details"=>{let (text,is_error)=budget::within(||details(c,user,args["bot_id"].as_f64().unwrap_or(0.0) as i64,now))?;Ok(if is_error{failed(text)}else{done(text)})},
         "get_exchange_balances"=>{
             let name=args["exchange_name"].as_str().unwrap_or("");
             let Some((exchange,name,kind))=exchange(c,name)? else{return unknown(c,name)};
-            let Some(credentials)=credentials(c,app,user,exchange)? else{return Ok(done(format!("No valid API key found for {name}. Please add an API key in Settings.")))};
-            if kind!="Exchanges::Alpaca" {return Ok(done(ONLY))}
-            if credentials.passphrase.as_deref()==Some("live"){return Ok(done("Balances unavailable: this build reads Alpaca paper only"))}
+            let Some(credentials)=credentials(c,app,user,exchange)? else{return Ok(failed(format!("No valid API key found for {name}. Please add an API key in Settings.")))};
+            if kind!="Exchanges::Alpaca" {return Ok(failed(ONLY))} // Rails reads the venue; a failed read is a tool error.
+            if credentials.passphrase.as_deref()==Some("live"){return Ok(failed("Balances unavailable: this build reads Alpaca paper only"))}
             Ok(Called::Fetch(Fetch::Balances{user,exchange,name,credentials}))
         },
         "list_open_orders"=>{
             let filter=if let Some(name)=args["exchange_name"].as_str().filter(|s|!s.trim().is_empty()) {
-                match exchange(c,name)?{Some(ex)=>Some(ex),None=>return Ok(done(format!("Exchange '{name}' not found. Available: {}",super::tradeable(c)?.join(", "))))}
+                match exchange(c,name)?{Some(ex)=>Some(ex),None=>return Ok(failed(format!("Exchange '{name}' not found. Available: {}",super::tradeable(c)?.join(", "))))}
             }else{None};
             let (local,ids)=local_orders(c,user,filter.as_ref().map(|x|x.0))?;
             if local==[read_limits::REFUSAL]{return Ok(done(read_limits::REFUSAL))}
@@ -111,7 +113,7 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
         Fetch::Bound{inner,versions}=>Fetched::Bound(Box::new(Box::pin(self::fetch_inner(app,*inner)).await),versions),
         Fetch::Balances{user,exchange,name,credentials}=>{
             let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()),Urls::for_passphrase(credentials.passphrase.as_deref()));
-            match balance_read(&venue).await {Ok((cash,held))=>Fetched::Balances(user,exchange,name,cash,held),Err((_,true))=>Fetched::Text("An unexpected error occurred.".into(),true),Err((why,false))=>Fetched::Text(format!("Failed to fetch balances from {name}: {}",sync::scrub(&why,&credentials)),false)}
+            match balance_read(&venue).await {Ok((cash,held))=>Fetched::Balances(user,exchange,name,cash,held),Err((_,true))=>Fetched::Text("An unexpected error occurred.".into(),true),Err((why,false))=>Fetched::Text(format!("Failed to fetch balances from {name}: {}",sync::scrub(&why,&credentials)),true)}
         },
         Fetch::Orders{user,local,ids,venues}=>{
             let mut out=vec![];
@@ -160,7 +162,7 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
         Fetched::Balances(user,exchange,name,cash,held)=>{
             let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
             let mut lines=vec![];
-            for (id,qty) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(tool_text(&format!("Failed to fetch balances from {name}: {why}"),false))}{
+            for (id,qty) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(tool_text(&format!("Failed to fetch balances from {name}: {why}"),true))}{
                 let n=qty.to_f(); if n==0.0{continue}
                 let symbol:Option<String>=c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?.flatten();
                 lines.push(format!("- {}: {}",symbol.unwrap_or_else(||format!("Unknown({id})")),float_to_s(n)));
@@ -298,8 +300,9 @@ fn effective_started(b:&Bot,zone:&str)->Result<Option<chrono::DateTime<chrono::U
     }
     Ok(Some(start))
 }
-fn details(c:&Connection,user:i64,id:i64,now:At)->Result<String,WebError>{
-    let Some(b)=bot(c,user,id)?else{return Ok("Bot not found.".into())};
+/// The text and whether it is a BotApi failure (isError).
+fn details(c:&Connection,user:i64,id:i64,now:At)->Result<(String,bool),WebError>{
+    let Some(b)=bot(c,user,id)?else{return Ok(("Bot not found.".into(),true))};
     let status=tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?;
     let mut lines=vec![format!("Bot: {}",b.label),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange)];
     if let Some(pair)=&b.pair{lines.push(format!("Pair: {pair}"));}
@@ -361,7 +364,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<String,WebError>{
     let count:i64=c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND status IN (0,2)",[id],|r|r.get(0))?;
     lines.push(format!("Orders executed: {count}"));
     if let Some(start)=effective_started(&b,&zone)?{
-        lines.push(format!("Started: {}",crate::web::timezone::local(start,&zone).format("%Y-%m-%d %H:%M UTC")));
+        lines.push(format!("Started: {}",crate::web::timezone::local(start,&zone).format("%Y-%m-%d %H:%M %Z")));
     }
     lines.push(String::new());
     match result{
@@ -386,7 +389,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<String,WebError>{
             }
         }
     }
-    Ok(lines.join("\n"))
+    Ok((lines.join("\n"),false))
 }
 fn ids(c:&Connection,user:i64)->Result<Vec<i64>,WebError>{Ok(c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status!=3 ORDER BY id")?.query_map([user],|r|r.get(0))?.collect::<Result<Vec<_>,_>>()?)}
 fn global(c:&Connection,user:i64,reader:&Reader<'_>,now:At)->Result<Option<totals::GlobalPnl>,WebError>{
