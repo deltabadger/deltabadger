@@ -200,7 +200,12 @@ pub fn fresh_stock_jobs(c: &Connection, now: chrono::DateTime<chrono::Utc>) {
     }
     let mut stmt=c.prepare("SELECT id FROM api_keys WHERE key_type=0").unwrap();
     for id in stmt.query_map([],|r|r.get::<_,i64>(0)).unwrap() {
-        deltabadger::jobs::state::record_success(c,"ledger_sync",Some(&id.unwrap().to_string()),now).unwrap();
+        let id = id.unwrap();
+        let version = deltabadger::engine::model::credential_version_by_id(c,id).unwrap().unwrap();
+        deltabadger::engine::model::credential_write(c,&Some(version.clone()),|tx| {
+            deltabadger::sync::cache::record_ledger(tx,id,&version,now)?;
+            deltabadger::jobs::state::record_success(tx,"ledger_sync",Some(&id.to_string()),now).map_err(deltabadger::engine::EngineError::Data)
+        }).unwrap();
     }
 }
 

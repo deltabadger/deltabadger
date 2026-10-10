@@ -9,6 +9,7 @@ pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<D
         }
         let id=scope.and_then(|s|s.parse::<i64>().ok()).filter(|id|*id>0).ok_or("invalid job scope")?;
         let job:Box<dyn Job>=match name{
+            jobs::API_KEY_VALIDATOR=>Box::new(jobs::Validator{venues:venues.clone(),key_id:id}),
             jobs::LEDGER_SYNC=>Box::new(jobs::LedgerSync::new(venues.clone(),id)),
             jobs::BALANCE_SYNC=>Box::new(jobs::BalanceSync::new(venues.clone(),api.clone(),id)),
             _=>tracker::jobs::resolve(name,id,&venues,api.clone(),wall.clone()).ok_or("unknown scoped job")?,

@@ -289,24 +289,133 @@ pub fn exchange_type(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
     Ok(t.unwrap_or_default())
 }
 
-/// Bot#api_key: `user.api_keys.find_by(exchange_id:, key_type: :trading)`, any status.
-pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
-    let row: Option<KeyRow> = c.query_row(
-        "SELECT k.key, k.secret, k.passphrase, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND k.key_type = 0 LIMIT 1",
-        params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
-    let Some((key, secret, passphrase, exchange_type)) = row else { return Ok(None) };
-    // A row that does not decrypt is not "no key": sent keyless, the venue would answer invalid key and the bot
-    // would be stopped as invalid_key. As in Rails (ActiveRecord::Encryption raises), the tick fails instead.
-    let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|e| EngineError::Data(format!("api key unreadable for bot {}: {e:?}", bot.id)))).transpose();
-    // Only Alpaca reads the passphrase (its mode). Elsewhere it is never decrypted, so an unreadable unused value cannot
-    // fail a Kraken bot's otherwise valid key: Kraken's credential loading stays exactly as merged.
-    let passphrase = if exchange_type.as_deref() == Some("Exchanges::Alpaca") { open(passphrase)? } else { None };
-    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { redaction_values:vec![], key, secret, passphrase }), _ => None })
+/// Bot#api_key: any status, trading slot. P versions stored ciphertext, never metadata.
+#[derive(Clone)]
+pub struct CredentialVersion { pub id: i64, digest: [u8; 32] }
+impl PartialEq for CredentialVersion {
+    fn eq(&self,other:&Self)->bool { self.same_credentials(other) }
+}
+impl Eq for CredentialVersion {}
+impl std::fmt::Debug for CredentialVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CredentialVersion").field("id", &self.id).finish_non_exhaustive()
+    }
+}
+impl CredentialVersion {
+    pub(crate) fn same_credentials(&self, other: &Self) -> bool {
+        use subtle::ConstantTimeEq;
+        self.id == other.id && bool::from(self.digest.ct_eq(&other.digest))
+    }
+    /// R's opaque cache provenance, stored only in Rust-owned state. Never log it.
+    pub(crate) fn cache_stamp(&self) -> Value {
+        serde_json::json!({"key_id": self.id, "ciphertext_digest": hex::encode(self.digest)})
+    }
+    pub(crate) fn matches_cache_stamp(&self, stamp: &Value) -> bool {
+        use subtle::ConstantTimeEq;
+        let Some(encoded) = stamp["ciphertext_digest"].as_str() else { return false };
+        let Ok(bytes) = hex::decode(encoded) else { return false };
+        stamp["key_id"].as_i64() == Some(self.id) && bool::from(bytes.as_slice().ct_eq(&self.digest))
+    }
+}
+/// Fixed column order; tagged, length-prefixed values distinguish NULL and empty values.
+/// Hash the exact stored encryption envelopes. Never decrypt or log this digest.
+fn ciphertext_version(id: i64, columns: &[Option<String>; 7]) -> CredentialVersion {
+    use sha2::{Digest, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(b"deltabadger.credentials.v1");
+    for value in columns {
+        match value {
+            None => hash.update([0]),
+            Some(value) => {
+                hash.update([1]);
+                hash.update((value.len() as u64).to_be_bytes());
+                hash.update(value.as_bytes());
+            }
+        }
+    }
+    CredentialVersion { id, digest: hash.finalize().into() }
+}
+fn stored_columns(r: &rusqlite::Row<'_>) -> rusqlite::Result<[Option<String>; 7]> {
+    Ok([r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?])
+}
+pub const CREDENTIALS_CHANGED: &str = "credentials changed; venue result discarded";
+
+pub fn credential_version_by_id(c: &Connection, id: i64) -> Result<Option<CredentialVersion>, EngineError> {
+    Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param FROM api_keys WHERE id=?1",
+        [id], |r| Ok(ciphertext_version(id, &stored_columns(r)?))).optional()?)
 }
 
-/// api_keys.key, secret, passphrase and the exchange's STI type, all still encrypted.
-type KeyRow = (Option<String>, Option<String>, Option<String>, Option<String>);
+/// Shared Q check. Call only inside the transaction that writes the venue result.
+/// A deleted row is a mismatch too. The digest and ciphertext never enter logs.
+/// Compare cache/presentation provenance without decrypting or exposing credential material.
+pub fn credential_is_current(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    Ok(credential_version_by_id(c, version.id)?.is_some_and(|now| now.same_credentials(version)))
+}
+
+pub struct FencedTransaction<'a> { connection: &'a Connection, versions: Vec<CredentialVersion> }
+impl FencedTransaction<'_> {
+    pub(crate) fn producer_stamp(&self)->Value { Value::Array(self.versions.iter().map(CredentialVersion::cache_stamp).collect()) }
+}
+impl std::ops::Deref for FencedTransaction<'_> {
+    type Target=Connection;
+    fn deref(&self)->&Connection { self.connection }
+}
+pub fn fence_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
+    for version in versions { check_credential_result(tx,&Some(version.clone()))?; }
+    Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
+}
+pub fn check_credential_result<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
+    use subtle::ConstantTimeEq;
+    if c.is_autocommit() { return Err(EngineError::Data("credential result check requires a write transaction".into())); }
+    if let Some(version) = version {
+        let current = credential_version_by_id(c, version.id)?;
+        if !current.as_ref().is_some_and(|now| bool::from(now.digest.ct_eq(&version.digest))) {
+            super::log(CREDENTIALS_CHANGED);
+            return Err(EngineError::CredentialsChanged);
+        }
+    }
+    Ok(FencedTransaction{connection:c,versions:version.iter().cloned().collect()})
+}
+
+pub fn credential_write<T>(c: &Connection, version: &Option<CredentialVersion>, work: impl FnOnce(&FencedTransaction<'_>) -> Result<T, EngineError>) -> Result<T, EngineError> {
+    let tx=immediate(c)?;
+    let out=work(&check_credential_result(&tx,version)?)?;
+    tx.commit()?;Ok(out)
+}
+pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
+    Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1",
+        params![bot.user_id,bot.exchange_id], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)
+}
+pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
+    Ok(credentials_with_version(c,cipher,bot)?.0)
+}
+/// ONE read captures the encrypted version alongside the values used to build the venue.
+pub fn credentials_with_version(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<(Option<Credentials>, Option<CredentialVersion>), EngineError> {
+    let (credentials,version,_)=credentials_with_redaction(c,cipher,bot)?;
+    Ok((credentials,version))
+}
+
+/// Diagnostic material comes from the same row snapshot as the credential digest.
+pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>,Vec<String>);
+pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
+    type KeyRow = ([Option<String>;7], Option<String>, i64);
+    let row: Option<KeyRow> = c.query_row(
+        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.exchange_id=?2 AND k.key_type=0 LIMIT 1",
+        params![bot.user_id,bot.exchange_id], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
+    let Some((columns,exchange_type,id)) = row else { return Ok((None,None,Vec::new())) };
+    let version = ciphertext_version(id,&columns);
+    let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
+    let passphrase = if exchange_type.as_deref()==Some("Exchanges::Alpaca") {open(&columns[2])?} else {None};
+    let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase}), _=>None };
+    let mut sensitive=Vec::new();
+    for value in columns.iter().flatten() {
+        // An unused unreadable field remains unavailable; its stored envelope is still redacted.
+        let plain=match cipher.decrypt(value){Ok(plain)=>plain,Err(_)=>value.clone()};
+        sensitive.push(plain);
+    }
+    let credentials=credentials.map(|mut credentials|{credentials.redaction_values=sensitive.clone();credentials});
+    Ok((credentials,Some(version),sensitive))
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Level { Info = 0, Warning = 1, Error = 2 }

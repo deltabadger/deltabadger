@@ -189,6 +189,10 @@ module SyncParity
       end
       key = ApiKey.new(user:, exchange: alpaca, **KEY.symbolize_keys, status: :correct, key_type: :trading)
       key.save!(validate: false)
+      # The existing tracker fixture also uses Rails' supported plaintext placeholders,
+      # letting both halves read identical credentials without the Rails test secret.
+      ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
+                                                [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
       ctx = { user:, alpaca:, assets:, key: }
       scenario[:setup]&.call(ctx)
       ctx

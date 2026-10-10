@@ -208,7 +208,7 @@ mod sessions {
         SessionData {
             user: Some((7, "$2a$11$abcdefghijklmnopqrstuv".into())), csrf: Some("c3Jm".into()),
             flash: vec![("alert".into(), "Zażółć \"it\"".into()), ("notice".into(), "ok".into())],
-            pending: Some(Pending { user_id: 7, started_at: 1_789_041_630 }), return_to: Some("/bots?filter=active".into()), auto_open_bot_wizard: true,
+            pending: Some(Pending { user_id: 7, started_at: 1_789_041_630 }), return_to: Some("/bots?filter=active".into()), auto_open_bot_wizard: true, tracker_connect: Some(3),
         }
     }
 

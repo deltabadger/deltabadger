@@ -15,7 +15,11 @@ use serde_json::json;
 pub const STALE_AFTER_DAYS: i64 = 14;
 
 #[derive(Debug, PartialEq)]
-pub enum PollFailure { RateLimited(String), Transient(String), General(String) }
+pub enum PollFailure { CredentialsChanged, RateLimited(String), Transient(String), General(String) }
+
+fn poll_error(e: EngineError) -> PollFailure {
+    match e { EngineError::CredentialsChanged => PollFailure::CredentialsChanged, other => PollFailure::General(format!("{other:?}")) }
+}
 
 /// A follow-up poll that did not fail: the order is settled, or the venue still holds it open (Rails' retry_on
 /// OrderStillOpen: asked again, whatever bot placed it).
@@ -51,7 +55,7 @@ fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
 /// never moves the carry. Kept, as Rails keeps the keyword, until Rails removes it. Returns whether this fill spent the
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
 /// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
-pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
+pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
     let row = load(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
@@ -121,7 +125,7 @@ fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
     }
 }
 
-fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64)>, EngineError> {
+pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64)>, EngineError> {
     let mut s = c.prepare(
         "SELECT id, external_id, created_at FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 AND external_status IN (0, 1) \
          AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') ORDER BY id")?;
@@ -145,9 +149,10 @@ pub(crate) fn owe_limit_mail(c: &Connection, bot_id: i64, now: DateTime<Utc>) ->
     Ok(())
 }
 
-fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool) -> Result<(), EngineError> {
+fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>, stop_now: bool, version: &Option<model::CredentialVersion>) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
-    if apply_in(&tx, bot_id, tx_id, s, true, now)? {
+    let fenced=model::check_credential_result(&tx, version)?;
+    if apply_in(&fenced, bot_id, tx_id, s, true, now)? {
         owe_limit_mail(&tx, bot_id, now)?;
         if stop_now {
             tick::stop_for_amount_limit(&tx, bot_id, now)?;
@@ -166,7 +171,7 @@ fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now:
 /// Bot::FetchAndUpdateOpenOrdersJob for one bot. Errors carry Rails' messages; orders updated before an
 /// error stay updated, as each Rails update! commits on its own.
 pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>) -> Result<(), PollFailure> {
-    let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
+    let db = |e: EngineError| poll_error(e);
     poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, true).await
 }
 
@@ -180,8 +185,9 @@ fn order_identified(c: &Connection, bot: &model::Bot, tx_id: i64, pair: Option<&
 /// Both Rails polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
 /// the given waiting rows. `strict` (the sweep) fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
 async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, strict: bool) -> Result<(), PollFailure> {
-    let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
+    let db = |e: EngineError| poll_error(e);
     if rows.is_empty() { return Ok(()); }
+    let version = model::credential_version(c, bot).map_err(db)?;
     let ids: Vec<String> = rows.iter().map(|(_, e, _)| e.clone()).collect();
     let mut found: Vec<OrderState> = vec![];
     let mut skipped = vec![];
@@ -204,9 +210,11 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
     for (id, ext, created) in &rows {
         if skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
         if *created < now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
-            c.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
-                      params![TxExternalStatus::Abandoned as i64, format_time(now), id]).map_err(|e| db(e.into()))?;
-            model::log_activity(c, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now).map_err(db)?;
+            model::credential_write(c, &version, |tx| {
+                tx.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
+                      params![TxExternalStatus::Abandoned as i64, format_time(now), id])?;
+                model::log_activity(tx, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now)
+            }).map_err(db)?;
         }
     }
     for state in &found {
@@ -215,7 +223,7 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
             if strict { return Err(PollFailure::General(format!("Order {} status is unknown.", state.txid))); }
             continue;
         }
-        apply_committed(c, bot.id, *id, state, now, !strict).map_err(db)?;
+        apply_committed(c, bot.id, *id, state, now, !strict, &version).map_err(db)?;
     }
     Ok(())
 }
@@ -225,7 +233,7 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
 /// `unknown`. One order's failure never holds back another's fill. The caller retries Transient/RateLimited
 /// failures as that job's retry_on does (3 and 4 attempts); others end the chain. A row no longer waiting is done.
 pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<FollowUp, PollFailure> {
-    let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
+    let db = |e: EngineError| poll_error(e);
     let bot = model::load_bot(c, bot_id).map_err(db)?;
     let rows: Vec<_> = waiting_ids(c, &bot).map_err(db)?.into_iter().filter(|(id, _, _)| *id == tx_id).collect();
     if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now).await?; } else { poll_rows(c, venue, &bot, rows, now, false).await?; }
@@ -242,6 +250,7 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
 async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(()) };
     let rules = venue.rules();
+    let version = model::credential_version(c, bot).map_err(poll_error)?;
     let state = match venue.orders_identified(std::slice::from_ref(&ext), |_, pair, class| {
         order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
     }).await {
@@ -254,5 +263,5 @@ async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot,
         Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(PollFailure::Transient(m)),
     };
     if state.status == OrderStatus::Unknown { return Err(PollFailure::General(format!("Order {ext} status is unknown."))); }
-    apply_committed(c, bot.id, id, &state, now, true).map_err(|e| PollFailure::General(format!("{e:?}")))
+    apply_committed(c, bot.id, id, &state, now, true, &version).map_err(poll_error)
 }

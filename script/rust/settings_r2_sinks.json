@@ -1,0 +1,194 @@
+[
+  {
+    "label": "http-body",
+    "file": "venue/http.rs",
+    "anchor": "response.body=self.redact_diagnostic(&response.body);",
+    "count": 1
+  },
+  {
+    "label": "http-log",
+    "file": "venue/http.rs",
+    "anchor": "self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))",
+    "count": 1
+  },
+  {
+    "label": "wire-body",
+    "file": "web/figure/loading.rs",
+    "anchor": "body:self.redact_diagnostic(&reply[\"body\"].as_str().map(str::to_string).unwrap_or_else(||reply[\"body\"].to_string()))",
+    "count": 1
+  },
+  {
+    "label": "wire-redactor",
+    "file": "web/figure/loading.rs",
+    "anchor": "fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}",
+    "count": 1
+  },
+  {
+    "label": "validation-body",
+    "file": "web/settings/validator.rs",
+    "anchor": "let body=key.venue_text(&body);",
+    "count": 1
+  },
+  {
+    "label": "validation-positions",
+    "file": "web/settings/validator.rs",
+    "anchor": "let text=key.venue_text(&text);",
+    "count": 1
+  },
+  {
+    "label": "validation-save-log",
+    "file": "web/settings/keys.rs",
+    "anchor": "scrub(&diagnostic.log_text(),&redaction_material)",
+    "count": 1
+  },
+  {
+    "label": "validation-passive-log",
+    "file": "web/settings/keys.rs",
+    "anchor": "scrub(&e.log_text(),&values)",
+    "count": 1
+  },
+  {
+    "label": "validation-job-log",
+    "file": "sync/jobs.rs",
+    "anchor": "crate::web::settings::keys::scrub(&e.log_text(),&values)",
+    "count": 1
+  },
+  {
+    "label": "stored-sync-error",
+    "file": "sync/mod.rs",
+    "anchor": "scrub(text, credentials).chars().take(SYNC_ERROR_LIMIT)",
+    "count": 1
+  },
+  {
+    "label": "sync-redactor",
+    "file": "sync/mod.rs",
+    "anchor": "let text=credentials.venue_text(text);",
+    "count": 1
+  },
+  {
+    "label": "mcp-balances",
+    "file": "web/mcp/reads.rs",
+    "anchor": "sync::scrub(&why,&credentials)",
+    "count": 2
+  },
+  {
+    "label": "activity-rejected",
+    "file": "venue/alpaca.rs",
+    "anchor": "messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()",
+    "count": 1
+  },
+  {
+    "label": "activity-transient",
+    "file": "venue/alpaca.rs",
+    "anchor": "VenueError::Transient(self.transport.redact_diagnostic(&message))",
+    "count": 1
+  },
+  {
+    "label": "activity-ambiguous",
+    "file": "venue/alpaca.rs",
+    "anchor": "VenueError::Ambiguous(self.transport.redact_diagnostic(&message))",
+    "count": 1
+  },
+  {
+    "label": "clock-diagnostic",
+    "file": "venue/alpaca.rs",
+    "anchor": "message:self.transport.redact_diagnostic(&message)",
+    "count": 1
+  },
+  {
+    "label": "validation-material",
+    "file": "web/settings/keys.rs",
+    "anchor": "redaction_values:values",
+    "count": 1
+  },
+  {
+    "label": "sync-material",
+    "file": "sync/mod.rs",
+    "anchor": "credentials.redaction_values=columns.iter().flatten()",
+    "count": 1
+  },
+  {
+    "label": "live-material",
+    "file": "venue/alpaca.rs",
+    "anchor": ".with_sensitive_values(c.redaction_values)",
+    "count": 1
+  },
+  {
+    "label": "wire-material",
+    "file": "web/figure/loading.rs",
+    "anchor": ".with_sensitive_values(credentials.redaction_values.clone())",
+    "count": 1
+  },
+  {
+    "label": "shared-credentials",
+    "file": "crypto.rs",
+    "anchor": "scrub_known(text,&values)",
+    "count": 1
+  },
+  {
+    "label": "fixed-flash",
+    "file": "web/settings/keys.rs",
+    "anchor": "\"errors.api_key_permission_validation_failed\",",
+    "count": 1
+  },
+  {
+    "label": "stale-job-log",
+    "file": "engine/staleness.rs",
+    "anchor": "state.describe_venue()",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/save_export_settings",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/save_export_settings\",",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/fund_classifications",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/fund_classifications\",",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/sync",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/sync\",",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/tax_report",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/tax_report\",",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/export_modal",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/export_modal\",",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/transactions/{id}/price",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/transactions/{id}/price\",",
+    "count": 1
+  },
+  {
+    "label": "upstream-/tracker/transactions/{id}/toggle_transfer",
+    "file": "web/mod.rs",
+    "anchor": ".route(\"/tracker/transactions/{id}/toggle_transfer\",",
+    "count": 1
+  },
+  {
+    "label": "structured-job-log",
+    "file": "jobs/mod.rs",
+    "anchor": "log(&format!(\"[jobs] {name} {scope:?}: venue job result recorded\"));",
+    "count": 1
+  },
+  {
+    "label": "validation-original-material",
+    "file": "web/settings/keys.rs",
+    "anchor": "values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());",
+    "count": 1
+  }
+]

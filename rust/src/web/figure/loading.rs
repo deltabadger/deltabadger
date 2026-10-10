@@ -6,7 +6,6 @@ use crate::web::{App,WebError};
 use crate::crypto::Credentials;
 use rusqlite::{Connection,OptionalExtension};
 use serde_json::Value;
-use sha2::{Digest,Sha256};
 use std::time::Duration;
 
 #[derive(Clone,Default)]
@@ -19,22 +18,25 @@ fn revision(c:&Connection)->Result<u64,rusqlite::Error> {
     Ok(version.wrapping_mul(1_000_000_007).wrapping_add(c.total_changes()))
 }
 pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_info(&tx,app,user)?;tx.commit()?;return Ok(out)}
     let id:Option<i64>=c.query_row("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Alpaca' ORDER BY k.id LIMIT 1",[user],|r|r.get(0)).optional()?;
     let Some(id)=id else { return Ok(None) };
     // A failure to read the key is the read's failure: the caller's retry keeps the demand. Only an undecryptable key
     // means no figures (this install's configuration, not a passing fault).
-    let stored:(Option<String>,Option<String>,Option<String>)=c.query_row("SELECT key,secret,passphrase FROM api_keys WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
-    let credentials=match crate::sync::decrypted(&app.cipher,id,stored.clone()) { Ok(c)=>c,Err(_)=>return Ok(None) };
+    let columns=crate::sync::credential_columns(c,id)?;
+    let credentials=match crate::sync::credentials_from_columns(&app.cipher,id,&columns) { Ok(c)=>c,Err(_)=>return Ok(None) };
     if !matches!(credentials.passphrase.as_deref(),None|Some("paper")) { return Ok(None); }
-    let identity=hex::encode(Sha256::digest(serde_json::json!([user,id,stored.0,stored.1,stored.2]).to_string()));
+    let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
+    let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
     let revision=revision(c)?;
     Ok(Some(Info{identity,revision,credentials}))
 }
 pub(crate) struct Wire { real:ReqwestTransport,source:Source }
 impl Wire {
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()),source} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source} }
 }
 impl Transport for Wire {
+    fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
             Source::Live=>self.real.send(r).await,
@@ -51,7 +53,7 @@ impl Transport for Wire {
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
                 if let Some(ms)=reply["delay_ms"].as_u64(){tokio::time::sleep(Duration::from_millis(ms)).await;}
-                Ok(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string())})
+                Ok(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:self.redact_diagnostic(&reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string()))})
             }
         }
     }
@@ -317,4 +319,61 @@ pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crat
     };
     if engine_gone { let _=stop.wait_for(|stopped|*stopped).await; } // allow-swallow: an error means no stop can come, and returning is the stop
     Ok(())
+}
+
+#[cfg(test)]
+mod credential_cache_tests {
+    use super::*;
+    use crate::{web::Config,engine::FixedClock,venue::http::ScriptedTransport};
+    #[tokio::test]
+    async fn r_each_credential_column_starts_figures_with_an_empty_market_cache() {
+        let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
+        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
+        c.execute("INSERT INTO exchanges(type,name,created_at,updated_at)VALUES('Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01')",[]).unwrap();
+        let now="2026-09-10T12:00:00Z".parse().unwrap();
+        let env=|name:&str|(name=="SECRET_KEY_BASE").then(||"settings-cache-test-secret".to_string());
+        let app=App::new(Config::from_env(&env).unwrap(),&env,Connection::open(&file).unwrap(),std::sync::Arc::new(FixedClock(now))).unwrap();
+        c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at)VALUES(1,1,0,1,?1,?2,?3,'2026-01-01','2026-01-01')",(app.cipher.encrypt("a"),app.cipher.encrypt("a-secret"),app.cipher.encrypt("paper"))).unwrap();
+        let columns=["key","secret","passphrase","access_token","rsa_signature_key","rsa_encryption_key","dh_param"];
+        let request=HttpRequest{method:"GET",base:"https://data.alpaca.markets".into(),path:"/v2/stocks/quotes/latest".into(),query:vec![],body:None,not_after:None};
+        let wire=ScriptedTransport::from_script(&serde_json::json!({"GET /v2/stocks/quotes/latest":[{"status":200,"body":{"quotes":{"AAA":{"ap":10000}}}}]}));
+        for column in columns {
+            let service=crate::web::figure::service::Service::default();
+            let info=read_info(&c,&app,1).unwrap().unwrap();
+            let Load::Start(ticket,mut cache)=service.begin(1,&info.identity,info.revision,now.timestamp()) else{panic!("fresh source must start")};
+            cache.fill(&wire,vec![request.clone()],now.timestamp()).await;assert!(cache.bytes()>0);ticket.finish(cache,true,now.timestamp());
+            let replacement=if column=="passphrase"{"paper"}else{"b"};
+            c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=1"),[app.cipher.encrypt(replacement)]).unwrap();
+            let info=read_info(&c,&app,1).unwrap().unwrap();
+            let Load::Start(ticket,cache)=service.begin(1,&info.identity,info.revision,now.timestamp()) else{panic!("new digest must start")};
+            assert_eq!(cache.bytes(),0,"R must discard A market entries when encrypted {column} changes");drop(ticket);
+        }
+    }
+    #[test]
+    fn r_figure_auth_and_origin_are_captured_from_one_database_snapshot(){
+        use rusqlite::hooks::{AuthAction,Authorization};
+        use crate::{engine::FixedClock,web::Config};
+        use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
+        let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
+        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
+        c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
+        c.execute("INSERT INTO exchanges(type,name,created_at,updated_at)VALUES('Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01')",[]).unwrap();
+        let now="2026-09-10T12:00:00Z".parse().unwrap();let env=|name:&str|(name=="SECRET_KEY_BASE").then(||"settings-capture-test-secret".to_string());
+        let app=App::new(Config::from_env(&env).unwrap(),&env,Connection::open(&file).unwrap(),Arc::new(FixedClock(now))).unwrap();
+        c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at)VALUES(1,1,0,1,?1,?2,?3,'2026-01-01','2026-01-01')",(app.cipher.encrypt("a"),app.cipher.encrypt("a-secret"),app.cipher.encrypt("paper"))).unwrap();
+        let before=read_info(&c,&app,1).unwrap().unwrap().identity;
+        let writer=Connection::open(&file).unwrap();let b=app.cipher.encrypt("b");let b_secret=app.cipher.encrypt("b-secret");let fired=Arc::new(AtomicBool::new(false));let signal=fired.clone();
+        c.authorizer(Some(move|context:rusqlite::hooks::AuthContext<'_>|{
+            if matches!(context.action,AuthAction::Read{table_name:"api_keys",column_name:"access_token"})&&!signal.swap(true,Ordering::SeqCst){
+                writer.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=1",(&b,&b_secret)).unwrap();
+            }
+            Authorization::Allow
+        }));
+        let captured=read_info(&c,&app,1).unwrap().unwrap();assert!(fired.load(Ordering::SeqCst),"an encrypted replacement must actually commit between the auth and origin reads");
+        assert_eq!(captured.credentials.key,"a","the auth read precedes the committed replacement");
+        assert!(captured.identity==before,"A credentials must never be tagged with B cache provenance");
+        assert_eq!(read_info(&c,&app,1).unwrap().unwrap().credentials.key,"b","the next read sees the replacement");
+    }
+
 }

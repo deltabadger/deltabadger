@@ -95,6 +95,8 @@ pub trait VenueFactory {
     /// `exchange_type` is the bot's exchanges.type. `None` credentials is Rails' unsaved fallback key: private calls
     /// fail at the venue, per bot.
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
+    /// Full stored material is used only to redact diagnostics, never venue financial data.
+    fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,_sensitive:Vec<String>)->Self::V{self.for_bot(exchange_type,credentials)}
 }
 
 /// GET /v2/clock as Clients::Alpaca#get_clock returns it: the 2xx body as text, or the failure with its HTTP status (None for

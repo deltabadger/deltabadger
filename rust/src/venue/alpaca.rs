@@ -141,6 +141,13 @@ pub struct AlpacaVenue<T: Transport> { transport: T, urls: Urls }
 impl<T: Transport> AlpacaVenue<T> {
     pub fn new(transport: T, urls: Urls) -> Self { Self { transport, urls } }
     pub fn urls(&self) -> &Urls { &self.urls }
+    fn redact_error(&self,error:VenueError)->VenueError{
+        match error{
+            VenueError::Rejected(messages)=>VenueError::Rejected(messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()),
+            VenueError::Ambiguous(message)=>VenueError::Ambiguous(self.transport.redact_diagnostic(&message)),
+            VenueError::Transient(message)=>VenueError::Transient(self.transport.redact_diagnostic(&message)),
+        }
+    }
 
     fn request(&self, method: &'static str, data_host: bool, path: String, query: Vec<(&'static str, String)>, body: Option<Value>) -> HttpRequest {
         HttpRequest { method, base: if data_host { self.urls.data.clone() } else { self.urls.trading.clone() }, path, query, body, not_after: None }
@@ -182,14 +189,13 @@ impl<T: Transport> AlpacaVenue<T> {
     }
 }
 
-impl<T: Transport> Venue for AlpacaVenue<T> {
-    fn rules(&self) -> &'static VenueRules { &ALPACA }
+impl<T: Transport> AlpacaVenue<T> {
 
     /// Exchanges::Alpaca#get_ask_price / #get_last_price. Crypto: the latest quote's `ap` / trade's `p` by pair in the
     /// `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in the path, `quote.ap`
     /// / `trade.p`, no feed parameter (clients/alpaca.rb:172-192). A zero or missing price is Rails' "Wrong … price" raise.
     /// Clients::Alpaca#get_clock on the trading host, with the bot's key.
-    async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> {
+    async fn positions_diagnostic_source(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> {
         let bad = || VenueError::Rejected(vec!["unreadable venue positions".into()]);
         let rows = self.raw_positions().await?;
         let mut out = std::collections::HashMap::new();
@@ -202,7 +208,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         Ok(out)
     }
 
-    async fn clock(&self) -> Result<ClockAnswer, VenueError> {
+    async fn clock_diagnostic_source(&self) -> Result<ClockAnswer, VenueError> {
         let r = self.request("GET", false, "/v2/clock".into(), vec![], None);
         match self.transport.send(&r).await {
             Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
@@ -212,7 +218,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         }
     }
 
-    async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
+    async fn price_diagnostic_source(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
         let label = match side { PriceSide::Ask => "ask", PriceSide::Last => "last" };
         let raw = if ticker.crypto {
             let (path, key, field) = match side {
@@ -239,7 +245,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     /// Rails' key order, plus Rust's client_order_id (Rails sends none). A 4xx or a permanent transport failure (a TLS
     /// failure while connecting: nothing sent) is a definitive refusal (Rails' failed row); a 3xx, a 5xx, a lost reply, or
     /// a 2xx without a readable id may have placed the order.
-    async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
+    async fn add_order_diagnostic_source(&self, o: &NewOrder) -> Result<String, VenueError> {
         let mut body = json!({ "symbol": o.pair, "side": "buy", "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
         match &o.kind {
             OrderKind::Market if o.quote_volume => { body["notional"] = json!(o.volume); }
@@ -274,13 +280,8 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         }
     }
 
-    /// Without transaction context every requested order retains strict parsing (e.g. placement recovery).
-    async fn orders(&self, ids: &[String]) -> Result<Vec<OrderState>, VenueError> {
-        self.orders_identified(ids, |_, _, _| Ok(true)).await.map(|(orders, _)| orders)
-    }
-
     /// #get_orders: identity exclusion precedes all status/number parsing, as in Rails.
-    async fn orders_identified<F>(&self, ids: &[String], mut identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    async fn orders_identified_diagnostic_source<F>(&self, ids: &[String], mut identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         let mut out = Vec::with_capacity(ids.len());
         let mut skipped = vec![];
@@ -309,7 +310,7 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
 
     /// GET /v2/orders:by_client_order_id: one complete answer. Only Alpaca's own not-found envelope proves absence; any
     /// other 404 (an empty object, a gateway's route error, HTML) and an answer about another client order id prove nothing.
-    async fn order_by_client_id(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+    async fn order_by_client_id_diagnostic_source(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         let r = self.request("GET", false, "/v2/orders:by_client_order_id".into(), vec![("client_order_id", cl_ord_id.to_string())], None);
         match self.transport.send(&r).await {
             Err(TransportError::Permanent(m)) => Err(VenueError::Rejected(vec![m])),
@@ -329,11 +330,11 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     }
 
     /// Rails has no trade or activity fallback for Alpaca orders (the activities endpoint feeds only the tracker).
-    async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { Ok(vec![]) }
+    async fn fills_from_trades_diagnostic_source(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { Ok(vec![]) }
 
     /// #get_balances (account, then positions; either failure is the answer) and #spendable_balance for an all-crypto
     /// bot: non_marginable_buying_power, else cash (`&.to_d`, so only an absent field falls back).
-    async fn balance(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError> {
+    async fn balance_diagnostic_source(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError> {
         let account = self.get(self.request("GET", false, "/v2/account".into(), vec![], None)).await?;
         let positions = self.raw_positions().await?;
         for _position in positions {
@@ -352,6 +353,20 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     }
 }
 
+impl<T: Transport> Venue for AlpacaVenue<T> {
+    fn rules(&self)-> &'static VenueRules{&ALPACA}
+    async fn positions(&self)->Result<std::collections::HashMap<String, BigDec>,VenueError>{self.positions_diagnostic_source().await.map_err(|error|self.redact_error(error))}
+    async fn clock(&self)->Result<ClockAnswer,VenueError>{self.clock_diagnostic_source().await.map_err(|error|self.redact_error(error)) .map(|answer|match answer{ClockAnswer::Failed{status,message}=>ClockAnswer::Failed{status,message:self.transport.redact_diagnostic(&message)},other=>other})}
+    async fn price(&self, ticker: &Ticker, side: PriceSide)->Result<BigDec,VenueError>{self.price_diagnostic_source(ticker,side).await.map_err(|error|self.redact_error(error))}
+    async fn add_order(&self, o: &NewOrder)->Result<String,VenueError>{self.add_order_diagnostic_source(o).await.map_err(|error|self.redact_error(error))}
+    async fn orders(&self, ids: &[String])->Result<Vec<OrderState>,VenueError>{self.orders_identified_diagnostic_source(ids, |_,_,_|Ok(true)).await.map(|(orders,_)|orders).map_err(|error|self.redact_error(error))}
+    async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError>
+    where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.orders_identified_diagnostic_source(ids,identify).await.map_err(|error|self.redact_error(error))}
+    async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.order_by_client_id_diagnostic_source(cl_ord_id,since).await.map_err(|error|self.redact_error(error))}
+    async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.fills_from_trades_diagnostic_source(txids,since).await.map_err(|error|self.redact_error(error))}
+    async fn balance(&self, asset_symbol: &str, all_crypto: bool)->Result<BigDec,VenueError>{self.balance_diagnostic_source(asset_symbol,all_crypto).await.map_err(|error|self.redact_error(error))}
+}
+
 /// Before 3.0 the engine trades Alpaca paper only.
 pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build (paper only before 3.0)";
 
@@ -359,10 +374,12 @@ pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build
 /// (`run`'s preflight refuses such bots before it claims the install, so this is the second line). A passphrase that does
 /// not decrypt never reaches here: `model::credentials_for` fails that bot's tick (and preflight refuses it).
 #[derive(Clone)]
-pub struct LiveFactory { client: reqwest::Client }
+pub struct LiveFactory { client: reqwest::Client, paper_boundary: Option<String> }
 
 impl LiveFactory {
-    pub fn new() -> Self { Self { client: http::client() } }
+    pub fn new() -> Self { Self { client: http::client(), paper_boundary: None } }
+    /// Explicit local HTTP boundary for native production-adapter tests.
+    #[doc(hidden)] pub fn with_paper_boundary(url:String)->Self{Self{client:http::client(),paper_boundary:Some(url)}}
 }
 
 impl Default for LiveFactory {
@@ -372,16 +389,19 @@ impl Default for LiveFactory {
 impl VenueFactory for LiveFactory {
     type V = AlpacaVenue<ReqwestTransport>;
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V {
+        self.for_bot_with_redaction(exchange_type,credentials,Vec::new())
+    }
+    fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,sensitive:Vec<String>)->Self::V{
         let live = credentials.as_ref().is_some_and(|c| c.passphrase.as_deref() == Some("live"));
         let transport = match (exchange_type, credentials) {
             ("Exchanges::Alpaca", _) if live => ReqwestTransport::refused(LIVE_REFUSED),
-            ("Exchanges::Alpaca", Some(c)) => ReqwestTransport::new(self.client.clone(), c.key, c.secret),
+            ("Exchanges::Alpaca", Some(c)) => ReqwestTransport::new(self.client.clone(), c.key, c.secret).with_sensitive_values(c.redaction_values),
             // Rails' unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
             ("Exchanges::Alpaca", None) => ReqwestTransport::new(self.client.clone(), String::new(), String::new()),
             (other, _) => ReqwestTransport::refused(&format!("{other} is not connected in this build")),
         };
         // Every key that gets this far is paper (anything but exactly "live"), so the live host is never even named.
-        AlpacaVenue::new(transport, Urls::for_passphrase(None))
+        AlpacaVenue::new(transport.with_sensitive_values(sensitive), match &self.paper_boundary{Some(url)=>Urls{trading:url.clone(),data:url.clone()},None=>Urls::for_passphrase(None)})
     }
 }
 

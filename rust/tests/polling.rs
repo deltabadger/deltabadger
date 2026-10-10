@@ -173,9 +173,13 @@ fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() 
         quote_amount: Some(BigDec::from_i64(18)), amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: false, sell: false, pair: Some(pair.into()) };
     let row = || -> (Option<String>, Option<String>, Option<i64>, Option<i64>) { o.primary.query_row(
         "SELECT base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap() };
-    polling::apply_in(&o.primary, id, tx, &state("XRP/USD"), true, now()).unwrap();
+    { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
+    polling::apply_in(&fenced, id, tx, &state("XRP/USD"), true, now()).unwrap();
+    unit.commit().unwrap(); }
     assert_eq!(row(), (None, None, None, None), "a pair this venue does not list fills nothing (order_data[:ticker] is nil)");
-    polling::apply_in(&o.primary, id, tx, &state("ETH/USD"), true, now()).unwrap();
+    { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
+    polling::apply_in(&fenced, id, tx, &state("ETH/USD"), true, now()).unwrap();
+    unit.commit().unwrap(); }
     assert_eq!(row(), (Some("ETH".into()), Some("USD".into()), Some(eth), Some(s.quote)), "the order's own pair, not BTC");
 }
 

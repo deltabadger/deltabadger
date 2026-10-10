@@ -67,8 +67,9 @@ impl<F: VenueFactory> Engine<F> {
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
-    fn venue_for(&self, bot: &model::Bot) -> Result<F::V, EngineError> {
-        Ok(self.factory.for_bot(&model::exchange_type(&self.primary, bot)?, model::credentials_for(&self.primary, &self.cipher, bot)?))
+    fn venue_for(&self, bot: &model::Bot) -> Result<(F::V, Option<model::CredentialVersion>), EngineError> {
+        let (credentials,version,sensitive)=model::credentials_with_redaction(&self.primary,&self.cipher,bot)?;
+        Ok((self.factory.for_bot_with_redaction(&model::exchange_type(&self.primary, bot)?, credentials,sensitive),version))
     }
 }
 
@@ -155,7 +156,7 @@ fn idle_bots_with_intents(c: &Connection) -> Result<Vec<i64>, EngineError> {
 async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     if e.reconcile_at.get(&id).is_some_and(|&t| t > clock.now().timestamp_micros()) { *wake = (*wake).min(e.reconcile_at[&id]); return Ok(()); }
     let bot = model::load_bot(&e.primary, id)?;
-    let venue = e.venue_for(&bot)?;
+    let (venue, _) = e.venue_for(&bot)?;
     match placement::recover_since(&e.primary, &venue, &bot, clock, e.process_start.expect("set by step")).await? {
         placement::Recovery::Pending => {
             let at = clock.now().timestamp_micros() + RECONCILE_EVERY_US;
@@ -214,8 +215,10 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
         if e.stopping() { break; }
         if let Err(err) = reconcile_idle(e, id, clock, &mut wake).await {
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));
-            let at = clock.now().timestamp_micros() + RECONCILE_EVERY_US;
+            let changed=matches!(err,EngineError::CredentialsChanged);
+            if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
+            let delay=if changed {0}else{RECONCILE_EVERY_US};
+            let at = clock.now().timestamp_micros() + delay;
             e.reconcile_at.insert(id, at);
             wake = wake.min(at);
         }
@@ -257,16 +260,18 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         if e.stopping() { break; }
         e.polls.remove(&tx);
         let venue = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)) {
-            Ok(v) => v,
+            Ok((v, _)) => v,
             Err(err) => {
                 super::log(&format!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}"));
                 e.polls.insert(tx, (id, clock.now().timestamp_micros() + RECONCILE_EVERY_US, attempts));
                 continue;
             }
         };
+        let mut announce_retry=true;
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
             Ok(polling::FollowUp::StillOpen) => { attempts.open += 1; (attempts.open < 8).then(|| (tick::retry_wait(attempts.open, false), "the order is still open".to_string())) }
+            Err(polling::PollFailure::CredentialsChanged) => {announce_retry=false;Some((std::time::Duration::ZERO, "credentials changed; retry with fresh credentials".into()))},
             Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m)) }
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
             Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
@@ -274,7 +279,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         if let Some((wait, m)) = retry {
-            super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));
+            if announce_retry {super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));}
             e.polls.insert(tx, (id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts));
         }
     }
@@ -322,7 +327,8 @@ fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value
     let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
         [bot.index_category_id()], |r| r.get(0))?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
-        "started":bot.started_at_us, "stopped":stopped, "changed":bot.settings_changed_at_us}))
+        "started":bot.started_at_us, "stopped":stopped, "changed":bot.settings_changed_at_us,
+        "credential_origin":model::credential_version(c,bot)?.map(|v|v.cache_stamp())}))
 }
 
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
@@ -340,7 +346,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             }
         }
     }
-    let venue = e.venue_for(&bot)?;
+    let (venue, credential_version) = e.venue_for(&bot)?;
     if let Some((until, key)) = e.closed_until.get(&id) {
         if *until <= now_us || model::all_crypto(&e.primary, &bot)? || *key != market_wait_key(&e.primary, &bot)? {
             e.closed_until.remove(&id);
@@ -388,7 +394,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let mut recovered = None;
         let stop = e.stop.clone();
         let stopping = move || stop.load(Ordering::SeqCst);
-        let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
+        let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
         // What this tick records is announced after it returns, when its writes have committed: rows by id (every row
         // the tick inserts, as Rails' after_create_commit hears every create), and a new funds mail marker.
         let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;

@@ -97,7 +97,9 @@ module Figures
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
     alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
-    ApiKey.new(user:, exchange: alpaca, key: 'k', secret: 's', passphrase: 'paper', status: :correct, key_type: :trading).save!(validate: false)
+    # Ordinary market fixtures must not reflect their synthetic credentials in JSON field names.
+    ApiKey.new(user:, exchange: alpaca, key: 'figures-fixture-key-0123456789', secret: 'figures-fixture-secret-0123456789',
+               passphrase: 'paper', status: :correct, key_type: :trading).save!(validate: false)
     assets = { 'USD' => Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Fiat') }
     STOCKS.each_with_index do |symbol, i|
       assets[symbol] = Asset.create!(external_id: "stock-#{symbol.downcase}", symbol:, name: "#{symbol} Inc.", category: 'Stock',

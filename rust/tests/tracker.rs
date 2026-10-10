@@ -105,7 +105,7 @@ fn every_user_with_a_reading_key_gets_a_walk_and_a_backfill() {
     let (dir, user, _) = install();
     let specs: Vec<_> = jobs(dir.path(), &Scripted(ScriptedTransport::default()), tokio_clock("2026-09-20T02:25:00Z")).iter().map(|j| j.spec()).map(|s| (s.name, s.scope, s.schedule)).collect();
     let me = Some(user.to_string());
-    assert_eq!(specs[2..], [(TRACKER_LEDGER, me.clone(), None), (PORTFOLIO_BACKFILL, me, Some(Schedule::Daily { hour: 3, minute: 0 }))]);
+    assert_eq!(specs[2..], [("credential_scope_factory",None,None), (TRACKER_LEDGER, me.clone(), None), (PORTFOLIO_BACKFILL, me, Some(Schedule::Daily { hour: 3, minute: 0 }))]);
 }
 
 /// Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!: the balance sync at 02:30 wakes the user's walk,

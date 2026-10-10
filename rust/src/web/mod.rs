@@ -323,6 +323,7 @@ pub struct Inner {
     settings_jobs:std::sync::OnceLock<crate::jobs::Wakers>,
     pub settings_smtp:crate::mail::smtp::Env,
     settings_smtp_provider_name:String,
+    settings_market_provider_name:String,
     pub settings_key_url:String,
     pub settings_key_logger:Arc<dyn settings::keys::Logger>,
     pub settings_mailer:Arc<dyn settings::mail::Mailer>,
@@ -386,7 +387,7 @@ impl App {
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             settings_key_url:crate::venue::alpaca::PAPER_TRADING_URL.into(),settings_key_logger:settings::keys::logger(),
-            settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
+            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
@@ -420,13 +421,13 @@ impl App {
         inner.settings_key_url=url;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
     }
 
-    pub fn attach_jobs(&self,wakers:crate::jobs::Wakers)->Result<(),WebError>{self.settings_jobs.set(wakers).map_err(|_|WebError::Config("job scheduler already attached".into()))}
+    pub fn attach_jobs(&self,wakers:crate::jobs::Wakers)->Result<(),WebError>{if let Some(wake)=self.engine.get(){wakers.attach_engine(wake.clone());}self.settings_jobs.set(wakers).map_err(|_|WebError::Config("job scheduler already attached".into()))}
     pub fn job_wakers(&self)->Result<crate::jobs::Wakers,WebError>{self.settings_jobs.get().cloned().ok_or_else(||WebError::Config("job scheduler unavailable".into()))}
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
 
     /// Called once, by `supervisor::serve`, before the first request is served. A second call is ignored.
     pub fn attach_engine(&self, wake: Arc<tokio::sync::Notify>) {
-        let _ = self.engine.set(wake);
+        if self.engine.set(wake.clone()).is_ok(){if let Some(jobs)=self.settings_jobs.get(){jobs.attach_engine(wake);}}
     }
 
     /// Delivery stays in the blocking writer immediately after its successful commit.
@@ -563,6 +564,11 @@ fn routes(app: App) -> Router {
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
+        .route("/api/api_keys",only(post(settings::keys::legacy)))
+        .route("/bots/{id}/add_api_key",only(post(settings::keys::save)))
+        .route("/bots/{id}/add_api_key/new",only(get(settings::keys::bot_form)))
+        .route("/tracker/add_api_key",only(post(settings::keys::save)))
+        .route("/tracker/add_api_key/new",only(get(settings::keys::form)))
         .route("/confirmation", only(get(settings::confirmation::show).post(settings::confirmation::create)))
         .route("/confirmation/new", only(get(settings::confirmation::new)))
         .route("/settings", only(get(settings::root)))
@@ -757,7 +763,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
     let broadcast_json = original_method == Method::POST && route_path.starts_with("/broadcasts/");
-    let json_post = (bot_json || broadcast_json || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    let json_post = (bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
     let (form, body) = if form_post || json_post {
@@ -855,7 +861,12 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     // rack-attack: after the session middleware, before everything else.
     let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
     let address = rate_limit::client_key(&app.config, request.headers(), peer);
-    if let Some(retry_after) = app.limiter.hit(request.method(), &params.route_path, &address, now) {
+    let carries_input=request.uri().query().is_some_and(|q|!q.is_empty())
+        || request.headers().get(header::CONTENT_LENGTH).is_some_and(|v|v.to_str().is_ok_and(|v|v.parse::<u64>().is_ok_and(|n|n>0)))
+        || request.headers().contains_key(header::TRANSFER_ENCODING);
+    let limited=app.limiter.hit(request.method(), &params.route_path, &address, now)
+        .or_else(||app.limiter.setup_token(request.method(), &params.route_path, &address, now,carries_input));
+    if let Some(retry_after) = limited {
         return finish(&app, &session, &before, &nonce, now, false, rate_limit::throttled(retry_after));
     }
 

@@ -11,10 +11,11 @@ fn ledger_jobs_implement_the_merged_scheduler_contract() {
     let (_d, o, s) = common::install_alpaca();
     let registered: Vec<Box<dyn jobs::Job>> = sync::jobs::register(&o.primary,
         &deltabadger::venue::alpaca::LiveFactory::new(), Rc::new(sync::balances::NoPrices)).unwrap();
-    assert_eq!(registered.len(), 2);
+    assert_eq!(registered.len(), 3);
     assert_eq!(registered[0].spec().name, "ledger_sync");
     assert_eq!(registered[0].spec().scope.as_deref(), Some(s.api_key_id.to_string().as_str()));
     assert_eq!(registered[1].spec().name, "balance_sync");
+    assert_eq!((registered[2].spec().name,registered[2].spec().scope,registered[2].spec().schedule), ("credential_scope_factory",None,None));
 }
 
 #[test]
@@ -32,6 +33,9 @@ fn stock_freshness_uses_completed_stock_jobs_and_scoped_ledger_success() {
     jobs::state::record_success(&o.primary, "ledger_sync", Some("999"), now()).unwrap();
     assert!(staleness::stale(&o.primary, &bot, now()).unwrap().is_some(), "another key cannot clear it");
     jobs::state::record_success(&o.primary, "ledger_sync", Some(&scope), now()).unwrap();
+    assert!(staleness::stale(&o.primary,&bot,now()).unwrap().is_some(),"a timestamp without the ledger producer is stale");
+    let version=model::credential_version_by_id(&o.primary,s.api_key_id).unwrap().unwrap();
+    model::credential_write(&o.primary,&Some(version.clone()),|tx|sync::cache::record_ledger(tx,s.api_key_id,&version,now())).unwrap();
     assert!(staleness::stale(&o.primary, &bot, now()).unwrap().is_none());
     assert!(staleness::stale(&o.primary, &bot, now()+Duration::hours(49)).unwrap().is_none());
     assert!(staleness::stale(&o.primary, &bot, now()+Duration::hours(49)+Duration::seconds(1)).unwrap().is_some());

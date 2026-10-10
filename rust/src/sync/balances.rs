@@ -11,7 +11,7 @@ use super::activities::Raw;
 use crate::jobs::data_api::{ApiError, PriceFuture, PriceSource};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
-use super::{commit, load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread, LIVE_REFUSED};
+use super::{ load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread, LIVE_REFUSED};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::ruby::BigDec;
@@ -173,12 +173,18 @@ pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unr
 /// `balances_synced_at` moves in the last one.
 pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
                                 -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_captured(db, venue, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                -> Result<Result<Summary, Failure>, SyncError> {
     let catalog = phase(db, move |c| catalog(c, key_id)).await?;
     // A failure the job only records (`condemn`: #handle_api_key_failure marks a key Alpaca calls unauthorized incorrect).
     let fail = |text: String, condemn: bool| {
         let (creds, now) = (credentials.clone(), clock.now());
         async move {
-            let error = commit(db, move |c| {
+            let error = super::commit_for(db, version, move |c| {
                 if condemn && text.contains("unauthorized") {
                     c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
                 }
@@ -255,7 +261,11 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn Pr
     // stored as an infinite value and reported as a success. Here the sync fails and writes no balance.
     if !fresh.values().all(|p| within(price_f(p))) { return fail(PRICE_OUT_OF_RANGE.into(), false).await; }
     let (user_id, exchange_id) = (catalog.user_id, catalog.exchange_id);
-    let last = phase(db, move |c| last_prices(c, user_id, exchange_id)).await?;
+    let origin = version.clone();
+    let (last, allow_old) = phase(db, move |c| {
+        let allowed = super::cache::produced_by(c, user_id, exchange_id, &origin).map_err(|_| SyncError("cannot read balance cache origin".into()))?;
+        Ok((if allowed {last_prices(c, user_id, exchange_id)?} else {HashMap::new()}, allowed))
+    }).await?;
     for (asset_id, total) in &held {
         let Some(asset) = assets.iter().find(|a| a.id == *asset_id) else { continue };
         let price = match fresh.get(&asset.external_id) {
@@ -269,19 +279,27 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn Pr
     // The rows, `BATCH` at a time; then what is gone, and the key's clock in the last unit.
     let now = clock.now();
     let (held, fresh) = (Arc::new(held), Arc::new(fresh));
+    let origin = version.clone();
+    super::commit_for(db, version, move |c| {
+        super::cache::record(c, user_id, exchange_id, &origin, false, now).map_err(|_| SyncError("cannot record balance cache origin".into()))
+    }).await?;
     let mut summary = Summary::default();
     for from in (0..held.len()).step_by(BATCH) {
         let (held, assets, fresh) = (held.clone(), assets.clone(), fresh.clone());
-        summary = commit(db, move |c| upsert(c, user_id, exchange_id, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now)).await?;
+        summary = super::commit_for(db, version, move |c| upsert(c, user_id, exchange_id, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
     }
     let kept: HashSet<i64> = held.iter().map(|(id, _)| *id).collect();
     let mut gone = phase(db, move |c| gone(c, user_id, exchange_id, &kept)).await?;
     loop {
         let rest = gone.split_off(gone.len().min(BATCH));
         let last = rest.is_empty();
-        commit(db, move |c| {
+        let origin = version.clone();
+        super::commit_for(db, version, move |c| {
             for id in &gone { c.execute("DELETE FROM account_balances WHERE id = ?1", [id])?; }
-            if last { c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?; }
+            if last {
+                c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
+                super::cache::record(c, user_id, exchange_id, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
+            }
             Ok(())
         }).await?;
         if last { break; }
@@ -435,14 +453,14 @@ fn last_prices(c: &Connection, user_id: i64, exchange_id: i64) -> Result<HashMap
 
 /// AccountBalance::Sync#sync!'s write for at most `BATCH` holdings: each upserted on (user, exchange, asset).
 #[allow(clippy::too_many_arguments)]
-fn upsert(c: &Connection, user_id: i64, exchange_id: i64, held: &[(i64, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
-          now: DateTime<Utc>) -> Result<Summary, SyncError> {
+fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchange_id: i64, held: &[(i64, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
+          now: DateTime<Utc>, allow_old: bool) -> Result<Summary, SyncError> {
     let at = sql_time(now);
     for (asset_id, total) in held {
         let Some(asset) = assets.iter().find(|a| a.id == *asset_id) else { continue };
         let existing = c.query_row("SELECT id, usd_price FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3 LIMIT 1",
                                    params![user_id, exchange_id, asset_id], |r| Ok((r.get::<_, i64>(0)?, stored_decimal(r.get_ref(1)?, 8)))).optional()?;
-        let (id, old_price) = match existing { Some((id, price)) => (Some(id), price?), None => (None, None) };
+        let (id, old_price) = match existing { Some((id, price)) => (Some(id), if allow_old {price?} else {None}), None => (None, None) };
         let free = cast_decimal(total, 16).to_f();
         // Checked before the first unit; checked again here, so no unit ever writes a value that is no number.
         let value = |price: &BigDec| Some(value_of(total, price)).filter(|v| within(*v)).ok_or_else(|| SyncError(VALUE_OUT_OF_RANGE.into()));

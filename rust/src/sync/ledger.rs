@@ -107,6 +107,7 @@ pub struct Outcome {
 /// `last_synced_at` any more was left behind such a handback, and is ignored.
 #[derive(Clone, Debug, PartialEq)]
 struct Import {
+    credential_origin: Value,
     /// The last activity id stored: the next run's first `page_token`.
     cursor: String,
     /// Where each earlier run of this import stopped, the last one's (`cursor`) included: an import that comes to
@@ -133,21 +134,21 @@ fn micros(t: Option<DateTime<Utc>>) -> Option<i64> { t.map(|t| t.timestamp_micro
 /// Whether the key has an import record at all, and the import it describes when it is still about this state of the
 /// key. A record that is not (Rails moved the watermark since, or the row is not this port's JSON) is ignored, and
 /// removed by the run that completes.
-fn load_import(c: &Connection, key: &Key) -> Result<(bool, Option<Import>), SyncError> {
+fn load_import(c: &Connection, key: &Key, version: &crate::engine::model::CredentialVersion) -> Result<(bool, Option<Import>), SyncError> {
     let raw: Option<Option<String>> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [import_key(key.id)], |r| r.get(0)).optional()?;
     let Some(raw) = raw else { return Ok((false, None)) };
     let Some(v) = raw.and_then(|text| serde_json::from_str::<Value>(&text).ok()) else { return Ok((true, None)) };
     let time = |k: &str| v[k].as_i64().and_then(DateTime::<Utc>::from_timestamp_micros);
     let (Some(cursor), Some(started)) = (v["cursor"].as_str(), time("started")) else { return Ok((true, None)) };
-    if v["watermark"].as_i64() != micros(key.last_synced_at) { return Ok((true, None)); }
+    if !version.matches_cache_stamp(&v["credential_origin"]) || v["watermark"].as_i64() != micros(key.last_synced_at) { return Ok((true, None)); }
     let cursors = v["cursors"].as_array().into_iter().flatten().filter_map(|c| c.as_str().map(str::to_string)).collect();
     let count = |k: &str| v[k].as_u64().unwrap_or(0) as usize;
-    Ok((true, Some(Import { cursor: cursor.to_string(), cursors, runs: count("runs"), pages: count("pages"), after: v["after"].as_str().map(str::to_string), started,
+    Ok((true, Some(Import { credential_origin: v["credential_origin"].clone(), cursor: cursor.to_string(), cursors, runs: count("runs"), pages: count("pages"), after: v["after"].as_str().map(str::to_string), started,
                             max_seen: time("max_seen"), min_skipped: time("min_skipped"), stored: count("stored"), watermark: v["watermark"].as_i64() })))
 }
 
-fn save_import(c: &Connection, key_id: i64, import: &Import, now: DateTime<Utc>) -> Result<(), SyncError> {
-    let value = json!({ "cursor": import.cursor, "cursors": import.cursors, "runs": import.runs, "pages": import.pages, "after": import.after,
+fn save_import(c: &crate::engine::model::FencedTransaction<'_>, key_id: i64, import: &Import, now: DateTime<Utc>) -> Result<(), SyncError> {
+    let value = json!({ "credential_origin": import.credential_origin, "cursor": import.cursor, "cursors": import.cursors, "runs": import.runs, "pages": import.pages, "after": import.after,
                         "started": import.started.timestamp_micros(), "max_seen": micros(import.max_seen), "min_skipped": micros(import.min_skipped),
                         "stored": import.stored, "watermark": import.watermark });
     put_config(c, &import_key(key_id), &value, now)
@@ -232,17 +233,30 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, cr
 /// row: its grouping of consecutive legs, its dedup by the group's first id.
 pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, credentials: &Credentials, clock: &dyn Clock, limits: Limits)
                                        -> Result<Result<Outcome, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_captured(db, venue, key_id, credentials, clock, limits, &version).await
+}
+
+pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, credentials: &Credentials, clock: &dyn Clock, limits: Limits, version: &crate::engine::model::CredentialVersion)
+                                       -> Result<Result<Outcome, Failure>, SyncError> {
     let now = clock.now();
-    let (key, (_, resumed)) = phase(db, move |c| { let key = load_key(c, key_id)?; let import = load_import(c, &key)?; Ok((key, import)) }).await?;
+    let captured=version.clone();
+    let (key, raw_watermark, (_, resumed)) = phase(db, move |c| {
+        let mut key = load_key(c, key_id)?;
+        let raw_watermark=micros(key.last_synced_at);
+        let import = load_import(c, &key, &captured)?;
+        if !super::cache::ledger_produced_by(c,key_id,&captured)? { key.last_synced_at=None; }
+        Ok((key,raw_watermark,import))
+    }).await?;
     let key = Arc::new(key);
     let user_id = key.user_id;
     expire_owed(db, key_id, user_id, now).await?;
     let fail = |text: String, raised: bool| {
         let (creds, now) = (credentials.clone(), clock.now());
         async move {
-            let error = commit(db, move |c| record_sync_error(c, key_id, &text, &creds)).await?;
+            let error = super::commit_for(db, version, move |c| record_sync_error(c, key_id, &text, &creds)).await?;
             // A returned Failure lets the job go on to the transfer matcher; a raise ends it.
-            if !raised { link_transfers(db, user_id, now).await?; }
+            if !raised { link_transfers_for(db, user_id, Some(version), now).await?; }
             Ok::<_, SyncError>(Err(Failure { error, raised }))
         }
     };
@@ -250,11 +264,11 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
 
     // Where this run starts: where an unfinished import stopped, or the watermark less the overlap. A stored
     // watermark ahead of now (Rails left one behind a split dated ahead, before it capped the watermark too) is read as now.
-    let import = resumed.unwrap_or_else(|| Import { cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),
-                                                    started: now, max_seen: None, min_skipped: None, stored: 0, watermark: micros(key.last_synced_at) });
+    let import = resumed.unwrap_or_else(|| Import { credential_origin: version.cache_stamp(), cursor: String::new(), cursors: vec![], runs: 0, pages: 0, after: key.last_synced_at.and_then(|w| after(w.min(now))),
+                                                    started: now, max_seen: None, min_skipped: None, stored: 0, watermark: raw_watermark });
     // An import that does not end is stopped: its record goes, the watermark stays, and the key and the job say why.
     let give_up = |text: &'static str| async move {
-        commit(db, move |c| Ok(c.execute("DELETE FROM app_configs WHERE key = ?1", [import_key(key_id)])?)).await?;
+        super::commit_for(db, version, move |c| Ok(c.execute("DELETE FROM app_configs WHERE key = ?1", [import_key(key_id)])?)).await?;
         fail(text.to_string(), true).await
     };
     if import.runs >= limits.runs { return give_up("the ledger import did not end within its runs: it was stopped, and starts again at the next sync").await; }
@@ -264,7 +278,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
     let continued = !import.cursor.is_empty();
     let import = Import { runs: import.runs + 1, ..import };
     let counted = import.clone();
-    commit(db, move |c| save_import(c, key_id, &counted, now)).await?;
+    super::commit_for(db, version, move |c| save_import(c, key_id, &counted, now)).await?;
     let started = import.started;
     // Fetch: no database handle in reach, so no transaction can be open across a request.
     let cursor = (!import.cursor.is_empty()).then(|| import.cursor.clone());
@@ -290,12 +304,12 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
             let effects = { let (key, batch) = (key.clone(), batch.clone()); phase(db, move |c| split_effects(c, &key, &batch[from], now)).await? };
             // A split's unit, alone: past the engine's guard whether or not it moves a counter, since eligibility reads the
             // account's split rows (`eligibility::history_reasons`).
-            progress = commit_bots(db, move |c| Ok((store(c, &key, &batch[from..from + 1], Some(&effects), progress, now)?, true))).await?;
+            progress = super::commit_bots_for(db, version, move |c| Ok((store(c, &key, &batch[from..from + 1], Some(&effects), progress, now)?, true))).await?;
             from += 1;
         } else {
             let end = entries.len().min(from + BATCH);
             let to = (from..end).find(|i| split(&entries[*i])).unwrap_or(end);
-            progress = commit(db, move |c| store(c, &key, &batch[from..to], None, progress, now)).await?;
+            progress = super::commit_for(db, version, move |c| store(c, &key, &batch[from..to], None, progress, now)).await?;
             from = to;
         }
     }
@@ -304,7 +318,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
     loop {
         let (key, listings) = (key.clone(), progress.listings.clone());
         let page = phase(db, move |c| unresolved_assets(c, &key, &listings, now, after_id)).await?;
-        if !page.found.is_empty() { commit(db, move |c| set_assets(c, &page.found)).await?; }
+        if !page.found.is_empty() { super::commit_for(db, version, move |c| set_assets(c, &page.found)).await?; }
         match page.next { Some(id) => after_id = id, None => break }
     }
     let mut outcome = progress.out;
@@ -316,7 +330,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
         cursors.push(cursor.clone());
         let next = Import { cursor, cursors, pages: import.pages + fetched.pages, max_seen, min_skipped, stored: import.stored + outcome.imported, ..import };
         crate::engine::log(&format!("[alpaca] ledger import of api key {key_id} is not complete: {} activities stored so far, the next run continues", next.stored));
-        commit(db, move |c| save_import(c, key_id, &next, now)).await?;
+        super::commit_for(db, version, move |c| save_import(c, key_id, &next, now)).await?;
         return Ok(Ok(outcome));
     }
     // The watermark comes from the data, never the clock, and never passes a row that failed to save. Nor does it
@@ -324,10 +338,12 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
     // carry it into the future, and every activity before that date would then be outside every later window.
     let watermark = [max_seen, min_skipped].into_iter().flatten().min().or(key.last_synced_at).map(|w| w.min(started));
     // `update!`: nothing is written, and updated_at does not move, when neither column changes.
-    let changed = micros(watermark) != micros(key.last_synced_at) || key.last_sync_error.is_some();
+    let changed = micros(watermark) != raw_watermark || key.last_sync_error.is_some();
     // The import's record goes when a run completes: this run's count, an import's, or one left behind a handback.
     {
-        commit(db, move |c| {
+        let producer=version.clone();
+        super::commit_for(db, version, move |c| {
+            super::cache::record_ledger(c,key_id,&producer,now)?;
             if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = NULL, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id])?; }
             c.execute("DELETE FROM app_configs WHERE key = ?1", [import_key(key_id)])?;
             Ok(())
@@ -335,7 +351,7 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
     }
     outcome.watermark = watermark;
     outcome.complete = true;
-    outcome.linked = link_transfers(db, user_id, clock.now()).await?;
+    outcome.linked = link_transfers_for(db, user_id, Some(version), clock.now()).await?;
     Ok(Ok(outcome))
 }
 
@@ -537,7 +553,7 @@ fn split(e: &Entry) -> bool { e.entry_type == ADJUSTMENT && e.raw.value["corpora
 /// AccountTransactionSync#store! for one unit, inside the caller's write transaction: at most `BATCH` entries, or one
 /// split with the `effects` the read before it computed. A split row is stored, skipped and announced exactly as
 /// Rails does it: a group is a duplicate when its first leg's id is stored, or is a leg of a stored merged row.
-fn store(c: &Connection, key: &Key, batch: &[Entry], effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
+fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, batch: &[Entry], effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
     let no_effects = || SyncError("a split row outside a unit of its own".into());
     for (index, e) in batch.iter().enumerate() {
         let tx_id = present(&e.tx_id);
@@ -752,7 +768,7 @@ fn unresolved_assets(c: &Connection, key: &Key, l: &Listings, now: DateTime<Utc>
 }
 
 /// #resolve_recent_assets, write side: a recorded asset is never replaced.
-fn set_assets(c: &Connection, found: &[(i64, i64)]) -> Result<(), SyncError> {
+fn set_assets(c: &crate::engine::model::FencedTransaction<'_>, found: &[(i64, i64)]) -> Result<(), SyncError> {
     for (asset, id) in found {
         c.execute("UPDATE account_transactions SET base_asset_id = ?1 WHERE id = ?2 AND base_asset_id IS NULL", params![asset, id])?;
     }
@@ -806,10 +822,16 @@ fn link(c: &Connection, pairs: &[(i64, i64)], now: DateTime<Utc>) -> Result<usiz
 /// TransferMatcher.run! for one user, a page of withdrawals at a time: a read that pairs, then one write transaction
 /// for that page's links.
 pub async fn link_transfers(db: &Db, user_id: i64, now: DateTime<Utc>) -> Result<usize, SyncError> {
+    link_transfers_for(db, user_id, None, now).await
+}
+async fn link_transfers_for(db: &Db, user_id: i64, version: Option<&crate::engine::model::CredentialVersion>, now: DateTime<Utc>) -> Result<usize, SyncError> {
     let (mut after_id, mut linked) = (0, 0);
     loop {
         let page = phase(db, move |c| transfer_matches(c, user_id, after_id)).await?;
-        if !page.pairs.is_empty() { linked += commit(db, move |c| link(c, &page.pairs, now)).await?; }
+        if !page.pairs.is_empty() { linked += match version {
+            Some(version) => super::commit_for(db, version, move |c| link(c, &page.pairs, now)).await?,
+            None => commit(db, move |c| link(c, &page.pairs, now)).await?,
+        }; }
         match page.next { Some(id) => after_id = id, None => return Ok(linked) }
     }
 }

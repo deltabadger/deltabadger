@@ -99,28 +99,38 @@ async fn a_fill_the_follow_up_poll_writes_is_announced_once() {
 async fn every_tick_and_every_poll_announce_their_bot_once() {
     let open = serde_json::json!({ "status": "open", "price": "0", "vol": "60", "vol_exec": "0", "cost": "0", "oflags": "viqc",
                                    "descr": { "type": "buy", "ordertype": "market", "price": "0" } });
-    let answer = |order: serde_json::Value| serde_json::json!({ "error": [], "result": { "OFAKE-1": order } });
-    // QueryOrders answers the follow-up poll, the next tick's sweep, the second order's poll, and then every query the same.
-    let v = FakeVenue::from_script(&serde_json::json!({ "http": { "/0/private/QueryOrders": [answer(open.clone()), answer(open.clone()), answer(open), answer(filled())] } }))
-        .ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "1", "0");
-    let (_d, mut e, bots, _s) = engine(1, v);
+    let answer = |id: &str, order: serde_json::Value| serde_json::json!({ "error": [], "result": { id: order } });
+    // First order: its initial poll, still-open retry and the next tick's sweep. Then the second order's
+    // poll closes that order, and the first order's next retry closes the first. Each poll and each tick
+    // announces its bot once, including a retry and a scheduled tick due in the same engine step.
+    let v = FakeVenue::from_script(&serde_json::json!({ "http": { "/0/private/QueryOrders": [
+        answer("OFAKE-1", open.clone()), answer("OFAKE-1", open.clone()), answer("OFAKE-1", open),
+        answer("OFAKE-2", filled()), answer("OFAKE-1", filled())
+    ] } })).ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "1", "0");
+    let (_d, mut e, bots, _s) = engine(1, v.clone());
     let mut rx = e.subscribe_to(EngineEvent::is_order);
     run::step(&mut e, &at("2026-09-01T10:00:00.5Z")).await.unwrap();
     let tx = rows(&e.primary)[0].1;
     drained(&mut rx);
+    assert_eq!(v.calls("/0/private/QueryOrders"), 0);
     run::step(&mut e, &at("2026-09-01T10:00:05.5Z")).await.unwrap(); // the poll writes `open` over `unknown`
     assert_eq!(drained(&mut rx), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }]);
+    assert_eq!(v.calls("/0/private/QueryOrders"), 1);
     let updates = |heard: Vec<EngineEvent>| heard.into_iter().filter(|event| matches!(event, EngineEvent::OrderUpdated { .. })).collect::<Vec<_>>();
-    // The sweep finds it as it was, and a second order is placed: the tick is announced all the same, and so is the
-    // second order's poll, with nothing read to decide.
     run::step(&mut e, &at("2026-09-08T10:00:00.5Z")).await.unwrap();
-    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "one overdue poll and one tick in this pass");
+    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "one for the still-open retry and one for the tick");
+    assert_eq!(v.calls("/0/private/QueryOrders"), 3, "the retry and tick sweep each queried the first order");
     run::step(&mut e, &at("2026-09-08T10:00:05.5Z")).await.unwrap();
     assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }], "the second order's poll");
-    run::step(&mut e, &at("2026-09-15T10:00:00.5Z")).await.unwrap(); // the sweep before the third order finds the first filled
-    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "one overdue poll and one tick, however many rows they wrote");
+    assert_eq!(v.calls("/0/private/QueryOrders"), 4);
+    let second: i64 = e.primary.query_row("SELECT external_status FROM transactions WHERE external_id = 'OFAKE-2'", [], |r| r.get(0)).unwrap();
+    assert_eq!(second, 2);
+    run::step(&mut e, &at("2026-09-15T10:00:00.5Z")).await.unwrap();
+    assert_eq!(updates(drained(&mut rx)), vec![EngineEvent::OrderUpdated { bot_id: bots[0] }; 2], "one for the retry that closes the first order and one for the tick");
+    assert_eq!(v.calls("/0/private/QueryOrders"), 5, "the tick does not query already closed orders");
     let filled: i64 = e.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
     assert_eq!(filled, 2);
+    assert_eq!(rows(&e.primary).len(), 3);
 }
 
 /// A tick that fails after its sweep committed a fill still announces the fill: the order has left the waiting set, and

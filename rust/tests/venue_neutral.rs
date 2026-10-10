@@ -38,7 +38,9 @@ fn a_failed_status_changes_nothing() {
     let before = row();
     let state = OrderState { asset_class: None, txid: "O1".into(), status: OrderStatus::Failed, price: Some(BigDec::zero()), amount: None, quote_amount: None,
                              amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: false, sell: false, pair: None };
-    polling::apply_in(&o.primary, bot, tx, &state, true, "2026-09-01T10:00:06Z".parse().unwrap()).unwrap();
+    { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
+    polling::apply_in(&fenced, bot, tx, &state, true, "2026-09-01T10:00:06Z".parse().unwrap()).unwrap();
+    unit.commit().unwrap(); }
     assert_eq!(row(), before, "Rails' poll jobs have no branch for :failed");
 }
 

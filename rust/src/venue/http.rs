@@ -66,6 +66,7 @@ pub const MAX_BODY: usize = 16 * 1024 * 1024;
 fn over_limit(limit: usize) -> TransportError { TransportError::MaybeSent(format!("the response body is over {limit} bytes")) }
 
 pub trait Transport {
+    fn redact_diagnostic(&self,text:&str)->String{text.to_string()}
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
     /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
     /// that has the whole answer in hand (the scripted one, a test wrapper) is checked after the fact.
@@ -152,16 +153,18 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String> }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String> }
 
 impl ReqwestTransport {
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, key, secret, refused: None } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None } }
+    pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()) } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new() } }
 }
 
 impl Transport for ReqwestTransport {
+    fn redact_diagnostic(&self,text:&str)->String{crate::crypto::scrub_known(text,&self.sensitive.iter().map(String::as_str).collect::<Vec<_>>())}
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, MAX_BODY).await }
 
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
@@ -188,7 +191,12 @@ impl Transport for ReqwestTransport {
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
             }
         }
-        read_limited(b.send().await.map_err(classify)?, limit).await
+        let mut response=read_limited(b.send().await.map_err(classify)?, limit).await?;
+        if !(200..300).contains(&response.status) || decode_json(&response.body).is_err() {
+            eprintln!("{}",self.redact_diagnostic(&diagnostic(Some(response.status),&response.body)));
+        }
+        response.body=self.redact_diagnostic(&response.body);
+        Ok(response)
     }
 }
 
@@ -311,4 +319,12 @@ impl Transport for ScriptedTransport {
             }),
         }
     }
+}
+
+
+/// R1: free-text venue bodies never enter a log, regardless of their encoding.
+pub fn diagnostic(status: Option<u16>, body: &str) -> String {
+    let code=match serde_json::from_str::<Value>(body){Ok(v)=>v.get("code").and_then(Value::as_u64),Err(_)=>None};
+    let status=match status{Some(v)=>v.to_string(),None=>"unavailable".into()};
+    match code { Some(code)=>format!("[Alpaca] HTTP {status}; code {code}; venue response diagnostic omitted"), None=>format!("[Alpaca] HTTP {status}; venue response diagnostic omitted") }
 }

@@ -29,6 +29,14 @@ pub fn partial(c: &Connection, user_id: i64, balances: &[Balance]) -> Result<boo
 
 /// `today_row`: none when the scope has neither a balance nor a row.
 pub fn today_row(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger: &Summary) -> Result<Option<Day>, FiguresError> {
+    if c.is_autocommit(){
+        let tx=c.unchecked_transaction()?;
+        let origin=crate::sync::cache::capture_read(&tx,user_id,exchange_id).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?;
+        let mut day=today_row(&tx,user_id,exchange_id,ledger)?;tx.commit()?;
+        if !crate::sync::cache::read_is_current(c,&origin).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?{if let Some(day)=&mut day{day.partial=true;}}
+        return Ok(day)
+    }
+
     let balances = figures::balances(c, user_id, exchange_id)?;
     let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2))", rusqlite::params![user_id, exchange_id], |r| r.get(0))?;
     if balances.is_empty() && !rows { return Ok(None); }
@@ -36,7 +44,7 @@ pub fn today_row(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger:
     let f = figures::compute(c, user_id, ledger, &balances, &pending)?;
     let (held_value, held_cost) = f.without_cash()?;
     Ok(Some(Day { value: f.value, invested: f.invested, held_value: Some(held_value), held_cost: Some(held_cost),
-                  partial: partial(c, user_id, &balances)? || ledger.incomplete }))
+                  partial: crate::sync::cache::stale(c, user_id, exchange_id).map_err(|_| FiguresError::Data("balance cache provenance unavailable".into()))? || partial(c, user_id, &balances)? || ledger.incomplete }))
 }
 
 /// `venues`: the exchanges the account has rows or balances on, by id.
@@ -52,7 +60,7 @@ fn values(day: &Day) -> Result<[Option<String>; 4], FiguresError> {
 }
 
 /// `PortfolioSnapshot.upsert(row, unique_by: %i[user_id date], record_timestamps: true)`, as Rails generates it.
-pub fn upsert_whole(c: &Connection, user_id: i64, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
+pub fn upsert_whole(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
     let [value, invested, held_value, held_cost] = values(day)?;
     c.prepare_cached(
         "INSERT INTO portfolio_snapshots (user_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at) \
@@ -62,11 +70,12 @@ pub fn upsert_whole(c: &Connection, user_id: i64, date: NaiveDate, day: &Day) ->
          THEN portfolio_snapshots.updated_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW') END), value_usd = excluded.value_usd, invested_usd = excluded.invested_usd, \
          held_value_usd = excluded.held_value_usd, held_cost_usd = excluded.held_cost_usd, partial = excluded.partial")?
         .execute(rusqlite::params![user_id, date.to_string(), value, invested, held_value, held_cost, day.partial])?;
+    record_origin(c,user_id,None,date)?;
     Ok(())
 }
 
 /// `PortfolioVenueSnapshot.upsert_all(rows, unique_by: %i[user_id exchange_id date], record_timestamps: true)`.
-pub fn upsert_venue(c: &Connection, user_id: i64, exchange_id: i64, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
+pub fn upsert_venue(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchange_id: i64, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
     let [value, invested, held_value, held_cost] = values(day)?;
     c.prepare_cached(
         "INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at) \
@@ -76,6 +85,7 @@ pub fn upsert_venue(c: &Connection, user_id: i64, exchange_id: i64, date: NaiveD
          THEN portfolio_venue_snapshots.updated_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW') END), value_usd = excluded.value_usd, invested_usd = excluded.invested_usd, \
          held_value_usd = excluded.held_value_usd, held_cost_usd = excluded.held_cost_usd, partial = excluded.partial")?
         .execute(rusqlite::params![user_id, exchange_id, date.to_string(), value, invested, held_value, held_cost, day.partial])?;
+    record_origin(c,user_id,Some(exchange_id),date)?;
     Ok(())
 }
 
@@ -101,12 +111,17 @@ pub fn today_rows(c: &Connection, user_id: i64, walked: &Walked) -> Result<Vec<(
 }
 
 /// `record!`'s upserts: today's rows, dated `today`.
-pub fn write(c: &Connection, user_id: i64, rows: &[(Option<i64>, Day)], today: NaiveDate) -> Result<(), FiguresError> {
+pub fn write(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, rows: &[(Option<i64>, Day)], today: NaiveDate) -> Result<(), FiguresError> {
     for (scope, day) in rows {
         crate::figures::budget::charge(1, 0)?;
         match scope { None => upsert_whole(c, user_id, today, day)?, Some(id) => upsert_venue(c, user_id, *id, today, day)? }
     }
     Ok(())
+}
+
+fn record_origin(c:&crate::engine::model::FencedTransaction<'_>,user:i64,scope:Option<i64>,date:NaiveDate)->Result<(),FiguresError>{
+    let key=crate::jobs::state::key("snapshot_origin",Some(&format!("{user}:{}:{date}",match scope{Some(v)=>v.to_string(),None=>"all".into()})));
+    crate::app_config::set_plain(c,&key,&c.producer_stamp().to_string(),chrono::Utc::now()).map_err(FiguresError::Data)
 }
 
 #[cfg(test)]

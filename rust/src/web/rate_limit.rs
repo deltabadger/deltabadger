@@ -39,9 +39,22 @@ impl Limiter {
     /// Counts this request. `Some(seconds)` when it is over its rule's limit: the `retry-after` value.
     /// `method` is the one in effect after `_method` (Rack::MethodOverride runs before rack-attack).
     pub fn hit(&self, method: &Method, route_path: &str, address: &str, now: DateTime<Utc>) -> Option<i64> {
+        let route_path=route_path.split('.').next().unwrap_or(route_path);
         let (rule, _, limit) = RULES.iter().filter(|_| method == Method::POST).copied()
+            .chain([("users/confirmation","/confirmation",5),("setup","/setup",5),("setup/platform_connection","/setup/platform_connection",5),("csp-report","/csp-report",30)].into_iter().filter(|_|method==Method::POST))
+            .chain([("users/password","/password",5)].into_iter().filter(|_|matches!(*method,Method::POST|Method::PATCH|Method::PUT)))
             .chain(OAUTH_RULES.iter().filter(|(_, limited, _, _)| method.as_str() == *limited).map(|&(rule, _, path, limit)| (rule, path, limit)))
             .find(|(_, path, _)| *path == route_path)?;
+        self.count(rule,limit,address,now)
+    }
+
+    /// Rack::Attack setup/token: any input on GET/HEAD counts, a bare form read stays free.
+    pub fn setup_token(&self,method:&Method,route_path:&str,address:&str,now:DateTime<Utc>,carries_input:bool)->Option<i64>{
+        if matches!(*method,Method::GET|Method::HEAD) && route_path.split('.').next()==Some("/setup") && carries_input {
+            self.count("setup/token",5,address,now)
+        }else{None}
+    }
+    fn count(&self,rule:&'static str,limit:u32,address:&str,now:DateTime<Utc>)->Option<i64>{
         let epoch = now.timestamp();
         let window = epoch.div_euclid(PERIOD);
         let retry_after = PERIOD - epoch.rem_euclid(PERIOD);
@@ -117,8 +130,7 @@ fn address(entry: &str, authority: bool) -> Option<IpAddr> {
 /// proxy; the first address that is not one is the client. When every hop is a trusted proxy the
 /// furthest one is taken. This is ActionDispatch::RemoteIp#calculate_ip (spoofing check off, as
 /// config/application.rb sets it) with two changes, both where Rails can be told an address:
-/// - Rails puts the peer last, so a peer that is no trusted proxy can name any address in a header
-///   and be keyed on it. Here such a peer is the client;
+/// - Rails' rack-attack now also ignores headers from an untrusted peer (#499); such a peer is the client;
 /// - Rails drops an entry it cannot read and goes on to the one before it, which only the caller
 ///   wrote. Here the walk ends at an entry it cannot read, and the answer is the last trusted hop.
 ///

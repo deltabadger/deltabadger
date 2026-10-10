@@ -134,6 +134,10 @@ fn oracle_split_verdict(rows: &[Value]) -> &'static str {
 fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let tx = |out: &Value| rows(out, "account_transactions");
     Some(match name {
+        // R2: these three credential-bearing diagnostics replace the entire text.
+        "balances-snapshots_network" => only_the_error_text_differs(rails, rust, "Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \"[redacted]-api.alpaca.markets\" port 443", deltabadger::crypto::VENUE_TEXT_REDACTED),
+        "ledger-long_error" => only_the_error_text_differs(rails, rust, "forbidden for [redacted] at https://[redacted]-api.alpaca.markets/v2/account/activities?[redacted] eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee token [redacted] account [reda", deltabadger::crypto::VENUE_TEXT_REDACTED),
+        "ledger-network_pre_send" => only_the_error_text_differs(rails, rust, "Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \"[redacted]-api.alpaca.markets\" port 443", deltabadger::crypto::VENUE_TEXT_REDACTED),
         // A page token that did not move: both fail the sync, store nothing, leave the watermark and record the same
         // reason. Rails returns the failure (its job records it and goes on to the transfer matcher); Rust raises.
         "ledger-pages_stalled" => (|| {
@@ -177,12 +181,36 @@ fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(),
     };
     Some(match name {
         "balances-no_trade_market_price" => no_trade((Some(226.4), Some(2377.2), fresh.clone()), (0, 1)),
-        "balances-no_trade_keeps_last_price" => no_trade((Some(220.5), Some(2315.25), Some("2026-09-10 02:30:00".to_string())), (0, 1)),
+        "balances-no_trade_keeps_last_price" => no_trade((None, None, None), (0, 1)),
         "balances-no_trade_unpriced" => no_trade((None, None, None), (0, 1)),
         "balances-account_null" => only_the_error_text_differs(rails, rust, "NoMethodError: undefined method '[]' for nil", "unreadable account"),
         "balances-positions_not_array" => only_the_error_text_differs(rails, rust, "TypeError: no implicit conversion of String into Integer", "unreadable positions"),
         _ => return None,
     })
+}
+
+/// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
+const UNKNOWN_PRICE_ORIGIN:&[&str]=&["balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
+fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
+    if !UNKNOWN_PRICE_ORIGIN.contains(&name){return None;}
+    Some((|| {
+        let mut expected=rails.clone();
+        let rows=expected["changes"]["account_balances"].as_array_mut().ok_or("missing balance changes")?;
+        let actual=rust["changes"]["account_balances"].as_array().ok_or("missing Rust balance changes")?;
+        let mut reviewed=0;
+        for row in rows {
+            let Some(ours)=actual.iter().find(|other|other["id"]==row["id"]) else {return Err("missing balance id".into());};
+            if row["after"].is_null() || row["after"]["usd_price"]==ours["after"]["usd_price"]{continue;}
+            if row["before"]["usd_price"].is_null() || row["after"]["usd_price"]!=row["before"]["usd_price"] || row["after"]["priced_at"]!=row["before"]["priced_at"] || row["after"]["usd_value"].is_null(){return Err("Rails no longer reuses exactly the legacy price".into());}
+            for column in ["usd_price","usd_value","priced_at"] {
+                if !ours["after"][column].is_null(){return Err(format!("Rust reused an unknown-origin {column}"));}
+                row["after"][column]=Value::Null;
+            }
+            reviewed+=1;
+        }
+        if reviewed!=1{return Err(format!("expected exactly one reviewed price, found {reviewed}"));}
+        if expected==*rust{Ok(())}else{Err("a field besides the reviewed unavailable price differs".into())}
+    })())
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -211,7 +239,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match listed(name, rails_out, rust_out) {
+        match unknown_price_origin(name,rails_out,rust_out).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -219,9 +247,11 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    assert_eq!(divergences, ["balances-account_null", "balances-no_trade_keeps_last_price",
-                             "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array",
-                             "ledger-pages_stalled", "ledger-split_hostile_quantity"], "the listed divergences");
+    let mut expected=["balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+    expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
+    expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
+    expected.sort();
+    assert_eq!(divergences,expected,"the remaining divergences and all reviewed R legacy prices");
 
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
