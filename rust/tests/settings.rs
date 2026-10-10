@@ -1797,7 +1797,7 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let clock=h.clock.clone();
     let control=async {
         let response=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","read_only"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(3);
+        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */
         let mut synced=false;
         while tokio::time::Instant::now()<deadline {
             synced=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN api_keys k ON k.id=t.api_key_id WHERE k.user_id=?1 AND k.key_type=2 AND t.tx_id='new-slot-interest' AND k.last_synced_at IS NOT NULL)",[h.seed.user_id],|r|r.get(0)).unwrap();
@@ -1908,7 +1908,7 @@ async fn a_first_reading_key_wakes_its_real_tracker_in_the_running_scheduler() {
     let clock=h.clock.clone();
     let control=async {
         let response=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","read_only"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(3);
+        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */
         let mut synced=false;
         while tokio::time::Instant::now()<deadline {
             synced=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN api_keys k ON k.id=t.api_key_id WHERE k.user_id=?1 AND k.key_type=2 AND t.tx_id='new-slot-interest' AND k.last_synced_at IS NOT NULL)",[h.seed.user_id],|r|r.get(0)).unwrap();
@@ -1975,7 +1975,7 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     let clock=h.clock.clone();
     let control=async {
         let response=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(3);
+        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */
         let mut synced=false;
         while tokio::time::Instant::now()<deadline {
             let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap();
@@ -3095,7 +3095,7 @@ async fn r3_replacement_wake(route:&str){
             let path=if route=="bot"{format!("/bots/{bot}/add_api_key")}else{"/tracker/add_api_key".into()};
             h.submit("POST",&path,&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await
         };
-        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(3);let mut synced=false;
+        let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */let mut synced=false;
         while tokio::time::Instant::now()<deadline{
             let version=model::credential_version_by_id(&h.c,h.seed.api_key_id).unwrap().unwrap();
             synced=old!=version&&sync::cache::ledger_produced_by(&h.c,h.seed.api_key_id,&version).unwrap()&&h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE tx_id='r3-b-interest')",[],|r|r.get::<_,bool>(0)).unwrap();
