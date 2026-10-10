@@ -391,7 +391,7 @@ pub async fn account(
         locale_options,
         zone_label,
         zone_options,
-        zone_id: timezone::zone(&user.time_zone).map_or("UTC".into(), |z| z.name().into()),
+        zone_id: timezone::strict(&user.time_zone).map_or("UTC".into(), |z| z.name().into()),
         local_time,
         two_fa: user.otp_enabled,
         two_fa_button: ctx.t(if user.otp_enabled {
