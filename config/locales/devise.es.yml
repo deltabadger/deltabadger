@@ -53,9 +53,11 @@ es:
             signed_out: 'Sesión cerrada exitosamente.'
             already_signed_out: 'Sesión cerrada exitosamente.'
             two_factor:
+                title: "Verificación en dos pasos"
                 submit: "Verificar"
                 invalid_code: "Código incorrecto. Inténtalo de nuevo."
         failure:
+            locked: 'Tu cuenta está bloqueada.'
             already_authenticated: 'Ya has iniciado sesión.'
             inactive: 'Tu cuenta aún no está activada.'
             invalid: '%{authentication_keys} o contraseña inválidos.'

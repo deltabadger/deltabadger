@@ -52,9 +52,11 @@ el:
             signed_out: 'Αποσυνδέθηκες επιτυχώς.'
             already_signed_out: 'Αποσυνδέθηκες επιτυχώς.'
             two_factor:
+                title: "Έλεγχος ταυτότητας δύο παραγόντων"
                 submit: "Επαλήθευση"
                 invalid_code: "Λάθος κωδικός. Δοκίμασε ξανά."
         failure:
+            locked: 'Ο λογαριασμός σου είναι κλειδωμένος.'
             already_authenticated: 'Είσαι ήδη συνδεδεμένος.'
             inactive: 'Ο λογαριασμός σου δεν έχει ενεργοποιηθεί ακόμα.'
             invalid: 'Μη έγκυρο %{authentication_keys} ή κωδικός.'

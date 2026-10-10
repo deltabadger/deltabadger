@@ -52,9 +52,11 @@ sk:
             signed_out: 'Odhlasenie prebehlo uspesne.'
             already_signed_out: 'Odhlasenie prebehlo uspesne.'
             two_factor:
+                title: "Dvojfazove overenie"
                 submit: "Overit"
                 invalid_code: "Nespravny kod. Skuste to znova."
         failure:
+            locked: 'Vas ucet je zamknuty.'
             already_authenticated: 'Uz ste prihlaseny.'
             inactive: 'Vas ucet este nie je aktivovany.'
             invalid: 'Neplatny %{authentication_keys} alebo heslo.'

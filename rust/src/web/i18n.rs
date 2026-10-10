@@ -8,10 +8,9 @@ include!(concat!(env!("OUT_DIR"), "/translations.rs"));
 pub const DEFAULT: &str = "en";
 
 /// Keys Rails takes from a gem's own locale file, not from config/locales. Pinned by tests/i18n.rs:
-/// Devise's lock message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the ten
-/// of this app's locales the gem has a file for.
+/// ActiveModel's "taken" message, and the dotiw gem's unit names (`distance_of_time_in_words`) in the
+/// ten of this app's locales the gem has a file for.
 const FROM_GEMS: &[(&str, &str)] = &[
-    ("en.devise.failure.locked", "Your account is locked."),
     ("en.errors.messages.taken", "has already been taken"),
     ("da.datetime.dotiw.days.one", "1 dag"), ("da.datetime.dotiw.days.other", "%{count} dage"), ("da.datetime.dotiw.hours.one", "1 time"),
     ("da.datetime.dotiw.hours.other", "%{count} timer"), ("da.datetime.dotiw.less_than_x", "mindre end %{distance}"),

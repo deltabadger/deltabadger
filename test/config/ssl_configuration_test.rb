@@ -95,6 +95,7 @@ class SslConfigurationTest < ActiveSupport::TestCase
 
     assert config['force_ssl'], 'production with an https APP_ROOT_URL must force SSL'
     assert config['secure'], 'the session cookie must carry Secure'
+    assert config['remember_secure'], 'the remember-me cookie must carry Secure'
     # secure is set by the middleware stack on its own whenever force_ssl is on, so it
     # cannot show whether the cookie options were written. same_site can: left alone it
     # is a per-request Proc, which serialises to {}.
@@ -125,6 +126,7 @@ class SslConfigurationTest < ActiveSupport::TestCase
     refute config['force_ssl']
     refute config['assume_ssl']
     refute config['secure']
+    refute config['remember_secure'], 'a Secure remember-me cookie is never sent back over http'
   end
 
   private
@@ -143,6 +145,7 @@ class SslConfigurationTest < ActiveSupport::TestCase
         assume_ssl: app.config.assume_ssl,
         secure: options[:secure],
         same_site: options[:same_site],
+        remember_secure: Devise.rememberable_options[:secure],
         up_status: status.call('/up'),
         health_check_status: status.call('/health-check')
       }.to_json}"

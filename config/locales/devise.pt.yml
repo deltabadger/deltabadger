@@ -53,9 +53,11 @@ pt:
             signed_out: 'Logout efetuado com sucesso.'
             already_signed_out: 'Logout efetuado com sucesso.'
             two_factor:
+                title: "Autenticação de dois fatores"
                 submit: "Verificar"
                 invalid_code: "Código errado. Tente novamente."
         failure:
+            locked: 'A sua conta está bloqueada.'
             already_authenticated: 'Você já está conectado.'
             inactive: 'Sua conta ainda não está ativada.'
             invalid: '%{authentication_keys} ou senha inválidos.'

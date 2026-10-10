@@ -61799,22 +61799,22 @@
         "locale": "de",
         "key": "devise.failure.locked",
         "args": {},
-        "view": "Your account is locked.",
-        "text": "Your account is locked."
+        "view": "Ihr Konto ist gesperrt.",
+        "text": "Ihr Konto ist gesperrt."
       },
       {
         "locale": "en",
         "key": "devise.sessions.two_factor.title",
         "args": {},
-        "view": "<span class=\"translation_missing\" title=\"translation missing: en.devise.sessions.two_factor.title\">Title</span>",
-        "text": "Translation missing: en.devise.sessions.two_factor.title"
+        "view": "Two-factor authentication",
+        "text": "Two-factor authentication"
       },
       {
         "locale": "de",
         "key": "devise.sessions.two_factor.title",
         "args": {},
-        "view": "<span class=\"translation_missing\" title=\"translation missing: de.devise.sessions.two_factor.title\">Title</span>",
-        "text": "Translation missing: de.devise.sessions.two_factor.title"
+        "view": "Zwei-Faktor-Authentifizierung",
+        "text": "Zwei-Faktor-Authentifizierung"
       },
       {
         "locale": "en",
@@ -62542,6 +62542,111 @@
         },
         "view": "слишком короткий (минимум 112 символов)",
         "text": "слишком короткий (минимум 112 символов)"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "es",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "de",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "nl",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "fr",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "pt",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "it",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "bg",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "el",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "sv",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "da",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "cs",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
+      },
+      {
+        "locale": "sk",
+        "key": "errors.messages.taken",
+        "args": {},
+        "view": "has already been taken",
+        "text": "has already been taken"
       }
     ],
     "escape": [

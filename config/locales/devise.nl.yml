@@ -52,9 +52,11 @@ nl:
             signed_out: 'Succesvol uitgelogd.'
             already_signed_out: 'Succesvol uitgelogd.'
             two_factor:
+                title: "Tweestapsverificatie"
                 submit: "Verifiëren"
                 invalid_code: "Verkeerde code. Probeer opnieuw."
         failure:
+            locked: 'Je account is vergrendeld.'
             already_authenticated: 'Je bent al ingelogd.'
             inactive: 'Je account is nog niet geactiveerd.'
             invalid: 'Ongeldige %{authentication_keys} of wachtwoord.'

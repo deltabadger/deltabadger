@@ -53,9 +53,11 @@ it:
             signed_out: 'Disconnessione effettuata con successo.'
             already_signed_out: 'Disconnessione effettuata con successo.'
             two_factor:
+                title: "Autenticazione a due fattori"
                 submit: "Verifica"
                 invalid_code: "Codice errato. Riprova."
         failure:
+            locked: 'Il tuo account è bloccato.'
             already_authenticated: 'Hai già effettuato l''accesso.'
             inactive: 'Il tuo account non è ancora attivato.'
             invalid: '%{authentication_keys} o password non validi.'

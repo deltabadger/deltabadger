@@ -847,8 +847,8 @@ en:
             exempt_time_test: Exempt (time test)
             exempt_value_test: Exempt (value test)
             taxable_gain: Taxable gain
-            yes: 'Yes'
-            no: 'No'
+            "yes": 'Yes'
+            "no": 'No'
             total_value: 'Total value'
             allowance: 'Tax-free allowance'
             taxable_wealth: 'Taxable wealth'

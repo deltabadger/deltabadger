@@ -53,9 +53,11 @@ ru:
             signed_out: 'Выход из системы выполнен успешно.'
             already_signed_out: 'Выход из системы выполнен успешно.'
             two_factor:
+                title: "Двухфакторная аутентификация"
                 submit: "Проверить"
                 invalid_code: "Неверный код. Попробуйте еще раз."
         failure:
+            locked: 'Ваша учетная запись заблокирована.'
             already_authenticated: 'Вы уже вошли в систему.'
             inactive: 'Ваша учетная запись еще не активирована.'
             invalid: 'Неверный %{authentication_keys} или пароль.'
