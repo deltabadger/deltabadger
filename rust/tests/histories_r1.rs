@@ -1101,3 +1101,31 @@ async fn r10_window_membership_is_rails_text_comparison() {
     let orders:Vec<_>=t.posted_orders().iter().map(|o|json!({"side":o["side"],"symbol":o["symbol"],"notional":o["notional"]})).collect();
     assert_eq!(json!(orders),json!([{"side":"buy","symbol":"AAA/USD","notional":"40.00"}]),"Rails buys $40, not $100");
 }
+
+// R10: a persisted deferral that cannot be read (null, garbage or out-of-range expiry) refuses the bot and is kept.
+// AAA/BBB owe $100 (buys 5/$50 each, AAA sell 2/$20); a failed tick deferred the retrying bot to the next checkpoint.
+// Rails places $0 before it; removing the damaged marker would let a restart buy $60/$40 at once.
+#[tokio::test(flavor="current_thread")]
+async fn r10_damaged_deferral_marker_refuses_and_is_kept() {
+    use deltabadger::engine::run::{self,Engine};
+    for until in [Value::Null, json!("garbage"), json!("+262144-01-01T00:00:00Z")] {
+        let (d,o,_s,id)=r3_history();
+        let schedule=model::load_bot(&o.primary,id).unwrap().schedule_key().unwrap().unwrap();
+        o.primary.execute("UPDATE bots SET status=5,transient_data=json_set(transient_data,'$.last_action_job_at','2026-01-05T12:00:00.000Z','$.rust_defer_until',json(?1)) WHERE id=?2",
+            rusqlite::params![json!({"until":until,"schedule":schedule,"origin":"local"}).to_string(),id]).unwrap();
+        let before:String=o.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
+        assert!(!eligibility::check_install(&o.primary).unwrap().unreadable.is_empty(),"{until}: load-time validation agrees with use");
+        let paths=deltabadger::store::Paths::from_env(&|_|None,d.path());
+        let lock=deltabadger::lease::lock(&paths,now()).unwrap();
+        let transport=history_market();
+        let mut engine=Engine::new(o.primary,HistoryFactory(transport.clone()),seed::cipher(),lock);
+        for _ in 0..2 { run::step(&mut engine,&FixedClock(now())).await.unwrap(); }
+        assert!(transport.posted_orders().is_empty(),"{until}: Rails places $0 before the checkpoint");
+        let after:String=engine.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
+        assert_eq!(before,after,"{until}: the damaged marker is kept");
+        let t=history_market();
+        let result=deltabadger::engine::tick::tick(&engine.primary,&common::scripted::venue(&t),id,&FixedClock(now()),&mut Default::default()).await;
+        assert!(result.is_err(),"{until}: a direct tick refuses too: {result:?}");
+        assert!(t.posted_orders().is_empty());
+    }
+}

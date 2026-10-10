@@ -76,6 +76,8 @@ pub fn validate_bot_times(settings:&serde_json::Value, transient:&serde_json::Va
             for time in if key=="rust_defer_until" {&["until"][..]} else if key=="rust_placement" {&["deadline", "at"][..]} else {&["requested_at"][..]} {
                 let at=optional_time(value.get(time))?;
                 if key=="rust_continue_start" && at.is_none() {return Err(CodecError::Time("missing continue timestamp".into()));}
+                if key=="rust_defer_until" && at.is_none() {return Err(CodecError::Time("missing defer timestamp".into()));}
+                if key=="rust_defer_until" && value.get("schedule").and_then(serde_json::Value::as_str).is_none() {return Err(CodecError::Time("missing defer schedule".into()));}
             }
         }
     }
