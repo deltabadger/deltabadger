@@ -5,8 +5,7 @@ use super::schedule::{checkpoints, effective, interval_count};
 use super::EngineError;
 use crate::codec::format_time;
 use crate::enums::{BotStatus, TxExternalStatus, TxStatus};
-use crate::ruby::{from_sql, ruby_sum, to_sql, BigDec, Num};
-use rusqlite::types::ValueRef;
+use crate::ruby::{ruby_sum, to_sql, BigDec, Num};
 use super::venue_rules::{MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
@@ -18,8 +17,8 @@ fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:
 
 /// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
 /// window opened, minus every submitted REGULAR buy in the window, read in ONE statement, so a row that changes state
-/// between reads is counted once. Closed: its executed quote. Open or unknown: its submitted quote, or amount × price
-/// (#invested_quote). Cancelled or abandoned: what it executed before it stopped (NULL reads 0); the rest is owed again.
+/// between reads is counted once. Settled: its accepted normalized value. Open or unknown: its submitted quote, or amount × price
+/// (#invested_quote). Cancelled or abandoned: normalized execution before it stopped; no execution credits zero.
 /// Nothing in polling moves missed_quote_amount any more. The window is max(started_at, settings_changed_at), inclusive
 /// for every row.
 pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
@@ -30,25 +29,8 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     let since_text = format_time(at(since)?);
 
     let mut invested = BigDec::zero();
-    let mut s = c.prepare(
-        "SELECT external_status, quote_amount, amount, price, quote_amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND side = 0 \
-         AND transaction_type = 'REGULAR' AND external_status IN (0, 1, 2, 3, 4) AND created_at >= ?2")?;
-    let mut rows = s.query(params![bot.id, since_text])?;
-    while let Some(r) = rows.next()? {
-        let dec = |i: usize| -> Result<Option<BigDec>, EngineError> { from_sql(r.get_ref(i)?).map_err(data) };
-        let status: i64 = r.get(0)?;
-        let row = if status == TxExternalStatus::Closed as i64 {
-            dec(4)?.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))?
-        } else if status == TxExternalStatus::Unknown as i64 || status == TxExternalStatus::Open as i64 {
-            match (dec(1)?, dec(2)?, dec(3)?) {
-                (Some(q), _, _) => q,
-                (None, Some(a), Some(p)) => &a * &p,
-                _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
-            }
-        } else {
-            dec(4)?.unwrap_or_else(BigDec::zero) // cancelled or abandoned: `quote_amount_exec || 0`
-        };
-        invested = &invested + &row;
+    for row in crate::figures::fill::commitments(c,bot.id,&since_text).map_err(data)? {
+        invested = invested.checked_add(&row.value).map_err(data)?;
     }
 
     let interval = bot.interval().ok_or_else(|| EngineError::Data("interval".into()))?;
@@ -203,7 +185,7 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
     Ok(c.last_insert_rowid())
 }
 
-/// Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached (quote_amount_limitable.rb:53-85), with one stricter
+/// Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached (quote_amount_limitable.rb:50-79), with one stricter
 /// term: an unresolved placement intent counts as spent at its full quote until it is settled.
 /// None = no cap (the limit is off). Since the stamp (`created_at >= quote_amount_limit_enabled_at`; an unset stamp matches
 /// nothing), submitted REGULAR buys count: closed at their executed quote, waiting at their submitted quote (or
@@ -213,48 +195,21 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
 /// stopped bucket is `pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))`, SQLite's own INTEGER or REAL; each bucket is an
 /// Array#sum in row order, the buckets are added closed + waiting + stopped, and the limit is the settings' Integer or Float.
 /// So a Float leaks in where Rails' does: cap 60.03 with one cancelled fill of 60.02 leaves 0.00999999999999801.
-///
-/// A closed buy without quote_amount_exec leaves the spend unknown: Rails' sum is nil, and
-/// `pending_quote_amount` raises on it, as sizing errors here.
 pub fn quote_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
-    available_or_unknown(c, bot)?.map(|left| left.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))).transpose()
-}
-
-/// `Some(None)`: the cap is on and what is left of it is unknown (a closed buy reported no cost).
-fn available_or_unknown(c: &Connection, bot: &Bot) -> Result<Option<Option<Num>>, EngineError> {
     let Some(limit) = bot.quote_amount_limit().map_err(EngineError::Data)? else { return Ok(None) };
     let mut spent = Num::Int(0);
     if let Some(since) = bot.quote_amount_limit_enabled_at_us().map_err(EngineError::Data)? {
         // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
         let since_text = format_time(at(since)?);
-        let window = "bot_id = ?1 AND status = 0 AND side = 0 AND transaction_type = 'REGULAR' AND created_at >= ?2";
         let mut closed = vec![];
-        let mut s = c.prepare(&format!("SELECT quote_amount_exec FROM transactions WHERE {window} AND external_status = 2 ORDER BY id"))?;
-        let mut rows = s.query(params![bot.id, since_text])?;
-        while let Some(r) = rows.next()? {
-            let Some(exec) = from_sql(r.get_ref(0)?).map_err(data)? else { return Ok(Some(None)) };
-            closed.push(Num::Dec(exec));
-        }
         let mut waiting = vec![];
-        let mut s = c.prepare(&format!("SELECT quote_amount, amount, price FROM transactions WHERE {window} AND external_status IN (0, 1) ORDER BY id"))?;
-        let mut rows = s.query(params![bot.id, since_text])?;
-        while let Some(r) = rows.next()? {
-            let (q, a, p) = (from_sql(r.get_ref(0)?).map_err(data)?, from_sql(r.get_ref(1)?).map_err(data)?, from_sql(r.get_ref(2)?).map_err(data)?);
-            waiting.push(Num::Dec(match (q, a, p) {
-                (Some(q), _, _) => q,
-                (None, Some(a), Some(p)) => &a * &p,
-                _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
-            }));
-        }
         let mut stopped = vec![];
-        let mut s = c.prepare(&format!("SELECT COALESCE(quote_amount_exec, 0) FROM transactions WHERE {window} AND external_status IN (3, 4) ORDER BY id"))?;
-        let mut rows = s.query(params![bot.id, since_text])?;
-        while let Some(r) = rows.next()? {
-            stopped.push(match r.get_ref(0)? {
-                ValueRef::Integer(i) => Num::Int(i),
-                ValueRef::Real(f) => Num::Float(f),
-                other => return Err(EngineError::Data(format!("quote_amount_exec {other:?}"))),
-            });
+        for row in crate::figures::fill::commitments(c,bot.id,&since_text).map_err(data)? {
+            match row.status {
+                2 => closed.push(row.cap_value),
+                0 | 1 => waiting.push(row.cap_value),
+                _ => stopped.push(row.cap_value),
+            }
         }
         spent = ruby_sum(&closed).map_err(data)?.add(&ruby_sum(&waiting).map_err(data)?).map_err(data)?
             .add(&ruby_sum(&stopped).map_err(data)?).map_err(data)?;
@@ -264,7 +219,7 @@ fn available_or_unknown(c: &Connection, bot: &Bot) -> Result<Option<Option<Num>>
         spent = spent.add(&Num::Dec(quote)).map_err(data)?;
     }
     let left = limit.sub(&spent).map_err(data)?;
-    Ok(Some(Some(if left.is_negative() { Num::Int(0) } else { left }))) // [left, 0].max
+    Ok(Some(if left.is_negative() { Num::Int(0) } else { left })) // [left, 0].max
 }
 
 /// `quote_amount_available_num` as the BigDecimal the engine sizes with (a Float as Float#to_d, which is what Rails' next
@@ -276,9 +231,8 @@ pub fn quote_amount_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec
 /// Bot::QuoteAmountLimitable#quote_amount_limit_reached?: what is left is under the pair's precision floor,
 /// `1.0 / 10**min(quote_decimals)` over Bot#tickers (members and former members, available and trading-enabled; with none
 /// the floor is 0 and nothing is under it). Not the venue minimum: a remainder between the two keeps the bot running.
-/// An unknown spend is not reached (`!available.nil? && …`).
 pub fn quote_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    let Some(Some(available)) = available_or_unknown(c, bot)? else { return Ok(false) };
+    let Some(available) = quote_amount_available_num(c, bot)? else { return Ok(false) };
     let mut assets = bot.asset_ids();
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
     for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !assets.contains(&a) { assets.push(a); } }

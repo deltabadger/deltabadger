@@ -33,18 +33,18 @@ fn every_recorded_rails_ledger_is_reproduced() {
     for (i, case) in cases.iter().enumerate() {
         let (_d, o, id, ids) = build(case);
         let bot = model::load_bot(&o.primary, id).unwrap();
-        assert_eq!(by_symbol(&ids, basket::holdings(&o.primary, &bot).unwrap()), case["holdings"], "case {i} holdings: {case}");
+        assert_eq!(by_symbol(&ids, basket::holdings(&o.primary, &bot).unwrap()), case["normalized_holdings"], "case {i} holdings: {case}");
         assert_eq!(by_symbol(&ids, basket::reserved(&o.primary, &bot).unwrap()), case["reserved"], "case {i} reserved: {case}");
     }
 }
 
 #[test]
-fn a_row_the_port_does_not_walk_fails_instead_of_reading_as_nothing() {
+fn a_non_regular_row_the_port_does_not_walk_fails_instead_of_reading_as_nothing() {
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     o.primary.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, price, amount_exec, quote_amount_exec, \
                        base_asset_id, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OSELL', 0, 2, 1, 0, 64000, 0.001, 64, ?3, 'REGULAR', '[]', 'week', 60, '2026-09-01', '2026-09-01')",
+                       VALUES (?1, ?2, 'OSELL', 0, 2, 1, 0, 64000, 0.001, 64, ?3, 'REBALANCE', '[]', 'week', 60, '2026-09-01', '2026-09-01')",
                       rusqlite::params![id, s.exchange_id, s.btc]).unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
     assert!(matches!(basket::holdings(&o.primary, &bot), Err(deltabadger::engine::EngineError::Data(_))), "eligibility refuses it; met anyway, the tick fails");
@@ -155,7 +155,7 @@ fn every_recorded_rails_split_is_reproduced() {
             basket::Priced { member: m, reference, price }
         }).collect();
         let got = basket::split(&priced, &basket::holdings(&o.primary, &bot).unwrap(), &basket::reserved(&o.primary, &bot).unwrap(), &bd(case["x"].as_str().unwrap()));
-        match (got, &case["orders"]) {
+        match (got, &case["normalized_orders"]) {
             (Ok(legs), Value::Array(want)) => {
                 let price_of = |id: i64| priced.iter().find(|p| p.member.ticker.id == id).unwrap().price.clone();
                 let got: Vec<Value> = legs.iter().map(|l| {
@@ -164,7 +164,7 @@ fn every_recorded_rails_split_is_reproduced() {
                 }).collect();
                 assert_eq!(&got, want, "case {i}: {case}");
             }
-            (Err(decimals), Value::Null) => assert_eq!(case["failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
+            (Err(decimals), Value::Null) => assert_eq!(case["normalized_failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
             (got, want) => panic!("case {i}: Rust {:?}, Rails {want}", got.map(|legs| legs.len())),
         }
     }

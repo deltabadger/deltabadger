@@ -6,7 +6,7 @@ use super::model::{self, Level};
 use super::{amount, notice, tick, EngineError};
 use crate::codec::{format_time, parse_time};
 use crate::enums::TxExternalStatus;
-use crate::ruby::{from_sql, inspect, to_sentence, to_sql, BigDec};
+use crate::ruby::{inspect, to_sentence, to_sql, BigDec};
 use crate::venue::{OrderState, OrderStatus, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::types::Value as Sql;
@@ -27,28 +27,9 @@ fn poll_error(e: EngineError) -> PollFailure {
 #[derive(Debug, PartialEq)]
 pub enum FollowUp { Done, StillOpen }
 
-struct Row {
-    id: i64, side: Option<i64>, external_status: Option<i64>,
-    price: Option<BigDec>, amount: Option<BigDec>, quote_amount: Option<BigDec>, amount_exec: Option<BigDec>, quote_amount_exec: Option<BigDec>,
-    order_type: Option<i64>, base: Option<String>, quote: Option<String>, base_asset_id: Option<i64>, quote_asset_id: Option<i64>,
-}
-
 /// An unreadable created_at fails the row (and so the bot's tick); it must never read as the epoch.
 fn created_us(s: &str) -> Result<i64, EngineError> {
     parse_time(s).map(|t| t.timestamp_micros()).map_err(|e| EngineError::Data(format!("{e:?}")))
-}
-
-fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
-    let row = c.query_row(
-        "SELECT id, side, external_status, price, amount, quote_amount, amount_exec, quote_amount_exec, \
-         order_type, base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [id],
-        |r| {
-            let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
-            Ok(Row { id: r.get(0)?, side: r.get(1)?, external_status: r.get(2)?,
-                     price: dec(3)?, amount: dec(4)?, quote_amount: dec(5)?, amount_exec: dec(6)?, quote_amount_exec: dec(7)?,
-                     order_type: r.get(8)?, base: r.get(9)?, quote: r.get(10)?, base_asset_id: r.get(11)?, quote_asset_id: r.get(12)? })
-        })?;
-    Ok(row)
 }
 
 /// Transaction#update_with_order_data for one row. `_update_missed` is Rails' `update_missed_quote_amount:` keyword, inert
@@ -57,7 +38,7 @@ fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
 /// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
 pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    let row = load(c, tx_id)?;
+    let row = crate::figures::fill::stored_order(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
     // order's pair (Exchanges::*#parse_order_data `tickers.find_by(ticker:)`), never the bot's first member.
