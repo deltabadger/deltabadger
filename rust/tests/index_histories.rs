@@ -338,3 +338,16 @@ fn a_partly_executed_unpriced_redeploy_is_read_at_what_executed() {
     let (banked, spent) = accounting::index_redeploy_totals(&db::orders(c, b.id).unwrap()).unwrap();
     assert_eq!((banked.to_s_f(), spent.to_s_f()), ("26.4".into(), "12.0".into()));
 }
+
+/// A status outside Rails' enum (submitted, failed, skipped) proves nothing about the order: the row is unreadable, and
+/// the bot refused. Here a still-working $24 DDD redeploy would otherwise vanish from every check.
+#[test]
+fn a_status_rails_never_writes_refuses_the_bot() {
+    for status in ["NULL", "99"] {
+        let b = build(scenario("redeploy_waiting"));
+        b.o.primary.execute_batch(&format!("UPDATE transactions SET status = {status} WHERE transaction_type = 'REDEPLOY'")).unwrap();
+        let report = eligibility::check_install(&b.o.primary).unwrap();
+        assert!(report.eligible.is_empty(), "status {status}");
+        assert!(report.problems.iter().any(|p| p.contains("row(s) with a status Rails never writes")), "status {status}: {:?}", report.problems);
+    }
+}
