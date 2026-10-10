@@ -132,7 +132,8 @@ pub fn parse_form_time(value: &Value, name: &str, now: DateTime<Utc>) -> Result<
     let s = input.trim();
     if s.is_empty() { return Ok(Value::Null); }
     if let Ok(at) = DateTime::parse_from_rfc3339(s) { return Ok(json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))); }
-    let zone = crate::web::timezone::zone(name).unwrap_or(chrono_tz::UTC);
+    // Time.zone.parse in the owner's zone (a Rails name or an IANA id); an unknown name is refused, never read as UTC.
+    let zone = crate::web::timezone::strict(name).ok_or_else(|| WebError::Engine(crate::engine::EngineError::Data("unknown time zone".into())))?;
     let naive = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
         .iter().find_map(|pattern| NaiveDateTime::parse_from_str(s, pattern).ok())
         .or_else(|| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()?.and_hms_opt(0, 0, 0))

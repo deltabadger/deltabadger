@@ -20,6 +20,11 @@ pub fn zone(name: &str) -> Option<Tz> {
     table().get(name).copied()
 }
 
+/// ActiveSupport::TimeZone[]: a Rails zone name or an IANA identifier. `None` for any other name, never UTC.
+pub fn strict(name: &str) -> Option<Tz> {
+    zone(name).or_else(|| name.parse::<Tz>().ok())
+}
+
 pub const REPEATED_TIME: &str = "the starting time occurs twice that day in the owner's time zone (a daylight-saving change), and which occurrence Rails picks is not proven";
 pub const MISSING_TIME: &str = "the starting time does not exist that day in the owner's time zone, across a change this build does not match";
 

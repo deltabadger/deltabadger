@@ -94,20 +94,8 @@ pub(crate) fn history_error() -> WebError { super::data(HISTORY_BOUND.to_owned()
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StartAt { pub at: DateTime<Utc>, pub early: bool }
 
-/// Bot::Startable#initial_start_at for an enabled rule, in the zone named `zone` (User#time_zone; an unknown name is
-/// UTC, as `user_time_zone` falls back). `Err` where Rails answers nil (an unknown mode, a malformed time or date): the
-/// :start validation refuses those first, and nil must never read as "start now" here.
-pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at: Option<&str>, now: DateTime<Utc>, zone: &str)
-    -> Result<StartAt, &'static str> {
-    use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
-    let mode = mode.ok_or("missing start mode")?;
-    if mode == "date" {
-        let at = crate::codec::parse_time(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
-        return Ok(StartAt { at, early: false });
-    }
-    let weekday = MODES.iter().position(|m| *m == mode).filter(|n| *n < 7);
-    if mode != "hour" && weekday.is_none() { return Err("invalid start mode"); }
-    // Startable#parse_hhmm: two parts of one or two digits each, 0-23 and 0-59.
+/// Startable#parse_hhmm: two parts of one or two digits each, 0-23 and 0-59.
+pub fn parse_hhmm(time_of_day: Option<&str>) -> Result<(u32, u32), &'static str> {
     let (h, m) = time_of_day.and_then(|s| s.split_once(':')).ok_or("invalid start time")?;
     let part = |s: &str| -> Result<u32, &'static str> {
         if !matches!(s.len(), 1 | 2) || !s.bytes().all(|b| b.is_ascii_digit()) { return Err("invalid start time"); }
@@ -115,11 +103,26 @@ pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at:
     };
     let (hour, minute) = (part(h)?, part(m)?);
     if hour > 23 || minute > 59 { return Err("invalid start time"); }
-    // ActiveSupport::TimeZone[] takes a Rails zone name or an IANA identifier; an unknown name is refused, never UTC.
-    let zone = match crate::web::timezone::zone(zone) {
-        Some(zone) => zone,
-        None => zone.parse::<chrono_tz::Tz>().map_err(|_| "unknown time zone")?,
-    };
+    Ok((hour, minute))
+}
+
+/// Bot::Startable#initial_start_at for an enabled rule, in the zone named `zone` (User#time_zone; an unknown name is
+/// refused). `Err` where Rails answers nil (an unknown mode, a malformed time or date): the
+/// :start validation refuses those first, and nil must never read as "start now" here.
+pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at: Option<&str>, now: DateTime<Utc>, zone: &str)
+    -> Result<StartAt, &'static str> {
+    use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+    let mode = mode.ok_or("missing start mode")?;
+    // ActiveSupport::TimeZone[] takes a Rails zone name or an IANA identifier; an unknown name is refused in every mode,
+    // never read as UTC.
+    let zone = crate::web::timezone::strict(zone).ok_or("unknown time zone")?;
+    if mode == "date" {
+        let at = crate::codec::parse_time(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
+        return Ok(StartAt { at, early: false });
+    }
+    let weekday = MODES.iter().position(|m| *m == mode).filter(|n| *n < 7);
+    if mode != "hour" && weekday.is_none() { return Err("invalid start mode"); }
+    let (hour, minute) = parse_hhmm(time_of_day)?;
     // TimeZone#local / TimeWithZone: a wall time in a one-hour gap moves forward an hour; a repeated one is refused.
     let wall = |naive: NaiveDateTime| -> Result<(NaiveDateTime, DateTime<Utc>), &'static str> {
         crate::web::timezone::resolve_local(zone, naive).map(|(wall, at)| (wall, at.with_timezone(&Utc)))
