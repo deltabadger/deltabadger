@@ -188,6 +188,8 @@ fn special_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<(),
     if statuses > 0 { r.push(format!("{statuses} special row(s) with an unknown external status")); }
     let executed = crate::figures::fill::rejected_special_executions(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;
     if executed > 0 { r.push(format!("{executed} rejected LIQUIDATION/REDEPLOY/REBALANCE order(s) reporting an execution")); }
+    let skipped = crate::figures::fill::skipped_special_buys(c, bot.id).map_err(|e| EngineError::Data(format!("{e:?}")))?;
+    if skipped > 0 { r.push(format!("{skipped} REBALANCE/REDEPLOY buy(s) the Rails walk skips (zero proceeds, no price or no reported value)")); }
     Ok(())
 }
 

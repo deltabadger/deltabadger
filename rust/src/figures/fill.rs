@@ -67,6 +67,31 @@ pub fn special_sell_for_engine(order:&Order)->Result<Option<SpecialSell>,Figures
     Ok(Some(sell))
 }
 
+/// Measurable's skip for a buy (measurable.rb:153-154), after confirmed_exec_amounts: no price, or no or zero executed
+/// quantity or proceeds.
+fn rails_counts_buy(raw:&Raw, closed:bool)->Result<bool,FiguresError>{
+    let Some(price)=raw.price.as_ref() else { return Ok(false) };
+    let executed=raw.amount_exec.as_ref().or(if closed{raw.amount.as_ref()}else{None});
+    let quote=match (&raw.quote_amount_exec,&raw.amount) {
+        (Some(q),_)=>Some(q.clone()),
+        (None,Some(a)) if closed=>Some((price*a)?),
+        _=>None,
+    };
+    Ok(executed.is_some_and(|e| !e.is_zero()) && quote.is_some_and(|q| !q.is_zero()))
+}
+/// A REBALANCE/REDEPLOY buy the normalizer would count but the Rails walk skips (zero proceeds, no price, or proceeds
+/// unknown on an unclosed row). Counting its units would buy more of every other member than Rails does, so trading
+/// refuses to size from it; the figures page keeps the normalized reading.
+pub fn skipped_special_buy(order:&Order)->Result<bool,FiguresError>{
+    if order.sell || order.kind=="REGULAR" { return Ok(false); }
+    Ok(parse_raw(&order.raw,order.closed)?.is_some() && !rails_counts_buy(&order.raw,order.closed)?)
+}
+pub fn skipped_special_buys(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
+    let mut n=0;
+    for order in orders(c,bot_id)? { if skipped_special_buy(&order)? { n+=1; } }
+    Ok(n)
+}
+
 /// RULING-B2B-R1 item 2: a rejected special row (not submitted) moves nothing, as Rails' `submitted` scope ignores it;
 /// one that reports an execution anyway is an unknown fill. Counts those.
 pub fn rejected_special_executions(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
