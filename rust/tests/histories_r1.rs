@@ -1078,3 +1078,26 @@ async fn r9c_mcp_can_stop_a_bot_with_damaged_timestamps() {
         let tx=model::immediate(&o.primary).unwrap();assert!(eligibility::guard(&tx,&seed::cipher(),Some(id)).is_err());drop(tx);
     }
 }
+
+// R10: Rails selects window rows with SQLite's text comparison, `created_at >= ?`, against its
+// quoted boundary ('2026-01-05 12:00:00'). An RFC3339 row an hour earlier sorts after it ('T' > ' '),
+// so Rails counts its $60. Parsed instants must not decide membership.
+#[tokio::test(flavor="current_thread")]
+async fn r10_window_membership_is_rails_text_comparison() {
+    let (_d,o,s,id)=r9_history("2026-01-05 12:00:00");
+    assert_eq!(o.primary.execute("UPDATE transactions SET external_status=2,amount_exec='6',quote_amount_exec='60',created_at='2026-01-05T11:00:00Z' WHERE bot_id=?1 AND external_status=0",[id]).unwrap(),1);
+    o.primary.execute("UPDATE bots SET status=1,transient_data=json_set(transient_data,'$.merged_history_until_id',(SELECT max(id) FROM transactions WHERE bot_id=?1)) WHERE id=?1",[id]).unwrap();
+    let counted:i64=o.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND side=0 AND created_at >= '2026-01-05 12:00:00'",[id],|r|r.get(0)).unwrap();
+    assert_eq!(counted,1,"SQLite oracle: Rails' created_at >= ? includes the RFC3339 row");
+    let bot=model::load_bot(&o.primary,id).unwrap();
+    assert_eq!(amount::quote_amount_available(&o.primary,&bot).unwrap().unwrap().to_s_f(),"40.0","cap");
+    assert_eq!(amount::pending_quote_amount(&o.primary,&bot,now().timestamp_micros()).unwrap().to_s_f(),"40.0","amount");
+    let web=r5_bot(&o.primary,&s,id);
+    assert_eq!(deltabadger::web::bot::start::amount_limit(&o.primary,&web).unwrap().unwrap().left.unwrap().to_d().unwrap().to_s_f(),"40.0","web cap");
+    assert_eq!(deltabadger::web::bot::write::pending(&o.primary,&web,now()).unwrap().to_d().unwrap().to_s_f(),"40.0","web pending");
+    let t=history_market();
+    let result=deltabadger::engine::tick::tick(&o.primary,&common::scripted::venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
+    assert!(matches!(result,deltabadger::engine::tick::TickOutcome::Done{placed:true}),"{result:?}");
+    let orders:Vec<_>=t.posted_orders().iter().map(|o|json!({"side":o["side"],"symbol":o["symbol"],"notional":o["notional"]})).collect();
+    assert_eq!(json!(orders),json!([{"side":"buy","symbol":"AAA/USD","notional":"40.00"}]),"Rails buys $40, not $100");
+}
