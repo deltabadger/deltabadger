@@ -68,9 +68,11 @@ pub fn action_commitments(c: &Connection, bot_id: i64, since: &str) -> Result<Ve
 }
 fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<usize>) -> Result<Vec<Commitment>, FiguresError> {
     use crate::ruby::BigDec;
-    let mut s = c.prepare("SELECT external_status, quote_amount, price, amount, amount_exec, quote_amount_exec, created_at FROM transactions WHERE bot_id=?1 AND status=0 AND side=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id")?;
-    let since=crate::codec::parse_time(since).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
-    let mut rows = s.query([bot_id])?;
+    // Window membership is Rails' own: SQLite compares the stored text with the quoted boundary
+    // (`created_at >= ?`). Parsed times only validate; they never decide membership.
+    let mut s = c.prepare("SELECT external_status, quote_amount, price, amount, amount_exec, quote_amount_exec, created_at, created_at >= ?2 FROM transactions WHERE bot_id=?1 AND status=0 AND side=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) ORDER BY id")?;
+    crate::codec::parse_time(since).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+    let mut rows = s.query(params![bot_id, since])?;
     let mut scanned=0;
     let mut out = vec![];
     while let Some(r) = rows.next()? {
@@ -79,8 +81,8 @@ fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<u
             return Err(FiguresError::Data("bot action history exceeds the 100000-row work budget".into()));
         }
         scanned+=1;
-        let at=crate::codec::parse_time(&r.get::<_,String>(6)?).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
-        if at<since {continue;}
+        crate::codec::parse_time(&r.get::<_,String>(6)?).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+        if !r.get::<_,bool>(7)? {continue;}
         let status: i64 = r.get(0)?;
         let raw = Raw::new(super::db::decimal(r,2)?,super::db::decimal(r,3)?,super::db::decimal(r,4)?,super::db::decimal(r,5)?);
         let fill = parse_raw(&raw,status==2)?;
@@ -208,17 +210,18 @@ fn quantity(raw: &Raw, closed: bool) -> Result<Dec, FiguresError> {
 }
 pub fn sold_commitments(c: &Connection, bot_id: i64, since: Option<&str>) -> Result<Vec<SoldCommitment>, FiguresError> {
     budget::within(|| {
-        let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) LIMIT 100001")?;
-        let since=since.map(crate::codec::parse_time).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))?;
-        let mut rows = s.query([bot_id])?;
+        // As in commitments: Rails' text comparison decides the window; an unset stamp matches nothing.
+        let mut s = c.prepare("SELECT external_status, price, amount, amount_exec, quote_amount_exec, created_at, coalesce(created_at >= ?2, 0) FROM transactions WHERE bot_id=?1 AND side=1 AND status=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) LIMIT 100001")?;
+        since.map(crate::codec::parse_time).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+        let mut rows = s.query(params![bot_id, since])?;
         let mut out = Vec::new();
         let mut work = 0;
         while let Some(row) = rows.next()? {
             work += 1;
             if work > 100_000 { return Err(FiguresError::Data("bot action history exceeds the 100000-row work budget".into())); }
             budget::charge(1,0)?;
-            let at=crate::codec::parse_time(&row.get::<_,String>(5)?).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
-            if since.is_none_or(|since|at<since) {continue;}
+            crate::codec::parse_time(&row.get::<_,String>(5)?).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+            if !row.get::<_,bool>(6)? {continue;}
             let status:i64 = row.get(0)?;
             let raw = Raw::new(super::db::decimal(row,1)?,super::db::decimal(row,2)?,super::db::decimal(row,3)?,super::db::decimal(row,4)?);
             let executed = quantity(&raw,status==2)?;
