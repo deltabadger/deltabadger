@@ -291,8 +291,15 @@ pub fn validate_row_times(c:&Connection, bot_id:i64) -> Result<(),FiguresError> 
         count+=1;
         if count>100000 {return Err(FiguresError::Data("bot action history exceeds the 100000-row work budget".into()));}
         for index in [0,1] {
-            let text:Option<String>=row.get(index)?;
-            text.as_deref().map(crate::codec::parse_time).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+            // Any storage class but text or NULL is damage too, never a SQLite type error.
+            match row.get_ref(index)? {
+                rusqlite::types::ValueRef::Null => {}
+                rusqlite::types::ValueRef::Text(text) => {
+                    let text=std::str::from_utf8(text).map_err(|_|FiguresError::Data("unreadable stored timestamp".into()))?;
+                    crate::codec::parse_time(text).map_err(|e|FiguresError::Data(format!("{e:?}")))?;
+                }
+                _ => return Err(FiguresError::Data("unreadable stored timestamp".into())),
+            }
         }
     }
     Ok(())
