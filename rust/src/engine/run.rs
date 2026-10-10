@@ -10,7 +10,7 @@ use crate::lease::EngineLock;
 use crate::venue::VenueFactory;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -51,6 +51,8 @@ pub struct Engine<F: VenueFactory> {
     pub(crate) writers_guarded: bool,
     /// Bots whose tick was refused for stale reference data, by the source named: logged once, not on every pass.
     stale_logged: HashMap<i64, &'static str>,
+    /// Bots refused for a persisted deferral this build cannot read: logged once, not on every pass.
+    defer_refused: HashSet<i64>,
     /// Told after each tick what it recorded, never called into.
     events: EngineEvents,
 }
@@ -59,7 +61,7 @@ impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
-               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(),
+               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
                events: EngineEvents::default() }
     }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
@@ -340,6 +342,13 @@ fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let now_us = clock.now().timestamp_micros();
     let mut bot = model::load_bot(&e.primary, id)?;
+    // A persisted deferral is a schedule decision: one this build cannot read (null, garbage or out of range) refuses
+    // the bot and is kept, never removed, so a restart cannot turn it into an early buy.
+    if let Err(err) = bot.rust_defer() {
+        if e.defer_refused.insert(id) { super::log(&format!("[engine] warning: bot {id}: unreadable rust_defer_until: {err:?}; refused until it is readable")); }
+        return Ok(());
+    }
+    e.defer_refused.remove(&id);
     bot.validate_times()?;
     if bot.transient.get("rust_continue_start").is_some() {
         e.closed_until.remove(&id);
@@ -382,11 +391,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             }
             None=>None,
         },
-        Err(err) => {
-            super::log(&format!("[engine] warning: bot {id}: {err:?}; ignored and removed"));
-            placement::remove_wait(&wait_tx, Some(id))?;
-            None
-        }
+        // Changed since the check above: refused and kept, as there; the next pass logs it.
+        Err(_) => return Ok(()),
     };
     wait_tx.commit()?;
     let deferred = defer.flatten().filter(|&t| t >= now_us);
