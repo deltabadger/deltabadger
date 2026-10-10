@@ -169,9 +169,14 @@ struct Harness {
 }
 impl Harness {
     async fn new(url: String) -> Self {Self::with_hook(url,None).await}
+    /// Signed in at the real time, for tests whose venue sends check a deadline against the real clock. Moving a
+    /// fixed-date harness to the real time instead would outlive its 30-day session and turn every request into a 302.
+    async fn at_real_now(url: String) -> Self {Self::starting(url,None,web::TestClock::starting(chrono::Utc::now())).await}
     async fn with_hook(url:String, hook:Option<deltabadger::web::PasswordHook>)->Self{
+        Self::starting(url,hook,web::TestClock::at("2026-09-10T12:00:30.123456Z")).await
+    }
+    async fn starting(url:String, hook:Option<deltabadger::web::PasswordHook>, clock:Arc<web::TestClock>)->Self{
         let (dir, opened, seed) = fixture::install();
-        let clock = web::TestClock::at("2026-09-10T12:00:30.123456Z");
         let env = web::env(web::SECRET);
         let mail=Arc::new(CapturedMail::default());
         let logs=Arc::new(Logs::default());
@@ -1044,9 +1049,8 @@ async fn account_rotation_must_not_erase_an_unresolved_accepted_order() {
     use deltabadger::{engine::{amount::{self,Sizing},model,placement::{self,Recovery,Sent},FixedClock},ruby::BigDec,venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
-    let mut h=Harness::new(server.uri()).await;
-    let at=chrono::Utc::now();
-    h.clock.set(at);
+    let mut h=Harness::at_real_now(server.uri()).await;
+    let at=h.app.now();
     let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
     let bot=model::load_bot(&h.c,bot_id).unwrap();
     let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
@@ -1183,8 +1187,8 @@ async fn tick_with_a_possible_pre_intent_replacement(replace: bool, same_stamp: 
         }
     }
     let server=MockServer::start().await;
-    let mut h=Harness::new(server.uri()).await;
-    let at=chrono::Utc::now();h.clock.set(at);
+    let mut h=Harness::at_real_now(server.uri()).await;
+    let at=h.app.now();
     let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
     Mock::given(method("POST")).and(path("/v2/orders")).and(header("APCA-API-KEY-ID","previous-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"account-a-order"}))).expect(if replace {0} else {1}).mount(&server).await;
@@ -1557,7 +1561,7 @@ async fn q_placement_result_must_keep_intent_when_credentials_changed_during_sen
     use deltabadger::engine::{placement::{self,Sent},EngineError,FixedClock};
     let server=MockServer::start().await;
     Mock::given(method("POST")).and(path("/v2/orders")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"q-order"}))).expect(1).mount(&server).await;
-    let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());let (bot,plan)=q_order(&h);
+    let h=Harness::at_real_now(server.uri()).await;let (bot,plan)=q_order(&h);
     let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
     let Sent::Accepted(id)=placement::send(&q_venue(&h,&server.uri()),&intent,&FixedClock(h.app.now())).await else {panic!("accepted")};
     let result=placement::record_accepted(&h.c,&bot,&intent,&id);
@@ -1570,7 +1574,7 @@ async fn q_placement_result_must_keep_intent_when_credentials_changed_during_sen
 async fn q_recovery_result_must_keep_intent_when_credentials_changed_during_lookup() {
     use deltabadger::engine::{placement::{self},EngineError,FixedClock};
     let server=MockServer::start().await;
-    let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());let (bot,plan)=q_order(&h);
+    let h=Harness::at_real_now(server.uri()).await;let (bot,plan)=q_order(&h);
     let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
     let mut fill=q_fill();fill["client_order_id"]=serde_json::json!(intent.cl_ord_id);
     Mock::given(method("GET")).and(path("/v2/orders:by_client_order_id")).respond_with(ResponseTemplate::new(200).set_body_json(fill)).expect(1).mount(&server).await;
@@ -1586,7 +1590,7 @@ async fn q_poll_result_must_not_apply_fill_when_credentials_changed_during_looku
     use deltabadger::engine::{placement::{self},polling,FixedClock};
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/orders/q-order")).respond_with(ResponseTemplate::new(200).set_body_json(q_fill())).expect(1).mount(&server).await;
-    let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());let (bot,plan)=q_order(&h);
+    let h=Harness::at_real_now(server.uri()).await;let (bot,plan)=q_order(&h);
     let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
     let id=placement::record_accepted(&h.c,&bot,&intent,"q-order").unwrap();
     let before:(i64,f64)=h.c.query_row("SELECT external_status,coalesce(quote_amount_exec,0) FROM transactions WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
@@ -1638,8 +1642,7 @@ async fn previously_committed_balances_must_not_be_reported_as_replacement_accou
 async fn q_tick_result(kind: &str) {
     use deltabadger::engine::{tick::{self, TickOutcome}, model, FixedClock};
     let server = MockServer::start().await;
-    let h = Harness::new(server.uri()).await;
-    h.clock.set(chrono::Utc::now());
+    let h = Harness::at_real_now(server.uri()).await;
     let (bot, _) = q_order(&h);
     if kind == "clock" {
         h.c.execute("UPDATE assets SET category='Stock' WHERE id=?1", [h.seed.btc]).unwrap();
@@ -1752,7 +1755,7 @@ async fn r_price_cache_must_refetch_for_replacement_credentials() {
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":"200000"}}}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","non_marginable_buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
-    let mut h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+    let mut h=Harness::at_real_now(server.uri()).await;
     let (bot,_)=q_order(&h);h.c.execute("UPDATE tickers SET minimum_quote_size=100000 WHERE id=?1",[h.seed.ticker_id]).unwrap();
     let prices=PriceCache::default();let mut attempts=tick::Attempts::default();let mut recovered=None;
     for replace in [false,true] {
@@ -1931,7 +1934,7 @@ async fn r_replacement_invalidates_the_engines_cached_market_wait() {
     use deltabadger::{engine::{run::{self,Engine},FixedClock},lease,store::Paths};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
-    let mut h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+    let mut h=Harness::at_real_now(server.uri()).await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":false,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
@@ -2511,7 +2514,7 @@ async fn stored_query_credentials_are_not_echoed_by_the_after_login_redirect(){
 async fn q_rejected_placement_result_cannot_erase_a_after_an_external_credential_replacement(){
     use deltabadger::engine::{placement::{self,Sent},EngineError,FixedClock};
     let server=MockServer::start().await;Mock::given(method("POST")).and(path("/v2/orders")).respond_with(ResponseTemplate::new(422).set_body_json(serde_json::json!({"message":"order refused"}))).expect(1).mount(&server).await;
-    let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());let (bot,plan)=q_order(&h);let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
+    let h=Harness::at_real_now(server.uri()).await;let (bot,plan)=q_order(&h);let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
     let Sent::Rejected(errors)=placement::send(&q_venue(&h,&server.uri()),&intent,&FixedClock(h.app.now())).await else{panic!("fixture must obtain the actual rejected venue answer")};
     let before=h.snapshot();assert!(matches!(placement::record_rejected(&h.c,&bot,&intent,&errors),Err(EngineError::CredentialsChanged)));assert_eq!(h.snapshot(),before);server.verify().await;
 }
@@ -2657,7 +2660,7 @@ async fn credential_change_loop_probe(idle: bool) {
             AlpacaVenue::new(Once{inner:ReqwestTransport::new(http::client(),c.key,c.secret),file:self.file.clone(),cipher:self.cipher.clone(),key_id:self.key_id,rotate:self.rotate.clone()},Urls{trading:self.url.clone(),data:self.url.clone()})
         }
     }
-    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+    let server=MockServer::start().await;let h=Harness::at_real_now(server.uri()).await;
     let at=h.app.now();let (bot,plan)=q_order(&h);let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(at)).unwrap();
     if !idle{placement::record_accepted(&h.c,&bot,&intent,"q-order").unwrap();}
     h.c.execute("UPDATE bots SET status=2 WHERE id=?1",[bot.id]).unwrap();
@@ -2696,7 +2699,7 @@ async fn q_changed_idle_recovery_logs_once_and_retries_with_fresh_credentials(){
 async fn i_engine_diagnostics_redact_all_stored_material_in_every_encoding(){
     use deltabadger::{engine::{run::{self,Engine},FixedClock},venue::alpaca::LiveFactory};
     if let Ok(kind)=std::env::var("S1_ENGINE_DIAGNOSTIC_CHILD"){
-        let server=MockServer::start().await;let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+        let server=MockServer::start().await;let h=Harness::at_real_now(server.uri()).await;
         let values=["engine-quoted-\"key","engine-backslash-\\secret","unused-access-🗝","unused-signing-\"material","unused-encryption-\\material","unused-dh-🗝","paper"];
         h.c.execute("UPDATE api_keys SET key=?1,secret=?2,access_token=?3,rsa_signature_key=?4,rsa_encryption_key=?5,dh_param=?6 WHERE id=?7",(h.app.cipher.encrypt(values[0]),h.app.cipher.encrypt(values[1]),h.app.cipher.encrypt(values[2]),h.app.cipher.encrypt(values[3]),h.app.cipher.encrypt(values[4]),h.app.cipher.encrypt(values[5]),h.seed.api_key_id)).unwrap();
         let encode=|value:&str|match kind.as_str(){
@@ -3020,7 +3023,7 @@ async fn r3_sync_ledger(h:&Harness,url:&str) {
 async fn r3_replacement_cannot_inherit_a_completed_ledgers_trading_freshness() {
     use deltabadger::{engine::{model,staleness,tick::{self,TickOutcome},FixedClock},sync::jobs::Connect};
     let server=MockServer::start().await;
-    let mut h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+    let mut h=Harness::at_real_now(server.uri()).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":true,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).mount(&server).await;
@@ -3142,7 +3145,7 @@ async fn r4_rotation_between_park_commit_and_cache_insertion_asks_b_clock() {
     use deltabadger::{engine::{run::{self,Engine},FixedClock},lease,store::Paths};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
-    let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+    let h=Harness::at_real_now(server.uri()).await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":false,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
@@ -3276,7 +3279,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
 
 async fn r5_retry_rotation(exhaust:bool,restart:bool){
     use deltabadger::{engine::{run::{self,Engine},model,FixedClock},venue::alpaca::LiveFactory};
-    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());let at=h.app.now();let (bot,_)=q_order(&h);
+    let server=MockServer::start().await;let h=Harness::at_real_now(server.uri()).await;let at=h.app.now();let (bot,_)=q_order(&h);
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":"temporary quote failure"}))).mount(&server).await;
     let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
     let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
