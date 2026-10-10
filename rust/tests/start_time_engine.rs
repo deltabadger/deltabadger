@@ -125,26 +125,55 @@ async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
 #[test]
 fn only_a_fresh_starts_starting_time_runs() {
     let v = &vectors()["schedule"][6]; // Warsaw, every day at 09:30
+    // Whether the engine runs the bot, and every reason it gives for not running it (refusals, then unreadable rows).
     let refused = |edit: &str| {
         let (_d, o, s) = common::install();
         let id = seed::insert_bot(&o.primary, &s, &spec(v));
         o.primary.execute(edit, [id]).unwrap();
         let r = eligibility::check_install(&o.primary).unwrap();
-        (r.eligible.contains(&id), r.problems.join("; "))
+        let unreadable = r.unreadable.iter().map(|(_, e)| e.clone());
+        (r.eligible.contains(&id), r.problems.iter().cloned().chain(unreadable).collect::<Vec<_>>().join("; "))
     };
+    const MOVED: &str = "a start_at that is not the bot's started_at";
     assert!(refused("UPDATE bots SET id = id WHERE id = ?1").0, "the state Lifecycle#start leaves runs");
     let (ok, why) = refused("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_continue_start', json('{\"requested_at\":\"2026-09-10T05:00:00Z\"}')) WHERE id = ?1");
     assert!(!ok && why.contains("continue"), "{why}");
     let (ok, why) = refused("UPDATE bots SET settings = json_set(settings, '$.start_at', '2026-09-12T07:30:00Z') WHERE id = ?1");
-    assert!(!ok && why.contains("start_at"), "a start_at moved after the start: {why}");
+    assert!(!ok && why.contains(MOVED), "a start_at moved after the start: {why}");
     let (ok, why) = refused("UPDATE bots SET settings = json_remove(settings, '$.start_at') WHERE id = ?1");
-    assert!(!ok && why.contains("start_at"), "{why}");
+    assert!(!ok && why.contains(MOVED), "{why}");
+    // No start_at and no started_at are not one time: still refused.
+    let (ok, why) = refused("UPDATE bots SET started_at = NULL, settings = json_remove(settings, '$.start_at') WHERE id = ?1");
+    assert!(!ok && why.contains(MOVED), "{why}");
+    // An unreadable start_at refuses where it is read (the eligibility check), and loading the bot still works.
     let (ok, why) = refused("UPDATE bots SET settings = json_set(settings, '$.start_at', 'garbage') WHERE id = ?1");
-    assert!(!ok && why.contains("start_at"), "{why}");
+    assert!(!ok && why.contains("garbage"), "{why}");
+    // Anything Rails' cast reads as on is on, a Float 0.0 included.
+    for on in ["json('0.0')", "'1'", "'on'", "'t'"] {
+        let (ok, why) = refused(&format!("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', {on}, '$.start_at', '2026-09-12T07:30:00Z') WHERE id = ?1"));
+        assert!(!ok && why.contains(MOVED), "start_time_enabled {on}: {why}");
+    }
     // Off, or stopped: nothing to refuse.
-    assert!(refused("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false'), '$.start_at', 'garbage') WHERE id = ?1").0);
+    assert!(refused("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false'), '$.start_at', '2026-09-12T07:30:00Z') WHERE id = ?1").0);
     let (_d, o, s) = common::install();
     let id = seed::insert_bot(&o.primary, &s, &spec(v));
     o.primary.execute("UPDATE bots SET status = 2, settings = json_remove(settings, '$.start_at') WHERE id = ?1", [id]).unwrap();
     assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty());
+}
+
+/// Bot::Startable#disable_starting_time! with a start_at that is not started_at is Rails' carry-capturing branch, which is
+/// not ported: the engine refuses it and writes nothing, whether start_at was moved or cannot be read.
+#[test]
+fn turning_off_a_moved_or_unreadable_starting_time_is_refused() {
+    let v = &vectors()["schedule"][6];
+    for start_at in ["2026-09-12T07:30:00Z", "garbage"] {
+        let (_d, o, s) = common::install();
+        let c = &o.primary;
+        let id = seed::insert_bot(c, &s, &spec(v));
+        c.execute("UPDATE bots SET settings = json_set(settings, '$.start_at', ?2) WHERE id = ?1", rusqlite::params![id, start_at]).unwrap();
+        let before = stored(c, id);
+        let now: DateTime<Utc> = "2026-09-12T08:00:00Z".parse().unwrap();
+        assert!(amount::disable_starting_time(c, id, now).is_err(), "{start_at}");
+        assert_eq!(stored(c, id), before, "{start_at}: nothing written");
+    }
 }

@@ -1101,6 +1101,23 @@ mod action_write {
         Ok(())
     }
 
+    /// ActiveSupport::TimeZone[] knows Rails' names and IANA identifiers; for any other name the start is refused and nothing
+    /// is written, never computed in UTC.
+    #[test]
+    fn action_lifecycle_start_in_an_unknown_zone_is_refused() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','13:45') WHERE id=?1",[f.id])?;
+        f.c.execute("UPDATE users SET time_zone='Mars/Olympus'",[])?;
+        let before=f.snapshot()?;
+        let Err(error)=f.lifecycle(write::Action::Start,None) else { return Err("a start in an unknown zone must be refused".into()) };
+        assert!(error.to_string().contains("unknown time zone"),"{error}");
+        assert_eq!(f.snapshot()?,before);
+        // The IANA name of the same kind is read.
+        f.c.execute("UPDATE users SET time_zone='Europe/Warsaw'",[])?;
+        assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)));
+        Ok(())
+    }
+
     #[test]
     fn action_lifecycle_stop_delete_unrenderable_and_preserve_orders() -> Result {
         for action in [write::Action::Stop,write::Action::Delete] {
