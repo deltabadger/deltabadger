@@ -5,6 +5,22 @@ pub enum Validity {
     Incorrect,
     Pending(Diagnostic),
 }
+/// Credential material and its producer are captured together, before any request.
+pub(crate) struct ValidationHandle {
+    credentials:crate::crypto::Credentials,
+    producer:crate::engine::model::CredentialVersion,
+}
+impl ValidationHandle {
+    pub(crate) fn stored(credentials:crate::crypto::Credentials,producer:crate::engine::model::CredentialVersion)->Self {
+        Self{credentials,producer}
+    }
+    pub(crate) fn credentials(&self)->&crate::crypto::Credentials { &self.credentials }
+    pub(crate) fn producer(&self)->&crate::engine::model::CredentialVersion { &self.producer }
+    pub(crate) async fn check(&self,url:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
+        let value=check(url,&self.credentials,kind).await?;
+        Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
+    }
+}
 pub struct Diagnostic { pub text: String, pub status: Option<u16>, pub body: String }
 impl Diagnostic {
     pub fn log_text(&self)->String { crate::venue::http::diagnostic(self.status,&self.body) }

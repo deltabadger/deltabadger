@@ -9,7 +9,7 @@ impl Connect for Venues {type T=ScriptedTransport;fn connect(&self,_:&deltabadge
 fn clock()->FixedClock{FixedClock("2026-09-20T02:00:00Z".parse().unwrap())}
 fn job(owner:i64)->Box<dyn Job>{let now=clock().0;tracker::jobs::resolve::<Venues,ScriptedTransport>(tracker::jobs::TRACKER_LEDGER,owner,&Venues,Rc::new(None),Arc::new(move||now)).unwrap()}
 fn cx<'a>(db:&Db,clock:&'a FixedClock)->Cx<'a>{Cx{db:db.clone(),clock,wakers:jobs::Wakers::default()}}
-fn seed(c:&rusqlite::Connection,owner:i64,venue:i64){c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,'USD',100,'2026-09-01 00:00:00','{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')",[owner,venue]).unwrap();}
+fn seed(c:&rusqlite::Connection,owner:i64,venue:i64){common::seed::fresh_stock_jobs(c,clock().0);c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,'USD',100,'2026-09-01 00:00:00','{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')",[owner,venue]).unwrap();}
 #[tokio::test(flavor="current_thread")]
 async fn producer_publishes_warm_and_failed_states_and_propagates_write_errors(){
     let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);

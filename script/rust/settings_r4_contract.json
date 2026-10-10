@@ -1,0 +1,254 @@
+{
+  "constructors": [
+    {
+      "file": "engine/model.rs",
+      "function": "credential_version",
+      "builds": "CredentialVersion"
+    },
+    {
+      "file": "engine/model.rs",
+      "function": "credential_version_by_id",
+      "builds": "CredentialVersion"
+    },
+    {
+      "file": "engine/model.rs",
+      "function": "credentials_with_redaction",
+      "builds": "engine Handle material"
+    },
+    {
+      "file": "engine/placement.rs",
+      "function": "begin_checked",
+      "builds": "direct-entry intent handle before send"
+    },
+    {
+      "file": "engine/tick.rs",
+      "function": "tick",
+      "builds": "direct-entry Handle context"
+    },
+    {
+      "file": "parity.rs",
+      "function": "decide",
+      "builds": "recorded fixture and direct-entry Handle"
+    },
+    {
+      "file": "parity.rs",
+      "function": "play",
+      "builds": "direct-entry Handle"
+    },
+    {
+      "file": "sync/cache.rs",
+      "function": "capture_read",
+      "builds": "ReadOrigin snapshot handle"
+    },
+    {
+      "file": "sync/mod.rs",
+      "function": "credentials_with_version",
+      "builds": "Captured sync material"
+    },
+    {
+      "file": "sync/parity.rs",
+      "function": "run",
+      "builds": "recorded fixture handle"
+    },
+    {
+      "file": "venue.rs",
+      "function": "for_bot",
+      "builds": "Handle"
+    },
+    {
+      "file": "web/figure/loading.rs",
+      "function": "read_info",
+      "builds": "Wire/Info"
+    },
+    {
+      "file": "web/settings/keys.rs",
+      "function": "read",
+      "builds": "Key validation handle material"
+    },
+    {
+      "file": "engine/model.rs",
+      "function": "prepared_credential_version",
+      "builds": "pending validation handle exact seven envelopes"
+    },
+    {
+      "file": "web/settings/keys.rs",
+      "function": "validate",
+      "builds": "immutable submitted validation material before HTTP"
+    }
+  ],
+  "comparison": {
+    "file": "engine/model.rs",
+    "function": "produced_is_current"
+  },
+  "read_tokens": [
+    "credential_version_by_id(",
+    "credential_version(",
+    "ciphertext_version(",
+    "prepared_credential_version("
+  ],
+  "required": {
+    "engine/model.rs": [
+      "state.digest.ct_eq(&current.digest)",
+      "value.current_for(&current).is_fresh()",
+      "pub struct Produced<T> { pub value:T, origin:Option<CredentialVersion>, complete:bool }",
+      "if c.is_autocommit(){let tx=c.unchecked_transaction()?;let fresh=produced_is_current(&tx,value)?",
+      "if !self.complete",
+      "complete:self.complete",
+      "pub fn wait_is_current",
+      "Some(\"local\") if wait[\"producer\"].is_null()=>Ok(true)",
+      "Some(\"venue\") | None=>{",
+      "produced_is_current(c,&produced)",
+      "_=>Ok(false),"
+    ],
+    "venue.rs": [
+      "impl<V:Venue> Attributed for Handle<V> {}",
+      "pub trait Attributed:Venue + sealed::Sealed",
+      "producer:Option<crate::engine::model::CredentialVersion>",
+      "let origin=self.producer();"
+    ],
+    "venue/alpaca.rs": [
+      "pub struct Captured",
+      "let origin=Some(self.origin.clone());"
+    ],
+    "engine/run.rs": [
+      "closed_until: HashMap<i64, (model::Produced<i64>",
+      "!until.current_for(&credential_version).is_fresh()",
+      "model::Produced::new(until.timestamp_micros(),producer)",
+      "!state.current_for(&credential_version).is_fresh()",
+      "model::Produced::new(Attempts::default(),credential_version.clone())",
+      "polls: HashMap<i64, model::Produced<(i64, i64, Attempts)>>",
+      "reconcile_at: HashMap<i64, model::Produced<i64>>",
+      "let fresh=state.current_for(&producer).is_fresh();",
+      "if !fresh {attempts=Attempts::default();}",
+      "if e.attempts.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh())",
+      "if e.retry_at.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh())",
+      "model::wait_is_current(&wait_tx,&wait_bot.transient[\"rust_defer_until\"])?",
+      "let wait_tx=model::immediate(&e.primary)?",
+      "let wait_bot=model::load_bot(&wait_tx,id)?"
+    ],
+    "engine/tick.rs": [
+      "type CachedPrice = (chrono::DateTime<chrono::Utc>, model::Produced<BigDec>)",
+      "!price.current_for(version).is_fresh()",
+      "if stale { entries.remove(&key); }",
+      "cx.prices.put_result",
+      "producer:c.producer_version()",
+      "state.current_for(&tx.producer_version()).is_fresh()"
+    ],
+    "sync/cache.rs": [
+      "model::stamp_current_for",
+      "model::current_for(Some(a),Some(b))",
+      "model::credential_is_current(c,producer)?",
+      "model::credential_is_current(c,&producer)",
+      "ReadValue<T>",
+      "balance_producers:Vec<model::Produced<()>>",
+      "origin.balance_producers.iter().zip(&current_balances.balance_producers)",
+      "model::produced_is_current(tx,current)?",
+      "if origin.balance_inputs",
+      "balance_inputs:true",
+      ".with_completion(complete)"
+    ],
+    "sync/ledger.rs": [
+      "stamp_current_for(&v[\"credential_origin\"]",
+      "let captured_handle=crate::venue::alpaca::Captured::new"
+    ],
+    "sync/balances.rs": [
+      "let captured_handle=crate::venue::alpaca::Captured::new"
+    ],
+    "jobs/mod.rs": [
+      "job.run_attributed",
+      "let version=outcome.origin().clone()",
+      "check_credential_result(&tx,&version)",
+      "version.is_none() && matches!(name"
+    ],
+    "sync/jobs.rs": [
+      "fn run_attributed",
+      "Produced::new(result,Some(version))",
+      "handle.check(&venue.urls().trading,kind).await",
+      "let origin=status.origin().clone();",
+      "Produced::new(outcome,origin)"
+    ],
+    "main.rs": [
+      "run_within_deadline_attributed",
+      "let version=result.origin().clone()"
+    ],
+    "tracker/jobs.rs": [
+      "let produced=origin.derive((rows,walked))",
+      "fence_read(&tx,origin)",
+      "origin.with_balance_producers(&read)",
+      "written_for(c, &produced.origin",
+      "written_for(c,&cache_origin,&*clock,|c,now|{",
+      "let cache_origin=match &result {Ok(produced)=>produced.origin.clone()",
+      "ledger_run_produced",
+      "super::cache::publish(c,owner,&before,cached.as_ref(),venue,now)"
+    ],
+    "tracker/snapshot.rs": [
+      "record_origin(c,user_id,None,date)?",
+      "c.producer_stamp()"
+    ],
+    "web/mcp/reads.rs": [
+      "let versions=inner.producers()",
+      "let versions=fetch.producers()",
+      "credential_is_current(c,&version)?",
+      "origin:crate::engine::model::CredentialVersion",
+      "let out=finish_in(&tx,fetch)?",
+      "return finish_in(c,*inner)"
+    ],
+    "web/figure/loading.rs": [
+      "with_origin(info.origin.clone())",
+      "with_current(c)",
+      "current_for(Some(&info.origin),Some(&current.origin))"
+    ],
+    "web/figure/service.rs": [
+      "identity_current_for",
+      "state.entries.remove(&user);state.latest.remove(&user)"
+    ],
+    "figures/page_market.rs": [
+      "origin:Option<crate::engine::model::CredentialVersion>",
+      "current_for(h.origin.as_ref(),wire.producer().as_ref())",
+      "current_for(origin.as_ref(),self.cache.origin.as_ref())",
+      "credential_is_current(c,origin)",
+      "self.cache.entries.borrow_mut().remove(&key)",
+      "self.cache.heads.borrow_mut().remove(&key)"
+    ],
+    "build.rs": [
+      "provenance_build_gate::check(&root)"
+    ],
+    "web/settings/validator.rs": [
+      "pub(crate) struct ValidationHandle",
+      "producer:crate::engine::model::CredentialVersion",
+      "Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))"
+    ],
+    "web/settings/keys.rs": [
+      "let result=handle.check(&app.settings_key_url,kind).await?;",
+      "let key=validated.columns[0].clone();",
+      "validated.result.current_for(&Some(validated.handle.producer().clone()))",
+      "check_credential_result(&tx,status.origin())?",
+      "status:&crate::engine::model::Produced<i64>",
+      "status.current_for(&c.producer_version())"
+    ],
+    "engine/placement.rs": [
+      "pub fn defer_failure(c:&model::FencedTransaction",
+      "let producer=c.producer_version()",
+      "\"origin\": \"local\"",
+      "'$.rust_defer_until.origin','venue'"
+    ],
+    "tracker/cache.rs": [
+      "c:&crate::engine::model::FencedTransaction",
+      "model::stamp_set_current_for(&v[\"producers\"],&current.producers)",
+      "origin.ledger_is_current(c)",
+      "if c.is_autocommit(){let tx=c.unchecked_transaction()?"
+    ]
+  },
+  "exemptions": [
+    {
+      "store": "rust/src/tracker/prices.rs::store_bars",
+      "reader": "rust/src/tracker/prices.rs::Reference",
+      "reason": "market data, not account state; RULING-R4A"
+    }
+  ],
+  "wait_consumers": [
+    "engine/run.rs",
+    "engine/model.rs",
+    "engine/placement.rs"
+  ]
+}

@@ -1,5 +1,6 @@
 //! Ordinary browser tests exercise the production handlers; only exchange HTTP and the application logger are captured.
 mod common;
+#[path="support/s1_legacy.rs"] mod legacy;
 #[path = "support/settings_fixture.rs"]
 mod fixture;
 use common::web::{self, Browser, Csrf};
@@ -1846,11 +1847,18 @@ async fn r_mcp_inflight_balances_and_orders_must_not_publish_a_for_b() {
     let mut script=serde_json::json!({});
     script["GET paper-api.alpaca.markets/v2/account"]=serde_json::json!({"status":200,"delay_ms":100,"body":{"cash":"10000"}});
     script["GET paper-api.alpaca.markets/v2/positions"]=serde_json::json!({"status":200,"body":[]});
-    script["GET paper-api.alpaca.markets/v2/orders?limit=50&status=open"]=serde_json::json!({"status":200,"delay_ms":100,"body":[{"id":"order-a","symbol":"BTC/USD","side":"buy","type":"market","status":"new","qty":"0.2","filled_qty":"0","filled_avg_price":null}]});
+    script["GET paper-api.alpaca.markets/v2/orders?limit=50&status=open"]=serde_json::json!({"status":200,"delay_ms":100,"body":[{"id":"order-a","symbol":"BTC/USD","asset_class":"crypto","side":"buy","type":"market","status":"new","qty":"0.2","filled_qty":"0","filled_avg_price":null}]});
     let env=web::env(web::SECRET);
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(Source::Script(script)).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(Default::default()).unwrap();
     for tool in ["get_exchange_balances","list_open_orders"] {
+        let unchanged=reads::plan(&h.c,&h.app,h.seed.user_id,tool,&serde_json::json!({"exchange_name":"Alpaca"})).unwrap();
+        let Called::Fetch(unchanged)=unchanged else{panic!("real unchanged venue fetch required")};
+        let unchanged=reads::fetch(&h.app,unchanged).await;
+        let current=reads::finish(&h.c,unchanged);
+        assert!(current.is_ok(),"R4 unchanged MCP envelope must finish in one transaction: {tool}");
+        let current=current.unwrap().to_string();
+        assert!(current.contains(if tool=="get_exchange_balances"{"10000"}else{"order-a"}),"R4 unchanged MCP result must retain the actual venue value: {current}");
         h.c.execute("UPDATE api_keys SET key=?1 WHERE id=?2",(h.app.cipher.encrypt("previous-key"),h.seed.api_key_id)).unwrap();
         let planned=reads::plan(&h.c,&h.app,h.seed.user_id,tool,&serde_json::json!({"exchange_name":"Alpaca"})).unwrap();
         let Called::Fetch(planned)=planned else{panic!("real venue fetch required")};
@@ -2073,7 +2081,8 @@ async fn q_scheduler_does_not_stamp_a_finished_old_run_as_b_current_success() {
     struct RealSync{inner:LedgerSync<LocalAlpaca>,armed:Arc<AtomicBool>}
     impl Job for RealSync{
         fn spec(&self)->Spec{self.inner.spec()}
-        fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{Box::pin(async move{let result=self.inner.run(cx,wakes).await;self.armed.store(true,Ordering::SeqCst);result})}
+        fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{Box::pin(async move{self.run_attributed(cx,wakes).await.value})}
+        fn run_attributed<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->jobs::AttributedJobFuture<'a>{Box::pin(async move{let result=self.inner.run_attributed(cx,wakes).await;self.armed.store(true,Ordering::SeqCst);result})}
     }
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
@@ -2837,8 +2846,16 @@ async fn r1_each_sync_kind_checks_after_waiting_for_the_write_lock(){
     static RELEASE:std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>>=std::sync::Mutex::new(None);
     fn busy(_:i32)->bool{if let Some(sender)=RELEASE.lock().unwrap().as_ref(){let _=sender.send(());}true}
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
     for kind in ["balance","ledger","status","bars"]{
         let version=model::credential_version_by_id(&h.c,1).unwrap().unwrap();
+        let status=if kind=="status"{
+            use deltabadger::jobs::Job;
+            let job=sync::jobs::Validator{venues:LocalAlpaca(server.uri()),key_id:1};
+            let captured=job.run_attributed(deltabadger::jobs::Cx{db:Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone()),clock:h.clock.as_ref(),wakers:Default::default()},vec![]).await;
+            assert!(captured.origin().is_some(),"fixture forwards the actual validation job producer");
+            Some(captured.map(|_|2))
+        }else{None};
         let writer_file=h._dir.path().join("production.sqlite3");let ciphertext=h.app.cipher.encrypt(&format!("replacement-{kind}"));
         let connection=rusqlite::Connection::open(&writer_file).unwrap();connection.busy_handler(Some(busy)).unwrap();
         let db=Db::new(connection,h.app.cipher.clone());
@@ -2852,7 +2869,7 @@ async fn r1_each_sync_kind_checks_after_waiting_for_the_write_lock(){
             match kind{
                 "balance"=>cache::record(c,1,1,&origin,true,now).map_err(Into::into),
                 "ledger"=>cache::record_ledger(c,1,&origin,now).map_err(Into::into),
-                "status"=>keys::store_status(c,2,1,now),
+                "status"=>keys::store_status(c,status.as_ref().unwrap(),1,now),
                 _=>prices::store_bars(c,&[]).map_err(|_|sync::SyncError("bar write failed".into()))
             }
         }).await;
@@ -2939,9 +2956,9 @@ async fn r2_stored_errors_and_mcp_answers_check_every_column_and_encoding(){
         script["GET paper-api.alpaca.markets/v2/account"]=serde_json::json!({"status":503,"body":{"message":text}});
         script["GET paper-api.alpaca.markets/v2/orders?limit=50&status=open"]=serde_json::json!({"status":503,"body":{"message":text}});
         h.app=h.app.with_figure_source(Source::Script(script)).unwrap();
-        let balances=reads::fetch(&h.app,reads::Fetch::Balances{user:h.seed.user_id,exchange:h.seed.exchange_id,name:"Alpaca".into(),credentials:credentials.clone()}).await;
+        let balances=reads::fetch(&h.app,reads::Fetch::Balances{user:h.seed.user_id,exchange:h.seed.exchange_id,name:"Alpaca".into(),credentials:deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()}).await;
         let response=reads::finish(&h.c,balances).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP balances: {encoded:?}");assert!(!response.contains(&encoded),"no reflected balances diagnostic");
-        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(credentials.clone()))]}).await;
+        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))]}).await;
         let response=reads::finish(&h.c,orders).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP orders: {encoded:?}");assert!(!response.contains(&encoded),"no reflected orders diagnostic");
     }
     }
@@ -3105,6 +3122,289 @@ async fn r3_html_settings_refuse_json_bodies_without_writes(){
     let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_name",Some(serde_json::json!({"user":{"name":"New Owner"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
     assert_eq!(response.status,400);assert_eq!(h.snapshot(),before);
     assert!(h.mail.0.lock().unwrap().is_empty());assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn r4_rotation_between_park_commit_and_cache_insertion_asks_b_clock() {
+    use deltabadger::{engine::{run::{self,Engine},FixedClock},lease,store::Paths};
+    use wiremock::matchers::header;
+    let server=MockServer::start().await;
+    let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":false,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":true,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/stocks/AAPL/quotes/latest")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":200000}}}))).mount(&server).await;
+
+    let (bot,_)=q_order(&h);h.c.execute("UPDATE assets SET category='Stock',instrument_type='stock' WHERE id=?1",[h.seed.btc]).unwrap();
+    h.c.execute("UPDATE tickers SET minimum_quote_size=100000 WHERE id=?1",[h.seed.ticker_id]).unwrap();
+    common::seed::fresh_stock_jobs(&h.c,h.app.now());
+    let paths=Paths::from_env(&|_|None,h._dir.path());let lock=lease::lock(&paths,h.app.now()).unwrap();
+    let mut engine=Engine::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),LocalAlpaca(server.uri()),h.app.cipher.clone(),lock);
+    let ciphertext=h.app.cipher.encrypt("account-b-key");
+    let secret=h.app.cipher.encrypt("account-b-secret");let now=h.app.now();let id=h.seed.api_key_id;
+    engine.inject_cache_insert_step(move|c|{
+        assert!(deltabadger::engine::model::load_bot(c,bot.id)?.transient["waiting_for_market_open"].as_bool().unwrap(),"R4 barrier runs after fenced park commits");
+        c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(&ciphertext,&secret,id))?;
+        common::seed::fresh_stock_jobs(c,now);Ok(())
+    });
+    run::step(&mut engine,&FixedClock(h.app.now())).await.unwrap();
+    run::step(&mut engine,&FixedClock(h.app.now()+chrono::Duration::seconds(1))).await.unwrap();
+    let requests=server.received_requests().await.unwrap();
+    assert!(requests.iter().any(|r|r.url.path()=="/v2/clock"&&r.headers.get("APCA-API-KEY-ID").is_some_and(|h|h=="account-b-key")),"R4 B tick must read B's market clock instead of waiting on A's cached next_open");
+    server.verify().await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn r4_credential_job_success_without_producer_is_never_fresh(){
+    use deltabadger::{jobs::{self,Job,JobFuture,Cx,Wake,Spec,state,Outcome},sync::jobs::LedgerSync};
+    struct DropsProducer(LedgerSync<LocalAlpaca>);
+    impl Job for DropsProducer {
+        fn spec(&self)->Spec{self.0.spec()}
+        fn run<'a>(&'a self,_cx:Cx<'a>,_wakes:Vec<Wake>)->JobFuture<'a>{Box::pin(async{Outcome::Done})}
+    }
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
+    let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),vec![Box::new(DropsProducer(LedgerSync::new(LocalAlpaca(server.uri()),h.seed.api_key_id)))],None);
+    let (stop,stopped)=tokio::sync::watch::channel(false);
+    let control=async{tokio::time::sleep(std::time::Duration::from_millis(50)).await;stop.send(true).unwrap();};
+    let (result,())=tokio::join!(scheduler.run(stopped,&*h.clock),control);result.unwrap();
+    assert_eq!(state::read(&h.c,"ledger_sync",Some("1")).unwrap().last_success_at,None,"R4 independent completion cannot label credential-derived success");
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn r4_snapshot_cannot_relabel_retained_a_balances_as_b(){
+    use deltabadger::{engine::{model,FixedClock},sync::balances::{self,NoPrices},tracker::jobs,venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
+    use wiremock::matchers::header;
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    for (key,cash) in [("previous-key","10000"),("account-b-key","2000")]{
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID",key)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":cash}))).expect(1).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).expect(2).mount(&server).await;
+    let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at)));
+    let bot=model::load_bot(&h.c,bot_id).unwrap();let a=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
+    let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
+    let venue=|credentials:&deltabadger::crypto::Credentials|AlpacaVenue::new(ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()),Urls{trading:server.uri(),data:server.uri()});
+    balances::sync(&db,&venue(&a),&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
+    let wall=jobs::system_wall();
+    jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await.unwrap();
+    let before=h.snapshot();
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    let retained=h.snapshot();
+    let stale=jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await;
+    assert!(stale.is_err(),"R4 retained A balances cannot receive B snapshot provenance");
+    assert_eq!(h.snapshot(),retained,"R4 stale snapshot calculation must not commit any rows");
+    assert_ne!(before,retained);
+    let b=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
+    balances::sync(&db,&venue(&b),&NoPrices,h.seed.api_key_id,&b,&FixedClock(at)).await.unwrap().unwrap();
+    jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await.unwrap();
+    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1",[h.seed.user_id],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R4 fresh B balance control publishes B's value");
+    let origin_key=deltabadger::jobs::state::key("balance_origin",Some(&format!("{}:{}",h.seed.user_id,h.seed.exchange_id)));
+    h.c.execute("DELETE FROM app_configs WHERE key=?1",[origin_key]).unwrap();
+    let missing=h.snapshot();
+    assert!(jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall,&mut jobs::Allowance::run()).await.is_err(),"R4 missing balance producer is stale");
+    assert_eq!(h.snapshot(),missing);
+    server.verify().await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn r4_submitted_validation_producer_matches_seven_stored_envelopes(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec{status:2,..common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00")});
+    let observed=Arc::new(std::sync::Mutex::new(Vec::new()));let capture=observed.clone();
+    h.app.set_validation_observer(move|origin|capture.lock().unwrap().push(origin)).unwrap();
+    let response=h.submit("POST",&format!("/bots/{bot}/add_api_key"),&[("api_key[key]","prepared-key"),("api_key[secret]","prepared-secret"),("api_key[passphrase]","paper"),("api_key[access_token]","prepared-access"),("api_key[rsa_signature_key]","prepared-signing"),("api_key[rsa_encryption_key]","prepared-encryption"),("api_key[dh_param]","prepared-dh")],Csrf::Header).await;
+    assert_eq!(response.status,200,"healthy submitted credential is accepted");
+    {
+        let origins=observed.lock().unwrap();assert_eq!(origins.len(),1,"observe the actual validator result exactly once");
+        assert!(origins[0].is_some(),"actual validation result has a producer");
+        let producer=origins[0].as_ref().unwrap();
+        assert!(deltabadger::engine::model::credential_is_current(&h.c,producer).unwrap(),"R4 submitted validation producer must match all seven stored envelopes");
+    }
+    server.verify().await;
+}
+
+
+#[tokio::test(flavor="current_thread")]
+async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
+    use deltabadger::{engine::{model,FixedClock},sync::balances::{self,NoPrices},tracker::jobs};
+    use wiremock::matchers::header;
+    use deltabadger::sync::jobs::Connect;
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
+    let a=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();
+    let av=LocalAlpaca(server.uri()).connect(&a);
+    balances::sync(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
+    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
+    let mut positions=vec![];
+    for n in 0..101 {let symbol=format!("R5{n}");let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,&symbol);h.c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1"}));}
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    let b=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();let bv=LocalAlpaca(server.uri()).connect(&b);
+    let gaps=std::cell::RefCell::new(vec![]);let owner=h.seed.user_id;let h_ref=&h;let db_ref=&db;let gaps_ref=&gaps;
+    let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
+        let before=h_ref.snapshot();
+        let result=jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(db_ref,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await;
+        assert!(result.is_err(),"R5 incomplete balance set must refuse snapshot at origin/batch gap {gap}");
+        assert_eq!(h_ref.snapshot(),before,"R5 partial rows must not acquire a snapshot producer stamp");
+        gaps_ref.borrow_mut().push(gap);
+    })};
+    balances::sync_with_steps(&db,&bv,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at),&step).await.unwrap().unwrap();
+    assert_eq!(*gaps.borrow(),vec![0,1,2],"cover origin-only and both partial batch gaps");
+    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
+    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
+}
+
+async fn r5_retry_rotation(exhaust:bool,restart:bool){
+    use deltabadger::{engine::{run::{self,Engine},model,FixedClock},venue::alpaca::LiveFactory};
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;h.clock.set(chrono::Utc::now());let at=h.app.now();let (bot,_)=q_order(&h);
+    Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":"temporary quote failure"}))).mount(&server).await;
+    let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+    for pass in 0..if exhaust {4}else{3} {run::step(&mut engine,&FixedClock(at+chrono::Duration::seconds(pass*100))).await.unwrap();}
+    assert_eq!(server.received_requests().await.unwrap().len(),if exhaust {4}else{3},"A generated the intended failure chain");
+    let rotated_at=at+chrono::Duration::seconds(if exhaust {301}else{201});
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    common::seed::fresh_stock_jobs(&h.c,rotated_at);
+    if restart {drop(engine);let lock=deltabadger::lease::lock(&paths,rotated_at).unwrap();engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);}
+    run::step(&mut engine,&FixedClock(rotated_at)).await.unwrap();
+    let requests=server.received_requests().await.unwrap();
+    assert!(requests.iter().any(|r|r.headers.get("APCA-API-KEY-ID").is_some_and(|h|h=="account-b-key")),"R5 B tick must ignore A retry or persisted failure wait");
+    let state=model::load_bot(&h.c,bot.id).unwrap();assert!(state.rust_defer().unwrap().is_none(),"R5 first B failure must be attempt one, without an exhausted deferral");
+    let exhausted:i64=h.c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_retrying'",[bot.id],|r|r.get(0)).unwrap();assert_eq!(exhausted,if exhaust {1}else{0},"R5 B first failure must not exhaust the retry budget");
+    let count=requests.len();run::step(&mut engine,&FixedClock(rotated_at+chrono::Duration::seconds(2))).await.unwrap();assert_eq!(server.received_requests().await.unwrap().len(),count,"B attempt-one wait is retained for the same digest");
+    run::step(&mut engine,&FixedClock(rotated_at+chrono::Duration::seconds(3))).await.unwrap();assert_eq!(server.received_requests().await.unwrap().len(),count+1,"B attempt-one wait is three seconds");
+}
+#[tokio::test(flavor="current_thread")]
+async fn r5_rotation_drops_a_wait_and_starts_b_at_attempt_one(){r5_retry_rotation(false,false).await;}
+#[tokio::test(flavor="current_thread")]
+async fn r5_rotation_drops_exhausted_failure_deferral(){r5_retry_rotation(true,false).await;}
+#[tokio::test(flavor="current_thread")]
+async fn r5_rotation_drops_persisted_failure_deferral_after_restart(){r5_retry_rotation(true,true).await;}
+
+
+#[tokio::test(flavor="current_thread")]
+async fn r5_completed_snapshot_capture_is_refused_when_a_new_batch_is_incomplete(){
+    use deltabadger::{engine::FixedClock,sync::{self,balances::{self,NoPrices}},tracker::jobs};
+    use deltabadger::sync::jobs::Connect;
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
+    let a=sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();let av=LocalAlpaca(server.uri()).connect(&a);
+    balances::sync(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
+    let read=h.c.unchecked_transaction().unwrap();let origin=sync::cache::capture_read(&read,h.seed.user_id,None).unwrap().with_balance_producers(&read).unwrap();read.commit().unwrap();
+    let h_ref=&h;let origin_ref=&origin;
+    let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
+        let before=h_ref.snapshot();
+        let out=jobs::written_for(&h_ref.c,origin_ref,&||at,|c,_|deltabadger::tracker::snapshot::write(c,h_ref.seed.user_id,&[],at.date_naive()));
+        assert!(out.is_err(),"R5 write fence must recheck current balance completion after captured-complete input at gap {gap}");assert_eq!(h_ref.snapshot(),before);
+    })};
+    balances::sync_with_steps(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at),&step).await.unwrap().unwrap();
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn r5_tracker_ledger_cache_is_cold_after_rotation_even_after_b_sync(){
+    use deltabadger::{engine::FixedClock,jobs::{self,Cx,Outcome},tracker::{self,cache::{self,State}}};
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
+    Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    r3_sync_ledger(&h,&server.uri()).await;
+    let db=jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());let clock=FixedClock(h.app.now());
+    let job=||tracker::jobs::resolve::<LocalAlpaca,deltabadger::venue::http::ReqwestTransport>(tracker::jobs::TRACKER_LEDGER,h.seed.user_id,&LocalAlpaca(server.uri()),std::rc::Rc::new(None),tracker::jobs::system_wall()).unwrap();
+    assert_eq!(job().run(Cx{db:db.clone(),clock:&clock,wakers:jobs::Wakers::default()},vec![]).await,Outcome::Done,"R5 unchanged A cache publishes");
+    assert!(matches!(cache::read(&h.c,h.seed.user_id,None,h.app.now()).unwrap(),State::Warm(_)));
+    let before=deltabadger::app_config::get_plain(&h.c,&cache::key(h.seed.user_id)).unwrap();
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    assert!(matches!(cache::read(&h.c,h.seed.user_id,None,h.app.now()).unwrap(),State::Cold),"R5 cache cannot present A under B");
+    r3_sync_ledger(&h,&server.uri()).await;
+    assert!(matches!(cache::read(&h.c,h.seed.user_id,None,h.app.now()).unwrap(),State::Cold),"R5 B ledger freshness must not relabel A cached walk");
+    assert_eq!(deltabadger::app_config::get_plain(&h.c,&cache::key(h.seed.user_id)).unwrap(),before,"retain cached history without relabelling");
+    assert_eq!(job().run(Cx{db,clock:&clock,wakers:jobs::Wakers::default()},vec![]).await,Outcome::Done,"R5 B recomputation publishes");
+    assert!(matches!(cache::read(&h.c,h.seed.user_id,None,h.app.now()).unwrap(),State::Warm(_)));
+}
+
+
+#[tokio::test(flavor="current_thread")]
+async fn r5_rotation_discards_a_blocking_failure_and_keeps_b_own_failure(){
+    use deltabadger::{engine::{model,tick::{self,Attempts,TickOutcome},FixedClock},sync::jobs::Connect};
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    Mock::given(method("GET")).and(path("/v2/clock")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"code":40110000,"message":"unauthorized."}))).expect(3).mount(&server).await;
+    let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,"AAPL");
+    let id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00").weights(&[(asset,1.0)]));common::seed::fresh_stock_jobs(&h.c,at);
+    let a=deltabadger::sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();let av=LocalAlpaca(server.uri()).connect(&a);
+    assert!(matches!(tick::tick(&h.c,&av,id,&FixedClock(at),&mut Attempts::default()).await.unwrap(),TickOutcome::Rescheduled));
+    assert_eq!(model::load_bot(&h.c,id).unwrap().last_failure_kind().as_deref(),Some("invalid_key"));
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();common::seed::fresh_stock_jobs(&h.c,at);
+    let b=deltabadger::sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();let bv=LocalAlpaca(server.uri()).connect(&b);
+    let outcome=tick::tick(&h.c,&bv,id,&FixedClock(at+chrono::Duration::seconds(1)),&mut Attempts::default()).await.unwrap();
+    assert!(matches!(outcome,TickOutcome::Rescheduled),"R5 first B blocking failure cannot inherit A failure decision: {outcome:?}");
+    assert!(matches!(tick::tick(&h.c,&bv,id,&FixedClock(at+chrono::Duration::seconds(2)),&mut Attempts::default()).await.unwrap(),TickOutcome::Stopped),"R5 second unchanged B failure retains its own decision");server.verify().await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn r6_legacy_unclassified_failure_upgrade_rotation_ticks_b(){
+    use deltabadger::{engine::{run::{self,Engine},model,FixedClock},venue::alpaca::LiveFactory};
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;h.clock.set(legacy::at());let at=h.app.now();let (bot,_)=q_order(&h);
+    // This row was emitted by an actual unmodified pinned-base Engine::step.
+    let legacy:serde_json::Value=serde_json::from_str(include_str!("fixtures/s1_legacy_failure_wait.json")).unwrap();
+    assert!(legacy["origin"].is_null() && legacy["producer"].is_null());
+    let until=at+chrono::Duration::days(7)-chrono::Duration::seconds(1);
+    assert_eq!(legacy["until"],until.to_rfc3339_opts(chrono::SecondsFormat::AutoSi,true),"R7 fixture deadline is derived from the injected clock");
+    assert_eq!(legacy["schedule"],format!("{}/Seconds(604800.0)",(at-chrono::Duration::seconds(1)).timestamp_micros()));
+    h.c.execute("UPDATE bots SET status=5,transient_data=json_set(transient_data,'$.rust_defer_until',json(?1)) WHERE id=?2",(legacy.to_string(),bot.id)).unwrap();
+    assert!(model::load_bot(&h.c,bot.id).unwrap().last_failure_kind().is_none());
+    let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    let due=at+chrono::Duration::seconds(1);
+    h.clock.set(due);
+    assert!(model::load_bot(&h.c,bot.id).unwrap().rust_defer().unwrap().unwrap().0>due.timestamp_micros(),"R6 base A wait still lies in the future at chronological upgrade time");
+    Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).expect(1).mount(&server).await;
+    r3_sync_ledger(&h,&server.uri()).await;
+    assert!(deltabadger::engine::staleness::ledger_stale(&h.c,&model::load_bot(&h.c,bot.id).unwrap(),due).unwrap().is_none(),"R6 B completed its own real ledger sync");
+    Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":"B first transient"}))).expect(1).mount(&server).await;
+    run::step(&mut engine,&FixedClock(due)).await.unwrap();
+    let requests=server.received_requests().await.unwrap();
+    assert!(requests.iter().any(|r|r.url.path()=="/v1beta3/crypto/us/latest/quotes" && r.headers.get("APCA-API-KEY-ID").is_some_and(|v|v=="account-b-key")),"R6 upgraded B must tick at its next due pass instead of inheriting A's legacy checkpoint");
+    assert!(model::load_bot(&h.c,bot.id).unwrap().rust_defer().unwrap().is_none(),"R6 legacy unknown wait must be removed on read");
+    assert_eq!(h.c.query_row("SELECT count(*) FROM transactions",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    server.verify().await;
+}
+#[tokio::test(flavor="current_thread")]
+async fn r6_explicit_local_wait_survives_rotation_and_restart(){
+    use deltabadger::{engine::{run::{self,Engine},placement,model,FixedClock},venue::alpaca::LiveFactory};
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();let (bot,_)=q_order(&h);
+    placement::defer_to_next_checkpoint(&h.c,&bot,at).unwrap();
+    let wait_before=model::load_bot(&h.c,bot.id).unwrap().rust_defer().unwrap();
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    common::seed::fresh_stock_jobs(&h.c,at);
+    let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+    run::step(&mut engine,&FixedClock(at+chrono::Duration::seconds(1))).await.unwrap();
+    assert_eq!(model::load_bot(&h.c,bot.id).unwrap().rust_defer().unwrap(),wait_before,"R6 explicitly local waits survive credential rotation and restart");
+    assert!(server.received_requests().await.unwrap().is_empty(),"R6 local wait must suppress the tick");
+    assert_eq!(model::load_bot(&h.c,bot.id).unwrap().transient["rust_defer_until"]["origin"],"local","R6 local writer labels its origin");
+}
+#[tokio::test(flavor="current_thread")]
+async fn r6_failure_wait_origin_is_venue_and_keeps_its_current_digest(){
+    use deltabadger::engine::{run::{self,Engine},model,FixedClock};
+    let h=Harness::new("http://localhost:3000".into()).await;h.clock.set(legacy::at());let at=h.app.now();let (bot,_)=q_order(&h);
+    let transport=legacy::failed_order();
+    let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),legacy::Factory(transport.clone()),h.app.cipher.clone(),lock);
+    run::step(&mut engine,&FixedClock(at)).await.unwrap();let row=model::load_bot(&h.c,bot.id).unwrap();let wait=&row.transient["rust_defer_until"];
+    assert_eq!(wait["origin"],"venue","R6 every failure deferral declares venue origin");
+    assert!(!wait["producer"].is_null());let before=row.rust_defer().unwrap();
+    assert_eq!(transport.requests().len(),2,"R7 actual engine consumed the quote and rejected order");
+    run::step(&mut engine,&FixedClock(at+chrono::Duration::seconds(1))).await.unwrap();
+    assert_eq!(model::load_bot(&h.c,bot.id).unwrap().rust_defer().unwrap(),before,"R6 same-producer venue wait is kept");
+    assert_eq!(transport.requests().len(),2,"R7 current wait suppresses a second venue call");
 }
 
 #[tokio::test(flavor="current_thread")]

@@ -1,4 +1,5 @@
 //! The engine reuses the figures port of Rails' split matching. Trust is an additional trading gate.
+use crate::venue::Attributed;
 use super::{model::{self, Bot}, basket, EngineError};
 use crate::figures::{self, at::At, db, splits as rails};
 use crate::ruby::BigDec;
@@ -88,6 +89,8 @@ fn row_refusal(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<S
 /// Account positions must be compared to account holdings, never to one bot's share alone.
 /// Shared/manual or unsupported histories fail closed if the account cannot be reconciled.
 pub async fn refusal<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, now: DateTime<Utc>) -> Result<Option<String>, EngineError> {
+    let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
+    let venue=&handle;
     // All synchronous history reads, grouping and walks share one cumulative scope. End it before venue I/O.
     let expected = match figures::budget::within(|| expected_positions(c, bot, now)) {
         Ok(Ok(expected)) => expected,
@@ -96,7 +99,7 @@ pub async fn refusal<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bo
         Err(err) => return Err(err),
     };
     if expected.is_empty() { return Ok(None); }
-    let actual = match venue.positions().await { Ok(p) => p, Err(_) => return Ok(Some("venue positions unavailable or unreadable; retry after a complete refresh".into())) };
+    let actual = match venue.positions_result().await.value { Ok(p) => p, Err(_) => return Ok(Some("venue positions unavailable or unreadable; retry after a complete refresh".into())) };
     for (symbol, held) in expected {
         let actual = actual.get(&symbol).cloned().unwrap_or_else(BigDec::zero);
         if !position_agrees(&held, &actual) {

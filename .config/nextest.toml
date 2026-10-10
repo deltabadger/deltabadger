@@ -1,0 +1,24 @@
+# Measure bulk-write bounds before shutdown controls create disk work; reserve all six slots.
+[[profile.default.overrides]]
+filter = 'test(full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds)'
+threads-required = 6
+priority = 100
+success-output = "immediate"
+
+[[profile.default.overrides]]
+filter = 'test(over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in)'
+threads-required = 6
+priority = 99
+success-output = "immediate"
+
+[[profile.default.overrides]]
+filter = 'test(every_write_unit_keeps_the_gap_across_phase_boundaries)'
+threads-required = 6
+priority = 98
+success-output = "immediate"
+
+[[profile.default.overrides]]
+filter = 'binary(one_process)'
+threads-required = 6
+priority = 97
+success-output = "immediate"

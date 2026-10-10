@@ -177,8 +177,24 @@ pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn Pr
     sync_captured(db, venue, prices, key_id, credentials, clock, &version).await
 }
 
+/// Test boundary after the incomplete-origin commit (zero) and each balance batch.
+pub type BalanceStep<'a> = dyn Fn(usize) -> std::pin::Pin<Box<dyn std::future::Future<Output=()> + 'a>> + 'a;
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments)]
+pub async fn sync_with_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceSource,key_id:i64,credentials:&Credentials,clock:&dyn Clock,step:&BalanceStep<'_>)->Result<Result<Summary,Failure>,SyncError>{
+    let version=super::capture_bound_version(db,key_id,credentials).await?;
+    sync_steps(db,venue,prices,key_id,credentials,clock,&version,Some(step)).await
+}
+
 pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
                                 -> Result<Result<Summary, Failure>, SyncError> {
+    sync_steps(db,venue,prices,key_id,credentials,clock,version,None).await
+}
+#[allow(clippy::too_many_arguments)]
+async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceSource,key_id:i64,credentials:&Credentials,clock:&dyn Clock,version:&crate::engine::model::CredentialVersion,step:Option<&BalanceStep<'_>>)->Result<Result<Summary,Failure>,SyncError>{
+    let captured_handle=crate::venue::alpaca::Captured::new(venue,version.clone());
+    let venue=&captured_handle;
+    let version=venue.origin();
     let catalog = phase(db, move |c| catalog(c, key_id)).await?;
     // A failure the job only records (`condemn`: #handle_api_key_failure marks a key Alpaca calls unauthorized incorrect).
     let fail = |text: String, condemn: bool| {
@@ -198,11 +214,11 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
     // #get_balances: the account, then the positions. A failed request, or an answer that is not JSON, ends it there
     // (a failure the venue returned is its word on the key, `condemn`; a transport failure is not). Both answers are
     // then validated whole, the account first, as Ruby raises only once it uses them.
-    let cash = match venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await.map_err(venue_failure) {
+    let cash = match venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await.value.map_err(venue_failure) {
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, account).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
-    let held = match venue.read(false, "/v2/positions", vec![], MAX_LIST_BYTES).await.map_err(venue_failure) {
+    let held = match venue.read(false, "/v2/positions", vec![], MAX_LIST_BYTES).await.value.map_err(venue_failure) {
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, positions).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
@@ -225,7 +241,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
     symbols.sort_unstable();
     symbols.dedup();
     if !symbols.is_empty() {
-        let read = match venue.read(true, SNAPSHOTS_PATH, vec![("symbols", symbols.join(","))], MAX_LIST_BYTES).await.map_err(venue_failure) {
+        let read = match venue.read(true, SNAPSHOTS_PATH, vec![("symbols", symbols.join(","))], MAX_LIST_BYTES).await.value.map_err(venue_failure) {
             Err(failure) => Err(failure),
             Ok(body) => parsed(body, move |text| snapshot_prices(text, &symbols)).await,
         };
@@ -283,10 +299,12 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
     super::commit_for(db, version, move |c| {
         super::cache::record(c, user_id, exchange_id, &origin, false, now).map_err(|_| SyncError("cannot record balance cache origin".into()))
     }).await?;
+    if let Some(step)=step {step(0).await;}
     let mut summary = Summary::default();
     for from in (0..held.len()).step_by(BATCH) {
         let (held, assets, fresh) = (held.clone(), assets.clone(), fresh.clone());
         summary = super::commit_for(db, version, move |c| upsert(c, user_id, exchange_id, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
+        if let Some(step)=step {step(from/BATCH+1).await;}
     }
     let kept: HashSet<i64> = held.iter().map(|(id, _)| *id).collect();
     let mut gone = phase(db, move |c| gone(c, user_id, exchange_id, &kept)).await?;

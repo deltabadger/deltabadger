@@ -126,10 +126,23 @@ fn flash_response(ctx: &Ctx, status: StatusCode, key: &str) -> Result<Response, 
     Ok((status, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response())
 }
 use super::validator::Validity;
-async fn validate(app:&App,key:&Key,original:&Key,kind:i64)->Result<Validity,WebError>{
+/// The prepared envelopes are the stored producer field for a newly validated slot.
+/// The pending zero identity never enters any persisted account cache.
+struct ValidatedKey {
+    key:Key,
+    columns:[Option<String>;7],
+    handle:super::validator::ValidationHandle,
+    result:crate::engine::model::Produced<Validity>,
+}
+async fn validate(app:&App,key:&Key,original:&Key,kind:i64)->Result<ValidatedKey,WebError>{
     let mut values=key.extras.iter().flatten().cloned().collect::<Vec<_>>();
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
-    super::validator::check(&app.settings_key_url,&crate::crypto::Credentials{ redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},kind).await
+    let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
+    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
+    let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},producer);
+    let result=handle.check(&app.settings_key_url,kind).await?;
+    app.observe_validation(result.origin().clone())?;
+    Ok(ValidatedKey{key:key.clone(),columns,handle,result})
 }
 async fn tracker_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{
     let requested=ctx.params.form("exchange_id").or_else(||ctx.params.query("exchange_id")).and_then(|s|s.parse::<i64>().ok());
@@ -223,7 +236,8 @@ pub async fn save(
         )
             .into_response());
     }
-    match validate(&app, &candidate, &original, kind).await? {
+    let validated=validate(&app,&candidate,&original,kind).await?;
+    match &validated.result.value {
         Validity::Incorrect => {
             return flash_response(
                 &ctx,
@@ -260,18 +274,20 @@ pub async fn save(
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let current=Key::read(&tx,&inner,user.id,exchange,kind)?;
   if !original.same(&current){return Ok(Some("credential changed during validation".into()));}
+  if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
+  let candidate=&validated.key;
   let now=format_time(inner.now());
   let changed=!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
   if current.id.is_some() && settling(&tx,user.id,exchange)? { return Ok(Some(SETTLING.into())); }
   {
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
-   let key=candidate.key.as_ref().map(|s|inner.cipher.encrypt(s));let secret=candidate.secret.as_ref().map(|s|inner.cipher.encrypt(s));let passphrase=candidate.passphrase.as_ref().map(|s|inner.cipher.encrypt(s));
+   let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
    match current.id{
     Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=1,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",(key,secret,passphrase,&now,id,user.id))?;},
     None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,1,?7,?7)",(user.id,exchange,kind,key,secret,passphrase,&now))?;}
    }
   }
-  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![candidate.extras[0].as_ref().map(|v|inner.cipher.encrypt(v)),candidate.extras[1].as_ref().map(|v|inner.cipher.encrypt(v)),candidate.extras[2].as_ref().map(|v|inner.cipher.encrypt(v)),candidate.extras[3].as_ref().map(|v|inner.cipher.encrypt(v)),candidate.realm,user.id,exchange,kind])?;
+  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user.id,exchange,kind])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user.id,exchange,kind),|r|r.get(0))?;
   tx.commit()?;
@@ -692,15 +708,16 @@ async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>{
         Ok((credentials,version,values,kind))
     }).await?;
     if credentials.passphrase.as_deref()==Some("live"){return Ok(None)}
-    let result=super::validator::check(&app.settings_key_url,&credentials,kind).await?;
-    let status=match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Pending(ref e)=>{
+    let handle=super::validator::ValidationHandle::stored(credentials,version);
+    let result=handle.check(&app.settings_key_url,kind).await?;
+    let status=result.map(|result|match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Pending(ref e)=>{
         app.settings_key_logger.warn(&format!("[Alpaca] API key validation failed: {}",scrub(&e.log_text(),&values)));0
-    }};
+    }});
     let jobs=app.job_wakers()?;let inner=app.clone();
     let result=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-        let fenced=crate::engine::model::check_credential_result(&tx,&Some(version))?;
-        store_status(&fenced,status,id,inner.now()).map_err(|_|WebError::Config("cannot store credential status".into()))?;
+        let fenced=crate::engine::model::check_credential_result(&tx,status.origin())?;
+        store_status(&fenced,&status,id,inner.now()).map_err(|_|WebError::Config("cannot store credential status".into()))?;
         if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()))}
         tx.commit()?;inner.wake_engine();Ok(None)
     }).await;
@@ -772,6 +789,33 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 
-pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:i64,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
-    c.execute("UPDATE api_keys SET status=?1,updated_at=CASE WHEN status<>?1 THEN ?2 ELSE updated_at END WHERE id=?3",rusqlite::params![status,format_time(at),id])?;Ok(())
+pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate::engine::model::Produced<i64>,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
+    if !status.current_for(&c.producer_version()).is_fresh() || status.origin().as_ref().is_none_or(|producer|producer.id!=id){return Err(crate::sync::SyncError(crate::engine::model::CREDENTIALS_CHANGED.into()));}
+    c.execute("UPDATE api_keys SET status=?1,updated_at=CASE WHEN status<>?1 THEN ?2 ELSE updated_at END WHERE id=?3",rusqlite::params![status.value,format_time(at),id])?;Ok(())
+}
+
+#[cfg(test)]
+mod validation_producer_tests {
+    use super::*;
+    #[test]
+    fn r4_validation_status_consumer_requires_bound_matching_reply(){
+        use crate::engine::model::{self,Produced};
+        let mut c=Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,status INTEGER,updated_at TEXT); INSERT INTO api_keys VALUES(1,'key-a','secret-a','paper',NULL,NULL,NULL,NULL,0,'2026-10-01');").unwrap();
+        let current=model::credential_version_by_id(&c,1).unwrap().unwrap();
+        let tx=c.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
+        {
+            let fenced=model::check_credential_result(&tx,&Some(current.clone())).unwrap();
+            let unbound=Produced::new(1,None);
+            assert!(store_status(&fenced,&unbound,1,chrono::Utc::now()).is_err(),"R4 status consumer rejects missing producer");
+            let different=model::prepared_credential_version(1,&[Some("key-b".into()),Some("secret-b".into()),Some("paper".into()),None,None,None,None]);
+            let foreign=Produced::new(1,Some(different));
+            assert!(store_status(&fenced,&foreign,1,chrono::Utc::now()).is_err(),"R4 status consumer rejects another producer under the same key ID");
+            assert_eq!(tx.query_row("SELECT status FROM api_keys WHERE id=1",[],|r|r.get::<_,i64>(0)).unwrap(),0,"refused results change no rows");
+            let healthy=Produced::new(1,Some(current));
+            assert!(store_status(&fenced,&healthy,1,chrono::Utc::now()).is_ok(),"R4 healthy status result publishes normally");
+        }
+        tx.commit().unwrap();
+        assert_eq!(c.query_row("SELECT status FROM api_keys WHERE id=1",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    }
 }

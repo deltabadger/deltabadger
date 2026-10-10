@@ -49,6 +49,7 @@ enum Record { Success, Run, Error(String) }
 /// pull, is two 60 s reads and a chunked import. A job that may need longer (a full ledger sync) declares its own.
 pub const DEADLINE: Duration = Duration::from_secs(600);
 
+pub type AttributedJobFuture<'a> = Pin<Box<dyn Future<Output=crate::engine::model::Produced<Outcome>>+'a>>;
 pub type JobFuture<'a> = Pin<Box<dyn Future<Output = Outcome> + 'a>>;
 
 /// Rows per write unit of a bulk import (import::publish): no other writer waits on SQLite's write lock for longer
@@ -213,6 +214,9 @@ pub trait Job {
     /// Engine events this job runs on. None by default.
     fn wants(&self, _event: &EngineEvent) -> bool { false }
     fn run<'a>(&'a self, cx: Cx<'a>, wakes: Vec<Wake>) -> JobFuture<'a>;
+    fn run_attributed<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->AttributedJobFuture<'a>{
+        Box::pin(async move { crate::engine::model::Produced::new(self.run(cx,wakes).await,None) })
+    }
 }
 
 /// Wakes jobs on demand from anywhere in the process. It is Send + Sync, because the web runs on other threads.
@@ -404,18 +408,14 @@ impl Scheduler {
         wakes.append(&mut s.pending);
         s.pending_since = None;
         let (name, scope, deadline) = (s.spec.name, s.spec.scope.clone(), s.spec.deadline);
-        let version=if [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC,crate::sync::jobs::API_KEY_VALIDATOR].contains(&name){
-            let id=scope.as_deref().and_then(|s|s.parse::<i64>().ok()).ok_or_else(||"invalid credential job scope".to_string())?;
-            self.db.run(move|c,_|crate::engine::model::credential_version_by_id(c,id).map_err(|_|"cannot capture scheduler credential origin".into())).await?
-        }else{None};
         let completion_owner = self.db.completion_owner(name, scope.as_deref()).await;
-        let run = tokio::time::timeout(deadline, self.slots[i].job.run(Cx { db: self.db.clone(), clock, wakers: self.wakers.clone() }, wakes.clone()));
+        let run=tokio::time::timeout(deadline,self.slots[i].job.run_attributed(Cx{db:self.db.clone(),clock,wakers:self.wakers.clone()},wakes.clone()));
         let outcome = tokio::select! {
             o = run => match o {
                 Ok(outcome) => outcome,
                 Err(_) => {
                     self.db.deadline_completion(completion_owner, name, scope.as_deref()).await;
-                    Outcome::Failed(format!("dropped past its {deadline:?} deadline"))
+                    crate::engine::model::Produced::new(Outcome::Failed(format!("dropped past its {deadline:?} deadline")),None)
                 }
             },
             _ = stop.wait_for(|stopped| *stopped) => {
@@ -423,6 +423,8 @@ impl Scheduler {
                 return Ok(false);
             }
         };
+        let version=outcome.origin().clone();
+        let outcome=outcome.value;
         let end = clock.now();
         let s = &mut self.slots[i];
         if fired { s.scheduled = s.spec.schedule.map(|sch| sch.next_fire(end) + s.spec.jitter.draw()); }
@@ -456,6 +458,9 @@ impl Scheduler {
         let retry_scope=scope.clone();
         let write = move |c: &Connection| {
             let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate).map_err(|_|"cannot begin scheduler state write".to_string())?;
+            if version.is_none() && matches!(name,crate::sync::jobs::LEDGER_SYNC|crate::sync::jobs::BALANCE_SYNC|crate::sync::jobs::API_KEY_VALIDATOR) && matches!(what,Record::Success|Record::Run) {
+                return Err(crate::engine::model::CREDENTIALS_CHANGED.to_string());
+            }
             crate::engine::model::check_credential_result(&tx,&version).map_err(|e|match e{crate::engine::EngineError::CredentialsChanged=>crate::engine::model::CREDENTIALS_CHANGED.to_string(),_=>"cannot check scheduler credential origin".into()})?;
             match &what{
                 Record::Success=>state::record_success(&tx,name,scope.as_deref(),at),

@@ -140,7 +140,7 @@ fn load_import(c: &Connection, key: &Key, version: &crate::engine::model::Creden
     let Some(v) = raw.and_then(|text| serde_json::from_str::<Value>(&text).ok()) else { return Ok((true, None)) };
     let time = |k: &str| v[k].as_i64().and_then(DateTime::<Utc>::from_timestamp_micros);
     let (Some(cursor), Some(started)) = (v["cursor"].as_str(), time("started")) else { return Ok((true, None)) };
-    if !version.matches_cache_stamp(&v["credential_origin"]) || v["watermark"].as_i64() != micros(key.last_synced_at) { return Ok((true, None)); }
+    if !crate::engine::model::stamp_current_for(&v["credential_origin"],&version.cache_stamp()).is_fresh() || v["watermark"].as_i64() != micros(key.last_synced_at) { return Ok((true, None)); }
     let cursors = v["cursors"].as_array().into_iter().flatten().filter_map(|c| c.as_str().map(str::to_string)).collect();
     let count = |k: &str| v[k].as_u64().unwrap_or(0) as usize;
     Ok((true, Some(Import { credential_origin: v["credential_origin"].clone(), cursor: cursor.to_string(), cursors, runs: count("runs"), pages: count("pages"), after: v["after"].as_str().map(str::to_string), started,
@@ -239,6 +239,9 @@ pub async fn sync_within<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: 
 
 pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, key_id: i64, credentials: &Credentials, clock: &dyn Clock, limits: Limits, version: &crate::engine::model::CredentialVersion)
                                        -> Result<Result<Outcome, Failure>, SyncError> {
+    let captured_handle=crate::venue::alpaca::Captured::new(venue,version.clone());
+    let venue=&captured_handle;
+    let version=venue.origin();
     let now = clock.now();
     let captured=version.clone();
     let (key, raw_watermark, (_, resumed)) = phase(db, move |c| {
@@ -402,7 +405,7 @@ const SPLIT_TOO_LONG: &str = "a split longer than a run of the ledger import may
 /// - when that group is all the run holds (so leaving it would leave everything), the run reads on, a page at a time,
 ///   until the group ends, and then stops after it: at most `MAX_READ_ON_PAGES` pages past its own, and the group
 ///   at most `MAX_SPLIT_LEGS` legs, checked on every page it appends. Past either the run fails.
-async fn fetch<T: Transport>(venue: &AlpacaVenue<T>, start: Option<String>, cursor: Option<String>, passed: &[String], limits: Limits) -> Result<Fetched, (String, bool)> {
+async fn fetch<T: Transport>(venue: &crate::venue::alpaca::Captured<'_,T>, start: Option<String>, cursor: Option<String>, passed: &[String], limits: Limits) -> Result<Fetched, (String, bool)> {
     let mut all: Vec<Raw> = vec![];
     let mut seen: HashSet<String> = passed.iter().chain(cursor.iter()).cloned().collect();
     let mut page_token = cursor;
@@ -412,7 +415,7 @@ async fn fetch<T: Transport>(venue: &AlpacaVenue<T>, start: Option<String>, curs
         let mut query = vec![("direction", "asc".to_string()), ("page_size", PAGE_SIZE.to_string())];
         if let Some(token) = &page_token { query.push(("page_token", token.clone())); }
         if let Some(start) = &start { query.push(("after", start.clone())); }
-        let body = venue.read(false, ACTIVITIES_PATH, query, MAX_PAGE_BYTES).await.map_err(super::venue_failure)?;
+        let body = venue.read(false, ACTIVITIES_PATH, query, MAX_PAGE_BYTES).await.value.map_err(super::venue_failure)?;
         let allowed = nodes.min(MAX_PAGE_NODES);
         let (items, spent) = parsed(body, move |text| page(text, allowed)).await?;
         nodes -= spent;

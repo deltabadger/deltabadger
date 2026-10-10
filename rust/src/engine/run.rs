@@ -25,15 +25,18 @@ const RECONCILE_EVERY_US: i64 = 30_000_000;
 /// bound is 49 h, so 5 minutes delays the first tick after a refresh by at most 5 minutes for 12 staleness reads an hour.
 pub const STALE_RECHECK_US: i64 = 300_000_000;
 
+type CacheInsertStep=Box<dyn FnOnce(&Connection)->Result<(),EngineError>>;
+
 pub struct Engine<F: VenueFactory> {
     pub primary: Connection, pub factory: F, pub cipher: Cipher, pub lock: EngineLock,
     started: bool,
-    attempts: HashMap<i64, Attempts>,
-    retry_at: HashMap<i64, i64>,
-    closed_until: HashMap<i64, (i64, serde_json::Value)>,
+    attempts: HashMap<i64, model::Produced<Attempts>>,
+    retry_at: HashMap<i64, model::Produced<i64>>,
+    closed_until: HashMap<i64, (model::Produced<i64>, serde_json::Value)>,
+    cache_insert_step: Option<CacheInsertStep>,
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
-    polls: HashMap<i64, (i64, i64, Attempts)>,
-    reconcile_at: HashMap<i64, i64>,
+    polls: HashMap<i64, model::Produced<(i64, i64, Attempts)>>,
+    reconcile_at: HashMap<i64, model::Produced<i64>>,
     /// Rails' 5 s price cache (Rails.cache), shared by every tick of this process.
     prices: PriceCache,
     /// Set by the first `step`: an Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
@@ -54,11 +57,12 @@ pub struct Engine<F: VenueFactory> {
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
-        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
+        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(),
                events: EngineEvents::default() }
     }
+    #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
     /// A receiver of every event this engine sends from now on. Taken before `run::run` consumes the engine.
     pub fn subscribe(&mut self) -> UnboundedReceiver<EngineEvent> { self.events.subscribe() }
@@ -66,10 +70,10 @@ impl<F: VenueFactory> Engine<F> {
     pub fn subscribe_to(&mut self, wants: fn(&EngineEvent) -> bool) -> UnboundedReceiver<EngineEvent> { self.events.subscribe_to(wants) }
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
-    #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
-    fn venue_for(&self, bot: &model::Bot) -> Result<(F::V, Option<model::CredentialVersion>), EngineError> {
+    #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, model::Produced::new(at_us,None)); }
+    fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> {
         let (credentials,version,sensitive)=model::credentials_with_redaction(&self.primary,&self.cipher,bot)?;
-        Ok((self.factory.for_bot_with_redaction(&model::exchange_type(&self.primary, bot)?, credentials,sensitive),version))
+        Ok((crate::venue::Handle::new(self.factory.for_bot_with_redaction(&model::exchange_type(&self.primary, bot)?, credentials,sensitive),version.clone()),version))
     }
 }
 
@@ -128,12 +132,12 @@ fn outstanding_orders(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
 /// After a tick, whether it ended well or in an error: each order it placed gets one follow-up poll shortly after (a
 /// deliberate small delay; Rails enqueues FetchAndUpdateOrderJob at placement), and each row it inserted or recovered is
 /// announced. An order it placed is in no later sweep's waiting set, so this is its only announcement and its only poll.
-fn after_tick<F: VenueFactory>(e: &mut Engine<F>, id: i64, tick_start: &str, last_tx: i64, recovered: Option<i64>, clock: &dyn Clock) -> Result<(), EngineError> {
+fn after_tick<F: VenueFactory>(e: &mut Engine<F>, id: i64, tick_start: &str, last_tx: i64, recovered: Option<i64>, clock: &dyn Clock, producer:&Option<model::CredentialVersion>) -> Result<(), EngineError> {
     let mut s = e.primary.prepare(
         "SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) AND created_at >= ?2")?;
     let accepted = s.query_map(rusqlite::params![id, tick_start], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
-    for tx in accepted.into_iter().chain(recovered) { e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default())); }
+    for tx in accepted.into_iter().chain(recovered) { e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default()),producer.clone())); }
     let mut s = e.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND id > ?2 ORDER BY id")?;
     let created = s.query_map(rusqlite::params![id, last_tx], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
@@ -154,19 +158,20 @@ fn idle_bots_with_intents(c: &Connection) -> Result<Vec<i64>, EngineError> {
 }
 
 async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
-    if e.reconcile_at.get(&id).is_some_and(|&t| t > clock.now().timestamp_micros()) { *wake = (*wake).min(e.reconcile_at[&id]); return Ok(()); }
     let bot = model::load_bot(&e.primary, id)?;
-    let (venue, _) = e.venue_for(&bot)?;
+    let (venue, producer) = e.venue_for(&bot)?;
+    if e.reconcile_at.get(&id).is_some_and(|state|!state.current_for(&producer).is_fresh()){e.reconcile_at.remove(&id);}
+    if let Some(state)=e.reconcile_at.get(&id){if state.value>clock.now().timestamp_micros(){*wake=(*wake).min(state.value);return Ok(())}}
     match placement::recover_since(&e.primary, &venue, &bot, clock, e.process_start.expect("set by step")).await? {
         placement::Recovery::Pending => {
             let at = clock.now().timestamp_micros() + RECONCILE_EVERY_US;
-            e.reconcile_at.insert(id, at);
+            e.reconcile_at.insert(id, model::Produced::new(at,producer.clone()));
             *wake = (*wake).min(at);
         }
         placement::Recovery::Recorded(tx) => {
             e.events.send(EngineEvent::OrderRecorded { bot_id: id, transaction_id: tx });
             e.reconcile_at.remove(&id);
-            e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default()));
+            e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default()),producer.clone()));
         }
         placement::Recovery::NotPlaced | placement::Recovery::NoIntent => { e.reconcile_at.remove(&id); }
     }
@@ -193,7 +198,10 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     if !e.started {
         // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
         let now_us = clock.now().timestamp_micros();
-        for (tx, bot) in outstanding_orders(&e.primary)? { e.polls.entry(tx).or_insert((bot, now_us, Attempts::default())); }
+        for (tx, bot) in outstanding_orders(&e.primary)? {
+            let producer=model::load_bot(&e.primary,bot).and_then(|row|e.venue_for(&row))?.1;
+            e.polls.entry(tx).or_insert_with(||model::Produced::new((bot,now_us,Attempts::default()),producer));
+        }
         // Amount-limit stops a swept fill committed before a crash (polling::apply_committed): Rails' StopJobs would have run.
         let mut s = e.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_amount_limit_stops_pending') IS NOT NULL ORDER BY id")?;
         let pending = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
@@ -219,7 +227,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
             if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
             let delay=if changed {0}else{RECONCILE_EVERY_US};
             let at = clock.now().timestamp_micros() + delay;
-            e.reconcile_at.insert(id, at);
+            e.reconcile_at.insert(id, model::Produced::new(at,None));
             wake = wake.min(at);
         }
     }
@@ -233,7 +241,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
         }
     }
     // Polls queued during this pass (a placement, a recovered intent) must pull the wake in too.
-    for (_, at, _) in e.polls.values() { wake = wake.min(*at); }
+    for state in e.polls.values() { wake = wake.min(state.value.1); }
     let now_us = clock.now().timestamp_micros();
     Ok(wake.max(now_us + 1))
 }
@@ -255,18 +263,18 @@ fn assert_guarded(c: &Connection, report: &eligibility::Report) {
 /// bot is stopped meanwhile). Transient/RateLimited failures and a still-open order retry as FetchAndUpdateOrderJob's retry_on.
 async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) {
     let now_us = clock.now().timestamp_micros();
-    let due: Vec<(i64, i64, Attempts)> = e.polls.iter().filter(|(_, (_, at, _))| *at <= now_us).map(|(tx, (bot, _, a))| (*tx, *bot, *a)).collect();
-    for (tx, id, mut attempts) in due {
+    let entries:Vec<_>=e.polls.iter().map(|(tx,state)|(*tx,state.clone())).collect();
+    for (tx,state) in entries {
         if e.stopping() { break; }
-        e.polls.remove(&tx);
-        let venue = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)) {
-            Ok((v, _)) => v,
-            Err(err) => {
-                super::log(&format!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}"));
-                e.polls.insert(tx, (id, clock.now().timestamp_micros() + RECONCILE_EVERY_US, attempts));
-                continue;
-            }
+        let (id,at,mut attempts)=state.value;
+        let (venue,producer)=match model::load_bot(&e.primary,id).and_then(|bot|e.venue_for(&bot)){
+            Ok(value)=>value,
+            Err(err)=>{super::log(&format!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}"));e.polls.insert(tx,model::Produced::new((id,clock.now().timestamp_micros()+RECONCILE_EVERY_US,attempts),state.origin().clone()));continue;}
         };
+        let fresh=state.current_for(&producer).is_fresh();
+        if fresh && at>now_us {continue}
+        e.polls.remove(&tx);
+        if !fresh {attempts=Attempts::default();}
         let mut announce_retry=true;
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
@@ -280,10 +288,10 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         if let Some((wait, m)) = retry {
             if announce_retry {super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));}
-            e.polls.insert(tx, (id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts));
+            e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts),producer));
         }
     }
-    for (_, at, _) in e.polls.values() { *wake = (*wake).min(*at); }
+    for state in e.polls.values() { *wake = (*wake).min(state.value.1); }
 }
 
 /// The web continued this bot (Bot::Lifecycle#start(start_fresh: false)) and left `rust_continue_start` for the engine.
@@ -327,8 +335,7 @@ fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value
     let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
         [bot.index_category_id()], |r| r.get(0))?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
-        "started":bot.started_at_us, "stopped":stopped, "changed":bot.settings_changed_at_us,
-        "credential_origin":model::credential_version(c,bot)?.map(|v|v.cache_stamp())}))
+        "started":bot.started_at_us, "stopped":stopped, "changed":bot.settings_changed_at_us}))
 }
 
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
@@ -347,8 +354,13 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
     let (venue, credential_version) = e.venue_for(&bot)?;
+    // Failure counters and retry waits belong to the immutable handle that produced them.
+    if e.attempts.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh()) {e.attempts.remove(&id);}
+    if e.retry_at.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh()) {e.retry_at.remove(&id);}
+
+    if e.reconcile_at.get(&id).is_some_and(|state|!state.current_for(&credential_version).is_fresh()){e.reconcile_at.remove(&id);}
     if let Some((until, key)) = e.closed_until.get(&id) {
-        if *until <= now_us || model::all_crypto(&e.primary, &bot)? || *key != market_wait_key(&e.primary, &bot)? {
+        if !until.current_for(&credential_version).is_fresh() || until.value <= now_us || model::all_crypto(&e.primary, &bot)? || *key != market_wait_key(&e.primary, &bot)? {
             e.closed_until.remove(&id);
         }
     }
@@ -359,28 +371,38 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     cps.validate_times()?;
     // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
     // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.
-    let defer = match bot.rust_defer() {
-        Ok(d) => d.map(|(t, schedule)| (Some(schedule) == bot.schedule_key()).then_some(t)),
+    let wait_tx=model::immediate(&e.primary)?;
+    let wait_bot=model::load_bot(&wait_tx,id)?;
+    let defer = match wait_bot.rust_defer() {
+        Ok(d) => match d {
+            Some((t,schedule)) => {
+                let fresh=model::wait_is_current(&wait_tx,&wait_bot.transient["rust_defer_until"])?;
+                if !fresh {placement::remove_wait(&wait_tx,Some(id))?;None}
+                else {Some((Some(schedule)==bot.schedule_key()).then_some(t))}
+            }
+            None=>None,
+        },
         Err(err) => {
             super::log(&format!("[engine] warning: bot {id}: {err:?}; ignored and removed"));
-            placement::remove_wait(&e.primary, Some(id))?;
+            placement::remove_wait(&wait_tx, Some(id))?;
             None
         }
     };
+    wait_tx.commit()?;
     let deferred = defer.flatten().filter(|&t| t >= now_us);
     let on_schedule = || -> Result<bool, EngineError> {
         Ok(anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000))) // stored value is ms-truncated
     };
     let due = if bot.rust_placement().is_some() {
-        e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
-    } else if e.closed_until.get(&id).is_some_and(|(t, _)| *t > now_us) || deferred.is_some() {
+        e.reconcile_at.get(&id).is_none_or(|t| t.value <= now_us)
+    } else if e.closed_until.get(&id).is_some_and(|(t, _)| t.value > now_us) || deferred.is_some() {
         false
     } else if defer.flatten().is_some_and(|t| t < now_us) {
         true // the wait has ended (strictly after it, as a checkpoint is): a continue start Rails runs at once (placement::run_now)
     } else if defer == Some(None) {
         on_schedule()? // a retrying bot too: its in-memory wait was computed under the old schedule
     } else if bot.status == crate::enums::BotStatus::Retrying {
-        e.retry_at.get(&id).is_none_or(|&t| t <= now_us) // no in-memory state (a restart): due at once
+        e.retry_at.get(&id).is_none_or(|t| t.value <= now_us) // no in-memory state (a restart): due at once
     } else {
         on_schedule()?
     };
@@ -390,7 +412,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         // tick, and the tick would skip it forever.
         if model::unstick(&e.primary, id, clock.now())? { super::log(&format!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status)); }
         let tick_start = crate::codec::format_time(clock.now());
-        let attempts = e.attempts.entry(id).or_default();
+        let attempts = &mut e.attempts.entry(id).or_insert_with(||model::Produced::new(Attempts::default(),credential_version.clone())).value;
+        let retry_producer=credential_version.clone();
         let mut recovered = None;
         let stop = e.stop.clone();
         let stopping = move || stop.load(Ordering::SeqCst);
@@ -405,7 +428,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
-        let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock);
+        let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock,&retry_producer);
         let outcome = ticked?;
         committed?;
         let repeat = matches!(&outcome, TickOutcome::Stale { source, .. } if e.stale_logged.get(&id) == Some(source));
@@ -421,24 +444,25 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             e.events.send(EngineEvent::FundsLow { bot_id: id, user_id: bot.user_id, quote_asset_id: bot.quote_asset_id() });
         }
         match outcome {
-            TickOutcome::MarketClosed { until } => {
-                e.closed_until.insert(id, (until.timestamp_micros(), market_wait_key(&e.primary, &model::load_bot(&e.primary, id)?)?));
+            TickOutcome::MarketClosed { until, producer } => {
+                if let Some(step)=e.cache_insert_step.take(){step(&e.primary)?;}
+                e.closed_until.insert(id, (model::Produced::new(until.timestamp_micros(),producer), market_wait_key(&e.primary, &model::load_bot(&e.primary, id)?)?));
                 e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id);
             }
-            TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, clock.now().timestamp_micros() + d.as_micros() as i64); }
-            TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, clock.now().timestamp_micros() + RECONCILE_EVERY_US); }
+            TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + d.as_micros() as i64,retry_producer.clone())); }
+            TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + RECONCILE_EVERY_US,retry_producer.clone())); }
             TickOutcome::Done { .. } => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); }
             // Rescheduled: `retrying` until the next checkpoint, as Rails' reschedule leaves it.
-            TickOutcome::Rescheduled => { e.retry_at.insert(id, cps.next_us + AFTER_CHECKPOINT_US); e.reconcile_at.remove(&id); }
+            TickOutcome::Rescheduled => { e.retry_at.insert(id, model::Produced::new(cps.next_us + AFTER_CHECKPOINT_US,retry_producer.clone())); e.reconcile_at.remove(&id); }
             // The bot stays due and is rechecked after a bounded wait: an expired retry time left here would pull every wake to now.
-            TickOutcome::Stale { .. } => { e.retry_at.insert(id, clock.now().timestamp_micros() + STALE_RECHECK_US); }
+            TickOutcome::Stale { .. } => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + STALE_RECHECK_US,retry_producer.clone())); }
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
         }
     }
     // Only entries that still apply count: a stale one (bot stopped and restarted) would spin the loop.
     if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
     if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
-    for at in [e.retry_at.get(&id), e.reconcile_at.get(&id), e.closed_until.get(&id).map(|(t, _)| t).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
+    for at in [e.retry_at.get(&id).map(|t|&t.value), e.reconcile_at.get(&id).map(|t|&t.value), e.closed_until.get(&id).map(|(t, _)| &t.value).filter(|&&t| t > now_us)].into_iter().flatten() { *wake = (*wake).min(*at); }
     if let Some(t) = deferred { *wake = (*wake).min(t + AFTER_CHECKPOINT_US); }
     let next = checkpoints(anchor, clock.now().timestamp_micros(), eff)?.next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);

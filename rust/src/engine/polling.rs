@@ -1,5 +1,6 @@
 //! Bot::FetchAndUpdateOpenOrdersJob (the strict sweep before a tick), Bot::FetchAndUpdateOrderJob (the
 //! lenient poll after a placement), and Transaction#update_with_order_data.
+use crate::venue::Attributed;
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
 use super::{amount, notice, tick, EngineError};
@@ -172,6 +173,8 @@ fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now:
 /// error stay updated, as each Rails update! commits on its own.
 pub async fn sweep<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let db = |e: EngineError| poll_error(e);
+    let handle=crate::venue::Handle::for_bot(venue,c,bot).map_err(db)?;
+    let venue=&handle;
     poll_rows(c, venue, bot, waiting_ids(c, bot).map_err(db)?, now, true).await
 }
 
@@ -184,18 +187,18 @@ fn order_identified(c: &Connection, bot: &model::Bot, tx_id: i64, pair: Option<&
 
 /// Both Rails polls go through Exchanges::Kraken's QueryOrders → TradesHistory → StaleOrderResolver path, over
 /// the given waiting rows. `strict` (the sweep) fails on `unknown` like FetchAndUpdateOpenOrdersJob; the follow-up skips it.
-async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, strict: bool) -> Result<(), PollFailure> {
+async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, now: DateTime<Utc>, strict: bool) -> Result<(), PollFailure> {
     let db = |e: EngineError| poll_error(e);
     if rows.is_empty() { return Ok(()); }
-    let version = model::credential_version(c, bot).map_err(db)?;
+    let version = venue.producer();
     let ids: Vec<String> = rows.iter().map(|(_, e, _)| e.clone()).collect();
     let mut found: Vec<OrderState> = vec![];
     let mut skipped = vec![];
     for batch in ids.chunks(50) {
-        let (orders, excluded) = venue.orders_identified(batch, |ext, pair, class| {
+        let (orders, excluded) = venue.orders_result(batch, |ext, pair, class| {
             let Some((id, _, _)) = rows.iter().find(|(_, e, _)| e == ext) else { return Ok(false); };
             order_identified(c, bot, *id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
-        }).await.map_err(|e| classify(e, &ids, venue.rules()))?;
+        }).await.value.map_err(|e| classify(e, &ids, venue.rules()))?;
         found.extend(orders);
         skipped.extend(excluded);
     }
@@ -203,7 +206,7 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
     if !missing.is_empty() {
         let since = rows.iter().filter(|(_, e, _)| missing.contains(e)).map(|(_, _, at)| *at).min()
             .and_then(|at| at.checked_sub(3_600_000_000)).ok_or_else(|| db(super::schedule::time_range_error()))?;
-        let fills = venue.fills_from_trades(&missing, DateTime::from_timestamp_micros(since).ok_or_else(|| db(super::schedule::time_range_error()))?).await.map_err(|e| classify(e, &ids, venue.rules()))?;
+        let fills = venue.fills_result(&missing, DateTime::from_timestamp_micros(since).ok_or_else(|| db(super::schedule::time_range_error()))?).await.value.map_err(|e| classify(e, &ids, venue.rules()))?;
         found.extend(fills.into_iter().map(|f| OrderState { status: OrderStatus::Closed, ..f }));
     }
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
@@ -235,6 +238,8 @@ async fn poll_rows<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: 
 pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<FollowUp, PollFailure> {
     let db = |e: EngineError| poll_error(e);
     let bot = model::load_bot(c, bot_id).map_err(db)?;
+    let handle=crate::venue::Handle::for_bot(venue,c,&bot).map_err(db)?;
+    let venue=&handle;
     let rows: Vec<_> = waiting_ids(c, &bot).map_err(db)?.into_iter().filter(|(id, _, _)| *id == tx_id).collect();
     if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now).await?; } else { poll_rows(c, venue, &bot, rows, now, false).await?; }
     // ponytail: the lenient path skips an `unknown` answer, so a row already open from an earlier poll reads as still open
@@ -247,13 +252,13 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
 /// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca: one GET; a throttle or transient
 /// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
 /// unknown status raises. A raise changes no row, as in Rails.
-async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
+async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(()) };
     let rules = venue.rules();
-    let version = model::credential_version(c, bot).map_err(poll_error)?;
-    let state = match venue.orders_identified(std::slice::from_ref(&ext), |_, pair, class| {
+    let version = venue.producer();
+    let state = match venue.orders_result(std::slice::from_ref(&ext), |_, pair, class| {
         order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
-    }).await {
+    }).await.value {
         Ok((_, skipped)) if skipped.contains(&ext) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: unsupported class or unmapped/ambiguous order identity"))),
         Ok((mut found, _)) if !found.is_empty() => found.remove(0),
         Ok(_) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: []"))),

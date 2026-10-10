@@ -319,9 +319,9 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         };
         let spec = job.spec();
         let name = format!("{}:{}", spec.name, spec.scope.as_deref().unwrap_or_default());
-        let version=rt.block_on(db.run(move|c,_|deltabadger::engine::model::credential_version_by_id(c,key).map_err(|_|"cannot read job credential origin".into())));
-        let version=match version{Ok(v)=>v,Err(_)=>{eprintln!("deltabadger: {name}: cannot read job credential origin");code=EXIT_ENGINE_ERROR;continue}};
-        let outcome = rt.block_on(deltabadger::sync::jobs::run_within_deadline(job.as_ref(), Cx { db: db.clone(), clock: &SystemClock, wakers: Default::default() }, vec![Wake::Manual(None)]));
+        let result=rt.block_on(deltabadger::sync::jobs::run_within_deadline_attributed(job.as_ref(),Cx{db:db.clone(),clock:&SystemClock,wakers:Default::default()},vec![Wake::Manual(None)]));
+        let version=result.origin().clone();
+        let outcome=result.value;
         let recorded = rt.block_on(db.run(move |c, _| {
             use deltabadger::jobs::state;
             let at = chrono::Utc::now();

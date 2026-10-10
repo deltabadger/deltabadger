@@ -55,8 +55,10 @@ impl Shell {
             let value = row.get::<_, super::format::Stored>(2)?.0;
             if let Some(value) = value { values.push((value.round(8), color)); }
         }
-        if crate::sync::cache::stale(c, user.id, None)? { values.clear(); }
-        let arcs = ring::icon_arcs(values).ok_or_else(|| WebError::Config("an asset's colour is not a colour".into()))?;
+        // Preserve Rails' unreadable-colour error even for an unknown legacy producer.
+        // Only the checked arcs may reach the navbar; stale holdings remain unavailable.
+        let mut arcs = ring::icon_arcs(values).ok_or_else(|| WebError::Config("an asset's colour is not a colour".into()))?;
+        if crate::sync::cache::stale(c, user.id, None)? { arcs.clear(); }
         Ok(Shell {
             syncing: app_config(c, &app.cipher, "setup_sync_status")?.as_deref() == Some("in_progress"),
             bot_count: bots.iter().filter(|(_, status)| *status != 7).count() as i64,

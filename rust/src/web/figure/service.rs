@@ -12,7 +12,7 @@ pub const ALLOWANCE:u8=3;
 #[derive(Default,Clone)]
 pub struct Service(Arc<Mutex<State>>,Arc<Notify>);
 #[derive(Default)]
-struct State { active:usize, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest> }
+struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
@@ -26,8 +26,11 @@ impl Service {
     pub fn begin(&self,user:i64,identity:&str,revision:u64,now:i64)->Load {
         let mut state=self.state();
         // One fill per account, whatever revision it was started for: its end starts the next one if a page still waits.
-        if state.entries.get(&user).is_some_and(|e|e.loading) { return Load::Cold; }
-        if let Some(entry)=state.entries.get(&user).filter(|e|e.identity==identity&&e.revision==revision) {
+        if state.entries.get(&user).is_some_and(|e|!crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()) {
+            state.entries.remove(&user);state.latest.remove(&user);
+        }
+        if state.active_users.contains(&user){return Load::Cold;}
+        if let Some(entry)=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()&&e.revision==revision) {
             if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }
         }
         if state.wanted.get(&user)==Some(&0) { return Load::Failed(None); }
@@ -38,8 +41,8 @@ impl Service {
             if let Some(id)=victim { state.entries.remove(&id);state.latest.remove(&id); } else { return Load::Busy; }
         }
         if let Some(allowance)=state.wanted.get_mut(&user) { *allowance-=1; }
-        let cache=state.entries.get(&user).filter(|e|e.identity==identity).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty
-        state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;
+        let cache=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty
+        state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;state.active_users.insert(user);
         state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone()});
         Load::Start(Ticket{service:self.clone(),user,serial,finished:false},cache)
     }
@@ -47,7 +50,7 @@ impl Service {
     /// running for it was its first attempt.
     pub fn want(&self,user:i64) {
         let mut state=self.state();
-        let running=state.entries.get(&user).is_some_and(|e|e.loading);
+        let running=state.active_users.contains(&user);
         state.wanted.entry(user).or_insert(if running { ALLOWANCE-1 } else { ALLOWANCE });
     }
     /// They were published.
@@ -57,7 +60,7 @@ impl Service {
     /// Who waits and has no fill running: what the end of any fill publishes for.
     pub fn waiting_idle(&self)->Vec<i64> {
         let state=self.state();
-        state.wanted.keys().copied().filter(|user|!state.entries.get(user).is_some_and(|e|e.loading)).collect()
+        state.wanted.keys().copied().filter(|user|!state.active_users.contains(user)).collect()
     }
     /// The engine wrote an order of this bot: O(1), and never waits, so marking goes on during a publication. At most
     /// one mark per bot is kept, however many orders.
@@ -78,7 +81,7 @@ impl Service {
     /// since, within their lifetime, for these credentials (`identity`) and this database `revision`, as a page load
     /// would find them `Ready`.
     fn fresh(state:&State,user:i64,serial:u64,identity:&str,revision:u64,now:i64)->bool {
-        state.entries.get(&user).is_some_and(|e|!e.loading&&e.ready&&e.serial==serial&&e.identity==identity&&e.revision==revision&&e.until>now)
+        state.entries.get(&user).is_some_and(|e|!e.loading&&e.ready&&e.serial==serial&&crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()&&e.revision==revision&&e.until>now)
     }
     /// A publication about to be delivered: `true` if the figures it rendered (`serial`, from `settled`) are still fresh,
     /// and then it is kept as this account's latest, so that a connection that subscribes again is sent it (`cable`: a
@@ -102,7 +105,10 @@ impl Service {
     /// fresh. `None` otherwise (incomplete, expired, written since, other credentials, evicted or never kept): nothing
     /// stale or partial is sent, and the caller asks for a publication instead (`loading::resubscribed`).
     pub fn latest(&self,user:i64,identity:&str,revision:u64,now:i64,stream:&str)->Option<Vec<Arc<str>>> {
-        let state=self.state();
+        let mut state=self.state();
+        if state.entries.get(&user).is_some_and(|entry|!crate::engine::model::identity_current_for(&entry.identity,identity).is_fresh()) {
+            state.entries.remove(&user);state.latest.remove(&user);return None;
+        }
         let (serial,complete,kept)=state.latest.get(&user)?;
         if !*complete || !Self::fresh(&state,user,*serial,identity,revision,now) { return None; }
         Some(kept.iter().filter(|(on,_)|&**on==stream).map(|(_,html)|html.clone()).collect())
@@ -114,7 +120,7 @@ impl Ticket {
     pub fn finish_with_reason(mut self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64) { self.store(cache,ready,reason,Some(now));self.finished=true; }
     fn store(&self,cache:Cache,ready:bool,reason:Option<&'static str>,ended:Option<i64>) {
         let mut state=self.service.state();
-        state.active=state.active.saturating_sub(1);
+        state.active=state.active.saturating_sub(1);state.active_users.remove(&self.user);
         if let Some(entry)=state.entries.get_mut(&self.user).filter(|e|e.serial==self.serial) {
             entry.loading=false;entry.ready=ready;entry.reason=if ready{None}else{reason};entry.cache=cache;
             entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
@@ -122,3 +128,39 @@ impl Ticket {
     }
 }
 impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None); } } }
+
+#[cfg(test)]
+mod r4_service_tests {
+    use super::*;
+    fn identity(n:u8)->String{serde_json::json!([1,{"key_id":1,"ciphertext_digest":hex::encode([n;32])}]).to_string()}
+    fn ready()->(Service,String,u64){
+        let service=Service::default();let a=identity(1);
+        let Load::Start(ticket,cache)=service.begin(1,&a,7,1) else{panic!("control fill")};ticket.finish(cache,true,1);
+        let serial=service.settled(1);(service,a,serial)
+    }
+    #[test]
+    fn r4_service_begin_and_loading_evict_stale_values_without_parallel_account_fills(){
+        let (service,a,serial)=ready();assert!(service.record(1,serial,&a,7,2,&[("s".into(),"A".into())]));
+        assert!(matches!(service.begin(1,&a,7,2),Load::Ready(..)));
+        assert!(matches!(service.begin(1,&identity(2),7,2),Load::Start(..)),"R4 B begins a new fill, never A ready state");
+        assert!(!service.state().latest.contains_key(&1),"R4 beginning B drops A's latest payload");
+        let service=Service::default();let Load::Start(ticket,_)=service.begin(1,&a,7,1) else{panic!("control")};
+        assert!(matches!(service.begin(1,&identity(2),7,2),Load::Cold),"R4 only one network fill per account");
+        assert!(!service.state().entries.contains_key(&1),"R4 stale in-flight value is physically dropped");
+        ticket.finish(Cache::default(),true,2);
+        assert!(matches!(service.begin(1,&identity(2),7,3),Load::Start(..)));
+    }
+    #[test]
+    fn r4_service_publication_checks_the_producer(){
+        let (service,a,serial)=ready();let streams=vec![("s".into(),"A".into())];
+        assert!(service.record(1,serial,&a,7,2,&streams));
+        assert!(!service.record(1,serial,&identity(2),7,2,&streams),"R4 A publication cannot be accepted as B");
+    }
+    #[test]
+    fn r4_service_latest_evicts_a_payload_after_rotation(){
+        let (service,a,serial)=ready();assert!(service.record(1,serial,&a,7,2,&[("s".into(),"A".into())]));
+        assert!(service.latest(1,&a,7,2,"s").is_some());
+        assert!(service.latest(1,&identity(2),7,2,"s").is_none(),"R4 A latest publication cannot replay for B");
+        assert!(!service.state().entries.contains_key(&1)&&!service.state().latest.contains_key(&1),"R4 stale publication entry is dropped");
+    }
+}

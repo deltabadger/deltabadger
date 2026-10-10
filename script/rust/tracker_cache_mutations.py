@@ -22,9 +22,9 @@ def interrupted(signum, frame):
 signal.signal(signal.SIGTERM, interrupted)
 
 def run(name, selection):
-    subprocess.run(['df', '-g', '/'], check=True)
-    assert shutil.disk_usage('/').free >= 15 * 1024**3, 'STOP under 15 GiB'
-    args = ['cargo', 'nextest', 'run', '--manifest-path', 'rust/Cargo.toml', '--locked', '-j', '5',
+    subprocess.run(['df', '-h', '/data'], check=True)
+    assert shutil.disk_usage('/data').free >= 20 * 1024**3, 'STOP under 20 GiB'
+    args = ['cargo', 'nextest', 'run', '--manifest-path', 'rust/Cargo.toml', '--locked', '-j', '6',
             '--lib', '--test', 'tracker_deadline', '--test', 'tracker_cache_producer', '--test', 'tracker_cache_contract', '-E', selection]
     with (out / f'{name}.log').open('w') as log:
         code = subprocess.run(args, cwd=root, stdout=log, stderr=subprocess.STDOUT).returncode
@@ -54,7 +54,7 @@ mutants = [
     ('publish_version', 'cache', 'if &version(c,owner)? != before', 'if false && &version(c,owner)? != before', 'test(cache_invalidates) | test(producer_retries)'),
     ('producer_passes', 'producer', 'for _ in 0..3 {', 'for _ in 0..1 {', 'test(producer_retries)'),
     ('producer_wake', 'producer', 'cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);', '', 'test(producer_changed_inputs)'),
-    ('producer_swallow', 'producer', 'venue,now)).map_err(message)).await?;', 'venue,now)).map_err(message)).await.unwrap_or(true);', 'test(producer_publishes)'),
+    ('producer_swallow', 'producer', '}).map_err(message)).await?;', '}).map_err(message)).await.unwrap_or((true,false));', 'test(producer_publishes)'),
     ('owned_cache', 'page', 'AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?4)', 'AND (?4 IS NOT NULL OR NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?4))', 'test(first_sync_defers)'),
 ]
 try:

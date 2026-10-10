@@ -135,6 +135,16 @@ impl Body {
     pub fn unreadable(&self) -> VenueError { VenueError::Rejected(vec![error_message(&self.request, &self.response)]) }
 }
 
+/// An authenticated sync handle and every raw reply retain the original ciphertext producer.
+pub struct Captured<'a,T:Transport> { venue:&'a AlpacaVenue<T>, origin:crate::engine::model::CredentialVersion }
+impl<'a,T:Transport> Captured<'a,T> {
+    pub(crate) fn new(venue:&'a AlpacaVenue<T>,origin:crate::engine::model::CredentialVersion)->Self { Self{venue,origin} }
+    pub fn origin(&self)->&crate::engine::model::CredentialVersion { &self.origin }
+    pub async fn read(&self,data:bool,path:&str,query:Vec<(&'static str,String)>,limit:usize)->crate::engine::model::Produced<Result<Body,VenueError>> {
+        let origin=Some(self.origin.clone());
+        crate::engine::model::Produced::new(self.venue.read(data,path,query,limit).await,origin)
+    }
+}
 #[derive(Clone)]
 pub struct AlpacaVenue<T: Transport> { transport: T, urls: Urls }
 
@@ -374,12 +384,14 @@ pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build
 /// (`run`'s preflight refuses such bots before it claims the install, so this is the second line). A passphrase that does
 /// not decrypt never reaches here: `model::credentials_for` fails that bot's tick (and preflight refuses it).
 #[derive(Clone)]
-pub struct LiveFactory { client: reqwest::Client, paper_boundary: Option<String> }
+pub struct LiveFactory { client: reqwest::Client, paper_boundary: Option<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync> }
 
 impl LiveFactory {
-    pub fn new() -> Self { Self { client: http::client(), paper_boundary: None } }
+    /// Share the deadline producer clock with every real HTTP venue handle.
+    pub fn with_clock(mut self,clock:std::sync::Arc<dyn crate::engine::Clock + Send + Sync>)->Self{self.clock=clock;self}
+    pub fn new() -> Self { Self { client: http::client(), paper_boundary: None, clock: std::sync::Arc::new(crate::engine::SystemClock) } }
     /// Explicit local HTTP boundary for native production-adapter tests.
-    #[doc(hidden)] pub fn with_paper_boundary(url:String)->Self{Self{client:http::client(),paper_boundary:Some(url)}}
+    #[doc(hidden)] pub fn with_paper_boundary(url:String)->Self{Self{client:http::client(),paper_boundary:Some(url),clock:std::sync::Arc::new(crate::engine::SystemClock)}}
 }
 
 impl Default for LiveFactory {
@@ -401,7 +413,7 @@ impl VenueFactory for LiveFactory {
             (other, _) => ReqwestTransport::refused(&format!("{other} is not connected in this build")),
         };
         // Every key that gets this far is paper (anything but exactly "live"), so the live host is never even named.
-        AlpacaVenue::new(transport.with_sensitive_values(sensitive), match &self.paper_boundary{Some(url)=>Urls{trading:url.clone(),data:url.clone()},None=>Urls::for_passphrase(None)})
+        AlpacaVenue::new(transport.with_clock(self.clock.clone()).with_sensitive_values(sensitive), match &self.paper_boundary{Some(url)=>Urls{trading:url.clone(),data:url.clone()},None=>Urls::for_passphrase(None)})
     }
 }
 

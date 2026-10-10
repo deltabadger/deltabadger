@@ -315,6 +315,8 @@ fn derive(secret: &str, label: &str) -> Result<[u8; 32], WebError> {
     Ok(mac.finalize().into_bytes().into())
 }
 
+type ValidationObserver=Box<dyn FnMut(Option<crate::engine::model::CredentialVersion>)+Send>;
+
 pub struct Inner {
     pub fx_cache: tracker::fx::Cache,
     pub figure_service: figure::service::Service,
@@ -326,6 +328,7 @@ pub struct Inner {
     settings_market_provider_name:String,
     pub settings_key_url:String,
     pub settings_key_logger:Arc<dyn settings::keys::Logger>,
+    settings_validation_observer:Mutex<Option<ValidationObserver>>,
     pub settings_mailer:Arc<dyn settings::mail::Mailer>,
     pub config: Config,
     pub keys: Keys,
@@ -386,7 +389,7 @@ impl App {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
-            settings_key_url:crate::venue::alpaca::PAPER_TRADING_URL.into(),settings_key_logger:settings::keys::logger(),
+            settings_key_url:crate::venue::alpaca::PAPER_TRADING_URL.into(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
             settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
@@ -419,6 +422,15 @@ impl App {
     pub fn with_settings_key_boundary(self,url:String,logger:Arc<dyn settings::keys::Logger>)->Result<Self,WebError>{
         let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
         inner.settings_key_url=url;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
+    }
+
+    #[doc(hidden)]
+    pub fn set_validation_observer(&self,observer:impl FnMut(Option<crate::engine::model::CredentialVersion>)+Send+'static)->Result<(),WebError>{
+        *self.settings_validation_observer.lock().map_err(|_|WebError::Config("validation observer unavailable".into()))?=Some(Box::new(observer));Ok(())
+    }
+    pub(crate) fn observe_validation(&self,producer:Option<crate::engine::model::CredentialVersion>)->Result<(),WebError>{
+        let mut observer=self.settings_validation_observer.lock().map_err(|_|WebError::Config("validation observer unavailable".into()))?;
+        if let Some(observer)=observer.as_mut(){observer(producer);}Ok(())
     }
 
     pub fn attach_jobs(&self,wakers:crate::jobs::Wakers)->Result<(),WebError>{if let Some(wake)=self.engine.get(){wakers.attach_engine(wake.clone());}self.settings_jobs.set(wakers).map_err(|_|WebError::Config("job scheduler already attached".into()))}

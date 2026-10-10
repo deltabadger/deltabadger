@@ -2,6 +2,7 @@
 //! dca_index.rb:126-143; IndexAllocatable#derive_composition, index_allocatable.rb:61-123) from the data-api `indices` row
 //! (MarketData.get_top_coins, market_data.rb:117-143), and written as Rails writes it (basket::write_members). The buy leg is
 //! the basket's (tick::buy). It never sells: a member that leaves is only marked out of the index.
+use crate::venue::Attributed;
 use super::model::{self, Bot, Ticker};
 use super::tick::PriceCache;
 use super::{basket, Clock, EngineError};
@@ -51,11 +52,13 @@ fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>) -> Re
 /// Ticker#priced?(side) through Rails' 5 s price cache (Exchange#get_*_price fills it), so Step 1's read of a newcomer reuses
 /// the probe's answer. A zero or failed price is false; a transport failure raises (retry_on); a rejected key raises
 /// Exchange#raise_on_invalid_key!'s error.
-async fn priced<V: Venue>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
+async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
     let key = (bot.exchange_id, t.id, side);
     if prices.get(key, clock.now(), version).is_some() { return Ok(true); }
-    match venue.price(t, side).await {
-        Ok(p) => { prices.put(key, clock.now(), p.clone(), version); Ok(p.is_positive()) }
+    let result=venue.price_result(t,side).await;
+    let origin=result.origin().clone();
+    match result.value {
+        Ok(p) => { prices.put_result(key,clock.now(),model::Produced::new(p.clone(),origin)); Ok(p.is_positive()) }
         Err(VenueError::Transient(m)) => Err(Refusal::Transient(m)),
         // ponytail: Exchange#invalid_key_error? also reads the HTTP status; Alpaca's own 401 says "unauthorized", and an HTML
         // 401 is "HTTP 401". Another 401 body would read as unpriced here.
@@ -67,10 +70,12 @@ async fn priced<V: Venue>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clo
 
 /// Bot::Composition::Allocatable#refresh_composition for an index bot: derive_composition, then update_bot_index_assets.
 pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache) -> Result<Result<(), Refusal>, EngineError> {
-    let version = model::credential_version(c, bot)?;
+    let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
+    let version=handle.producer();
+    let venue=&handle;
     refresh_composition_captured(c, venue, bot, clock, prices, &version).await
 }
-pub(crate) async fn refresh_composition_captured<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
+pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
     let before = super::placement::composition_snapshot(c, bot)?;
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }

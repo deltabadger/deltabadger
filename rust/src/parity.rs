@@ -25,7 +25,7 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 3] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending"];
+const RUST_KEYS: [&str; 4] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin"];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -137,6 +137,15 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
                 crate::sync::cache::record_ledger(tx,id,&version,start)?;
                 jobs::state::record_success(tx,"ledger_sync",Some(&id.to_string()),start).map_err(EngineError::Data)
             })?;
+        }
+    }
+    // The recorder explicitly seeded this prior failure with the scratch account's key.
+    // Unknown live rows receive no inferred producer and are stale.
+    if scenario["parity_scratch"] == true {
+        let bot=model::load_bot(&o.primary,bot_id)?;
+        if bot.last_failure_kind().is_some() {
+            let producer=model::credential_version(&o.primary,&bot)?;
+            model::credential_write(&o.primary,&producer,|c|model::record_failure_origin(c,bot_id))?;
         }
     }
     let before = snapshot(&o.primary)?;

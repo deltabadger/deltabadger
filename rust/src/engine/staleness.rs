@@ -280,10 +280,7 @@ pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Opt
         None => crate::jobs::state::JobState::default(),
     };
     let produced_by_current = match key {
-        Some(id) => match model::credential_version_by_id(c, id)? {
-            Some(version) => crate::sync::cache::ledger_produced_by(c, id, &version)?,
-            None => false,
-        },
+        Some(id) => crate::sync::cache::ledger_current_for(c,id)?,
         None => false,
     };
     if produced_by_current && state.incomplete_since.is_none() && state.last_success_at.is_some_and(|at| at <= now && (now-at).num_seconds() <= bound_secs(24)) { return Ok(None); }

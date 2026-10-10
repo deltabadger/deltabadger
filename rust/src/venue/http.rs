@@ -66,6 +66,7 @@ pub const MAX_BODY: usize = 16 * 1024 * 1024;
 fn over_limit(limit: usize) -> TransportError { TransportError::MaybeSent(format!("the response body is over {limit} bytes")) }
 
 pub trait Transport {
+    fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
     fn redact_diagnostic(&self,text:&str)->String{text.to_string()}
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
     /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
@@ -153,14 +154,16 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String> }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync> }
 
 impl ReqwestTransport {
+    /// Use the same clock that creates the order deadline; production defaults to SystemClock.
+    pub fn with_clock(mut self, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>) -> Self { self.clock = clock; self }
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new() } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock) } }
 }
 
 impl Transport for ReqwestTransport {
@@ -177,7 +180,7 @@ impl Transport for ReqwestTransport {
             .header("Content-Type", "application/json");
         if let Some(body) = &r.body { b = b.body(body.to_string()); }
         if let Some(not_after) = r.not_after {
-            // Read immediately before the send: what is left of the absolute bound becomes this request's whole timeout.
+            // Use the deadline producer's clock immediately before the send: what is left of the absolute bound becomes this request's whole timeout.
             // LISTED RESIDUAL: this bounds when a send may start and how long reqwest keeps it alive, not when the bytes leave.
             // A process frozen mid-write of the order request (SIGSTOP, a VM pause) and resumed later can deliver it after
             // the absence window (placement::recover_since) has already declared it never placed. Escape hatch: the operator
@@ -186,9 +189,9 @@ impl Transport for ReqwestTransport {
             // kernel configured with a longer retransmission window than Linux's defaults, or a path (proxy, middlebox) that
             // buffers longer than TCP does. Escape hatch: `deltabadger resolve-placement`; before resolving "not placed" the
             // operator checks Alpaca's order list for the intent's client_order_id.
-            match (not_after - Utc::now()).to_std().ok().filter(|left| !left.is_zero()) {
-                None => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
-                Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
+            match (not_after - self.clock.now()).to_std() {
+                Ok(left) if !left.is_zero() => b = b.timeout(left.min(TOTAL_TIMEOUT)),
+                _ => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
             }
         }
         let mut response=read_limited(b.send().await.map_err(classify)?, limit).await?;

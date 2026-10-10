@@ -1,5 +1,6 @@
 //! One tick of an eligible bot: Bot::ActionJob#perform around DcaMultiAsset#execute_action (with the
 //! Fundable and LimitOrderable decorators), and the failure handling of ActionJob's rescues.
+use crate::venue::Attributed;
 use super::amount::{self, RowKind, Sizing};
 use super::venue_rules::VenueRules;
 use super::model::{self, Level};
@@ -43,7 +44,7 @@ pub struct Attempts { pub transient: u32, pub rate: u32, pub open: u32 }
 pub enum TickOutcome {
     /// The market is closed (Bot::ActionJob's closed path): `waiting_for_market_open` and `market_closed` were written, nothing
     /// else. The bot stays due and `run` holds it until `until` (the clock's next_open).
-    MarketClosed { until: DateTime<Utc> },
+    MarketClosed { until: DateTime<Utc>, producer: Option<model::CredentialVersion> },
 
     Skipped, Done { placed: bool }, RetryAfter(Duration), Rescheduled, Stopped, AwaitingReconciliation,
     /// Reference data only a Rails job refreshes is past its bound (staleness.rs): nothing was read from the venue, nothing
@@ -140,20 +141,23 @@ type PriceKey = (i64, i64, PriceSide);
 /// Exchange#get_{ask,last}_price's Rails.cache entry (exchanges/alpaca.rb:273-335, exchanges/kraken.rb:218-260): kept
 /// 5 s from when it was written, keyed by exchange, ticker and side; only a usable (non-zero) price is stored. It lives
 /// in the engine (and across a parity scenario's retries), never in a venue instance, so it survives venue recreation.
-type CachedPrice = (chrono::DateTime<chrono::Utc>, BigDec, Option<model::CredentialVersion>);
+type CachedPrice = (chrono::DateTime<chrono::Utc>, model::Produced<BigDec>);
 #[derive(Default)]
 pub struct PriceCache(std::cell::RefCell<std::collections::HashMap<PriceKey, CachedPrice>>);
 
 impl PriceCache {
     pub fn get(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>, version: &Option<model::CredentialVersion>) -> Option<BigDec> {
-        // ActiveSupport::Cache::Entry#expired?: created_at + expires_in <= now.
-        self.0.borrow().get(&key).filter(|(at, _, origin)| {
-            now < *at + chrono::Duration::seconds(5) && match (origin, version) {
-                (Some(a), Some(b)) => a.same_credentials(b), (None, None) => true, _ => false,
-            }
-        }).map(|(_, p, _)| p.clone())
+        let mut entries=self.0.borrow_mut();
+        let stale=entries.get(&key).is_some_and(|(at,price)|
+            now>=*at+chrono::Duration::seconds(5) || !price.current_for(version).is_fresh());
+        if stale { entries.remove(&key); }
+        entries.get(&key).map(|(_,price)|price.value.clone())
     }
-    pub fn put(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>, price: BigDec, version: &Option<model::CredentialVersion>) { self.0.borrow_mut().insert(key, (now, price, version.clone())); }
+
+    #[doc(hidden)]
+    pub fn put(&self,key:PriceKey,now:DateTime<Utc>,price:BigDec,version:&Option<model::CredentialVersion>){self.put_result(key,now,model::Produced::new(price,version.clone()))}
+    pub fn put_result(&self,key:PriceKey,now:DateTime<Utc>,price:model::Produced<BigDec>){self.0.borrow_mut().insert(key,(now,price));}
+
 }
 
 /// What a tick borrows from the engine that runs it.
@@ -167,7 +171,8 @@ pub struct TickContext<'a> {
 }
 
 fn record_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: Option<&str>) -> Result<(), EngineError> {
-    model::merge_transient_compact(c, bot_id, &[("last_failure_kind", kind.map(Value::from).unwrap_or(Value::Null))])
+    model::record_failure_origin(c,bot_id)?;
+    model::merge_transient_compact(c, bot_id, &[("last_failure_kind", kind.map_or(Value::Null,Value::from))])
 }
 
 /// Which of Bot::ActionJob's failing exits is recording the failure: it decides the mail.
@@ -203,7 +208,7 @@ fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: 
             None => true,
         }
     };
-    let mut values = vec![("last_failure_kind", kind.map(Value::from).unwrap_or(Value::Null))];
+    let mut values = vec![("last_failure_kind", kind.map_or(Value::Null,Value::from))];
     if notify && shared && exit == Exit::Recoverable {
         stamp_funds_low(c, &bot, now, false)?;
     } else if notify && shared {
@@ -216,6 +221,7 @@ fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: 
     if notify && (exit == Exit::Exhausted || (exit == Exit::Recoverable && !shared)) {
         values.push((notice::ERROR, notice::error_marker(bot.transient.get(notice::ERROR), key, error, now)));
     }
+    model::record_failure_origin(c,bot_id)?;
     model::merge_transient_compact(c, bot_id, &values)
 }
 
@@ -228,6 +234,8 @@ pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn 
 /// `tick`, also reporting the transaction a persisted intent was settled into this tick (its row carries the intent's
 /// earlier `created_at`, so the caller cannot find it by time and must queue its follow-up poll itself).
 pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
+    let handle=crate::venue::Handle::new(venue,cx.credential_version.clone());
+    let venue=&handle;
     // A stop an earlier tick counted but could not run (an error outlasted it): Rails' Bot::StopJob ran long before now.
     run_pending_amount_limit_stops(c, bot_id, clock.now())?;
     let outcome = match tick_inner(c, venue, bot_id, clock, attempts, recovered, cx).await {
@@ -256,7 +264,7 @@ pub fn end_of_tick(c: &Connection, bot_id: i64, now: DateTime<Utc>, outcome: Res
     }
 }
 
-async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
+async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
     let settled = match placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
@@ -282,9 +290,11 @@ async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dy
     // Bot::ActionJob#perform asks the market before it writes anything (action_job.rb:91-100): on a venue with market hours,
     // for a bot that is not all crypto (Exchanges::Alpaca#market_open?). The clock fails closed (clock.rs).
     if venue.rules().market_hours && !model::all_crypto(c, &bot)? {
-        match market::gate(venue.clock().await, &model::exchange_name(c, &bot)?, clock.now()) {
+        let clock_result=venue.clock_result().await;
+        let clock_origin=clock_result.origin().clone();
+        match market::gate(clock_result.value, &model::exchange_name(c, &bot)?, clock.now()) {
             Gate::Open => {}
-            Gate::Closed { next_open, details } => { *attempts = Attempts::default(); return model::credential_write(c, &cx.credential_version, |tx| park(tx, &bot, next_open, details, clock.now())); }
+            Gate::Closed { next_open, details } => { *attempts = Attempts::default(); return model::credential_write(c, &clock_origin, |tx| park(tx, &bot, next_open, details, clock.now())); }
             Gate::Retry(m) => return handle_failure(c, bot_id, Fail::Transient(m), clock, attempts, venue.rules(), &cx.credential_version),
             Gate::InvalidKey(m) => {
                 let fail = Fail::General { errors: vec![m.clone()], message: m, failed_row: false };
@@ -327,7 +337,7 @@ async fn tick_inner<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dy
 }
 
 /// DcaMultiAsset#execute_action with the sweep in front and Fundable behind. Ok(placed) = success.
-async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<bool, Fail>, EngineError> {
+async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<bool, Fail>, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action (rebalanceable.rb:75-82): a restatement the
     // market has not priced yet, or a split the bot cannot size. No sweep, no order, no balance read; success, so the bot goes
@@ -402,13 +412,15 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
     // Bot::Fundable#funds_are_low?: the quote asset's balance, whatever the member tickers (an index bot has no allocations),
     // spent as Exchanges::Alpaca#spendable_balance picks it. A failed balance Result means "not low"; only a transport
     // failure raises.
-    match venue.balance(&model::quote_symbol(c, &bot)?, model::all_crypto(c, &bot)?).await {
+    let funds=venue.balance_result(&model::quote_symbol(c, &bot)?, model::all_crypto(c, &bot)?).await;
+    let funds_origin=funds.origin().clone();
+    match funds.value {
         Ok(free) => {
             let interval_seconds = match bot.interval().map(|i| i.as_str()) { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
             let buffer = BigDec::from_f64(bot.quote_amount().unwrap_or_default() / interval_seconds * THREE_DAYS).map_err(|e| EngineError::Data(format!("{e:?}")))?;
             if free < buffer && !notified_in_last_day(c, &bot, clock)? {
                 // `update!(last_end_of_funds_notification:)` then notify_end_of_funds.
-                model::credential_write(c, &cx.credential_version, |tx| stamp_funds_low(tx, &bot, clock.now(), true))?;
+                model::credential_write(c, &funds_origin, |tx| stamp_funds_low(tx, &bot, clock.now(), true))?;
             }
         }
         // Clients::Alpaca raises a transport failure out of Bot::Fundable's balance read. Bot::ActionJob then refuses to
@@ -433,7 +445,7 @@ struct Legs { placed: bool, skipped: Vec<amount::OrderPlan> }
 /// is sent, and the first leg that is not accepted ends the loop (order_setter.rb:80); legs never sent stay owed through
 /// pending_quote_amount. A price failure can only come before the first leg.
 #[allow(clippy::too_many_arguments)]
-async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
+async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let composition = placement::composition_snapshot(c, bot)?;
     let members = basket::members(c, bot)?;
     if members.is_empty() {
@@ -454,7 +466,7 @@ async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, 
         let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
             Some(hit) => Ok(hit),
             // Only a usable price is stored (the venue returns a zero book as an error).
-            None => venue.price(&member.ticker, side).await.inspect(|p| cx.prices.put(key, clock.now(), p.clone(), &cx.credential_version)),
+            None => { let result=venue.price_result(&member.ticker,side).await; if let Ok(price)=&result.value { cx.prices.put_result(key,clock.now(),result.clone().map(|_|price.clone())); } result.value },
         };
         let reference = match fetched {
             Ok(p) => p,
@@ -554,7 +566,7 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
     model::credential_write(c, version, |tx| {
         let outcome = handle_failure_inner(tx, bot_id, fail, clock, attempts, rules)?;
         if matches!(outcome, TickOutcome::Rescheduled) {
-            placement::defer_to_next_checkpoint(tx, &model::load_bot(tx, bot_id)?, clock.now())?;
+            placement::defer_failure(tx, &model::load_bot(tx, bot_id)?, clock.now())?;
         }
         Ok(outcome)
     })
@@ -609,7 +621,9 @@ fn handle_failure_inner(c: &model::FencedTransaction<'_>, bot_id: i64, fail: Fai
             // One transaction: the budget, the stop where there is one, the mail owed and the log lines, or none of them.
             // A failure in the middle leaves the bot as the tick found it: nothing spent, nothing owed, not stopped.
             let tx = c;
-            let previous = model::load_bot(tx, bot_id)?.last_failure_kind();
+            let prior=model::load_bot(tx,bot_id)?;
+            let state=model::Produced::new((),model::CredentialVersion::from_stamp(&prior.transient["rust_failure_origin"]));
+            let previous=if state.current_for(&tx.producer_version()).is_fresh(){prior.last_failure_kind()}else{None};
             let blocking = kind.is_some_and(|k| BLOCKING_KINDS.contains(&k) && previous.as_deref() == Some(k));
             record_notified_failure(tx, bot_id, kind, &message, if blocking { Exit::Blocking } else { Exit::Recoverable }, clock)?;
             if !failed_row {
@@ -633,5 +647,5 @@ fn park(c: &model::FencedTransaction<'_>, bot: &model::Bot, next_open: DateTime<
         model::update_transient(c, bot.id, &[("waiting_for_market_open", json!(true))], now)?;
     }
     model::log_activity(c, bot.id, "market_closed", Level::Info, json!({ "next_market_open_at": details }), now)?;
-    Ok(TickOutcome::MarketClosed { until: next_open })
+    Ok(TickOutcome::MarketClosed { until: next_open, producer:c.producer_version() })
 }

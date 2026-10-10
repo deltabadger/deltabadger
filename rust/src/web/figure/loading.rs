@@ -12,7 +12,7 @@ use std::time::Duration;
 pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
 pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
-pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials }
+pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
 fn revision(c:&Connection)->Result<u64,rusqlite::Error> {
     let version:u64=c.query_row("PRAGMA data_version",[],|r|r.get(0))?;
     Ok(version.wrapping_mul(1_000_000_007).wrapping_add(c.total_changes()))
@@ -29,13 +29,15 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
     let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
     let revision=revision(c)?;
-    Ok(Some(Info{identity,revision,credentials}))
+    Ok(Some(Info{identity,revision,credentials,origin:version}))
 }
-pub(crate) struct Wire { real:ReqwestTransport,source:Source }
+pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion> }
 impl Wire {
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source} }
+    pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None} }
 }
 impl Transport for Wire {
+    fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.origin.clone()}
     fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
@@ -93,7 +95,7 @@ async fn fill_result(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:
             if !admit(c,user)? { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
-                let reader=Reader::new(&snapshot,now.utc().timestamp()).with_symbols(names);
+                let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names);
                 let result=work(c,&reader);
                 let ready=result.is_ok() && !reader.failed();
                 let reason=match result {
@@ -129,11 +131,11 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         Load::Start(ticket,mut cache)=>{
             let inner=app.clone();let source=app.figure_source.clone();
             tokio::spawn(async move {
-                let wire=Wire::new(&info.credentials,source);
+                let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone());
                 let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(Err(None));
                 let check=inner.clone();
                 let current=inner.db(move|c|read_info(c,&check,user)).await;
-                let unchanged=matches!(current,Ok(Some(ref current)) if current.identity==info.identity && current.revision==info.revision);
+                let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
                 cache.set_stamp(now);
                 let reason=if unchanged{result.as_ref().err().copied().flatten()}else{None};
                 ticket.finish_with_reason(cache,result.is_ok()&&unchanged,reason,inner.now().timestamp());
@@ -160,9 +162,10 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
     if let Snapshot::Ready(cache,now,prepared_revision)=snapshot {
         let computed=budget::within(||{
             let unavailable=||crate::figures::FiguresError::NotComputed("Market data unavailable".into());
-            if revision(c)? != *prepared_revision { return Err(unavailable()); }
+            let current=cache.producer().as_ref().map(|origin|crate::engine::model::credential_is_current(c,origin)).transpose().map_err(|_|unavailable())?.unwrap_or(false);
+            if !current || revision(c)? != *prepared_revision { return Err(unavailable()); }
             let names=symbols(c,user)?;
-            let reader=Reader::new(cache,now.utc().timestamp()).with_symbols(names);
+            let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
             let value=account(c,user,&reader,*now,locale,csrf,prefix)?;
             // Core live calculations may return ledger values after a market failure.
             // Publish only after all reads succeeded against the prepared revision.
@@ -343,6 +346,7 @@ mod credential_cache_tests {
             let info=read_info(&c,&app,1).unwrap().unwrap();
             let Load::Start(ticket,mut cache)=service.begin(1,&info.identity,info.revision,now.timestamp()) else{panic!("fresh source must start")};
             cache.fill(&wire,vec![request.clone()],now.timestamp()).await;assert!(cache.bytes()>0);ticket.finish(cache,true,now.timestamp());
+            assert!(matches!(service.begin(1,&info.identity,info.revision,now.timestamp()),Load::Ready(..)),"R4 unchanged handle identity must reuse its ready cache");
             let replacement=if column=="passphrase"{"paper"}else{"b"};
             c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=1"),[app.cipher.encrypt(replacement)]).unwrap();
             let info=read_info(&c,&app,1).unwrap().unwrap();

@@ -111,7 +111,8 @@ fn pass<R>(c: &Connection, cipher: &Cipher, user_id: i64, fetched: &HashMap<(Str
     };
     let walked = walk::walk(&prepared, book.warnings, today)?;
     tx.commit()?;
-    Ok(Ok(then(c, cipher, &rows, &walked, now, &origin)?))
+    let produced=origin.derive((rows,walked));
+    Ok(Ok(then(c,cipher,&produced.value.0,&produced.value.1,now,&produced.origin)?))
 }
 
 /// One write unit (`BEGIN IMMEDIATE` … `COMMIT`, rolled back on an error), dated by the wall clock read once the
@@ -153,15 +154,22 @@ pub async fn with_walk<T: Transport, R: Send + 'static>(db: &Db, api: Option<&Da
 /// Tracker::LedgerJob#perform: the walk, today's snapshot rows from it, and the wash-sale locks, the two writes in one
 /// unit, dated when they are written. Returns the walk. The run spends from `allowance` (`Allowance::run()` for a job).
 pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&DataApi<T>>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
+    ledger_run_produced(db,api,user_id,clock,wall,allowance).await.map(|produced|produced.value)
+}
+async fn ledger_run_produced<T: Transport>(db:&Db,api:Option<&DataApi<T>>,user_id:i64,clock:&dyn Clock,wall:Wall,allowance:&mut Allowance)->Result<crate::sync::cache::ReadValue<Walked>,String>{
     with_walk(db, api, user_id, clock, allowance, move |c, _, _, walked, began, origin| {
         // Everything read and computed first, so the write lock is held for the writes alone.
-        let rows = super::snapshot::today_rows(c, user_id, walked)?;
-        let locks = super::wash::targets(c, user_id, &walked.whole.loss_sales)?;
-        written_for(c, origin, &*wall, |c, now| {
-            super::snapshot::write(c, user_id, &rows, now.date_naive())?;
+        let read=c.unchecked_transaction()?;
+        let snapshot_origin=origin.with_balance_producers(&read).map_err(|_|FiguresError::Data("snapshot balance provenance unavailable".into()))?;
+        let rows = super::snapshot::today_rows(&read, user_id, walked)?;
+        let locks = super::wash::targets(&read, user_id, &walked.whole.loss_sales)?;
+        read.commit()?;
+        let produced=snapshot_origin.derive((rows,locks));
+        written_for(c, &produced.origin, &*wall, |c, now| {
+            super::snapshot::write(c, user_id, &produced.value.0, now.date_naive())?;
             // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
-            super::wash::confirm_all(c, user_id, &locks, began)?;
-            Ok(walked.clone())
+            super::wash::confirm_all(c, user_id, &produced.value.1, began)?;
+            Ok(produced.origin.clone().derive(walked.clone()))
         })
     }).await
 }
@@ -214,8 +222,10 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
         let (Some((credentials, version)), Some(have)) = (keys.get(&bars.api_key_id), stored.get(&bars.symbol)) else { continue };
         let start = format!("{}T00:00:00Z", bars.from);
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
-        let Ok(body) = venues.connect(credentials).read(true, &format!("/v2/stocks/{}/bars", bars.symbol),
-                                                        vec![("limit", "10000".into()), ("start", start), ("timeframe", "1Day".into())], 8 * 1024 * 1024).await else { continue };
+        let raw=venues.connect(credentials);
+        let handle=crate::venue::alpaca::Captured::new(&raw,version.clone());
+        let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol),
+                                                        vec![("limit", "10000".into()), ("start", start), ("timeframe", "1Day".into())], 8 * 1024 * 1024).await.value else { continue };
         let Ok(text) = body.text() else { continue };
         let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else { continue };
         let Some(rows) = backfill::bar_rows(&json, bars, have) else { continue };
@@ -255,12 +265,25 @@ const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during ca
 async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall)->Result<Walked,String> {
     let mut allowance=Allowance::run();
     for _ in 0..3 {
-        let (before,venue)=cx.db.run(move|c,_|Ok((super::cache::version(c,owner).map_err(message)?,Venue::alpaca(c).map_err(message)?.id))).await?;
-        let result=ledger_run(&cx.db,api,owner,cx.clock,wall.clone(),&mut allowance).await;
-        let cached=match &result {Ok(walked)=>Some(walked.clone()),Err(_)=>None};
+        let (before,venue,origin)=cx.db.run(move|c,_|{
+            let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
+            let before=super::cache::version(&tx,owner).map_err(message)?;
+            let venue=Venue::alpaca(&tx).map_err(message)?.id;
+            let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
+            tx.commit().map_err(|e|e.to_string())?;Ok((before,venue,origin))
+        }).await?;
+        let result=ledger_run_produced(&cx.db,api,owner,cx.clock,wall.clone(),&mut allowance).await;
+        let cache_origin=match &result {Ok(produced)=>produced.origin.clone(),Err(_)=>origin};
+        let cached=match &result {Ok(produced)=>Some(produced.value.clone()),Err(_)=>None};
         let clock=wall.clone();
-        let published=cx.db.run(move|c,_|written(c,&*clock,|c,now|super::cache::publish(c,owner,&before,cached.as_ref(),venue,now)).map_err(message)).await?;
-        if published {return result;}
+        let (published,historical)=cx.db.run(move|c,_|written_for(c,&cache_origin,&*clock,|c,now|{
+            // A historical-only rebuild still completes its existing writes. With no healthy
+            // reading slot it cannot publish a current page cache, so that cache stays cold.
+            let historical:bool=c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)",[owner],|r|r.get(0))?;
+            if historical {return Ok((false,super::cache::version(c,owner)?==before))}
+            super::cache::publish(c,owner,&before,cached.as_ref(),venue,now).map(|published|(published,false))
+        }).map_err(message)).await?;
+        if published || historical {return result.map(|produced|produced.value);}
     }
     cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);
     Err(CACHE_MOVING.into())
