@@ -94,11 +94,14 @@ fn engine(v: &Value, venue: FakeVenue) -> (tempfile::TempDir, Engine<FakeFactory
 async fn the_first_run_waits_for_the_start_and_then_turns_the_rule_off() {
     let all = vectors();
     for v in all["schedule"].as_array().unwrap().iter().filter(|v| v["bought"].is_null()) {
-        // A start Rails moved off the chosen wall time (a spring-gap time) is refused instead (see below).
+        // A start Rails moved off the chosen wall time (a spring-gap time), or one at a wall time that occurs twice that day
+        // (the autumn repeat), is refused instead (see below).
         let at = time(&json!(v["started"]["settings"]["start_at"]));
         let chosen = v["settings"]["start_time_of_day"].as_str();
-        let local = deltabadger::web::timezone::local(at, v["zone"].as_str().unwrap()).format("%H:%M").to_string();
-        if chosen.is_some_and(|chosen| format!("{chosen:0>5}") != local) {
+        let zone = deltabadger::web::timezone::strict(v["zone"].as_str().unwrap()).unwrap();
+        let local = at.with_timezone(&zone);
+        let repeated = deltabadger::web::timezone::resolve_local(zone, local.naive_local()).is_err();
+        if chosen.is_some_and(|chosen| format!("{chosen:0>5}") != local.format("%H:%M").to_string() || repeated) {
             let (_d, e, id) = engine(v, FakeVenue::new());
             assert!(!eligibility::check_install(&e.primary).unwrap().eligible.contains(&id), "{v}");
             continue;
@@ -214,4 +217,26 @@ fn a_start_that_is_not_the_chosen_local_time_is_refused() {
     // 09:30 in Warsaw on either side of the change runs.
     assert!(check("2026-10-26 08:30:00").0);
     assert!(check("2026-03-30 07:30:00").0);
+}
+
+/// A row the old resolver left at one occurrence of a repeated wall time reads as the chosen time, but which occurrence Rails
+/// picks is not proven (Dublin's winter period is negative DST): both occurrences are refused at eligibility, not only at web
+/// start. The same wall time on a day it occurs once runs.
+#[test]
+fn an_imported_start_at_a_repeated_wall_time_is_refused() {
+    let v = &vectors()["schedule"][6]; // every day at 09:30; moved to 01:30 in Dublin below
+    let check = |at: &str| {
+        let (_d, o, s) = common::install();
+        let id = insert(&o.primary, &s, v);
+        o.primary.execute("UPDATE users SET time_zone = 'Europe/Dublin'", []).unwrap();
+        o.primary.execute("UPDATE bots SET started_at = ?2, settings = json_set(settings, '$.start_at', ?3, '$.start_time_of_day', '01:30') WHERE id = ?1",
+                          rusqlite::params![id, at, format!("{}Z", at.replace(' ', "T"))]).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        (r.eligible.contains(&id), r.problems.join("; "))
+    };
+    for at in ["2026-10-25 00:30:00", "2026-10-25 01:30:00"] {
+        let (ok, why) = check(at);
+        assert!(!ok && why.contains("occurs twice"), "{at}: {why}");
+    }
+    assert!(check("2026-10-26 01:30:00").0);
 }
