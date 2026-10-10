@@ -147,8 +147,8 @@ fn assets(root: &Path, out: &Path) {
 /// config/locales/*.yml as one sorted table of ("<locale>.<full.key>", "<text>"). Files are merged in
 /// name order, a later file winning, as Rails' I18n load path does. An array adds its index as a key
 /// segment. Rails reads these files with Psych (YAML 1.1), where an unquoted `yes`, `no`, `on`, `off`,
-/// `true` or `false` is a boolean: as a KEY it becomes `true`/`false` (base.en.yml has `yes:` and `no:`
-/// under tax_report.summary, so Rails' keys there are `true` and `false`), and that is reproduced. As
+/// `true` or `false` is a boolean: as a KEY it becomes `true`/`false` (so a key meant as `yes` or `no`
+/// must be quoted, as tax_report.summary's are), and that is reproduced. As
 /// a VALUE it would render as "true"/"false"; that, and a null, stop the build, so it gets quoted.
 fn locales(root: &Path, out: &Path) {
     let dir = root.join("config/locales");
