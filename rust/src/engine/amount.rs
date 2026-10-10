@@ -8,7 +8,7 @@ use crate::ruby::{to_sql, BigDec};
 use super::venue_rules::{MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
