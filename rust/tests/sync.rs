@@ -146,8 +146,8 @@ fn bot_that_traded_aapl(c: &Connection, s: Ids) -> i64 {
     // What the order was sent under, as the engine's intent records it (an earlier build's intent gets it at takeover).
     deltabadger::engine::placement::backfill_snapshots(c).unwrap();
     c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base, quote, base_asset_id, quote_asset_id, \
-               amount, amount_exec, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, 'o-1', 0, 2, 0, 0, \
-               'AAPL', 'USD', (SELECT id FROM assets WHERE symbol = 'AAPL'), ?3, 10, 10, 'week', 60, 'REGULAR', '[]', '2026-09-02 14:30:00', '2026-09-02 14:30:00')",
+               amount, amount_exec, price, quote_amount_exec, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, 'o-1', 0, 2, 0, 0, \
+               'AAPL', 'USD', (SELECT id FROM assets WHERE symbol = 'AAPL'), ?3, 10, 10, 10, 100, 'week', 60, 'REGULAR', '[]', '2026-09-02 14:30:00', '2026-09-02 14:30:00')",
               [bot, s.exchange_id, s.quote]).unwrap();
     bot
 }

@@ -189,6 +189,8 @@ module McpControl
   end
 
   def record(root)
+    # Exercise production key validation; Rails test mode otherwise substitutes a correct dummy key.
+    Rails.configuration.dry_run = false
     Pages.singleton_class.define_method(:connect) do |dir|
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       SolidQueue::Record.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production_queue.sqlite3'))

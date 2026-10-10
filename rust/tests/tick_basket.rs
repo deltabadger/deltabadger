@@ -344,15 +344,17 @@ async fn a_restart_after_a_pre_send_failure_waits_for_the_next_checkpoint() {
     restart_after_a_rescheduled_leg(json!({ "network": "pre_send", "message": PRE_SEND })).await;
 }
 
-/// A wait the engine cannot read is ignored (and logged), never a silent stall on every pass.
+/// A wait the engine cannot read is a refusal (logged once): the bot does not run and the wait is kept, so an unreadable
+/// schedule decision never becomes an early buy (RULING-B2A-R10).
 #[tokio::test(flavor = "current_thread")]
-async fn an_unreadable_stored_wait_is_ignored() {
+async fn an_unreadable_stored_wait_refuses_and_is_kept() {
     let i = Install::new(&[], script(json!({})));
     i.sql("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', 'not a time')");
     let mut e = i.engine(T0);
     step(&mut e, T0).await;
-    assert_eq!(i.t.posted_orders().len(), 1);
-    assert!(i.bot().transient.get("rust_defer_until").is_none(), "removed");
+    step(&mut e, T0).await;
+    assert!(i.t.posted_orders().is_empty());
+    assert_eq!(i.bot().transient["rust_defer_until"], "not a time", "kept");
 }
 
 /// Alpaca whose AddOrder runs `hook` first: a test's concurrent writer while the order is in flight.

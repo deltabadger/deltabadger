@@ -1,9 +1,8 @@
 //! Settings and lifecycle writes own their observation, response construction and post-commit delivery.
 //! Call from App::db: cancelling its await must not cancel the committed write's wake.
-use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, start, Bot, For, Kind, Stored};
-use crate::{codec, engine::{eligibility, model, schedule::Effective}, ruby::{BigDec, round6_micros}};
-use crate::web::{bots, format::Num, i18n, layout::Ctx, WebError};
-use chrono::{DateTime, Datelike, Months, Utc};
+use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, Bot, For, Kind};
+use crate::{codec, engine::{eligibility, model}};
+use crate::web::{bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
@@ -87,7 +86,7 @@ fn settings_inner<T>(
     let (provider, configured) = bots::market_data(&tx, &ctx.app)?;
     // Stored scope refusals survive. Only the pending lock's validation must precede its
     // page refusal, since a rejected composition still has a renderable narrow settings form.
-    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Page)? };
+    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Settings)? };
     if let Some(reason) = original_refusal.filter(|reason| *reason != "a rebalance, liquidation or redeploy in progress") { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
     let mut mcp_refused = false;
@@ -114,7 +113,7 @@ fn settings_inner<T>(
         Ok(()) => draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?,
     }
     }
-    mcp_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now);
+    mcp_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now)?;
     if !draft.errors.is_empty() {
         let prepared = response_builder(&tx, &ctx, &draft)?;
         tx.rollback()?;
@@ -174,7 +173,7 @@ fn settings_inner<T>(
         tx.rollback()?;
         return Ok(Outcome::GuardRefused(response.response));
     }
-    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Page)? { return Ok(Outcome::Unported(reason)); } }
+    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); } }
     // Rails keeps the name it showed in memory: a label the save did not write is not regenerated from the new settings.
     let shown = std::mem::take(&mut draft.candidate.label);
     draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
@@ -190,106 +189,8 @@ fn settings_inner<T>(
     Ok(Outcome::Committed(prepared.response))
 }
 
-fn effective_amount(bot: &Bot) -> Result<Num, WebError> {
-    let key = if bot.on("smart_intervaled") && bot.number("smart_interval_quote_amount").is_some() { "smart_interval_quote_amount" } else { "quote_amount" };
-    bot.number(key).ok_or_else(|| error("effective amount is missing"))
-}
-fn serialized(value: Num) -> Result<Value, WebError> {
-    match value { Num::Int(n) => Ok(json!(n)), Num::Float(n) if n.is_finite() => Ok(json!(n)), Num::Dec(n) => Ok(json!(n.to_s_f())), _ => Err(error("carry is not finite")) }
-}
-fn minimum(a: Num, b: Num) -> Result<Num, WebError> {
-    // Ruby's Array#min keeps the first operand on a tie, including its numeric class.
-    if a.sub(&b).ok_or_else(|| error("carry comparison exceeds numeric bounds"))?.is_positive() { Ok(b) } else { Ok(a) }
-}
-fn add(a: Num, b: Num) -> Result<Num, WebError> {
-    a.sub(&Num::Int(0).sub(&b).ok_or_else(|| error("carry overflow"))?).ok_or_else(|| error("carry overflow"))
-}
-
-/// Fallible streamed Accountable read. LIMIT includes one sentinel row, never a history Vec.
-pub fn pending(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Num, WebError> {
-    let mut started = bot.started_at;
-    for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
-        if bot.on(&format!("{prefix}ed")) {
-            let met = bot.transient.get(&format!("{prefix}_condition_met_at")).and_then(Value::as_str)
-                .map(|s| DateTime::parse_from_rfc3339(s).map(|t| t.with_timezone(&Utc))).transpose().map_err(|_| error("invalid condition time"))?;
-            started = started.zip(met).map(|(a,b)| a.max(b));
-        }
-    }
-    let Some(started) = started else { return Ok(Num::Int(0)) };
-    let changed: Option<String> = c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
-    let since = changed.as_deref().map(codec::parse_time).transpose().map_err(|_| error("invalid settings window"))?.map_or(started, |at| at.max(started));
-    let eff = bot.effective().ok_or_else(|| error("invalid carry interval"))?;
-    let duration = eff.seconds();
-    if !duration.is_finite() || !(super::MIN_SPAN_SECONDS..=super::MAX_SPAN_SECONDS).contains(&duration) { return Err(start::history_error()); }
-    // The page/engine helper uses infallible calendar operations. Use the same arithmetic
-    // with checked, bounded month stepping here, so a crafted draft cannot reach those panics.
-    let anchor = bot.anchor().unwrap_or(now);
-    let last = checkpoint(anchor, now, eff)?;
-    let delta = last.checked_sub(since.timestamp_micros()).ok_or_else(|| error("carry time overflow"))?;
-    let count = ((delta as f64 / 1_000_000.0) / duration).floor() + 1.0;
-    if !count.is_finite() || count.abs() > i64::MAX as f64 { return Err(start::history_error()); }
-    let amount = effective_amount(bot)?;
-    let mut owed = match amount {
-        Num::Int(n) => Num::Int(n.checked_mul(count as i64).ok_or_else(|| error("carry overflow"))?),
-        Num::Float(n) => Num::Float(n * count),
-        Num::Dec(n) => Num::Dec(&n * &BigDec::from_i64(count as i64)),
-    };
-    let carry = match bot.transient.get("missed_quote_amount").filter(|v| !v.is_null()) {
-        Some(Value::String(s)) if !s.is_empty() => Num::Dec(BigDec::parse(s).map_err(|_| error("invalid carry"))?),
-        Some(v) if v.is_number() => Num::Dec(Num::from_json(v).and_then(|n| n.to_d()).ok_or_else(|| error("invalid carry"))?),
-        _ => Num::Int(0),
-    };
-    owed = add(owed, carry)?;
-    let mut total = Num::Int(0);
-    let mut statement = c.prepare("SELECT external_status, quote_amount, amount, price, quote_amount_exec FROM transactions WHERE bot_id=?1 AND status=0 AND side=0 AND transaction_type='REGULAR' AND external_status IN (0,1,2,3,4) AND created_at>=?2 LIMIT 100001")?;
-    let mut rows = statement.query((bot.id, codec::format_time(since)))?;
-    let mut work = 0;
-    while let Some(row) = rows.next()? {
-        work += 1;
-        if work > start::HISTORY_WORK_BUDGET { return Err(start::history_error()); }
-        let decimal = |i| -> Result<Option<BigDec>, WebError> { Ok(row.get::<_,Stored>(i)?.0) };
-        let invested = match row.get::<_,i64>(0)? {
-            0 | 1 => Num::Dec(match decimal(1)? { Some(n) => n, None => &decimal(2)?.ok_or_else(|| error("missing order amount"))? * &decimal(3)?.ok_or_else(|| error("missing order price"))? }),
-            2 => Num::Dec(decimal(4)?.ok_or_else(|| error("missing filled amount"))?),
-            _ => decimal(4)?.map_or(Num::Int(0), Num::Dec),
-        };
-        total = add(total, invested)?;
-    }
-    let pending = owed.sub(&total).ok_or_else(|| error("carry overflow"))?.at_least_zero();
-    // Bot::QuoteAmountLimitable#pending_quote_amount raises on an unknown spend.
-    if let Some(cap) = start::amount_limit(c, bot)? { minimum(pending, cap.left.ok_or_else(|| error("a closed buy under the spending cap has no quote_amount_exec"))?) } else { Ok(pending) }
-}
-
-fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Result<i64, WebError> {
-    if !(1..=9999).contains(&anchor.year()) || !(1..=9999).contains(&now.year()) { return Err(start::history_error()); }
-    let us = anchor.timestamp_micros();
-    if let Effective::Month = eff {
-        let mut next = anchor;
-        for _ in 0..120_000 {
-            if next > now { return next.checked_sub_months(Months::new(1)).map(|t| t.timestamp_micros()).ok_or_else(start::history_error); }
-            next = next.checked_add_months(Months::new(1)).ok_or_else(start::history_error)?;
-        }
-        return Err(start::history_error());
-    }
-    let d = eff.seconds();
-    if anchor > now { return Ok(round6_micros(us, &[(d,-1)])); }
-    let elapsed = now.timestamp_micros().checked_sub(us).ok_or_else(start::history_error)? as f64 / 1_000_000.0;
-    let terms = match eff {
-        Effective::Seconds(_) => vec![((elapsed/d).ceil()*d,1),(d,-1)],
-        Effective::MonthSeconds(_) => {
-            let mut k = (elapsed/d).floor() as i64;
-            for _ in 0..4 {
-                if crate::ruby::exceeds(us,(d,k),now.timestamp_micros()) { k -= 1; } else { break; }
-            }
-            for _ in 0..4 {
-                if !crate::ruby::exceeds(us,(d,k),now.timestamp_micros()) || k < 1 { k += 1; } else { break; }
-            }
-            vec![(d,k-1)]
-        }
-        Effective::Month => return Err(start::history_error()),
-    };
-    Ok(round6_micros(us,&terms))
-}
+pub use crate::engine::accounting::web_pending as pending;
+use crate::engine::accounting::{web_effective_amount as effective_amount, web_serialized as serialized, web_minimum as minimum};
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
@@ -392,6 +293,8 @@ fn lifecycle_inner<T>(
     }
     view.draft = match Draft::load(&tx,owner,id,ctx.locale) {
         Ok(draft) => draft,
+        // STOP sets only status and stop fields: it never depends on reading history, however a column is stored.
+        Err(_) if action == Action::Stop => None,
         Err(WebError::Engine(crate::engine::EngineError::Data(_))) if safety => None,
         Err(e) if safety && super::unreadable(&e) => None,
         Err(e) => return Err(e),
@@ -412,7 +315,7 @@ fn lifecycle_inner<T>(
     if view.errors.is_empty() && (!safety || submitted.mcp() && action != Action::Stop) {
         let (provider,configured)=bots::market_data(&tx,&ctx.app)?;
         let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,wash,provider,For::Page)?};
+        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,wash,provider,For::Settings)?};
         let draft=view.draft.as_mut().ok_or_else(||error("owned lifecycle draft disappeared"))?;
         let refusal=if submitted.mcp() {None} else {refusal.or_else(||draft.original.unrendered())};
         if action==Action::Start {
@@ -432,7 +335,7 @@ fn lifecycle_inner<T>(
             draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
         }
         draft.validate(&tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
-        if action == Action::Start { writer_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now); }
+        if action == Action::Start { writer_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now)?; }
         view.errors.extend(draft.errors.clone());
         if action==Action::Unarchive && view.errors.is_empty() {
             if let Some(reason)=refusal { return Ok(Outcome::Unported(reason)); }
@@ -517,7 +420,13 @@ fn lifecycle_inner<T>(
         },
         Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
     }
-    if let Err(refusal)=eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
+    let guarded = match eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
+        // STOP only reduces activity and writes no money, settings or history, so it always persists, whatever data
+        // damage the install holds; check and every ordinary writer still refuse that damage.
+        Err(eligibility::Refusal::Unreadable(_)) if action == Action::Stop => Ok(()),
+        result => result,
+    };
+    if let Err(refusal)=guarded {
         let reason=refusal.reason();
         view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
         if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
@@ -530,13 +439,21 @@ fn lifecycle_inner<T>(
         one(tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,?2,0,NULL,?3,?4)",(id,event,details.to_string(),&at))?)?;
     }
     if let Some(draft)=view.draft.as_mut() {
-        let shown=std::mem::take(&mut draft.candidate.label);
-        draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
-        if draft.candidate.label_unsaved { draft.candidate.label=shown; }
-        if safety {
+        let redrawn=(|| -> Result<bool, WebError> {
+            let shown=std::mem::take(&mut draft.candidate.label);
+            draft.candidate=Bot::find(&tx,owner,id,For::Page,ctx.locale)?.ok_or_else(||error("lifecycle bot disappeared"))?;
+            if draft.candidate.label_unsaved { draft.candidate.label=shown; }
+            if !safety { return Ok(true); }
             let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
             let (provider,_)=bots::market_data(&tx,&ctx.app)?;
-            if draft.candidate.unrendered().is_some() || super::refusal(&tx,id,wash,provider,For::Page)?.is_some() { view.draft=None; }
+            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,wash,provider,For::Page)?.is_none())
+        })();
+        match redrawn {
+            Ok(true) => {}
+            Ok(false) => view.draft=None,
+            // The redraw is display only: a STOP that cannot redraw still commits.
+            Err(_) if action == Action::Stop => view.draft=None,
+            Err(e) => return Err(e),
         }
     }
     let prepared=response_builder(&tx,&ctx,&view)?;

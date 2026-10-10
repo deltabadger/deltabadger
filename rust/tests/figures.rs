@@ -286,7 +286,8 @@ fn the_accounts_totals_match_rails_in_every_scenario() {
 fn the_market_is_asked_for_exactly_what_rails_asks_it() {
     // Where a figure is not computed the library stops asking, so those scenarios are left out here.
     let whole = |s: &&Scenario| !s.rust.as_ref().is_ok_and(|out| out.to_string().contains("not_computed"));
-    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 10);
+    // R3 additionally refuses the negative_fill scenario before asking the market.
+    assert_eq!(grid().scenarios.iter().filter(whole).count(), SCENARIOS - 11);
     for scenario in grid().scenarios.iter().filter(whole) {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
@@ -349,6 +350,7 @@ fn what_is_not_computed_is_named() {
     for name in ["row_readings","tax_lots","unpriced_rebalances","unpriced_sales"] {
         expected.extend([".bots.1.metrics", ".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place|format!("{name}{place}: executed fill value unavailable")));
     }
+    expected.extend([".bots.1.metrics", ".bots.1.live", ".bots.1.marked", ".bots.1.chart", ".bots.1.profit_in_usd", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place|format!("negative_fill{place}: negative fill field")));
     expected.push("account_no_provider.denomination: Currency conversion unavailable".into());
     for name in ["account_rate_missing","account_rates_down","account_rates_refused"] {
         for field in ["bots.2.profit_in_usd","global_pnl","global_pnl_snapshot","pnl_history"] {

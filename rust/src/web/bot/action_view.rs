@@ -153,7 +153,7 @@ pub(super) fn modal(c: &Connection, ctx: &Ctx, bot: &Bot, form: &str, csrf: &str
             let on_schedule = within(c,bot,ctx)?;
             let branch = if on_schedule {"on_schedule"}else{"missed"};
             let info = if on_schedule {
-                let next = bot.checkpoints(ctx.now).ok_or_else(||super::data("missing checkpoint".into()))?.next_us;
+                let next = bot.checkpoints(ctx.now)?.ok_or_else(||super::data("missing checkpoint".into()))?.next_us;
                 let seconds = next.checked_sub(ctx.now.timestamp_micros()).ok_or_else(||super::data("checkpoint overflow".into()))? as f64 / 1_000_000.0;
                 let time = if seconds.abs() < 60.0 {
                     let minute = i18n::text(ctx.locale,"datetime.dotiw.minutes",&[("count",Arg::Count(1))]);

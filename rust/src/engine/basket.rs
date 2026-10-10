@@ -1,14 +1,12 @@
-//! A DCA basket (Bots::DcaMultiAsset with one or more members): its holdings, composition and buy split, ported from the
-//! narrowed Bot::Composition::Measurable ledger walk, Bot::Composition::Allocatable and Bot::Composition::OrderSetter.
-//! Only what an eligible bot can contain is ported; eligibility.rs refuses the rest (sells, non-REGULAR or imported rows,
-//! rows without an asset, merged history, splits, market-cap weights). Exited members (in_index = false) are admitted as
-//! holdings only: the walk counts them, the split never sees them.
+//! A DCA basket's composition, normalized REGULAR history and buy split.
+//! Submitted buys and sells share the figures normalizer and RebalanceAccounting books.
+//! Inherited merge rows stay in chronological order; their id cutoff only identifies own orders.
+//! Completed non-REGULAR rows remain outside this B2a trading slice.
 use super::model::{self, Bot, Ticker};
 use super::EngineError;
 use super::splits::{self, SplitEvent};
-use crate::codec::parse_time;
 use crate::codec::format_time;
-use crate::enums::TxExternalStatus;
+use crate::figures::{books::{Books, Fill, Ledger}, db, dec::Dec, fill, num::Num};
 use crate::ruby::{decimal_column, float_sum, from_sql, BigDec};
 use chrono::{DateTime, Utc};
 use rusqlite::types::{Value as Sql, ValueRef};
@@ -17,16 +15,13 @@ use std::collections::HashMap;
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
 
-/// Base amount held, by asset id: `metrics(force: true)[:asset_breakdown][key_for(asset_id)][:amount]` for what an eligible
-/// bot holds. Every submitted row of the bot, whatever its external status, goes through Transaction.confirmed_exec_amounts
-/// (a closed row without executions reads its requested ones). A row whose price, executed quote or executed base is blank,
-/// or whose executed quote or base is zero, adds nothing (measurable.rb:153-154: Alpaca reports a zero quote before it
-/// knows the average price). Every other row is a REGULAR buy and adds its executed base amount
-/// (Bot::RebalanceAccounting#apply_regular_buy). An asset with nothing applied is absent, as in Rails.
-/// The walk's result: `metrics(force: true)` narrowed to what an eligible bot holds. `restated_at_us` is metrics[:restated_at]:
-/// the last split that moved a held position.
-#[derive(Debug, Default)]
-pub struct Walk { pub amounts: HashMap<i64, BigDec>, pub restated_at_us: Option<i64> }
+/// Normalized REGULAR history: holdings, lifetime contribution, uninvested proceeds, and the last
+/// split that moved a held position. Amounts and books use checked decimal arithmetic.
+#[derive(Debug)]
+pub struct Walk { pub amounts: HashMap<i64, BigDec>, pub restated_at_us: Option<i64>, pub contributed: BigDec, pub cash: BigDec }
+impl Default for Walk {
+    fn default() -> Self { Self { amounts: HashMap::new(), restated_at_us: None, contributed: BigDec::zero(), cash: BigDec::zero() } }
+}
 
 /// Base amount held, by asset id: `metrics(force: true)[:asset_breakdown][key_for(asset_id)][:amount]`, splits applied. For
 /// callers without a tick clock (2c's ledger vectors); a tick calls `walk` with its own.
@@ -40,54 +35,45 @@ pub fn walk(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Walk, Engin
     })
 }
 
-/// The walk over these events. Every submitted row of the bot, whatever its external status, goes through
-/// Transaction.confirmed_exec_amounts (a closed row without executions reads its requested ones). A row whose price, executed
-/// quote or executed base is blank, or whose executed quote or base is zero, adds nothing (measurable.rb:153-154; Q9). Every
-/// other row is a REGULAR buy and adds its executed base amount (Bot::RebalanceAccounting#apply_regular_buy). Before each row,
-/// every event at or before its created_at is applied, and after the last row the rest (#apply_due_splits, :487-507): a split
-/// multiplies a holding the walk holds and that is not zero, and moves restated_at; one of nothing moves nothing.
+/// Split events apply before orders at the same timestamp, and after the final order.
+/// Every submitted REGULAR row is normalized, including inherited and partial fills.
 pub fn walk_with(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk, EngineError> {
     crate::figures::budget::within(|| walk_bounded(c, bot, events))
         .map_err(|e| EngineError::Data(format!("split walk refused: {e:?}")))
 }
 fn walk_bounded(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk, EngineError> {
-    let mut s = c.prepare(
-        "SELECT base_asset_id, external_status, price, amount, amount_exec, quote_amount_exec, side, transaction_type, created_at \
-         FROM transactions WHERE bot_id = ?1 AND status = 0 ORDER BY created_at, id")?;
-    let mut rows = s.query([bot.id])?;
+    let orders = db::orders(c, bot.id).map_err(data)?;
+    let mut ledger = Ledger::default();
+    let mut books = Books::default();
     let mut w = Walk::default();
     let mut pending = events.iter().peekable();
-    while let Some(r) = rows.next()? {
-        crate::figures::budget::charge(1,0).map_err(data)?;
-        let created: String = r.get(8)?;
-        let created_us = parse_time(&created).map_err(data)?.timestamp_micros();
-        // Before the order, not after: a split sharing an order's timestamp is applied first.
-        while let Some(e) = pending.next_if(|e| e.at_us <= created_us) { apply(&mut w, e)?; }
-        let (asset, side, kind): (Option<i64>, Option<i64>, String) = (r.get(0)?, r.get(6)?, r.get(7)?);
-        // Eligibility refuses all three. Met anyway, the walk this build ports would be wrong for the bot, so its tick fails.
-        let Some(asset) = asset.filter(|_| side == Some(0) && kind == "REGULAR") else {
-            return Err(EngineError::Data(format!("bot {}: a sell, a non-REGULAR row or a row without an asset is outside the ported ledger walk", bot.id)));
-        };
-        let dec = |i: usize| -> Result<Option<BigDec>, EngineError> { from_sql(r.get_ref(i)?).map_err(data) };
-        let (price, amount, mut amount_exec, mut quote_exec) = (dec(2)?, dec(3)?, dec(4)?, dec(5)?);
-        if r.get::<_, Option<i64>>(1)? == Some(TxExternalStatus::Closed as i64) {
-            if quote_exec.is_none() { if let (Some(p), Some(a)) = (&price, &amount) { quote_exec = Some(p.checked_mul(a).map_err(data)?); } }
-            if amount_exec.is_none() { amount_exec = amount.clone(); }
+    for order in orders {
+        crate::figures::budget::charge(1, 0).map_err(data)?;
+        let created_us = order.at.0 / 1000;
+        while let Some(e) = pending.next_if(|e| e.at_us <= created_us) {
+            apply(&mut ledger, &mut w, e)?;
         }
-        let (Some(_), Some(q), Some(a)) = (&price, &quote_exec, &amount_exec) else { continue };
-        if q.is_zero() || a.is_zero() { continue; }
-        let held = w.amounts.remove(&asset).unwrap_or_else(BigDec::zero);
-        w.amounts.insert(asset, held.checked_add(a).map_err(data)?);
+        let asset = order.asset_id.filter(|_| (order.buy || order.sell) && order.kind == "REGULAR")
+            .ok_or_else(|| data("a non-REGULAR row, missing side or missing asset is outside the history walk"))?;
+        let Some(fill) = fill::for_engine(&order).map_err(data)? else { continue };
+        books.apply(&mut ledger, Fill::of(order.sell, &order.kind), &asset.to_string(),
+                    &Num::Dec(fill.quantity), &Num::Dec(fill.value)).map_err(data)?;
     }
-    for e in pending { apply(&mut w, e)?; } // the ordinary case: a split lands and the bot has not traded since
+    for e in pending { apply(&mut ledger, &mut w, e)?; }
+    for (key, entry) in ledger.0 {
+        w.amounts.insert(key.parse().map_err(data)?, BigDec::parse(&entry.amount.to_d().map_err(data)?.to_s_f()).map_err(data)?);
+    }
+    w.contributed = BigDec::parse(&books.contributed.to_d().map_err(data)?.to_s_f()).map_err(data)?;
+    w.cash = BigDec::parse(&books.uninvested_cash().map_err(data)?.to_d().map_err(data)?.to_s_f()).map_err(data)?;
     Ok(w)
 }
 
-fn apply(w: &mut Walk, e: &SplitEvent) -> Result<(), EngineError> {
-    crate::figures::budget::charge(1,0).map_err(data)?;
-    // `ledger.key?(symbol)` and a non-zero amount: a split of nothing creates no row and moves nothing.
-    let Some(held) = w.amounts.get(&e.asset_id).filter(|h| !h.is_zero()).cloned() else { return Ok(()) };
-    w.amounts.insert(e.asset_id, held.checked_mul(&e.factor).map_err(data)?);
+fn apply(ledger: &mut Ledger, w: &mut Walk, e: &SplitEvent) -> Result<(), EngineError> {
+    crate::figures::budget::charge(1, 0).map_err(data)?;
+    let key = e.asset_id.to_string();
+    let Some(held) = ledger.get(&key).filter(|entry| !entry.amount.is_zero()).cloned() else { return Ok(()) };
+    let factor = Num::Dec(Dec::parse(&e.factor.to_s_f()).map_err(data)?);
+    ledger.entry(&key).amount = held.amount.mul(&factor).map_err(data)?;
     w.restated_at_us = Some(w.restated_at_us.map_or(e.at_us, |r| r.max(e.at_us)));
     Ok(())
 }
@@ -95,19 +81,7 @@ fn apply(w: &mut Walk, e: &SplitEvent) -> Result<(), EngineError> {
 /// Bot::Composition::OrderSetter#reserved_waiting_amounts(:buy): the unexecuted remainder (`amount.to_d - amount_exec.to_d`,
 /// blank reading 0) of every waiting buy, by asset. A resting order counts as held, so its member is not bought twice.
 pub fn reserved(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, EngineError> {
-    let mut s = c.prepare("SELECT base_asset_id, amount, amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) AND side = 0")?;
-    let mut rows = s.query([bot.id])?;
-    let mut out: HashMap<i64, BigDec> = HashMap::new();
-    while let Some(r) = rows.next()? {
-        let dec = |i: usize| -> Result<BigDec, EngineError> { Ok(from_sql(r.get_ref(i)?).map_err(data)?.unwrap_or_else(BigDec::zero)) };
-        let remainder = &dec(1)? - &dec(2)?;
-        if !remainder.is_positive() { continue; }
-        // Rails matches an asset-less row by name or stands the tick down (order_setter.rb:174-175); eligibility refuses such rows.
-        let asset = r.get::<_, Option<i64>>(0)?.ok_or_else(|| EngineError::Data(format!("bot {}: a resting order without base_asset_id", bot.id)))?;
-        let held = out.remove(&asset).unwrap_or_else(BigDec::zero);
-        out.insert(asset, &held + &remainder);
-    }
-    Ok(out)
+    crate::figures::budget::within(|| fill::reserved(c,bot.id)).map_err(data)
 }
 
 /// bot_index_assets.target_allocation as ActiveRecord reads it back: ActiveModel::Type::Decimal(precision 10, scale 6). A REAL

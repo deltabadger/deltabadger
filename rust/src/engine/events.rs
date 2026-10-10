@@ -6,6 +6,8 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EngineEvent {
+    /// First own tick, all own rows skipped: Rails modal notification, after row commits.
+    BelowMinimum { bot_id: i64, transaction_ids: Vec<i64> },
     /// A `transactions` row this engine inserted (submitted, failed or skipped) or recovered: what Rails' Transaction
     /// after_create_commit hears, which enqueues AccountTransaction::SyncJob for the bot's trading key
     /// (app/models/transaction.rb:17-21).
@@ -23,10 +25,11 @@ pub enum EngineEvent {
 }
 
 impl EngineEvent {
+    pub fn is_warning(&self) -> bool { matches!(self, Self::BelowMinimum { .. }) }
     /// The kinds a subscriber hears unless it asks for others: all but `OrderUpdated`, which only the figures service
     /// wants.
     pub fn is_classic(&self) -> bool {
-        !matches!(self, EngineEvent::OrderUpdated { .. })
+        !matches!(self, EngineEvent::OrderUpdated { .. } | EngineEvent::BelowMinimum { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

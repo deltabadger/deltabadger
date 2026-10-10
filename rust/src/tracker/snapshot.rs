@@ -139,7 +139,7 @@ mod tests {
 
     fn balance(usd_value: Option<&str>, priced_at: &str) -> Balance {
         Balance { category: Some("Stock".into()), symbol: "AAPL".into(), free: Dec::one(), locked: Dec::zero(), usd_price: None, usd_value: usd_value.map(|v| Dec::strict(v).unwrap()),
-                  priced_at: At::from_sql(priced_at), synced_at: At::from_sql("2026-10-01 02:30:00") }
+                  priced_at: Some(At::from_sql(priced_at).unwrap()), synced_at: Some(At::from_sql("2026-10-01 02:30:00").unwrap()) }
     }
 
     /// `partial?`: a holding with no value, a key whose last sync failed, or prices more than five minutes behind the

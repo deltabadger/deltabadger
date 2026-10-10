@@ -1,77 +1,20 @@
 //! Bot::Accountable#pending_quote_amount, the per-leg minimum logic of Bot::OrderSetter#calculate_best_amount_info (Kraken's
 //! and Alpaca's) and Bot::OrderCreator's rows. The basket split that decides each leg's quote is engine::basket::split.
 use super::model::{Bot, Ticker};
-use super::schedule::{checkpoints, effective, interval_count};
 use super::EngineError;
 use crate::codec::format_time;
-use crate::enums::{BotStatus, TxExternalStatus, TxStatus};
-use crate::ruby::{from_sql, ruby_sum, to_sql, BigDec, Num};
-use rusqlite::types::ValueRef;
+use crate::enums::{TxExternalStatus, TxStatus};
+use crate::ruby::{to_sql, BigDec};
 use super::venue_rules::{MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
 
-fn at(us: i64) -> Result<DateTime<Utc>, EngineError> { DateTime::from_timestamp_micros(us).ok_or_else(super::schedule::time_range_error) }
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
 
-/// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
-/// window opened, minus every submitted REGULAR buy in the window, read in ONE statement, so a row that changes state
-/// between reads is counted once. Closed: its executed quote. Open or unknown: its submitted quote, or amount × price
-/// (#invested_quote). Cancelled or abandoned: what it executed before it stopped (NULL reads 0); the rest is owed again.
-/// Nothing in polling moves missed_quote_amount any more. The window is max(started_at, settings_changed_at), inclusive
-/// for every row.
-pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
-    if bot.status == BotStatus::Deleted { return Ok(BigDec::zero()); }
-    let Some(started) = bot.started_at_us else { return Ok(BigDec::zero()) };
-    let since = bot.calc_since_us().ok_or_else(super::schedule::time_range_error)?;
-    // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
-    let since_text = format_time(at(since)?);
-
-    let mut invested = BigDec::zero();
-    let mut s = c.prepare(
-        "SELECT external_status, quote_amount, amount, price, quote_amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND side = 0 \
-         AND transaction_type = 'REGULAR' AND external_status IN (0, 1, 2, 3, 4) AND created_at >= ?2")?;
-    let mut rows = s.query(params![bot.id, since_text])?;
-    while let Some(r) = rows.next()? {
-        let dec = |i: usize| -> Result<Option<BigDec>, EngineError> { from_sql(r.get_ref(i)?).map_err(data) };
-        let status: i64 = r.get(0)?;
-        let row = if status == TxExternalStatus::Closed as i64 {
-            dec(4)?.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))?
-        } else if status == TxExternalStatus::Unknown as i64 || status == TxExternalStatus::Open as i64 {
-            match (dec(1)?, dec(2)?, dec(3)?) {
-                (Some(q), _, _) => q,
-                (None, Some(a), Some(p)) => &a * &p,
-                _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
-            }
-        } else {
-            dec(4)?.unwrap_or_else(BigDec::zero) // cancelled or abandoned: `quote_amount_exec || 0`
-        };
-        invested = &invested + &row;
-    }
-
-    let interval = bot.interval().ok_or_else(|| EngineError::Data("interval".into()))?;
-    let quote_amount = bot.quote_amount().ok_or_else(|| EngineError::Data("quote_amount".into()))?;
-    let smart = bot.smart_quote_amount();
-    let eff = effective(interval, quote_amount, smart);
-    let intervals = interval_count(checkpoints(started, now_us, eff)?.last_us, since, eff)?;
-    // Float × Integer is a Float; adding the BigDecimal carry coerces it with Float#to_d.
-    let owed = BigDec::from_f64(smart.unwrap_or(quote_amount) * intervals as f64).map_err(data)?;
-    Ok((&(&owed + &bot.missed_quote_amount()?) - &invested).max(BigDec::zero()))
-}
-
-/// Bot::Lifecycle#start(start_fresh: false)'s `set_orders_now`, for a stopped bot the web continued. `use_delayed_first` is
-/// always false there (only a fresh start computes a start time), so the bot runs at once unless #restarting_within_interval?:
-/// it had ticked (last_action_job_at is set) and what it owes, capped as QuoteAmountLimitable caps it, is under one
-/// `effective_quote_amount` (a smart split's amount when the split is on). Only the buy side: a selling bot is refused.
-pub fn continue_runs_now(c: &Connection, bot: &Bot, now_us: i64) -> Result<bool, EngineError> {
-    if bot.last_action_job_at_us()?.is_none() { return Ok(true); }
-    let mut owed = pending_quote_amount(c, bot, now_us)?;
-    if let Some(available) = quote_amount_available(c, bot)? { if available < owed { owed = available; } }
-    let effective = bot.smart_quote_amount().or(bot.quote_amount()).ok_or_else(|| EngineError::Data("quote_amount".into()))?;
-    Ok(owed >= BigDec::from_f64(effective).map_err(data)?)
-}
+pub use super::accounting::{pending_quote_amount, continue_runs_now, quote_amount_available_num,
+    quote_amount_available, quote_amount_limit_reached, exact_cap_available, CapGuard, guard_exact_cap};
 
 #[derive(Debug, Clone)]
 pub struct OrderPlan {
@@ -79,7 +22,7 @@ pub struct OrderPlan {
     /// order_amount_in_quote / price, unrounded (Transaction#before_save rounds it on write).
     pub amount: BigDec,
     pub quote_amount: BigDec,
-    /// Kraken `viqc`: the volume is in quote.
+    /// Volume denomination: Kraken `viqc`, or Alpaca quote sizing versus a guarded base quantity.
     pub quote_type: bool,
     /// What is sent: floored to quote_decimals (quote) or base_decimals (base).
     pub volume: BigDec,
@@ -143,6 +86,17 @@ pub fn printf(d: &BigDec, places: u8) -> String {
 /// The raw Float formatter behind `printf`, without the precondition. Exposed so a test can pin the unfloored difference.
 pub fn float_format(d: &BigDec, places: u8) -> String { format!("{:.*}", usize::from(places), d.to_f()) }
 
+/// Fixed decimal spelling after flooring: no binary conversion may undo the R1c order guard.
+fn fixed_decimal(d: &BigDec, places: u8) -> Result<String, String> {
+    let floored = d.floor(places);
+    let legacy = printf(&floored, places);
+    // Preserve Rails' representation when it does not increase the quantized amount.
+    if BigDec::parse(&legacy).map_err(|e|format!("{e:?}"))? <= floored { return Ok(legacy); }
+    let plain = floored.to_s_f();
+    let (whole, fraction) = plain.split_once('.').unwrap_or((&plain, ""));
+    Ok(if places == 0 { whole.to_string() } else { format!("{whole}.{fraction:0<width$}", width=usize::from(places)) })
+}
+
 impl OrderPlan {
     /// `Err` only for a ticker precision outside `ruby::MAX_SCALE` (then `size` refused the plan already).
     pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> Result<NewOrder, String> {
@@ -156,12 +110,14 @@ impl OrderPlan {
             // Exchanges::Alpaca#set_limit_order: qty = floor(quote, quote_decimals) / price, floored to base_decimals.
             WireFormat::Alpaca if self.limit => {
                 let price = self.price.floor(price_decimals);
-                let qty = self.volume.div(&price).map(|q| q.floor(base_decimals)).unwrap_or_else(BigDec::zero);
-                (OrderKind::Limit { price: printf(&price, price_decimals) }, printf(&qty, base_decimals), false)
+                let qty = if self.quote_type {
+                    self.volume.div(&price).ok_or_else(||"zero limit price".to_string())?.floor(base_decimals)
+                } else { self.volume.floor(base_decimals) };
+                (OrderKind::Limit { price: fixed_decimal(&price, price_decimals)? }, fixed_decimal(&qty, base_decimals)?, false)
             }
             // #set_market_order: a :quote amount is `notional` at quote_decimals; a :base one would be `qty`.
             WireFormat::Alpaca => (OrderKind::Market,
-                printf(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
+                fixed_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals })?, self.quote_type),
         };
         Ok(NewOrder { pair: t.ticker.clone(), kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
     }
@@ -188,7 +144,7 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
             params![bot.exchange_id, id], |r| r.get(0)).optional()?;
         if let Some(existing) = existing { return Ok(existing); }
     }
-    let bot_quote_amount = BigDec::from_f64(bot.quote_amount().unwrap_or_default()).map_err(data)?;
+    let bot_quote_amount = bot.quote_amount_num()?.to_dec().map_err(data)?;
     c.execute(
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
@@ -203,90 +159,3 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
     Ok(c.last_insert_rowid())
 }
 
-/// Bot::QuoteAmountLimitable#quote_amount_available_before_limit_reached (quote_amount_limitable.rb:53-85), with one stricter
-/// term: an unresolved placement intent counts as spent at its full quote until it is settled.
-/// None = no cap (the limit is off). Since the stamp (`created_at >= quote_amount_limit_enabled_at`; an unset stamp matches
-/// nothing), submitted REGULAR buys count: closed at their executed quote, waiting at their submitted quote (or
-/// amount × price), cancelled or abandoned at what they executed. Failed and skipped rows, sells and other types do not.
-///
-/// Computed with Ruby's own numerics: the closed and waiting buckets are BigDecimal (decimal columns); the
-/// stopped bucket is `pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))`, SQLite's own INTEGER or REAL; each bucket is an
-/// Array#sum in row order, the buckets are added closed + waiting + stopped, and the limit is the settings' Integer or Float.
-/// So a Float leaks in where Rails' does: cap 60.03 with one cancelled fill of 60.02 leaves 0.00999999999999801.
-///
-/// A closed buy without quote_amount_exec leaves the spend unknown: Rails' sum is nil, and
-/// `pending_quote_amount` raises on it, as sizing errors here.
-pub fn quote_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
-    available_or_unknown(c, bot)?.map(|left| left.ok_or_else(|| EngineError::Data("closed order without quote_amount_exec".into()))).transpose()
-}
-
-/// `Some(None)`: the cap is on and what is left of it is unknown (a closed buy reported no cost).
-fn available_or_unknown(c: &Connection, bot: &Bot) -> Result<Option<Option<Num>>, EngineError> {
-    let Some(limit) = bot.quote_amount_limit().map_err(EngineError::Data)? else { return Ok(None) };
-    let mut spent = Num::Int(0);
-    if let Some(since) = bot.quote_amount_limit_enabled_at_us().map_err(EngineError::Data)? {
-        // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
-        let since_text = format_time(at(since)?);
-        let window = "bot_id = ?1 AND status = 0 AND side = 0 AND transaction_type = 'REGULAR' AND created_at >= ?2";
-        let mut closed = vec![];
-        let mut s = c.prepare(&format!("SELECT quote_amount_exec FROM transactions WHERE {window} AND external_status = 2 ORDER BY id"))?;
-        let mut rows = s.query(params![bot.id, since_text])?;
-        while let Some(r) = rows.next()? {
-            let Some(exec) = from_sql(r.get_ref(0)?).map_err(data)? else { return Ok(Some(None)) };
-            closed.push(Num::Dec(exec));
-        }
-        let mut waiting = vec![];
-        let mut s = c.prepare(&format!("SELECT quote_amount, amount, price FROM transactions WHERE {window} AND external_status IN (0, 1) ORDER BY id"))?;
-        let mut rows = s.query(params![bot.id, since_text])?;
-        while let Some(r) = rows.next()? {
-            let (q, a, p) = (from_sql(r.get_ref(0)?).map_err(data)?, from_sql(r.get_ref(1)?).map_err(data)?, from_sql(r.get_ref(2)?).map_err(data)?);
-            waiting.push(Num::Dec(match (q, a, p) {
-                (Some(q), _, _) => q,
-                (None, Some(a), Some(p)) => &a * &p,
-                _ => return Err(EngineError::Data("waiting order with neither quote_amount nor amount×price".into())),
-            }));
-        }
-        let mut stopped = vec![];
-        let mut s = c.prepare(&format!("SELECT COALESCE(quote_amount_exec, 0) FROM transactions WHERE {window} AND external_status IN (3, 4) ORDER BY id"))?;
-        let mut rows = s.query(params![bot.id, since_text])?;
-        while let Some(r) = rows.next()? {
-            stopped.push(match r.get_ref(0)? {
-                ValueRef::Integer(i) => Num::Int(i),
-                ValueRef::Real(f) => Num::Float(f),
-                other => return Err(EngineError::Data(format!("quote_amount_exec {other:?}"))),
-            });
-        }
-        spent = ruby_sum(&closed).map_err(data)?.add(&ruby_sum(&waiting).map_err(data)?).map_err(data)?
-            .add(&ruby_sum(&stopped).map_err(data)?).map_err(data)?;
-    }
-    if let Some(intent) = bot.rust_placement() {
-        let quote = intent["quote_amount"].as_str().and_then(|q| BigDec::parse(q).ok()).ok_or_else(|| EngineError::Data(format!("rust_placement {intent}")))?;
-        spent = spent.add(&Num::Dec(quote)).map_err(data)?;
-    }
-    let left = limit.sub(&spent).map_err(data)?;
-    Ok(Some(Some(if left.is_negative() { Num::Int(0) } else { left }))) // [left, 0].max
-}
-
-/// `quote_amount_available_num` as the BigDecimal the engine sizes with (a Float as Float#to_d, which is what Rails' next
-/// BigDecimal operation makes of it).
-pub fn quote_amount_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, EngineError> {
-    quote_amount_available_num(c, bot)?.map(|n| n.to_dec().map_err(data)).transpose()
-}
-
-/// Bot::QuoteAmountLimitable#quote_amount_limit_reached?: what is left is under the pair's precision floor,
-/// `1.0 / 10**min(quote_decimals)` over Bot#tickers (members and former members, available and trading-enabled; with none
-/// the floor is 0 and nothing is under it). Not the venue minimum: a remainder between the two keeps the bot running.
-/// An unknown spend is not reached (`!available.nil? && …`).
-pub fn quote_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    let Some(Some(available)) = available_or_unknown(c, bot)? else { return Ok(false) };
-    let mut assets = bot.asset_ids();
-    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
-    for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !assets.contains(&a) { assets.push(a); } }
-    let decimals: Option<i64> = c.query_row(
-        "SELECT min(quote_decimals) FROM tickers WHERE exchange_id = ?1 AND quote_asset_id = ?2 AND available = 1 AND trading_enabled = 1 \
-         AND base_asset_id IN (SELECT value FROM json_each(?3))",
-        params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).expect("ids serialise")], |r| r.get(0))?;
-    let Some(d) = decimals else { return Ok(false) };
-    // `1.0 / (10**d)`: a Float, compared as Ruby compares the remainder's own class with it.
-    available.lt_f64(1.0 / 10f64.powi(d as i32)).map_err(data)
-}

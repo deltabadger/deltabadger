@@ -41,10 +41,10 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("quote_decimals 41", Box::new(|c, s| { c.execute("UPDATE tickers SET quote_decimals = 41", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("LIQUIDATION/REDEPLOY", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
             c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OLIQ', 0, 1, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01', '2026-09-01')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
+                       VALUES (?1, ?2, 'OLIQ', 0, 1, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
         ("LIQUIDATION order", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain());
             c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                       VALUES (?1, ?2, 'OLIQ2', 0, 4, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01', '2026-09-01')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
+                       VALUES (?1, ?2, 'OLIQ2', 0, 4, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id]).unwrap(); id })),
     ];
     for (reason, make) in cases {
         let (_d, o, s) = install();
@@ -165,7 +165,7 @@ fn an_abandoned_liquidation_the_user_accounted_for_no_longer_refuses() {
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
     let abandon = |ext: &str| -> i64 {
         o.primary.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
-                           VALUES (?1, ?2, ?3, 0, 4, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01', '2026-09-01')", rusqlite::params![id, s.exchange_id, ext]).unwrap();
+                           VALUES (?1, ?2, ?3, 0, 4, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id, ext]).unwrap();
         o.primary.last_insert_rowid()
     };
     let first = abandon("OAB1");
@@ -328,7 +328,7 @@ fn an_alpaca_crypto_basket_is_eligible() {
 /// One history row of `bot`: closed, of `side`, `kind`, `asset`, with this external id.
 fn history_row(c: &rusqlite::Connection, s: &seed::Seeded, bot: i64, side: i64, kind: &str, asset: Option<i64>, ext: &str) {
     c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base_asset_id, transaction_type, \
-               error_messages, bot_interval, bot_quote_amount, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, ?4, 0, ?5, ?6, '[]', 'week', 60, '2026-09-01', '2026-09-01')",
+               error_messages, bot_interval, bot_quote_amount, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, ?4, 0, ?5, ?6, '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
               rusqlite::params![bot, s.exchange_id, ext, side, asset, kind]).unwrap();
 }
 
@@ -344,12 +344,10 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        ("1 sell order(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 1, "REGULAR", Some(s.btc), "OSELL"); id })),
         ("1 REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REBALANCE", Some(s.btc), "OREB"); id })),
         ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
-        ("merged history", Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).transient("merged_history_until_id", json!(41))))),
         ("1 split(s) recorded for its assets", Box::new(move |c, s, eth| {
             c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
                        VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\"}', '2026-09-01', '2026-09-01', '2026-09-01')", rusqlite::params![s.user_id, s.exchange_id]).unwrap();
@@ -382,7 +380,10 @@ fn an_exited_member_that_holds_units_is_eligible() {
     }
     history_row(&o.primary, &s, id, 0, "REGULAR", Some(eth), "OETH");
     history_row(&o.primary, &s, id, 0, "REGULAR", Some(sol), "OSOL");
+    // These former members really hold one unit each; NULL fills are unreadable under R1.
+    o.primary.execute("UPDATE transactions SET amount_exec=1, quote_amount_exec=10, price=10 WHERE bot_id=?1", [id]).unwrap();
     let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.unreadable.is_empty(), "{:?}", r.unreadable);
     assert!(r.problems.is_empty(), "{:?}", r.problems);
     assert_eq!(r.eligible, vec![id]);
 }
@@ -402,7 +403,10 @@ fn an_amount_limited_alpaca_bot_is_eligible_unless_its_limit_or_stamp_is_unreada
         let (_d, o, s) = common::install_alpaca();
         let id = seed::insert_bot(&o.primary, &s, &spec);
         let r = eligibility::check_install(&o.primary).unwrap();
-        assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(reason)), "{reason}: {:?}", r.problems);
+        if reason=="quote_amount_limit_enabled_at" {
+            assert!(r.unreadable.iter().any(|(bad,e)|*bad==id && e.contains("Time(") && e.contains("yesterday")),"{:?}",r.unreadable);
+            assert!(r.refusal().is_err());
+        } else { assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(reason)), "{reason}: {:?}", r.problems); }
     }
 }
 

@@ -13,12 +13,12 @@ use serde_json::Value;
 pub struct Bot {
     pub id: i64, pub user_id: i64, pub exchange_id: i64, pub status: BotStatus, pub bot_type: String,
     pub settings: Value, pub transient: Value,
-    pub started_at_us: Option<i64>, pub settings_changed_at_us: Option<i64>, pub restatement_generation: i64,
+    started_at: Option<String>, settings_changed_at: Option<String>, pub restatement_generation: i64,
 }
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
-fn us(s: Option<String>) -> Result<Option<i64>, EngineError> {
-    s.map(|s| parse_time(&s).map(|t| t.timestamp_micros()).map_err(data)).transpose()
+fn us(s: Option<&str>) -> Result<Option<i64>, EngineError> {
+    s.map(|s| parse_time(s).map(|t| t.timestamp_micros()).map_err(data)).transpose()
 }
 fn json_col(s: String) -> Result<Value, EngineError> { serde_json::from_str(&s).map_err(data) }
 pub fn working_list() -> String { BOT_WORKING.iter().map(|s| (*s as i64).to_string()).collect::<Vec<_>>().join(",") }
@@ -31,15 +31,25 @@ pub fn load_bot(c: &Connection, id: i64) -> Result<Bot, EngineError> {
                 r.get::<_, String>(5)?, r.get::<_, String>(6)?, r.get::<_, Option<String>>(7)?, r.get::<_, Option<String>>(8)?, r.get::<_, i64>(9)?)),
     )?;
     let (id, user, exchange, status, ty, settings, transient, started, changed, restated) = row;
+    let settings=json_col(settings)?; let transient=json_col(transient)?;
     Ok(Bot {
         id, user_id: user.unwrap_or(0), exchange_id: exchange.unwrap_or(0),
         status: BotStatus::from_i64(status).ok_or_else(|| EngineError::Data(format!("bot {id}: status {status}")))?,
-        bot_type: ty.unwrap_or_default(), settings: json_col(settings)?, transient: json_col(transient)?,
-        started_at_us: us(started)?, settings_changed_at_us: us(changed)?, restatement_generation: restated,
+        bot_type: ty.unwrap_or_default(), settings, transient,
+        started_at: started, settings_changed_at: changed, restatement_generation: restated,
     })
 }
 
 impl Bot {
+    /// R9c: loading preserves damaged data; money/schedule accessors parse on use.
+    pub fn started_at_us(&self) -> Result<Option<i64>, EngineError> { us(self.started_at.as_deref()) }
+    pub fn settings_changed_at_us(&self) -> Result<Option<i64>, EngineError> { us(self.settings_changed_at.as_deref()) }
+    pub fn validate_times(&self) -> Result<(), EngineError> {
+        self.started_at_us()?;
+        self.settings_changed_at_us()?;
+        crate::codec::validate_bot_times(&self.settings, &self.transient).map_err(data)
+    }
+
     /// Bots::DcaIndex settings (dca_index.rb:19-30): 'top' or 'category'.
     pub fn index_type(&self) -> Option<&str> { self.settings.get("index_type")?.as_str() }
     pub fn index_category_id(&self) -> Option<&str> { self.settings.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }
@@ -69,7 +79,19 @@ impl Bot {
     }
 
     pub fn interval(&self) -> Option<Interval> { self.settings.get("interval")?.as_str().and_then(Interval::parse) }
+    // Float views below are for Rails' explicitly floating interval-duration calculations.
     pub fn quote_amount(&self) -> Option<f64> { self.settings.get("quote_amount")?.as_f64() }
+    pub fn quote_amount_num(&self) -> Result<Num, EngineError> {
+        super::accounting::setting_num(self.settings.get("quote_amount").ok_or_else(||data("quote_amount missing"))?)
+    }
+    pub fn effective_quote_amount_num(&self) -> Result<Num, EngineError> {
+        if self.settings.get("smart_intervaled") == Some(&Value::Bool(true)) {
+            if let Some(value) = self.settings.get("smart_interval_quote_amount").filter(|v|v.is_number()) {
+                return super::accounting::setting_num(value);
+            }
+        }
+        self.quote_amount_num()
+    }
     /// Bot::SmartIntervalable: `smart_intervaled?` is `== true`; the split amount must be a JSON number. A string
     /// makes Rails' `effective_quote_amount * intervals` raise TypeError, so eligibility refuses it (never traded).
     pub fn smart_quote_amount(&self) -> Option<f64> {
@@ -132,15 +154,8 @@ impl Bot {
     /// transient_data.quote_amount_limit_enabled_at (`Time.zone.parse` of what Time#as_json wrote), in µs. None when unset:
     /// Rails' `created_at >= NULL` then counts nothing, and the whole cap is available.
     pub fn quote_amount_limit_enabled_at_us(&self) -> Result<Option<i64>, String> {
-        match self.transient.get("quote_amount_limit_enabled_at") {
-            None | Some(Value::Null) => Ok(None),
-            Some(Value::String(s)) if s.trim().is_empty() => Ok(None),
-            Some(Value::String(s)) => {
-                if let Ok(t) = DateTime::parse_from_rfc3339(s) { return Ok(Some(t.with_timezone(&Utc).timestamp_micros())); }
-                parse_time(s).map(|t| Some(t.timestamp_micros())).map_err(|e| format!("quote_amount_limit_enabled_at {s:?}: {e:?}"))
-            }
-            Some(other) => Err(format!("quote_amount_limit_enabled_at {other}")),
-        }
+        crate::codec::optional_time(self.transient.get("quote_amount_limit_enabled_at"))
+            .map(|at|at.map(|at|at.timestamp_micros())).map_err(|e|format!("quote_amount_limit_enabled_at: {e:?}"))
     }
     /// Bot::Composition::OrderSetter::MERGED_HISTORY_KEY: a merge left inherited rows (Bot::Merge).
     pub fn merged_history(&self) -> bool { self.transient.get("merged_history_until_id").is_some_and(|v| !v.is_null()) }
@@ -161,45 +176,45 @@ impl Bot {
     /// no tick before `until` (in µs) while the bot's schedule is still `schedule`.
     pub fn rust_defer(&self) -> Result<Option<(i64, String)>, EngineError> {
         match self.transient.get("rust_defer_until") {
-            None | Some(Value::Null) => Ok(None),
-            Some(v) => v["until"].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).zip(v["schedule"].as_str())
-                .map(|(t, s)| Some((t.with_timezone(&Utc).timestamp_micros(), s.to_string())))
-                .ok_or_else(|| EngineError::Data(format!("bot {}: malformed rust_defer_until", self.id))),
+            None => Ok(None),
+            // No writer stores a null marker (placement::remove_wait removes the key): null is damage, never absence.
+            Some(Value::Null) => Err(data("null defer marker")),
+            Some(v) => {
+                let at=crate::codec::optional_time(v.get("until")).map_err(data)?.ok_or_else(||data("missing defer timestamp"))?;
+                let schedule=v["schedule"].as_str().ok_or_else(||data("missing defer schedule"))?;
+                Ok(Some((at.timestamp_micros(),schedule.to_string())))
+            }
         }
     }
     /// Tests only: `rust_defer`'s time.
     pub fn rust_defer_until_us(&self) -> Result<Option<i64>, EngineError> { Ok(self.rust_defer()?.map(|(t, _)| t)) }
     /// What the bot's checkpoints are computed from: its start (a fresh start moves it) and its effective interval.
-    pub fn schedule_key(&self) -> Option<String> {
-        let (anchor, interval, quote) = (self.started_at_us?, self.interval()?, self.quote_amount()?);
-        Some(format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount())))
+    pub fn schedule_key(&self) -> Result<Option<String>, EngineError> {
+        let (Some(anchor), Some(interval), Some(quote)) = (self.started_at_us()?, self.interval(), self.quote_amount()) else { return Ok(None) };
+        Ok(Some(format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount()))))
     }
     /// What an amount-limit stop is counted under: the bot's start (a fresh start moves it) and its limit settings. A count
     /// whose key no longer matches lost its cause (the user started the bot afresh, or changed or switched off the limit).
-    pub fn amount_limit_key(&self) -> String {
-        serde_json::json!([self.started_at_us, self.settings.get("quote_amount_limited"), self.settings.get("quote_amount_limit")]).to_string()
+    pub fn amount_limit_key(&self) -> Result<String, EngineError> {
+        Ok(serde_json::json!([self.started_at_us()?, self.settings.get("quote_amount_limited"), self.settings.get("quote_amount_limit")]).to_string())
     }
     /// transient_data.rust_amount_limit_stops_pending: its count, and whether it still applies: counted under this bot's current
     /// key, and no continue start pending (`rust_continue_start`): the user's resume overrides a stop counted before it, which
     /// Rails would already have run, and a plain resume keeps the key. A count that raced the resume inside one tick is
     /// discarded too (the safe direction for a resume the user asked for).
-    pub fn pending_amount_limit_stops(&self) -> Option<(i64, bool)> {
-        let v = self.transient.get("rust_amount_limit_stops_pending").filter(|v| !v.is_null())?;
+    pub fn pending_amount_limit_stops(&self) -> Result<Option<(i64, bool)>, EngineError> {
+        let Some(v) = self.transient.get("rust_amount_limit_stops_pending").filter(|v| !v.is_null()) else { return Ok(None) };
         let continued = self.transient.get("rust_continue_start").is_some();
-        Some((v["count"].as_i64().unwrap_or(0), !continued && v["key"].as_str() == Some(self.amount_limit_key().as_str())))
+        Ok(Some((v["count"].as_i64().unwrap_or(0), !continued && v["key"].as_str() == Some(self.amount_limit_key()?.as_str()))))
     }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }
     pub fn last_action_job_at_us(&self) -> Result<Option<i64>, EngineError> {
-        match self.transient.get("last_action_job_at") {
-            None | Some(Value::Null) => Ok(None),
-            Some(v) => v.as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|t| Some(t.with_timezone(&Utc).timestamp_micros()))
-                .ok_or_else(|| EngineError::Data(format!("bot {}: last_action_job_at {v}", self.id))),
-        }
+        crate::codec::optional_time(self.transient.get("last_action_job_at"))
+            .map(|at|at.map(|at|at.timestamp_micros())).map_err(data)
     }
     /// Bot::Accountable#carry_window_marks.compact.max
-    pub fn calc_since_us(&self) -> Option<i64> { [self.started_at_us, self.settings_changed_at_us].into_iter().flatten().max() }
+    pub fn calc_since_us(&self) -> Result<Option<i64>, EngineError> { Ok([self.started_at_us()?, self.settings_changed_at_us()?].into_iter().flatten().max()) }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -553,8 +568,8 @@ pub fn update_transient(c: &Connection, bot_id: i64, pairs: &[(&str, Value)], no
 }
 
 /// Bot#merge_transient_data!: `transient_data.merge(values).compact` through update_columns (updated_at stays). Its own
-/// keys in one statement; then `.compact`, one conditional statement per key that is null, so a key another writer set
-/// meanwhile is never removed.
+/// keys in one statement, then compact ONLY those keys. R5: never erase unreadable eligibility evidence
+/// (including an explicit NULL merge cutoff) or another writer's state during failure bookkeeping.
 pub fn merge_transient_compact(c: &Connection, bot_id: i64, pairs: &[(&str, Value)]) -> Result<(), EngineError> {
     locked(c, |c| {
         let (expr, keys) = set_keys(pairs, 2);
@@ -563,9 +578,9 @@ pub fn merge_transient_compact(c: &Connection, bot_id: i64, pairs: &[(&str, Valu
         let n = c.execute(&format!("UPDATE bots SET transient_data = {expr} WHERE id = ?1 AND json_type(transient_data) = 'object'"),
                           rusqlite::params_from_iter(args))?;
         if n == 0 { return Err(not_an_object(bot_id)); }
-        let mut s = c.prepare("SELECT e.fullkey FROM bots, json_each(bots.transient_data) AS e WHERE bots.id = ?1 AND e.type = 'null'")?;
-        let nulls = s.query_map([bot_id], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
-        for path in nulls {
+        for (key, value) in pairs {
+            if !value.is_null() { continue; }
+            let path = format!("$.\"{key}\"");
             c.execute("UPDATE bots SET transient_data = json_remove(transient_data, ?2) WHERE id = ?1 AND json_type(transient_data, ?2) = 'null'",
                       params![bot_id, path])?;
         }
@@ -607,6 +622,29 @@ pub fn all_crypto(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     Ok(members > 0 && members == crypto)
 }
 
+
+/// RULING-B2A-R3: one SQL boundary for eligibility, guarded writes and first-own-tick reads.
+/// JSON integers and nonempty ASCII digit strings are accepted. Values beyond SQLite's
+/// maximum row ID have the same boundary as i64::MAX; saturating here loses no row IDs.
+/// An absent key is an ordinary bot. Explicit NULL is valid only with no inherited rows.
+pub fn merged_history_cutoff(c: &Connection, bot: &Bot) -> Result<Option<i64>, EngineError> {
+    let invalid = || EngineError::Data("unreadable merged history cutoff".into());
+    let cutoff = match bot.transient.get("merged_history_until_id") {
+        None => return Ok(None),
+        Some(Value::Null) => {
+            let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1)", [bot.id], |r| r.get(0))?;
+            if rows { return Err(invalid()); }
+            return Ok(None);
+        }
+        Some(Value::Number(n)) => n.as_u64().ok_or_else(invalid)?.min(i64::MAX as u64) as i64,
+        Some(Value::String(s)) if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) => {
+            s.bytes().fold(0_i64, |n,b| n.saturating_mul(10).saturating_add(i64::from(b - b'0')))
+        }
+        _ => return Err(invalid()),
+    };
+    Ok(Some(cutoff))
+}
+
 #[cfg(test)]
 mod r4_provenance_tests {
     use super::*;
@@ -637,5 +675,4 @@ mod r4_provenance_tests {
         }
         assert!(wait_is_current(&c,&json!({"origin":"local"})).unwrap(),"R6 explicit engine-local positive control");
     }
-
 }
