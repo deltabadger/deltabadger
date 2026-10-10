@@ -291,19 +291,6 @@ fn lifecycle_inner<T>(
         tx.rollback()?;
         return Ok(Outcome::GuardRefused(prepared.response));
     }
-    // R9c: STOP may preserve this bot's existing timestamp refusal. It changes no
-    // money/settings/history; check and every ordinary writer must still refuse it.
-    // Capture the exact pre-write refusal so STOP cannot introduce a new one.
-    let stop_refusal = if action == Action::Stop {
-        let bot = model::load_bot(&tx,id)?;
-        match bot.validate_times() {
-            Err(error) => match eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
-                Err(eligibility::Refusal::Unreadable(rows)) if rows == vec![(id,format!("{error:?}"))] => Some(rows),
-                _ => None,
-            },
-            Ok(()) => None,
-        }
-    } else { None };
     view.draft = match Draft::load(&tx,owner,id,ctx.locale) {
         Ok(draft) => draft,
         Err(WebError::Engine(crate::engine::EngineError::Data(_))) if safety => None,
@@ -432,7 +419,9 @@ fn lifecycle_inner<T>(
         Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
     }
     let guarded = match eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
-        Err(eligibility::Refusal::Unreadable(rows)) if action == Action::Stop && stop_refusal.as_ref() == Some(&rows) => Ok(()),
+        // STOP only reduces activity and writes no money, settings or history, so it always persists, whatever data
+        // damage the install holds; check and every ordinary writer still refuse that damage.
+        Err(eligibility::Refusal::Unreadable(_)) if action == Action::Stop => Ok(()),
         result => result,
     };
     if let Err(refusal)=guarded {
