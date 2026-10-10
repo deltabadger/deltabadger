@@ -47,9 +47,10 @@ pub fn resolve_local(zone: Tz, naive: NaiveDateTime) -> Result<(NaiveDateTime, D
     }
 }
 
-/// `time.in_time_zone(user.time_zone)`; an unknown name reads as UTC, the column's default.
+/// `time.in_time_zone(user.time_zone)`, resolved as everything else reads the owner's zone (`strict`: a Rails name or an
+/// IANA id). An unknown name reads as UTC, the column's default, for display only: parsing and starts refuse it.
 pub fn local(time: DateTime<Utc>, name: &str) -> DateTime<Tz> {
-    time.with_timezone(&zone(name).unwrap_or(Tz::UTC))
+    time.with_timezone(&strict(name).unwrap_or(Tz::UTC))
 }
 
 pub fn names() -> impl Iterator<Item = &'static String> {

@@ -1102,6 +1102,28 @@ mod action_write {
         Ok(())
     }
 
+    /// The date field renders in the owner's zone with the resolver that parses it (a Rails name or an IANA id): turning the
+    /// rule on resubmits the rendered field, which keeps the instant, and the start runs at it.
+    #[test]
+    fn action_date_start_round_trips_through_the_form_in_the_owners_zone() -> Result {
+        for zone in ["Asia/Tokyo","Tokyo"] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE users SET time_zone=?1",[zone])?;
+            assert!(matches!(f.write(json!({"start_time_mode":"date","start_at":"2026-09-12T09:30"}))?,Outcome::Committed(_)),"{zone}");
+            assert_eq!(f.stored()?["settings"]["start_at"],json!("2026-09-12T00:30:00Z"),"{zone}");
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("draft")?;
+            let html=web::bot::settings::draft_column(&f.c,&f.ctx,"csrf",&draft,zone,false).map_err(|e|format!("{e:?}"))?;
+            let field=html.split("sinput--datetime").next().and_then(|before|before.rsplit("value=\"").next()).and_then(|v|v.split('"').next()).ok_or("date field")?.to_owned();
+            assert_eq!(field,"2026-09-12T09:30","{zone}: the field shows the owner's wall time");
+            assert!(matches!(f.write(json!({"start_time_enabled":"1","start_time_mode":"date","start_at":field}))?,Outcome::Committed(_)|Outcome::NoChange(_)),"{zone}");
+            assert_eq!(f.stored()?["settings"]["start_at"],json!("2026-09-12T00:30:00Z"),"{zone}: resubmitting keeps the instant");
+            assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)),"{zone}");
+            let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(anchor,"2026-09-12 00:30:00","{zone}");
+        }
+        Ok(())
+    }
+
     /// ActiveSupport::TimeZone[] knows Rails' names and IANA identifiers; for any other name the start is refused and nothing
     /// is written, never computed in UTC.
     #[test]
