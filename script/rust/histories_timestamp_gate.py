@@ -7,7 +7,7 @@ folders=['rust/src/engine','rust/src/web/bot','rust/src/web/mcp']
 def check():
     for folder in folders:
         for path in (root/folder).rglob('*.rs'):
-            code=re.sub(r'//[^\n]*|/\*.*?\*/','',path.read_text(),flags=re.S)
+            code=re.sub(r'//[^\n]*|/\*.*?\*/','',path.read_text(encoding='utf-8'),flags=re.S)
             assert not re.search(r'\bparse_from_\w+\s*\(|\b(?:DateTime|NaiveDateTime|NaiveDate|Time|Date|OffsetDateTime|PrimitiveDateTime)(?:::\s*<[^>]+>)?\s*::\s*parse\w*\s*\(|\.parse\s*::\s*<[^>]*(?:Date|Time)[^>]*>',code),f'timestamp parser outside codec: {path}'
             for statement in re.split(r';|\n\s*}',code):
                 calls=list(re.finditer(r'\b(?:parse_time(?:_in_zone|_offset)?|optional_time)\s*\(',statement))
@@ -29,16 +29,16 @@ def check():
     print('PASS R9 shared timestamp parser and fallible adapters',flush=True)
 if '--sensitivity' in sys.argv:
     for relative in ['rust/src/engine/model.rs','rust/src/engine/accounting.rs','rust/src/web/bot/write.rs','rust/src/web/bot/start.rs','rust/src/web/bot/draft.rs','rust/src/web/mcp/reads.rs']:
-        path=root/relative;original=path.read_text()
+        path=root/relative;original=path.read_text(encoding='utf-8')
         for probe in ['fn r9_probe(s:&str) { chrono::DateTime::parse_from_rfc3339(s).ok(); }',
                       'fn r9_probe(s:&str) { crate::codec::parse_time(s).unwrap_or_default(); }',
                       'fn r9_probe(s:&str) { let parsed = codec::parse_time(s); parsed.ok(); }',
                       'fn r9_probe(s:&str) { [s].iter().filter_map(|s|codec::parse_time(s).ok()); }',
                       'fn r9_probe(s:&str) { [s].into_iter().map(codec::parse_time).filter_map(Result::ok); }']:
             try:
-                path.write_text(original+'\n'+probe+'\n')
+                path.write_text(original+'\n'+probe+'\n',encoding='utf-8')
                 result=subprocess.run([sys.executable,__file__],capture_output=True,text=True)
                 assert result.returncode!=0 and ('timestamp parser' in result.stderr or 'timestamp parse error' in result.stderr),(relative,result.stderr)
-            finally:path.write_text(original)
+            finally:path.write_text(original,encoding='utf-8')
     print('PASS R9 timestamp gate sensitivity; all sources restored',flush=True)
 check()

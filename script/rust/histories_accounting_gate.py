@@ -11,12 +11,12 @@ def check():
     # Generic numeric libraries implement operations, not application accounting. Freeze
     # their complete production bytes in the manifest; no new consumer can use this exception.
     import hashlib
-    primitives=json.loads((root/'script/rust/histories_arithmetic_primitives.json').read_text())
+    primitives=json.loads((root/'script/rust/histories_arithmetic_primitives.json').read_text(encoding='utf-8'))
     for relative,digest in primitives.items():
         assert hashlib.sha256((root/relative).read_bytes()).hexdigest()==digest, f'changed accounting primitive: {relative}'
     for path in (root/'rust/src').rglob('*.rs'):
         relative=path.relative_to(root).as_posix()
-        code=path.read_text()
+        code=path.read_text(encoding='utf-8')
         code=re.sub(r'"(?:[^"\\]|\\.)*"|//[^\n]*|/\*.*?\*/', lambda m: m[0] if m[0].startswith(chr(34)) else '', code, flags=re.S)
         # No SQL aggregate may bypass normalization. index_redeploy_totals was the old
         # justified display-only exception; R5 removed that SQL, so the allowlist is empty.
@@ -42,15 +42,15 @@ def check():
 
 if '--sensitivity' in sys.argv:
     for relative in ['rust/src/web/bot/write.rs','rust/src/web/bot/start.rs','rust/src/web/bot/draft.rs','rust/src/web/mcp/reads.rs','rust/src/engine/tick.rs']:
-        path=root/relative;original=path.read_text()
+        path=root/relative;original=path.read_text(encoding='utf-8')
         for probe in [
             'fn another_pending() { let amount: f64 = 1.0 + 2.0; }',
             'fn another_sql() { let query = "SELECT SUM(quote_amount_exec) FROM transactions"; }',
         ]:
             try:
-                path.write_text(original+'\n'+probe+'\n')
+                path.write_text(original+'\n'+probe+'\n',encoding='utf-8')
                 run=subprocess.run([sys.executable,__file__],capture_output=True,text=True)
                 assert run.returncode!=0 and 'outside shared module' in run.stderr,(relative,probe,run.stderr)
-            finally:path.write_text(original)
+            finally:path.write_text(original,encoding='utf-8')
     print('PASS R6 arithmetic sensitivity; all sources restored',flush=True)
 check()

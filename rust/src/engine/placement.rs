@@ -172,7 +172,7 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 
 /// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
 /// leg is reported as skipped, never placed.
-pub enum Begun { Intent(Box<Intent>), Changed, CredentialsChanged, BelowMinimum(OrderPlan) }
+pub enum Begun { Intent(Box<Intent>), Changed, CredentialsChanged, BelowMinimum(Box<OrderPlan>) }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, clock: &dyn Clock) -> Result<Begun, EngineError> {
@@ -218,7 +218,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     let plan = if model::exchange_type(&tx, &current)? == "Exchanges::Alpaca" {
         let safe = match super::amount::guard_exact_cap(&tx, &current, plan)? {
             super::amount::CapGuard::Place(safe) => safe,
-            super::amount::CapGuard::BelowMinimum(skipped) => return Ok(Begun::BelowMinimum(skipped)),
+            super::amount::CapGuard::BelowMinimum(skipped) => return Ok(Begun::BelowMinimum(Box::new(skipped))),
         };
         guarded = safe;
         &guarded

@@ -515,7 +515,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
                     placement::Begun::Intent(intent) => intent,
                     placement::Begun::Changed => break,
                     placement::Begun::CredentialsChanged => return Ok(Err(Fail::CredentialsChanged)),
-                    placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(skipped); continue; }
+                    placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); continue; }
                 };
                 match placement::send(venue, &intent, clock).await {
                     Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }
