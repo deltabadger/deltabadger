@@ -3525,3 +3525,36 @@ async fn csp_report_throttles_after_thirty_posts_without_session_or_csrf() {
     assert_eq!(browser.send(&app, "POST", "/csp-report", None, Csrf::None, &[]).await.status, 204);
     drop(dir);
 }
+
+async fn sign_in_email_matches_recorded_strip(case: &str) {
+    let vector: serde_json::Value = serde_json::from_str(include_str!("fixtures/settings_r9_vectors.json")).unwrap();
+    let recorded = &vector["sign_in_email"][case];
+    let email = recorded["submitted"].as_str().unwrap();
+    let expected = recorded["lookup_matches"].as_bool().unwrap();
+    assert_eq!(expected, case == "nul", "Rails keeps Unicode spaces and strips NUL");
+    let (dir, opened, seed) = fixture::install();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute(
+        "UPDATE users SET email='strip@example.com', encrypted_password=?1, confirmed_at='2026-01-01 00:00:00', setup_completed=1 WHERE id=?2",
+        (deltabadger::crypto::hash_password("Correct-horse-9").unwrap(), seed.user_id),
+    ).unwrap();
+    let env = web::env(web::SECRET);
+    let app = App::new(Config::from_env(&env).unwrap(), &env, opened.primary,
+        web::TestClock::at("2026-09-10T12:00:30.123456Z")).unwrap()
+        .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap();
+    let mut browser = Browser::default();
+    assert_eq!(browser.get(&app, "/login").await.status, 200);
+    let answer = browser.post(&app, "/login", &[("user[email]", email), ("user[password]", "Correct-horse-9")]).await;
+    assert_eq!(answer.status, if expected { 303 } else { 422 }, "Rails String#strip sign-in case {case}");
+    let data = deltabadger::web::session::open(&app.keys.session,
+        browser.cookie.as_ref().unwrap(), web::at("2026-09-10T12:00:30.123456Z")).unwrap();
+    assert_eq!(data.user.is_some(), expected, "sign-in session for {case}");
+    assert_eq!(c.query_row("SELECT failed_attempts FROM users WHERE id=?1", [seed.user_id], |r| r.get::<_, i64>(0)).unwrap(), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn sign_in_email_nbsp_is_refused_as_rails_records() { sign_in_email_matches_recorded_strip("nbsp").await; }
+#[tokio::test(flavor = "current_thread")]
+async fn sign_in_email_em_space_is_refused_as_rails_records() { sign_in_email_matches_recorded_strip("em_space").await; }
+#[tokio::test(flavor = "current_thread")]
+async fn sign_in_email_nul_is_stripped_as_rails_records() { sign_in_email_matches_recorded_strip("nul").await; }

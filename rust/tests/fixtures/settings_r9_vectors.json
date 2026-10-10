@@ -59,6 +59,20 @@
       "period": 60
     }
   },
+  "sign_in_email": {
+    "nbsp": {
+      "submitted": " STRIP@Example.com ",
+      "lookup_matches": false
+    },
+    "em_space": {
+      "submitted": " STRIP@Example.com ",
+      "lookup_matches": false
+    },
+    "nul": {
+      "submitted": "\u0000STRIP@Example.com\u0000",
+      "lookup_matches": true
+    }
+  },
   "redacted": "[redacted]",
   "sensitive_query": [
     "confirmation_token",

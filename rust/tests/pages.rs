@@ -605,9 +605,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 157, "completed read-only baseline");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413, "complete S1 inventory");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3, "complete S1 inventory");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 154, "action inventory");
-        assert_eq!(dirs.len(), 157 + 154 + 413, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 157 + 154 + 413 + 3, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }

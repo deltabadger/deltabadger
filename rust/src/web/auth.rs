@@ -71,7 +71,7 @@ impl User {
 
     /// Devise's find_for_authentication: the email stripped and downcased, then matched exactly.
     pub fn find_by_email(c: &Connection, email: &str) -> Result<Option<User>, WebError> {
-        Self::read(c, "email", &email.trim().to_lowercase())
+        Self::read(c, "email", &crate::ruby::strip(email).to_lowercase())
     }
 
     /// Devise's authenticatable_salt: what ties a session to the password it was opened with.

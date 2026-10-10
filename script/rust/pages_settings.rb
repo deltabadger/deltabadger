@@ -368,6 +368,14 @@ module Pages
     grid['settings_key_permissions'] = settings_case(get('/settings/api_key_permissions/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
     grid['settings_key_delete_modal'] = settings_case(get('/settings/confirm_destroy_api_key/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
+    { 'nbsp' => "\u00a0", 'em_space' => "\u2003", 'nul' => "\0" }.each do |name, padding|
+      accepted = name == 'nul'
+      grid["settings_sign_in_email_#{name}"] = {
+        'user' => owner,
+        'steps' => [get('/login'), login(email: "#{padding}OWNER@Example.com#{padding}", expect: accepted ? 303 : 422),
+                    get('/settings/account').merge('expect' => accepted ? 200 : 302)]
+      }
+    end
     grid
   end
 end
