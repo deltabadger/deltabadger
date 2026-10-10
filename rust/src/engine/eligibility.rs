@@ -133,7 +133,15 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
     let local = DateTime::from_timestamp_micros(at).ok_or_else(|| EngineError::Data(format!("start_at {at} is out of range")))?.with_timezone(&zone);
     let chosen = crate::web::bot::start::parse_hhmm(bot.settings.get("start_time_of_day").and_then(Value::as_str));
     use chrono::Timelike;
-    if chosen.is_ok_and(|(h, m)| (local.hour(), local.minute(), local.second(), local.nanosecond()) == (h, m, 0, 0)) { return Ok(None); }
+    if chosen.is_ok_and(|(h, m)| (local.hour(), local.minute(), local.second(), local.nanosecond()) == (h, m, 0, 0)) {
+        // The chosen wall time must also occur exactly once that day: at a repeated time, which occurrence Rails picks is
+        // not proven, so a row left at either one is refused, as the web start refuses it.
+        return Ok(match crate::web::timezone::resolve_local(zone, local.naive_local()) {
+            Ok((_, only)) if only == local => None,
+            Ok(_) => Some(format!("start_time_enabled with a start_at that is not the one instant of {} in {name}", local.format("%H:%M"))),
+            Err(reason) => Some(format!("start_time_enabled: {reason}")),
+        });
+    }
     Ok(Some(format!("start_time_enabled with a start_at at {} in {name}, not the chosen time {:?} (a daylight-saving change moved it)",
                     local.format("%H:%M:%S"), bot.settings.get("start_time_of_day"))))
 }
