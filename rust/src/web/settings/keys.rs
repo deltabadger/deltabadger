@@ -611,10 +611,12 @@ pub async fn legacy(
     let Some(user) = ctx.user().cloned() else {
         return Ok(auth::unauthenticated(&ctx));
     };
+    // Rails reads `params.require(:api_key)` only: never a top-level `?secret=`. Its params merge the query string
+    // and the body with the body winning, so `?api_key[name]=` counts only when the body has no value.
     let parameter = |name: &str| {
+        let nested = format!("api_key[{name}]");
         ctx.params
-            .query(name)
-            .or_else(|| ctx.params.form(&format!("api_key[{name}]")))
+            .form(&nested)
             .or_else(|| {
                 ctx.params
                     .json
@@ -625,6 +627,7 @@ pub async fn legacy(
             })
             .map(str::to_string)
             .or_else(||ctx.params.json.as_ref().and_then(|j|j.get("api_key")).and_then(|root|root.get(name)).filter(|value|value.is_number()||value.is_boolean()).map(serde_json::Value::to_string))
+            .or_else(|| ctx.params.query(&nested).map(str::to_string))
     };
     if !ctx
         .params

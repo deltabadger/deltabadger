@@ -1390,6 +1390,19 @@ async fn finishing_a_ledger_sync_without_replacement_does_not_block_placement() 
 }
 
 #[tokio::test(flavor="current_thread")]
+async fn legacy_key_fields_come_from_api_key_never_a_top_level_query_parameter() {
+    // Rails reads params.require(:api_key): a top-level `?key=`/`?secret=` never wins over the body.
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let status=h.submit("POST","/api/api_keys?key=url-key&secret=url-secret",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","body-key"),("api_key[secret]","body-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status;
+    assert_eq!(status,201);
+    let (key,secret):(String,String)=h.c.query_row("SELECT key,secret FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+    assert_eq!((h.app.cipher.decrypt(&key).unwrap(),h.app.cipher.decrypt(&secret).unwrap()),("body-key".to_string(),"body-secret".to_string()),"the body's api_key fields are stored, not the query string's");
+}
+
+#[tokio::test(flavor="current_thread")]
 async fn identical_saves_change_ciphertext_version_and_keep_rails_timestamps() {
     use deltabadger::engine::model;
     let server=MockServer::start().await;
