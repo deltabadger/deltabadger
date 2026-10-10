@@ -71,6 +71,8 @@ pub fn validate_bot_times(settings:&serde_json::Value, transient:&serde_json::Va
     if let Some(values)=transient.get("failure_notifications").and_then(serde_json::Value::as_object) {
         for value in values.values() {optional_time(Some(value))?;}
     }
+    // No writer stores a null deferral marker (it is removed), so a present null is damage, as in Bot::rust_defer.
+    if transient.get("rust_defer_until").is_some_and(serde_json::Value::is_null) {return Err(CodecError::Time("null defer marker".into()));}
     for key in ["rust_defer_until", "rust_placement", "rust_continue_start"] {
         if let Some(value)=transient.get(key).filter(|v| !v.is_null()) {
             for time in if key=="rust_defer_until" {&["until"][..]} else if key=="rust_placement" {&["deadline", "at"][..]} else {&["requested_at"][..]} {

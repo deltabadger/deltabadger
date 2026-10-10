@@ -176,7 +176,9 @@ impl Bot {
     /// no tick before `until` (in µs) while the bot's schedule is still `schedule`.
     pub fn rust_defer(&self) -> Result<Option<(i64, String)>, EngineError> {
         match self.transient.get("rust_defer_until") {
-            None | Some(Value::Null) => Ok(None),
+            None => Ok(None),
+            // No writer stores a null marker (placement::remove_wait removes the key): null is damage, never absence.
+            Some(Value::Null) => Err(data("null defer marker")),
             Some(v) => {
                 let at=crate::codec::optional_time(v.get("until")).map_err(data)?.ok_or_else(||data("missing defer timestamp"))?;
                 let schedule=v["schedule"].as_str().ok_or_else(||data("missing defer schedule"))?;
