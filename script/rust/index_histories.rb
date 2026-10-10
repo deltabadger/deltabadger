@@ -160,7 +160,19 @@ module IndexOracle
       { 'name' => 'rebalance_buying', 'note' => 'a rebalance between its sell and its buy', 'members' => members(STEADY),
         'rows' => history + [row('AAA', 'sell', 'REBALANCE', '0.1', '150', 9)],
         'transient' => { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => :last, 'buy_transaction_id' => nil,
-                                                  'remaining_quote_amount' => '15.0', 'buy_attempted' => false } } }
+                                                  'remaining_quote_amount' => '15.0', 'buy_attempted' => false } } },
+      # ---- rejected at placement (Bot::OrderCreator#create_failed_order!: status failed, nothing executed): outside `submitted` ----
+      { 'name' => 'liquidation_rejected', 'note' => 'the venue rejected the liquidation before it traded', 'members' => rotated,
+        'rows' => history + [row('CCC', 'sell', 'LIQUIDATION', '0', '330', 10, status: 'failed', ext: 'unknown', amount: '0.08', quote_exec: '0')] },
+      { 'name' => 'redeploy_rejected', 'note' => 'the venue rejected the redeploy buy before it traded', 'members' => rotated,
+        'rows' => history + [liq_ccc, row('DDD', 'buy', 'REDEPLOY', '0', '400', 11, status: 'failed', ext: 'unknown', amount: '0.06', quote_exec: '0')] },
+      { 'name' => 'rebalance_rejected', 'note' => 'the venue rejected the rebalance sell before it traded', 'members' => members(STEADY),
+        'rows' => history + [row('AAA', 'sell', 'REBALANCE', '0', '150', 9, status: 'failed', ext: 'unknown', amount: '0.1', quote_exec: '0')] },
+      # ---- an abandoned rebalance leg after its halt was cleared: Rails trades on; its fill is unknown ----
+      { 'name' => 'rebalance_abandoned', 'note' => 'the buy leg the venue stopped reporting, the halt cleared: the flight cash may already be CCC',
+        'members' => members(STEADY),
+        'rows' => history + [row('AAA', 'sell', 'REBALANCE', '0.1', '150', 9),
+                             row('CCC', 'buy', 'REBALANCE', nil, '300', 9, ext: 'abandoned', amount: '0.05', quote_exec: nil)] }
     ]
   end
 
