@@ -1129,3 +1129,33 @@ async fn r10_damaged_deferral_marker_refuses_and_is_kept() {
         assert!(t.posted_orders().is_empty());
     }
 }
+
+// R11: no writer stores `"rust_defer_until": null` (placement::remove_wait removes the key), so a present-but-null
+// marker is damage: refused and kept. Controls prove the same fixture reaches the scheduler: without a marker it
+// buys at once; with a readable future marker step_bot honors the wait and buys nothing.
+#[tokio::test(flavor="current_thread")]
+async fn r11_null_deferral_marker_refuses_before_the_checkpoint() {
+    use deltabadger::engine::run::{self,Engine};
+    for case in ["absent","future","null"] {
+        let (d,o,_s,id)=r3_history();
+        let schedule=model::load_bot(&o.primary,id).unwrap().schedule_key().unwrap().unwrap();
+        o.primary.execute("UPDATE bots SET status=5,transient_data=json_set(transient_data,'$.last_action_job_at','2026-01-05T12:00:00.000Z') WHERE id=?1",[id]).unwrap();
+        let marker=match case {"future"=>Some(json!({"until":"2026-01-12T12:00:00.000000Z","schedule":schedule,"origin":"local"})),"null"=>Some(Value::Null),_=>None};
+        if let Some(marker)=marker {
+            o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_defer_until',json(?1)) WHERE id=?2",rusqlite::params![marker.to_string(),id]).unwrap();
+        }
+        let before:String=o.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
+        let report=eligibility::check_install(&o.primary).unwrap();
+        assert_eq!(report.unreadable.iter().any(|(bot,_)|*bot==id),case=="null","{case}: load-time validation agrees with use");
+        let paths=deltabadger::store::Paths::from_env(&|_|None,d.path());
+        let lock=deltabadger::lease::lock(&paths,now()).unwrap();
+        let transport=history_market();
+        let mut engine=Engine::new(o.primary,HistoryFactory(transport.clone()),seed::cipher(),lock);
+        for _ in 0..2 { run::step(&mut engine,&FixedClock(now())).await.unwrap(); }
+        let orders=transport.posted_orders();
+        if case=="absent" { assert_eq!(orders.len(),2,"control: the retrying bot with no wait buys $60/$40 at once"); continue; }
+        assert!(orders.is_empty(),"{case}: Rails places $0 before the checkpoint");
+        let after:String=engine.primary.query_row("SELECT transient_data FROM bots WHERE id=?1",[id],|r|r.get(0)).unwrap();
+        assert_eq!(before,after,"{case}: the marker is kept");
+    }
+}
