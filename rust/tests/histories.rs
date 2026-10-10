@@ -70,3 +70,75 @@ fn history_decisions_match_the_recorded_oracle() {
         assert_eq!(later.to_s_f(),case["one_week_pending"],"{} later",case["name"]);
     }
 }
+
+#[test]
+fn sells_and_merges_pass_check_and_the_write_guard() {
+    use deltabadger::engine::eligibility;
+    for case in vectors()["cases"].as_array().unwrap() {
+        let (_d,o,id,_)=build(case);
+        let report=eligibility::check_install(&o.primary).unwrap();
+        assert!(report.problems.is_empty(),"{}: {:?}",case["name"],report.problems);
+        assert!(report.unreadable.is_empty(),"{:?}",report.unreadable);
+        assert_eq!(report.eligible,vec![id]);
+        let tx=model::immediate(&o.primary).unwrap();
+        tx.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.unrelated','preserved') WHERE id=?1",[id]).unwrap();
+        eligibility::guard(&tx,cipher(),Some(id)).unwrap();
+        tx.commit().unwrap();
+    }
+}
+
+#[test]
+fn unknown_fill_value_refuses_check_and_rolls_back_a_guarded_write() {
+    use deltabadger::engine::eligibility;
+    let case=vectors()["cases"][0].clone();
+    let (_d,o,id,_)=build(&case);
+    for sql in [
+        "UPDATE transactions SET price=NULL,quote_amount_exec=NULL WHERE side=1",
+        "UPDATE transactions SET amount=NULL,amount_exec=NULL WHERE side=1",
+        "UPDATE transactions SET amount_exec=0 WHERE side=1",
+    ] {
+        let tx=model::immediate(&o.primary).unwrap();
+        tx.execute_batch(sql).unwrap();
+        let report=eligibility::check_install(&tx).unwrap();
+        assert_eq!(report.unreadable.len(),1,"{:?}",report.problems);
+        assert_eq!(report.unreadable[0].0,id);
+        assert!(matches!(eligibility::guard(&tx,cipher(),Some(id)),Err(eligibility::Refusal::Unreadable(_))));
+        drop(tx);
+        let row:(i64,i64)=o.primary.query_row("SELECT quote_amount_exec,amount_exec FROM transactions WHERE bot_id=?1 AND side=1",[id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+        assert_eq!(row,(20,2));
+    }
+}
+
+#[test]
+fn deferred_classes_and_existing_refusals_still_roll_back() {
+    use deltabadger::engine::eligibility;
+    let (_d,o,id,_)=build(&vectors()["cases"][0]);
+    for (sql,reason) in [
+        ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'))","start_time_enabled"),
+        ("UPDATE bots SET settings=json_set(settings,'$.price_limited',json('true'))","price_limited"),
+        ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
+        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","direction"),
+        ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
+        ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
+        ("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))","redeploy_pending"),
+        ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))","rebalance_pending"),
+        ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
+        ("UPDATE users SET wash_sale_enabled=1","wash_sale"),
+        ("UPDATE transactions SET external_id='imported_test' WHERE side=1","imported"),
+        ("UPDATE transactions SET base_asset_id=NULL WHERE side=1","without base_asset_id"),
+        ("UPDATE transactions SET transaction_type='REBALANCE' WHERE side=1","REBALANCE/LIQUIDATION/REDEPLOY"),
+        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","REBALANCE/LIQUIDATION/REDEPLOY"),
+        ("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1","REBALANCE/LIQUIDATION/REDEPLOY"),
+        ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=1 WHERE side=1","waiting LIQUIDATION"),
+        ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=4 WHERE side=1","unresolved abandoned LIQUIDATION"),
+    ] {
+        let tx=model::immediate(&o.primary).unwrap();
+        tx.execute_batch(sql).unwrap();
+        let report=eligibility::check_install(&tx).unwrap();
+        assert!(report.problems.iter().any(|p|p.contains(reason)),"{reason}: {:?}",report.problems);
+        let error=eligibility::guard(&tx,cipher(),Some(id)).unwrap_err();
+        assert!(error.reason().contains(reason),"{reason}: {error:?}");
+        drop(tx);
+        assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(),"{reason}: rollback");
+    }
+}
