@@ -144,16 +144,23 @@ fn walks_and_books_match_rails_for_every_index_history() {
         let c = &b.o.primary;
         let rails = &sc["rails"]["walk"];
         let bot = model::load_bot(c, b.id).unwrap();
+        let mut rails = rails.clone();
+        let mut spent_want = sc["rails"]["redeploy"]["spent"].as_str().unwrap().to_string();
         if SKIPPED_BUYS.contains(&name) {
             let refused = basket::walk(c, &bot, at()).unwrap_err();
             assert!(format!("{refused:?}").contains("the Rails walk skips"), "{name}: {refused:?}");
-            continue;
+            // The figures page keeps the normalized reading: the 0.03 DDD at $12 Rails skips, paid from the proceeds.
+            rails["holdings"]["DDD"] = json!({ "amount": "0.03", "invested": "12.0" });
+            for k in ["uninvested_cash", "realised_cash"] { rails[k] = json!("14.4"); }
+            spent_want = "12.0".into();
+        } else {
+            let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
+            for (sym, want) in rails["holdings"].as_object().unwrap() {
+                assert_eq!(BigDec::parse(&d(w.amounts.get(&b.assets[sym]).cloned())).unwrap(), BigDec::parse(want["amount"].as_str().unwrap()).unwrap(),
+                           "{name}: engine units of {sym}");
+            }
         }
-        let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
-        for (sym, want) in rails["holdings"].as_object().unwrap() {
-            assert_eq!(BigDec::parse(&d(w.amounts.get(&b.assets[sym]).cloned())).unwrap(), BigDec::parse(want["amount"].as_str().unwrap()).unwrap(),
-                       "{name}: engine units of {sym}");
-        }
+        let rails = &rails;
         let subject = db::Subject::load(c, b.id).unwrap();
         let m = walk::metrics(c, &subject, At::from_utc(at()).unwrap()).unwrap_or_else(|e| panic!("{name}: figures walk {e:?}"));
         let num = |n: &deltabadger::figures::num::Num| n.to_d().unwrap().to_s_f();
@@ -173,7 +180,7 @@ fn walks_and_books_match_rails_for_every_index_history() {
         want.as_object_mut().unwrap().remove("holdings");
         assert_eq!(got, want, "{name}: books");
         let (banked, spent) = accounting::index_redeploy_totals(&db::orders(c, b.id).unwrap()).unwrap();
-        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), sc["rails"]["redeploy"]["spent"].as_str().unwrap().into()),
+        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.clone()),
                    "{name}: redeploy banked/spent");
         assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["rails"]["pending_quote_amount"], "{name}: carry");
     }
