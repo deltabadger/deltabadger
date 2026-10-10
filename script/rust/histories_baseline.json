@@ -1,0 +1,20 @@
+{
+  "rust/src/engine/basket.rs": {
+    "let weight = if renormalise { t.div(&total).expect(\"the total is positive\").to_f() } else { t.to_f() };": 1,
+    "let weight = BigDec::from_f64(p.member.weight).expect(\"a weight is finite\");": 1,
+    "let share = x * &offset.div(&total_offset).expect(\"a positive offset makes the total positive\");": 1
+  },
+  "rust/src/engine/amount.rs": {
+    "let minimum_quote_amount_in_base = minimum_quote_amount.div(&price).expect(\"price is non-zero\");": 1,
+    "let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect(\"price is non-zero\").ceil(base_decimals);": 1,
+    "serde_json::to_string(&errors).unwrap(), format_time(created_at),": 1,
+    "let quote = intent[\"quote_amount\"].as_str().and_then(|q| BigDec::parse(q).ok()).ok_or_else(|| EngineError::Data(format!(\"rust_placement {intent}\")))?;": 1,
+    "params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).expect(\"ids serialise\")], |r| r.get(0))?;": 1
+  },
+  "rust/src/engine/polling.rs": {},
+  "rust/src/engine/eligibility.rs": {
+    "Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),": 1,
+    "let ids = serde_json::to_string(members).expect(\"ids serialise\");": 1
+  },
+  "rust/src/figures/fill.rs": {}
+}
