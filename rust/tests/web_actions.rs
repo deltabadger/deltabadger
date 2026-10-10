@@ -574,7 +574,7 @@ mod action_write {
     fn action_write_carry_partial_fills_inclusive_and_class() -> Result {
         for status in [3,4] {
             let f = Fixture::new()?;
-            seed::insert_row(&f.c,&f.seed,f.id,f.seed.btc,&json!({"external_status":status,"quote_amount_exec":"1.25","created_at":"2026-09-10 12:00:00","external_id":format!("cancel-{status}")}));
+            seed::insert_row(&f.c,&f.seed,f.id,f.seed.btc,&json!({"external_status":status,"amount_exec":"0.000025","quote_amount_exec":"1.25","created_at":"2026-09-10 12:00:00","external_id":format!("cancel-{status}")}));
             assert!(matches!(f.write(json!({"quote_amount":"7"}))?, Outcome::Committed(_)));
             assert_eq!(f.stored()?["transient"]["missed_quote_amount"], "3.75");
         }

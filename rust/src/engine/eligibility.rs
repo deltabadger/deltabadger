@@ -91,9 +91,10 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
-    if bot.merged_history() { r.push("merged history (merged_history_until_id)".into()); }
-    history_reasons(c, bot, &members, splits, &mut r)?;
+    if !alpaca && bot.merged_history() { r.push("merged history (merged_history_until_id)".into()); }
+    history_reasons(c, bot, alpaca, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
+    if alpaca && r.is_empty() { super::basket::walk(c, bot, Utc::now())?; }
     Ok(r)
 }
 
@@ -122,14 +123,14 @@ fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64>
     ids
 }
 
-/// The ledger walk this build ports (basket::holdings) holds REGULAR buys recorded with their asset, and nothing a
-/// recorded split would restate.
-fn history_reasons(c: &Connection, bot: &Bot, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+/// Alpaca REGULAR buys/sells and merged rows are covered by the normalized walk. Other histories
+/// retain their named refusals. Stock split matching and trust checks remain in engine::splits.
+fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     let (sells, other, imported, no_asset): (i64, i64, i64, i64) = c.query_row(
         "SELECT coalesce(sum(side = 1), 0), coalesce(sum(transaction_type <> 'REGULAR'), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
                 coalesce(sum(transaction_type = 'REGULAR' AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
-    if sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
+    if !alpaca && sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
     if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }

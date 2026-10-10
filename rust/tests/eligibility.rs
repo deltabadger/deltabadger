@@ -328,7 +328,7 @@ fn an_alpaca_crypto_basket_is_eligible() {
 /// One history row of `bot`: closed, of `side`, `kind`, `asset`, with this external id.
 fn history_row(c: &rusqlite::Connection, s: &seed::Seeded, bot: i64, side: i64, kind: &str, asset: Option<i64>, ext: &str) {
     c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base_asset_id, transaction_type, \
-               error_messages, bot_interval, bot_quote_amount, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, ?4, 0, ?5, ?6, '[]', 'week', 60, '2026-09-01', '2026-09-01')",
+               error_messages, bot_interval, bot_quote_amount, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, ?4, 0, ?5, ?6, '[]', 'week', 60, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
               rusqlite::params![bot, s.exchange_id, ext, side, asset, kind]).unwrap();
 }
 
@@ -344,12 +344,10 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        ("1 sell order(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 1, "REGULAR", Some(s.btc), "OSELL"); id })),
         ("1 REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REBALANCE", Some(s.btc), "OREB"); id })),
         ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
-        ("merged history", Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).transient("merged_history_until_id", json!(41))))),
         ("1 split(s) recorded for its assets", Box::new(move |c, s, eth| {
             c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
                        VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\"}', '2026-09-01', '2026-09-01', '2026-09-01')", rusqlite::params![s.user_id, s.exchange_id]).unwrap();
