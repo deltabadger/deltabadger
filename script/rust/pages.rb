@@ -664,7 +664,7 @@ module Pages
       now = Time.iso8601(scenario['at'])
       NETWORK.clear
       original_adapter = ActiveJob::Base.queue_adapter
-      action_scenario = scenario['steps'].any? { |step| step['action_snapshot'] }
+      action_scenario = scenario['steps'].any? { |step| step['action_snapshot'] || step['settings_snapshot'] }
       ActiveJob::Base.queue_adapter = :test if action_scenario
       travel_to(now, with_usec: true) { enqueue_jobs(scenario.fetch('jobs', {})) } # the queue database is one for the whole grid
       responses = scenario['steps'].each_with_index.map do |step, index|
@@ -675,6 +675,13 @@ module Pages
           BEFORE.fetch(step['before']).call if step['before']
           headers = step['headers'].dup
           params = step['json'] || step['form']&.dup
+          request_path = step['path']
+          if step['confirmation_token_from_user']
+            token = User.first.confirmation_token
+            raise 'R2 lifecycle did not issue a confirmation token' unless token
+
+            request_path = request_path.sub('__R2_TOKEN__', CGI.escape(token))
+          end
           if %w[form both].include?(step['csrf'])
             action = step['path'].split('?').first
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"
@@ -688,7 +695,7 @@ module Pages
           env = step['action_snapshot'] ? { 'action_dispatch.show_exceptions' => :all } : {}
           capture = ->(*args) { request_exception = args.last[:exception_object] if args.last[:exception_object] }
           ActiveSupport::Notifications.subscribed(capture, 'process_action.action_controller') do
-            client[:session].process(step['method'].downcase.to_sym, step['path'], params:, headers:, env:)
+            client[:session].process(step['method'].downcase.to_sym, request_path, params:, headers:, env:)
           end
         end
         response = client[:session].response
@@ -715,6 +722,7 @@ module Pages
             raise exception
           end
         end
+        answer['settings_rows'] = settings_rows if step['settings_snapshot']
         answer
       end
       ActiveJob::Base.queue_adapter = original_adapter if action_scenario
@@ -730,6 +738,7 @@ end
 
 require_relative 'pages_bots'
 require_relative 'pages_actions'
+require_relative 'pages_settings'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
