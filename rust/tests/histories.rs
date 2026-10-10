@@ -142,3 +142,73 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(),"{reason}: rollback");
     }
 }
+
+#[tokio::test(flavor="current_thread")]
+async fn merged_histories_drive_real_ticks_without_early_or_duplicate_buys() {
+    use common::scripted::{script,ok,venue};
+    use deltabadger::engine::{eligibility,tick,FixedClock};
+    for case in vectors()["cases"].as_array().unwrap().iter().filter(|c|c["name"]=="merge_before_start" || c["name"]=="merge_at_start") {
+        let (_d,o,id,_)=build(case);
+        assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty());
+        let transport=script(json!({"GET /v1beta3/crypto/us/latest/quotes":[ok(json!({"quotes":{"AAA/USD":{"ap":10},"BBB/USD":{"ap":10}}}))]}));
+        let clock=FixedClock(now()+Duration::seconds(1));
+        tick::tick(&o.primary,&venue(&transport),id,&clock,&mut tick::Attempts::default()).await.unwrap();
+        let posted:Vec<_>=transport.posted_orders().iter().map(|o|json!({"side":o["side"],"asset":o["symbol"].as_str().unwrap().trim_end_matches("/USD"),"quote":BigDec::parse(o["notional"].as_str().unwrap()).unwrap().to_s_f()})).collect();
+        let want:Vec<_>=case["normalized"]["orders"].as_array().unwrap().iter().map(|o|json!({"side":o["side"],"asset":o["asset"],"quote":o["quote"]})).collect();
+        assert_eq!(posted,want,"{} wire decisions",case["name"]);
+        assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
+    }
+}
+
+#[test]
+fn every_remaining_eligibility_branch_has_a_named_witness() {
+    use deltabadger::engine::eligibility;
+    let (_d,o,id,ids)=build(&vectors()["cases"][0]);
+    o.primary.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
+    let many: serde_json::Map<String,Value> = (0..101).map(|i|((10000+i).to_string(),json!(1.0/101.0))).collect();
+    let dynamic = [
+        (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"{}\":0.5,\"0{}\":0.5}}'))",ids["AAA"],ids["AAA"]),"listed more than once"),
+        (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))",Value::Object(many)),"101 assets"),
+    ];
+    let fixed = [
+        ("UPDATE bots SET type='Bots::Unsupported'","type Bots::Unsupported"),
+        ("UPDATE exchanges SET type='Exchanges::Binance'","exchange Exchanges::Binance"),
+        ("UPDATE bots SET settings=json_set(settings,'$.smart_intervaled',json('true'))","smart interval amount missing"),
+        ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','broken')","limit_order_pcnt_distance"),
+        ("UPDATE bots SET started_at=NULL","started_at missing"),
+        ("UPDATE bots SET settings=json_set(settings,'$.interval','bad')","interval"),
+        ("UPDATE bots SET settings=json_set(settings,'$.quote_amount',0)","quote_amount"),
+        ("UPDATE bots SET restatement_generation=1","restated prices"),
+        ("DELETE FROM users","user not found"),
+        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'))","quote_amount_limited (Kraken"),
+        ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit','bad')","quote_amount_limit"),
+        ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true')),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at',json('{}'))","quote_amount_limit_enabled_at"),
+        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),
+        ("UPDATE exchanges SET type='Exchanges::Kraken'","sell order(s)"),
+        ("UPDATE exchanges SET type='Exchanges::Kraken'","Kraken: only one-asset"),
+        ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),
+        ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))","allocations: none"),
+        ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"123456\":0.5}'))","weights sum"),
+        ("DELETE FROM tickers","no ticker for the asset"),
+        ("UPDATE tickers SET base_decimals=-1","base_decimals -1"),
+        ("UPDATE assets SET category='Unsupported' WHERE symbol='AAA'","asset category Unsupported"),
+        ("UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
+        ("INSERT INTO bot_index_assets (bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT id,999,1,1,'2026-01-01','2026-01-01' FROM bots","index assets present"),
+        ("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) SELECT user_id,exchange_id,15,'AAA',0,'2026-01-01','{\"corporate_action\":\"split\"}','2026-01-01','2026-01-01' FROM bots","split(s) recorded"),
+        ("UPDATE bots SET type='Bots::DcaIndex'","configured deltabadger market-data provider"),
+        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","index bot (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
+        ("UPDATE bots SET type='Bots::DcaIndex'","index_type"),
+        ("UPDATE bots SET type='Bots::DcaIndex'","index_category_id missing"),
+        ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.index_category_id','SYNTH')","index SYNTH is not a data-api"),
+        ("UPDATE bots SET type='Bots::DcaIndex'","num_coins is not a positive integer"),
+        ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.allocation_flattening',2)","allocation_flattening"),
+    ];
+    for (sql,reason) in dynamic.iter().map(|(sql,reason)|(sql.as_str(),*reason)).chain(fixed) {
+        let tx=model::immediate(&o.primary).unwrap();
+        tx.execute_batch(sql).unwrap();
+        let bot=model::load_bot(&tx,id).unwrap();
+        let reasons=eligibility::bot_reasons(&tx,&bot).unwrap();
+        assert!(reasons.iter().any(|r|r.contains(reason)),"{reason}: {reasons:?}");
+    }
+}
