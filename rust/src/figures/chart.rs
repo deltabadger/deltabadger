@@ -144,7 +144,7 @@ fn fill_marks(s: &Subject, metrics: &Metrics) -> Result<Grids, FiguresError> {
     let mut places = HashMap::new();
     for order in &s.orders {
         budget::charge(1, 0)?;
-        let Some(fill)=super::fill::parse(order)? else{continue};
+        let Some(fill)=super::fill::mark(order)? else{continue};
         let price=fill.unit_price()?;
         let key = keys.key(order.base.as_deref(), order.asset_id);
         let at = *places.entry(key.clone()).or_insert_with(|| { out.push((key, vec![])); out.len() - 1 });

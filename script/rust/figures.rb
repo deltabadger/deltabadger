@@ -717,6 +717,31 @@ module Figures
 
   require_relative 'figures_normalized'
 
+  # RULING-B2B-1 MQ6: the counterfactual reads every buy and REGULAR sell normalized (B2-1), but a LIQUIDATION, and a
+  # REBALANCE sell that reported proceeds, keep the walk's raw-proceeds gates, as the Rust walk does (an unpriced REBALANCE
+  # sell stays normalized, R4). Only the walk's pluck names both columns.
+  module RawSpecialSells
+    def pluck(*columns)
+      return super unless Thread.current[:normalized_figure_rows] && klass == Transaction && columns.include?(:side) && columns.include?(:transaction_type)
+
+      normalized = super
+      begin
+        Thread.current[:normalized_figure_rows] = false
+        raw = super
+      ensure
+        Thread.current[:normalized_figure_rows] = true
+      end
+      side = columns.index(:side)
+      type = columns.index(:transaction_type)
+      quote = columns.index(:quote_amount_exec)
+      normalized.zip(raw).map do |n, r|
+        special = r[side] == 'sell' && r[type] != 'REGULAR' && (r[type] == 'LIQUIDATION' || r[quote].to_d.positive?)
+        special ? r : n
+      end
+    end
+  end
+  ActiveRecord::Relation.prepend(RawSpecialSells)
+
   def record(root)
     Rails.cache = ActiveSupport::Cache::MemoryStore.new # as production has one; development's null store would refetch everything
     ActiveSupport::JSON::Encoding.time_precision = 9 # every digit a Time carries, so two labels a microsecond apart differ

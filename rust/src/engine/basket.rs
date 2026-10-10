@@ -1,7 +1,8 @@
 //! A DCA basket's composition, normalized REGULAR history and buy split.
 //! Submitted buys and sells share the figures normalizer and RebalanceAccounting books.
 //! Inherited merge rows stay in chronological order; their id cutoff only identifies own orders.
-//! Completed non-REGULAR rows remain outside this B2a trading slice.
+//! Settled REBALANCE/LIQUIDATION/REDEPLOY rows move units as Bot::RebalanceAccounting moves them (B2b); eligibility keeps
+//! every in-flight one out.
 use super::model::{self, Bot, Ticker};
 use super::EngineError;
 use super::splits::{self, SplitEvent};
@@ -14,6 +15,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashMap;
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
+/// The transaction types Rails writes; eligibility names any other.
+const KINDS: [&str; 4] = ["REGULAR", "REBALANCE", "LIQUIDATION", "REDEPLOY"];
 
 /// Normalized REGULAR history: holdings, lifetime contribution, uninvested proceeds, and the last
 /// split that moved a held position. Amounts and books use checked decimal arithmetic.
@@ -53,11 +56,17 @@ fn walk_bounded(c: &Connection, bot: &Bot, events: &[SplitEvent]) -> Result<Walk
         while let Some(e) = pending.next_if(|e| e.at_us <= created_us) {
             apply(&mut ledger, &mut w, e)?;
         }
-        let asset = order.asset_id.filter(|_| (order.buy || order.sell) && order.kind == "REGULAR")
-            .ok_or_else(|| data("a non-REGULAR row, missing side or missing asset is outside the history walk"))?;
-        let Some(fill) = fill::for_engine(&order).map_err(data)? else { continue };
-        books.apply(&mut ledger, Fill::of(order.sell, &order.kind), &asset.to_string(),
-                    &Num::Dec(fill.quantity), &Num::Dec(fill.value)).map_err(data)?;
+        let asset = order.asset_id.filter(|_| (order.buy || order.sell) && KINDS.contains(&order.kind.as_str()))
+            .ok_or_else(|| data("an unknown transaction type, missing side or missing asset is outside the history walk"))?;
+        let key = asset.to_string();
+        // A non-REGULAR sell takes Rails' raw-proceeds gates (MQ6); every buy and REGULAR sell the shared normalizer (B2-1).
+        let fill = match fill::special_sell_for_engine(&order).map_err(data)? {
+            Some(sell) if sell.unpriced() => { books.unpriced_liquidation(&mut ledger, &key, &sell.executed).map_err(data)?; continue; }
+            Some(sell) => sell.fill(),
+            None => fill::for_engine(&order).map_err(data)?,
+        };
+        let Some(fill) = fill else { continue };
+        books.apply(&mut ledger, Fill::of(order.sell, &order.kind), &key, &Num::Dec(fill.quantity), &Num::Dec(fill.value)).map_err(data)?;
     }
     for e in pending { apply(&mut ledger, &mut w, e)?; }
     for (key, entry) in ledger.0 {

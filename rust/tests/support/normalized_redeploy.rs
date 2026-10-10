@@ -16,6 +16,7 @@ use super::*;
         offer
     }
     #[test]
-    fn redeploy_uses_normalized_liquidation_value(){assert_eq!(offer(false),Some(Dec::from_i64(110)));}
+    // RULING-B2B-1 MQ6: an unpriced liquidation banks nothing (Redeployable#redeploy_banked sums reported proceeds).
+    fn redeploy_banks_only_reported_liquidation_proceeds(){assert_eq!(offer(false),Some(Dec::zero()));}
     #[test]
     fn redeploy_uses_normalized_spend_at_effective_quantity(){assert_eq!(offer(true),Some(Dec::from_i64(60)));}

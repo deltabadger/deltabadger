@@ -474,15 +474,16 @@ pub fn effective_interval(interval: super::schedule::Interval, quote_amount: f64
     if seconds == super::schedule::MONTH_SECONDS { Effective::MonthSeconds(seconds) } else { Effective::Seconds(seconds) }
 }
 
+/// Redeployable#redeploy_banked and #redeploy_spent. Banked is only proceeds a LIQUIDATION reported (MQ6: an unpriced
+/// sale banks nothing, so no offer exceeds Rails'); spent is the normalized REDEPLOY buy value (B2-1/MQ7).
 pub fn index_redeploy_totals(orders: &[crate::figures::db::Order]) -> Result<(crate::figures::dec::Dec,crate::figures::dec::Dec),crate::figures::FiguresError> {
     use crate::figures::dec::Dec;
     let (mut banked,mut spent)=(Dec::zero(),Dec::zero());
     for order in orders {
         crate::figures::budget::charge(1,0)?;
-        let Some(fill)=crate::figures::fill::parse(order)? else{continue};
         match order.kind.as_str(){
-            "LIQUIDATION"=>banked=(&banked+&fill.value)?,
-            "REDEPLOY"=>spent=(&spent+&fill.value)?,
+            "LIQUIDATION"=>if let Some(value)=crate::figures::fill::reported(order)? { banked=(&banked+&value)?; },
+            "REDEPLOY"=>if let Some(fill)=crate::figures::fill::parse(order)? { spent=(&spent+&fill.value)?; },
             _=>{},
         }
     }

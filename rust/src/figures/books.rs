@@ -22,6 +22,13 @@ impl Ledger {
         };
         &mut self.0[at].1
     }
+    /// Measurable#basis_share: the cost the ledger carries for `amount` of `key`, read without releasing it (and without
+    /// touching the key).
+    pub fn basis_share(&self, key: &str, amount: &super::dec::Dec) -> Result<Num, NumError> {
+        let Some(entry) = self.get(key).filter(|entry| entry.amount.is_positive()) else { return Ok(Num::Dec(super::dec::Dec::zero())) };
+        let held = entry.amount.to_d()?;
+        Num::Dec(entry.invested.to_d()?).mul(&Num::min2(Num::Dec(amount.div(&held)?), Num::Int(1))?)
+    }
     /// `ledger.sum { |key, entry| entry[:amount] * (prices[key] || 0) }`.
     pub fn value(&self, prices: &[(String, Num)]) -> Result<Num, NumError> {
         let mut sum = Num::Int(0);
@@ -165,6 +172,15 @@ impl Books {
         entry.invested = entry.invested.add(&from_realised.add(&new_money)?)?;
         entry.amount = entry.amount.add(amount)?;
         Ok(())
+    }
+
+    /// The walk's unpriced-sell branch for a LIQUIDATION (measurable.rb:136-148): the units leave and the basis they carried
+    /// is parked as an estimate, never realised_cash. Returns it, for estimated_proceeds. (An unpriced REBALANCE sell is
+    /// valued by fill::special_sell, R4.)
+    pub fn unpriced_liquidation(&mut self, ledger: &mut Ledger, key: &str, amount: &super::dec::Dec) -> Result<Num, NumError> {
+        let released = ledger.basis_share(key, amount)?;
+        self.unpriced_sell(ledger, key, &Num::Dec(amount.clone()), &released)?;
+        Ok(released)
     }
 
     /// #apply_fill.

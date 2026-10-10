@@ -374,5 +374,7 @@ fn normalized_oracle_changes_only_the_named_r4_histories() {
         let mut original=scenario.rails.clone(); original.as_object_mut().unwrap().remove("seconds");
         if original!=scenario.normalized{changed.push(scenario.name.as_str());}
     }
-    assert_eq!(changed, vec!["negative_fill", "priced_pairs", "random_1", "random_10", "random_11", "random_12", "random_13", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_21", "random_22", "random_23", "random_24", "random_3", "random_4", "random_5", "random_6", "random_7", "random_9", "row_readings", "unpriced_rebalances", "unpriced_sales"]);
+    assert_eq!(changed, vec!["negative_fill", "priced_pairs", "random_1", "random_10", "random_11", "random_12", "random_13", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_21", "random_22", "random_23", "random_24", "random_3", "random_4", "random_5", "random_7", "random_9", "row_readings", "unpriced_rebalances"]);
+    // B2b: random_6 and unpriced_sales differed from Rails only in unpriced LIQUIDATION sells, which the counterfactual
+    // now reads raw, as Rails does (RULING-B2B-1 MQ6).
 }
