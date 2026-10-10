@@ -92,10 +92,10 @@ pub fn skipped_special_buys(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
     Ok(n)
 }
 
-/// RULING-B2B-R1 item 2: a rejected special row (not submitted) moves nothing, as Rails' `submitted` scope ignores it;
-/// one that reports an execution anyway is an unknown fill. Counts those.
+/// RULING-B2B-R1 item 2: a rejected special row (failed or skipped) moves nothing, as Rails' `submitted` scope ignores it;
+/// one that reports an execution anyway is an unknown fill. Counts those. Any other status is eligibility's refusal.
 pub fn rejected_special_executions(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
-    let mut s=c.prepare("SELECT price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND (status IS NULL OR status<>0) AND transaction_type<>'REGULAR'")?;
+    let mut s=c.prepare("SELECT price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status IN (1,2) AND transaction_type<>'REGULAR'")?;
     let mut rows=s.query([bot_id])?;
     let mut count=0;
     while let Some(r)=rows.next()? {

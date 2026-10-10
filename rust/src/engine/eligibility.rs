@@ -149,6 +149,9 @@ fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], spl
     if alpaca && bot.bot_type == "Bots::DcaIndex" { special_reasons(c, bot, r)?; }
     else if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
+    // Transaction.statuses is submitted, failed, skipped. Anything else proves neither a fill nor a rejection.
+    let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
+    if unknown > 0 { r.push(format!("{unknown} row(s) with a status Rails never writes")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
     if !model::all_crypto(c, bot)? { return Ok(()); }
     // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
