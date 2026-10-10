@@ -7,6 +7,7 @@ pub mod keys;
 pub mod validator;
 pub mod mail;
 mod qr;
+pub mod tax;
 pub mod two_fa;
 pub mod view;
 use super::{
@@ -56,6 +57,17 @@ pub async fn write(
     if ctx.user().is_none() {
         return Ok(auth::unauthenticated(&ctx));
     }
+    // R3: HTML settings use form parameters; JSON clients use /api routes.
+    // Reject JSON uniformly before any settings writer can infer missing fields as defaults.
+    use axum::response::IntoResponse;
+    let json = match headers.get(axum::http::header::CONTENT_TYPE) {
+        Some(value) => match value.to_str() {
+            Ok(value) => value.split(';').next().is_some_and(|media|media.trim_ascii().eq_ignore_ascii_case("application/json")),
+            Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()),
+        },
+        None => false,
+    };
+    if json { return Ok(StatusCode::BAD_REQUEST.into_response()); }
     if (ctx.method == Method::PATCH
         && ctx
             .params
@@ -89,6 +101,9 @@ pub async fn write(
             .starts_with("/settings/destroy_api_key/")
     {
         return keys::delete(app, ctx).await;
+    }
+    if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_wash_sale" {
+        return tax::write(app, ctx, headers).await;
     }
     if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_two_fa" {
         return two_fa::handle(app, ctx, true).await;
