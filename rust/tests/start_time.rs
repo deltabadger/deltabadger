@@ -35,7 +35,7 @@ fn initial_start_at_matches_rails() {
     let v = vectors();
     let cases = v["initial_start_at"].as_array().unwrap();
     assert!(cases.len() > 3_800, "{} cases", cases.len());
-    let (mut early, mut gaps) = (0, 0);
+    let (mut early, mut gaps, mut repeated) = (0, 0, 0);
     for case in cases {
         let case = case.as_array().unwrap();
         match (rust(case), case[4].as_str()) {
@@ -44,11 +44,13 @@ fn initial_start_at_matches_rails() {
                 early += usize::from(s.early);
             }
             (Err(_), None) => {}
+            // A wall time that occurs twice that day is refused: Rails' pick is not proven for every zone.
+            (Err(e), Some(_)) if e.contains("occurs twice") => repeated += 1,
             (got, expected) => panic!("{case:?}: Rust {got:?}, Rails {expected:?}"),
         }
         if case[3] == "02:30" && case[0] == "Warsaw" && case[4].as_str().is_some_and(|t| t.contains("T01:30:00Z")) { gaps += 1; }
     }
-    assert!(early > 0 && gaps > 0, "the grid must reach the DST cases: {early} early, {gaps} gap");
+    assert!(early > 0 && gaps > 0 && repeated > 0, "the grid must reach the DST cases: {early} early, {gaps} gap, {repeated} repeated");
 }
 
 /// A passed candidate steps forward in fixed UTC days, so across the autumn change it lands an hour before the chosen
@@ -116,3 +118,22 @@ fn an_iana_zone_is_read_and_an_unknown_one_is_refused() {
     assert_eq!(iana.at, parse_time("2026-03-02 14:30:00").unwrap());
     assert_eq!(initial_start_at(Some("hour"), Some("09:30"), None, now, "Mars/Olympus").map(|s| s.at), Err("unknown time zone"));
 }
+
+/// A chosen time that occurs twice that day (the autumn repeat) is refused rather than picking an occurrence: Rails'
+/// pick is proven only for Warsaw and New York, and Dublin's winter period is negative DST. A missing time moves forward
+/// an hour only across a one-hour gap, the shape the vectors prove; any other gap is refused.
+#[test]
+fn a_repeated_or_unproven_missing_local_time_is_refused() {
+    let at = |now: &str, time: &str, zone: &str| initial_start_at(Some("hour"), Some(time), None, now.parse().unwrap(), zone);
+    for (now, time, zone) in [("2026-10-25T00:00:00Z", "01:30", "Europe/Dublin"), ("2026-10-24T22:00:00Z", "02:30", "Warsaw"),
+                              ("2026-10-24T08:00:00Z", "02:30", "Warsaw")] {
+        let got = at(now, time, zone);
+        assert!(got.is_err_and(|e| e.contains("occurs twice")), "{zone} {time} at {now}: {got:?}");
+    }
+    // Lord Howe springs forward half an hour (02:00 -> 02:30 on 2026-10-04): 02:15 does not exist there.
+    let got = at("2026-10-03T14:00:00Z", "02:15", "Australia/Lord_Howe");
+    assert!(got.is_err_and(|e| e.contains("does not exist")), "{got:?}");
+    // The one-hour gap stays Rails' answer: Warsaw 02:30 on 2026-03-29 is 03:30 CEST.
+    assert_eq!(at("2026-03-28T23:30:00Z", "02:30", "Warsaw").map(|s| s.at.to_rfc3339()), Ok("2026-03-29T01:30:00+00:00".into()));
+}
+
