@@ -60,10 +60,11 @@ struct Scenario {
     took: std::time::Duration,
 }
 
-struct Grid { scenarios: Vec<Scenario>, _roots: (tempfile::TempDir, tempfile::TempDir) }
+struct Grid { scenarios: Vec<Scenario> }
 
 /// Built once per test binary: Rails builds every scenario's install, the installs are copied before Rails reads
-/// them, Rails records its figures, and this library computes its own from the copies.
+/// them, Rails records its figures, and this library computes its own from the copies. Only the results are kept:
+/// a static is never dropped, so installs held in it would stay on disk after the process ends (gigabytes per run).
 fn grid() -> &'static Grid {
     static GRID: OnceLock<Grid> = OnceLock::new();
     GRID.get_or_init(|| {
@@ -90,7 +91,7 @@ fn grid() -> &'static Grid {
             let logged = std::fs::metadata(copy.join("production.sqlite3-wal")).map_or(0, |log| log.len());
             Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), rails: serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
         }).collect();
-        Grid { scenarios, _roots: (rails_root, rust_root) }
+        Grid { scenarios } // rails_root and rust_root are dropped here, and their directories removed
     })
 }
 
