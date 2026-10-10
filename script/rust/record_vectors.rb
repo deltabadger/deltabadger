@@ -417,6 +417,10 @@ if ENV['ACTION_TRANSPORT_ONLY'] == 'true'
   exit
 end
 
+# The vectors are the live code paths: with DRY_RUN on, Exchange::Dryable answers orders itself and the
+# create_order stubs below never see a call.
+Rails.configuration.dry_run = false
+
 SECRET = 'rust-fixture-secret-key-base'.freeze
 
 # The key Rails derives from a primary key + salt, computed explicitly so no global encryption
@@ -1057,6 +1061,7 @@ vectors['continue_start'] = continue_cases.each_with_index.map do |(name, last_a
   with_basket({ 'VBTC' => 1.0 }, settings:, rows:) do |bot, _assets, _alpaca|
     transient = bot.transient_data.merge('last_action_job_at' => last_action_job_at, 'quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z').compact
     bot.update_columns(status: Bot.statuses[:stopped], started_at: Time.utc(2026, 9, 1, 10), settings_changed_at: nil, transient_data: transient)
+    ApiKey.create!(user: bot.user, exchange: bot.exchange, key_type: :trading, status: :correct) # Bot#trading_key_ready
     bot = Bot.find(bot.id)
     now = Time.utc(2026, 9, 3, 15)
     travel_to(now, with_usec: true) do
