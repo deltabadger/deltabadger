@@ -292,7 +292,7 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   rate was repealed before it took effect. The Czech time and value tests only exempt disposals
   from 2025-02-15, and the value test sums only their proceeds (`exemptions_from`).
 - **Portugal**: a swap restarts the holding. Exception (ruling 28969): a coin already held 365 days,
-  swapped into a stablecoin and sold for fiat on the swap's Lisbon calendar day, keeps the coin's
+  swapped into a stablecoin and sold for fiat within 24 hours of the swap, keeps the coin's
   start for that sale (`Fifo#immediate_fiat_exit?`, the lot's `technical_start`).
 - **Calendar anniversary in the user's zone** (`Jurisdictions.held_long?`): "more than a year" is any
   date after the anniversary, 29 February's being 28 February. Portugal counts 365 days, inclusive.
