@@ -157,17 +157,19 @@ module Bot::Composition::OrderSetter
   def broadcast_below_minimums_warning(first_tick:)
     return unless first_tick
 
-    rows = own_transactions.to_a # all of them written by this, the first, tick
-    return unless rows.any? && rows.all?(&:skipped?)
+    with_run_ownership do
+      rows = own_transactions.to_a # all of them written by this, the first, tick
+      next unless rows.any? && rows.all?(&:skipped?)
 
-    if rows.one?
-      broadcast_replace_to(["user_#{user_id}", :bot_updates], target: 'modal',
-                                                              partial: 'bots/dca_single_assets/warning_below_minimums',
-                                                              locals: locals_for_below_minimums_warning(rows.first))
-    else
-      broadcast_replace_to(["user_#{user_id}", :bot_updates], target: 'modal',
-                                                              partial: 'bots/composition/warning_below_minimums',
-                                                              locals: { bot: self, skipped_count: rows.size })
+      if rows.one?
+        broadcast_replace_to(["user_#{user_id}", :bot_updates], target: 'modal',
+                                                                partial: 'bots/dca_single_assets/warning_below_minimums',
+                                                                locals: locals_for_below_minimums_warning(rows.first))
+      else
+        broadcast_replace_to(["user_#{user_id}", :bot_updates], target: 'modal',
+                                                                partial: 'bots/composition/warning_below_minimums',
+                                                                locals: { bot: self, skipped_count: rows.size })
+      end
     end
   end
 

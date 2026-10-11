@@ -80,6 +80,17 @@ class Bots::DcaMultiAssetBelowMinimumsTest < ActiveSupport::TestCase
     bot.execute_action
   end
 
+  test 'a stopped tick cannot publish its below-minimum warning' do
+    bot = create(:dca_multi_asset, user: create(:user), base_assets: [@base])
+    bot.update_column(:status, :scheduled)
+    bot.capture_run!
+    skipped(bot, @base)
+    Bot.find(bot.id).stop
+    bot.expects(:broadcast_replace_to).never
+
+    bot.broadcast_below_minimums_warning(first_tick: true)
+  end
+
   private
 
   def quiet_tick(bot)
