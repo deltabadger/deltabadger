@@ -657,7 +657,9 @@ alpaca_tickers = [
         end
         # R1c: the wire never sends more than Rails Ticker's floors sized, and spells it exactly.
         protect = lambda do |key, exact, scale|
-          raise "Alpaca wire #{key} #{captured.fetch(key)} is not #{exact} floored at #{scale}" unless BigDecimal(captured.fetch(key).to_s) == exact.floor(scale)
+          next if BigDecimal(captured.fetch(key).to_s) == exact.floor(scale)
+
+          raise "Alpaca wire #{key} #{captured.fetch(key)} is not #{exact} floored at #{scale}"
         end
         quote_floor = ticker.adjusted_amount(amount: info[:amount], amount_type: :quote)
         if order_type == :limit_order

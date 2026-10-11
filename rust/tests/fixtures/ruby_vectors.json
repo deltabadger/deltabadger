@@ -41175,7 +41175,7 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "fa540e23eea313c33610dc8ee5484e733ac6af299b0c9dc39f3d4b84ed8352d4",
+    "app/models/exchanges/alpaca.rb": "02c9e637bfd10a1e1f709b751408cdc356e6c383d56a43ad574e7cb50933ebdc",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
     "app/models/exchanges/kraken.rb": "f0054f310b4c625ff446fe1a3a217826c22432f29345ce1d63e12bb9274e053a",
@@ -41205,13 +41205,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "60.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
       }
     },
     {
@@ -41236,14 +41229,6 @@
         "time_in_force": "gtc",
         "qty": "0.000935162",
         "limit_price": "64160"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000935162",
-        "limit_price": "64160"
       }
     },
     {
@@ -41262,13 +41247,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41298,14 +41276,6 @@
         "time_in_force": "gtc",
         "qty": "0.0009",
         "limit_price": "64160.69"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0009",
-        "limit_price": "64160.69"
       }
     },
     {
@@ -41324,13 +41294,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41360,14 +41323,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "64160.69625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
       }
     },
     {
@@ -41391,13 +41346,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "60.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
       }
     },
     {
@@ -41416,14 +41364,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000935151",
-        "limit_price": "64160.69625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -41448,13 +41388,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41484,14 +41417,6 @@
         "time_in_force": "gtc",
         "qty": "0.000015430",
         "limit_price": "64160"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000015430",
-        "limit_price": "64160"
       }
     },
     {
@@ -41510,13 +41435,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41546,14 +41464,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "64160.69"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "64160.69"
       }
     },
     {
@@ -41572,13 +41482,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41608,14 +41511,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "64160.69625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
       }
     },
     {
@@ -41639,13 +41534,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "0.99"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
       }
     },
     {
@@ -41664,14 +41552,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000015430",
-        "limit_price": "64160.69625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -41696,13 +41576,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41732,14 +41605,6 @@
         "time_in_force": "gtc",
         "qty": "0.000015586",
         "limit_price": "64160"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000015586",
-        "limit_price": "64160"
       }
     },
     {
@@ -41758,13 +41623,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41794,14 +41652,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "64160.69"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "64160.69"
       }
     },
     {
@@ -41820,13 +41670,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41856,14 +41699,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "64160.69625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
       }
     },
     {
@@ -41887,13 +41722,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
       }
     },
     {
@@ -41912,14 +41740,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000015585",
-        "limit_price": "64160.69625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -41944,13 +41764,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -41980,14 +41793,6 @@
         "time_in_force": "gtc",
         "qty": "0.000077930",
         "limit_price": "64160"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000077930",
-        "limit_price": "64160"
       }
     },
     {
@@ -42006,13 +41811,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42042,14 +41840,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "64160.69"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "64160.69"
       }
     },
     {
@@ -42068,13 +41858,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42104,14 +41887,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "64160.69625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
       }
     },
     {
@@ -42135,13 +41910,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "5.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
       }
     },
     {
@@ -42160,14 +41928,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000077929",
-        "limit_price": "64160.69625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -42192,13 +41952,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42228,14 +41981,6 @@
         "time_in_force": "gtc",
         "qty": "0.001924096",
         "limit_price": "64160"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.001924096",
-        "limit_price": "64160"
       }
     },
     {
@@ -42254,13 +41999,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42290,14 +42028,6 @@
         "time_in_force": "gtc",
         "qty": "0.0019",
         "limit_price": "64160.69"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0019",
-        "limit_price": "64160.69"
       }
     },
     {
@@ -42316,13 +42046,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42352,14 +42075,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "64160.69625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
       }
     },
     {
@@ -42383,13 +42098,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "123.45"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
       }
     },
     {
@@ -42408,14 +42116,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.001924075",
-        "limit_price": "64160.69625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -42440,13 +42140,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42476,14 +42169,6 @@
         "time_in_force": "gtc",
         "qty": "15.586034912",
         "limit_price": "64160"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "15.586034912",
-        "limit_price": "64160"
       }
     },
     {
@@ -42502,13 +42187,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42538,14 +42216,6 @@
         "time_in_force": "gtc",
         "qty": "15.5858",
         "limit_price": "64160.69"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "15.5858",
-        "limit_price": "64160.69"
       }
     },
     {
@@ -42564,13 +42234,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42600,14 +42263,6 @@
         "time_in_force": "gtc",
         "qty": "15",
         "limit_price": "64160.69625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "15",
-        "limit_price": "64160.69625"
       }
     },
     {
@@ -42631,13 +42286,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1000000.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
       }
     },
     {
@@ -42656,14 +42304,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "15.585865778",
-        "limit_price": "64160.69625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -42693,13 +42333,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "60.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
       }
     },
     {
@@ -42723,13 +42356,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "60.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
       }
     },
     {
@@ -42748,13 +42374,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42784,14 +42403,6 @@
         "time_in_force": "gtc",
         "qty": "48780",
         "limit_price": "0.00123"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "48780",
-        "limit_price": "0.00123"
       }
     },
     {
@@ -42810,13 +42421,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42846,14 +42450,6 @@
         "time_in_force": "gtc",
         "qty": "48722.258763916",
         "limit_price": "0.00123147"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "48722.258763916",
-        "limit_price": "0.00123147"
       }
     },
     {
@@ -42872,13 +42468,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42907,13 +42496,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "0.99"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
       }
     },
     {
@@ -42932,13 +42514,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -42968,14 +42543,6 @@
         "time_in_force": "gtc",
         "qty": "804",
         "limit_price": "0.00123"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "804",
-        "limit_price": "0.00123"
       }
     },
     {
@@ -42994,13 +42561,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43030,14 +42590,6 @@
         "time_in_force": "gtc",
         "qty": "803.917269604",
         "limit_price": "0.00123147"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "803.917269604",
-        "limit_price": "0.00123147"
       }
     },
     {
@@ -43056,13 +42608,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43091,13 +42636,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
       }
     },
     {
@@ -43116,13 +42654,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43152,14 +42683,6 @@
         "time_in_force": "gtc",
         "qty": "813",
         "limit_price": "0.00123"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "813",
-        "limit_price": "0.00123"
       }
     },
     {
@@ -43178,13 +42701,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43214,14 +42730,6 @@
         "time_in_force": "gtc",
         "qty": "812.037646065",
         "limit_price": "0.00123147"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "812.037646065",
-        "limit_price": "0.00123147"
       }
     },
     {
@@ -43240,13 +42748,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43275,13 +42776,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "5.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
       }
     },
     {
@@ -43300,13 +42794,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43336,14 +42823,6 @@
         "time_in_force": "gtc",
         "qty": "4065",
         "limit_price": "0.00123"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "4065",
-        "limit_price": "0.00123"
       }
     },
     {
@@ -43362,13 +42841,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43398,14 +42870,6 @@
         "time_in_force": "gtc",
         "qty": "4060.188230326",
         "limit_price": "0.00123147"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "4060.188230326",
-        "limit_price": "0.00123147"
       }
     },
     {
@@ -43424,13 +42888,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43459,13 +42916,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "123.45"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
       }
     },
     {
@@ -43484,13 +42934,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43520,14 +42963,6 @@
         "time_in_force": "gtc",
         "qty": "100365",
         "limit_price": "0.00123"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "100365",
-        "limit_price": "0.00123"
       }
     },
     {
@@ -43546,13 +42981,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43582,14 +43010,6 @@
         "time_in_force": "gtc",
         "qty": "100246.047406757",
         "limit_price": "0.00123147"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "100246.047406757",
-        "limit_price": "0.00123147"
       }
     },
     {
@@ -43608,13 +43028,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43643,13 +43056,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1000000.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
       }
     },
     {
@@ -43668,13 +43074,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43704,14 +43103,6 @@
         "time_in_force": "gtc",
         "qty": "813008130",
         "limit_price": "0.00123"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "813008130",
-        "limit_price": "0.00123"
       }
     },
     {
@@ -43735,13 +43126,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1000000.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
       }
     },
     {
@@ -43760,14 +43144,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "812037646.065271616",
-        "limit_price": "0.00123147"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -43797,13 +43173,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "60.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
       }
     },
     {
@@ -43828,14 +43197,6 @@
         "time_in_force": "gtc",
         "qty": "60.000000000",
         "limit_price": "1"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "60.000000000",
-        "limit_price": "1"
       }
     },
     {
@@ -43854,13 +43215,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43890,14 +43244,6 @@
         "time_in_force": "gtc",
         "qty": "40.2684",
         "limit_price": "1.49"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "40.2684",
-        "limit_price": "1.49"
       }
     },
     {
@@ -43916,13 +43262,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -43952,14 +43291,6 @@
         "time_in_force": "gtc",
         "qty": "40",
         "limit_price": "1.49625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "40",
-        "limit_price": "1.49625"
       }
     },
     {
@@ -43983,13 +43314,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "60.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
       }
     },
     {
@@ -44008,14 +43332,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "40.100250626",
-        "limit_price": "1.49625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -44040,13 +43356,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44076,14 +43385,6 @@
         "time_in_force": "gtc",
         "qty": "0.990000000",
         "limit_price": "1"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.990000000",
-        "limit_price": "1"
       }
     },
     {
@@ -44102,13 +43403,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44138,14 +43432,6 @@
         "time_in_force": "gtc",
         "qty": "0.6644",
         "limit_price": "1.49"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.6644",
-        "limit_price": "1.49"
       }
     },
     {
@@ -44164,13 +43450,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44200,14 +43479,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "1.49625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "1.49625"
       }
     },
     {
@@ -44231,13 +43502,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "0.99"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
       }
     },
     {
@@ -44256,14 +43520,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.661654135",
-        "limit_price": "1.49625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -44288,13 +43544,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44324,14 +43573,6 @@
         "time_in_force": "gtc",
         "qty": "1.000000000",
         "limit_price": "1"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "1.000000000",
-        "limit_price": "1"
       }
     },
     {
@@ -44350,13 +43591,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44386,14 +43620,6 @@
         "time_in_force": "gtc",
         "qty": "0.6711",
         "limit_price": "1.49"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.6711",
-        "limit_price": "1.49"
       }
     },
     {
@@ -44412,13 +43638,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44448,14 +43667,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "1.49625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "1.49625"
       }
     },
     {
@@ -44479,13 +43690,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
       }
     },
     {
@@ -44504,14 +43708,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.668337510",
-        "limit_price": "1.49625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -44536,13 +43732,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44572,14 +43761,6 @@
         "time_in_force": "gtc",
         "qty": "5.000000000",
         "limit_price": "1"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "5.000000000",
-        "limit_price": "1"
       }
     },
     {
@@ -44598,13 +43779,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44634,14 +43808,6 @@
         "time_in_force": "gtc",
         "qty": "3.3557",
         "limit_price": "1.49"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "3.3557",
-        "limit_price": "1.49"
       }
     },
     {
@@ -44660,13 +43826,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44696,14 +43855,6 @@
         "time_in_force": "gtc",
         "qty": "3",
         "limit_price": "1.49625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "3",
-        "limit_price": "1.49625"
       }
     },
     {
@@ -44727,13 +43878,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "5.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
       }
     },
     {
@@ -44752,14 +43896,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "3.341687552",
-        "limit_price": "1.49625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -44784,13 +43920,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44820,14 +43949,6 @@
         "time_in_force": "gtc",
         "qty": "123.450000000",
         "limit_price": "1"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "123.450000000",
-        "limit_price": "1"
       }
     },
     {
@@ -44846,13 +43967,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44882,14 +43996,6 @@
         "time_in_force": "gtc",
         "qty": "82.8523",
         "limit_price": "1.49"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "82.8523",
-        "limit_price": "1.49"
       }
     },
     {
@@ -44908,13 +44014,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -44944,14 +44043,6 @@
         "time_in_force": "gtc",
         "qty": "82",
         "limit_price": "1.49625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "82",
-        "limit_price": "1.49625"
       }
     },
     {
@@ -44975,13 +44066,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "123.45"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
       }
     },
     {
@@ -45000,14 +44084,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "82.506265664",
-        "limit_price": "1.49625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -45032,13 +44108,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45068,14 +44137,6 @@
         "time_in_force": "gtc",
         "qty": "1000000.000000000",
         "limit_price": "1"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "1000000.000000000",
-        "limit_price": "1"
       }
     },
     {
@@ -45094,13 +44155,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45130,14 +44184,6 @@
         "time_in_force": "gtc",
         "qty": "671140.9395",
         "limit_price": "1.49"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "671140.9395",
-        "limit_price": "1.49"
       }
     },
     {
@@ -45156,13 +44202,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45192,14 +44231,6 @@
         "time_in_force": "gtc",
         "qty": "668337",
         "limit_price": "1.49625"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "668337",
-        "limit_price": "1.49625"
       }
     },
     {
@@ -45223,13 +44254,6 @@
         "type": "market",
         "time_in_force": "gtc",
         "notional": "1000000.00"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
       }
     },
     {
@@ -45248,14 +44272,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "668337.510442773",
-        "limit_price": "1.49625000"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "limit",
@@ -45280,13 +44296,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45316,14 +44325,6 @@
         "time_in_force": "gtc",
         "qty": "0.000000000",
         "limit_price": "123148147039"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
       }
     },
     {
@@ -45342,13 +44343,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45378,14 +44372,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "123148147039.59"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
       }
     },
     {
@@ -45404,13 +44390,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45440,14 +44419,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "123148147039.59314"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
       }
     },
     {
@@ -45466,13 +44437,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "60.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45501,15 +44465,7 @@
         "type": "limit",
         "time_in_force": "gtc",
         "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
+        "limit_price": "123148147039.59314137"
       }
     },
     {
@@ -45528,13 +44484,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45564,14 +44513,6 @@
         "time_in_force": "gtc",
         "qty": "0.000000000",
         "limit_price": "123148147039"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
       }
     },
     {
@@ -45590,13 +44531,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45626,14 +44560,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "123148147039.59"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
       }
     },
     {
@@ -45652,13 +44578,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45688,14 +44607,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "123148147039.59314"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
       }
     },
     {
@@ -45714,13 +44625,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "0.99"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45749,15 +44653,7 @@
         "type": "limit",
         "time_in_force": "gtc",
         "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
+        "limit_price": "123148147039.59314137"
       }
     },
     {
@@ -45776,13 +44672,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45812,14 +44701,6 @@
         "time_in_force": "gtc",
         "qty": "0.000000000",
         "limit_price": "123148147039"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
       }
     },
     {
@@ -45838,13 +44719,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45874,14 +44748,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "123148147039.59"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
       }
     },
     {
@@ -45900,13 +44766,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45936,14 +44795,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "123148147039.59314"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
       }
     },
     {
@@ -45962,13 +44813,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -45997,15 +44841,7 @@
         "type": "limit",
         "time_in_force": "gtc",
         "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
+        "limit_price": "123148147039.59314137"
       }
     },
     {
@@ -46024,13 +44860,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46060,14 +44889,6 @@
         "time_in_force": "gtc",
         "qty": "0.000000000",
         "limit_price": "123148147039"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
       }
     },
     {
@@ -46086,13 +44907,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46122,14 +44936,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "123148147039.59"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
       }
     },
     {
@@ -46148,13 +44954,6 @@
       "amount_type": "quote",
       "below_minimum": true,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46184,14 +44983,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "123148147039.59314"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
       }
     },
     {
@@ -46210,13 +45001,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "5.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46245,15 +45029,7 @@
         "type": "limit",
         "time_in_force": "gtc",
         "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59313965"
+        "limit_price": "123148147039.59314137"
       }
     },
     {
@@ -46272,13 +45048,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46308,14 +45077,6 @@
         "time_in_force": "gtc",
         "qty": "0.000000001",
         "limit_price": "123148147039"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000001",
-        "limit_price": "123148147039"
       }
     },
     {
@@ -46334,13 +45095,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46370,14 +45124,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "123148147039.59"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
       }
     },
     {
@@ -46396,13 +45142,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46432,14 +45171,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "123148147039.59314"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
       }
     },
     {
@@ -46458,13 +45189,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "123.45"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46493,15 +45217,7 @@
         "type": "limit",
         "time_in_force": "gtc",
         "qty": "0.000000001",
-        "limit_price": "123148147039.59313965"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000001",
-        "limit_price": "123148147039.59313965"
+        "limit_price": "123148147039.59314137"
       }
     },
     {
@@ -46520,13 +45236,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46556,14 +45265,6 @@
         "time_in_force": "gtc",
         "qty": "0.000008120",
         "limit_price": "123148147039"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000008120",
-        "limit_price": "123148147039"
       }
     },
     {
@@ -46582,13 +45283,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46618,14 +45312,6 @@
         "time_in_force": "gtc",
         "qty": "0.0000",
         "limit_price": "123148147039.59"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
       }
     },
     {
@@ -46644,13 +45330,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46680,14 +45359,6 @@
         "time_in_force": "gtc",
         "qty": "0",
         "limit_price": "123148147039.59314"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
       }
     },
     {
@@ -46706,13 +45377,6 @@
       "amount_type": "quote",
       "below_minimum": false,
       "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "market",
-        "time_in_force": "gtc",
-        "notional": "1000000.00"
-      },
-      "r1c_wire": {
         "symbol": "BTC/USD",
         "side": "buy",
         "type": "market",
@@ -46741,15 +45405,7 @@
         "type": "limit",
         "time_in_force": "gtc",
         "qty": "0.000008120",
-        "limit_price": "123148147039.59313965"
-      },
-      "r1c_wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000008120",
-        "limit_price": "123148147039.59313965"
+        "limit_price": "123148147039.59314137"
       }
     }
   ],
