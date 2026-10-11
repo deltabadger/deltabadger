@@ -238,19 +238,13 @@ fn serve_refusals_come_before_the_claim() {
     assert!(stderr(&out).contains("Exchanges::Kraken is not connected in this build"), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 
-    // What the web refuses: a port already taken, and an install with no admin user.
+    // What the web refuses: a port already taken.
     let (dir, o, _) = common::install_alpaca();
     drop(o);
     let taken = std::net::TcpListener::bind("0.0.0.0:0").unwrap();
     let out = finished(cli(dir.path(), &["serve"]).env("PORT", taken.local_addr().unwrap().port().to_string()));
     assert_eq!(out.status.code(), Some(1));
     assert!(stderr(&out).contains("cannot listen on port"), "{}", stderr(&out));
-    assert!(lease_of(dir.path()).is_none(), "nothing claimed");
-
-    let dir = common::rails_install();
-    let out = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
-    assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("no admin user"), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 }
 

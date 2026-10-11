@@ -1,0 +1,11 @@
+<div id="setup_identity_fields" style="display: contents;">
+  <div class="form__row form__row--input">
+    <input type="text" name="user[name]" id="user_name"{% if let Some(name) = name %} value="{{ name }}"{% endif %} class="form__input form__input--large" required="required" pattern="^\p{L}+(\s+\p{L}+)*$" data-html5-error-message="{{ v.t("setup.validations.name_required")|safe }}" />
+    <label class="form__label" for="user_name">{{ v.t("activerecord.attributes.user.name")|safe }}</label>
+  </div>
+
+  <div class="form__row form__row--input">
+    <input type="email" name="user[email]" id="user_email" value="{{ email }}" autocomplete="username" class="form__input form__input--large" required="required" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("setup.validations.email_required")|safe }}" />
+    <label class="form__label" for="user_email">{{ v.t("activerecord.attributes.user.email")|safe }}</label>
+  </div>
+</div>

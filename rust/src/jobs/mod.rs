@@ -19,6 +19,7 @@ pub mod import;
 pub mod reference;
 pub mod resolve;
 pub mod schedule;
+pub mod setup_sync;
 pub mod state;
 
 use crate::crypto::Cipher;
@@ -239,6 +240,12 @@ impl Wakers {
     pub fn wake(&self, job: &str, scope: Option<&str>, key: Option<i64>) {
         self.0.pending.lock().unwrap_or_else(PoisonError::into_inner).push((job.to_string(), scope.map(String::from), Wake::Manual(key)));
         self.0.notify.notify_one(); // a permit is kept while the runner is busy: no wake is lost
+    }
+
+    /// The wakes not yet delivered, by job name and scope (for tests: what a request asked the runner to do).
+    #[doc(hidden)]
+    pub fn pending(&self) -> Vec<(String, Option<String>)> {
+        self.0.pending.lock().unwrap_or_else(PoisonError::into_inner).iter().map(|(job, scope, _)| (job.clone(), scope.clone())).collect()
     }
 
     fn take(&self) -> Vec<Pending> {

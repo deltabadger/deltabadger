@@ -57,6 +57,11 @@ impl Ctx {
         i18n::t(self.locale, key, &[])
     }
 
+    /// `t(key, count: n)`.
+    pub fn t_count(&self, key: &str, n: i64) -> String {
+        i18n::t(self.locale, key, &[("count", i18n::Arg::Count(n))])
+    }
+
     /// A route helper's path under default_url_options: prefixed unless the locale is the default.
     pub fn path(&self, path: &str) -> String {
         locale::path(self.locale, path)
@@ -85,12 +90,22 @@ impl Ctx {
     /// The entries of the language dropdown. Which one is left out follows `params[:locale]`, not
     /// the locale in effect: without the parameter English is hidden, whatever the page is in.
     pub fn languages(&self) -> Vec<Language> {
-        let param = self.params.locale();
         let query = locale::switch_query(&self.params.query.iter().filter(|(key,_)|!locale::sensitive_query(key)).cloned().collect::<Vec<_>>());
+        self.languages_to(|code| locale::switch_path(code, &self.params.route_path, &query))
+    }
+
+    /// The dropdown's entries with `href` building each link (`languages` for a locale-scoped page).
+    pub fn languages_to(&self, href: impl Fn(&str) -> String) -> Vec<Language> {
+        let param = self.params.locale();
         LANGUAGES.iter()
             .filter(|(code, _)| if *code == "en" { param.is_some_and(|p| p != "en") } else { param != Some(code) })
-            .map(|(code, label)| Language { href: locale::switch_path(code, &self.params.route_path, &query), label })
+            .map(|(code, label)| Language { href: href(code), label })
             .collect()
+    }
+
+    /// layouts/_language_dropdown_full.html.erb's label: the name of the locale in effect, without its flag.
+    pub fn language_name(&self) -> &'static str {
+        LANGUAGES.iter().find(|(code, _)| *code == self.locale).and_then(|(_, label)| label.split_once(' ')).map_or("English", |(_, name)| name)
     }
 }
 

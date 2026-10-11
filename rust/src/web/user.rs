@@ -20,3 +20,15 @@ pub(super) fn validate_save(c: &Connection, owner: i64) -> Result<bool, WebError
         // User#wash_sale_jurisdiction reads blank as the first option, US.
         && jurisdiction.as_deref().is_none_or(|s| s.trim().is_empty() || matches!(s, "US" | "GB" | "IE")))
 }
+
+/// User::Password::PATTERN as Ruby's `=~` reads it: lookaheads from some position for a lowercase letter, an
+/// uppercase letter and a digit (ASCII classes), a symbol (`[\W_]`: anything but an ASCII letter or digit), and 8
+/// characters. `.` stops at a line feed, so all of it must be on one line, but `[\W_]` also matches the line feed
+/// itself: a line that a line feed ends has its symbol.
+pub(crate) fn password_complexity(password: &str) -> bool {
+    let lines: Vec<&str> = password.split('\n').collect();
+    lines.iter().enumerate().any(|(index, line)| {
+        line.chars().count() >= 8 && line.chars().any(|c| c.is_ascii_lowercase()) && line.chars().any(|c| c.is_ascii_uppercase())
+            && line.chars().any(|c| c.is_ascii_digit()) && (index + 1 < lines.len() || line.chars().any(|c| !c.is_ascii_alphanumeric()))
+    })
+}

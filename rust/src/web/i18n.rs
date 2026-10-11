@@ -236,6 +236,15 @@ pub fn text(locale: &str, key: &str, args: &[(&str, Arg)]) -> String {
     }
 }
 
+/// `I18n.t(keys[0], default: keys[1..])` with symbol defaults, as ActiveModel looks up an error message or an
+/// attribute's name: each locale of the fallback chain (this one, then English) tries every key in turn before the
+/// next locale is tried. `None` when no key has a text in either.
+pub fn text_chain(locale: &str, keys: &[String], args: &[(&str, Arg)]) -> Option<String> {
+    let count = count_of(args);
+    let locales: &[&str] = if locale == DEFAULT { &[DEFAULT] } else { &[locale, DEFAULT] };
+    locales.iter().find_map(|l| keys.iter().find_map(|key| in_locale(l, key, count))).map(|template| interpolate(template, args, false))
+}
+
 /// Every embedded (full key, text) pair, for the test that compares the table with Rails' own.
 pub fn all() -> &'static [(&'static str, &'static str)] {
     TRANSLATIONS

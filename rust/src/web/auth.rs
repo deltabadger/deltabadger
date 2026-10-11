@@ -295,16 +295,16 @@ fn password_stage(c: &Connection, user_id: i64, verified_against: &str, correct:
 /// The answer when too many sign-ins are already waiting for their bcrypt computation
 /// (`App::password_check`): try again in a second. Made below the controllers, as rack-attack's 429
 /// is; no attempt is spent and no row is touched.
-fn busy() -> Response {
+pub(crate) fn busy() -> Response {
     let mut response = (StatusCode::SERVICE_UNAVAILABLE, [(header::CONTENT_TYPE, "text/plain; charset=utf-8"), (header::RETRY_AFTER, "1")], "Too many sign-ins at once. Try again in a moment.\n").into_response();
     response.extensions_mut().insert(super::headers::BelowControllers);
     response
 }
 
-/// continue_sign_in: the session now belongs to `user`; go where they were heading, else to the root.
-fn continue_sign_in(ctx: &Ctx, user: &User, new_csrf_token: bool) -> Response {
-    let mut session = ctx.session.lock();
-    session.user = Some((user.id, user.salt().to_string()));
+/// Devise's sign_in as this app follows it: the session now belongs to the account whose id and
+/// `encrypted_password` are given, and the bots page will open the wizard.
+pub(crate) fn sign_in(session: &mut SessionData, id: i64, encrypted_password: &str, new_csrf_token: bool) {
+    session.user = Some((id, encrypted_password.get(..29).unwrap_or(encrypted_password).to_string()));
     session.auto_open_bot_wizard = true;
     // A second-factor step left open in this browser, for whichever account, ends with any sign-in:
     // it must not be usable afterwards to turn this session into that account's. (Rails keeps it.)
@@ -312,6 +312,12 @@ fn continue_sign_in(ctx: &Ctx, user: &User, new_csrf_token: bool) -> Response {
     if new_csrf_token {
         session.csrf = None; // Devise's clean_up_csrf_token_on_authentication
     }
+}
+
+/// continue_sign_in: the session now belongs to `user`; go where they were heading, else to the root.
+fn continue_sign_in(ctx: &Ctx, user: &User, new_csrf_token: bool) -> Response {
+    let mut session = ctx.session.lock();
+    sign_in(&mut session, user.id, &user.encrypted_password, new_csrf_token);
     let mut location = session.return_to.take().unwrap_or_else(|| ctx.path("/"));
     // The account's saved locale, unless the request chose one.
     if let Some(saved) = user.locale.as_deref().filter(|l| ctx.params.locale().is_none() && *l != locale::DEFAULT) {

@@ -20,6 +20,7 @@ pub mod figure;
 pub mod format;
 pub mod headers;
 pub mod i18n;
+pub mod launchpad;
 pub mod layout;
 pub mod locale;
 pub mod mcp;
@@ -29,6 +30,7 @@ pub mod ring;
 pub mod server;
 pub mod session;
 pub mod settings;
+pub mod setup;
 pub mod shell;
 pub mod timezone;
 pub mod tracker;
@@ -177,6 +179,13 @@ pub struct Config {
     /// production.rb's `config.hosts`: the hosts a request may name, from ALLOWED_HOSTS. Empty when
     /// that is not set, and then every host is served, as in Rails (`config.hosts.clear`).
     pub allowed_hosts: Vec<String>,
+    /// SETUP_TOKEN as the environment has it: `None` when the variable is absent (setup is open), the value,
+    /// blank included, when it is present (setup opens only for that value, and never for a blank one).
+    pub setup_token: Option<String>,
+    /// CLAIM_TOKEN: a platform claim code /setup redeems on its own while the install is not connected.
+    pub claim_token: Option<String>,
+    /// LAUNCHPAD_URL, else https://deltabadger.com: where claims are redeemed.
+    pub launchpad_url: String,
 }
 
 /// `config.hosts` as config/environments/production.rb builds it: nothing when ALLOWED_HOSTS is
@@ -236,6 +245,9 @@ impl Config {
             own_origin,
             market_data_url: present("MARKET_DATA_URL").is_some(),
             allowed_hosts: allowed_hosts(env("ALLOWED_HOSTS").as_deref()),
+            setup_token: env("SETUP_TOKEN"),
+            claim_token: present("CLAIM_TOKEN"),
+            launchpad_url: env("LAUNCHPAD_URL").unwrap_or_else(|| launchpad::DEFAULT_URL.into()),
         })
     }
 
@@ -476,6 +488,22 @@ impl App {
     /// computed and thrown away, so that both cost the same. `None` when `PASSWORD_CHECKS_WAITING`
     /// attempts are already waiting: the caller refuses the request.
     pub(crate) async fn password_check(&self, password: String, stored_hash: Option<String>) -> Result<Option<bool>, WebError> {
+        self.bcrypt(move || match stored_hash {
+            Some(hash) => verify_password(&password, &hash),
+            // Only the work counts. Without a salt from the system there is no hash: the same failed sign-in.
+            None => { let _ = hash_password(&password); false }
+        }).await
+    }
+
+    /// The bcrypt hash of a new password (setup's admin account), under the same slots as `password_check`.
+    /// `None` when too many are waiting; `Some(None)` when the system had no salt to give.
+    pub(crate) async fn password_hash(&self, password: String) -> Result<Option<Option<String>>, WebError> {
+        self.bcrypt(move || hash_password(&password).ok()).await
+    }
+
+    /// One bcrypt computation, off the runtime's thread and outside the database lock, in one of
+    /// `PASSWORD_CHECKS_AT_ONCE` slots. `None` when `PASSWORD_CHECKS_WAITING` attempts are already waiting.
+    async fn bcrypt<T: Send + 'static>(&self, compute: impl FnOnce() -> T + Send + 'static) -> Result<Option<T>, WebError> {
         struct Waiting<'a>(&'a AtomicUsize);
         impl Drop for Waiting<'_> {
             fn drop(&mut self) { self.0.fetch_sub(1, Ordering::SeqCst); }
@@ -496,11 +524,7 @@ impl App {
         let work = move || {
             let _permit = permit;
             if let Some(hook) = hook { hook() }
-            match stored_hash {
-                Some(hash) => verify_password(&password, &hash),
-                // Only the work counts. Without a salt from the system there is no hash: the same failed sign-in.
-                None => { let _ = hash_password(&password); false }
-            }
+            compute()
         };
         tokio::task::spawn_blocking(work).await.map(Some).map_err(|e| WebError::Task(e.to_string()))
     }
@@ -581,6 +605,10 @@ fn routes(app: App) -> Router {
         .route("/login", only(get(auth::new).post(auth::create)))
         .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
+        .route("/setup", only(get(setup::new).post(setup::create)))
+        .route("/setup/platform_connection", only(post(setup::connect_platform)))
+        // `/setup.<format>` reaches the setup action in Rails; any other single segment is this build's refusal.
+        .route("/{page}", any(setup::formatted))
         .route("/bots", only(get(bots::index)))
         .route("/api/api_keys",only(post(settings::keys::legacy)))
         .route("/bots/{id}/add_api_key",only(post(settings::keys::save)))
@@ -895,10 +923,17 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     let signed_in = matches!(current, auth::Current::SignedIn(_));
     let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
 
+    // ApplicationController#redirect_to_setup_if_needed: after Devise's prepended filters and the CSRF check.
+    let to_setup = setup::gated(&context.params) && match app.db(setup::admin_exists).await {
+        Ok(exists) => !exists,
+        Err(error) => return finish(&app, &session, &before, &nonce, now, signed_in, error.into_response()),
+    };
     let response = if let Some(early) = auth::prepended_filters(&context) {
         early
     } else if !matches!(*request.method(), Method::GET | Method::HEAD) && !context.csrf_verified(request.headers()) {
         layout::unverified_request(&context, request.headers())
+    } else if to_setup {
+        setup::to_setup()
     } else if let Some(inactive) = auth::inactive(&context) {
         inactive
     } else if bot::action_params::action(&context.params.route_path, request.method())

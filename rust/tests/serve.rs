@@ -30,13 +30,20 @@ fn http_get(port: u16, path: &str) -> Option<String> {
     Some(answer)
 }
 
+/// A prepared install with no admin user yet is served: every page sends the first visitor to /setup.
 #[test]
-fn serve_refuses_an_install_with_no_admin_user() {
+fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
     let dir = common::rails_install();
-    let out = serve_command(dir.path(), free_port()).output().unwrap();
-    assert!(!out.status.success());
-    let message = String::from_utf8_lossy(&out.stderr);
-    assert!(message.contains("no admin user") && message.contains("Rails app"), "{message}");
+    let port = free_port();
+    let mut server = Child(serve_command(dir.path(), port).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
+    let started = Instant::now();
+    let answer = loop {
+        if let Some(answer) = http_get(port, "/bots") { break answer; }
+        assert!(started.elapsed() < Duration::from_secs(10) && server.0.try_wait().unwrap().is_none(), "serve did not come up");
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(answer.starts_with("HTTP/1.1 302") && answer.to_ascii_lowercase().contains("location: /setup\r\n"), "{answer}");
+    assert!(http_get(port, "/setup").is_some_and(|page| page.starts_with("HTTP/1.1 200")), "the setup page is served");
 }
 
 #[test]
@@ -1360,11 +1367,10 @@ async fn wake_engine_leaves_one_permit_for_the_attached_engine_and_does_nothing_
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn bind_refuses_an_install_with_no_admin_user_before_it_listens() {
+async fn bind_listens_with_or_without_an_admin_user() {
     let dir = common::rails_install();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
-    let refused = deltabadger::web::server::bind(&app, 0).await;
-    assert!(matches!(&refused, Err(deltabadger::web::WebError::Config(m)) if m.contains("no admin user")), "{refused:?}");
+    deltabadger::web::server::bind(&app, 0).await.expect("an install with no admin user is served: setup creates the admin");
     let (dir, opened, _) = common::install(); // seeds an admin user
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));

@@ -27,7 +27,8 @@ struct TwoFa<'a> {
     button: String,
     qr: String,
 }
-fn new_seed() -> String {
+/// ROTP::Base32.random's shape: 32 characters of base32, 160 random bits.
+pub(crate) fn new_seed() -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     let bytes: [u8; 32] = rand::random();
     bytes

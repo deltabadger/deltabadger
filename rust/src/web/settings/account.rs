@@ -28,10 +28,7 @@ fn matches(pattern: &str, value: &str) -> Result<bool, WebError> {
         .map_err(|_| WebError::Config("invalid account validation pattern".into()))?
         .is_match(value))
 }
-/// Rails' Unicode string length, ASCII regexp classes and non-newline dot semantics.
-fn password_complexity(password:&str)->bool{
-    password.split('\n').any(|line|line.chars().count()>=8&&line.chars().any(|c|c.is_ascii_lowercase())&&line.chars().any(|c|c.is_ascii_uppercase())&&line.chars().any(|c|c.is_ascii_digit())&&line.chars().any(|c|!c.is_ascii_alphanumeric()))
-}
+use crate::web::user::password_complexity;
 /// User::Email compares Google usernames without plus tags, and preserves dots.
 pub fn email_taken(c:&rusqlite::Connection,email:&str,user:i64)->Result<bool,WebError>{
     if c.query_row("SELECT EXISTS(SELECT 1 FROM users WHERE email=?1 AND id<>?2)",(email,user),|r|r.get::<_,bool>(0))?{return Ok(true)}

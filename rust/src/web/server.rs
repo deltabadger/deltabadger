@@ -40,14 +40,10 @@ impl Default for Limits {
     }
 }
 
-/// Refuses an install with no admin user (until 3.0 Rails creates the install, and setup is a Rails
-/// page), then binds 0.0.0.0:`port`. Nothing is served until `serve_on`: connections wait in the
-/// backlog meanwhile, while `deltabadger serve` takes the install over.
-pub async fn bind(app: &App, port: u16) -> Result<TcpListener, WebError> {
-    let admins: i64 = app.db(|c| Ok(c.query_row("SELECT count(*) FROM users WHERE admin = 1", [], |r| r.get(0))?)).await?;
-    if admins == 0 {
-        return Err(WebError::Config("this install has no admin user yet: set it up with the Rails app first".into()));
-    }
+/// Binds 0.0.0.0:`port`. Nothing is served until `serve_on`: connections wait in the backlog meanwhile, while
+/// `deltabadger serve` takes the install over. An install with no admin user yet is served too: every page then
+/// sends the browser to /setup, which creates it (web::setup).
+pub async fn bind(_app: &App, port: u16) -> Result<TcpListener, WebError> {
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await
         .map_err(|e| WebError::Config(format!("cannot listen on port {port}: {e}")))?;
     Ok(listener)
