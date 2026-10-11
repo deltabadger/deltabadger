@@ -13,7 +13,7 @@ fn needs_market_data(c:&Connection,owner:i64)->Result<bool,WebError>{
     Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id NOT IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr'))) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id NOT IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr')))",[owner],|r|r.get(0))?)
 }
 
-fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
+fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:Option<&super::fx::Prepared>)->Result<Response,WebError>{
     let missing=!crate::web::bots::market_data(c,&ctx.app)?.1 && needs_market_data(c,owner)?;
     if !missing {
         // Only scope IDs used by this slice are interpreted. Date parsing and populated filters
@@ -34,6 +34,9 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
         }
         if populated {
             if super::first_sync::supported(c,owner)? {return super::first_sync::render(c,ctx,owner);}
+            if super::holdings::supported(c,owner)? {
+                if let Some(fx)=fx {let cold=super::holdings::prepare(c,ctx,owner,fx)?;return super::first_sync::render_with(c,ctx,owner,Some(cold));}
+            }
             return Ok(layout::refused(ctx,"populated tracker index after the first sync"));
         }
         if ["from","to"].iter().any(|key|ctx.params.query(key).is_some_and(|v|!v.trim().is_empty())) {
@@ -51,5 +54,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
 
 pub async fn index(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};
-    app.db(move|c|super::read::only(c,|c|render(c,&ctx,owner))).await
+    let eligible=app.db(move|c|super::read::only(c,|c|super::holdings::supported(c,owner))).await?;
+    let fx=if eligible{Some(super::fx::prepare(&app,owner).await?)}else{None};
+    app.db(move|c|super::read::only(c,|c|render(c,&ctx,owner,fx.as_ref()))).await
 }

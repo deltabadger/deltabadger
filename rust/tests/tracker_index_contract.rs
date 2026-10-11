@@ -9,7 +9,7 @@ fn tracker_index_oracle_sources_stay_pinned() {
 #[test]
 fn tracker_index_keeps_the_read_boundary_and_schedules_no_work() {
     let source=include_str!("../src/web/tracker/index.rs");
-    assert!(source.contains("super::read::only(c,|c|render(c,&ctx,owner))"));
+    assert!(source.contains("super::read::only(c,|c|render(c,&ctx,owner,fx.as_ref()))"));
     for forbidden in ["wake_job(","wake_engine(",".execute(",".execute_batch(",".unwrap(",".expect(","amount_exec","quote_amount_exec"] {
         assert!(!source.contains(forbidden),"read route includes {forbidden}");
     }

@@ -75,7 +75,7 @@ fn in_display(c:&Connection,amount:&Dec,currency:&str,day:chrono::NaiveDate,d:&D
     match (rate(currency)?,rate(&d.currency)?) {(Some(from),Some(to))=>Ok(Some(number(amount * &number(to.div(&from))?)?)),_=>Ok(None)}
 }
 fn unit(d:&Denomination)->&str {match d.currency.as_str(){"USD"=>"$","EUR"=>"€","GBP"=>"£","CHF"=>"Fr.","PLN"=>"zł",other=>other}}
-fn formatted(value:&Dec,d:&Denomination)->Result<String,WebError>{
+pub(super) fn formatted(value:&Dec,d:&Denomination)->Result<String,WebError>{
     let negative=value.is_negative(); let abs=if negative{value.neg()}else{value.clone()};
     let sign=if negative{"-"}else{""};let u=escape(unit(d));let a=amount(&abs,&d.currency)?;
     Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} <small>{u}</small>")}else{format!("{sign}<small>{u}</small>{a}")})
@@ -85,6 +85,9 @@ fn logo(c:&Connection,row:&Row)->Result<String,WebError>{
     let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};
     let Some(id)=id else{return Ok(String::new())};
     let (image,color,symbol,category):(Option<String>,Option<String>,String,Option<String>)=c.query_row("SELECT image_url,color,symbol,category FROM assets WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
+    asset_logo(image,color,symbol,category)
+}
+pub(super) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String,category:Option<String>)->Result<String,WebError>{
     let flag=if category.as_deref().is_none_or(|c|c.is_empty() || matches!(c,"Currency"|"Fiat")) {
         [("USD","us"),("EUR","eu"),("GBP","gb"),("JPY","jp"),("CHF","ch"),("CAD","ca"),("AUD","au"),("PLN","pl"),("ARS","ar"),("BRL","br"),("TRY","tr"),("MXN","mx"),("ZAR","za"),("UAH","ua"),("CZK","cz"),("RUB","ru"),("IDR","id")].iter().find(|(s,_)|*s==symbol.to_uppercase()).map(|(_,flag)|crate::web::assets::path(&format!("flags/{flag}.svg")).to_string())
     }else{None};

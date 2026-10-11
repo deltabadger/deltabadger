@@ -40,7 +40,7 @@ mutants = [
     ('currency_prepare', 'fx', 'Ok((figures::totals::normalized_currency(&requested),', 'Ok((requested,', 'binary(=tracker_index_currency)'),
     ('read_guard', 'read', 'c.pragma_update(None,"query_only",true)?;', 'c.pragma_update(None,"query_only",false)?;', 'test(view_boundary)'),
     ('read_restore', 'read', 'c.pragma_update(None,"query_only",was)?;', 'c.pragma_update(None,"query_only",1.max(was))?;', 'test(view_boundary)'),
-    ('route_boundary', 'index', 'super::read::only(c,|c|render(c,&ctx,owner))', 'render(c,&ctx,owner)', 'binary(=tracker_index_contract)'),
+    ('route_boundary', 'index', 'super::read::only(c,|c|render(c,&ctx,owner,fx.as_ref()))', 'render(c,&ctx,owner,fx.as_ref())', 'binary(=tracker_index_contract)'),
     ('market_missing', 'index', 'let missing=!crate::web::bots::market_data', 'let missing=false && !crate::web::bots::market_data', page),
     ('market_foreign_rows', 'index', 'FROM account_transactions WHERE user_id=?1 AND', 'FROM account_transactions WHERE (user_id=?1 OR user_id<>?1) AND', page),
     ('market_stock_venue', 'index', "'Exchanges::Alpaca','Exchanges::Ibkr'", "'Exchanges::None','Exchanges::Ibkr'", page),
