@@ -394,7 +394,7 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
     }
 
     #[tokio::test(flavor="current_thread")]
-    async fn each_write_rolls_back_on_guard_refusal()->Result {
+    async fn only_stop_bypasses_an_unrelated_guard_refusal()->Result {
         for (tool,status) in [("stop_bot",1),("archive_bot",2),("unarchive_bot",7),("delete_bot",2),("update_bot_settings",2),("start_bot",0)] {
             let f=Fixture::new().await?;
             let other=seed::insert_bot(&f.c,&f.seed,&seed::BotSpec::weekly(60.0,ANCHOR).with("price_limited",json!(true)));
@@ -404,6 +404,14 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
             let fields=if tool=="update_bot_settings" {vec![("label","Candidate")]} else {vec![]};
             let answer=f.send(method,suffix,&fields).await?;
             let result:Value=serde_json::from_str(&answer.body)?;
+            if tool=="stop_bot" {
+                assert_ne!(result["result"]["isError"],true,"{}",answer.body);
+                assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
+                assert_eq!(f.one::<i64>("SELECT json_extract(transient_data,'$.run_generation') FROM bots WHERE id=?1")?,1);
+                assert_eq!(f.c.query_row("SELECT status FROM bots WHERE id=?1",[other],|r|r.get::<_,i64>(0))?,1,"leave the unrelated bot alone");
+                f.woke(true).await?;
+                continue;
+            }
             assert_eq!(result["result"]["isError"],true,"{tool}: {}",answer.body);
             let text=result["result"]["content"][0]["text"].as_str().ok_or("guard text")?;
             assert!(text.starts_with("This app can't run that yet:"),"{text}");
