@@ -190,7 +190,26 @@ module SetupVectors
     }
   end
 
-  def scenarios = page_scenarios.merge(create_scenarios).merge(token_scenarios).merge(gate_scenarios).merge(claim_scenarios).merge(followup_scenarios)
+  # Rails 8.1.4 merges request parameters shallowly, with query keys replacing body keys.
+  def precedence_scenarios
+    user = { 'name' => 'Body', 'email' => 'body@example.com', 'password' => PASSWORD }
+    json_post = ->(body, path = '/setup') { post(path, nil, 'json' => body, 'csrf' => 'header', 'headers' => { 'Content-Type' => 'application/json', 'Accept' => 'text/html' }) }
+    locked = { 'SETUP_TOKEN' => TOKEN }
+    {
+      'precedence_json_wrong_query_token' => { 'env' => locked, 'steps' => [get('/setup'), expect(403, json_post.call({ 'token' => TOKEN, 'user' => user }, '/setup?token=wrong'))] },
+      'precedence_json_wrong_query_token_session' => { 'env' => locked, 'steps' => [get("/setup?token=#{TOKEN}"), get('/setup'), expect(403, json_post.call({ 'token' => TOKEN, 'user' => user }, '/setup.html?token=wrong'))] },
+      'precedence_json_right_query_token' => { 'env' => locked, 'steps' => [get('/setup'), expect(302, json_post.call({ 'token' => 'wrong', 'user' => user }, "/setup?token=#{TOKEN}"))] },
+      'precedence_form_wrong_query_token' => { 'env' => locked, 'steps' => [get('/setup'), expect(403, create(account.merge('token' => TOKEN), path: '/setup?token=wrong', csrf: 'header'))] },
+      'precedence_json_claim_token' => { 'env' => locked, 'launchpad' => 'ok', 'steps' => [get('/setup'), expect(403, json_post.call({ 'token' => TOKEN, 'claim_code' => 'dbc_body' }, '/setup/platform_connection?token=wrong'))] },
+      'precedence_json_claim_code' => { 'launchpad' => 'ok', 'steps' => [get('/setup'), expect(200, json_post.call({ 'claim_code' => 'dbc_body' }, '/setup/platform_connection?claim_code=dbc_query'))] },
+      'precedence_json_null_claim_code' => { 'launchpad' => 'ok', 'steps' => [get('/setup'), expect(200, json_post.call({ 'claim_code' => nil }, '/setup/platform_connection?claim_code=dbc_query'))] },
+      'precedence_form_claim_code' => { 'launchpad' => 'ok', 'steps' => [get('/setup'), expect(200, post('/setup/platform_connection?claim_code=dbc_query', { 'claim_code' => 'dbc_body' }, 'csrf' => 'header'))] },
+      'precedence_json_shallow_user' => { 'steps' => [get('/setup'), expect(422, json_post.call({ 'locale' => 'en', 'user' => user }, '/setup?user%5Bname%5D=Query&locale=de'))] },
+      'precedence_form_shallow_user' => { 'steps' => [get('/setup'), expect(422, create(account, path: '/setup?user%5Bname%5D=Query', csrf: 'header'))] }
+    }
+  end
+
+  def scenarios = page_scenarios.merge(create_scenarios).merge(token_scenarios).merge(gate_scenarios).merge(claim_scenarios).merge(followup_scenarios).merge(precedence_scenarios)
 
   # Only 127.0.0.1 is reachable while recording: the fake launchpad. Anything else is refused and written down.
   module LocalOnly

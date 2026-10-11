@@ -19301,6 +19301,1004 @@
         }
       ],
       "enqueued": []
+    },
+    "precedence_json_wrong_query_token": {
+      "env": {
+        "SETUP_TOKEN": "expected-token"
+      },
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup?token=wrong",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "token": "expected-token",
+            "user": {
+              "name": "Body",
+              "email": "body@example.com",
+              "password": "Correct-horse-9"
+            }
+          },
+          "expect": 403
+        }
+      ],
+      "responses": [
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-5PZwdg1w6AVMUX+CxpZARA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=B5KsbQJUEqnl3Mv4jTw4udu9K8sQ8Da%2Btc%2F1zoy2cfaR6vAjnc14JnUb6lGwIxkq1lInylp5ejKgA8aUWyNlIwDnnnKLcu5Kuvr8J7uOSuqhB5%2BiZCE%2BjLv3QudlNEx7xWt4INeWDmG610lYksax5xlSNgd58rd7yMDxtAtfWtTb9Xk2Debq8Eq5DyaP%2BpoqT4sy7yZm1HEyp9HjUbTBsPx103NOnDt3pDrIRvqcauLxey1O%2BjbPzrkvArKip38U2aOm9ZjmbqPn97mbmFLeOQhWZ35sbiUe%2BRF8KivDAPOF3VNhBQa4cBOs9pCoo84OKiI%3D--EX6RVwEgLMeMxsll--cHoqkGMJGgSKQeS72BDV7g%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"qbNHZtvvO2psoklonMRiGp7QNJDEE-BcqnzwbYo9ZIOEo4A3TnfyNKIw_dHB7DELhnqlhSrQKCwcwzxjw_XHTQ\" />\n    <meta name=\"csp-nonce\" content=\"5PZwdg1w6AVMUX+CxpZARA==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-hpKwYJkRDOS9VOEQ3nhQFA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=%2BbgLuY4yAILetl7yIIE5PxGRliCtkBgdQSZJSEzJKAofgqTSI4BPWB4fcw79joKiU7gd9jvSJCW2Ijr4OILWmcAQsXiTQWNtX9ly0Z0psMcI1wKDK9H4NrlyKzy0ckyqCpjQDFKRLiCwr3ioNopcPmyqh9FBZyDyTWJEg2fwnDbhaj5L%2FdXrlXJnFet0qIaYaq76LU3QoIXgjDkvTT0ICuO2NgDtg%2FM3C6uz5PmL%2BmMeyt6fYmryzUz1z%2F6fBOeeQgKlOfu0qi%2Fui9HhRpNjCXVkfexZI7td3YDGEZKjfA8hEEloQHT5d8ujP%2FxWcDscBGI%3D--5uZnDO6EA2unYgJ4--NlcR5Md%2F8ZnFdg87km16%2BQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"1bhVQLpjFFT3AURGoopeliy-lEY1sKrlVE_Q1wlIlY74qJIRL_vdCjmT8P__og2HNBQFU9tzYpXi8BzZQIA2QA\" />\n    <meta name=\"csp-nonce\" content=\"hpKwYJkRDOS9VOEQ3nhQFA==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": false,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [],
+      "launchpad_url": null,
+      "launchpad_requests": [],
+      "enqueued": []
+    },
+    "precedence_json_wrong_query_token_session": {
+      "env": {
+        "SETUP_TOKEN": "expected-token"
+      },
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup?token=expected-token",
+          "headers": {}
+        },
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup.html?token=wrong",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "token": "expected-token",
+            "user": {
+              "name": "Body",
+              "email": "body@example.com",
+              "password": "Correct-horse-9"
+            }
+          },
+          "expect": 403
+        }
+      ],
+      "responses": [
+        {
+          "status": 302,
+          "headers": {
+            "location": "http://localhost:3000/setup",
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-ZkYcDdfdKvVqwcFsQT7zKg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=QLH2PPg8nZhssr0vwmjLJifRL5c5pkPqIwv67MW%2FBEIxrSjcgrjn21TeP88OQEMVIk50ysBQnchbBgA2BEZ4xw66ZAArSLdPRXP4xACuIYPj8kenm105AhCO%2BDvyaKMsisImEU1INCa7INGoszyGjqkgmwv6rn0Xjl6bi1m2gPibfJwVlz%2BwjOYdwoqiaWGszmpjMoviyIwD4gDWc9Ow8%2F03anZBNdusEWMVDqYjC69qIzO6t%2FCCCHPEgJM8ZdcGLrqbnRZpdUR%2BKQ%3D%3D--nwIDXp7b3%2BjOhNqa--mvY5LoQNdUXrrMFi641d%2Fg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "",
+          "session_changed": true,
+          "session_keys": [
+            "setup_token"
+          ]
+        },
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-SyuDBRabPv197Vr03GZkmw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=c4K77VN4JAWcqT6z9DMBpJepMY4TD2jIfo7BvsO26LoqL%2FYgzMe2w3y%2FH0SCClhbPvvrtOvnZv4O7JegX2zbMEtfFw9RYPEsHY%2B4A0Xykusid%2B5eAnpJDE6in%2BhqGru7DcNGqyomfO8iFSEGA3hySmNiz%2FrQVriDCbaYtJnhs09KO4fMNIAAnuS9kCRLJoZBNh%2BGy16ozIMGN5nxAQpHkKsUrnOqJv56WjkQUPU3lU5IXY3d74%2FZSsATpSNu6ehFieoxYBckIg%2FrJU9YXoSH%2FdRMooW4iMxAROJsbCPm3xfdl40qZsCiHmo16DjUzy7WiY8OMx1YzCOLhX3u4FxpoxH5Ks%2B71lUz91NFQeoHvi8auZqTqqMd3Rjt--LFqBjE5KDt2JDeJC--K1nssXRCbzAadQ7SCNDUoA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"_90bwuN2ktcEHj2pRMXp9wjUdskoJHZn3N_9uwQqWl4uYyz6JP1rR5GGj0fftrKGOQGLeDcXB7_Kqf3ni0zODg\" />\n    <meta name=\"csp-nonce\" content=\"SyuDBRabPv197Vr03GZkmw==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"BV9dAFHuZlqfiAGMiFLlGEMFbBoBmNCB2B8t72RlYAuYGaFnu87Hasl0vi-0MUsVsybIP_gbT7ToL02d7Gx_bg\" />\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"DPwdy1yWwD9zxX2t5KKgTlGCNygTgCSAJPdcpq82lw1vNxkc153Z4AYQROJ_5IToaxe3AgGNyIF108TXYE187w\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token",
+            "setup_token"
+          ]
+        },
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-mxdYlLq/iQKhswWEY/lZvg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=fOtuuMWLu%2FKf0QA6zVsgR0d1RZyz5ja5RB2j1vZi%2B07LlV7kTQWza3reXoSPm%2FlP6jXa22GeUQVYLlPptQVCNP4tzo5pDRTUTGKTnjfTw28ARS21bEK72tfKUhbNMRAkOzc4ZDT0uTxYCqBbQsaqoAkVOnY0E3Pzy9UGb9TDQGkg6tNJSIRXCwzd2hWk%2BZCmPAL6TcaGxAfExKIACt3aLJ%2Fhn%2FGSJxp%2BP57EIcjklgUltHbTRvqC9LpVm4wZrTMplF2%2BkBl8d9n7luCSr3d337inPPFdVRpKXrbBlrvWGJraHHjZ2p70Qb0wJrWum9EbeEFAHZnPpC0A9dBTyFUDBySXHdKy0uO%2F78UNMMyPRJwiLfjeQ8P924zs--DCj2GhBGc69yfdUx--yBf7v4wLDhcjNt7D0owE1Q%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"duLN8I9RGTWDyvsukwPRD3c4RSnyOj3Ft-bdRvMPc2CnXPrISNrgpRZSScAIcIp-Ru24mO0JTB2hkN0afGnnMA\" />\n    <meta name=\"csp-nonce\" content=\"mxdYlLq/iQKhswWEY/lZvg==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup.html?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": false,
+          "session_keys": [
+            "_csrf_token",
+            "setup_token"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [],
+      "launchpad_url": null,
+      "launchpad_requests": [],
+      "enqueued": []
+    },
+    "precedence_json_right_query_token": {
+      "env": {
+        "SETUP_TOKEN": "expected-token"
+      },
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup?token=expected-token",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "token": "wrong",
+            "user": {
+              "name": "Body",
+              "email": "body@example.com",
+              "password": "Correct-horse-9"
+            }
+          },
+          "expect": 302
+        }
+      ],
+      "responses": [
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-ocp3nvz3eIn+RnuWPPqFSw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=C0OYLYwYWw5HEGgUKl8FY9WnhV1eBQkt2PzaeCOhQ9bFp2XQ4Gxywtx%2BN8pfGR2aGE7aQsFbEk55RT9YQv5xAuo6qIaDpAYY2nCSrIA3TpFt4Lgmz%2FPHK2q8VpnMXgIARfzZkWWqor3bMF1XWgcxsTkgeFnlEnvDs%2FqyBkg7NOSdn1%2BOu4muC61Y93CnH%2FF6k%2B96oxc62MSYE8LEEGs5a%2BKVQTYlKl2cdMYrY93H%2F95LKFJWmoVpyYPLf44toGEqdma2PAm1OeQlifad1QNAJvRuCJeieIAuX02hEsiVzAhRz6G4UvigA8sZV6848TqguT4%3D--zPU5VLU2ch5eFLME--Zi5nmbDAcOBY92IK9vbYRw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"-vYvLEUITnRkbJcY6p6q388lue4t95JaZNFPgauEsbfgZUoTD3XzBAUA-xI7dgj9LV_cLR1vBiaeouROPZIhsA\" />\n    <meta name=\"csp-nonce\" content=\"ocp3nvz3eIn+RnuWPPqFSw==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 302,
+          "headers": {
+            "location": "http://localhost:3000/bots",
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-Kr/yXWzL6Jv+c0zw9ZNCTQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=C4v2dpcc96FWBK6BEWRhFdP1NKPh1irQbaN4xiRmFXvCUk0koX6QYFJqRTZCu1VzDrb8EiKNGwNzAlbUpsWddzphMVbXsvdIqRdkBW9dl%2FRyb4LBfFs1qO2omeotkithWqg5ywyQ86J1TIOG4Y%2BwCTRLhzTt7uHuFdL2WH3bbzuZpbN06W3mDcXzgMLB8TNHRTapOh%2BP1%2FKJVyKtKi01Wd2ye1uZmJxv73eU8A07C%2BLaO%2BpQcIxMP6mT8XDJ32Q20CNfvBMC7UZyDKb2wyyzDbUIqkj8B1cfVtWf38wh7Ee1sY7W%2BQu8epFfU2nyLLneGKi%2FD5tNTmYwt3AZsQTE0EHjEwjhNj9F%2FtrT47RW8TSQiCmuRMzErWOMUirYutOFtpGH9PmuElQ%2BGPnS%2FeQrjRbDH8cETsFbRTtNHT9%2F%2FjzU65gE1gV5DWaOYnnni8E2klbP%2FWrbvi%2BjDLgpyiIM7KGLf2Kj7A%3D%3D--7z5P2jowz2kSDCLn--N6Qey37EVZfvYTR3VZKX0g%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token",
+            "auto_open_bot_wizard",
+            "warden.user.user.key"
+          ]
+        }
+      ],
+      "users": [
+        {
+          "id": 1,
+          "admin": 1,
+          "advanced_bots_enabled": 0,
+          "confirmation_sent_at": null,
+          "confirmation_token": null,
+          "confirmed_at": "2026-09-10 12:00:30.123456",
+          "created_at": "2026-09-10 12:00:30.123456",
+          "display_currency": "USD",
+          "email": "body@example.com",
+          "encrypted_password": "$2a$04$l/205YGsuzLRF2p34ZDLROI9EJ9itoewTbSUox064YPN2Q9bBh7oa",
+          "failed_attempts": 0,
+          "hide_balances": 0,
+          "last_otp_at": null,
+          "locale": "en",
+          "locked_at": null,
+          "mcp_settings": "{}",
+          "name": "Body",
+          "otp_module": 0,
+          "otp_secret_key": "{\"p\":\"BAEdghSGTU50LMt1ejhZFMNSKE6eVWAX7Q5grVlRxmc=\",\"h\":{\"iv\":\"nYn+iSWBCPeE53X7\",\"at\":\"F8gR+CEaM9GI/ubMxjxy4Q==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+          "remember_created_at": null,
+          "reset_password_sent_at": null,
+          "reset_password_token": null,
+          "rest_settings": "{}",
+          "setup_completed": 1,
+          "show_smart_intervals_info": 1,
+          "subscribed_to_email_marketing": 1,
+          "time_zone": "UTC",
+          "tracker_settings": "{}",
+          "unconfirmed_email": null,
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "wash_sale_enabled": null,
+          "wash_sale_jurisdiction": null,
+          "wash_sale_selling_warned_at": null
+        }
+      ],
+      "app_configs": [],
+      "launchpad_url": null,
+      "launchpad_requests": [],
+      "enqueued": []
+    },
+    "precedence_form_wrong_query_token": {
+      "env": {
+        "SETUP_TOKEN": "expected-token"
+      },
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup?token=wrong",
+          "form": {
+            "locale": "en",
+            "user[name]": "Owner",
+            "user[email]": "owner@example.com",
+            "user[password]": "Correct-horse-9",
+            "token": "expected-token"
+          },
+          "csrf": "header",
+          "headers": {},
+          "expect": 403
+        }
+      ],
+      "responses": [
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-51+n5/celnY8cs744yc/1g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=QhfjXNDAomUrCP6p4UMD1H%2BZOw2SUPHcD0YNaX5%2BXpCSWz0%2Frv070DtLjBzW5S14aCxWsJEKryC1ns0TVFo8zBiIhxvgK7StOoR1n5DoJ%2BM%2BGFBJwJs6diRTkYbl9DfvXytOReKYzjQnp3OMruzSI5v1oUnU%2Bs%2BXzb0kVth7GUKp75IRod%2FTulJfEidwtcG0CfFwHhSpyzEz44316upQ87R2eMABBVeK3e%2B%2BI1arX46LiYIUOThGwmQpaDXEJ9cvHfotVfpJYLCGm7nYyFzE3RudRaEMd9hjoSc5tL%2BTytGNyDyOzvxpOjvYQqNbvBISbDw%3D--FvEAjeRkFwGqY%2Bln--sCL0qw1irsMb46gCSEA7rw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"hv5t0KbuOIG8FBhkSQxITW1MlVEMW7pkIXIqATosTRnRcimGDHDFvIBhM2KRQiGzGdwdtkY8PxR8yucbcrz1uw\" />\n    <meta name=\"csp-nonce\" content=\"51+n5/celnY8cs744yc/1g==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-BhDAFSaCvx7Cve76p24aUw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=S%2BAZmri2s5YUj0vZyWSGPQZaFIgYKe6z2MiBO6t5vWumV3npfShQLUDRKlpg%2F3H3d9bzP0MYq2Rk7KRvwPncj0kw%2FslwDCEVPH0fG5Q4P2Ykl1hT%2BNpmFuBISWf6jtqxsxb%2BkX45d%2BO7xTSd8K4ZDtnInJ0iLxKHCiK%2FNBQymrtQabmmTmWLRqjCpa7UNmS0mdTYaaYOpwn9ybwVGtCiY9KreYpC6wLHbOooSVx9woIntBqMBX7VbWC%2BTuRZnq7r9XDvTL%2FKJU8P9KNR8FeKwE2pGpOIhgrdERe%2ByoAKpwyo7Rsh8NWCxEoeibM%2BpvWG4P0%3D--Q5lozVhMirX9tKDL--Qgh830oth3wAmrONP74eCg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"UvQZnFQ5yto_mS2P7spfGaScNnNOz00tInMTdi4CMBUFeF3K_qc35wPsBok2hDbn0Ay-lASoyF1_y95sZpKItw\" />\n    <meta name=\"csp-nonce\" content=\"BhDAFSaCvx7Cve76p24aUw==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": false,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [],
+      "launchpad_url": null,
+      "launchpad_requests": [],
+      "enqueued": []
+    },
+    "precedence_json_claim_token": {
+      "env": {
+        "SETUP_TOKEN": "expected-token"
+      },
+      "launchpad": "ok",
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup/platform_connection?token=wrong",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "token": "expected-token",
+            "claim_code": "dbc_body"
+          },
+          "expect": 403
+        }
+      ],
+      "responses": [
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-YHCrbVxlHPa1gNcueaqY5g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=I8DAOGADNZ88dU4nr%2FHf9Bfvr9kV3UFAgDMFHF68%2F16e5hGgVxxGk1Cq8JXXPWSx1JxaNeKRv%2B%2BBF3Jg5ClV4daMre%2F5wB%2FC4Kdp2Znw1JSeMQf%2FvJzqJd0k9RjeLTuMSLEeABpG6RrPGwPAcHzhSgrkSotABEHH%2F82g5zkU%2Bi5dqvf31IXLbbxCzNPV84x4kU44df6CWYzHNrEq4eI27OVGRr837joIor2F8kH562OorWCqPyRYA7ZG1KskB2iCOsUuNdlippcc3PpunMDQejMY2ImUEWpFlmoORXJM6clO0BoLW%2BFww6XpHkTvbNHadik%3D--X%2FLU1Uf%2B43vV7kzV--ato2GS0l1mVP8h9IR9nN5A%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"sXW-z3IRV4c6oj5tKahCPG3gOllMCpG8vhGCZzrpaEUvukitlO7aV-hgEqTa4XYVxEZcWGFgyXjJuIU7YmWIcQ\" />\n    <meta name=\"csp-nonce\" content=\"YHCrbVxlHPa1gNcueaqY5g==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 403,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-ylPlk9gYGdkIAdNlMq9oVQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=hLR0ZOOpkoGzyAOz34XmfF4x7RHescuO%2FcfdBjdy7k1CtxevwG%2BQLjEYXTJcLFaMYvSAqDbDF0ul6RspGoJUnKUhKq2X0pWCNRYt%2F5KjHxLW5%2F531rMmICqn71dzes6aExfUnb43JkQaP%2FAhZL9Mj72Nly7Zr2zsA%2Bk5bvGHpRstc9QbVP6%2BzO9UxiH8mApu%2Fr4Po2RZ59iM4em%2BfWvrSpcQwqmsWlXMak%2FNurVQOMueWUiMVtpvf2RqZZ3UnutwrHWmhbSNin4ZI1P48ZYuWNerHs5Px1DeyRzq8Ff%2BcnBj16ZI4ot%2FRK2zqmB3zv9hDrY%3D--lYqAVzVZPjeShnM2--16aRD3vSQ47t1mJohtwkJQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"_-i0E6D_arJT0olbJMdHETNH8N39SRf68QYcztzBrzNhJ0JxRgDnYoEQpZLXjnM4muGW3NAjTz6GrxuShE1PBw\" />\n    <meta name=\"csp-nonce\" content=\"ylPlk9gYGdkIAdNlMq9oVQ==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n<div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup/platform_connection?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n<h1>Setup is locked</h1>\n<p class=\"text-center\">To create the admin account, open this server from the dashboard of the service that hosts it.</p>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": false,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [],
+      "launchpad_url": "http://127.0.0.1:64206",
+      "launchpad_requests": [],
+      "enqueued": []
+    },
+    "precedence_json_claim_code": {
+      "launchpad": "ok",
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup/platform_connection?claim_code=dbc_query",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "claim_code": "dbc_body"
+          },
+          "expect": 200
+        }
+      ],
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-gFWIEYmMwEHcj3oIeptSJg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=77X4EEuWaroqZcN6MQReJpTc1MpjZrThgmV80cVjhxrjrRFEG2kR9SUvE6shNZWgNQlQ%2FxMgWpNSsMfj0hHydJ6%2Bj69ZCiA%2FcftMl3OLm6qv5xsmh%2FGPDIn34mRcE6BGOx8UeT0NLDUE7asXXojKnWA6x2MR2pg84AesjTUprK5zPSREMBDYM%2Bt1%2FXM3Ew5cK%2B0HR%2BbNf%2FleXABZZ0j10sAaCX9pVA2qJ8LNRn6QGQaaPzW7I5aKRB%2BhDB46LliAOcYLnFqoVnuPu37Ry3OaZx5kdoGWFfk7bb4oqVN12I6L10mnYIeEHHpw9zk%2FMxyiQlM%3D--TPhaijlYiJ6A%2BaV9--O7mRd0c5ttavpQMqqhVZcw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"dlegVCjg4PWAtGJtV7as8p7muJIdGq4Q5SD4LbR7UaCZH93jgNGE4D2HYqJab1fntAXeaM__GqveEij5yzI3aw\" />\n    <meta name=\"csp-nonce\" content=\"gFWIEYmMwEHcj3oIeptSJg==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"upCO6EVPBDF15qpzpcGu7d9WOyTpSGNxdwvb9-V0UTnHt3gf_vHV47eNjtl-mk_Ze_Xk_oCNPX5GtkM6Gfb-Fg\" />\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"73t7VZHdDRSKyOH3U4GQ0dclWCFuAzd3_spkXPFMIx-omECX0400lZDBnMKooRjkr9Q4-wLMdph6DcxSW-89RA\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-VmpBFQLjEV9yk8KOpSw/FA=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=2f9nJRtpoDox0zUZ4C2T%2FRHDx%2BbGUzZH56SYjQwID1o8ahaXD1LAIijw5uav7TOeLlnKzhU2IqEz%2Fj16pLXGu19dVL%2BKoLmCGMGLMwRA4l06P4Pe7zCYyzngjNQhPPX8XLWB0atKDFwlkxkz39Ig3lSG4jeYYhhDL8lzWnJwInakYFROpYI8DP7lWGpplVsNODHTInB9YJyCryyT%2FdOIL%2FhFWAzFZ4a0yyj8hbTv8qmQZHjU9JjqRj5zx%2F7fMeqMXU6pv2eObH4RhUXLdluBMcQy2ecGgiScnqVDdO1DhsGC6j2X6c2p9mJC2VCfh5ietuSq52uvzBGaU6PwGTEPJ9zdoIECxc5BsRlEK%2BFbxEXyhAEHB4%2FY0DB0C0qSzwVzT5OQuZlmjsCC6BivkAatecifC2zsKGufoZsKa9FeFVpWjPhpkZ0%3D--LiYrEofL92ZD51zP--CfccHgM5DmF0sbLLl%2FRV%2BQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<turbo-stream action=\"replace\" target=\"setup_platform_connection\"><template><turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <p class=\"form__info form__info--notice\" style=\"text-align: center;\">\n      Connected ✓ — market data and exchange proxies active\n    </p>\n</turbo-frame></template></turbo-stream><turbo-stream action=\"replace\" target=\"setup_identity_fields\"><template><div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" value=\"Owner\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"owner@example.com\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n</template></turbo-stream>",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token",
+            "platform_identity"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [
+        {
+          "id": 1,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_url",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"mgOxRfVzuZu8jk9NQU1VISZhRzxVbozQ\",\"h\":{\"iv\":\"+qG089GfSo+9ngrU\",\"at\":\"sdjWSA7octNJu9u6Uge9Lw==\"}}"
+        },
+        {
+          "id": 2,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_token",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"as/36avGu/+/Uriq\",\"h\":{\"iv\":\"PYPCp64zxmSpZHiC\",\"at\":\"DmlcgO4axQD5wQAozKyZZg==\"}}"
+        },
+        {
+          "id": 3,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_provider",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"oAj7bU+IXhICvAI=\",\"h\":{\"iv\":\"6iE1en7mtvZOY5kB\",\"at\":\"RXtmdOa4czSSlc36iameMQ==\"}}"
+        },
+        {
+          "id": 4,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "proxy_binance",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"ZGSoU7bcPmplpUYhcZM0/RgKXt2MivrEO5l5I57j2VGsNAg=\",\"h\":{\"iv\":\"S8spD3ND7NwJxXMy\",\"at\":\"uJvmWgWh3iyhH6j9uwcG8A==\"}}"
+        },
+        {
+          "id": 5,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "proxy_kraken",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"ingh1DfETOIzjuGZGYRFiWSmICYO3UDDd8I=\",\"h\":{\"iv\":\"TMle3wQkALVoeE51\",\"at\":\"FnbuK9oYzbe5VEw3+n20hw==\"}}"
+        },
+        {
+          "id": 6,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "platform_connected_at",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"mryTncPyGysV0R8XK2UbEEmhplU=\",\"h\":{\"iv\":\"7EFqtV3Htvz87m32\",\"at\":\"7fDU20TzdUTeENtlqRIdNw==\",\"e\":\"VVMtQVNDSUk=\"}}"
+        },
+        {
+          "id": 7,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "setup_sync_status",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"Awp473dTGg==\",\"h\":{\"iv\":\"mhbNJIrWqariDwvR\",\"at\":\"k1Ib1dWAXKCf3CcXMcYj1A==\"}}"
+        }
+      ],
+      "launchpad_url": "http://127.0.0.1:64207",
+      "launchpad_requests": [
+        {
+          "request_line": "POST /api/claim HTTP/1.1",
+          "content_type": "application/json",
+          "body": "{\"code\":\"dbc_query\"}"
+        }
+      ],
+      "enqueued": [
+        "Setup::SeedAndSyncJob"
+      ]
+    },
+    "precedence_json_null_claim_code": {
+      "launchpad": "ok",
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup/platform_connection?claim_code=dbc_query",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "claim_code": null
+          },
+          "expect": 200
+        }
+      ],
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-JxM4LBbyLLqq32Uu76ZB7g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=3567hJdpnC2ESrTBURQ88CKU4qv5ZeChhYA%2Frcyq%2BU33sB%2BkegaE76lC41lBtx9JS9xe8JBPXl%2FGE%2F%2B8nb7vcGLo1FdHaPzuTf8A0Rt9LeEkcLiRjF%2F1l1jaupT%2FA%2FDnLzgfEPSozmTx2lOaID4M7qdXz1m3OP3zC6SwoeFQ2kxljRYLZbt6FfC0tAkchJVkt83OR3scV3iQY1eYvKY2sGbARzbmyykZyspU9jgixOIlXkEKettaynPRUxBJm4cdLqE7dO7VfsA%2Fm4WkDRILvJX3e%2Fjy7vPPoSlnekRnFtVl8qqijTSpK3e%2BRJBJhdJ6tpo%3D--ahKdy71EAj2mD44Y--SyBfHttmmekdc3%2BCdodFgA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"PMGlk6w6L5NFghTauIBBbhzOqmI7lvhCNKp8B3-nBu2C1n_Ua6AKBFxNsnesofpmOTgRBDUW4ZzZ7wc4fDKxZQ\" />\n    <meta name=\"csp-nonce\" content=\"JxM4LBbyLLqq32Uu76ZB7g==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"bQGwBloR0ag5nnP3S769QsM3M_qNZ4zRwx5IZO-rGE791ea3VrSiJw1cSxtRHVuEcXGv07qQYklT64DjBl3LZg\" />\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"HhHWQQ7QS2gtSbIaC8nfxwWuQ_ol4wCi61N1vzad8PN5YerevIod2uvcPVFT5PyMtkBpXB8530DpJKjNgDo0BA\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-E/TE69ukEvUzGELoMb3EaQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=6QOxuhEtOc0RNSxz4ptbIyZr9N0Loi8uWVPErkRNWT0ysCaTdWCq3uIbmYyZ600YIWXV3dVsEX8P9USb8s8VC%2F2Og5llU1c21spJf6e62A82u8QleQZdettWidZ4nXXV%2FCHizR18S2VrfCsd7b6eBLoP7dG7l4eZRiUhpHv%2BKV%2BgTrMXnhv%2BqA2DJ9BiZEADSHk5M%2FyId%2BSrWaDv4bBUcHVK8%2BjkksqYvV0rdlJedi8MlAVOmddCcrbsqlYeoLrha0dVtOD9%2BtjN0KeD3GPT64O21Kgng70NG3jpAhB4%2F9Nauv%2BERYtwVC7ZlDjMi2jIHFXYioEso1mmJtj4CwGzeRoID%2Fjs0pbigiuX1Xrl4YtdjNHz%2FJXEmgg9Y0I6eBipqMLLbJmUbjQBK%2Bw4gvsCRY8Pks59XTWXusiLE0NDuS2s%2BxnRPIU%3D--Gx9MsCJqQpGNA8Pu--JtBEZU4dv3UWq3a1lzDNIA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<turbo-stream action=\"replace\" target=\"setup_platform_connection\"><template><turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <p class=\"form__info form__info--notice\" style=\"text-align: center;\">\n      Connected ✓ — market data and exchange proxies active\n    </p>\n</turbo-frame></template></turbo-stream><turbo-stream action=\"replace\" target=\"setup_identity_fields\"><template><div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" value=\"Owner\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"owner@example.com\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n</template></turbo-stream>",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token",
+            "platform_identity"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [
+        {
+          "id": 1,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_url",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"i39XBU6Li2so6H57C1aSYu2Dc8F+iC1Q\",\"h\":{\"iv\":\"tnZTguGA9dXiUjjV\",\"at\":\"Zc/x7rfghk6NTJDcGaN6dg==\"}}"
+        },
+        {
+          "id": 2,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_token",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"+u0EHthA7+ndacjm\",\"h\":{\"iv\":\"zL8Xp0xK3jcqQiqz\",\"at\":\"osbF5PC8bojiDizGig4lCQ==\"}}"
+        },
+        {
+          "id": 3,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_provider",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"rwiXE2AMTeHTKLE=\",\"h\":{\"iv\":\"28kTf53opeqxx/PO\",\"at\":\"qL2E6HCiSLvLSPw1BeC2sA==\"}}"
+        },
+        {
+          "id": 4,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "proxy_binance",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"xkU7DdgBwEYz+oPNv06YhkAthkPcla9MzVJz/sgscjF2vuA=\",\"h\":{\"iv\":\"UDai8d789h8hKfgf\",\"at\":\"UtvIZ26BUUFUiosTUKxuOg==\"}}"
+        },
+        {
+          "id": 5,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "proxy_kraken",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"iV/wOo+aRTu6ShELQHELGyEHbktx9PYLrA8=\",\"h\":{\"iv\":\"Isz0aHdKXWfQ98Sv\",\"at\":\"vQ96mwF4vDl+pSA8lHqruQ==\"}}"
+        },
+        {
+          "id": 6,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "platform_connected_at",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"wwKjnVGzFqAMAx4aa/RLbG4dwgA=\",\"h\":{\"iv\":\"/JnNnL3Nerfw1EPX\",\"at\":\"IVDNXbAFPEYgPFzR+jMwxQ==\",\"e\":\"VVMtQVNDSUk=\"}}"
+        },
+        {
+          "id": 7,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "setup_sync_status",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"0KhAH3O03Q==\",\"h\":{\"iv\":\"YTKfZjKFc7bCC2Af\",\"at\":\"Zmrox6qZmafxeqj2Y7cQjg==\"}}"
+        }
+      ],
+      "launchpad_url": "http://127.0.0.1:64209",
+      "launchpad_requests": [
+        {
+          "request_line": "POST /api/claim HTTP/1.1",
+          "content_type": "application/json",
+          "body": "{\"code\":\"dbc_query\"}"
+        }
+      ],
+      "enqueued": [
+        "Setup::SeedAndSyncJob"
+      ]
+    },
+    "precedence_form_claim_code": {
+      "launchpad": "ok",
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup/platform_connection?claim_code=dbc_query",
+          "form": {
+            "claim_code": "dbc_body"
+          },
+          "csrf": "header",
+          "headers": {},
+          "expect": 200
+        }
+      ],
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-gqkE+UEgIxFWuOv2JrWq1A=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=KD%2Bs%2B3K5LNTIErxnTFru%2FvewRTRLZ%2FAR0F7QmS3c1FOWztlNTK1%2FTuVvvuEljk%2Bv8CQsWrbGoIPCsoIawV3yZpbXClCukPljZ59bOJnyZ2pXEi7BUvL1tvxp2loP%2FIokraExD3MNXXJpzt1KilO%2Bo4TTp0KJuMIai0bChKPtVXPyjjCECtRmm80bbTWH2wrxbIW3XLKT07YUmI9EbkvjNZ99144nyz%2BSJolLGAMfFOcDPKcjKYGYBo7pZTU6iGGPMIRF9IAOy5YEv%2B8mr3agpSZxTVo2RjUYzYST9IzAnQTO%2FAyMgMi%2BNDU9U5mBB%2BNdw4U%3D--C81nfYN%2B4apmiFFK--WhAhF3FJ3cecDZ4tmA6PZw%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"s2c0c6OYV3ddZwCyeeRkEzCqQo0CLmPVzHHlrDJtRWYt2gWc8sc_ucxWQvkv5AoA24IyFWAf34ECMRbFN4aJRQ\" />\n    <meta name=\"csp-nonce\" content=\"gqkE+UEgIxFWuOv2JrWq1A==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"HrxcSc_EtrMkwcRH4rqXaxrE4T7CBcbFqwEmmrFQjPvc5v0k2AdiW60uswT4meiMoJiWu4mXOY3ixuQiYggxSQ\" />\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"z5LqIJFzy8F_Rj8kUYdD8uhnWeSIh9J5RPHKytjA_3uXi8ZBWXH5TfgEciT6ekWNH3l2rwPgzEM32owtoYdYeQ\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/vnd.turbo-stream.html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-zt3BqAxKsHJmUwUxoOcBCg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=u%2F4TojteBpa4K9WPe8tVubJhlVX93agwfVY37r1JGLr61PkrycULMiclVGem2I9cMwdzPPwdAgs7Ll9b9N1Aoswe0zA8m667Y4112%2FmcJzH4G4z7W4h129NXEPwoSP49CljuCdWIEyiMuSBZGNtG5R9PoWik19kD2RFyCwj39fTVezqp5LOUu6fsuzhFRS8VKqv%2FLQxRVdptxo6kOgCRNTQ6Q2zufPYNZzibgKly4JkNC7j2B%2BFjl7T2i2ROuWkyrvv1NgiBtuyy6hugfh1FQVHTK25vfmhRejKeoIzEPreNsGgXGJObb8dV0s3SKm4fx3FGjJU5yflpV5mK9dJZWWYE3Qn4Fd8o08KKkpd534Z%2BBq43q06k26i9TJB1%2FxqOVM6XX6bkeMHQM6JHRBrD8W4XgHCAQzUg577Vo73SKSb%2BoT5k7j0%3D--%2BCl1GLq62YZ8lbAY--qicMqEoXSu%2BbXm31io3ZRQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<turbo-stream action=\"replace\" target=\"setup_platform_connection\"><template><turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <p class=\"form__info form__info--notice\" style=\"text-align: center;\">\n      Connected ✓ — market data and exchange proxies active\n    </p>\n</turbo-frame></template></turbo-stream><turbo-stream action=\"replace\" target=\"setup_identity_fields\"><template><div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" value=\"Owner\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"owner@example.com\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n</template></turbo-stream>",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token",
+            "platform_identity"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [
+        {
+          "id": 1,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_url",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"rThFQ1wg+2uNhIdvGxeHM5sjsMgBU8wN\",\"h\":{\"iv\":\"Fdco47rSDjZz/RGg\",\"at\":\"HAUjhCg2L0VvTM1PS3KMhA==\"}}"
+        },
+        {
+          "id": 2,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_token",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"sdF5PANqsoJIUBTp\",\"h\":{\"iv\":\"WyUG0PN6UKmgqmd/\",\"at\":\"htiiTbgSwoXR4gLNAGQmfA==\"}}"
+        },
+        {
+          "id": 3,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "market_data_provider",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"k/NgvF2ETTA1+yo=\",\"h\":{\"iv\":\"CK2G5SvUNzN14MHM\",\"at\":\"0vfDQ6s9XEAmh8/xt5DcDA==\"}}"
+        },
+        {
+          "id": 4,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "proxy_binance",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"lQBS65WtbqTpBVXyiZ/d0vdZ+yBanynd11S2XImOVH8I9JU=\",\"h\":{\"iv\":\"FyOx0fjRZRdiKSl6\",\"at\":\"qNLV6+kfYRaWzHyhxhgCZQ==\"}}"
+        },
+        {
+          "id": 5,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "proxy_kraken",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"zIjAnnskHqiclC6PqF8CKM+FZG+TeyX4SpA=\",\"h\":{\"iv\":\"J5BQs6QdDWbKoY8H\",\"at\":\"OcnsCaFhjdtjfPOwTmCzLw==\"}}"
+        },
+        {
+          "id": 6,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "platform_connected_at",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"LI9KHTndYwdluqom61cMqBMcCO8=\",\"h\":{\"iv\":\"3Y8hnWrWyuZZCMai\",\"at\":\"DfsUVKtmohQnZVutXiDk4w==\",\"e\":\"VVMtQVNDSUk=\"}}"
+        },
+        {
+          "id": 7,
+          "created_at": "2026-09-10 12:00:30.123456",
+          "key": "setup_sync_status",
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "value": "{\"p\":\"8NfZ2mIvaQ==\",\"h\":{\"iv\":\"WZLu3B2wVE/SLVxd\",\"at\":\"45Qlq04SWkEKSgyZbm7eGQ==\"}}"
+        }
+      ],
+      "launchpad_url": "http://127.0.0.1:64211",
+      "launchpad_requests": [
+        {
+          "request_line": "POST /api/claim HTTP/1.1",
+          "content_type": "application/json",
+          "body": "{\"code\":\"dbc_query\"}"
+        }
+      ],
+      "enqueued": [
+        "Setup::SeedAndSyncJob"
+      ]
+    },
+    "precedence_json_shallow_user": {
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup?user%5Bname%5D=Query&locale=de",
+          "form": null,
+          "csrf": "header",
+          "headers": {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          "json": {
+            "locale": "en",
+            "user": {
+              "name": "Body",
+              "email": "body@example.com",
+              "password": "Correct-horse-9"
+            }
+          },
+          "expect": 422
+        }
+      ],
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-WC9a+fl8R7shbd2Xb1OOwQ=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=lWOsbUhrv9g2Cp5YW29rZFqJZGUwfClhDdEA834uYAvYwAy%2F8dmEKCWAP08HJ2TMf7mtaxRN7VEFr87VW2g3RB3o6BbrE%2Bj57sah6FyFrffySnjUajVxfywWRRwvJZ0nXMMFnPjvuASGoubxrBfNzqaJR10W9QpiFt79eyorgvFQnaLB1b9L5m4S%2FApVvbGYrWIWBMnHCm8M1hnO00Aa67QSGjObsoHW2fiHDDjZL0t%2BNdQGg%2Be5XRjCHqQkfxbAbAP8Np9PrxTpw8ruKZ6IOvSNEaF8%2FeBXZjuv5zwcWkisqxA8f0efORcyKOlgdcwEwNk%3D--qXuhYN7%2F6BoYS1IV--9WF5yqs66LWCXsYD1W0iEA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"nwtR-vIiaZOpwMLxmTl51ITfkAM6Tozfgez7iJxlfPuf1ow3v5wB3-mOncX7xNlKYKSoU74V2OlQiLR-qWNWVg\" />\n    <meta name=\"csp-nonce\" content=\"WC9a+fl8R7shbd2Xb1OOwQ==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"CV4erQM2ZkXp73XVYHd1PLecj9t_hAs2evw37CuQV5iv15a2X3gMbyanmgC8to4TMV1QnH_MqBGdx08G-XUtvw\" />\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"EpF5h2vMXrb7Lnh29iXxEtQUW8NrfKk2SaKk4kuu59tbU_9KsvIMHb0EFv_HD2X5JiBCKASVlsp3rsYE_4iDLQ\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 422,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-2JBPPL51mgKarsYjIATIwg=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=EAI7GL9Xg6ko5JBFBaMrqnllppeF5mIP4ZZYnVZ%2BhUKp%2FOWrruCYQuikZXIkc4IHqy%2FSwh4VpnUECT7YsRoZI66hrle0Yg2pbmanpQL1wvgaDuY0N4zoGAkg%2FJWqpd6ND3xAGvub5d7wHhXRbp3LUwDDrrDCWeCo2nZ8CxaYGyMFLJ5DHkMTLhwbqpg4WIlBm354liAwyPXMixmD%2BkDmYFFwXvru9Sj7ZuvKU71m4sR%2FPNyzsZi6wjrtO5pvmvz4XLP85irFC4UvGqiW3Obl%2Bbk%2FLF922d6n1R%2BN%2F2RTCBJGCT7t%2BnrDW4yCYqBTJmHDLsI%3D--4njIHzjjhPjQCNyL--fEetgxrmvVq4hi%2BDaOkVEA%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"de\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"6sfeqria0fch8T3LpcwfxO9xqBlrCfnJ8-63rcWj9EfqGgNn9SS5u2G_Yv_HMb9aCwqQSe9Srf8iivhb8KXe6g\" />\n    <meta name=\"csp-nonce\" content=\"2JBPPL51mgKarsYjIATIwg==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=de\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"WZUn7v3wR0hjqdMYJFT15g1Cbm9gWnvt2L5TlzfV6dH_HK_1ob4tYqzhPM34lQ7Ji4OxKGAS2Mo_hSt95TCT9g\" />\n    <div class=\"form__errors\">\n      <ul>\n          <li>E-mail darf nicht frei bleiben</li>\n          <li>Passwort darf nicht frei bleiben</li>\n          <li>E-mail E-Mail ungültig!</li>\n      </ul>\n    </div>\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"de\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  Deutsch <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=en&amp;user%5Bname%5D=Query\">🇬🇧 English</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl&amp;user%5Bname%5D=Query\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr&amp;user%5Bname%5D=Query\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es&amp;user%5Bname%5D=Query\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt&amp;user%5Bname%5D=Query\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it&amp;user%5Bname%5D=Query\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl&amp;user%5Bname%5D=Query\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru&amp;user%5Bname%5D=Query\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs&amp;user%5Bname%5D=Query\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk&amp;user%5Bname%5D=Query\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da&amp;user%5Bname%5D=Query\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv&amp;user%5Bname%5D=Query\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el&amp;user%5Bname%5D=Query\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg&amp;user%5Bname%5D=Query\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin-Konto</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" value=\"Query\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name ist erforderlich\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"E-Mail ist erforderlich\" />\n    <label class=\"form__label\" for=\"user_email\">E-mail</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n                 <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large is-invalid\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Passwort ist erforderlich\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\">\n             <div class=\"form__info form__info--invalid\">Darf nicht frei bleiben</div>\n\n    <label class=\"form__label\" for=\"user_password\">Passwort</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">Mindestens 8 Zeichen</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Enthält einen Großbuchstaben</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Enthält einen Kleinbuchstaben</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Enthält eine Ziffer</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Enthält ein Sonderzeichen</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Weiter\" class=\"button button--sky button--large\" data-disable-with=\"Weiter\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Hast du ein Deltabadger.com-Abonnement?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection?locale=de\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"vrVSly7FMWiHM7BA9FmtWAyw2jVCn63F6xA7LGqhc-b3d9Ra9_tjw8EZ3snFczmz_oTD3i12kjnVHFnK3ocXEA\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Verbindungscode</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Verbinden\" class=\"button button--sky button--large\" data-disable-with=\"Verbinden\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": false,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [],
+      "launchpad_url": null,
+      "launchpad_requests": [],
+      "enqueued": []
+    },
+    "precedence_form_shallow_user": {
+      "seed": {
+        "users": [],
+        "app_configs": []
+      },
+      "steps": [
+        {
+          "method": "GET",
+          "path": "/setup",
+          "headers": {}
+        },
+        {
+          "method": "POST",
+          "path": "/setup?user%5Bname%5D=Query",
+          "form": {
+            "locale": "en",
+            "user[name]": "Owner",
+            "user[email]": "owner@example.com",
+            "user[password]": "Correct-horse-9"
+          },
+          "csrf": "header",
+          "headers": {},
+          "expect": 422
+        }
+      ],
+      "responses": [
+        {
+          "status": 200,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "max-age=0, private, must-revalidate",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-gqHnrY0zokLunTxtTa96Xw=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=hvxJ8lAwUpx9E5zxMkwXBOT%2FrVtWtzKf8q3oS0gxYxv1W%2F4rKVFauPc7VhNQCwJ0SpxHc5AOXiHIFVnLxdUWmLXphucUgihve9Q72VxHeO01IJHRFXWVRVpv23m%2FWdjogesFQitzr2c3GQyjPsz9fcWmRgXQypPhIXtWY6fSVndD4%2Bs9Fy%2B2q9TzTzB2oJdbs37Yk3YV1HLAZ7LYyM99qjN0MDrFlxHEVJGydRk8GP6kfgt4mkEzHRE7RSVBRLEdGjmSiqPzDx9OMUf0%2FV7WxOt8IkjtsltUrEEMfOiKlr3Nzgs%2BMCLoVt%2Bzv0vJHf4HbGY%3D--N6sDfuQd8sbMVWQN--L8pGMKSqArUx4vNnw7vOYg%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"oGMApHHHH7yXm85HOpaPDNwrJuzk_EUy7AdmKoXUxWvdiAW1f-SEIh8TXgymy7ZCDg1nS-4yFEIy7JEoyVAC5Q\" />\n    <meta name=\"csp-nonce\" content=\"gqHnrY0zokLunTxtTa96Xw==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"tXYqEzJj0QtD9pCigDJZgigW6EMpfvo08oO6q1raYg-ejJd8e8PprwP5GWjM7sYH9mKqQCZ5wOZom6U-eJEwig\" />\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n    <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\" />\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"NRJhzpD9ll7KU61v-8ksCkaWEdvfPLbY_5uk5Eik9dAZdITMlBOJpFNXzUEYIobNH_B8_V50Y9o4RlPjXCIr6w\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": true,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        },
+        {
+          "status": 422,
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+            "x-frame-options": "SAMEORIGIN",
+            "x-xss-protection": "0",
+            "x-content-type-options": "nosniff",
+            "x-permitted-cross-domain-policies": "none",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "content-security-policy-report-only": "default-src 'self'; font-src 'self' data:; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-h1RudufNUGMLbXp+fb3e+g=='; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; report-uri /csp-report",
+            "set-cookie": "_deltabadger_session=woM8XjKp3BCRxiRwp7F5dducGGZWAKdgbYIoOz%2BwUC9hm3EIjjR6nmyL1GLtJnOBbmNe47JAH5HkmS0qfsn83zsWobMvxG0u0PV0DsOrI7HW5Mr6vJvsLEklYH3SF63WtdsUq%2BNbpjiIXxiOWwa4v2b4LAO6CPk3UCU2ZFxZfq3Qe6FFKjssmvSnYsK4N33EtKhJdJPViVti5Jjpp13plbEw4LCWMnpcq6dNcA0GPscwun6Zj177bkKN6nlAJ6vEEPavOh2MIYiknVTKnFxCD8EP4sFlSn7LFPKnr53mVxHeQRvkfoUdNykTBWeDN4E3Jzw%3D--xXXWChVPyJy0njpj--uNoy3HOS7Gb6vSbxq3rHbQ%3D%3D; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax"
+          },
+          "body": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\">\n    <meta content=\"ie=edge\" http-equiv=\"X-UA-Compatible\">\n    <meta name=\"theme-color\" content=\"#f5f6f8\" id=\"theme-color-meta\">\n\n    <title>Deltabadger</title>\n    <link rel=\"icon\" type=\"image/png\" href=\"/assets/favicon/favicon-96x96-2d99d22130bb2eb5a0523736c4588ff38424f50d898df871a202901389aca0c9.png\" sizes=\"96x96\" />\n<link rel=\"icon\" type=\"image/svg+xml\" href=\"/assets/favicon/favicon-232eded70f53bcc13dc8a40b37bf422351e92c05b350764cc68323b210bba2fe.svg\" />\n<link rel=\"shortcut icon\" href=\"/assets/favicon/favicon-38e7ac1c77ae19ce42fd46180d305fe6f0eb6751dd5633c0c565282bf48bedeb.ico\" />\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon/apple-touch-icon-c1b2b25ffa99bd757180bd741f9357e536b89321fe8d97c83dbcd91e6fdaeaee.png\" />\n<meta name=\"apple-mobile-web-app-title\" content=\"Deltabadger\" />\n<link rel=\"manifest\" href=\"/assets/favicon/site-155143d047c04c0546585add043053205279095dbb89cd86198968415b932a0a.webmanifest\" />\n\n\n    <link rel=\"stylesheet\" href=\"/assets/application-968350348a11e8e8745bb923147f1caddd03be17103d6422b9d0cd3559b5b0fd.css\" media=\"all\" data-turbo-track=\"reload\" />\n    <script src=\"/assets/application-bc825f57c6563cb57d8205d65645573a00b8a014d9de45382e7884daa9e0e407.js\" data-turbo-track=\"reload\" defer=\"defer\"></script>\n\n    <meta name=\"csrf-param\" content=\"authenticity_token\" />\n<meta name=\"csrf-token\" content=\"4JR3n3I718yVjbCRWwFH--HI2RPOYtciEf6Ar0oxXjadf3KOfBhMUh0FINrHXH61M-6YtMSshlLPFXetBrWZuA\" />\n    <meta name=\"csp-nonce\" content=\"h1RudufNUGMLbXp+fb3e+g==\" />\n  </head>\n\n  <body data-controller=\"hotwire-animations\">\n    <div data-tauri-drag-region class=\"titlebar-drag-region\"></div>\n    <div class=\"devise\">\n\n      <div class=\"devise__row\">\n        <div class=\"devise__col\">\n          <form data-turbo=\"false\" data-controller=\"form--html5-validations form--label-animations form--password-strength\" data-form--password-strength-success-class-value=\"form__validation--success\" data-form--password-strength-length-pattern-value=\".{8,}\" data-form--password-strength-uppercase-pattern-value=\"(?=.*[A-Z])\" data-form--password-strength-lowercase-pattern-value=\"(?=.*[a-z])\" data-form--password-strength-digit-pattern-value=\"(?=.*\\d)\" data-form--password-strength-symbol-pattern-value=\"(?=.*[\\W_])\" action=\"/setup?locale=en\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"y5GuL-UGEohDYrpgOZGI8Ax4_7jyKDYtc6mw03f2aAzgaxNArKYqLANtM6p1TRd10gy9u_0vDP_psa9GVb06iQ\" />\n    <div class=\"form__errors\">\n      <ul>\n          <li>Email can&#39;t be blank</li>\n          <li>Password can&#39;t be blank</li>\n          <li>Email Email invalid!</li>\n      </ul>\n    </div>\n\n  <input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"en\" />\n\n  <svg class=\"signet\" fill=\"none\" viewbox=\"0 0 36 26\" xmlns=\"http://www.w3.org/2000/svg\">\n<path class=\"fill--logo\" clip-rule=\"evenodd\" d=\"M2.5 11a1 1 0 0 1 1 1.8Q2 13.8 2 14.5q0 .2.2.5.2.5.7.8 1.3 1 3.4 1.6Q10.9 19 18 19c4.6 0 8.8-.6 11.7-1.6q2.2-.7 3.4-1.6l.7-.7.2-.6q.2-.6-1.5-1.7a1 1 0 0 1 1-1.7q2.3 1.3 2.5 3.4 0 .8-.4 1.4l-.1.2C32 22.3 25.5 26 18 26S4 22.3.4 16a3 3 0 0 1-.4-1.5c0-1.5 1.1-2.6 2.5-3.4m3 8.3A18 18 0 0 0 18 24q7.5-.1 12.5-4.7h-.2Q25.3 21 18 21T5.7 19.3z\"></path>\n<path class=\"fill--logo\" d=\"M12.7 0c1.3 0 2 1 2.5 1.5q.5.5.3 1t-.8.5h-1.2s1.1.5 1.6 1.4c0 0 1 2.5 1.5 3.2q.5 1.2-.7 1.4c-.8 0-1.6-1.1-1.9-1.5v6.6q-.1.8-1 .9a1 1 0 0 1-.9-.7q0-.7-.4-1.5 0-.6-.8-.8a1 1 0 0 0-1 .5l-1 3q-.3.5-1 .5-.8 0-.9-.9V11q-1 0-1-1V8c0-3.5 2-5.7 3.5-6.5C10.2.8 11 0 12.7 0M18 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4M23 7a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0v-3.3A2 2 0 0 1 23 7M28 3a2 2 0 0 1 1 3.7V14a1 1 0 0 1-2 0V6.7A2 2 0 0 1 28 3\"></path>\n</svg>\n\n\n  <div data-controller=\"dropdown\" data-action=\"click->dropdown#toggle\" data-dropdown-target=\"wrapper\" class=\"sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down\">\n  English <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n  <div class=\"dropdown\">\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=de&amp;user%5Bname%5D=Query\">🇩🇪 Deutsch</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=nl&amp;user%5Bname%5D=Query\">🇳🇱 Nederlands</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=fr&amp;user%5Bname%5D=Query\">🇫🇷 Français</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=es&amp;user%5Bname%5D=Query\">🇪🇸 Español</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pt&amp;user%5Bname%5D=Query\">🇵🇹 Português</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=it&amp;user%5Bname%5D=Query\">🇮🇹 Italiano</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=pl&amp;user%5Bname%5D=Query\">🇵🇱 Polski</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=ru&amp;user%5Bname%5D=Query\">🇷🇺 Русский</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=cs&amp;user%5Bname%5D=Query\">🇨🇿 Čeština</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sk&amp;user%5Bname%5D=Query\">🇸🇰 Slovenčina</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=da&amp;user%5Bname%5D=Query\">🇩🇰 Dansk</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=sv&amp;user%5Bname%5D=Query\">🇸🇪 Svenska</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=el&amp;user%5Bname%5D=Query\">🇬🇷 Ελληνικά</a>\n      <a class=\"dropdown__item\" data-turbo=\"false\" href=\"/setup?locale=bg&amp;user%5Bname%5D=Query\">🇧🇬 Български</a>\n  </div>\n</div>\n\n\n  <h1>Admin Account</h1>\n\n  <div id=\"setup_identity_fields\" style=\"display: contents;\">\n  <div class=\"form__row form__row--input\">\n    <input type=\"text\" name=\"user[name]\" id=\"user_name\" value=\"Query\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^\\p{L}+(\\s+\\p{L}+)*$\" data-html5-error-message=\"Name is required\" />\n    <label class=\"form__label\" for=\"user_name\">Name</label>\n  </div>\n\n  <div class=\"form__row form__row--input\">\n    <input type=\"email\" name=\"user[email]\" id=\"user_email\" value=\"\" autocomplete=\"username\" class=\"form__input form__input--large\" required=\"required\" pattern=\"^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$\" data-html5-error-message=\"Email is required\" />\n    <label class=\"form__label\" for=\"user_email\">Email</label>\n  </div>\n</div>\n\n\n  <div class=\"form__row db-has-unmask\" data-controller=\"form--password-unmask\">\n                 <input autocomplete=\"new-password\" class=\"form__input form__input--has-icon form__input--large is-invalid\" data-form--password-unmask-target=\"input\" data-form--password-strength-target=\"input\" data-action=\"input-&gt;form--password-strength#checkPasswordStrength\" data-html5-error-message=\"Password is required\" required=\"required\" pattern=\"(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).{8,}\" id=\"user_password\" type=\"password\" name=\"user[password]\">\n             <div class=\"form__info form__info--invalid\">Can&#39;t be blank</div>\n\n    <label class=\"form__label\" for=\"user_password\">Password</label>\n\n    <div class=\"db-unmask\" data-action=\"click->form--password-unmask#toggle\">\n      <svg class=\"db-svg--mi db-svg--mi-visibility\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 4.5C7 4.5 2.7 7.6 1 12a11.8 11.8 0 0022 0c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z\"></path>\n</svg>\n\n      <svg class=\"db-svg--mi db-svg--mi-visibility-off\" viewbox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0zm0 0h24v24H0z\" fill=\"none\"></path>\n<path d=\"M12 7a5 5 0 014.6 6.8l3 3c1.5-1.3 2.7-3 3.4-4.8A11.8 11.8 0 008 5.2l2.2 2.2C10.7 7 11.4 7 12 7zM2 4.3l2.3 2.2.4.5c-1.6 1.3-3 3-3.7 5a11.8 11.8 0 0015.4 6.7l.4.4 3 2.9 1.2-1.3L3.3 3 2 4.3zm5.5 5.5l1.6 1.6-.1.6a3 3 0 003.7 3l1.5 1.5a5 5 0 01-6.7-6.7zm4.3-.8l3.2 3.2V12a3 3 0 00-3-3h-.2z\"></path>\n</svg>\n\n    </div>\n</div>\n  <div data-form--password-strength-target=\"requirementsList\" class=\"hidden\">\n    <ul class=\"password-requirements\">\n      <li class=\"form__validation\" data-form--password-strength-target=\"length\">At least 8 characters</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"uppercase\">Contains an uppercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"lowercase\">Contains a lowercase character</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"digit\">Contains a digit</li>\n      <li class=\"form__validation\" data-form--password-strength-target=\"symbol\">Contains a symbol</li>\n    </ul>\n  </div>\n\n  <input type=\"submit\" name=\"commit\" value=\"Continue\" class=\"button button--sky button--large\" data-disable-with=\"Continue\" />\n</form>\n<turbo-frame style=\"width: 100%;\" id=\"setup_platform_connection\">\n    <details>\n      <summary>Have a Deltabadger.com subscription?</summary>\n\n      <form data-turbo-frame=\"setup_platform_connection\" data-controller=\"form--html5-validations form--label-animations\" action=\"/setup/platform_connection\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"g29wFU5JEzLQqqrkebOQPC_9NK-5DmCPZzNXioymUeqvCZUXSqcMyEmuysqaWDr7dptZiThGtY2g7qCNmCCP0Q\" />\n\n        <div class=\"form__row form__row--input\">\n          <input type=\"text\" name=\"claim_code\" id=\"claim_code\" class=\"form__input form__input--large\" required=\"required\" autocomplete=\"off\" />\n          <label class=\"form__label\" for=\"claim_code\">Connect code</label>\n        </div>\n\n        <input type=\"submit\" name=\"commit\" value=\"Connect\" class=\"button button--sky button--large\" data-disable-with=\"Connect\" />\n</form></details></turbo-frame>\n\n        </div>\n      </div>\n      <div id=\"flash\" class=\"flash-stack\">\n        \n      </div>\n\n    </div>\n  </body>\n</html>\n",
+          "session_changed": false,
+          "session_keys": [
+            "_csrf_token"
+          ]
+        }
+      ],
+      "users": [],
+      "app_configs": [],
+      "launchpad_url": null,
+      "launchpad_requests": [],
+      "enqueued": []
     }
   }
 }

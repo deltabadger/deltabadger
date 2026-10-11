@@ -49,17 +49,16 @@ pub fn token_matches(given: &str, expected: &str) -> bool {
     !crate::ruby::blank(expected) && bool::from(Sha256::digest(given.as_bytes()).ct_eq(&Sha256::digest(expected.as_bytes())))
 }
 
-/// Body parameters override the query, including an explicit JSON null.
+/// Entry has already applied Rails' shallow, query-winning merge for every setup route.
 fn parameter(params: &Params, name: &str) -> serde_json::Value {
-    params.json.as_ref().and_then(|body| body.get(name)).cloned()
-        .unwrap_or_else(|| params.form(name).or_else(|| params.query(name)).map_or(serde_json::Value::Null, |s| s.into()))
+    params.json.as_ref().and_then(|parameters| parameters.get(name)).cloned().unwrap_or(serde_json::Value::Null)
 }
 
 /// SetupController#require_setup_token: `Some(answer)` when the request stops here, the locked page or the
 /// redirect that takes the token out of the URL. Without SETUP_TOKEN in the environment nothing happens.
 fn require_setup_token(ctx: &Ctx) -> Result<Option<Response>, WebError> {
     let Some(expected) = ctx.app.config.setup_token.as_deref() else { return Ok(None) };
-    // params[:token].presence: the form's value over the query's, a blank one is none.
+    // params[:token].presence: a blank merged value falls back to the session.
     let token = parameter(&ctx.params, "token");
     let param = match token {
         serde_json::Value::Null | serde_json::Value::Bool(false) => None,
@@ -279,21 +278,15 @@ struct Submitted {
 }
 
 fn submitted(params: &Params) -> Option<Submitted> {
-    if let Some(value) = params.json.as_ref().and_then(|body| body.get("user")) {
-        let user = value.as_object().filter(|user| !user.is_empty())?;
-        // Strong parameters keep only these scalar attributes; ActiveModel casts booleans to t/f.
-        let field = |name: &str| match user.get(name)? {
-            serde_json::Value::String(s) => Some(s.clone()),
-            serde_json::Value::Number(n) => Some(n.to_string()),
-            serde_json::Value::Bool(b) => Some(if *b { "t" } else { "f" }.into()),
-            _ => None,
-        };
-        return Some(Submitted { name: field("name"), email: field("email"), password: field("password") });
-    }
-    if !params.form.iter().any(|(key, _)| key.starts_with("user[")) {
-        return None;
-    }
-    let field = |name: &str| params.form(&format!("user[{name}]")).map(str::to_string);
+    let parameters = params.json.as_ref()?;
+    let user = parameters.get("user")?.as_object().filter(|user| !user.is_empty())?;
+    // Strong parameters keep only these scalar attributes; ActiveModel casts booleans to t/f.
+    let field = |name: &str| match user.get(name)? {
+        serde_json::Value::String(s) => Some(s.clone()),
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        serde_json::Value::Bool(b) => Some(if *b { "t" } else { "f" }.into()),
+        _ => None,
+    };
     Some(Submitted { name: field("name"), email: field("email"), password: field("password") })
 }
 

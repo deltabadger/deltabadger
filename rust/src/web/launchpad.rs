@@ -1,10 +1,11 @@
 //! The platform claim: Clients::Launchpad#claim (POST <LAUNCHPAD_URL>/api/claim, 5 s to connect, 10 s per read) and
-//! Platform::RedeemClaim's reading of the answer, with Rails' messages. What the code, the answer and the market-data
-//! token are never goes to a log: only the sentence shown to the user leaves this module.
+//! Platform::RedeemClaim's reading of the answer. Stricter than Rails: HTTP errors use fixed messages, never
+//! upstream bodies or request URLs, which may contain credentials. Claim diagnostics are never logged.
 use serde_json::{Map, Value};
 use std::time::Duration;
 
 pub const INVALID_CLAIM: &str = "That claim code is invalid or has expired.";
+pub const CLAIM_FAILED: &str = "Deltabadger could not complete the claim. Please try again.";
 pub const INVALID_MARKET_DATA: &str = "Deltabadger returned incomplete market data configuration. Please try again.";
 pub const RETRYABLE: &str = "Unable to reach Deltabadger. Please try again.";
 pub const AMBIGUOUS: &str = "Deltabadger may already have used this one-time code. Generate a fresh code from the dashboard and try again.";
@@ -76,17 +77,10 @@ pub fn url(base: &str) -> String {
 }
 
 /// One answer as Clients::Launchpad and RedeemClaim read it. `content_type` is the answer's Content-Type.
-pub fn read(status: u16, content_type: Option<&str>, body: &str, url: &str) -> Result<Claim, Failure> {
-    // Faraday's raise_error runs before the JSON parser: an error status keeps its raw body (Client#with_rescue).
+pub fn read(status: u16, content_type: Option<&str>, body: &str) -> Result<Claim, Failure> {
+    // Error bodies can echo a claim token or credentials, even when they are JSON or plain text.
     if (400..600).contains(&status) {
-        if status == 401 {
-            return Err(message(INVALID_CLAIM));
-        }
-        if crate::ruby::blank(body) {
-            return Err(message(format!("the server responded with status {status} for POST {url}")));
-        }
-        let html = regex::Regex::new(r"(?i)<\s*html").map(|re| re.is_match(body)).unwrap_or(false);
-        return Err(message(if html { format!("HTTP {status}") } else { body.to_string() }));
+        return Err(message(if status == 401 { INVALID_CLAIM } else { CLAIM_FAILED }));
     }
     // Faraday's JSON response middleware parses a `…json` content type only, and a blank body as nil.
     let json = content_type.and_then(|t| t.split(';').next()).is_some_and(|t| t.trim().to_ascii_lowercase().ends_with("json"));
@@ -144,31 +138,32 @@ pub async fn claim(base: &str, code: Value) -> Result<Claim, Failure> {
             return Err(message(format!("Unreadable response (HTTP {status})")));
         }
     }
-    read(status, content_type.as_deref(), &String::from_utf8_lossy(&body), &url)
+    read(status, content_type.as_deref(), &String::from_utf8_lossy(&body))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    const URL: &str = "http://launchpad.test/api/claim";
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
 
     #[test]
     fn answers_read_as_rails_reads_them() {
         let ok = r#"{"identity":{"name":"Owner","email":"o@example.com"},"market_data":{"url":"https://d.example","token":"t"},"proxies":{"Binance":"http://p","n":1}}"#;
-        assert_eq!(read(200, JSON, ok, URL), Ok(Claim { market_url: "https://d.example".into(), market_token: "t".into(),
+        assert_eq!(read(200, JSON, ok), Ok(Claim { market_url: "https://d.example".into(), market_token: "t".into(),
             proxies: vec![("proxy_binance".into(), "http://p".into()), ("proxy_n".into(), "1".into())], identity: (Some("Owner".into()), Some("o@example.com".into())) }));
-        let failed = |status, content_type, body: &str| match read(status, content_type, body, URL) { Err(Failure::Message(m)) => m, other => panic!("{other:?}") };
+        let failed = |status, content_type, body: &str| match read(status, content_type, body) { Err(Failure::Message(m)) => m, other => panic!("{other:?}") };
         assert_eq!(failed(401, JSON, "{}"), INVALID_CLAIM);
-        assert_eq!(failed(500, JSON, r#"{"error":"boom"}"#), r#"{"error":"boom"}"#);
-        assert_eq!(failed(502, Some("text/html"), "<HTML>x</HTML>"), "HTTP 502");
-        assert_eq!(failed(503, None, " "), format!("the server responded with status 503 for POST {URL}"));
+        // Deliberately stricter than Rails: errors never expose an upstream body or request URL.
+        for (status, content_type, body) in [(500, JSON, r#"{"error":"credential-sentinel"}"#),
+            (502, Some("text/html"), "<HTML>credential-sentinel</HTML>"), (503, None, " ")] {
+            assert_eq!(failed(status, content_type, body), "Deltabadger could not complete the claim. Please try again.");
+        }
         assert_eq!(failed(200, JSON, "hello"), "Unreadable response (HTTP 200)");
         assert_eq!(failed(200, JSON, "[]"), "undefined method 'deep_symbolize_keys' for an instance of Array");
         assert_eq!(failed(200, JSON, ""), "undefined method 'deep_symbolize_keys' for nil");
         assert_eq!(failed(200, Some("text/plain"), "{}"), "undefined method 'deep_symbolize_keys' for an instance of String");
         assert_eq!(failed(200, JSON, r#"{"market_data":{"url":"u","token":" "}}"#), INVALID_MARKET_DATA);
-        assert_eq!(read(200, JSON, r#"{"market_data":{"url":"u","token":"t"},"proxies":"x"}"#, URL), Err(Failure::Malformed));
+        assert_eq!(read(200, JSON, r#"{"market_data":{"url":"u","token":"t"},"proxies":"x"}"#), Err(Failure::Malformed));
         assert_eq!(url("http://h:1/"), "http://h:1/api/claim");
     }
 }
