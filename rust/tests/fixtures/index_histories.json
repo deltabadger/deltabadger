@@ -38,14 +38,14 @@
     "app/models/bot/rebalancer.rb": "639e2b6db99df00d966ae3bf7bd45f914e6b71b42e7463664beb54c3f07f3d77",
     "app/models/bot/composition/rebalancer.rb": "f6741c2b414b74a03853707b7632a33adea65a02cfd7c3c72a45828fe41aaeca",
     "app/jobs/bot/evaluate_rebalancers_job.rb": "e264f8d0aacb1f39af9049fd2f58e2eed0ac061f30ae1e3c8cb7221da4ed5643",
-    "app/models/bot/composition/order_setter.rb": "64115cc7bf5a5da4a4ad3ef122cc5682930fb7c256a2eef0b4cc429b043da7f8",
-    "app/models/bot/order_setter.rb": "dea875c35daf2ac94e058fd32087d2525a5f7e519fab10d04e263871b285bf8e",
+    "app/models/bot/composition/order_setter.rb": "a8ed045f4eeb5e520f06b4473dfd8ac1f81783f7f0782154763d9fd12bf52f07",
+    "app/models/bot/order_setter.rb": "125d74ff186c1d44c2a9308b06a21df15483902aadb1d3bcdec74ce4c10bbb4e",
     "app/models/bot/composition/allocatable.rb": "ddc9e0fa1491f8d48f672ec3abdad88c2333f99714b86258016c67f3ecfed6a2",
     "app/models/bot/composition/holding_keys.rb": "d1b3ec62c39be6be5c4652a330eb1012e84fa370636c487e053da03632167860",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/models/bot/limit_orderable.rb": "101bfdce8ac4aa78fb6ae496725944c0752cb6814171f3fedc097547ad5d757f",
     "app/models/bots/dca_index.rb": "63bb647000ad18524d7c982da731dd74ffde57307ffd83e24d4da9a71e1aad49",
-    "app/models/bot/order_creator.rb": "437ac63de1299373d469a8f436d75d2002722a8e7ca960d167e93c8ae9980990"
+    "app/models/bot/order_creator.rb": "34f3a8472e55b2aafb8918faecedb6304a046c54aadfaeeb6e123c78811a9945"
   },
   "scenarios": [
     {

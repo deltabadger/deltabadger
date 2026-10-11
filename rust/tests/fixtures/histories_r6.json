@@ -4,7 +4,7 @@
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
     "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
-    "app/models/bot/composition/order_setter.rb": "64115cc7bf5a5da4a4ad3ef122cc5682930fb7c256a2eef0b4cc429b043da7f8",
+    "app/models/bot/composition/order_setter.rb": "a8ed045f4eeb5e520f06b4473dfd8ac1f81783f7f0782154763d9fd12bf52f07",
     "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
     "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
     "script/rust/record_histories_r6.rb": "ed78e1b357c321064386f5f8c923e83bb3caa384e8d8af1d5e1e649ea22a95bb"
