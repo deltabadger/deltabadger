@@ -859,6 +859,8 @@ fn expected_action_rows(name: &str, step: &Value, before: &Value, writes: bool) 
         bot["updated_at"]=json!(at);
     } else if matches!(name,"extra_html_stop"|"extra_html_archive") {
         bot["status"]=json!(if name=="extra_html_archive" {7}else{2});bot["stopped_at"]=json!(at);bot["updated_at"]=json!(at);bot["stop_message_key"]=Value::Null;
+        let generation=bot["transient_data"]["run_generation"].as_i64().unwrap_or(0);
+        bot["transient_data"]["run_generation"]=json!(generation+1);
         event=Some(("stopped",json!({})));
     } else {
         let path=step["path"].as_str().ok_or("start path")?;

@@ -137,6 +137,7 @@ module Bot::OrderSetter
 
     order_data[:placement_token] = token
     order_data[:run_identity] = intent.fetch('run_identity')
+    order_data[:placement_at] = intent.fetch('at')
     result = dispatch_order(order_data, amount_info)
     if result.success? && exchange.acknowledged_order_id?(result.data[:order_id])
       begin

@@ -257,6 +257,8 @@ async fn r9e_damaged_cap_tick_and_stop() {
     assert!(status.is_success(),"STOP {status}: {}",String::from_utf8_lossy(&body));
     let stopped=model::load_bot(&o.primary,id).unwrap();
     assert_eq!(stopped.status,deltabadger::enums::BotStatus::Stopped);
-    assert_eq!(stopped.transient,before,"STOP preserves timestamp evidence");
+    let mut expected=before;
+    expected["run_generation"]=json!(1);
+    assert_eq!(stopped.transient,expected,"STOP preserves timestamp evidence while advancing generation");
     assert_eq!(eligibility::check_install(&o.primary).unwrap().unreadable,report.unreadable);
 }

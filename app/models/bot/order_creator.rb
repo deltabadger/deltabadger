@@ -4,6 +4,7 @@ module Bot::OrderCreator
   def create_submitted_order!(order_data)
     order_values = base_order_values(order_data).merge(
       status: :submitted,
+      created_at: order_data[:placement_at],
       external_status: order_data[:status],
       external_id: order_data[:order_id],
       price: order_data[:price],

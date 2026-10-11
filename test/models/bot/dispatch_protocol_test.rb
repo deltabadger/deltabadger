@@ -35,6 +35,7 @@ class Bot::DispatchProtocolTest < ActiveSupport::TestCase
     assert bot.transactions.exists?(external_id: 'accepted-before-stop'), 'record before returning control to any job'
     row = bot.persist_accepted_order!(order, result.data[:order_id])
     assert_equal identity, row.run_identity
+    assert_operator row.created_at, :<=, Bot.find(bot.id).stopped_at, 'date the order when its original run sent it'
     assert_empty Bot.find(bot.id).placement_intents
   end
   test 'a stale signal placement is fenced after STOP and resume' do

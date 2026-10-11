@@ -11,6 +11,24 @@ module LimitCheckJobBehaviorTests
   # and optionally prepare_bot(bot) for type-specific stubs.
 
   included do
+    test 'a condition reply after restart cannot overwrite or rearm the new run' do
+      bot = create_waiting_bot
+      before = nil
+      bot.define_singleton_method(condition_method) do
+        Bot.find(id).stop
+        fresh = Bot.find(id)
+        fresh.start(start_fresh: false)
+        fresh.update!(status: :waiting)
+        before = fresh.reload.attributes
+        update!(transient_data: transient_data.merge('old_condition_reply' => true))
+        Result::Success.new(true)
+      end
+
+      job_class.new.perform(bot)
+
+      assert_equal before, Bot.find(bot.id).attributes
+    end
+
     test 'does nothing when the bot is not waiting' do
       bot = create_waiting_bot
       bot.update!(status: :stopped)

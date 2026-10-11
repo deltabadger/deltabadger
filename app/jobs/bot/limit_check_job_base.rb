@@ -8,6 +8,9 @@ class Bot::LimitCheckJobBase < ApplicationJob
   def perform(bot)
     return unless bot.waiting?
 
+    bot.capture_run!
+    return if bot.stopped_mid_tick?
+
     result = condition_result(bot)
     if result.failure?
       reschedule_after_transient(bot, result.errors.to_sentence)
@@ -23,6 +26,8 @@ class Bot::LimitCheckJobBase < ApplicationJob
     else
       enqueue_next_poll(bot, next_check_at(bot))
     end
+  rescue ActiveRecord::RecordNotSaved
+    raise unless bot.stopped_mid_tick?
   rescue Client::TransientNetworkError, Client::RateLimitedError => e
     # A live-price read raised a transient (network blip / rate limit) instead of returning a
     # failure Result. Without this rescue the raise escapes perform, the job dead-letters, and
@@ -39,9 +44,11 @@ class Bot::LimitCheckJobBase < ApplicationJob
   # instance is synced without a reload (which would drop memoised associations), and the tile is
   # told the way a save would have told it.
   def rearm!(bot)
-    updated = Bot.where(id: bot.id, status: Bot.statuses[:waiting])
-                 .update_all(status: Bot.statuses[:scheduled], updated_at: Time.current) == 1
-    return false unless updated
+    updated = bot.with_run_ownership do
+      Bot.where(id: bot.id, status: Bot.statuses[:waiting])
+         .update_all(status: Bot.statuses[:scheduled], updated_at: Time.current) == 1
+    end
+    return false unless updated == true
 
     bot.status = :scheduled
     bot.broadcast_status_bar_update
@@ -68,8 +75,10 @@ class Bot::LimitCheckJobBase < ApplicationJob
   # just enqueued" — see Automation::Schedulable#prune_duplicate_solid_queue_jobs — so two chains
   # racing here converge on one instead of destroying each other's successor.
   def enqueue_next_poll(bot, wait_until)
-    self.class.set(wait_until:).perform_later(bot)
-    bot.prune_duplicate_limit_check_jobs(self.class)
+    bot.with_run_ownership do
+      self.class.set(wait_until:).perform_later(bot)
+      bot.prune_duplicate_limit_check_jobs(self.class)
+    end
   end
 
   def condition_result(bot)

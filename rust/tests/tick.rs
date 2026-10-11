@@ -270,12 +270,12 @@ async fn a_rate_limit_that_outlasts_its_retries_owes_the_error_mail() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_stop_that_stopped_nothing_owes_no_mail_and_a_plain_stop_leaves_the_row_s_json_alone() {
+async fn a_stop_that_stopped_nothing_owes_no_mail_and_a_plain_stop_preserves_unrelated_json() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     o.primary.execute("UPDATE bots SET transient_data = '{\"missed_quote_amount\": \"12.50\",  \"x\": 1.0}' WHERE id = ?1", [id]).unwrap();
     let now = clock("2026-09-01T10:00:01Z").0;
     tick::stop(&o.primary, id, "bot.settings.extra_amount_limit.amount_spent", now).unwrap();
-    assert_eq!(one::<String>(&o, "SELECT transient_data FROM bots"), "{\"missed_quote_amount\": \"12.50\",  \"x\": 1.0}", "byte for byte");
+    assert_eq!(transient(&o, id), json!({"missed_quote_amount":"12.50", "x":1.0, "run_generation":1}), "only the generation changes");
     assert_eq!(bot(&o, id).status, BotStatus::Stopped);
     // Already stopped: the second stop is not the one that stopped it.
     assert!(!tick::stop_owing_mail(&o.primary, id, "bot.status.stopped_by_error.invalid_key", Some((notice::STOPPED, notice::stopped_marker("x", now))), now).unwrap());
