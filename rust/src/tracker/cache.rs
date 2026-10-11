@@ -54,6 +54,18 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     if &version(c,owner)? != before { return Ok(false); }
     let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
+    // The read bound applies at publish too: an entry the reader would refuse is never written.
+    for summary in walked.into_iter().flat_map(|w|std::iter::once(&w.whole).chain(w.venue.iter())) {
+        let decimals=std::iter::once(&summary.total_invested)
+            .chain(summary.cash.iter().chain(&summary.cash_basis).map(|(_,v)|v))
+            .chain(summary.positions.iter().flat_map(|p|[&p.quantity,&p.cost,&p.avg_cost,&p.unpriced]));
+        for decimal in decimals {
+            if decimal.to_s_f().len()>MAX_COMPUTED_DECIMAL {
+                crate::engine::log("[tracker] ledger cache publish refused: computed decimal exceeds 1048576-byte limit");
+                return Err(FiguresError::NotComputed("ledger cache computed decimal exceeds 1048576-byte limit".into()));
+            }
+        }
+    }
     let payload=json!({"schema":1,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venue":walked.and_then(|w|w.venue.as_ref()).map(|s|json!([venue,encode(s)]))}).to_string();
     if payload.len()>MAX_PAYLOAD {return Err(FiguresError::NotComputed("ledger cache exceeds its size limit".into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
@@ -118,6 +130,41 @@ mod tests {
     }
     fn warm(c:&Connection,exchange:Option<i64>)->Summary {
         let State::Warm(s)=read(c,1,exchange,now()).unwrap() else { panic!("expected warm cache") };*s
+    }
+    #[test]
+    fn cache_publish_decimal_limit_keeps_previous_entry() {
+        let c=db();let v=version(&c,1).unwrap();
+        publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
+        let before=app_config::get_plain(&c,&key(1)).unwrap();
+        let timestamps: (String,String)=c.query_row("SELECT created_at,updated_at FROM app_configs WHERE key=?1",[key(1)],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+        let changes=c.total_changes();
+        // Exercise every decimal field and both scopes, below the payload limit.
+        for scope in [false,true] {
+            for field in 0..8 {
+                let mut w=walked();
+                let s=if scope {w.venue.as_mut().unwrap()}else{&mut w.whole};
+                let huge=Dec::parse(&format!("0.{}1","0".repeat(MAX_COMPUTED_DECIMAL))).unwrap();
+                match field {
+                    0=>s.total_invested=huge,1=>s.positions[0].quantity=huge,
+                    2=>s.positions[0].cost=huge,3=>s.positions[0].avg_cost=huge,
+                    4=>s.positions[0].unpriced=huge,5=>s.cash[0].1=huge,
+                    6=>s.cash_basis[0].1=huge,_=>s.positions[0].cost=huge.neg(),
+                }
+                let result=publish(&c,1,&v,Some(&w),7,now());
+                assert!(result.is_err(),"publish must refuse oversize decimal in scope {scope} field {field}");
+                assert_eq!(app_config::get_plain(&c,&key(1)).unwrap(),before,"previous cache must survive rejected publication");
+                assert_eq!(c.query_row("SELECT created_at,updated_at FROM app_configs WHERE key=?1",[key(1)],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).unwrap(),timestamps);
+                assert_eq!(c.total_changes(),changes,"rejected publication must execute no write");
+                warm(&c,None);
+            }
+        }
+    }
+    #[test]
+    fn cache_publish_decimal_limit_logs_reason() {
+        let output=std::process::Command::new(std::env::current_exe().unwrap()).args(["--exact","tracker::cache::tests::cache_publish_decimal_limit_keeps_previous_entry","--nocapture"]).output().unwrap();
+        assert!(output.status.success());
+        let log=String::from_utf8(output.stdout).unwrap();
+        assert!(log.contains("ledger cache publish refused: computed decimal exceeds 1048576-byte limit"),"publish refusal must state safe reason: {log}");
     }
     #[test]
     fn cache_roundtrip_is_exact_owner_scoped_and_read_only() {
