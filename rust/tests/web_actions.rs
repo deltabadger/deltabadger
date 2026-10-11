@@ -1587,15 +1587,11 @@ mod action_race {
         }
         if !after_send {assert!(f.transient()?.get("rust_placement").is_none());}
         let completed = if after_send {
-            let finish = async {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                release.notify_one();
-                tokio::time::timeout(LIMIT,&mut future).await
-            };
-            // The HTTP stop must wait for the in-flight submission to release its write lock.
-            let (stopped, ticked) = tokio::join!(f.ok("PATCH","/stop",&[]), finish);
-            stopped?;
-            Some(ticked)
+            tokio::time::timeout(LIMIT, f.ok("PATCH","/stop",&[])).await??;
+            assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, 2);
+            assert!(f.transient()?.get("rust_placement").is_some(), "STOP keeps the in-flight intent");
+            release.notify_one();
+            Some(tokio::time::timeout(LIMIT,&mut future).await)
         } else { f.ok("PATCH","/stop",&[]).await?; None };
         if edit {
             let eth=f.eth.to_string(); let btc=f.seed.btc.to_string();

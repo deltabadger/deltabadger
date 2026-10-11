@@ -2439,9 +2439,17 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     }
     let stopped = std::thread::scope(|scope| {
         let stop = scope.spawn(|| action("PATCH", crypto, "/stop", &[]).map_err(|error| error.to_string()));
-        std::thread::sleep(Duration::from_millis(100));
-        assert!(!stop.is_finished(), "STOP must wait for the transmitted order's reply");
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !stop.is_finished() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let finished_before_reply = stop.is_finished();
+        let status_before_reply: i64 = c.query_row(
+            "SELECT status FROM bots WHERE id=?1", [crypto], |r| r.get(0),
+        ).expect("read the bot while the venue reply is held");
         release.send(()).expect("release the transmitted order");
+        assert!(finished_before_reply, "STOP must commit before the transmitted order's reply");
+        assert_eq!(status_before_reply, 2, "STOP is durable before the venue reply");
         stop.join().expect("HTTP Stop thread")
     })?;
     assert_eq!(stopped.0, 200, "{}", stopped.1);
