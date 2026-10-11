@@ -455,7 +455,7 @@ pub async fn connect_platform(State(app): State<App>, Extension(ctx): Extension<
         Ok(identity) => {
             ctx.session.lock().platform_identity = Some(identity.clone());
             let fields = IdentityView { v: &ctx, name: identity.0.as_deref(), email: identity.1.as_deref().unwrap_or("") }.render()?;
-            (StatusCode::OK, format!("{}{}", turbo::stream("replace", "setup_platform_connection", &frame(None)?), turbo::stream("replace", "setup_identity_fields", &fields)))
+            (StatusCode::OK, format!("{}{}", turbo::stream("replace", "setup_platform_connection", &frame(None)?), turbo::stream("replace", "setup_identity_fields", &format!("{fields}\n"))))
         }
         Err(sentence) => (StatusCode::UNPROCESSABLE_ENTITY, turbo::stream("replace", "setup_platform_connection", &frame(Some(sentence))?)),
     };
