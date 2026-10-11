@@ -354,12 +354,15 @@ fn binance_names(c: &Connection, exchange_id: i64) -> Result<HashMap<String, i64
     Ok(names)
 }
 
+/// One held asset: its id, free and locked quantities.
+type Held = (i64, BigDec, BigDec);
+
 /// Exchanges::Binance#get_balances then AccountBalance::Sync's `nonzero`: per asset the venue lists, its free and locked
 /// quantities (a later entry for the same asset wins), in the order of `asset_ids`, only those holding something. An
 /// entry whose symbol names no listed asset is not a balance. A missing `balances` or a missing quantity is Rails'
 /// KeyError; a quantity that is no number fails the sync (Rails reads it as 0 and deletes the stored balance: a listed
 /// divergence, D2b ruling Q10).
-fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<(i64, BigDec, BigDec)>, String>, Unread> {
+fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let Ok(account) = Raw::from_node(&node) else { return Ok(Err("unreadable account".into())) };
     let entries = match account.member("balances") {
@@ -403,7 +406,7 @@ fn fiat_rate(rates: &Value, symbol: &str) -> Option<BigDec> {
 /// checks, then the rows `BATCH` at a time, what is gone, and the key's clock. `fresh` holds the venue's own quotes
 /// (Alpaca's stocks), `errors` why some could not be read. `Ok(Err(text))`: the sync fails with `text`, nothing written.
 #[allow(clippy::too_many_arguments)]
-async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<(i64, BigDec, BigDec)>, assets: Arc<Vec<Asset>>,
+async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<Held>, assets: Arc<Vec<Asset>>,
                 mut fresh: HashMap<String, Price>, mut errors: Vec<String>, prices: &dyn PriceSource, key_id: i64, clock: &dyn Clock, step: Option<&BalanceStep<'_>>)
                 -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
