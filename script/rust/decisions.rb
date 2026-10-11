@@ -280,11 +280,12 @@ module Decisions
         'coarse_ticker' => { 'at' => after.(1), 'ticker' => { 'base_decimals' => 0, 'quote_decimals' => 0, 'price_decimals' => 0,
                                                               'minimum_base_size' => '1', 'minimum_quote_size' => '5' },
                              'http' => { '/0/public/Ticker' => [ticker_body('9.9', '10.1', '10.0')] } },
-        # A starting time as Bot::Lifecycle#start leaves it (settings.start_at = started_at, the carry captured as 0): the
-        # first run turns the rule off (Bot::Startable#disable_starting_time!), and the next checkpoint's run follows.
+        # A starting time as Bot::Lifecycle#start leaves it (settings.start_at = started_at, the chosen 10:00 in the owner's UTC
+        # zone, the carry captured as 0): the first run turns the rule off (Bot::Startable#disable_starting_time!), and the
+        # next checkpoint's run follows.
         'start_time_first_tick' => { 'started_at' => '2026-09-01T10:00:00Z', 'at' => '2026-09-01T10:00:00.500000Z',
                                      'next_at' => (Time.iso8601('2026-09-01T10:00:00Z') + step + 1.second).iso8601(6),
-                                     'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'hour', 'start_time_of_day' => '12:00',
+                                     'settings' => { 'start_time_enabled' => true, 'start_time_mode' => 'hour', 'start_time_of_day' => '10:00',
                                                      'start_at' => '2026-09-01T10:00:00Z' },
                                      'settings_changed_at' => '2026-08-31T09:00:00Z', 'transient' => { 'missed_quote_amount' => 0 } }
       }
