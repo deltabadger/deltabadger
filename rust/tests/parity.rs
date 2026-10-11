@@ -558,7 +558,15 @@ fn landed_matches_reference(dir: &Path, rails_out: &serde_json::Value, rust_out:
     // status, stop key and time, settings and carry (the engine's own keys are outside both snapshots).
     let strip = |r: &serde_json::Value| { let mut a = r["after"].clone(); a.as_object_mut().unwrap().remove("id"); a };
     let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().clone();
-    let reference_new: Vec<serde_json::Value> = rows(reference).iter().filter(|r| r["before"].is_null()).map(strip).collect();
+    let mut reference_new: Vec<serde_json::Value> = rows(reference).iter().filter(|r| r["before"].is_null()).map(strip).collect();
+    // The reference seeds the first tick's ledger instead of executing that tick. Its
+    // next order therefore has one fewer claim, just like its bot counter below.
+    for row in &mut reference_new {
+        let mut identity: serde_json::Value = serde_json::from_str(row["run_identity"].as_str().ok_or("missing order run identity")?).map_err(|e|e.to_string())?;
+        let tick = identity[1].as_i64().ok_or("missing order tick generation")?;
+        identity[1] = serde_json::json!(tick.checked_add(1).ok_or("order tick generation overflow")?);
+        row["run_identity"] = serde_json::json!(identity.to_string());
+    }
     let Some(since) = reference_new.iter().filter_map(|r| r["created_at"].as_str()).min().map(str::to_string) else {
         return Err("the reference writes no row at the next checkpoint, so it proves nothing".into());
     };
