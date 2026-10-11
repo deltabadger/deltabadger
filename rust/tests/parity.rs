@@ -603,8 +603,12 @@ fn landed_matches_reference(dir: &Path, rails_out: &serde_json::Value, rust_out:
         if theirs[k] != mine[k] { return Err(format!("the bot's {k} ends differently\n  reference: {}\n  rust:      {}", theirs[k], mine[k])); }
     }
     // R5's comparison copy requires the unrelated NULL flag to survive the first tick's failure.
-    // The reference never failed: now both complete blobs must match, with no broad NULL filtering.
-    if mine["transient_data"] != rails_own["transient_data"] || mine["transient_data"] != theirs["transient_data"] {
+    // The reference starts with the first tick's ledger already present, so it makes exactly one
+    // fewer claim. Check that explicit counter offset; every other key and Rails' actual run match.
+    let mut reference_transient = theirs["transient_data"].clone();
+    let reference_ticks = reference_transient["tick_generation"].as_i64().ok_or("reference has no tick generation")?;
+    reference_transient["tick_generation"] = serde_json::json!(reference_ticks.checked_add(1).ok_or("reference tick generation overflow")?);
+    if mine["transient_data"] != rails_own["transient_data"] || mine["transient_data"] != reference_transient {
         return Err(format!("the bot's transient_data ends differently\n  rails:     {}\n  reference: {}\n  rust:      {}",
                            rails_own["transient_data"], theirs["transient_data"], mine["transient_data"]));
     }

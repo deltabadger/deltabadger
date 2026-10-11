@@ -114,7 +114,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
     use deltabadger::engine::eligibility;
     let (_d,o,id,_)=build(&vectors()["cases"][0]);
     for (sql,reason) in [
-        ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'))","start_time_enabled"),
+        ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_at','2026-01-06T12:00:00Z')","start_time_enabled"),
         ("UPDATE bots SET settings=json_set(settings,'$.price_limited',json('true'))","price_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","direction"),

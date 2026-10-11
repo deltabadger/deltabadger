@@ -2437,8 +2437,14 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
             .as_str()
             .is_some_and(|s| !s.is_empty()));
     }
-    assert_eq!(action("PATCH", crypto, "/stop", &[])?.0, 200);
-    release.send(())?;
+    let stopped = std::thread::scope(|scope| {
+        let stop = scope.spawn(|| action("PATCH", crypto, "/stop", &[]).map_err(|error| error.to_string()));
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(!stop.is_finished(), "STOP must wait for the transmitted order's reply");
+        release.send(()).expect("release the transmitted order");
+        stop.join().expect("HTTP Stop thread")
+    })?;
+    assert_eq!(stopped.0, 200, "{}", stopped.1);
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         let rows: i64 = c.query_row(

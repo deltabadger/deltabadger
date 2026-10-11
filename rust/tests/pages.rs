@@ -863,6 +863,8 @@ fn expected_action_rows(name: &str, step: &Value, before: &Value, writes: bool) 
     } else {
         let path=step["path"].as_str().ok_or("start path")?;
         let fresh=!(path.ends_with("=false") || path.ends_with("=0"));
+        let generation=bot["transient_data"].get("run_generation").map_or(Ok(0), |value| value.as_i64().ok_or("invalid run generation"))?;
+        bot["transient_data"]["run_generation"]=json!(generation.checked_add(1).ok_or("run generation overflow")?);
         bot["status"]=json!(1);bot["updated_at"]=json!(at);bot["stop_message_key"]=Value::Null;
         if fresh {
             bot["started_at"]=json!(match name {"start_future"=>"2026-09-12 10:00:00","extra_hour"=>"2026-09-11 10:00:00",_=>at});
