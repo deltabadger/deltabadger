@@ -172,7 +172,25 @@ module SetupVectors
     )
   end
 
-  def scenarios = page_scenarios.merge(create_scenarios).merge(token_scenarios).merge(gate_scenarios).merge(claim_scenarios)
+  def followup_scenarios
+    user = { 'name' => 'Owner', 'email' => 'owner@example.com', 'password' => PASSWORD }
+    json_post = ->(body, path = '/setup') { post(path, nil, 'json' => body, 'csrf' => 'header', 'headers' => { 'Content-Type' => 'application/json', 'Accept' => 'text/html' }) }
+    {
+      'followup_html_get' => { 'steps' => [expect(200, get('/setup.html'))] },
+      'followup_html_post' => { 'steps' => [get('/setup'), expect(302, create(path: '/setup.html', csrf: 'header'))] },
+      'followup_json_create' => { 'steps' => [get('/setup'), expect(302, json_post.call({ 'user' => user.merge('admin' => false, 'locale' => 'de', 'setup_completed' => false), 'market_data_url' => 'https://ignored.example' }))] },
+      'followup_json_filtered' => { 'steps' => [get('/setup'), expect(422, json_post.call({ 'user' => { 'name' => ['Owner'], 'email' => { 'value' => 'owner@example.com' }, 'password' => [PASSWORD], 'admin' => true } }))] },
+      'followup_json_scalars' => { 'steps' => [get('/setup'), expect(422, json_post.call({ 'user' => { 'name' => 123, 'email' => false, 'password' => nil } }))] },
+      'followup_json_empty_user' => { 'steps' => [get('/setup'), expect(400, json_post.call({ 'user' => {} }))] },
+      'followup_json_token' => { 'env' => { 'SETUP_TOKEN' => TOKEN }, 'steps' => [get('/setup'), expect(302, json_post.call({ 'token' => TOKEN, 'user' => user }))] },
+      'followup_json_locale' => { 'steps' => [get('/setup'), expect(422, json_post.call({ 'locale' => 'de', 'user' => user.merge('name' => '') }))] },
+      'followup_json_wrong_token_in_session' => { 'env' => { 'SETUP_TOKEN' => TOKEN }, 'steps' => [get("/setup?token=#{TOKEN}"), get('/setup'), expect(403, json_post.call({ 'token' => ['wrong'], 'user' => user }))] },
+      'followup_json_claim' => { 'launchpad' => 'ok', 'steps' => [get('/setup'), expect(200, json_post.call({ 'claim_code' => 'dbc_json' }, '/setup/platform_connection'))] },
+      'followup_claim_connected_failure' => { 'launchpad' => 'unauthorized', 'app_configs' => { 'platform_connected_at' => '2026-09-01T00:00:00Z', 'proxy_binance' => 'http://p.example' }, 'steps' => [get('/setup'), expect(422, claim.merge('csrf' => 'header'))] }
+    }
+  end
+
+  def scenarios = page_scenarios.merge(create_scenarios).merge(token_scenarios).merge(gate_scenarios).merge(claim_scenarios).merge(followup_scenarios)
 
   # Only 127.0.0.1 is reachable while recording: the fake launchpad. Anything else is refused and written down.
   module LocalOnly
@@ -292,7 +310,7 @@ module SetupVectors
       travel_to(Time.iso8601(AT), with_usec: true) do
         with_env(env) do
           headers = step['headers'].dup
-          params = step['form']&.dup
+          params = step.key?('json') ? JSON.generate(step['json']) : step['form']&.dup
           if step['csrf'] == 'form'
             params['authenticity_token'] = form_token(client[:page], step['path']) or raise "#{dir} step #{index}: no form posting to #{step['path']}"
           end
@@ -309,7 +327,8 @@ module SetupVectors
       raise "#{dir} step #{index}: expected #{step['expect']}, Rails answered #{response.status}" if step['expect'] && step['expect'] != response.status
 
       { 'status' => response.status, 'headers' => Pages::HEADERS.to_h { |name| [name, response.headers[name]] }.compact,
-        'body' => response.body, 'session_changed' => changed, 'session_keys' => content.keys.sort }
+        'body' => response.body.gsub(Rails.root.to_s, '[app]').gsub(RbConfig::CONFIG.fetch('prefix'), '[ruby]'),
+        'session_changed' => changed, 'session_keys' => content.keys.sort }
     end
     travel_back
     stop&.call

@@ -30,6 +30,33 @@ fn http_get(port: u16, path: &str) -> Option<String> {
     Some(answer)
 }
 
+/// The persisted setup job survives losing the scheduler's in-memory wake.
+#[test]
+fn serve_resumes_unfinished_connected_setup_sync() {
+    for status in ["pending", "in_progress"] {
+        let dir = common::rails_install();
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, web::SECRET).unwrap());
+        for (key, value) in [("platform_connected_at", NOW), ("setup_sync_status", status)] {
+            deltabadger::app_config::set(&c, &cipher, key, value, web::at(NOW)).unwrap();
+        }
+        let port = free_port();
+        let mut command = serve_command(dir.path(), port);
+        command.env_remove("MARKET_DATA_URL").env_remove("MARKET_DATA_TOKEN").env_remove("CLAIM_TOKEN");
+        let mut server = Child(command.stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
+        let until = Instant::now() + Duration::from_secs(8);
+        let completed = loop {
+            let current = deltabadger::app_config::get(&c, &cipher, "setup_sync_status").unwrap();
+            if current.as_deref() == Some("completed") { break true; }
+            if Instant::now() >= until { break false; }
+            assert!(server.0.try_wait().unwrap().is_none(), "server exited during recovery");
+            std::thread::sleep(Duration::from_millis(25));
+        };
+        drop(server);
+        assert!(completed, "startup must resume {status} setup sync with a persisted connection");
+    }
+}
+
 /// A prepared install with no admin user yet is served: every page sends the first visitor to /setup.
 #[test]
 fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
@@ -101,12 +128,13 @@ async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
-    for path in ["/tracker/import/new", "/de/exports?tab=x", "/setup", "/zz/login", "/assets/application.css"] {
+    for path in ["/tracker/import/new", "/de/exports?tab=x", "/zz/login", "/assets/application.css"] {
         let answer = browser.get(&app, path).await;
         assert_eq!(answer.status, 501, "{path}");
         assert!(answer.body.contains(&format!("GET {path}")), "{path}: {}", answer.body);
         assert_eq!(answer.header("location"), None, "never a redirect");
     }
+    assert_eq!(browser.get(&app, "/setup").await.header("location"), Some("/"), "setup is closed once an admin exists");
     let framed = browser.send(&app, "GET", "/bots/new", None, web::Csrf::None, &[("turbo-frame", "modal")]).await;
     assert!(framed.status == 501 && framed.body.contains("<turbo-frame id=\"modal\">"), "Turbo shows the message in the frame it asked for: {}", framed.body);
     assert_eq!(browser.send(&app, "PUT", "/up", None, web::Csrf::None, &[]).await.status, 501, "a method a route does not take");

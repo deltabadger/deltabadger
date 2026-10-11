@@ -2,9 +2,9 @@
 //! that ApplicationController puts in front of every page while no admin user exists. Rust serves it on an install
 //! `db:prepare` made; creating that install (schema, seeds, secrets) stays with the entrypoint.
 //!
-//! Stricter than Rails in one place: the "no admin yet" check and the insert of the admin are one IMMEDIATE
-//! transaction, so two forms submitted at once cannot make two admins (Rails checks in a before_action and
-//! saves later). The request that loses gets Rails' answer for "an admin exists": a redirect to the root.
+//! Stricter than Rails: both admin creation and claim writes recheck for an admin in an IMMEDIATE transaction.
+//! Two forms submitted at once cannot make two admins, and a claim in flight cannot change configuration after
+//! setup closes. A losing admin creation redirects to the root; a losing claim renders a failure.
 use super::layout::{self, Ctx, Page};
 use super::{assets, auth, i18n, i18n::Arg, launchpad, locale, turbo, App, Params, WebError};
 use crate::codec::format_time;
@@ -49,13 +49,29 @@ pub fn token_matches(given: &str, expected: &str) -> bool {
     !crate::ruby::blank(expected) && bool::from(Sha256::digest(given.as_bytes()).ct_eq(&Sha256::digest(expected.as_bytes())))
 }
 
+/// Body parameters override the query, including an explicit JSON null.
+fn parameter(params: &Params, name: &str) -> serde_json::Value {
+    params.json.as_ref().and_then(|body| body.get(name)).cloned()
+        .unwrap_or_else(|| params.form(name).or_else(|| params.query(name)).map_or(serde_json::Value::Null, |s| s.into()))
+}
+
 /// SetupController#require_setup_token: `Some(answer)` when the request stops here, the locked page or the
 /// redirect that takes the token out of the URL. Without SETUP_TOKEN in the environment nothing happens.
 fn require_setup_token(ctx: &Ctx) -> Result<Option<Response>, WebError> {
     let Some(expected) = ctx.app.config.setup_token.as_deref() else { return Ok(None) };
     // params[:token].presence: the form's value over the query's, a blank one is none.
-    let param = ctx.params.form("token").or_else(|| ctx.params.query("token")).filter(|token| !crate::ruby::blank(token));
-    let given = param.map(str::to_string).or_else(|| ctx.session.lock().setup_token.clone()).unwrap_or_default();
+    let token = parameter(&ctx.params, "token");
+    let param = match token {
+        serde_json::Value::Null | serde_json::Value::Bool(false) => None,
+        serde_json::Value::String(s) => (!crate::ruby::blank(&s)).then_some(s),
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        serde_json::Value::Bool(true) => Some("true".into()),
+        serde_json::Value::Array(a) if a.is_empty() => None,
+        serde_json::Value::Object(o) if o.is_empty() => None,
+        // A supplied structured token must fail, not fall back to an authorized session.
+        _ => Some(String::new()),
+    };
+    let given = param.clone().or_else(|| ctx.session.lock().setup_token.clone()).unwrap_or_default();
     if !token_matches(&given, expected) {
         let body = LockedView { v: ctx, languages: languages(ctx) }.render()?;
         return page(ctx, StatusCode::FORBIDDEN, body, Vec::new()).map(Some);
@@ -183,7 +199,7 @@ async fn form(app: &App, ctx: &Ctx, form: Form<'_>) -> Result<Response, WebError
 
 /// Platform::RedeemClaim: the claim, then in one transaction the market-data configuration, the proxies, the
 /// connection time and a pending sync, then Setup::SeedAndSyncJob. `Ok(Err(sentence))` is a failed claim.
-async fn redeem(app: &App, code: Option<&str>, now: chrono::DateTime<chrono::Utc>) -> Result<Result<(Option<String>, Option<String>), String>, WebError> {
+async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> Result<Result<(Option<String>, Option<String>), String>, WebError> {
     let claim = match launchpad::claim(&app.config.launchpad_url, code).await {
         Ok(claim) => claim,
         Err(launchpad::Failure::Message(sentence)) => return Ok(Err(sentence)),
@@ -191,8 +207,10 @@ async fn redeem(app: &App, code: Option<&str>, now: chrono::DateTime<chrono::Utc
     };
     let inner = app.clone();
     let identity = claim.identity.clone();
-    app.db(move |c| {
+    let written = app.db(move |c| {
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+        // The upstream request may have overlapped admin creation. Setup must still be open at commit.
+        if admin_exists(&tx)? { return Ok(false); }
         let mut writes = vec![("market_data_url".to_string(), claim.market_url), ("market_data_token".to_string(), claim.market_token),
                               ("market_data_provider".to_string(), "deltabadger".to_string())];
         writes.extend(claim.proxies);
@@ -204,17 +222,25 @@ async fn redeem(app: &App, code: Option<&str>, now: chrono::DateTime<chrono::Utc
         tx.commit()?;
         // Setup::SeedAndSyncJob.perform_later, after the commit.
         if let Ok(jobs) = inner.job_wakers() { jobs.wake(crate::jobs::setup_sync::NAME, None, None); }
-        Ok(())
+        Ok(true)
     }).await?;
+    if !written { return Ok(Err("Setup is already complete. The connection was not changed.".into())); }
     Ok(Ok(identity))
 }
 
 /// The setup action for `/setup.<format>`: Rails routes the format to the same action, and its filters answer as
-/// for `/setup` (the locked page is HTML whatever the format). A format that gets past them is not served. Any
+/// for `/setup` (the locked page is HTML whatever the format). HTML dispatches to new/create. Any
 /// other single-segment path is this build's refusal, as without this route.
 pub async fn formatted(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.params.path_locale.is_some() || !ctx.params.route_path.starts_with("/setup.") {
         return Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref()));
+    }
+    if ctx.params.route_path == "/setup.html" {
+        match ctx.method {
+            Method::GET | Method::HEAD => return new(State(app), Extension(ctx)).await,
+            Method::POST => return create(State(app), Extension(ctx)).await,
+            _ => {}
+        }
     }
     if let Some(answer) = filters(&app, &ctx).await? {
         return Ok(answer);
@@ -232,7 +258,7 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
     let mut flash_now = Vec::new();
     if let Some(code) = app.config.claim_token.as_deref() {
         if !read_platform(&app).await?.connected {
-            match redeem(&app, Some(code), ctx.now).await? {
+            match redeem(&app, serde_json::Value::String(code.to_string()), ctx.now).await? {
                 Ok(identity) => {
                     ctx.session.lock().platform_identity = Some(identity.clone());
                     (name, email) = (identity.0.or(name), identity.1.or(email));
@@ -253,6 +279,17 @@ struct Submitted {
 }
 
 fn submitted(params: &Params) -> Option<Submitted> {
+    if let Some(value) = params.json.as_ref().and_then(|body| body.get("user")) {
+        let user = value.as_object().filter(|user| !user.is_empty())?;
+        // Strong parameters keep only these scalar attributes; ActiveModel casts booleans to t/f.
+        let field = |name: &str| match user.get(name)? {
+            serde_json::Value::String(s) => Some(s.clone()),
+            serde_json::Value::Number(n) => Some(n.to_string()),
+            serde_json::Value::Bool(b) => Some(if *b { "t" } else { "f" }.into()),
+            _ => None,
+        };
+        return Some(Submitted { name: field("name"), email: field("email"), password: field("password") });
+    }
     if !params.form.iter().any(|(key, _)| key.starts_with("user[")) {
         return None;
     }
@@ -448,8 +485,8 @@ pub async fn connect_platform(State(app): State<App>, Extension(ctx): Extension<
     if let Some(answer) = filters(&app, &ctx).await? {
         return Ok(answer);
     }
-    let outcome = redeem(&app, ctx.params.form("claim_code").or_else(|| ctx.params.query("claim_code")), ctx.now).await?;
-    let platform = read_platform(&app).await?;
+    let outcome = redeem(&app, parameter(&ctx.params, "claim_code"), ctx.now).await?;
+    let platform = Platform { connected: outcome.is_ok(), proxies: if outcome.is_ok() { read_platform(&app).await?.proxies } else { false } };
     let frame = |claim_error: Option<String>| FrameView { v: &ctx, claim_action: claim_action(&ctx), claim_error, platform: &platform }.render();
     let (status, body) = match outcome {
         Ok(identity) => {

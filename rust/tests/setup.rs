@@ -232,7 +232,9 @@ async fn play(name: &str, scenario: &Value) -> Played {
         };
         let fields: Option<Vec<(&str, &str)>> = form.as_ref().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect());
         let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
-        let answer = browser.send(&app, step["method"].as_str().unwrap(), path, fields.as_deref(), csrf, &headers).await;
+        let answer = if let Some(body) = step.get("json") {
+            browser.send_body(&app, step["method"].as_str().unwrap(), path, Some(body.to_string()), csrf, &headers).await
+        } else { browser.send(&app, step["method"].as_str().unwrap(), path, fields.as_deref(), csrf, &headers).await };
         assert_genuine(&app, browser, &answer, clock_now(at), &format!("{name} step {index}"));
         responses.push(rust_answer(&answer, launchpad.as_deref()));
     }
@@ -249,7 +251,7 @@ fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
 fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
     if rails.len() != rust.len() { return Some(format!("{} user rows in Rails, {} here", rails.len(), rust.len())); }
     let seeded = scenario["seed"]["users"].as_array().unwrap().len();
-    let password = scenario["steps"].as_array().unwrap().iter().rev().find_map(|s| s["form"]["user[password]"].as_str());
+    let password = scenario["steps"].as_array().unwrap().iter().rev().find_map(|s| s["form"]["user[password]"].as_str().or_else(|| s["json"]["user"]["password"].as_str()));
     for (index, (theirs, ours)) in rails.iter().zip(rust).enumerate() {
         for (column, value) in theirs.as_object().unwrap() {
             let mine = ours.get(column).unwrap_or(&Value::Null);
@@ -307,12 +309,12 @@ async fn rails_and_rust_answer_the_setup_grid_alike() {
     let only = std::env::var("SETUP").ok();
     let mut failures = vec![];
     let scenarios = vectors()["scenarios"].as_object().unwrap();
-    assert_eq!(scenarios.len(), 116, "a scenario was dropped or added without this count");
+    assert_eq!(scenarios.len(), 127, "a scenario was dropped or added without this count");
     for (name, scenario) in scenarios {
         if only.as_deref().is_some_and(|prefixes| !prefixes.split(',').any(|p| name.starts_with(p))) { continue; }
         let mut played = play(name, scenario).await;
         let mut rails: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| rails_answer(r, scenario["launchpad_url"].as_str())).collect();
-        if name == "invalid_missing_user" {
+        if name == "invalid_missing_user" || name == "followup_json_empty_user" {
             // ActionController::ParameterMissing. Rails' test environment shows its exception page for it; in
             // production it is a bare 400. Here: 400 with public/400.html, made below the controllers.
             let (Some(theirs), Some(ours)) = (rails.pop(), played.responses.pop()) else { panic!("{name}: no responses") };
@@ -561,4 +563,87 @@ async fn claim_secrets_are_not_echoed() {
     let stored: Vec<String> = table(dir.path(), "app_configs").iter().map(|r| r["value"].to_string()).collect();
     assert!(stored.iter().all(|v| !v.contains("md-token-123") && !v.contains("proxy.example")), "values are encrypted");
     assert!(!deltabadger::web::locale::without_secret_query("/setup/platform_connection?code=c&claim_code=d").contains("=c"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn claim_cannot_write_after_an_admin_is_created_while_launchpad_replies() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let (arrived_tx, arrived_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+    let upstream = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut raw = Vec::new();
+        loop {
+            let mut buf = [0; 4096];
+            let n = stream.read(&mut buf).await.unwrap();
+            assert_ne!(n, 0);
+            raw.extend_from_slice(&buf[..n]);
+            if String::from_utf8_lossy(&raw).contains("dbc_delayed") { break; }
+        }
+        arrived_tx.send(()).unwrap();
+        release_rx.await.unwrap();
+        let body = vectors()["launchpad_answers"]["ok"]["body"].as_str().unwrap();
+        stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).as_bytes()).await.unwrap();
+    });
+    let (dir, app) = fresh(&[("LAUNCHPAD_URL", &url)]).await;
+    let wakers = deltabadger::jobs::Wakers::default();
+    app.attach_jobs(wakers.clone()).unwrap();
+    let mut claimant = Browser::default();
+    let mut owner = Browser::default();
+    claimant.get(&app, "/setup").await;
+    owner.get(&app, "/setup").await;
+    let claim = claimant.send(&app, "POST", "/setup/platform_connection", Some(&[("claim_code", "dbc_delayed")]), Csrf::Header, &[]);
+    let create = async {
+        arrived_rx.await.unwrap();
+        assert_eq!(submit(&mut owner, &app, "/setup?locale=en", account("owner@example.com")).await.header("location"), Some("/bots"));
+        release_tx.send(()).unwrap();
+    };
+    let (answer, ()) = tokio::time::timeout(std::time::Duration::from_secs(10), async { tokio::join!(claim, create) }).await.unwrap();
+    upstream.await.unwrap();
+    assert!(table(dir.path(), "app_configs").is_empty(), "a late claim must not write configuration");
+    assert!(wakers.pending().is_empty(), "a refused claim must not enqueue setup sync");
+    assert_eq!(answer.status, 422);
+    assert!(!answer.body.contains("setup_identity_fields"), "a refused claim cannot set platform identity");
+    assert_eq!(admins(dir.path()), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn recurring_jobs_resolve_market_data_config_at_each_run() {
+    use deltabadger::jobs::{self, data_api::{self, DataApi}, Cx, Db, Wakers};
+    let old = wiremock::MockServer::start().await;
+    let new = wiremock::MockServer::start().await;
+    for server in [&old, &new] {
+        wiremock::Mock::given(wiremock::matchers::any()).respond_with(wiremock::ResponseTemplate::new(503)).mount(server).await;
+    }
+    for initially_configured in [false, true] {
+        let (dir, app) = fresh(&[]).await;
+        let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let clock = TestClock::at("2026-09-10T12:00:30Z");
+        let set = |url: &str, token: &str| {
+            for (key, value) in [("market_data_provider", "deltabadger"), ("market_data_url", url), ("market_data_token", token)] {
+                deltabadger::app_config::set(&c, &app.cipher, key, value, clock_now("2026-09-10T12:00:30Z")).unwrap();
+            }
+        };
+        if initially_configured { set(&old.uri(), "old-token"); }
+        let api = std::rc::Rc::new(data_api::config(&|_| None, &c, &app.cipher).unwrap().map(DataApi::live));
+        let resolve = jobs::resolve::all(deltabadger::venue::alpaca::LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall());
+        let job = jobs::resolve::configured(resolve(jobs::reference::ASSETS, None).unwrap(), &|_| None);
+        set(&new.uri(), "new-token");
+        let db = Db::new(c, app.cipher.clone());
+        job.run(Cx { db: db.clone(), clock: &*clock, wakers: Wakers::default() }, vec![]).await;
+        let requests = new.received_requests().await.unwrap();
+        assert!(requests.iter().any(|r| r.headers.get("authorization").is_some_and(|v| v == "Bearer new-token")), "the next recurring run must use the claimed config, initially configured: {initially_configured}");
+        new.reset().await;
+        wiremock::Mock::given(wiremock::matchers::any()).respond_with(wiremock::ResponseTemplate::new(503)).mount(&new).await;
+        db.run(move |c, cipher| {
+            deltabadger::app_config::set(c, cipher, "market_data_token", "rotated-token", clock_now("2026-09-10T12:00:30Z"))
+        }).await.unwrap();
+        job.run(Cx { db, clock: &*clock, wakers: Wakers::default() }, vec![]).await;
+        assert!(new.received_requests().await.unwrap().iter().any(|r| r.headers.get("authorization").is_some_and(|v| v == "Bearer rotated-token")));
+        assert!(old.received_requests().await.unwrap().is_empty());
+        new.reset().await;
+        wiremock::Mock::given(wiremock::matchers::any()).respond_with(wiremock::ResponseTemplate::new(503)).mount(&new).await;
+    }
 }

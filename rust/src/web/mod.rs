@@ -694,9 +694,10 @@ impl Params {
         }
     }
 
-    /// `params[:locale].presence`: the path prefix, else the form field, else the query parameter.
+    /// `params[:locale].presence`: the path prefix, else the body field, else the query parameter.
     pub fn locale(&self) -> Option<&str> {
-        self.path_locale.or_else(|| self.form("locale")).or_else(|| self.query("locale")).filter(|v| !v.trim().is_empty())
+        self.path_locale.or_else(|| self.json.as_ref().and_then(|v| v.get("locale")).and_then(serde_json::Value::as_str))
+            .or_else(|| self.form("locale")).or_else(|| self.query("locale")).filter(|v| !v.trim().is_empty())
     }
 }
 
@@ -809,7 +810,9 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
     let broadcast_json = original_method == Method::POST && route_path.starts_with("/broadcasts/");
-    let json_post = (bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    let setup_json = original_method == Method::POST && path_locale.is_none()
+        && matches!(route_path.as_str(), "/setup" | "/setup.html" | "/setup/platform_connection");
+    let json_post = (setup_json || bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
     let (form, body) = if form_post || json_post {

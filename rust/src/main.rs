@@ -165,7 +165,11 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
-    let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(jobs::resolve::all(LiveFactory::new(),api,deltabadger::tracker::jobs::system_wall()));
+    let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
+    let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env)).collect();
+    let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env);
+    let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
+    if resume_setup { scheduler.wakers().wake(jobs::setup_sync::NAME, None, None); }
     scheduler.wakers().attach_engine(engine.wake_handle());
     let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;
