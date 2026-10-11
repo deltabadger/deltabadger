@@ -16,6 +16,62 @@ pub struct Bot {
     started_at: Option<String>, settings_changed_at: Option<String>, pub restatement_generation: i64,
 }
 
+/// Captured before any intervening tick work, never from the row at claim time. The counters also
+/// distinguish resumes and successive jobs at identical timestamps (Rails Statusable#run_identity).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunIdentity {
+    bot_type: String,
+    generation: i64,
+    tick: i64,
+    started: Option<i64>,
+    last_action: Option<i64>,
+}
+
+impl RunIdentity {
+    pub fn to_json(&self) -> Value {
+        serde_json::json!({"bot_type":self.bot_type, "generation":self.generation, "tick":self.tick,
+            "started":self.started, "last_action":self.last_action})
+    }
+    pub fn from_json(v: &Value) -> Option<Self> {
+        let time = |key: &str| { let value = v.get(key)?; if value.is_null() { Some(None) } else { value.as_i64().map(Some) } };
+        Some(Self { bot_type:v.get("bot_type")?.as_str()?.into(), generation:v.get("generation")?.as_i64()?,
+            tick:v.get("tick")?.as_i64()?, started:time("started")?, last_action:time("last_action")? })
+    }
+}
+
+impl Bot {
+    pub fn run_generation(&self) -> i64 { self.transient["run_generation"].as_i64().unwrap_or(0) }
+    pub fn tick_generation(&self) -> i64 { self.transient["tick_generation"].as_i64().unwrap_or(0) }
+    pub fn run_identity(&self) -> Result<RunIdentity, EngineError> {
+        Ok(RunIdentity { bot_type: self.bot_type.clone(), generation: self.run_generation(),
+            tick: self.tick_generation(), started: self.started_at_us()?, last_action: self.last_action_job_at_us()? })
+    }
+}
+
+pub fn owns_identity(c: &Connection, id: i64, identity: &RunIdentity) -> Result<bool, EngineError> {
+    let current = load_bot(c, id)?;
+    Ok(BOT_WORKING.contains(&current.status) && current.run_identity()? == *identity)
+}
+pub fn require_run(c: &Connection, bot: &Bot) -> Result<(), EngineError> {
+    if owns_identity(c, bot.id, &bot.run_identity()?)? { Ok(()) } else { Err(EngineError::RunFenced) }
+}
+pub fn run_write<T>(c: &Connection, bot: &Bot, work: impl FnOnce(&Connection) -> Result<T, EngineError>) -> Result<T, EngineError> {
+    locked(c, |tx| { require_run(tx, bot)?; work(tx) })
+}
+pub fn run_credential_write<T>(c: &Connection, bot: &Bot, version: &Option<CredentialVersion>, work: impl FnOnce(&FencedTransaction<'_>) -> Result<T, EngineError>) -> Result<T, EngineError> {
+    credential_write(c, version, |tx| { require_run(tx, bot)?; work(tx) })
+}
+
+pub fn transition_owned(c: &Connection, bot: &Bot, status: BotStatus, now: DateTime<Utc>) -> Result<(), EngineError> {
+    run_write(c, bot, |tx| {
+        if status == BotStatus::Executing && !matches!(load_bot(tx, bot.id)?.status, BotStatus::Scheduled | BotStatus::Retrying) {
+            return Err(EngineError::RunFenced);
+        }
+        transition_working(tx, bot.id, status, now)?;
+        Ok(())
+    })
+}
+
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
 fn us(s: Option<&str>) -> Result<Option<i64>, EngineError> {
     s.map(|s| parse_time(s).map(|t| t.timestamp_micros()).map_err(data)).transpose()
@@ -191,7 +247,9 @@ impl Bot {
     /// What the bot's checkpoints are computed from: its start (a fresh start moves it) and its effective interval.
     pub fn schedule_key(&self) -> Result<Option<String>, EngineError> {
         let (Some(anchor), Some(interval), Some(quote)) = (self.started_at_us()?, self.interval(), self.quote_amount()) else { return Ok(None) };
-        Ok(Some(format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount()))))
+        let key = format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount()));
+        // Preserve legacy waits until an actual Start changes their generation.
+        Ok(Some(if self.run_generation() == 0 { key } else { format!("{}/{key}", self.run_generation()) }))
     }
     /// What an amount-limit stop is counted under: the bot's start (a fresh start moves it) and its limit settings. A count
     /// whose key no longer matches lost its cause (the user started the bot afresh, or changed or switched off the limit).

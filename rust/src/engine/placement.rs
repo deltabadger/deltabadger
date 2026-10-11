@@ -27,6 +27,8 @@ pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this requ
 pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan,
     /// In-memory only; no secret, digest or credential is persisted in an intent.
     credential_version: Option<model::CredentialVersion>,
+    bot_id: i64,
+    run: Option<model::RunIdentity>,
 }
 
 impl Intent {
@@ -37,7 +39,7 @@ impl Intent {
         Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
-                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)? }))
+                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -47,7 +49,7 @@ impl Intent {
         // The intent names its own ticker: a basket's leg k is not the bot's first member. base_asset_id is for the logs; an
         // intent written by an earlier build has none.
         let ticker = model::ticker_by_id(c, bot.exchange_id, v["ticker_id"].as_i64().ok_or_else(bad)?)?.ok_or_else(bad)?;
-        Ok(Self { credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+        Ok(Self { bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
@@ -205,7 +207,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         // Still the run that sized it: a stop and a start put the row back to working, so it must still be the claim this tick
         // took (Automation::Statusable#stopped_mid_tick?): executing, with the same started_at and last_action_job_at.
         let same_run = current.status == crate::enums::BotStatus::Executing
-            && (current.started_at_us()?, current.last_action_job_at_us()?) == (bot.started_at_us()?, bot.last_action_job_at_us()?);
+            && current.run_identity()? == bot.run_identity()?;
         if !same_run {
             super::log(&format!("[engine] bot {}: {} order not placed: it was stopped after it was sized", bot.id, plan.ticker.ticker));
             return Ok(Begun::Fenced);
@@ -234,7 +236,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let intent = Intent { credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let intent = Intent { bot_id: bot.id, run: Some(bot.run_identity()?), credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -252,9 +254,44 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 }
 
 #[derive(Debug)]
-pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
+pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced }
 
-pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
+/// STOP and dispatch take the same SQLite write lock. It stays held through the venue reply,
+/// timeout or cancellation, so only a request already handed to the transport can execute after
+/// STOP succeeds. A timeout/process death cannot retract transmitted bytes; recovery owns those.
+pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
+    let tx = model::immediate(c)?;
+    let sent = send_locked(&tx, venue, intent, clock).await?;
+    tx.commit()?;
+    Ok(sent)
+}
+
+/// Production dispatch records its answer before releasing STOP's lock. The committed intent
+/// predates this transaction, so an ambiguous reply, rollback or crash leaves recovery possible.
+pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
+    let tx = model::immediate(c)?;
+    let sent = send_locked(&tx, venue, intent, clock).await?;
+    match &sent {
+        Sent::Accepted(id) => { record_accepted_in(&tx, bot, intent, id)?; }
+        Sent::Rejected(errors) => { record_rejected_in(&tx, bot, intent, errors)?; }
+        Sent::NotSent(_) => set_intent(&tx, bot.id, None)?,
+        Sent::Ambiguous(_) | Sent::Fenced => {}
+    }
+    tx.commit()?;
+    Ok(sent)
+}
+
+fn intent_owned(c: &Connection, intent: &Intent) -> Result<bool, EngineError> {
+    match &intent.run { Some(run) => model::owns_identity(c, intent.bot_id, run), None => Ok(false) }
+}
+
+async fn send_locked<V: Venue>(tx: &rusqlite::Transaction<'_>, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
+    if !intent_owned(tx, intent)? || !still_pending(tx, intent.bot_id, &intent.cl_ord_id)? { return Ok(Sent::Fenced); }
+    model::check_credential_result(tx, &intent.credential_version)?;
+    Ok(send_to_venue(venue, intent, clock).await)
+}
+
+async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
     let handle=crate::venue::Handle::new(venue,intent.credential_version.clone());
     let venue=&handle;
     let Some(send_until) = intent.at.checked_add_signed(Duration::seconds(SEND_WINDOW_SECONDS)) else { return Sent::NotSent(format!("{:?}", super::schedule::time_range_error())); };
@@ -282,22 +319,33 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Se
 
 pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
     let tx = model::immediate(c)?;
-    let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
-    if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
-    let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
-    set_intent(&tx, bot.id, None)?;
+    let id = record_accepted_in(&tx, bot, intent, txid)?;
     tx.commit()?;
     Ok(id)
 }
+fn record_accepted_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
+    let fenced = model::check_credential_result(tx, &intent.credential_version)?;
+    if !still_pending(tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
+    let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
+    set_intent(tx, bot.id, None)?;
+    Ok(id)
+}
 
+pub fn safe_rejection(errors: &[String]) -> bool {
+    errors.iter().any(|m| PLACEMENT_SAFE_TRANSIENT_ERRORS.iter().any(|p| m.contains(p)))
+}
 pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
     let tx = model::immediate(c)?;
-    let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
-    if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
-    let safe = errors.iter().any(|m| PLACEMENT_SAFE_TRANSIENT_ERRORS.iter().any(|p| m.contains(p)));
-    if !safe { write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
-    set_intent(&tx, bot.id, None)?;
+    let recorded = record_rejected_in(&tx, bot, intent, errors)?;
     tx.commit()?;
+    Ok(recorded)
+}
+fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
+    let fenced = model::check_credential_result(tx, &intent.credential_version)?;
+    if !still_pending(tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
+    let safe = safe_rejection(errors);
+    if !safe { write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
+    set_intent(tx, bot.id, None)?;
     Ok(!safe)
 }
 
@@ -306,6 +354,13 @@ pub fn drop_intent(c: &Connection, bot_id: i64) -> Result<(), EngineError> { set
 
 #[derive(Debug)]
 pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
+
+pub fn pending_owned(bot: &Bot) -> Result<bool, EngineError> {
+    let Some(raw) = bot.rust_placement() else { return Ok(false) };
+    let Some(run) = raw.get("run_identity").filter(|v| !v.is_null()) else { return Ok(false) };
+    let run = model::RunIdentity::from_json(run).ok_or_else(||EngineError::Data("unreadable intent run identity".into()))?;
+    Ok(run == bot.run_identity()?)
+}
 
 pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Recovery, EngineError> {
     recover_since(c, venue, bot, clock, DateTime::<Utc>::MIN_UTC).await
@@ -340,7 +395,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
                 polling::owe_limit_mail(&tx, bot.id, now)?;
                 super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
             }
-            defer_failure(&fenced, bot, now)?;
+            if intent_owned(&tx, &intent)? { defer_failure(&fenced, bot, now)?; }
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -349,7 +404,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
-            defer_failure(&fenced, bot, started)?;
+            if intent_owned(&tx, &intent)? { defer_failure(&fenced, bot, started)?; }
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -380,7 +435,7 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         OperatorResolution::NotPlaced => ("not_placed", None),
     };
     set_intent(&tx, bot_id, None)?;
-    defer_to_next_checkpoint(&tx, &bot, now)?;
+    if intent_owned(&tx, &intent)? { defer_to_next_checkpoint(&tx, &bot, now)?; }
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;

@@ -210,9 +210,9 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
-    transient_data = CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
+    transient_data = json_set(CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
       '$.last_action_job_at', json('null')), '$.missed_quote_amount', json('null')) \
-      ELSE transient_data END, updated_at = ?5 \
+      ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
 
 // Provisional spelling: MUST match the merged engine PR before execution.
@@ -400,7 +400,7 @@ fn lifecycle_inner<T>(
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
         if submitted.mcp() && !effects.settings_changed &&
-            (action==Action::Stop || action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
+            (action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
             effects.transient.set.insert("missed_quote_amount".into(),draft.raw_transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }

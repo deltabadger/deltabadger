@@ -6,6 +6,28 @@ pub mod scripted;
 pub mod smtp;
 pub mod web;
 
+type OrderCommitHook = Box<dyn FnMut() -> rusqlite::Result<()>>;
+thread_local! {
+    static ORDER_COMMIT_HOOK: std::cell::RefCell<Option<OrderCommitHook>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Pause after a submitted order commits and releases SQLite's write lock, before the tick
+/// continues. The competing write uses its own connection, so the barrier cannot bypass a lock.
+pub fn after_order_commit(c: &rusqlite::Connection, bot_id: i64, action: impl FnOnce(&rusqlite::Connection) -> rusqlite::Result<()> + 'static) {
+    let path = c.path().unwrap().to_owned();
+    let mut action = Some(action);
+    ORDER_COMMIT_HOOK.with(|hook| *hook.borrow_mut() = Some(Box::new(move || {
+        if action.is_none() { return Ok(()) }
+        let writer = rusqlite::Connection::open(&path)?;
+        let recorded: bool = writer.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0)", [bot_id], |r|r.get(0))?;
+        if recorded { action.take().unwrap()(&writer)?; }
+        Ok(())
+    })));
+    c.wal_hook(Some(|_, _| ORDER_COMMIT_HOOK.with(|hook| {
+        hook.borrow_mut().as_mut().map_or(Ok(()), |work| work())
+    })));
+}
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;

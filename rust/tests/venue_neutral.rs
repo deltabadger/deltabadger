@@ -78,7 +78,7 @@ async fn an_intent_delayed_before_its_send_is_never_sent_and_is_settled_as_not_p
     let v = FakeVenue::new();
     // The process stalls 11 s between committing the intent and sending it.
     let late = SteppingClock::new(t0 + Duration::seconds(11), Duration::seconds(1));
-    assert!(matches!(placement::send(&v, &intent, &late).await, placement::Sent::NotSent(_)));
+    assert!(matches!(placement::send(&o.primary, &v, &intent, &late).await.unwrap(), placement::Sent::NotSent(_)));
     assert!(v.sent().is_empty(), "a stale intent never reaches the venue");
     let bot = model::load_bot(&o.primary, bot.id).unwrap();
     assert!(matches!(placement::recover(&o.primary, &v, &bot, &FixedClock(t0 + Duration::seconds(70))).await.unwrap(), placement::Recovery::NotPlaced));

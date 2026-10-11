@@ -172,21 +172,15 @@ async fn a_fill_committed_before_the_tick_fails_is_announced() {
 }
 
 /// A tick whose placement committed an order and then failed (its funds write and its failure handling are refused by
-/// triggers armed while AddOrder awaits its reply) still announces the order and schedules its follow-up poll, which
+/// triggers armed after the dispatch transaction commits) still announces the order and schedules its follow-up poll, which
 /// records the fill on time: the order is in no later sweep's waiting set.
 #[tokio::test(flavor = "current_thread")]
 async fn an_order_placed_before_the_tick_fails_is_announced_and_polled() {
-    use std::{cell::RefCell, rc::Rc};
-    let database: Rc<RefCell<Option<std::path::PathBuf>>> = Rc::default();
-    let armed = database.clone();
-    let v = low_funds().order("OFAKE-1", filled()).on_add(move || {
-        let Some(path) = armed.borrow().clone() else { return };
-        Connection::open(path).unwrap().execute_batch(
-            "CREATE TRIGGER refuse_funds BEFORE UPDATE OF last_end_of_funds_notification ON bots BEGIN SELECT RAISE(ABORT, 'funds write refused'); END;
-             CREATE TRIGGER refuse_status BEFORE UPDATE OF status ON bots BEGIN SELECT RAISE(ABORT, 'status write refused'); END;").unwrap();
-    });
-    let (d, mut e, bots, _s) = engine(1, v);
-    *database.borrow_mut() = Some(d.path().join("production.sqlite3"));
+    let v = low_funds().order("OFAKE-1", filled());
+    let (_d, mut e, bots, _s) = engine(1, v);
+    common::after_order_commit(&e.primary, bots[0], |writer| writer.execute_batch(
+        "CREATE TRIGGER refuse_funds BEFORE UPDATE OF last_end_of_funds_notification ON bots BEGIN SELECT RAISE(ABORT, 'funds write refused'); END;
+         CREATE TRIGGER refuse_status BEFORE UPDATE OF status ON bots BEGIN SELECT RAISE(ABORT, 'status write refused'); END;"));
     let mut rx = e.subscribe_to(EngineEvent::is_order);
     let _ = run::step(&mut e, &at("2026-09-01T10:00:00.5Z")).await; // the engine survives a failed tick
     let placed = rows(&e.primary);

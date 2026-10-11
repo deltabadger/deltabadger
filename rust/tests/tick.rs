@@ -376,11 +376,25 @@ async fn a_bot_stopped_mid_tick_stays_stopped() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_stop_while_addorder_awaits_its_reply_wins() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    let db = o.primary.path().unwrap().to_string(); // the UI, stopping the bot from another connection
+    let db = o.primary.path().unwrap().to_string();
+    let stopper = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let holder = stopper.clone();
     let v = priced().next_add(AddOutcome::Accept("OTX-S".into())).on_add(move || {
-        rusqlite::Connection::open(&db).unwrap().execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let db = db.clone();
+        *holder.borrow_mut() = Some(std::thread::spawn(move || {
+            let writer = rusqlite::Connection::open(db).unwrap();
+            writer.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
+            started_tx.send(()).unwrap();
+            writer.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+            let _ = done_tx.send(());
+        }));
+        started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert!(done_rx.recv_timeout(std::time::Duration::from_millis(100)).is_err(), "STOP waits for the transmitted order's reply and recording");
     });
     run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    stopper.borrow_mut().take().unwrap().join().unwrap();
     assert_eq!(bot(&o, id).status, BotStatus::Stopped, "not resurrected to waiting/scheduled");
     assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-S", "the order already sent is recorded");
 }
@@ -424,13 +438,13 @@ async fn a_transient_kraken_answer_to_addorder_is_ambiguous_not_a_rejection() {
 /// The tick reads the row at its start and writes transient_data after AddOrder (here: clearing last_failure_kind).
 /// A web json_set landing in between must survive, and the tick's own write must land too.
 #[tokio::test(flavor = "current_thread")]
-async fn a_web_json_set_landing_while_addorder_awaits_survives_the_ticks_own_transient_writes() {
+async fn a_web_json_set_after_dispatch_survives_the_ticks_own_transient_writes() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_failure_kind", json!("transient")));
-    let db = o.primary.path().unwrap().to_string(); // the web UI, writing key by key from its own connection
-    let v = priced().next_add(AddOutcome::Accept("OTX-W".into())).on_add(move || {
-        rusqlite::Connection::open(&db).unwrap()
-            .execute("UPDATE bots SET transient_data = json_set(transient_data, '$.web_key', 'from the web') WHERE id = ?1", [id]).unwrap();
+    common::after_order_commit(&o.primary, id, move |writer| {
+        writer.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.web_key', 'from the web') WHERE id = ?1", [id])?;
+        Ok(())
     });
+    let v = priced().next_add(AddOutcome::Accept("OTX-W".into()));
     run(&o, &v, id, "2026-09-01T10:00:01Z").await;
     let t = bot(&o, id).transient;
     assert_eq!(t["web_key"], "from the web", "the web's key survives the engine's writes after it");

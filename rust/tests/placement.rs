@@ -41,7 +41,7 @@ async fn a_crash_after_kraken_accepted_is_recorded_exactly_once_with_its_fill_an
     let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into())).order("OTX-1", json!({
         "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0" } }));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&venue, &intent, &FixedClock(t0())).await, Sent::Accepted(ref t) if t == "OTX-1"));
+    assert!(matches!(placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap(), Sent::Accepted(ref t) if t == "OTX-1"));
     // crash here: the reply never reached the database
     let later = FixedClock(t0() + Duration::hours(2));
     assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Recorded(_)));
@@ -101,7 +101,7 @@ async fn a_stale_snapshot_cannot_record_an_order_twice() {
     let (_d, o, bot, plan) = setup();
     let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into()));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&venue, &intent, &FixedClock(t0())).await, Sent::Accepted(_)));
+    assert!(matches!(placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap(), Sent::Accepted(_)));
     let stale = reload(&o, &bot); // still carries the intent
     placement::record_accepted(&o.primary, &stale, &intent, "OTX-1").unwrap();
     let later = FixedClock(t0() + Duration::hours(2));
@@ -152,10 +152,10 @@ async fn an_ambiguous_send_keeps_the_intent_and_a_not_sent_one_can_drop_it() {
     let (_d, o, bot, plan) = setup();
     let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-9".into()));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&venue, &intent, &FixedClock(t0())).await, Sent::Ambiguous(_)));
+    assert!(matches!(placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap(), Sent::Ambiguous(_)));
     assert!(reload(&o, &bot).rust_placement().is_some());
     let refused = FakeVenue::new().next_add(AddOutcome::NotSent("refused".into())); // the fake books a duplicate cl_ord_id, so a fresh venue
-    assert!(matches!(placement::send(&refused, &intent, &FixedClock(t0())).await, Sent::NotSent(_)));
+    assert!(matches!(placement::send(&o.primary, &refused, &intent, &FixedClock(t0())).await.unwrap(), Sent::NotSent(_)));
     placement::drop_intent(&o.primary, bot.id).unwrap();
     assert!(reload(&o, &bot).rust_placement().is_none());
 }
@@ -216,7 +216,7 @@ async fn ownership_stop_in_the_dispatch_gap_sends_nothing() {
     let venue = FakeVenue::new().next_add(AddOutcome::Accept("should-not-leave".into()));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
     o.primary.execute("UPDATE bots SET status=2 WHERE id=?1",[bot.id]).unwrap();
-    let _ = placement::send(&venue, &intent, &FixedClock(t0())).await;
+    let _ = placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap();
     assert!(venue.sent().is_empty(), "STOP committed before this $60 order was handed to the venue");
 }
 
@@ -255,7 +255,7 @@ async fn ownership_stop_and_dispatch_share_the_database_lock() {
     let (_d,o,bot,plan)=setup();
     let v=StopDuringDispatch { inner:FakeVenue::new().next_add(AddOutcome::Accept("transmitted".into())),db:o.primary.path().unwrap().into(),bot_id:bot.id,stopper:std::cell::RefCell::new(None) };
     let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&v,&intent,&FixedClock(t0())).await,Sent::Accepted(_)));
+    assert!(matches!(placement::send(&o.primary, &v,&intent,&FixedClock(t0())).await.unwrap(),Sent::Accepted(_)));
     v.stopper.borrow_mut().take().unwrap().join().unwrap();
     assert_eq!(reload(&o,&bot).status,deltabadger::enums::BotStatus::Stopped);
 }
@@ -267,7 +267,7 @@ async fn ownership_resume_in_the_same_second_does_not_reuse_dispatch_identity() 
     let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(t0())).unwrap();
     // Resume preserves started_at and last_action_job_at, even when the clock has not advanced.
     o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1",[bot.id]).unwrap();
-    let _=placement::send(&v,&intent,&FixedClock(t0())).await;
+    let _=placement::send(&o.primary, &v,&intent,&FixedClock(t0())).await.unwrap();
     assert!(v.sent().is_empty(), "a resumed run is a new owner even at identical timestamps");
 }
 
