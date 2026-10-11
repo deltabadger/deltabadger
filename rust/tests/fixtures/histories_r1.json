@@ -1,10 +1,10 @@
 {
   "synthetic_only": true,
   "sources": {
-    "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
+    "app/models/bot/composition/order_setter.rb": "db09caa8eca2a6ea75c4c37a6bff8502b2f1dbcf92bc84163541fa3ac22c15b7",
     "app/models/bot/order_setter.rb": "8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff",
     "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
-    "app/models/bots/dca_multi_asset.rb": "aa6d29f2c6f54340f13cbd7dbb2d25e7bac0370affc1b30f3c42a3cb6119c677",
+    "app/models/bots/dca_multi_asset.rb": "eaf340245c57013eccf63e6bbe74a14794459e21a73e20920f1825f6a0ba6671",
     "app/views/bots/composition/_warning_below_minimums.html.erb": "874cf57530d56549714ecd94795418ce6c954ecd92c474769773da5701e23e56",
     "app/views/bots/dca_single_assets/_warning_below_minimums.html.erb": "527b4ca0727d7bd2aed2619fe36784f1b0684c7aa3c4e073b2c993f8a6db61da",
     "app/views/layouts/modal/_base.html.erb": "18048e5c421ecf9cf1226b4f1fa988e95978b00db500f69795c44ad9735dceba",
@@ -88,7 +88,7 @@
     "config/locales/devise.ru.yml": "6644ed2d17913892973c9e74d44980630439c5d8ca737ef4b1715b19aa146f99",
     "config/locales/devise.sk.yml": "5f8b177d8dc871a421eff07f2fb1702da78464515d21e7eb9d9ad06cc620d24c",
     "config/locales/devise.sv.yml": "13e082174e6ec1de7cd0793431ace78d4731b328ce9283e8faed2c94c8797948",
-    "config/locales/en.yml": "16cb9da5d74c34eb705be7520ee42af11bf9bfa55f6d834845d39d0e187c01c5",
+    "config/locales/en.yml": "c432f0ca8723055dbb9aa8541b9578b8cd38de1f61642185115123ce02267794",
     "config/locales/errors.bg.yml": "fc34b98caca01b341f407ae3cd82bf0048f3ab446754ff120012091dbee48faa",
     "config/locales/errors.cs.yml": "d1549d8d3e88584420c9ea1c48484478c760141d4798e50963d08c5f4780148f",
     "config/locales/errors.da.yml": "4067879aec5193bc54120c5c6aa9e7e6e677ade177eabc2d38cf8973f4164894",
