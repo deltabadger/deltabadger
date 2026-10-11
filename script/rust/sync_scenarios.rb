@@ -591,5 +591,52 @@ module SyncScenarios
     ]
   end
 
-  def all = ledger_scenarios + balance_scenarios
+  # Exchanges::Binance#get_balances (and Binance.US's, the same code on api.binance.us) with AccountBalance::Sync.
+  def binance_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    rates = P.ok('data' => { 'btc' => { 'value' => 1 }, 'usd' => { 'value' => 60_000.5 }, 'eur' => { 'value' => 55_000.25 } })
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25, 'tether' => 1.0001)
+    held = P.binance_account(%w[BTC 0.50000000 0.10000000], %w[ETH 2.00000000], %w[USDT 100.50000000], %w[EUR 50.00], %w[LDBTC 1.00000000],
+                             %w[BNB 3.00000000], %w[DOGE 0.00000000])
+    install = ->(ctx) { P.binance(ctx) }
+    seeded = lambda do |ctx|
+      P.binance(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2')
+      P.balance(ctx, 'ETH', free: '1', usd_price: '2400', usd_value: '2400')
+    end
+    [
+      # Cash by the market API's exchange rates, coins by its prices; an asset the venue lists no ticker for (LDBTC, BNB)
+      # is not a balance; locked counts.
+      { name: 'binance-balances-first', setup: install, steps: [P.binance_balances(night, account: held, rates:, prices: coins)] },
+      { name: 'binance-balances-us', setup: ->(ctx) { P.binance(ctx, us: true) }, steps: [P.binance_balances(night, account: held, rates:, prices: coins)] },
+      { name: 'binance-balances-locked_only', setup: install,
+        steps: [P.binance_balances(night, account: P.binance_account(%w[BTC 0.00000000 0.25000000]), prices: coins)] },
+      # The market fails: stored prices stay (stale), a holding that is gone is removed.
+      { name: 'binance-balances-stale_and_gone', setup: seeded,
+        steps: [P.binance_balances(night, account: P.binance_account(%w[BTC 0.45]), prices: P::SERVER_ERROR)] },
+      # ---- failures: nothing written but the key's error (and its status, for a key the venue condemns) ----
+      { name: 'binance-balances-invalid_key', setup: seeded,
+        steps: [P.binance_balances(night, account: { 'status' => 401, 'body' => { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' } })] },
+      { name: 'binance-balances-recv_window', setup: seeded,
+        steps: [P.binance_balances(night, account: { 'status' => 400, 'body' => { 'code' => -1021, 'msg' => 'Timestamp for this request is outside of the recvWindow.' } })] },
+      { name: 'binance-balances-throttled', setup: seeded,
+        steps: [P.binance_balances(night, account: { 'status' => 429, 'body' => { 'code' => -1003, 'msg' => 'Too many requests; current limit of IP is 6000 requests per minute.' } })] },
+      { name: 'binance-balances-bad_gateway', setup: seeded, steps: [P.binance_balances(night, account: { 'status' => 502, 'body' => '<html>502 Bad Gateway</html>' })] },
+      { name: 'binance-balances-not_json', setup: seeded, steps: [P.binance_balances(night, account: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'binance-balances-network', setup: seeded,
+        steps: [P.binance_balances(night, account: { 'network' => 'binance_pre_send', 'message' => 'Connection refused - connect(2) for "api.binance.com" port 443' })] },
+      { name: 'binance-balances-no_balances', setup: seeded, steps: [P.binance_balances(night, account: P.ok('accountType' => 'SPOT'))] },
+      { name: 'binance-balances-no_free', setup: seeded,
+        steps: [P.binance_balances(night, account: P.ok('balances' => [{ 'asset' => 'BTC', 'locked' => '1' }]))] },
+      # Listed divergences. A quantity that is no number: Ruby reads 0 and deletes the stored balance; Rust fails the sync.
+      { name: 'binance-balances-garbage_free', setup: seeded,
+        steps: [P.binance_balances(night, account: P.binance_account(%w[BTC abc], %w[ETH 1.5]), prices: coins)] },
+      # No exchange rate for cash: Ruby asks the coin market for "eur" and stores what it says; Rust leaves EUR unpriced.
+      { name: 'binance-balances-no_rate', setup: install,
+        steps: [P.binance_balances(night, account: P.binance_account(%w[EUR 50], %w[BTC 0.1]), rates: P::SERVER_ERROR,
+                                   prices: P.prices_body('bitcoin' => 60_000.5, 'eur' => 0.0004))] }
+    ]
+  end
+
+  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios
 end
