@@ -225,7 +225,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     end
 
     @exchange.stubs(:dry_run?).returns(false)
-    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('1.2345'),
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('123.45'),
                                  amount_type: :base, price: BigDecimal('0.45678'))
 
     assert result.success?, "expected success, got #{result.inspect}; captured=#{captured.inspect}"
@@ -354,7 +354,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     end
 
     @exchange.stubs(:dry_run?).returns(false)
-    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('0.15'),
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('1.5'),
                                  amount_type: :base, price: BigDecimal('66.60455877'))
 
     assert result.success?, "expected success, got #{result.inspect}"
@@ -404,11 +404,11 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     captured = capture_order(client)
     @exchange.stubs(:dry_run?).returns(false)
 
-    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('0.15'),
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('0.25'),
                                  amount_type: :base, price: BigDecimal('50'))
 
     assert result.success?, "expected success, got #{result.inspect}"
-    assert_equal BigDecimal('0.15'), captured[:size].to_d
+    assert_equal BigDecimal('0.25'), captured[:size].to_d
   end
 
   test 'set_limit_order fails gracefully when the adjusted price is not positive' do
@@ -755,6 +755,14 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
 
     assert_predicate result, :failure?
     assert_nil result.data
+  end
+
+  # Ids are "<BASE>-<oid>"; the oid is numeric, so it is everything after the LAST dash, which
+  # keeps a dashed base readable and reads every stored id the same way as before.
+  test 'parse_order_id splits at the last dash' do
+    assert_equal %w[HYPE 123], @exchange.send(:parse_order_id, 'HYPE-123')
+    assert_equal %w[@142 111], @exchange.send(:parse_order_id, '@142-111')
+    assert_equal %w[FOO-BAR 456], @exchange.send(:parse_order_id, 'FOO-BAR-456')
   end
 
   def hyperliquid_ticker(base_decimals:)

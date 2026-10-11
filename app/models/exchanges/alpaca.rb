@@ -426,14 +426,6 @@ class Exchanges::Alpaca < Exchange
     set_market_order(ticker: ticker, amount: amount, amount_type: amount_type, side: :sell)
   end
 
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(ticker: ticker, amount: amount, amount_type: amount_type, side: :buy, price: price)
-  end
-
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(ticker: ticker, amount: amount, amount_type: amount_type, side: :sell, price: price)
-  end
-
   def get_order(order_id:, stored_identity: false)
     result = client.get_order(order_id: order_id)
     return result if result.failure?

@@ -249,28 +249,6 @@ class Exchanges::Coinbase < Exchange
     )
   end
 
-  # @param amount_type [Symbol] :base or :quote
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :buy,
-      price: price
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :sell,
-      price: price
-    )
-  end
-
   def get_order(order_id:)
     result = client.get_order(order_id: order_id)
     return result if result.failure?
@@ -353,8 +331,10 @@ class Exchanges::Coinbase < Exchange
     end
   end
 
-  def minimum_amount_logic(**)
-    :base_or_quote
+  def minimum_amount_logic(order_type: nil, **)
+    # Limit orders go out as base_size (Exchange#limit_buy converts a quote amount at the limit
+    # price), so they are sized in base. Market orders keep the cheaper-minimum choice.
+    order_type == :limit_order ? :base_and_quote_in_base : :base_or_quote
   end
 
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)

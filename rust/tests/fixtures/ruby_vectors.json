@@ -41175,10 +41175,10 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "02c9e637bfd10a1e1f709b751408cdc356e6c383d56a43ad574e7cb50933ebdc",
+    "app/models/exchanges/alpaca.rb": "5c69f9e058ab1a5128f07bb31e78ebfeb21067a5e0e8b088a0f9c067accfe483",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
-    "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
-    "app/models/exchanges/kraken.rb": "f0054f310b4c625ff446fe1a3a217826c22432f29345ce1d63e12bb9274e053a",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+    "app/models/exchanges/kraken.rb": "7152decba11c5e2bef8a643e5794d3cfb758f2558bfe4159637df55e5de0a6eb",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/jobs/bot/fetch_and_update_open_orders_job.rb": "0594f4ce138af9283aac4980a27a01b5d791f8fa995379f3b34f948ea90b7609",
     "app/jobs/bot/fetch_and_update_order_job.rb": "cc72c63565850aafa645b526b41ee97e6534de49b7085ddf607f481dc0c65a01"
@@ -41316,14 +41316,8 @@
       "amount": "0.00093515194670288510156246940665018",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41410,14 +41404,8 @@
       "amount": "0.000015430174563591022443890274314214",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000015430",
-        "limit_price": "64160"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.00001543 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41457,14 +41445,8 @@
       "amount": "0.000015430008623660375223520819367747",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "64160.69"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41504,14 +41486,8 @@
       "amount": "0.000015430007120597604175780745209728",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41598,14 +41574,8 @@
       "amount": "0.000015586034912718204488778054862843",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000015586",
-        "limit_price": "64160"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.000015586 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41645,14 +41615,8 @@
       "amount": "0.000015585867296626641639920019563381",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "64160.69"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41692,14 +41656,8 @@
       "amount": "0.000015585865778381418359374490110836",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41833,14 +41791,8 @@
       "amount": "0.00007800726581961634140779969791472",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "64160.69"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -41880,14 +41832,8 @@
       "amount": "0.000078007258220798998888669323004736",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -42068,14 +42014,8 @@
       "amount": "0.0019241809427839555279140225975961",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "64160.69625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -43472,14 +43412,8 @@
       "amount": "0.66165413533834586466165413533835",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "1.49625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -43660,14 +43594,8 @@
       "amount": "0.66833751044277360066833751044277",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "1.49625"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44318,14 +44246,8 @@
       "amount": "0.00000000048721804950096809876856891844281",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44365,14 +44287,8 @@
       "amount": "0.00000000048721804949863384806227807841245",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44412,14 +44328,8 @@
       "amount": "0.000000000487218049498621425100892115810568",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44459,14 +44369,8 @@
       "amount": "0.000000000487218049498621419680682848686895985",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59314137"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000000001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44506,14 +44410,8 @@
       "amount": "0.0000000000080390978167659736296813871543063",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44553,14 +44451,8 @@
       "amount": "0.0000000000080390978167274584930275882938055",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44600,14 +44492,8 @@
       "amount": "0.00000000000803909781672725351416471991087437",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44647,14 +44533,8 @@
       "amount": "0.00000000000803909781672725342473126700333378375",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59314137"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000000001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44694,14 +44574,8 @@
       "amount": "0.0000000000081203008250161349794761486407135",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44741,14 +44615,8 @@
       "amount": "0.0000000000081203008249772308010379679735409",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44788,14 +44656,8 @@
       "amount": "0.00000000000812030082497702375168153526350947",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44835,14 +44697,8 @@
       "amount": "0.00000000000812030082497702366134471414478159975",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59314137"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000000001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44882,14 +44738,8 @@
       "amount": "0.000000000040642105629205755572278123946771",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44929,14 +44779,8 @@
       "amount": "0.000000000040642105629011040159195029707572",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -44976,14 +44820,8 @@
       "amount": "0.0000000000406421056290100038771660839938649",
       "amount_type": "quote",
       "below_minimum": true,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45023,14 +44861,8 @@
       "amount": "0.0000000000406421056290100034250302942946319067",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000000",
-        "limit_price": "123148147039.59314137"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.000000001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45070,14 +44902,8 @@
       "amount": "0.0000000010025062655705428977567062132692",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000000001",
-        "limit_price": "123148147039"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.000000001 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45117,14 +44943,8 @@
       "amount": "0.0000000010025062655657399128080453930982",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45164,14 +44984,8 @@
       "amount": "0.00000000100250626556571435115933569422315",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45258,14 +45072,8 @@
       "amount": "0.0000081203008250161349794761486407135",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.000008120",
-        "limit_price": "123148147039"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.00000812 BTC is below the minimum of 0.000027 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45305,14 +45113,8 @@
       "amount": "0.0000081203008249772308010379679735409",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0.0000",
-        "limit_price": "123148147039.59"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"
     },
     {
       "ticker": {
@@ -45352,14 +45154,8 @@
       "amount": "0.00000812030082497702375168153526350947",
       "amount_type": "quote",
       "below_minimum": false,
-      "wire": {
-        "symbol": "BTC/USD",
-        "side": "buy",
-        "type": "limit",
-        "time_in_force": "gtc",
-        "qty": "0",
-        "limit_price": "123148147039.59314"
-      }
+      "wire": null,
+      "refused": "Limit order of 0.0 BTC is below the minimum of 1.0 BTC for BTC/USD"
     },
     {
       "ticker": {

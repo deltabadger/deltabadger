@@ -245,26 +245,6 @@ class Exchanges::Hyperliquid < Exchange
     Result::Success.new(ticker.adjusted_price(price: result.data.to_d * multiplier))
   end
 
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker:,
-      amount:,
-      amount_type:,
-      side: :buy,
-      price:
-    )
-  end
-
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker:,
-      amount:,
-      amount_type:,
-      side: :sell,
-      price:
-    )
-  end
-
   # Hyperliquid rejects prices that aren't on tick size: at most 5 significant
   # figures and, for spot, at most (8 - szDecimals) decimal places. We translate
   # the significant-figure rule into a decimal-place count so floor/ceil/round
@@ -416,14 +396,15 @@ class Exchanges::Hyperliquid < Exchange
     end
   end
 
-  # Order ID format: "COIN-oid" (e.g., "PURR-123456")
+  # Order ID format: "COIN-oid" (e.g., "PURR-123456"). The oid is numeric, so it is what follows the
+  # LAST dash: a coin with a dash in its name still splits right, and every stored id reads as before.
   def build_order_id(coin, oid)
     "#{coin}-#{oid}"
   end
 
   def parse_order_id(order_id)
-    parts = order_id.split('-', 2)
-    [parts[0], parts[1]]
+    coin, _, oid = order_id.rpartition('-')
+    [coin, oid]
   end
 
   def set_crossing_order(ticker:, amount:, amount_type:, side:)

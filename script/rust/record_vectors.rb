@@ -650,10 +650,17 @@ alpaca_tickers = [
         x = BigDecimal(x_s)
         info = bot.send(:calculate_best_amount_info, { ticker:, price:, amount: x / price, quote_amount: x, side: :buy, order_type: })
         captured = nil
-        if order_type == :limit_order
-          alpaca.limit_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type], price:)
-        else
-          alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
+        placed = if order_type == :limit_order
+                   alpaca.limit_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type], price:)
+                 else
+                   alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
+                 end
+        # Exchange#limit_buy refuses a quantity that floors under minimum_base_size: nothing is sent.
+        if captured.nil?
+          alpaca_sizing << { 'ticker' => t.transform_values(&:to_s), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
+                             'price' => price.to_s('F'), 'amount' => (x / price).to_s('F'), 'amount_type' => info[:amount_type].to_s,
+                             'below_minimum' => info[:below_minimum_amount], 'wire' => nil, 'refused' => placed.errors.join }
+          next
         end
         # R1c: the wire never sends more than Rails Ticker's floors sized, and spells it exactly.
         protect = lambda do |key, exact, scale|
@@ -1601,11 +1608,13 @@ alpaca_stock_sizing = []
       x = BigDecimal(x_s)
       info = bot.send(:calculate_best_amount_info, { ticker:, price:, amount: x / price, quote_amount: x, side: :buy, order_type: })
       captured = nil
-      if order_type == :limit_order
-        alpaca.limit_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type], price:)
-      else
-        alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
-      end
+      placed = if order_type == :limit_order
+                 alpaca.limit_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type], price:)
+               else
+                 alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
+               end
+      raise "unexpected refusal: #{placed.errors.join}" if captured.nil?
+
       alpaca_stock_sizing << { 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s, 'price' => price.to_s('F'),
                                'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s) }
     end

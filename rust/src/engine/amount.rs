@@ -52,7 +52,7 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     let Some(amount) = x.div(&price) else { return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }) };
     let (quote_type, below) = match logic {
         // Exchanges::Alpaca: :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size;
-        // minimum_base_size is never checked for a buy (a limit qty under it is sent, and Alpaca rejects it).
+        // minimum_base_size is not checked here; a limit qty under it is refused at placement (OrderPlan::limit_refusal).
         MinimumLogic::Quote => (true, x.floor(quote_decimals) < ticker.minimum_quote_size),
         // Kraken minimum_amount_logic: anything but a market buy is :base.
         MinimumLogic::KrakenBaseOrQuote if distance.is_some() => (false, amount.floor(base_decimals) < ticker.minimum_base_size),
@@ -84,6 +84,21 @@ pub fn wire_decimal(d: &BigDec, places: u8) -> String {
 }
 
 impl OrderPlan {
+    /// Exchange#limit_buy: a limit quantity (a quote volume floored, divided by the floored price, floored to base_decimals)
+    /// that is zero or under minimum_base_size is refused before anything is sent, with Rails' message.
+    pub fn limit_refusal(&self) -> Result<Option<String>, String> {
+        if !self.limit { return Ok(None); }
+        let t = &self.ticker;
+        let (base_decimals, _, price_decimals) = t.scales()?;
+        let price = self.price.floor(price_decimals);
+        let qty = if self.quote_type {
+            self.volume.div(&price).ok_or_else(|| "zero limit price".to_string())?.floor(base_decimals)
+        } else { self.volume.floor(base_decimals) };
+        Ok((qty.is_zero() || qty < t.minimum_base_size).then(|| format!(
+            "Limit order of {} {} is below the minimum of {} {} for {}",
+            qty.to_s_f(), t.base_code, t.minimum_base_size.to_s_f(), t.base_code, t.ticker)))
+    }
+
     /// `Err` only for a ticker precision outside `ruby::MAX_SCALE` (then `size` refused the plan already).
     pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> Result<NewOrder, String> {
         let t = &self.ticker;

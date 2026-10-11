@@ -282,28 +282,6 @@ class Exchanges::Bybit < Exchange
     )
   end
 
-  # @param amount_type [Symbol] :base or :quote
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :buy,
-      price: price
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :sell,
-      price: price
-    )
-  end
-
   def get_order(order_id:)
     result = client.get_order(category: 'spot', order_id: order_id)
     if result.failure?
