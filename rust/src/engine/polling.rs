@@ -108,6 +108,9 @@ fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
 }
 
 pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64)>, EngineError> {
+    // A row whose status Rails never writes may be a working order: unresolved, never skipped.
+    let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
+    if unknown > 0 { return Err(EngineError::Data(format!("bot {}: {unknown} order row(s) with a status Rails never writes are unresolved", bot.id))); }
     let mut s = c.prepare(
         "SELECT id, external_id, created_at FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 AND external_status IN (0, 1) \
          AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') ORDER BY id")?;

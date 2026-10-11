@@ -123,6 +123,19 @@ on:
       - 'app/views/tracker/_chart.html.erb'
       - 'app/views/tracker/_record.html.erb'
       - 'app/controllers/application_controller.rb'
+      # The B2b index-history oracle (rust/tests/fixtures/index_histories.json "ported_sources").
+      - 'script/rust/index_histories*'
+      - 'app/models/transaction.rb'
+      - 'app/models/bot/liquidation_state.rb'
+      - 'app/models/bot/rebalanceable.rb'
+      - 'app/models/bot/rebalancer.rb'
+      - 'app/models/bot/composition/rebalancer.rb'
+      - 'app/jobs/bot/evaluate_rebalancers_job.rb'
+      - 'app/models/bot/composition/order_setter.rb'
+      - 'app/models/bot/order_setter.rb'
+      - 'app/models/bot/limit_orderable.rb'
+      - 'app/models/bots/dca_index.rb'
+      - 'app/models/bot/order_creator.rb'
   pull_request:
     paths:
       - 'rust/**'
@@ -245,6 +258,19 @@ on:
       - 'app/views/tracker/_chart.html.erb'
       - 'app/views/tracker/_record.html.erb'
       - 'app/controllers/application_controller.rb'
+      # The B2b index-history oracle (rust/tests/fixtures/index_histories.json "ported_sources").
+      - 'script/rust/index_histories*'
+      - 'app/models/transaction.rb'
+      - 'app/models/bot/liquidation_state.rb'
+      - 'app/models/bot/rebalanceable.rb'
+      - 'app/models/bot/rebalancer.rb'
+      - 'app/models/bot/composition/rebalancer.rb'
+      - 'app/jobs/bot/evaluate_rebalancers_job.rb'
+      - 'app/models/bot/composition/order_setter.rb'
+      - 'app/models/bot/order_setter.rb'
+      - 'app/models/bot/limit_orderable.rb'
+      - 'app/models/bots/dca_index.rb'
+      - 'app/models/bot/order_creator.rb'
 
 permissions:
   contents: read
@@ -311,5 +337,5 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
+          --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test index_histories_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
           --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock

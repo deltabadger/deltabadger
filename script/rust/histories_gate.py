@@ -35,6 +35,7 @@ def check():
             if selects and (execution or reads_fill or fragmented):
                 raise AssertionError(f'raw fill SELECT outside normalizer: {path}')
     subprocess.run([sys.executable, str(root / 'script/rust/histories_accounting_gate.py')], check=True)
+    subprocess.run([sys.executable, str(root / 'script/rust/index_histories_gate.py')], check=True)
     fill = (root / 'rust/src/figures/fill.rs').read_text()
     assert not re.search(r'f64|Num::Float|ruby_sum',fill), 'Float arithmetic in fill normalizer'
     subprocess.run([sys.executable, str(root / 'script/rust/mcp_reads_gate.py')], check=True)

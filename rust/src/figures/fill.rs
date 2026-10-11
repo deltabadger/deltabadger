@@ -16,7 +16,95 @@ impl Fill {
 /// Valid zero/absent execution moves nothing. Malformed fields always refuse before skipping.
 /// Reported positive value wins; otherwise multiply positive unit price by effective quantity exactly.
 pub fn parse(order:&Order)->Result<Option<Fill>,FiguresError>{
+    if let Some(sell)=special_sell(order)? { return Ok(sell.fill()); }
     parse_raw(&order.raw, order.closed)
+}
+/// The chart's price marks keep B2a's normalized reading for every row: a mark is a price shown, not money moved.
+pub fn mark(order:&Order)->Result<Option<Fill>,FiguresError>{ parse_raw(&order.raw, order.closed) }
+
+/// RULING-B2B-1 MQ6: a non-REGULAR sell is read exactly as Rails' walk reads it (measurable.rb:62-154), on the RAW
+/// proceeds column and never through the buy normalizer. `executed` is confirmed_exec_amounts' quantity (zero when blank).
+pub struct SpecialSell { pub executed: Dec, pub reported: Option<Dec>, priced: bool }
+impl SpecialSell {
+    /// Gate 1: units executed with no positive proceeds reported (Alpaca's 0 included) leave the ledger, unpriced.
+    pub fn unpriced(&self)->bool { self.executed.is_positive() && self.reported.is_none() }
+    /// Gate 2: only a priced row that executed something and reported proceeds is a fill. A positive-quote sell with a
+    /// blank price is skipped, so its units stay.
+    pub fn fill(&self)->Option<Fill> {
+        let value=self.reported.clone().filter(|_| self.priced && self.executed.is_positive())?;
+        Some(Fill{quantity:self.executed.clone(),value})
+    }
+}
+/// Positive proceeds the venue reported (Redeployable#redeploy_banked's column; nil and 0 count nothing).
+pub fn reported(order:&Order)->Result<Option<Dec>,FiguresError>{
+    validate_raw(&order.raw)?;
+    let reported=order.raw.quote_amount_exec.clone().filter(Dec::is_positive);
+    if let Some(value)=&reported { bound(value)?; }
+    Ok(reported)
+}
+pub fn special_sell(order:&Order)->Result<Option<SpecialSell>,FiguresError>{
+    if !order.sell || order.kind=="REGULAR" { return Ok(None); }
+    let mut reported=reported(order)?;
+    let raw=&order.raw;
+    let executed=raw.amount_exec.as_ref().or(if order.closed{raw.amount.as_ref()}else{None}).cloned().unwrap_or_else(Dec::zero);
+    bound(&executed)?;
+    // An unpriced REBALANCE sell keeps R4/R3: valued at price × executed, refused without a positive price. Rails parks
+    // the released basis as its flight cash instead, and the next buy's basis/cash division then compounds digits on
+    // every pair (the growth R4 removed). The units leave either way, so only the flight-cash figure differs.
+    if order.kind!="LIQUIDATION" && executed.is_positive() && reported.is_none() {
+        let price=raw.price.as_ref().filter(|p| p.is_positive()).ok_or_else(|| FiguresError::NotComputed("executed fill value unavailable".into()))?;
+        let value=(price*&executed)?;
+        bound(&value)?;
+        reported=Some(value);
+    }
+    Ok(Some(SpecialSell{executed,reported,priced:raw.price.is_some()}))
+}
+/// Trading also refuses what for_engine refuses: a closed row with no quantity at all, or proceeds with nothing executed.
+pub fn special_sell_for_engine(order:&Order)->Result<Option<SpecialSell>,FiguresError>{
+    let Some(sell)=special_sell(order)? else { return Ok(None) };
+    require_closed_quantity(&order.raw, order.closed)?;
+    if !sell.executed.is_positive() && sell.reported.is_some() { return Err(FiguresError::Data("executed fill quantity unavailable".into())); }
+    Ok(Some(sell))
+}
+
+/// Measurable's skip for a buy (measurable.rb:153-154), after confirmed_exec_amounts: no price, or no or zero executed
+/// quantity or proceeds.
+fn rails_counts_buy(raw:&Raw, closed:bool)->Result<bool,FiguresError>{
+    let Some(price)=raw.price.as_ref() else { return Ok(false) };
+    let executed=raw.amount_exec.as_ref().or(if closed{raw.amount.as_ref()}else{None});
+    let quote=match (&raw.quote_amount_exec,&raw.amount) {
+        (Some(q),_)=>Some(q.clone()),
+        (None,Some(a)) if closed=>Some((price*a)?),
+        _=>None,
+    };
+    Ok(executed.is_some_and(|e| !e.is_zero()) && quote.is_some_and(|q| !q.is_zero()))
+}
+/// A REBALANCE/REDEPLOY buy the normalizer would count but the Rails walk skips (zero proceeds, no price, or proceeds
+/// unknown on an unclosed row). Counting its units would buy more of every other member than Rails does, so trading
+/// refuses to size from it; the figures page keeps the normalized reading.
+pub fn skipped_special_buy(order:&Order)->Result<bool,FiguresError>{
+    if order.sell || order.kind=="REGULAR" { return Ok(false); }
+    Ok(parse_raw(&order.raw,order.closed)?.is_some() && !rails_counts_buy(&order.raw,order.closed)?)
+}
+pub fn skipped_special_buys(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
+    let mut n=0;
+    for order in orders(c,bot_id)? { if skipped_special_buy(&order)? { n+=1; } }
+    Ok(n)
+}
+
+/// RULING-B2B-R1 item 2: a rejected special row (failed or skipped) moves nothing, as Rails' `submitted` scope ignores it;
+/// one that reports an execution anyway is an unknown fill. Counts those. Any other status is eligibility's refusal.
+pub fn rejected_special_executions(c:&Connection,bot_id:i64)->Result<i64,FiguresError>{
+    let mut s=c.prepare("SELECT price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status IN (1,2) AND transaction_type<>'REGULAR'")?;
+    let mut rows=s.query([bot_id])?;
+    let mut count=0;
+    while let Some(r)=rows.next()? {
+        budget::charge(1,0)?;
+        let raw=Raw::new(super::db::decimal(r,0)?,super::db::decimal(r,1)?,super::db::decimal(r,2)?,super::db::decimal(r,3)?);
+        validate_raw(&raw)?;
+        if raw.amount_exec.as_ref().is_some_and(Dec::is_positive) || raw.quote_amount_exec.as_ref().is_some_and(Dec::is_positive) { count+=1; }
+    }
+    Ok(count)
 }
 fn parse_raw(raw: &Raw, closed: bool) -> Result<Option<Fill>, FiguresError> {
     validate_raw(raw)?;
@@ -36,12 +124,19 @@ use crate::enums::{TxExternalStatus,TxSide,TxStatus};
 use super::budget;
 pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresError> {
     let mut statement = c.prepare(
-        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type \
-         FROM transactions WHERE bot_id = ?1 AND status = ?2 ORDER BY created_at ASC, id ASC")?;
-    let mut rows = statement.query(params![bot_id, TxStatus::Submitted as i64])?;
+        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type, status \
+         FROM transactions WHERE bot_id = ?1 ORDER BY created_at ASC, id ASC")?;
+    let mut rows = statement.query(params![bot_id])?;
     let mut out = vec![];
     while let Some(r) = rows.next()? {
         budget::charge(1, 0)?;
+        // Every row's status is read before any is filtered: one outside Transaction.statuses (submitted, failed,
+        // skipped) proves neither a fill nor a rejection, so nothing is computed from this history.
+        match r.get::<_, Option<i64>>(12)? {
+            Some(s) if s == TxStatus::Submitted as i64 => {}
+            Some(1 | 2) => continue,
+            _ => return Err(FiguresError::NotComputed("unreadable transaction status".into())),
+        }
         let (side, status): (Option<i64>, Option<i64>) = (r.get(9)?, r.get(10)?);
         out.push(Order {
             id: r.get(0)?, at: super::db::instant(&r.get::<_, String>(1)?)?, exchange_id: r.get(2)?,
