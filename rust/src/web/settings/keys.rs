@@ -153,8 +153,12 @@ async fn tracker_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{
         }
         Ok(None)
     }).await?;
-    if let Some(id)=found{ctx.session.lock().tracker_connect=Some(id);}
     Ok(found)
+}
+/// RetiredExchangeGuard: flash and back to the tracker, before any credential is read or a venue asked.
+fn retired_answer(ctx:&Ctx)->Response{
+    flash::set(&ctx.session,flash::ALERT,ctx.t("errors.exchange_retired"));
+    crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker"))
 }
 pub async fn save(
     axum::extract::State(app): axum::extract::State<App>,
@@ -181,14 +185,6 @@ pub async fn save(
         Some("trading") => 0,
         _ => 2,
     }};
-    if !ctx
-        .params
-        .form
-        .iter()
-        .any(|(name, _)| name.starts_with("api_key["))
-    {
-        return Ok(StatusCode::BAD_REQUEST.into_response());
-    }
     let inner = app.clone();
     let id = user.id;
     let found = app
@@ -202,7 +198,14 @@ pub async fn save(
         })
         .await?;
     let (venue, original) = found;
-    if venue.is_some()&&!bot_request{ctx.session.lock().tracker_connect=Some(exchange);}
+    if !bot_request && venue.as_deref().is_some_and(crate::web::bot::retired_type) {
+        ctx.session.lock().tracker_connect=Some(exchange);
+        return Ok(retired_answer(&ctx));
+    }
+    if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) {
+        return Ok(StatusCode::BAD_REQUEST.into_response());
+    }
+    if venue.as_deref() == Some("Exchanges::Alpaca") && !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
     if venue.as_deref() != Some("Exchanges::Alpaca") {
         return Ok(crate::web::layout::not_ported_response(
             &ctx.method,
@@ -287,12 +290,23 @@ pub async fn save(
     None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,1,?7,?7)",(user.id,exchange,kind,key,secret,passphrase,&now))?;}
    }
   }
+  // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
+  if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
+   tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
+   tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}")))?;
+  }
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user.id,exchange,kind])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user.id,exchange,kind),|r|r.get(0))?;
+  // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
+  // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
+  let reading=crate::sync::reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   tx.commit()?;
-  inner.wake_engine();
-  jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);
+  if kind==0 {inner.wake_engine();}
+  if reading {
+   for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&id.to_string()),None);}
+   for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user.id.to_string()),None);}
+  }
   Ok(None)
  }).await?;
     if let Some(reason) = outcome {
@@ -753,7 +767,8 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     }).await?;
     let (venue,healthy,mut key,shell)=found;
     if venue.is_none(){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))}
-    ctx.session.lock().tracker_connect=Some(exchange);
+    if venue.as_deref().is_some_and(crate::web::bot::retired_type){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
+    if venue.as_deref()==Some("Exchanges::Alpaca"){ctx.session.lock().tracker_connect=Some(exchange);}
     if venue.as_deref()!=Some("Exchanges::Alpaca"){return Ok(crate::web::layout::not_ported_response(&ctx.method,&ctx.params.fullpath,ctx.turbo_frame.as_deref()))}
     if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::ruby::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::ruby::blank(s)){
         if let Some(id)=key.id{
@@ -772,6 +787,34 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     let card=AlpacaForm{v:&ctx,csrf:&csrf,action:ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),form_data:if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,instructions_key).unwrap_or("")),live:key.passphrase.as_deref()==Some("live")}.render()?;
     let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[])}.render()?};
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
+}
+
+#[derive(Template)]
+#[template(path="settings/pick_exchange.html")]
+struct PickExchange<'a> { v:&'a Ctx, csrf:&'a str, progress_title:String, venues:Vec<(i64,&'static str)> }
+/// Tracker::PickExchangesController#new: every available venue, stable ones first (Bots::Searchable), none disabled.
+pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
+    let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
+    let inner=app.clone();let owner=user.clone();
+    let (venues,shell)=app.db(move|c|{
+        let mut s=c.prepare("SELECT id,type FROM exchanges WHERE available=1 ORDER BY type IN ('Exchanges::Binance','Exchanges::BinanceUs','Exchanges::Coinbase','Exchanges::Kraken') DESC,name")?;
+        let venues=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+        let venues=venues.into_iter().map(|(id,class)|(id,crate::web::bot::exchange_wordmark(&crate::web::bot::Exchange{id,name:String::new(),class,maker_fee:None}.name_id()))).collect::<Vec<_>>();
+        Ok((venues,crate::web::shell::Shell::load(c,&inner,&owner)?))
+    }).await?;
+    let csrf=ctx.csrf_token();
+    let body=PickExchange{v:&ctx,csrf:&csrf,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.exchange",&[]),venues}.render()?;
+    crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
+}
+/// Tracker::PickExchangesController#create: `Exchange.find` (any row), the session keeps only its id.
+pub async fn pick_save(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
+    if ctx.user().is_none() {return Ok(auth::unauthenticated(&ctx))}
+    // A missing or non-numeric id finds no row: RecordNotFound, Rails' 404.
+    let Some(Ok(id))=ctx.params.form("exchange_id").or_else(||ctx.params.query("exchange_id")).map(str::parse::<i64>) else {return Ok(crate::web::layout::missing())};
+    let found=app.db(move|c|Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get::<_,bool>(0))?)).await?;
+    if !found {return Ok(crate::web::layout::missing())}
+    ctx.session.lock().tracker_connect=Some(id);
+    Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/add_api_key/new")))
 }
 
 async fn owned_bot_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{

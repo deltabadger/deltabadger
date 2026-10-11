@@ -220,7 +220,7 @@ impl Exchange {
 
     /// Exchange::RETIRED_TYPES.
     pub fn retired(&self) -> bool {
-        self.class == "Exchanges::Bitmart"
+        retired_type(&self.class)
     }
 }
 
@@ -854,6 +854,34 @@ impl Bot {
             // ponytail: `index_category_id.titleize` for a category index without a stored name; the wizard always stores one.
             _ => Some(category.map_or_else(|| "Index".to_string(), str::to_string)),
         }
+    }
+}
+
+/// Exchange::RETIRED_TYPES, by `exchanges.type`.
+pub fn retired_type(class: &str) -> bool { class == "Exchanges::Bitmart" }
+
+/// `render "svg/exchanges/#{exchange.name_id}"`: the venue's wordmark on the picker's tiles (rust/templates/svg/exchanges,
+/// rendered by Rails).
+pub fn exchange_wordmark(name_id: &str) -> &'static str {
+    match name_id {
+        "alpaca" => include_str!("../../../templates/svg/exchanges/_alpaca.html"),
+        "binance" => include_str!("../../../templates/svg/exchanges/_binance.html"),
+        "binance_us" => include_str!("../../../templates/svg/exchanges/_binance_us.html"),
+        "bingx" => include_str!("../../../templates/svg/exchanges/_bingx.html"),
+        "bitget" => include_str!("../../../templates/svg/exchanges/_bitget.html"),
+        "bitmart" => include_str!("../../../templates/svg/exchanges/_bitmart.html"),
+        "bitrue" => include_str!("../../../templates/svg/exchanges/_bitrue.html"),
+        "bitvavo" => include_str!("../../../templates/svg/exchanges/_bitvavo.html"),
+        "bybit" => include_str!("../../../templates/svg/exchanges/_bybit.html"),
+        "coinbase" => include_str!("../../../templates/svg/exchanges/_coinbase.html"),
+        "gemini" => include_str!("../../../templates/svg/exchanges/_gemini.html"),
+        "hyperliquid" => include_str!("../../../templates/svg/exchanges/_hyperliquid.html"),
+        "ibkr" => include_str!("../../../templates/svg/exchanges/_ibkr.html"),
+        "kraken" => include_str!("../../../templates/svg/exchanges/_kraken.html"),
+        "kucoin" => include_str!("../../../templates/svg/exchanges/_kucoin.html"),
+        "mexc" => include_str!("../../../templates/svg/exchanges/_mexc.html"),
+        // As exchange_svg: every exchange class has a wordmark.
+        _ => "",
     }
 }
 

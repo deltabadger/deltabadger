@@ -317,6 +317,12 @@ impl Scheduler {
 
     pub fn wakers(&self) -> Wakers { self.wakers.clone() }
 
+    /// Every slot's name and scope, once the wakes queued so far are admitted (late scopes resolve here, as in `run`).
+    pub fn slots(&mut self, now: DateTime<Utc>) -> Result<Vec<(String, Option<String>)>, String> {
+        self.collect(now)?;
+        Ok(self.slots.iter().map(|s| (s.spec.name.to_string(), s.spec.scope.clone())).collect())
+    }
+
     /// Runs jobs until `stop` turns true, then returns Ok at once, dropping the job in hand.
     /// a job's failure is recorded and is the job's own. An unresolved wake stops the service with an error.
     pub async fn run(mut self, mut stop: watch::Receiver<bool>, clock: &dyn Clock) -> Result<(), String> {
