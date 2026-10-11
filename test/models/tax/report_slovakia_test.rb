@@ -8,7 +8,7 @@ class Tax::ReportSlovakiaTest < ActiveSupport::TestCase
 
   test 'long-term holding gets 7% rate' do
     disposals = [
-      { holding_days: 400, gain_loss: 10_000.to_d }
+      { long_held: true, gain_loss: 10_000.to_d }
     ]
 
     @report.send(:apply_short_long_term, disposals)
@@ -20,7 +20,7 @@ class Tax::ReportSlovakiaTest < ActiveSupport::TestCase
 
   test 'short-term holding gets 19% rate' do
     disposals = [
-      { holding_days: 200, gain_loss: 10_000.to_d }
+      { long_held: false, gain_loss: 10_000.to_d }
     ]
 
     @report.send(:apply_short_long_term, disposals)
@@ -32,9 +32,9 @@ class Tax::ReportSlovakiaTest < ActiveSupport::TestCase
 
   test 'mixed disposals get correct rates' do
     disposals = [
-      { holding_days: 400, gain_loss: 10_000.to_d },
-      { holding_days: 100, gain_loss: 5_000.to_d },
-      { holding_days: 366, gain_loss: 3_000.to_d }
+      { long_held: true, gain_loss: 10_000.to_d },
+      { long_held: false, gain_loss: 5_000.to_d },
+      { long_held: true, gain_loss: 3_000.to_d }
     ]
 
     @report.send(:apply_short_long_term, disposals)
@@ -47,8 +47,8 @@ class Tax::ReportSlovakiaTest < ActiveSupport::TestCase
 
   test 'term values are localized in Slovak' do
     disposals = [
-      { holding_days: 400, gain_loss: 10_000.to_d },
-      { holding_days: 100, gain_loss: 5_000.to_d }
+      { long_held: true, gain_loss: 10_000.to_d },
+      { long_held: false, gain_loss: 5_000.to_d }
     ]
 
     @report.send(:apply_short_long_term, disposals)

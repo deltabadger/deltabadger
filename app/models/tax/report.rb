@@ -18,7 +18,7 @@ module Tax
 
     attr_reader :country_code, :jurisdiction, :year, :transactions
 
-    def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [])
+    def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [], time_zone: 'UTC')
       @country_code = country
       @jurisdiction = Tax::Jurisdictions.for(country)
       raise ArgumentError, "Unknown country: #{country}" unless @jurisdiction
@@ -27,6 +27,7 @@ module Tax
       @transactions = transactions
       @stablecoin_as_fiat = stablecoin_as_fiat
       @sync_issues = sync_issues
+      @time_zone = ActiveSupport::TimeZone[time_zone] || ActiveSupport::TimeZone['UTC']
     end
 
     def to_csv(&on_progress)
@@ -70,10 +71,12 @@ module Tax
       end
 
       unless wealth_snapshot?
-        # Filter to only disposals within the target year (prior years used for cost basis only)
-        results.select! { |d| d[:date].year == year }
+        # Only disposals within the target year (prior years are there for cost basis): the year the
+        # taxpayer was in, so a New Year's Eve sale in Los Angeles is not filed under the next year.
+        results.select! { |d| local_date(d[:date]).year == year }
 
         apply_holding_exemption(results) if jurisdiction[:holding_exemption]
+        apply_old_stock(results) if jurisdiction[:old_stock_cutoff]
         apply_short_long_term(results) if jurisdiction[:short_long_term]
         apply_tax_rate(results) if jurisdiction[:tax_rate]
         apply_holding_tax_rate(results) if jurisdiction[:holding_tax_rate]
@@ -203,7 +206,7 @@ module Tax
     end
 
     def detection_cutoff
-      return Time.utc(year + 1) unless wealth_snapshot?
+      return rows_until unless wealth_snapshot?
 
       jurisdiction[:snapshot_date] == :end_of_year ? Time.utc(year, 12, 31, 23, 59, 59) : Time.utc(year, 1, 1)
     end
@@ -222,7 +225,32 @@ module Tax
       # but only report disposals within the target year
       # Out-leg before in-leg at the same instant, as the tracker walks it: ordered by time alone,
       # a swap-in the venue stored first takes market basis and its out-leg's cost is kept for nobody.
-      Tax::PriceService.ordered(transactions.where(transacted_at: ..Time.utc(year + 1)).to_a)
+      Tax::PriceService.ordered(transactions.where(transacted_at: ..rows_until).to_a)
+    end
+
+    # The end of the year in the user's zone, or in UTC where that is later: disposals are filed by
+    # the local year, income (below) still by the UTC one.
+    def rows_until
+      [Time.utc(year + 1), @time_zone.local(year + 1)].max
+    end
+
+    def local_date(time)
+      time.in_time_zone(@time_zone).to_date
+    end
+
+    # Whether a lot held from `acquired_at` to `disposed_at` counts as long-held under this
+    # jurisdiction's holding period — nil where the law has none. The engine splits each sale by it.
+    def holding_rule
+      period, inclusive = Tax::Jurisdictions.holding_period(jurisdiction)
+      return unless period
+
+      old_stock_cutoff = jurisdiction[:old_stock_cutoff]
+      lambda do |acquired_at, disposed_at|
+        acquired_on = local_date(acquired_at)
+        next false if old_stock_cutoff && acquired_on >= old_stock_cutoff
+
+        Tax::Jurisdictions.held_long?(acquired_on, local_date(disposed_at), period, inclusive: inclusive)
+      end
     end
 
     # A fiat ledger row is one leg of a trade or bank funding, never a disposal or a lot. Kraken
@@ -230,7 +258,47 @@ module Tax
     # priced it at 1.0 against lots the user never had. Filter after enrichment on purpose: the fiat
     # row carries the trade's fee, which PriceService#attribute_quote_row_fees moves onto the crypto leg first.
     def taxable_entries(enriched)
-      enriched.reject { |tx| Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency]) }
+      attribute_trade_fees(enriched.reject { |tx| Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency]) })
+    end
+
+    # Alpaca books a crypto fill's fee as a row of its own (CFEE), in the coin, dated to the day and
+    # not linked to the fill. Walked as it stands it consumed the oldest lot at zero proceeds and that
+    # basis vanished. It belongs to the fills of that coin that day: on a buy it is part of the
+    # acquisition — fewer coins carry the whole cash paid — and on a sale it comes out of the
+    # proceeds, the coins leaving with the sale. Alpaca charges the fee in the asset received, so a
+    # coin fee goes to that day's buys when there are any. The day is read in UTC and in New York
+    # time, Alpaca's activity calendar. A fee with no fill that day stays a row of its own, as do
+    # other venues' coin fees (Kraken creator fees, Binance interest), which belong to no trade.
+    def attribute_trade_fees(entries)
+      trades = entries.select { |tx| %w[buy sell].include?(tx[:entry_type].to_s) }
+      folded = entries.select do |fee|
+        next false unless fee[:entry_type].to_s == 'fee' && fee.dig(:raw_data, 'activity_type') == 'CFEE'
+        next false unless fee[:base_amount].positive?
+
+        day = fee[:transacted_at].utc.to_date
+        fills = trades.select do |tx|
+          tx[:exchange] == fee[:exchange] && tx[:base_currency] == fee[:base_currency] && tx[:base_amount].positive? &&
+            [tx[:transacted_at].utc.to_date, tx[:transacted_at].in_time_zone('America/New_York').to_date].include?(day)
+        end
+        fills = fills.select { |tx| tx[:entry_type].to_s == 'buy' }.presence || fills
+        next false if fills.empty?
+
+        spread_trade_fee(fills, fee[:base_amount])
+        true
+      end
+      entries.reject { |tx| folded.any? { |fee| fee.equal?(tx) } }
+    end
+
+    # Pro rata by amount; the last fill takes what is left. A buy keeps its cash value on fewer coins,
+    # a sale keeps its proceeds for more.
+    def spread_trade_fee(fills, fee_amount)
+      total = fills.sum(0.to_d) { |tx| tx[:base_amount] }
+      left = fee_amount
+      fills.each_with_index do |tx, index|
+        share = index == fills.size - 1 ? left : fee_amount * tx[:base_amount] / total
+        left -= share
+        tx[:base_amount] = tx[:entry_type].to_s == 'buy' ? [tx[:base_amount] - share, 0.to_d].max : tx[:base_amount] + share
+      end
     end
 
     def csv_headers
@@ -315,7 +383,8 @@ module Tax
       opts = { price_service: @price_service, currency: currency }
       opts[:crypto_to_crypto_taxable] = jurisdiction[:crypto_to_crypto_taxable] if jurisdiction.key?(:crypto_to_crypto_taxable)
       opts[:stablecoin_as_fiat] = @stablecoin_as_fiat
-      opts[:old_stock_cutoff] = jurisdiction[:old_stock_cutoff] if jurisdiction[:old_stock_cutoff]
+      opts[:holding_rule] = holding_rule
+      opts[:time_zone] = @time_zone
       opts[:swap_resets_holding_period] = true if jurisdiction[:swap_resets_holding_period]
       opts[:wealth_tax] = jurisdiction[:wealth_tax] if jurisdiction[:wealth_tax]
       opts[:snapshot_date] = jurisdiction[:snapshot_date] if jurisdiction[:snapshot_date]
@@ -382,28 +451,25 @@ module Tax
       end
     end
 
+    # `long_held` is the engine's, per row, from `holding_rule`.
     def apply_holding_exemption(disposals)
-      threshold_days = (jurisdiction[:holding_exemption] / 1.day).to_i
-      disposals.each do |d|
-        d[:tax_exempt] = d[:holding_days].present? && d[:holding_days] > threshold_days
-      end
+      disposals.each { |d| d[:tax_exempt] = d[:long_held] == true }
+    end
+
+    # Austrian old stock: acquired before the cutoff and held more than a year (`holding_rule`).
+    def apply_old_stock(disposals)
+      disposals.each { |d| d[:old_stock] = d[:long_held] == true }
     end
 
     def apply_short_long_term(disposals)
-      disposals.each do |d|
-        d[:term] = if d[:holding_days].present? && d[:holding_days] > 365
-                     'long'
-                   else
-                     'short'
-                   end
-      end
+      disposals.each { |d| d[:term] = d[:long_held] ? 'long' : 'short' }
     end
 
     def apply_tax_rate(disposals)
       rate_config = jurisdiction[:tax_rate]
       cutoff = rate_config[:cutoff]
       disposals.each do |d|
-        d[:tax_rate] = d[:date] < cutoff ? rate_config[:before] : rate_config[:after]
+        d[:tax_rate] = local_date(d[:date]) < cutoff ? rate_config[:before] : rate_config[:after]
       end
     end
 
@@ -411,7 +477,7 @@ module Tax
       config = jurisdiction[:exemption_threshold]
 
       # Group disposals by year and check threshold per year
-      by_year = disposals.group_by { |d| d[:date].year }
+      by_year = disposals.group_by { |d| local_date(d[:date]).year }
       by_year.each do |disposal_year, year_disposals|
         if disposal_year <= config[:max_year]
           total_gains = year_disposals.select { |d| d[:gain_loss].positive? }.sum { |d| d[:gain_loss] }
@@ -500,7 +566,6 @@ module Tax
 
     def apply_czech_exemptions(disposals)
       config = jurisdiction[:czech_exemptions]
-      threshold_days = (config[:time_test] / 1.day).to_i
 
       total_proceeds = disposals.sum { |d| d[:proceeds] || 0 }
       value_test_passed = total_proceeds <= config[:value_test]
@@ -509,7 +574,7 @@ module Tax
         if value_test_passed
           d[:tax_exempt] = true
           d[:exempt_reason] = 'hodnotový test'
-        elsif d[:holding_days].present? && d[:holding_days] > threshold_days
+        elsif d[:long_held]
           d[:tax_exempt] = true
           d[:exempt_reason] = 'časový test'
         else

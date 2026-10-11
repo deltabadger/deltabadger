@@ -104,6 +104,19 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     assert_not(rows.any? { |row| row[2] == 'AAPL' })
   end
 
+  test 'the crypto report files a sale under the year in the user time zone' do
+    user = create(:user, time_zone: 'Pacific Time (US & Canada)')
+    exchange = create(:kraken_exchange)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'BTC', base_amount: 1,
+                               quote_currency: 'USD', quote_amount: 10_000, transacted_at: Time.utc(2024, 1, 10))
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'BTC', base_amount: 1,
+                               quote_currency: 'USD', quote_amount: 20_000,
+                               transacted_at: Time.utc(2025, 1, 1, 5)) # 31 December 2024 in Los Angeles
+    @cleanup = [user.id, 2024, 'US']
+
+    assert(generate(user, 'US', 2024).any? { |row| row[2] == 'BTC' })
+  end
+
   test 'report ready broadcast includes the scoped download URL' do
     user = create(:user)
     exchange = create(:alpaca_exchange)

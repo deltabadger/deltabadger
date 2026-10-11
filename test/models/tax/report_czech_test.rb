@@ -10,7 +10,7 @@ class Tax::ReportCzechTest < ActiveSupport::TestCase
 
   test 'time test exempts disposals held over 3 years' do
     disposals = [
-      { holding_days: 1096, proceeds: 200_000.to_d, gain_loss: 50_000.to_d }
+      { long_held: true, proceeds: 200_000.to_d, gain_loss: 50_000.to_d }
     ]
 
     @report.send(:apply_czech_exemptions, disposals)
@@ -21,7 +21,7 @@ class Tax::ReportCzechTest < ActiveSupport::TestCase
 
   test 'time test does not exempt disposals held under 3 years' do
     disposals = [
-      { holding_days: 1000, proceeds: 200_000.to_d, gain_loss: 50_000.to_d }
+      { long_held: false, proceeds: 200_000.to_d, gain_loss: 50_000.to_d }
     ]
 
     @report.send(:apply_czech_exemptions, disposals)
@@ -34,8 +34,8 @@ class Tax::ReportCzechTest < ActiveSupport::TestCase
 
   test 'value test exempts all disposals when total proceeds under 100k CZK' do
     disposals = [
-      { holding_days: 100, proceeds: 40_000.to_d, gain_loss: 5_000.to_d },
-      { holding_days: 200, proceeds: 50_000.to_d, gain_loss: 10_000.to_d }
+      { long_held: false, proceeds: 40_000.to_d, gain_loss: 5_000.to_d },
+      { long_held: false, proceeds: 50_000.to_d, gain_loss: 10_000.to_d }
     ]
 
     @report.send(:apply_czech_exemptions, disposals)
@@ -48,7 +48,7 @@ class Tax::ReportCzechTest < ActiveSupport::TestCase
 
   test 'value test overrides time test when proceeds under 100k' do
     disposals = [
-      { holding_days: 100, proceeds: 80_000.to_d, gain_loss: 20_000.to_d }
+      { long_held: false, proceeds: 80_000.to_d, gain_loss: 20_000.to_d }
     ]
 
     @report.send(:apply_czech_exemptions, disposals)
@@ -59,8 +59,8 @@ class Tax::ReportCzechTest < ActiveSupport::TestCase
 
   test 'value test not applied when total proceeds exceed 100k CZK' do
     disposals = [
-      { holding_days: 100, proceeds: 60_000.to_d, gain_loss: 10_000.to_d },
-      { holding_days: 200, proceeds: 50_000.to_d, gain_loss: 5_000.to_d }
+      { long_held: false, proceeds: 60_000.to_d, gain_loss: 10_000.to_d },
+      { long_held: false, proceeds: 50_000.to_d, gain_loss: 5_000.to_d }
     ]
 
     @report.send(:apply_czech_exemptions, disposals)
@@ -75,8 +75,8 @@ class Tax::ReportCzechTest < ActiveSupport::TestCase
 
   test 'mixed: only long-held disposals exempt when proceeds exceed 100k' do
     disposals = [
-      { holding_days: 1096, proceeds: 80_000.to_d, gain_loss: 30_000.to_d },
-      { holding_days: 200, proceeds: 40_000.to_d, gain_loss: 5_000.to_d }
+      { long_held: true, proceeds: 80_000.to_d, gain_loss: 30_000.to_d },
+      { long_held: false, proceeds: 40_000.to_d, gain_loss: 5_000.to_d }
     ]
 
     @report.send(:apply_czech_exemptions, disposals)
