@@ -152,7 +152,8 @@ class Tax::GenerateReportJob < ApplicationJob
                       .where.not(exchange_id: crypto_free_venues)
                       .filter_map(&:sync_issue)
     report = Tax::Report.new(country: country, year: year, transactions: transactions,
-                             stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues)
+                             stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues,
+                             time_zone: user.time_zone)
 
     # A tokenized wrapper is a claim on an off-chain asset through an issuer, and its treatment is
     # contested. Reporting it as crypto would apply a holding exemption we cannot stand behind, and

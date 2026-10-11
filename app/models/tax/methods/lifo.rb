@@ -17,7 +17,7 @@ module Tax
         consume_disposal_fee(lots, transaction)
         holding_days = latest_date ? ((transaction[:transacted_at] - latest_date) / 1.day).to_i : 0
 
-        disposal = {
+        disposals << {
           date: transaction[:transacted_at],
           acquisition_date: latest_date,
           asset: asset,
@@ -34,10 +34,6 @@ module Tax
           tx_id: transaction[:tx_id],
           exchange: transaction[:exchange]
         }
-
-        disposal[:old_stock] = old_stock?(latest_date, holding_days) if @old_stock_cutoff
-
-        disposals << disposal
       end
 
       def dequeue_tranches(lots, amount_to_sell)

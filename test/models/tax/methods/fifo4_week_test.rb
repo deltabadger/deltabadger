@@ -39,6 +39,18 @@ class Tax::Methods::Fifo4WeekTest < ActiveSupport::TestCase
     assert_equal 'fifo', disposals.first[:matching_rule]
   end
 
+  test 'the period is the month in the user time zone' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'buy', exchange: 'binance' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d, # 30 November, 19:30 in New York
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 12, 1, 0, 30), tx_id: 'sell', exchange: 'binance' }
+    ]
+
+    assert_equal 'later', @engine.calculate(transactions.map(&:dup))[0][:period]
+    assert_equal 'initial', Tax::Methods::Fifo4Week.new.calculate(transactions, time_zone: 'America/New_York')[0][:period]
+  end
+
   test 'period column: initial for Jan-Nov, later for December' do
     transactions = [
       { entry_type: :buy, base_currency: 'BTC', base_amount: 2.to_d,

@@ -19,8 +19,9 @@ module Tax
         shrink_pool(pools[fee_asset], fee_amount)
       end
 
-      # A standalone fee entry paid in kind (Alpaca's CFEE) leaves the pool at zero proceeds and zero
-      # gain — it is not a disposal. A fiat-denominated fee row has no holding to consume.
+      # A standalone fee entry paid in kind leaves the pool at zero proceeds and zero gain — it is not a
+      # disposal. An Alpaca CFEE only gets here when no fill that day took it (Tax::Report folds it into
+      # its fill). A fiat-denominated fee row has no holding to consume.
       def consume_fee_in_kind(pool, asset, amount)
         return if Tax::PriceService::FIAT_CURRENCIES.include?(asset)
 

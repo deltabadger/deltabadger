@@ -34,7 +34,8 @@ module Tax
         end
 
         consume_disposal_fee(lots, transaction)
-        period = transaction[:transacted_at].month == 12 ? 'later' : 'initial'
+        # December's gains are due by 31 January; the month is the one the user was in.
+        period = transaction[:transacted_at].in_time_zone(@time_zone).month == 12 ? 'later' : 'initial'
 
         disposal = {
           date: transaction[:transacted_at],

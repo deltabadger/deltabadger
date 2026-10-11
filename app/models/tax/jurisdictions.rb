@@ -22,7 +22,9 @@ module Tax
                 } },
       'PT' => { name: 'Portugal', method: :fifo, currency: 'EUR', locale: :pt,
                 crypto_to_crypto_taxable: false,
-                holding_exemption: 1.year, swap_resets_holding_period: true },
+                # Art. 10 CIRS: gains on crypto held 365 days or more are excluded — a count of days,
+                # inclusive, not "more than a year".
+                holding_exemption: 365.days, holding_exemption_inclusive: true, swap_resets_holding_period: true },
       'CH' => { name: 'Switzerland', method: :wealth_snapshot, currency: 'CHF', locale: :de,
                 snapshot_date: :end_of_year, summary_only_total: true, income_taxed_separately: true },
       'PL' => { name: 'Poland', method: :fifo, currency: 'PLN', locale: :pl,
@@ -47,6 +49,27 @@ module Tax
 
     def self.for(code)
       REGISTRY[code]
+    end
+
+    # The holding period a jurisdiction's law measures, as [period, inclusive], or nil when it has
+    # none. "More than a year" (DE §23 EStG, US §1222, SK, AT's old stock) and the Czech "more than
+    # three years" are strict; Portugal's 365 days counts a holding of exactly that long.
+    def self.holding_period(jurisdiction)
+      if jurisdiction[:holding_exemption]
+        [jurisdiction[:holding_exemption], jurisdiction[:holding_exemption_inclusive] ? true : false]
+      elsif jurisdiction[:czech_exemptions]
+        [jurisdiction[:czech_exemptions][:time_test], false]
+      elsif jurisdiction[:short_long_term] || jurisdiction[:old_stock_cutoff]
+        [1.year, false]
+      end
+    end
+
+    # Calendar dates, both in the taxpayer's zone. The period ends on the anniversary — 29 February's
+    # is 28 February, as §188(3) BGB has it — so "more than a year" is any later date, whatever the
+    # clock says about 365 times 24 hours.
+    def self.held_long?(acquired_on, disposed_on, period, inclusive: false)
+      ends_on = acquired_on.advance(period.parts)
+      inclusive ? disposed_on >= ends_on : disposed_on > ends_on
     end
 
     # Jurisdictions with a statutory repurchase window after a loss sale, for the bots' wash-sale

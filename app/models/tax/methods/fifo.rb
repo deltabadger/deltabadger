@@ -16,7 +16,10 @@ module Tax
       def calculate(transactions, **options)
         @crypto_to_crypto_taxable = options.fetch(:crypto_to_crypto_taxable, true)
         @stablecoin_as_fiat = options.fetch(:stablecoin_as_fiat, false)
-        @old_stock_cutoff = options[:old_stock_cutoff]
+        # (acquired_at, disposed_at) -> whether that holding counts as long-held. Given by the report
+        # for a jurisdiction whose law has a holding period; each sale is then split by term.
+        @holding_rule = options[:holding_rule]
+        @time_zone = options[:time_zone] || 'UTC'
         @swap_resets_holding_period = options.fetch(:swap_resets_holding_period, false)
         @excess_roc = 0.to_d
         @excess_roc_rows = []
@@ -133,8 +136,9 @@ module Tax
         end
       end
 
-      # A standalone fee entry paid in kind (Alpaca's CFEE) leaves inventory at zero proceeds and
-      # zero gain — it is not a disposal. A fiat-denominated fee row has no lots to consume.
+      # A standalone fee entry paid in kind leaves inventory at zero proceeds and zero gain — it is not
+      # a disposal. An Alpaca CFEE only gets here when no fill that day took it (Tax::Report folds it
+      # into its fill), so this is a fee that belongs to no trade. A fiat fee row has no lots to consume.
       def consume_fee_in_kind(asset_lots, asset, amount)
         return if Tax::PriceService::FIAT_CURRENCIES.include?(asset)
         return unless amount&.positive? && asset_lots.any?
@@ -143,21 +147,53 @@ module Tax
       end
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
-        fee_fiat = transaction[:fee_fiat_value] || 0.to_d
         has_lots = lots[asset].any?
-        first_lot = lots[asset].first
-        earliest_date = first_lot&.dig(:date)
-        holding_ref_date = first_lot&.dig(:holding_start) || earliest_date
         tranches, = dequeue_tranches(lots[asset], amount)
+        consume_disposal_fee(lots, transaction)
+
+        if @holding_rule
+          record_disposal_by_term(disposals, transaction, asset, amount, fiat_value, tranches, has_lots)
+        else
+          disposals << disposal_row(transaction, asset, amount, fiat_value, transaction[:fee_fiat_value] || 0.to_d,
+                                    tranches, has_lots)
+        end
+      end
+
+      # One row per holding-period term: a sale that takes a lot held long and a lot held short is two
+      # disposals under the law, each with its own share of the proceeds and the fee and its own basis.
+      # Units no lot covered have no holding period, so they go with the short side.
+      def record_disposal_by_term(disposals, transaction, asset, amount, fiat_value, tranches, has_lots)
+        groups = tranches.group_by { |tranche| @holding_rule.call(holding_ref(tranche), transaction[:transacted_at]) ? true : false }
+        uncovered = amount - tranches.sum(0.to_d) { |tranche| tranche[:amount] }
+        groups[false] ||= [] if uncovered.positive? || groups.empty?
+        fee = transaction[:fee_fiat_value] || 0.to_d
+        proceeds_left = fiat_value
+        fee_left = fee
+
+        groups.each_with_index do |(long_held, group), index|
+          group_amount = group.sum(0.to_d) { |tranche| tranche[:amount] }
+          group_amount += uncovered unless long_held
+          last = index == groups.size - 1
+          # The last row takes what is left, so the rows add up to the sale exactly.
+          proceeds = last ? proceeds_left : fiat_value * group_amount / amount
+          group_fee = last ? fee_left : fee * group_amount / amount
+          proceeds_left -= proceeds
+          fee_left -= group_fee
+          disposals << disposal_row(transaction, asset, group_amount, proceeds, group_fee, group, has_lots)
+                       .merge(long_held: long_held)
+        end
+      end
+
+      def disposal_row(transaction, asset, amount, fiat_value, fee_fiat, tranches, has_lots)
+        holding_ref_date = tranches.first && holding_ref(tranches.first)
         cost_basis = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
         basis_assumed = tranches.any? { |tranche| tranche[:basis_assumed] }
         # The units that opened at a price nobody had, and their share of what this sale brought in
         # — a whole sale's proceeds for a partly unpriced lot would overstate what rests on nothing.
         unpriced = tranches.sum(0.to_d) { |tranche| tranche[:unpriced].to_d }
-        consume_disposal_fee(lots, transaction)
         holding_days = holding_ref_date ? ((transaction[:transacted_at] - holding_ref_date) / 1.day).to_i : 0
 
-        disposal = {
+        {
           date: transaction[:transacted_at],
           acquisition_date: holding_ref_date,
           asset: asset,
@@ -183,10 +219,11 @@ module Tax
           # Fees are left out, matching Bot::TaxLots.
           any_lot_lost: lot_lost_verdict(transaction, tranches, amount, fiat_value)
         }
+      end
 
-        disposal[:old_stock] = old_stock?(earliest_date, holding_days) if @old_stock_cutoff
-
-        disposals << disposal
+      # The holding period runs from the lot's own date, or from where a swap restarted it (PT).
+      def holding_ref(tranche)
+        tranche[:holding_start] || tranche[:date]
       end
 
       # true, false, or nil when a price nobody had decides it. A missing price is not a zero: proceeds
@@ -417,12 +454,6 @@ module Tax
         return true if @stablecoin_as_fiat && STABLECOINS.include?(quote)
 
         false
-      end
-
-      def old_stock?(earliest_date, holding_days)
-        return false unless earliest_date && @old_stock_cutoff
-
-        earliest_date.to_date < @old_stock_cutoff && holding_days > 365
       end
 
       # A disposal is incomplete when its own proceeds could not be priced, when it consumed a lot

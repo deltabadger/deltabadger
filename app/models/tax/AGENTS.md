@@ -26,7 +26,8 @@ shared price service.
   # Optional flags:
   crypto_to_crypto_taxable: false,  # Filter out swap disposals, chain cost basis
   stablecoin_ambiguous: true,       # Show "treat stablecoins as fiat" checkbox
-  holding_exemption: 1.year,        # Tax-free after holding period
+  holding_exemption: 1.year,        # Tax-free when held MORE than this (calendar, user's zone)
+  holding_exemption_inclusive: true, # ...or held at least this long (Portugal: 365 days)
   swap_resets_holding_period: true,  # Swaps reset exemption clock but keep cost basis
   old_stock_cutoff: Date.new(2021, 3, 1),  # Pre-cutoff + >1yr = exempt
   short_long_term: true,            # Add short/long term classification
@@ -251,21 +252,18 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   reports nothing and the report's banner does not fire for them. Deliberate: the run did succeed,
   and a banner nothing can clear is worse than none. The **error log is the only signal** —
   `healthcheck-logs` picks up the `Account transaction sync skipped invalid entry` line.
-- **A disposal spanning lots of different ages is emitted as one row**, and the holding-period
-  exemption is decided from the oldest lot alone (`fifo.rb#record_disposal`). Selling 2 BTC where
-  one lot is over a year old and one is not reports the whole gain as §23 exempt. Same shape drives
-  US short/long, SK 19%/7%, IT `old_stock?` and the Danish wash-sale date. Pre-existing, not
-  introduced with the broker report. `LotLedger#dispose` already returns the per-lot match shape a
-  fix would need.
+- The **Danish wash-sale date** is still the oldest consumed lot's (one row per sale, Denmark has no
+  holding period to split by).
 - `wealth_snapshot.rb` is the only engine that still removes an **unlinked withdrawal's** coins from
   the holding, so NL box-3 and CH wealth may understate. For a gains engine keeping the coins merely
   defers tax; in a wealth snapshot it would tax them every year.
 - A **non-taxable swap-in** now goes through `apply_acquisition_fee` like every acquisition. Whether
   Binance's dust `transferedAmount` is gross or net of `serviceChargeAmount` has not been measured
   at the importer; both readers of the ledger net it, consistently.
-- An **in-kind fee** (`fee` with a crypto base) consumes inventory at zero proceeds and zero gain, so
-  the consumed lot's basis disappears — right on inventory, an understatement on basis. Applies to
-  Alpaca `CFEE`, Kraken `creator_fee` and Binance margin interest alike.
+- An **in-kind fee that belongs to no trade** (Kraken `creator_fee`, Binance margin interest and
+  futures fees, an Alpaca `CFEE` with no fill of that coin that day) consumes inventory at zero
+  proceeds and zero gain, so the consumed lot's basis disappears. The tracker walks every `CFEE` that
+  way too: `Report#attribute_trade_fees` runs on the report's rows only.
 - **Interest received net of foreign tax** is declared net in Z19 while Z41 still claims the credit —
   no `INTTW` gross-up signal exists. Understates in the taxpayer's favour, and is asymmetric with the
   `DIVFT` gross-up applied to dividends.
@@ -281,6 +279,23 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   as a standalone total rather than deducted under §20(4).
 - **MCP tax tools are crypto-only.** No `report_scope` property, and none without a product decision:
   a broker run before every security is classified emits an all-zero Anlage KAP.
+
+## Holding Periods, Tax Years, Trade Fees
+
+- **One row per term.** For a jurisdiction with a holding period (`Jurisdictions.holding_period`:
+  DE, PT, US, SK, CZ, AT's old stock) `Report#holding_rule` goes to the FIFO engine, which splits a
+  sale across lots of different terms into one row per term, each with its own share of the proceeds
+  and the fee and its own basis (`Fifo#record_disposal_by_term`, `long_held` on each row). Uncovered
+  units go with the short side. Every `apply_*` holding flag reads `long_held`, never `holding_days`
+  (still printed: whole elapsed days).
+- **Calendar anniversary in the user's zone** (`Jurisdictions.held_long?`): "more than a year" is any
+  date after the anniversary, 29 February's being 28 February. Portugal counts 365 days, inclusive.
+- **The tax year is the user's** (`users.time_zone`, passed by the job): disposals, the IT rate
+  cutoff and the IT threshold year are read in it. The income section and the excess-return-of-capital
+  refusal still go by the UTC year: Alpaca stores dividends, interest and CFEE as a date at 00:00 UTC,
+  and reading those in a zone west of UTC would move 1 January into the year before.
+- **Alpaca CFEE** is folded into that day's fills of the coin (`Report#attribute_trade_fees`): buys
+  first (fewer coins, same cost), else sales (more coins out, same proceeds). Never a disposal.
 
 ## Key Design Decisions
 
