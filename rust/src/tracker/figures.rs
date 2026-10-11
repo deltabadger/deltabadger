@@ -279,3 +279,6 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
     for h in &holdings { value = (&value + &h.value)?; }
     Ok(Figures { value, invested: (&ledger.total_invested + &moved)?, holdings })
 }
+
+/// Page-specific cold results share this service and its decimal boundary.
+pub mod page;
