@@ -122,6 +122,12 @@ module TaxVectors
         sell(c, 'BTC', '0.25', '10', '2026-01-06T10:00:00Z', tx_id: '-1,"x"')
         sell(c, 'BTC', '0.25', '10', '2026-01-07T10:00:00Z', tx_id: '=SUM(A1)')
       } },
+      { name: 'nul_before_a_formula', expect: 'parity', setup: lambda { |c|
+        buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
+        sell(c, 'BTC', '1', '120', '2026-01-06T10:00:00Z', tx_id: 'nul')
+        # Bound, not inlined: insert! writes literal SQL, which a NUL cuts short.
+        ActiveRecord::Base.connection.exec_update('UPDATE account_transactions SET tx_id = ? WHERE tx_id = ?', 'nul', ["\0=1+1", 'nul'])
+      } },
       { name: 'user_classified_and_stock_symbols', expect: 'parity', setup: lambda { |c|
         FundClassification.new(user: c[:user], symbol: 'SOL', kind: :share).save!(validate: false)
         buy(c, 'SOL', '1', '100', '2026-01-05T10:00:00Z')
