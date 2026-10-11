@@ -801,6 +801,8 @@ cs:
             deposit_basis_assumed_hint: Propojte každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
             stated_values: "Hodnoty, které jsi zadal ručně"
             stated_values_hint: "Tyto částky pocházejí od tebe, ne z burzy. Před podáním přiznání je ověř podle vlastních záznamů."
+            unattributed_coin_fees: "Poplatky Alpaca v kryptoaktivech nepřiřazené k obchodu, protože jejich datum ukazuje na různé obchody v UTC a newyorském čase; každý byl odečten z nejstarší pozice bez příjmu"
+            unattributed_coin_fees_hint: "Ověř každý podle výpisu z Alpaca: pořizovací cena pozdějších prodejů tohoto aktiva se může lišit až o hodnotu poplatku."
             exchange_sync_failed: 'Údaje z %{exchange} mohou chybět — poslední synchronizace se nezdařila. Proveďte novou synchronizaci v Trackeru a přehled vygenerujte znovu.'
             exchange_never_synced: 'Burza %{exchange} dosud nebyla synchronizována — tento přehled neobsahuje žádné její transakce. Synchronizujte ji v Trackeru a přehled vygenerujte znovu.'
         headers:

@@ -5,6 +5,8 @@ module Tax
       include ReturnOfCapital
 
       STABLECOINS = Tax::PriceService::STABLECOINS
+      # The precision Tax::Report prints money in.
+      CENTS = 2
 
       # The lots left standing after a run. A tax report only ever wanted the disposals; the tracker
       # reads what is still held, so the open positions and the report share one walk of the ledger.
@@ -167,20 +169,26 @@ module Tax
         uncovered = amount - tranches.sum(0.to_d) { |tranche| tranche[:amount] }
         groups[false] ||= [] if uncovered.positive? || groups.empty?
         fee = transaction[:fee_fiat_value] || 0.to_d
-        proceeds_left = fiat_value
-        fee_left = fee
-
-        groups.each_with_index do |(long_held, group), index|
+        rows = groups.map do |long_held, group|
           group_amount = group.sum(0.to_d) { |tranche| tranche[:amount] }
           group_amount += uncovered unless long_held
-          last = index == groups.size - 1
-          # The last row takes what is left, so the rows add up to the sale exactly.
-          proceeds = last ? proceeds_left : fiat_value * group_amount / amount
-          group_fee = last ? fee_left : fee * group_amount / amount
-          proceeds_left -= proceeds
-          fee_left -= group_fee
-          disposals << disposal_row(transaction, asset, group_amount, proceeds, group_fee, group, has_lots)
-                       .merge(long_held: long_held)
+          disposal_row(transaction, asset, group_amount, fiat_value * group_amount / amount, fee * group_amount / amount,
+                       group, has_lots).merge(long_held: long_held)
+        end
+        settle_in_cents(rows, fiat_value, fee) if rows.size > 1
+        disposals.concat(rows)
+      end
+
+      # The report prints money in cents. Every row but the last is cut to the cent and the last takes
+      # what is left, so the printed rows add up to the printed sale — proceeds, fee, basis and gain.
+      def settle_in_cents(rows, proceeds, fee)
+        left = { proceeds: proceeds, fee: fee, cost_basis: rows.sum(0.to_d) { |row| row[:cost_basis] } }
+        rows.each_with_index do |row, index|
+          left.each_key do |key|
+            row[key] = index == rows.size - 1 ? left[key] : row[key].round(CENTS)
+            left[key] -= row[key]
+          end
+          row[:gain_loss] = row[:proceeds] - row[:cost_basis] - row[:fee]
         end
       end
 
@@ -337,12 +345,22 @@ module Tax
                         unpriced: 0.to_d)
         lot = { amount: amount, cost_per_unit: cost_per_unit, date: date, basis_assumed: basis_assumed,
                 unpriced: unpriced }
-        if @swap_resets_holding_period
+        if @swap_resets_holding_period && !technical_stablecoin_swap?(transaction, holding_start || date)
           lot[:holding_start] = transaction[:transacted_at]
         elsif holding_start
           lot[:holding_start] = holding_start
         end
         asset_lots << lot
+      end
+
+      # Portuguese ruling 28969 (§§12–14): a coin that has already served its holding period, swapped
+      # into a stablecoin on the way to fiat, keeps it — the stablecoin lot runs from the coin's start.
+      # ponytail: the ruling's facts are an immediate sale for euros; a stablecoin held on afterwards
+      # keeps the start too.
+      def technical_stablecoin_swap?(transaction, held_since)
+        return false unless STABLECOINS.include?(transaction[:base_currency]) && @holding_rule
+
+        @holding_rule.call(held_since, transaction[:transacted_at]) ? true : false
       end
 
       def transfer_swap_out(transferred, asset_lots, transaction, amount)

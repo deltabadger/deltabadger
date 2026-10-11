@@ -793,6 +793,8 @@ da:
             deposit_basis_assumed_hint: Knyt hver indbetaling til den tilsvarende udbetaling i Tracker for at bruge den faktiske kostpris.
             stated_values: "Værdier du selv har angivet"
             stated_values_hint: "Disse beløb kommer fra dig, ikke fra børsen. Tjek dem mod dine egne bilag, før du indberetter."
+            unattributed_coin_fees: "Alpaca-gebyrer i krypto, der ikke er knyttet til en handel, fordi datoen falder på forskellige handler i UTC og New York-tid; hvert gebyr er trukket fra den ældste post uden afståelsessum"
+            unattributed_coin_fees_hint: "Tjek hvert gebyr mod din Alpaca-opgørelse: anskaffelsessummen for senere salg af aktivet kan afvige med op til gebyrets værdi."
             exchange_sync_failed: 'Data fra %{exchange} kan mangle, fordi den seneste synkronisering mislykkedes. Synkronisér igen i Tracker, og opret rapporten på ny.'
             exchange_never_synced: '%{exchange} er aldrig blevet synkroniseret — ingen transaktioner derfra er med i rapporten. Synkronisér i Tracker, og opret rapporten på ny.'
         headers:

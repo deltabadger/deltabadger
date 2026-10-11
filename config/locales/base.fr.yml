@@ -782,6 +782,8 @@ fr:
             deposit_basis_assumed_hint: Associe chaque dépôt au retrait correspondant dans le Tracker pour utiliser le coût d’acquisition réel.
             stated_values: "Valeurs que tu as saisies toi-même"
             stated_values_hint: "Ces montants viennent de toi, pas de la plateforme. Vérifie-les avec tes propres relevés avant de déclarer."
+            unattributed_coin_fees: "Frais Alpaca en crypto non rattachés à un ordre, car leur date tombe sur des ordres différents en UTC et à l’heure de New York ; chacun a été déduit du lot le plus ancien sans produit de cession"
+            unattributed_coin_fees_hint: "Vérifie chacun avec ton relevé Alpaca : le coût d’acquisition des ventes ultérieures de cet actif peut différer jusqu’à la valeur des frais."
             exchange_sync_failed: 'Des données de %{exchange} peuvent manquer : la dernière synchronisation a échoué. Relancez-la dans le Tracker, puis générez à nouveau ce rapport.'
             exchange_never_synced: 'La plateforme %{exchange} n’a jamais été synchronisée — aucune de ses transactions ne figure dans ce rapport. Synchronisez-la dans le Tracker, puis générez à nouveau le rapport.'
         summary:

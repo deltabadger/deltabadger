@@ -79,7 +79,6 @@ module Tax
         apply_old_stock(results) if jurisdiction[:old_stock_cutoff]
         apply_short_long_term(results) if jurisdiction[:short_long_term]
         apply_tax_rate(results) if jurisdiction[:tax_rate]
-        apply_holding_tax_rate(results) if jurisdiction[:holding_tax_rate]
         apply_exemption_threshold(results) if jurisdiction[:exemption_threshold]
         apply_expense_deduction(results) if jurisdiction[:expense_deduction]
         apply_danish_wash_sale(results, enriched) if jurisdiction[:danish_wash_sale]
@@ -106,6 +105,7 @@ module Tax
           append_warnings(csv) if @price_service.warnings.any?
           append_deposit_basis_warnings(csv) if @assumed_deposits.present?
           append_stated_values(csv) if @stated_values.present?
+          append_unattributed_fees(csv) if @unattributed_fees.present?
           append_income_disclosure(csv) if jurisdiction[:income_taxed_separately]
         end
       end
@@ -245,9 +245,11 @@ module Tax
       return unless period
 
       old_stock_cutoff = jurisdiction[:old_stock_cutoff]
+      in_force_from = jurisdiction.dig(:czech_exemptions, :time_test_from)
       lambda do |acquired_at, disposed_at|
         acquired_on = local_date(acquired_at)
         next false if old_stock_cutoff && acquired_on >= old_stock_cutoff
+        next false if in_force_from && local_date(disposed_at) < in_force_from
 
         Tax::Jurisdictions.held_long?(acquired_on, local_date(disposed_at), period, inclusive: inclusive)
       end
@@ -266,24 +268,33 @@ module Tax
     # basis vanished. It belongs to the fills of that coin that day: on a buy it is part of the
     # acquisition — fewer coins carry the whole cash paid — and on a sale it comes out of the
     # proceeds, the coins leaving with the sale. Alpaca charges the fee in the asset received, so a
-    # coin fee goes to that day's buys when there are any. The day is read in UTC and in New York
-    # time, Alpaca's activity calendar. A fee with no fill that day stays a row of its own, as do
-    # other venues' coin fees (Kraken creator fees, Binance interest), which belong to no trade.
+    # coin fee goes to that day's buys when there are any.
+    #
+    # Nothing Alpaca sends says whether that day is the UTC date or the New York one, so a fee is
+    # folded only when both calendars give it the same fills — then no fill can take two days' fees.
+    # Otherwise it stays a row of its own, as do fees with no fill that day and other venues' coin
+    # fees (Kraken creator fees, Binance interest), and the report names it (`@unattributed_fees`).
     def attribute_trade_fees(entries)
       trades = entries.select { |tx| %w[buy sell].include?(tx[:entry_type].to_s) }
+      @unattributed_fees = []
       folded = entries.select do |fee|
         next false unless fee[:entry_type].to_s == 'fee' && fee.dig(:raw_data, 'activity_type') == 'CFEE'
         next false unless fee[:base_amount].positive?
 
         day = fee[:transacted_at].utc.to_date
-        fills = trades.select do |tx|
-          tx[:exchange] == fee[:exchange] && tx[:base_currency] == fee[:base_currency] && tx[:base_amount].positive? &&
-            [tx[:transacted_at].utc.to_date, tx[:transacted_at].in_time_zone('America/New_York').to_date].include?(day)
+        same_coin = trades.select do |tx|
+          tx[:exchange] == fee[:exchange] && tx[:base_currency] == fee[:base_currency] && tx[:base_amount].positive?
         end
-        fills = fills.select { |tx| tx[:entry_type].to_s == 'buy' }.presence || fills
-        next false if fills.empty?
+        utc_fills = same_coin.select { |tx| tx[:transacted_at].utc.to_date == day }
+        new_york_fills = same_coin.select { |tx| tx[:transacted_at].in_time_zone('America/New_York').to_date == day }
+        next false if utc_fills.empty? && new_york_fills.empty?
 
-        spread_trade_fee(fills, fee[:base_amount])
+        unless utc_fills == new_york_fills
+          @unattributed_fees << fee
+          next false
+        end
+
+        spread_trade_fee(utc_fills.select { |tx| tx[:entry_type].to_s == 'buy' }.presence || utc_fills, fee[:base_amount])
         true
       end
       entries.reject { |tx| folded.any? { |fee| fee.equal?(tx) } }
@@ -318,7 +329,7 @@ module Tax
         keys << 'term' if jurisdiction[:short_long_term]
         keys << 'matching_rule' if jurisdiction[:method].in?(%i[share_pooling fifo_4week])
         keys << 'period' if jurisdiction[:split_payment]
-        keys << 'tax_rate' if jurisdiction[:tax_rate] || jurisdiction[:holding_tax_rate]
+        keys << 'tax_rate' if jurisdiction[:tax_rate]
         keys << 'exempt' if jurisdiction[:exemption_threshold]
         keys << 'loss_denied' if jurisdiction[:danish_wash_sale]
         keys.push('tax_exempt', 'exempt_reason') if jurisdiction[:czech_exemptions]
@@ -371,7 +382,7 @@ module Tax
         row << I18n.t("tax_report.values.term_#{disposal[:term]}") if jurisdiction[:short_long_term]
         row << disposal[:matching_rule] if jurisdiction[:method].in?(%i[share_pooling fifo_4week])
         row << disposal[:period] if jurisdiction[:split_payment]
-        row << disposal[:tax_rate] if jurisdiction[:tax_rate] || jurisdiction[:holding_tax_rate]
+        row << disposal[:tax_rate] if jurisdiction[:tax_rate]
         row << disposal[:exempt] if jurisdiction[:exemption_threshold]
         row << (disposal[:loss_denied] ? I18n.t('tax_report.summary.denied_losses') : nil) if jurisdiction[:danish_wash_sale]
         row.push(disposal[:tax_exempt], disposal[:exempt_reason]) if jurisdiction[:czech_exemptions]
@@ -559,11 +570,6 @@ module Tax
       csv << [I18n.t('tax_report.summary.tax_percent', pct: pct), tax]
     end
 
-    def apply_holding_tax_rate(disposals)
-      config = jurisdiction[:holding_tax_rate]
-      disposals.each { |d| d[:tax_rate] = config[d[:term].to_sym] }
-    end
-
     def apply_czech_exemptions(disposals)
       config = jurisdiction[:czech_exemptions]
 
@@ -695,6 +701,17 @@ module Tax
                 tx[:fiat_value].round(2)]
       end
       csv << [I18n.t('tax_report.warnings.stated_values_hint')]
+    end
+
+    # Coin fees whose day could be read two ways, so no fill took them: each left the oldest lot at
+    # zero proceeds instead. Named so the user can check them against the venue's statement.
+    def append_unattributed_fees(csv)
+      csv << []
+      csv << ["NOTE: #{I18n.t('tax_report.warnings.unattributed_coin_fees')}:"]
+      @unattributed_fees.each do |tx|
+        csv << ["#{tx[:base_currency]} #{tx[:base_amount]} #{tx[:transacted_at].utc.strftime('%Y-%m-%d')}"]
+      end
+      csv << [I18n.t('tax_report.warnings.unattributed_coin_fees_hint')]
     end
 
     # Staking, interest, airdrops and mining are taxable when received, on top of any gain on a later

@@ -793,6 +793,8 @@ sv:
             deposit_basis_assumed_hint: Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
             stated_values: "Värden du angett för hand"
             stated_values_hint: "De här beloppen kommer från dig, inte från börsen. Stäm av dem mot dina egna underlag innan du deklarerar."
+            unattributed_coin_fees: "Alpaca-avgifter i krypto som inte kopplats till en affär, eftersom datumet pekar på olika affärer i UTC och New York-tid; varje avgift drogs från den äldsta posten utan ersättning"
+            unattributed_coin_fees_hint: "Stäm av varje avgift mot ditt Alpaca-underlag: anskaffningsvärdet för senare försäljningar av tillgången kan avvika med upp till avgiftens värde."
             exchange_sync_failed: 'Data från %{exchange} kan saknas eftersom den senaste synkroniseringen misslyckades. Synkronisera igen i Tracker och skapa rapporten på nytt.'
             exchange_never_synced: '%{exchange} har aldrig synkroniserats — inga transaktioner därifrån finns med i rapporten. Synkronisera i Tracker och skapa rapporten på nytt.'
         headers:

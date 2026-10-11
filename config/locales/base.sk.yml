@@ -801,6 +801,8 @@ sk:
             deposit_basis_assumed_hint: Prepojte každý vklad so zodpovedajúcim výberom v Trackeri, aby sa použila skutočná obstarávacia cena.
             stated_values: "Hodnoty, ktoré si zadal ručne"
             stated_values_hint: "Tieto sumy pochádzajú od teba, nie z burzy. Pred podaním priznania ich over podľa vlastných záznamov."
+            unattributed_coin_fees: "Poplatky Alpaca v kryptoaktívach nepriradené k obchodu, pretože ich dátum ukazuje na rôzne obchody v UTC a newyorskom čase; každý bol odpočítaný z najstaršej pozície bez príjmu"
+            unattributed_coin_fees_hint: "Over každý podľa výpisu z Alpaca: obstarávacia cena neskorších predajov tohto aktíva sa môže líšiť až o hodnotu poplatku."
             exchange_sync_failed: 'Údaje z %{exchange} môžu chýbať — posledná synchronizácia zlyhala. Znova synchronizujte v Trackeri a prehľad vygenerujte nanovo.'
             exchange_never_synced: 'Burza %{exchange} ešte nebola synchronizovaná — tento prehľad neobsahuje žiadne jej transakcie. Synchronizujte ju v Trackeri a prehľad vygenerujte znova.'
         headers:

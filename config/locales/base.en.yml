@@ -797,6 +797,8 @@ en:
             deposit_basis_assumed_hint: Link each one to its matching withdrawal in the tracker to use the real cost basis.
             stated_values: "Values you stated by hand"
             stated_values_hint: "These figures are yours, not the exchange's. Check them against your own records before filing."
+            unattributed_coin_fees: "Alpaca coin fees not matched to a trade, because their date falls on different trades in UTC and New York time; each was deducted from the oldest lot at zero proceeds"
+            unattributed_coin_fees_hint: "Check each one against your Alpaca statement: the cost basis of later sales of that asset may be off by up to the fee's value."
             exchange_sync_failed: '%{exchange} data may be missing — its last sync failed. Re-sync in the tracker and regenerate this report.'
             exchange_never_synced: '%{exchange} has never been synced — none of its transactions are in this report. Sync it in the tracker and regenerate.'
         values:
