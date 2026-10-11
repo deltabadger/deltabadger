@@ -30,7 +30,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         let percent = if hidden { "widget--chart__pnl" } else { "widget--chart__percent" };
         return Ok(format!("<div id=\"chart\" class=\"widget widget--chart\">\n<div>\n<div class=\"widget--chart__head\">\n<div class=\"widget--chart__summary\">\n<div class=\"widget--chart__date\">&nbsp;</div>\n{pnl}\n<div class=\"{percent}\">&nbsp;</div>\n</div>\n</div>\n<div class=\"widget--chart__plot\">\n{}\n</div>\n</div>\n</div>\n",include_str!("../../../templates/svg/_landscape_empty.html")));
     };
-    let zone = crate::web::timezone::zone(zone).unwrap_or(chrono_tz::UTC);
+    let zone = crate::web::timezone::strict(zone).unwrap_or(chrono_tz::UTC);
     let mut attributes = "data-controller=\"bot--chart\" data-action=\"mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur click@document->bot--chart#select turbo:before-stream-render@document->bot--chart#restore\"".to_string();
     for (key,value) in page.attributes(&zone,3) {
         if key != "logo-assets" { attributes.push_str(&format!(" data-bot--chart-{key}-value=\"{}\"",escape(&value))); }

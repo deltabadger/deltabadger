@@ -1,5 +1,5 @@
 //! How Rails stores values in SQLite, and the conversions that match it.
-use chrono::{DateTime, NaiveDateTime, Timelike, Utc, TimeZone};
+use chrono::{DateTime, NaiveDateTime, Timelike, Utc};
 use rusqlite::types::ValueRef;
 use rust_decimal::Decimal;
 use std::str::FromStr;
@@ -125,7 +125,7 @@ pub fn decimal_to_sql(d: Decimal) -> String {
     d.normalize().to_string()
 }
 
-use chrono::{Datelike, Duration, LocalResult, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 use serde_json::{Value,json};
 use crate::web::WebError;
 pub fn parse_form_time(value: &Value, name: &str, now: DateTime<Utc>) -> Result<Value, WebError> {
@@ -134,7 +134,8 @@ pub fn parse_form_time(value: &Value, name: &str, now: DateTime<Utc>) -> Result<
     let s = input.trim();
     if s.is_empty() { return Ok(Value::Null); }
     if let Ok(at) = DateTime::parse_from_rfc3339(s) { return Ok(json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))); }
-    let zone = crate::web::timezone::zone(name).unwrap_or(chrono_tz::UTC);
+    // Time.zone.parse in the owner's zone (a Rails name or an IANA id); an unknown name is refused, never read as UTC.
+    let zone = crate::web::timezone::strict(name).ok_or_else(|| WebError::Engine(crate::engine::EngineError::Data("unknown time zone".into())))?;
     let naive = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
         .iter().find_map(|pattern| NaiveDateTime::parse_from_str(s, pattern).ok())
         .or_else(|| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()?.and_hms_opt(0, 0, 0))
@@ -157,10 +158,7 @@ pub fn parse_form_time(value: &Value, name: &str, now: DateTime<Utc>) -> Result<
         });
     let Some(naive) = naive else { return Ok(Value::Null) };
     if !(1..=9999).contains(&naive.year()) { return Err(WebError::Engine(crate::engine::EngineError::Data("start date exceeds its bound".into()))); }
-    // ActiveSupport chooses DST on overlap, and moves a nonexistent local time forward an hour.
-    let at = match zone.from_local_datetime(&naive) {
-        LocalResult::Single(at) => Some(at), LocalResult::Ambiguous(a, b) => Some(a.min(b)),
-        LocalResult::None => naive.checked_add_signed(Duration::hours(1)).and_then(|next| zone.from_local_datetime(&next).earliest()),
-    };
-    Ok(at.map_or(Value::Null, |at| json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true))))
+    // A repeated wall time, or one in a gap other than one hour, is refused rather than guessed (timezone::resolve_local).
+    let (_, at) = crate::web::timezone::resolve_local(zone, naive).map_err(|e| WebError::Engine(crate::engine::EngineError::Data(e.into())))?;
+    Ok(json!(at.with_timezone(&Utc).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)))
 }

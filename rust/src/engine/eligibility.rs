@@ -91,10 +91,11 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
-            let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled") || k == "start_time_enabled";
+            let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
             if flag && set(v) && !SUPPORTED_FLAGS.contains(&k.as_str()) { r.push(k.clone()); }
         }
     }
+    if bot.settings.get("start_time_enabled").is_some_and(set) && BOT_WORKING.contains(&bot.status) { r.extend(start_time_reason(c, bot)?); }
     if bot.settings.get("smart_intervaled").is_some_and(set) && !bot.smart_quote_amount().is_some_and(|a| a > 0.0) {
         r.push("smart interval amount missing, not a JSON number, or not positive".into());
     }
@@ -117,6 +118,51 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if alpaca && r.is_empty() { super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX))?; }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
+}
+
+/// A pending starting time (Bot::Startable) runs only in the state Bot::Lifecycle#start(start_fresh: true) leaves it:
+/// settings.start_at equal to started_at, so Startable#repeat_anchor_at and the started_at the engine schedules from are one
+/// time, and no continue waiting. Rails' continue (start_fresh: false) ignores the starting time but still anchors the grid
+/// on start_at: it can buy at once and count every interval up to a start_at that was moved later; a start_at edited on a
+/// running bot moves the grid the same way. Read by truthiness, like the flags: anything Rails might treat as on.
+fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, EngineError> {
+    if bot.transient.get("rust_continue_start").is_some() {
+        return Ok(Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into()));
+    }
+    // A missing start_at is refused below, never read as started_at; an unreadable one refuses the bot as unreadable, here
+    // at its point of use, never at load.
+    let start_at = match bot.settings.get("start_at").and_then(Value::as_str) {
+        None => None,
+        Some(text) => Some(crate::codec::parse_time(text).map_err(|e| EngineError::Data(format!("start_at: {e:?}")))?.timestamp_micros()),
+    };
+    let started = bot.started_at_us()?;
+    let Some(at) = start_at.filter(|at| Some(*at) == started) else {
+        return Ok(Some("start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into()));
+    };
+    // Every day or every week at a time: the stored instant must read as that wall time in the owner's zone. Rails' fixed-day
+    // step across a daylight-saving change can store it an hour off, earlier or later, with both anchors still equal.
+    let mode = bot.settings.get("start_time_mode").and_then(Value::as_str);
+    // Every mode, date included, needs a zone this build reads as Rails does.
+    let name: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0))?;
+    let Some(zone) = crate::web::timezone::strict(&name) else { return Ok(Some(format!("start_time_enabled in an unknown time zone {name:?}"))) };
+    if mode == Some("date") { return Ok(None); }
+    if !mode.is_some_and(|m| crate::web::bot::start::MODES.contains(&m)) {
+        return Ok(Some(format!("start_time_enabled with start_time_mode {mode:?}")));
+    }
+    let local = DateTime::from_timestamp_micros(at).ok_or_else(|| EngineError::Data(format!("start_at {at} is out of range")))?.with_timezone(&zone);
+    let chosen = crate::web::bot::start::parse_hhmm(bot.settings.get("start_time_of_day").and_then(Value::as_str));
+    use chrono::Timelike;
+    if chosen.is_ok_and(|(h, m)| (local.hour(), local.minute(), local.second(), local.nanosecond()) == (h, m, 0, 0)) {
+        // The chosen wall time must also occur exactly once that day: at a repeated time, which occurrence Rails picks is
+        // not proven, so a row left at either one is refused, as the web start refuses it.
+        return Ok(match crate::web::timezone::resolve_local(zone, local.naive_local()) {
+            Ok((_, only)) if only == local => None,
+            Ok(_) => Some(format!("start_time_enabled with a start_at that is not the one instant of {} in {name}", local.format("%H:%M"))),
+            Err(reason) => Some(format!("start_time_enabled: {reason}")),
+        });
+    }
+    Ok(Some(format!("start_time_enabled with a start_at at {} in {name}, not the chosen time {:?} (a daylight-saving change moved it)",
+                    local.format("%H:%M:%S"), bot.settings.get("start_time_of_day"))))
 }
 
 /// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;

@@ -86,3 +86,63 @@ pub fn check(c: &Connection, bot: &Bot, now: DateTime<Utc>, market_data_configur
 pub const HISTORY_WORK_BUDGET: usize = 100_000;
 pub(super) const HISTORY_BOUND: &str = "bot action history exceeds the 100000-row work budget";
 pub(crate) fn history_error() -> WebError { super::data(HISTORY_BOUND.to_owned()) }
+
+/// Bot::Startable#initial_start_at's answer, and whether it falls BEFORE the chosen wall-clock time on its day. Rails steps
+/// a passed candidate forward by fixed UTC days (`candidate + 1.day` / `+ 7.days` on a UTC Time), so across a DST change
+/// in between it lands an hour off the chosen local time; when that hour is earlier, the start is refused (it would buy
+/// before the time the owner set). An hour later is Rails' answer and is kept.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StartAt { pub at: DateTime<Utc>, pub early: bool }
+
+/// Startable#parse_hhmm: two parts of one or two digits each, 0-23 and 0-59.
+pub fn parse_hhmm(time_of_day: Option<&str>) -> Result<(u32, u32), &'static str> {
+    let (h, m) = time_of_day.and_then(|s| s.split_once(':')).ok_or("invalid start time")?;
+    let part = |s: &str| -> Result<u32, &'static str> {
+        if !matches!(s.len(), 1 | 2) || !s.bytes().all(|b| b.is_ascii_digit()) { return Err("invalid start time"); }
+        s.parse::<u32>().map_err(|_| "invalid start time")
+    };
+    let (hour, minute) = (part(h)?, part(m)?);
+    if hour > 23 || minute > 59 { return Err("invalid start time"); }
+    Ok((hour, minute))
+}
+
+/// Bot::Startable#initial_start_at for an enabled rule, in the zone named `zone` (User#time_zone; an unknown name is
+/// refused). `Err` where Rails answers nil (an unknown mode, a malformed time or date): the
+/// :start validation refuses those first, and nil must never read as "start now" here.
+pub fn initial_start_at(mode: Option<&str>, time_of_day: Option<&str>, start_at: Option<&str>, now: DateTime<Utc>, zone: &str)
+    -> Result<StartAt, &'static str> {
+    use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+    let mode = mode.ok_or("missing start mode")?;
+    // ActiveSupport::TimeZone[] takes a Rails zone name or an IANA identifier; an unknown name is refused in every mode,
+    // never read as UTC.
+    let zone = crate::web::timezone::strict(zone).ok_or("unknown time zone")?;
+    if mode == "date" {
+        let at = crate::codec::parse_time(start_at.ok_or("invalid start date")?).map_err(|_| "invalid start date")?;
+        return Ok(StartAt { at, early: false });
+    }
+    let weekday = MODES.iter().position(|m| *m == mode).filter(|n| *n < 7);
+    if mode != "hour" && weekday.is_none() { return Err("invalid start mode"); }
+    let (hour, minute) = parse_hhmm(time_of_day)?;
+    // TimeZone#local / TimeWithZone: a wall time in a one-hour gap moves forward an hour; a repeated one is refused.
+    let wall = |naive: NaiveDateTime| -> Result<(NaiveDateTime, DateTime<Utc>), &'static str> {
+        crate::web::timezone::resolve_local(zone, naive).map(|(wall, at)| (wall, at.with_timezone(&Utc)))
+    };
+    let local = now.with_timezone(&zone);
+    let at = |day: NaiveDate| day.and_hms_opt(hour, minute, 0).ok_or("invalid start time");
+    let (today_wall, today) = wall(at(local.date_naive())?)?;
+    let (step, candidate) = match weekday {
+        None => (1, today),
+        Some(w) => {
+            // `today_at_time + days_ahead.days`: calendar days added to today's (gap-moved) wall time, resolved again.
+            let days = (w as i64 - i64::from(local.weekday().num_days_from_monday())).rem_euclid(7);
+            (7, wall(today_wall.checked_add_signed(Duration::days(days)).ok_or("start date overflow")?)?.1)
+        }
+    };
+    if candidate > now { return Ok(StartAt { at: candidate, early: false }); }
+    // `candidate + 1.day` / `+ 7.days` on a UTC Time: fixed seconds.
+    let stepped = candidate.checked_add_signed(Duration::days(step)).ok_or("start date overflow")?;
+    // The time the owner chose, `step` local days after the candidate's.
+    let day = candidate.with_timezone(&zone).date_naive().checked_add_signed(Duration::days(step)).ok_or("start date overflow")?;
+    let chosen = wall(at(day)?)?.1;
+    Ok(StartAt { at: stepped, early: stepped < chosen })
+}

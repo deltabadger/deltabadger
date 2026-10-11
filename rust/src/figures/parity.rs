@@ -58,7 +58,7 @@ pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
         .ok_or_else(|| FiguresError::Data("scenario.json has no `at`".into()))?;
     let market = Scripted::new(&scenario["script"], scenario["provider"].as_str());
     let user = db::user(&c, scenario["user_id"].as_i64().unwrap_or(0))?;
-    let zone = crate::web::timezone::zone(&user.time_zone).unwrap_or(chrono_tz::Tz::UTC);
+    let zone = crate::web::timezone::strict(&user.time_zone).unwrap_or(chrono_tz::Tz::UTC);
     let written = |m: &Metrics| m.to_json(9).write();
 
     let mut bots = Map::new();

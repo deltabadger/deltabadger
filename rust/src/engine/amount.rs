@@ -8,7 +8,7 @@ use crate::ruby::{to_sql, BigDec};
 use super::venue_rules::{MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
@@ -159,3 +159,25 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
     Ok(c.last_insert_rowid())
 }
 
+/// Bot::Startable#disable_starting_time!, which Bot::ActionJob runs after a clean run of a bot whose starting time is on
+/// (action_job.rb:139). With settings.start_at equal to started_at (the only start-time state the engine runs, see
+/// eligibility::start_time_reason) the schedule does not move, so Rails writes only the flag and updated_at
+/// (update_columns): no carry capture, the carry window (settings_changed_at) stays where it was, and an order of the first
+/// run still open counts later at what it fills. Rails' other branch (a start_at edited away from started_at captures the
+/// carry as a settings change) is refused here rather than ported. No-op when the rule is off.
+pub fn disable_starting_time(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+    super::model::locked(c, |c| disable_locked(c, &super::model::load_bot(c, bot_id)?, now))
+}
+
+fn disable_locked(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    if !crate::web::bot::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
+    let start_at = bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty());
+    // An unreadable start_at refuses here, at its point of use; loading the bot never fails on it.
+    let start_at_us = match start_at { Some(text) => Some(crate::codec::parse_time(text).map_err(data)?.timestamp_micros()), None => None };
+    if start_at_us.is_some() && start_at_us != bot.started_at_us()? {
+        return Err(EngineError::Data(format!("start_at {start_at:?} is not the bot's started_at")));
+    }
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('false')), updated_at = ?2 WHERE id = ?1",
+              params![bot.id, format_time(now)])?;
+    Ok(())
+}

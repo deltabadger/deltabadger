@@ -429,6 +429,8 @@ mod action_draft {
                 }
                 continue;
             }
+            // A wall time that repeats in the owner's zone is refused (timezone::resolve_local), never stored as Rails' pick.
+            if parse.as_ref().is_err_and(|e| format!("{e:?}").contains("occurs twice")) { continue; }
             parse.map_err(|e| format!("{name}: {e:?}"))?;
             compare!(json!(draft.parsed), *field(case, "parsed"), "{name}: parse chain");
             let context = if field(case, "context") == "start" { ValidationContext::Start } else { ValidationContext::Update };
@@ -486,6 +488,7 @@ mod action_write {
     use super::common;
     use common::{seed, web as harness};
     use deltabadger::web::{self, bot::{action_params::ActionParams, draft::Draft, write::{self, Outcome, Prepared}}, layout::Ctx, Params, WebError};
+    use deltabadger::engine::eligibility;
     use rusqlite::Connection;
     use serde_json::{json, Value};
     use std::sync::Arc;
@@ -1033,24 +1036,108 @@ mod action_write {
         Ok(())
     }
 
+    /// The delayed start as Bot::Lifecycle#start writes it, at the same clock (fixtures/start_time_vectors.json, recorded
+    /// at NOW in UTC): the anchor, start_at, and the carry capture, which lands only when start_at changed (hour mode) and
+    /// is discarded when it did not (date mode: the stored start_at is written back unchanged).
     #[test]
-    fn action_lifecycle_delayed_date_hour_guard_sees_future_anchor() -> Result {
-        for (mode,time,expected) in [("date","2026-09-11T13:45:00Z","2026-09-11 13:45:00"),("hour","13:45","2026-09-10 13:45:00")] {
+    fn action_lifecycle_delayed_date_hour_start_as_rails_writes_it() -> Result {
+        let vectors:Value=serde_json::from_str(include_str!("fixtures/start_time_vectors.json"))?;
+        for (mode,time,rails) in [("date","2026-09-11T13:45:00Z",&vectors["schedule"][0]["started"]),("hour","13:45",&vectors["schedule"][3]["started"])] {
             let f=Fixture::new()?;
             f.c.execute("UPDATE users SET time_zone='UTC'",[])?;
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode',?1,'$.start_at',?2,'$.start_time_of_day',?2)",(mode,time))?;
             if mode=="hour" { f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_at','2026-09-11T13:45:00Z')",[])?; }
-            let before=f.snapshot()?;
-            let result=write::lifecycle(&f.c,&f.ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|c,_,_| {
-                let (anchor,updated,transient):(String,String,String)=c.query_row("SELECT started_at,updated_at,transient_data FROM bots WHERE id=?1",[f.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
-                assert_eq!(anchor,expected); assert_eq!(updated,"2026-09-10 12:00:30.123456");
-                assert!(serde_json::from_str::<Value>(&transient).map_err(|e|WebError::Config(e.to_string()))?.get("rust_continue_start").is_none());
-                Ok(Prepared {response:(),broadcasts:vec![]})
-            }).map_err(|e|format!("{e:?}"))?;
-            // The actual merged engine still refuses future-start execution.
-            assert!(matches!(result,Outcome::GuardRefused(_)));
-            assert_eq!(f.snapshot()?,before);
+            // transient_data exactly as the recorded bot had it before its start.
+            let created=&vectors["schedule"][if mode=="date" {0} else {3}]["created"];
+            f.c.execute("UPDATE bots SET transient_data=?1",[created.to_string()])?;
+            let changed_before=f.stored()?["changed"].clone();
+            assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)),"{mode}");
+            let stored=f.stored()?;
+            let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(anchor,rails["started_at"].as_str().ok_or("started_at")?,"{mode}");
+            assert_eq!(stored["settings"]["start_at"],rails["settings"]["start_at"],"{mode}");
+            assert_eq!(stored["transient"],rails["transient_data"],"{mode}: the whole transient_data, no key Rails leaves absent");
+            let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(json!(status),rails["status"],"{mode}");
+            let changed=if mode=="date" {changed_before} else {json!(rails["settings_changed_at"])};
+            assert_eq!(stored["changed"],changed,"{mode}: the window");
+            let report=eligibility::check_install(&f.c).map_err(|e|format!("{e:?}"))?;
+            assert!(report.eligible.contains(&f.id),"{mode}: the engine runs it: {:?}",report.problems);
         }
+        Ok(())
+    }
+
+    /// A continue never honours a starting time in Rails (it may buy at once): the write guard refuses it.
+    #[test]
+    fn action_lifecycle_continue_with_a_starting_time_is_refused() -> Result {
+        let f=Fixture::new()?;
+        // As a delayed start leaves it (start_at = started_at), stopped before its first run.
+        f.c.execute("UPDATE bots SET status=2,settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','13:45','$.start_at','2026-09-10T12:00:00Z'),transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-01T00:00:00.000Z') WHERE id=?1",[f.id])?;
+        let before=f.snapshot()?;
+        assert!(matches!(f.lifecycle(write::Action::Start,Some(json!(false)))?,Outcome::GuardRefused(_)));
+        assert_eq!(f.snapshot()?,before);
+        Ok(())
+    }
+
+    /// Rails steps a passed time forward in fixed UTC days: across the autumn change, a day that starts an hour early.
+    #[test]
+    fn action_lifecycle_start_an_hour_early_is_refused() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE users SET time_zone='Warsaw'",[])?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','09:30') WHERE id=?1",[f.id])?;
+        // Saturday 2026-10-24, 10:00 in Warsaw: 09:30 has passed, and a fixed day later is 08:30 after the change.
+        let clock=harness::TestClock::at("2026-10-24T08:00:00Z");
+        let mut ctx=f.ctx.clone(); ctx.app=harness::app(f._dir.path(),"engine-test-secret",clock.clone());
+        let before=f.snapshot()?;
+        let result=write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,view| {
+            Ok(Prepared {response:json!(view.errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()),broadcasts:vec![]})
+        }).map_err(|e|format!("{e:?}"))?;
+        let Outcome::GuardRefused(errors)=result else { return Err("an hour-early start must be refused".into()) };
+        assert!(errors.to_string().contains("daylight-saving"),"{errors}");
+        assert_eq!(f.snapshot()?,before);
+        // The spring change makes it an hour late (10:30 local): not the chosen time either, refused without a write.
+        clock.set(harness::at("2026-03-28T09:00:00Z"));
+        assert!(matches!(write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?,Outcome::GuardRefused(_)));
+        assert_eq!(f.snapshot()?,before);
+        Ok(())
+    }
+
+    /// The date field renders in the owner's zone with the resolver that parses it (a Rails name or an IANA id): turning the
+    /// rule on resubmits the rendered field, which keeps the instant, and the start runs at it.
+    #[test]
+    fn action_date_start_round_trips_through_the_form_in_the_owners_zone() -> Result {
+        for zone in ["Asia/Tokyo","Tokyo"] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE users SET time_zone=?1",[zone])?;
+            assert!(matches!(f.write(json!({"start_time_mode":"date","start_at":"2026-09-12T09:30"}))?,Outcome::Committed(_)),"{zone}");
+            assert_eq!(f.stored()?["settings"]["start_at"],json!("2026-09-12T00:30:00Z"),"{zone}");
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("draft")?;
+            let html=web::bot::settings::draft_column(&f.c,&f.ctx,"csrf",&draft,zone,false).map_err(|e|format!("{e:?}"))?;
+            let field=html.split("sinput--datetime").next().and_then(|before|before.rsplit("value=\"").next()).and_then(|v|v.split('"').next()).ok_or("date field")?.to_owned();
+            assert_eq!(field,"2026-09-12T09:30","{zone}: the field shows the owner's wall time");
+            assert!(matches!(f.write(json!({"start_time_enabled":"1","start_time_mode":"date","start_at":field}))?,Outcome::Committed(_)|Outcome::NoChange(_)),"{zone}");
+            assert_eq!(f.stored()?["settings"]["start_at"],json!("2026-09-12T00:30:00Z"),"{zone}: resubmitting keeps the instant");
+            assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)),"{zone}");
+            let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(anchor,"2026-09-12 00:30:00","{zone}");
+        }
+        Ok(())
+    }
+
+    /// ActiveSupport::TimeZone[] knows Rails' names and IANA identifiers; for any other name the start is refused and nothing
+    /// is written, never computed in UTC.
+    #[test]
+    fn action_lifecycle_start_in_an_unknown_zone_is_refused() -> Result {
+        let f=Fixture::new()?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_time_mode','hour','$.start_time_of_day','13:45') WHERE id=?1",[f.id])?;
+        f.c.execute("UPDATE users SET time_zone='Mars/Olympus'",[])?;
+        let before=f.snapshot()?;
+        let Err(error)=f.lifecycle(write::Action::Start,None) else { return Err("a start in an unknown zone must be refused".into()) };
+        assert!(error.to_string().contains("unknown time zone"),"{error}");
+        assert_eq!(f.snapshot()?,before);
+        // The IANA name of the same kind is read.
+        f.c.execute("UPDATE users SET time_zone='Europe/Warsaw'",[])?;
+        assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Committed(_)));
         Ok(())
     }
 
@@ -1080,8 +1167,12 @@ mod action_write {
             let mut draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e|format!("{e:?}"))?.ok_or("draft missing")?;
             draft.candidate.settings.extend(case["settings"].as_object().ok_or("settings missing")?.clone());
             let now=case["now"].as_str().ok_or("now missing")?.parse()?;
-            let actual=draft.initial_start_at(now,case["zone"].as_str().ok_or("zone missing")?).map_err(|e|format!("{e:?}"))?;
-            assert_eq!(actual.map(|t|t.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)),case["expected"].as_str().map(str::to_owned),"{case}");
+            let actual=match draft.initial_start_at(now,case["zone"].as_str().ok_or("zone missing")?) {
+                // A wall time that repeats in the owner's zone is refused, never resolved to Rails' pick.
+                Err(e) if format!("{e:?}").contains("occurs twice") => continue,
+                other => other.map_err(|e|format!("{e:?}"))?,
+            };
+            assert_eq!(actual.map(|t|t.at.to_rfc3339_opts(chrono::SecondsFormat::Secs,true)),case["expected"].as_str().map(str::to_owned),"{case}");
         }
         Ok(())
     }

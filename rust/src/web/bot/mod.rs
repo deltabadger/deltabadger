@@ -92,8 +92,9 @@ impl FromSql for Scale {
 }
 
 /// ActiveModel::Type::Boolean#cast of a stored value: nil for nothing and for "", false for its
-/// list of false spellings, true for anything else.
-fn cast_boolean(value: Option<&Value>) -> bool {
+/// list of false spellings, true for anything else. FALSE_VALUES is a Set (matched by `eql?`): it holds the
+/// Integer 0, not the Float 0.0, so a stored 0.0 casts to true.
+pub fn cast_boolean(value: Option<&Value>) -> bool {
     match value {
         None | Some(Value::Null | Value::Bool(false)) => false,
         Some(Value::String(text)) => !["", "0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&text.as_str()),
