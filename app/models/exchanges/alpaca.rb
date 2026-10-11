@@ -992,7 +992,7 @@ class Exchanges::Alpaca < Exchange
                  side: side.to_s,
                  type: 'market',
                  time_in_force: tif,
-                 notional: format("%.#{ticker.quote_decimals}f", amount.to_d)
+                 notional: wire_decimal(amount, ticker.quote_decimals)
                )
              else
                client.create_order(
@@ -1000,7 +1000,7 @@ class Exchanges::Alpaca < Exchange
                  side: side.to_s,
                  type: 'market',
                  time_in_force: tif,
-                 qty: format("%.#{ticker.base_decimals}f", amount.to_d)
+                 qty: wire_decimal(amount, ticker.base_decimals)
                )
              end
     return result if result.failure?
@@ -1028,14 +1028,21 @@ class Exchanges::Alpaca < Exchange
       side: side.to_s,
       type: 'limit',
       time_in_force: crypto_ticker?(ticker) ? 'gtc' : 'day',
-      qty: format("%.#{ticker.base_decimals}f", qty.to_d),
-      limit_price: format("%.#{ticker.price_decimals}f", price.to_d)
+      qty: wire_decimal(qty, ticker.base_decimals),
+      limit_price: wire_decimal(price, ticker.price_decimals)
     )
     return result if result.failure?
 
     # Persist the accepted id before polling fills, even when the placement's numbers are unreadable.
     data = { order_id: result.data['id'] }
     Result::Success.new(data)
+  end
+
+  # The floored decimal spelled exactly at `places`. Kernel#format goes through Float, which can round an
+  # already-floored amount back up (812037646.065271585 was sent as 812037646.065271616).
+  def wire_decimal(value, places)
+    whole, fraction = value.to_d.floor(places).to_s('F').split('.')
+    places.zero? ? whole : "#{whole}.#{fraction.to_s.ljust(places, '0')}"
   end
 
   def parse_order_data(order_data, resolve_identity: false, index: nil)

@@ -7,7 +7,7 @@
     "app/helpers/locale_helper.rb": "827f9f4c25c1003ecfb10094502e6ba4a38a396323601e5448b1bdc49c34e678",
     "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
     "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
-    "app/models/exchanges/alpaca.rb": "fa540e23eea313c33610dc8ee5484e733ac6af299b0c9dc39f3d4b84ed8352d4",
+    "app/models/exchanges/alpaca.rb": "02c9e637bfd10a1e1f709b751408cdc356e6c383d56a43ad574e7cb50933ebdc",
     "app/services/account_transaction_sync.rb": "fdb8852cb464e4010a94b123b783105987c9854499949a6a2a66690733579da1",
     "app/views/settings/widgets/_rest.html.erb": "8e64257817c240aa610b17fe90acba3b4e48697216087fdc5277c90eabef3794",
     "app/views/settings/widgets/_market_data.html.erb": "b1c0f18834ee98bdf2696d3d0d44924ce2818c09454f2a976184ce3b0c49f246",

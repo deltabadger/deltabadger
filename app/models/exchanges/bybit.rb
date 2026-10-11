@@ -25,7 +25,7 @@ class Exchanges::Bybit < Exchange
     'Untriggered' => :unknown,
     'New' => :open,
     'PartiallyFilled' => :open,
-    'PartiallyFilledCanceled' => :open,
+    'PartiallyFilledCanceled' => :cancelled,
     'Filled' => :closed,
     'Cancelled' => :cancelled,
     'Expired' => :cancelled,

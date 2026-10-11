@@ -120,8 +120,6 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
     let cases = common::vectors()["alpaca_sizing"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 180);
-    let mut float_changed = 0;
-    let mut guarded_changes = 0;
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
@@ -134,49 +132,38 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         assert!(plan.quote_type, "{c}");
         assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum (quote-only) {c}");
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
-        let w = &c["r1c_wire"];
-        guarded_changes += (w != &c["wire"]) as usize;
+        let w = &c["wire"];
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some("BTC/USD"), Some("buy"), Some("gtc")), "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "pair {c}");
         match order.kind {
             OrderKind::Market => {
                 assert_eq!(w["type"], "market", "{c}");
                 assert_eq!(order.volume, w["notional"].as_str().unwrap(), "notional {c}");
-                float_changed += (order.volume != plan.volume.to_s_f()) as usize;
+                assert!(bd(&order.volume) <= plan.volume, "R1c: the notional never rounds up {c}");
                 assert!(order.quote_volume);
             }
             OrderKind::Limit { price } => {
                 assert_eq!(w["type"], "limit", "{c}");
                 assert_eq!(order.volume, w["qty"].as_str().unwrap(), "qty {c}");
                 assert_eq!(price, w["limit_price"].as_str().unwrap(), "limit_price {c}");
-                let qty_exact = plan.volume.div(&plan.price.floor(t.scales().unwrap().2)).unwrap().floor(t.scales().unwrap().0);
-                float_changed += (order.volume != qty_exact.to_s_f()) as usize;
+                assert!(bd(&price) <= plan.price && bd(&order.volume).checked_mul(&bd(&price)).unwrap() <= plan.volume, "R1c: price and qty never round up {c}");
                 assert!(!order.quote_volume);
             }
         }
     }
-    assert!(guarded_changes > 0, "R1c must exercise a Float wire round-up");
-    assert!(float_changed > 0, "no vector exercises Float formatting any more");
 }
 
 #[test]
-fn printf_goes_through_float_as_ruby_format_does() {
-    // Both recorded in Ruby 4.0.7: format("%.2f", BigDecimal("0.125")), format("%.9f", BigDecimal("123456789012.123456789")).
-    assert_eq!(amount::printf(&bd("0.12"), 2), "0.12");
-    assert_eq!(amount::float_format(&bd("0.125"), 2), "0.12");
-    assert_eq!(amount::printf(&bd("123456789012.123456789"), 9), "123456789012.123458862");
+fn wire_decimal_floors_and_pads_in_decimal_as_rails_sends_it() {
+    // Exchanges::Alpaca#wire_decimal, recorded in Ruby 4.0.7.
+    assert_eq!(amount::wire_decimal(&bd("812037646.065271585"), 9), "812037646.065271585");
+    assert_eq!(amount::wire_decimal(&bd("123456789012.123456789"), 9), "123456789012.123456789");
+    assert_eq!(amount::wire_decimal(&bd("0.00265"), 4), "0.0026");
+    assert_eq!(amount::wire_decimal(&bd("0.5"), 4), "0.5000");
+    assert_eq!(amount::wire_decimal(&bd("5"), 2), "5.00");
+    assert_eq!(amount::wire_decimal(&bd("5.99"), 0), "5");
+    assert_eq!(amount::wire_decimal(&bd("0"), 2), "0.00");
 }
-
-#[test]
-fn printf_is_not_ruby_on_unfloored_input_so_callers_must_floor() {
-    // Ruby 4.0.7: format("%.4f", BigDecimal("0.00265")) == "0.0026"; correct rounding of the binary value gives 0.0027.
-    assert_eq!(amount::float_format(&bd("0.00265"), 4), "0.0027");
-}
-
-#[test]
-#[cfg(debug_assertions)]
-#[should_panic(expected = "already floored")]
-fn printf_refuses_unfloored_input_in_debug() { amount::printf(&bd("0.00265"), 4); }
 
 #[test]
 fn a_cancelled_or_abandoned_buy_counts_what_it_filled_and_the_rest_is_owed_again() {

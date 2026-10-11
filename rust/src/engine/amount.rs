@@ -74,27 +74,13 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
 
-/// Kernel#format('%.Nf', BigDecimal) for a value ALREADY floored to `places`: the value goes through Float, then is
-/// formatted at N places. Only for such input does this equal Ruby (0 differences in 32,000 cases; pinned by the
-/// alpaca_sizing vectors). On unfloored input they differ: format("%.4f", BigDecimal("0.00265")) is "0.0026" in Ruby
-/// 4.0.7, "0.0027" here. Callers floor first, as Exchanges::Alpaca does.
-pub fn printf(d: &BigDec, places: u8) -> String {
-    debug_assert!(d.floor(places) == *d, "printf needs a value already floored to {places} places");
-    float_format(d, places)
-}
-
-/// The raw Float formatter behind `printf`, without the precondition. Exposed so a test can pin the unfloored difference.
-pub fn float_format(d: &BigDec, places: u8) -> String { format!("{:.*}", usize::from(places), d.to_f()) }
-
-/// Fixed decimal spelling after flooring: no binary conversion may undo the R1c order guard.
-fn fixed_decimal(d: &BigDec, places: u8) -> Result<String, String> {
-    let floored = d.floor(places);
-    let legacy = printf(&floored, places);
-    // Preserve Rails' representation when it does not increase the quantized amount.
-    if BigDec::parse(&legacy).map_err(|e|format!("{e:?}"))? <= floored { return Ok(legacy); }
-    let plain = floored.to_s_f();
-    let (whole, fraction) = plain.split_once('.').unwrap_or((&plain, ""));
-    Ok(if places == 0 { whole.to_string() } else { format!("{whole}.{fraction:0<width$}", width=usize::from(places)) })
+/// Exchanges::Alpaca#wire_decimal: the value floored to `places` and spelled with exactly `places` fractional digits,
+/// in decimal throughout. Never through Float, which can round a floored amount back up (812037646.065271585 at 9
+/// places was sent as 812037646.065271616).
+pub fn wire_decimal(d: &BigDec, places: u8) -> String {
+    let s = d.floor(places).to_s_f();
+    let (whole, fraction) = s.split_once('.').unwrap_or((s.as_str(), ""));
+    if places == 0 { whole.to_string() } else { format!("{whole}.{fraction:0<width$}", width = usize::from(places)) }
 }
 
 impl OrderPlan {
@@ -113,11 +99,11 @@ impl OrderPlan {
                 let qty = if self.quote_type {
                     self.volume.div(&price).ok_or_else(||"zero limit price".to_string())?.floor(base_decimals)
                 } else { self.volume.floor(base_decimals) };
-                (OrderKind::Limit { price: fixed_decimal(&price, price_decimals)? }, fixed_decimal(&qty, base_decimals)?, false)
+                (OrderKind::Limit { price: wire_decimal(&price, price_decimals) }, wire_decimal(&qty, base_decimals), false)
             }
             // #set_market_order: a :quote amount is `notional` at quote_decimals; a :base one would be `qty`.
             WireFormat::Alpaca => (OrderKind::Market,
-                fixed_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals })?, self.quote_type),
+                wire_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
         };
         Ok(NewOrder { pair: t.ticker.clone(), kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
     }
