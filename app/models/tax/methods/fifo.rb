@@ -183,14 +183,16 @@ module Tax
 
       # The report prints money in cents. Every row but the last is cut to the cent and the last takes
       # what is left, so the printed rows add up to the printed sale — proceeds, fee, basis and gain.
+      # The last row's gain is what is left of the sale's gain AS PRINTED: rounding its own
+      # fractional-cent figures could drift a cent from it, all the more across rows of opposite sign.
       def settle_in_cents(rows, proceeds, fee)
-        left = { proceeds: proceeds, fee: fee, cost_basis: rows.sum(0.to_d) { |row| row[:cost_basis] } }
+        basis = rows.sum(0.to_d) { |row| row[:cost_basis] }
+        left = { proceeds: proceeds, fee: fee, cost_basis: basis, gain_loss: (proceeds - basis - fee).round(CENTS) }
         rows.each_with_index do |row, index|
-          left.each_key do |key|
-            row[key] = index == rows.size - 1 ? left[key] : row[key].round(CENTS)
-            left[key] -= row[key]
-          end
-          row[:gain_loss] = row[:proceeds] - row[:cost_basis] - row[:fee]
+          last = index == rows.size - 1
+          %i[proceeds fee cost_basis].each { |key| row[key] = last ? left[key] : row[key].round(CENTS) }
+          row[:gain_loss] = last ? left[:gain_loss] : row[:proceeds] - row[:cost_basis] - row[:fee]
+          left.each_key { |key| left[key] -= row[key] }
         end
       end
 

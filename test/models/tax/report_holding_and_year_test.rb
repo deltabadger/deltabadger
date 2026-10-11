@@ -162,6 +162,17 @@ class Tax::ReportHoldingAndYearTest < ActiveSupport::TestCase
     assert_equal('79.99'.to_d, rows.sum { |row| row[6].to_d })
   end
 
+  test 'split rows of opposite sign over a fractional-cent basis print gains that add up to the printed sale' do
+    trade(:buy, 1, 10_000, Time.utc(2022, 1, 10))
+    trade(:buy, 2, '179999.99', Time.utc(2024, 1, 10))
+    trade(:sell, 2, 100_000, Time.utc(2024, 6, 1)) # basis 99,999.995, gain 0.005, printed 0.01
+
+    rows = disposals('US', 2024)
+
+    assert_equal 2, rows.size
+    assert_equal('0.01'.to_d, rows.sum { |row| row[6].to_d })
+  end
+
   # --- The tax year is the year in the user's zone ---
 
   test 'a New Year\'s Eve sale in Los Angeles belongs to the year it was made there' do
