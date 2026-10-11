@@ -308,6 +308,11 @@ async fn a_stop_that_counted_an_intent_later_proved_never_placed_stays_a_stop() 
     // Leg 2 never reached the venue: the intent goes, the stop stays, 30 of the cap is left unspent.
     let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0) + Duration::minutes(21)), &mut Attempts::default()).await.unwrap();
     assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    // A stopped tick writes nothing. The engine's independent idle reconciliation settles its
+    // already-transmitted order (run::reconcile_idle), without granting that tick a new run.
+    let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(),
+        &FixedClock(at(T0) + Duration::minutes(21))).await.unwrap();
+    assert!(matches!(recovered, placement::Recovery::NotPlaced), "{recovered:?}");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "settled as not placed");
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped, "the stop is not undone");
     assert_eq!(available(&o, id), Some(bd("30")));

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -527,6 +527,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_130000) do
     t.integer "status"
     t.string "transaction_type", default: "REGULAR", null: false
     t.datetime "updated_at", precision: nil, null: false
+    t.json "run_identity"
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"

@@ -181,10 +181,12 @@ async fn a_web_stop_during_an_in_flight_tick_wins_and_nothing_more_is_placed() {
         until("the tick to send its order", || !v.sent().is_empty()).await;
         // Lifecycle#stop as the web writes it.
         let now = codec::format_time(chrono::Utc::now());
-        app.db(move |c| {
+        let stopping = app.db(move |c| {
             c.execute(WEB_STOP, rusqlite::params![now, bot])?;
             Ok(())
-        }).await.unwrap();
+        });
+        tokio::time::timeout(Duration::from_secs(2), stopping).await
+            .expect("STOP must commit while the venue reply is still held").unwrap();
         app.wake_engine();
         gate.notify_one();
         until("the tick in hand to record its order", || outstanding(&db, "OFAKE-1") == 1).await;

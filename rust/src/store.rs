@@ -143,7 +143,7 @@ const PRIMARY: &[TableContract] = &[
         ("amount_exec", "decimal", false), ("quote_amount_exec", "decimal", false), ("base", "varchar", false), ("quote", "varchar", false),
         ("base_asset_id", "integer", false), ("quote_asset_id", "integer", false), ("bot_interval", "varchar", true),
         ("bot_quote_amount", "decimal", true), ("transaction_type", "varchar", true), ("error_messages", "json", true),
-        ("created_at", "datetime", true), ("updated_at", "datetime", true),
+        ("created_at", "datetime", true), ("updated_at", "datetime", true), ("run_identity", "json", false),
     ], unique_indexes: &[&["external_id"]] },
     TableContract { name: "tickers", columns: &[
         ("id", "integer", true), ("exchange_id", "bigint", true), ("ticker", "varchar", true), ("base", "varchar", true),

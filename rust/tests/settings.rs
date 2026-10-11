@@ -1066,7 +1066,7 @@ async fn account_rotation_must_not_erase_an_unresolved_accepted_order() {
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"account-a-accepted-order","client_order_id":intent.cl_ord_id,"status":"filled","qty":"0.0012","filled_qty":"0.0012","filled_avg_price":"50000","type":"market","side":"buy","symbol":"BTC/USD"}))).expect(1).mount(&server).await;
     let urls=Urls{trading:server.uri(),data:server.uri()};
     let original=AlpacaVenue::new(ReqwestTransport::new(http::client(),"previous-key".into(),"previous-secret".into()),urls.clone());
-    assert!(matches!(placement::send(&original,&intent,&FixedClock(at)).await,Sent::Accepted(ref id) if id=="account-a-accepted-order"));
+    assert!(matches!(placement::send(&h.c, &original,&intent,&FixedClock(at)).await.unwrap(),Sent::Accepted(ref id) if id=="account-a-accepted-order"));
     // Crash after acceptance: there is an intent, but no recorded order row.
     assert!(model::load_bot(&h.c,bot_id).unwrap().rust_placement().is_some());
     h.link();
@@ -1557,19 +1557,29 @@ fn q_venue(h:&Harness,url:&str)->deltabadger::venue::alpaca::AlpacaVenue<Rotates
     use deltabadger::venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}};
     AlpacaVenue::new(RotatesAtResponse{inner:ReqwestTransport::new(http::client(),"previous-key".into(),"previous-secret".into()),file:h._dir.path().join("production.sqlite3"),cipher:h.app.cipher.clone(),key_id:h.seed.api_key_id},Urls{trading:url.into(),data:url.into()})
 }
+fn q_plain_venue(url:&str)->deltabadger::venue::alpaca::AlpacaVenue<deltabadger::venue::http::ReqwestTransport> {
+    use deltabadger::venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}};
+    AlpacaVenue::new(ReqwestTransport::new(http::client(),"previous-key".into(),"previous-secret".into()),Urls{trading:url.into(),data:url.into()})
+}
+fn q_rotate_after_send(h:&Harness) {
+    // An external writer rotates credentials after transmission, before the acknowledgement is recorded.
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("externally-replaced-key"),h.app.cipher.encrypt("externally-replaced-secret"),h.seed.api_key_id)).unwrap();
+}
 fn q_fill()->serde_json::Value { serde_json::json!({"id":"q-order","status":"filled","side":"buy","type":"market","symbol":"BTCUSD","qty":"0.0012","filled_qty":"0.0012","filled_avg_price":"50000"}) }
 #[tokio::test(flavor="current_thread")]
-async fn q_placement_result_must_keep_intent_when_credentials_changed_during_send() {
-    use deltabadger::engine::{placement::{self,Sent},EngineError,FixedClock};
+async fn q_placement_result_records_accepted_order_when_credentials_changed_after_send() {
+    use deltabadger::engine::{placement::{self,Sent},FixedClock};
     let server=MockServer::start().await;
     Mock::given(method("POST")).and(path("/v2/orders")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"q-order"}))).expect(1).mount(&server).await;
     let h=Harness::at_real_now(server.uri()).await;let (bot,plan)=q_order(&h);
     let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
-    let Sent::Accepted(id)=placement::send(&q_venue(&h,&server.uri()),&intent,&FixedClock(h.app.now())).await else {panic!("accepted")};
-    let result=placement::record_accepted(&h.c,&bot,&intent,&id);
-    assert!(matches!(result,Err(EngineError::CredentialsChanged)),"Q placement must discard its result after credential replacement");
-    assert!(deltabadger::engine::model::load_bot(&h.c,bot.id).unwrap().rust_placement().is_some());
-    assert_eq!(h.c.query_row("SELECT count(*) FROM transactions",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    let Sent::Accepted(id)=placement::send(&h.c, &q_plain_venue(&server.uri()),&intent,&FixedClock(h.app.now())).await.unwrap() else {panic!("accepted")};
+    q_rotate_after_send(&h);
+    let row=placement::record_accepted(&h.c,&bot,&intent,&id).expect("an accepted order must survive credential replacement");
+    assert!(deltabadger::engine::model::load_bot(&h.c,bot.id).unwrap().rust_placement().is_none());
+    assert_eq!(h.c.query_row("SELECT count(*) FROM transactions",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    let recorded:(String,String)=h.c.query_row("SELECT external_id,run_identity FROM transactions WHERE id=?1",[row],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+    assert_eq!(recorded,(id,bot.run_identity().unwrap().order_json().to_string()));
     server.verify().await;
 }
 #[tokio::test(flavor="current_thread")]
@@ -2517,7 +2527,8 @@ async fn q_rejected_placement_result_cannot_erase_a_after_an_external_credential
     use deltabadger::engine::{placement::{self,Sent},EngineError,FixedClock};
     let server=MockServer::start().await;Mock::given(method("POST")).and(path("/v2/orders")).respond_with(ResponseTemplate::new(422).set_body_json(serde_json::json!({"message":"order refused"}))).expect(1).mount(&server).await;
     let h=Harness::at_real_now(server.uri()).await;let (bot,plan)=q_order(&h);let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(h.app.now())).unwrap();
-    let Sent::Rejected(errors)=placement::send(&q_venue(&h,&server.uri()),&intent,&FixedClock(h.app.now())).await else{panic!("fixture must obtain the actual rejected venue answer")};
+    let Sent::Rejected(errors)=placement::send(&h.c, &q_plain_venue(&server.uri()),&intent,&FixedClock(h.app.now())).await.unwrap() else{panic!("fixture must obtain the actual rejected venue answer")};
+    q_rotate_after_send(&h);
     let before=h.snapshot();assert!(matches!(placement::record_rejected(&h.c,&bot,&intent,&errors),Err(EngineError::CredentialsChanged)));assert_eq!(h.snapshot(),before);server.verify().await;
 }
 #[tokio::test(flavor="current_thread")]

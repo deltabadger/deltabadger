@@ -257,7 +257,7 @@ async fn a_send_resumed_past_its_bound_never_reaches_alpaca() {
     let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000), ALPACA.minimum_logic).unwrap() else { panic!() };
     let at_ = chrono::Utc::now() - Duration::seconds(60);
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(at_)).unwrap();
-    assert!(matches!(placement::send(&v, &intent, &FixedClock(at_)).await, Sent::NotSent(_)), "the freshness check passed; the bound did not");
+    assert!(matches!(placement::send(&o.primary, &v, &intent, &FixedClock(at_)).await.unwrap(), Sent::NotSent(_)), "the freshness check passed; the bound did not");
 }
 
 #[tokio::test(flavor = "current_thread")]

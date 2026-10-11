@@ -90,6 +90,7 @@ on:
       - 'script/rust/histories*'
       - 'script/rust/verify_histories.sh'
       - 'script/rust/record_vectors.rb'
+      - 'script/rust/record_run_ownership.rb'
       - 'script/rust/record_histories.rb'
       - 'script/rust/histories_normalized.rb'
       - 'script/rust/figures_normalized.rb'
@@ -242,6 +243,7 @@ on:
       - 'script/rust/histories*'
       - 'script/rust/verify_histories.sh'
       - 'script/rust/record_vectors.rb'
+      - 'script/rust/record_run_ownership.rb'
       - 'script/rust/record_histories.rb'
       - 'script/rust/histories_normalized.rb'
       - 'script/rust/figures_normalized.rb'
@@ -373,3 +375,33 @@ jobs:
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
           --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test index_histories_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
           --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup
+
+  full-suite:
+    name: Full Rust suite with Rails parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      APP_ROOT_URL: http://localhost:3000
+      SKIP_TEST_DATABASE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install native gem dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y libsqlite3-dev libvips-dev libsodium-dev libyaml-dev libcurl4-openssl-dev
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0.7'
+          bundler-cache: true
+      - name: Install Rust 1.94.0
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          key: full-suite
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Build the web assets
+        run: bash script/rust/build_assets.sh
+      - name: Test the full Rust suite
+        working-directory: rust
+        run: cargo test --locked

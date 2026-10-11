@@ -25,7 +25,7 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 4] = ["rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin"];
+const RUST_KEYS: [&str; 6] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin"];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -45,6 +45,9 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
         for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
+                // Rust-only ownership attribution; placement/tick_basket assert the exact
+                // sending identity independently. Rails leaves this shared column NULL.
+                if table == "transactions" && name == "run_identity" { continue; }
                 let mut v = raw((&r[i]).into());
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.
@@ -325,6 +328,9 @@ pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, Engi
         for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
+                // Rust-only ownership attribution; placement/tick_basket assert the exact
+                // sending identity independently. Rails leaves this shared column NULL.
+                if table == "transactions" && name == "run_identity" { continue; }
                 let mut v = raw((&r[i]).into());
                 if REFERENCE_JSON.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 row.insert(name.clone(), v);

@@ -31,6 +31,7 @@ pub struct Engine<F: VenueFactory> {
     pub primary: Connection, pub factory: F, pub cipher: Cipher, pub lock: EngineLock,
     started: bool,
     attempts: HashMap<i64, model::Produced<Attempts>>,
+    run_keys: HashMap<i64, model::RunIdentity>,
     retry_at: HashMap<i64, model::Produced<i64>>,
     closed_until: HashMap<i64, (model::Produced<i64>, serde_json::Value)>,
     cache_insert_step: Option<CacheInsertStep>,
@@ -59,7 +60,7 @@ pub struct Engine<F: VenueFactory> {
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
-        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
+        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
                events: EngineEvents::default() }
@@ -192,7 +193,8 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     for (id, err) in &report.unreadable { super::log(&format!("[engine] bot {id} is unreadable and skipped: {err}")); }
     // A bot that left the working set (stopped from the web UI) starts again as a fresh Rails job would: no retry
     // counters and no retry time carried over. Polls (per order) and reconciliation (per intent) are not per job and stay.
-    // ponytail: a stop and a start that both land inside one pass keep the counters; key them by stopped_at if that matters.
+    // Each bot also checks its lifecycle generation: STOP and resume may both occur between passes.
+    e.run_keys.retain(|id, _| report.eligible.contains(id));
     e.attempts.retain(|id, _| report.eligible.contains(id));
     e.retry_at.retain(|id, _| report.eligible.contains(id));
     e.closed_until.retain(|id, _| report.eligible.contains(id));
@@ -303,10 +305,12 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
 /// `{"requested_at": a readable timestamp}` refuses without deleting the request (R9). The web also sends
 /// `was_stopped`: only an originally stopped bot may wait. Older requests omit it and
 /// retain the stopped-bot contract that preceded lifecycle writes.
-fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
+fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> Result<model::Bot, EngineError> {
+    let id = expected.id;
     let tx = model::immediate(c)?;
+    model::require_run(&tx, expected)?;
     let bot = model::load_bot(&tx, id)?;
-    let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(()) };
+    let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(bot) };
     crate::codec::optional_time(request.get("requested_at")).map_err(|_|EngineError::Data("unreadable stored timestamp".into()))?
         .ok_or_else(||EngineError::Data("missing continue timestamp".into()))?;
     if let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) {
@@ -325,9 +329,10 @@ fn continue_start(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<(), Eng
         placement::defer_to_next_checkpoint(&tx, &bot, now)?;
         "waits for its next checkpoint"
     };
+    let continued = model::load_bot(&tx, id)?;
     tx.commit()?;
     super::log(&format!("[engine] bot {id}: continued; {decision}"));
-    Ok(())
+    Ok(continued)
 }
 
 // A stop/start between loop passes also invalidates a wait, as does a changed index definition.
@@ -336,12 +341,12 @@ fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value
     let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
         [bot.index_category_id()], |r| r.get(0))?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
-        "started":bot.started_at_us()?, "stopped":stopped, "changed":bot.settings_changed_at_us()?}))
+        "started":bot.started_at_us()?, "generation":bot.run_generation(), "stopped":stopped, "changed":bot.settings_changed_at_us()?}))
 }
 
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
-    let now_us = clock.now().timestamp_micros();
     let mut bot = model::load_bot(&e.primary, id)?;
+    let now_us = clock.now().timestamp_micros();
     // A persisted deferral is a schedule decision: one this build cannot read (null, garbage or out of range) refuses
     // the bot and is kept, never removed, so a restart cannot turn it into an early buy.
     if let Err(err) = bot.rust_defer() {
@@ -352,8 +357,9 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     bot.validate_times()?;
     if bot.transient.get("rust_continue_start").is_some() {
         e.closed_until.remove(&id);
-        match continue_start(&e.primary, id, clock.now()) {
-            Ok(()) => bot = model::load_bot(&e.primary, id)?,
+        match continue_start(&e.primary, &bot, clock.now()) {
+            Ok(continued) => bot = continued,
+            Err(EngineError::RunFenced) => return Ok(()),
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             // The request stays: the bot is skipped this pass and decided again on the next one, never left silently.
             Err(err) => {
@@ -361,6 +367,10 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
                 return Ok(());
             }
         }
+    }
+    let key = bot.run_identity()?;
+    if e.run_keys.insert(id, key.clone()).as_ref().is_some_and(|old| *old != key) {
+        e.attempts.remove(&id); e.retry_at.remove(&id); e.closed_until.remove(&id);
     }
     let (venue, credential_version) = e.venue_for(&bot)?;
     // Failure counters and retry waits belong to the immutable handle that produced them.
@@ -381,6 +391,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
     // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.
     let wait_tx=model::immediate(&e.primary)?;
+    match model::require_run(&wait_tx, &bot) { Ok(()) => {}, Err(EngineError::RunFenced) => return Ok(()), Err(e) => return Err(e) }
     let wait_bot=model::load_bot(&wait_tx,id)?;
     let defer = match wait_bot.rust_defer() {
         Ok(d) => match d {
@@ -416,7 +427,15 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     if due {
         // The loop is single-threaded: a due bot met `executing`/`waiting` was left there by an error that escaped its
         // tick, and the tick would skip it forever.
-        if model::unstick(&e.primary, id, clock.now())? { super::log(&format!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status)); }
+        let now = clock.now();
+        let unstuck = model::run_write(&e.primary, &bot, |tx| model::unstick(tx, id, now));
+        match unstuck {
+            Ok(true) => { super::log(&format!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status)); bot.status = crate::enums::BotStatus::Scheduled; }
+            Ok(false) => {}
+            Err(EngineError::RunFenced) => return Ok(()),
+            Err(e) => return Err(e),
+        }
+        let closed_key = market_wait_key(&e.primary, &bot)?;
         let tick_start = crate::codec::format_time(clock.now());
         let attempts = &mut e.attempts.entry(id).or_insert_with(||model::Produced::new(Attempts::default(),credential_version.clone())).value;
         let retry_producer=credential_version.clone();
@@ -431,12 +450,13 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let funds_marker = |c: &Connection| c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", tick::FUNDS_MAIL_PENDING),
                                                          [id], |r| r.get::<_, Option<String>>(0));
         let funds_before = funds_marker(&e.primary)?;
-        let ticked = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await;
+        let ticked = tick::tick_recovering_for_run(&e.primary, &venue, &mut bot, clock, attempts, &mut recovered, &cx).await;
         // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock,&retry_producer);
         let outcome = ticked?;
+        e.run_keys.insert(id, bot.run_identity()?);
         committed?;
         let repeat = matches!(&outcome, TickOutcome::Stale { source, .. } if e.stale_logged.get(&id) == Some(source));
         if !repeat { super::log(&format!("bot {id}: {outcome:?}")); }
@@ -450,10 +470,14 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         if funds_after.is_some() && funds_after != funds_before {
             e.events.send(EngineEvent::FundsLow { bot_id: id, user_id: bot.user_id, quote_asset_id: bot.quote_asset_id() });
         }
+        if let Some(step)=e.cache_insert_step.take(){step(&e.primary)?;}
+        if !model::owns_identity(&e.primary, id, &bot.run_identity()?)? {
+            e.retry_at.remove(&id); e.closed_until.remove(&id); e.attempts.remove(&id);
+            return Ok(());
+        }
         match outcome {
             TickOutcome::MarketClosed { until, producer } => {
-                if let Some(step)=e.cache_insert_step.take(){step(&e.primary)?;}
-                e.closed_until.insert(id, (model::Produced::new(until.timestamp_micros(),producer), market_wait_key(&e.primary, &model::load_bot(&e.primary, id)?)?));
+                e.closed_until.insert(id, (model::Produced::new(until.timestamp_micros(),producer), closed_key));
                 e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id);
             }
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + d.as_micros() as i64,retry_producer.clone())); }
