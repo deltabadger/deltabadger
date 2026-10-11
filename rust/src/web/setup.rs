@@ -382,16 +382,16 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     if let Some(answer) = filters(&app, &ctx).await? {
         return Ok(answer);
     }
-    let Some(form) = submitted(&ctx.params) else {
+    let Some(fields) = submitted(&ctx.params) else {
         // ActionController::ParameterMissing: 400 with public/400.html.
         let body = assets::find("/400.html").map_or(&b"Bad Request"[..], |file| file.body);
         let mut response = (StatusCode::BAD_REQUEST, [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response();
         response.extensions_mut().insert(super::headers::BelowControllers);
         return Ok(response);
     };
-    let email = form.email.as_deref().map(normalized_email).unwrap_or_default();
+    let email = fields.email.as_deref().map(normalized_email).unwrap_or_default();
     // Devise hashes on assignment, before validation, and only a present password.
-    let hash = match form.password.as_deref().filter(|p| !crate::ruby::blank(p)) {
+    let hash = match fields.password.as_deref().filter(|p| !crate::ruby::blank(p)) {
         Some(password) => match app.password_hash(password.to_string()).await? {
             None => return Ok(auth::busy()),
             Some(None) => return Err(WebError::Config("no random salt for the admin's password".into())),
@@ -400,7 +400,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         None => None,
     };
     let (locale, now, inner) = (ctx.locale, ctx.now, app.clone());
-    let (name, password) = (form.name.clone(), form.password.clone());
+    let (name, password) = (fields.name.clone(), fields.password.clone());
     let outcome = {
         let email = email.clone();
         app.db(move |c| {
@@ -424,7 +424,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     };
     match outcome {
         Created::AdminExists => Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/"))),
-        Created::Invalid(errors) => form(&app, &ctx, Form { status: StatusCode::UNPROCESSABLE_ENTITY, errors: &errors, name: form.name.as_deref(), email: &email, flash_now: Vec::new() }).await,
+        Created::Invalid(errors) => form(&app, &ctx, Form { status: StatusCode::UNPROCESSABLE_ENTITY, errors: &errors, name: fields.name.as_deref(), email: &email, flash_now: Vec::new() }).await,
         Created::Admin(id, hash) => {
             let mut session = ctx.session.lock();
             session.setup_token = None;

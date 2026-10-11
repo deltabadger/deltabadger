@@ -134,7 +134,7 @@ pub async fn claim(base: &str, code: Option<&str>) -> Result<Claim, Failure> {
         .build()
         .map_err(|_| message(RETRYABLE))?;
     let transport = |e: reqwest::Error| message(if e.is_connect() { RETRYABLE } else { AMBIGUOUS });
-    let mut response = client.post(&url).json(&serde_json::json!({ "code": code })).send().await.map_err(transport)?;
+    let mut response = client.post(&url).header(reqwest::header::CONTENT_TYPE, "application/json").body(serde_json::json!({ "code": code }).to_string()).send().await.map_err(transport)?;
     let status = response.status().as_u16();
     let content_type = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).map(str::to_string);
     let mut body = Vec::new();
