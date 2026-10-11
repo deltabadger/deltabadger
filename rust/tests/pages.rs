@@ -725,7 +725,14 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                 }
                 continue;
             }
-            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_no_key"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
+            if n=="start_no_key" {
+                // #507 closes this former divergence: require real 422 parity and no writes on either side.
+                for (side,response) in [("Rails",&*a),("Rust",b)] {
+                    if response["status"]!=422 { return Err(format!("{side} key validation must return 422")); }
+                    if let Some(error)=row_difference(side,&response["rows_before"],&response["rows_after"]) { return Err(error); }
+                }
+            }
+            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
             let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive");

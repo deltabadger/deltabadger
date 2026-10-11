@@ -36,17 +36,14 @@ struct Order {
     base_asset_id: Option<i64>,
     quote_asset_id: Option<i64>,
     error_messages: Vec<String>,
-    /// `price`, `amount`, `quote_amount`, `amount_exec` and `quote_amount_exec` as the row holds them. They are read into the
-    /// fields above (`read`) only for a row that is shown: the eleventh row of a page says that there is a next page, and no more.
-    raw: [rusqlite::types::Value; 5],
+
 }
 
 impl Order {
     /// Reads the row's five amounts. One that this build does not read fails as `bot::Unreadable`: the handler answers the 501 page.
-    fn read(&mut self) -> Result<(), WebError> {
-        let [price, amount, quote_amount, amount_exec, quote_amount_exec] = &self.raw;
-        (self.price, self.amount, self.quote_amount) = (super::stored(price)?, super::stored(amount)?, super::stored(quote_amount)?);
-        (self.amount_exec, self.quote_amount_exec) = (super::stored(amount_exec)?, super::stored(quote_amount_exec)?);
+    fn read(&mut self, c: &Connection) -> Result<(), WebError> {
+        [self.price, self.amount, self.quote_amount, self.amount_exec, self.quote_amount_exec] = crate::figures::fill::display_amounts(c,self.id)
+            .map_err(WebError::Engine)?;
         Ok(())
     }
 
@@ -96,7 +93,8 @@ fn cursor(value: Option<&str>) -> Option<Cursor> {
     let mut parts = value?.splitn(3, '|');
     let (at, kind, id) = (parts.next()?, parts.next()?, parts.next().unwrap_or(""));
     let activity = match kind { "activity" => true, "transaction" => false, _ => return None };
-    let at = DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Utc);
+    // A malformed request cursor is ignored, as Rails does; this is not stored data.
+    let at = match parse_time(at) {Ok(at)=>at,Err(_)=>return None};
     // `id.to_i`, which Rails writes into the query as it is: past the column's range it compares as the range's end does.
     let id = format::to_i(id).clamp(i128::from(i64::MIN), i128::from(i64::MAX));
     Some(Cursor { at, activity, id: i64::try_from(id).unwrap_or(0) })
@@ -121,14 +119,14 @@ fn load(c: &Connection, bot: &Bot, cursor: Option<&Cursor>) -> Result<Vec<Item>,
     let mut items = vec![];
     let (condition, mut values) = before(cursor, false);
     values.insert(0, rusqlite::types::Value::Integer(bot.id));
-    let mut orders = c.prepare(&format!("SELECT id, created_at, status, external_status, side, price, amount, quote_amount, amount_exec, quote_amount_exec, base, quote, \
+    let mut orders = c.prepare(&format!("SELECT id, created_at, status, external_status, side, base, quote, \
                                          base_asset_id, quote_asset_id, error_messages FROM transactions WHERE bot_id = ?1{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
     let rows = orders.query_map(rusqlite::params_from_iter(values), |r| {
-        let messages: Option<String> = r.get(14)?;
+        let messages: Option<String> = r.get(9)?;
         Ok(Order {
             id: r.get(0)?, created_at: time(r.get(1)?)?, status: r.get(2)?, external_status: r.get(3)?, sell: r.get::<_, Option<i64>>(4)? == Some(1),
-            price: None, amount: None, quote_amount: None, amount_exec: None, quote_amount_exec: None, raw: [r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?],
-            base: r.get(10)?, quote: r.get(11)?, base_asset_id: r.get(12)?, quote_asset_id: r.get(13)?,
+            price: None, amount: None, quote_amount: None, amount_exec: None, quote_amount_exec: None,
+            base: r.get(5)?, quote: r.get(6)?, base_asset_id: r.get(7)?, quote_asset_id: r.get(8)?,
             error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()
                 .map(|m| m.as_str().map_or_else(|| m.to_string(), str::to_string)).collect(),
         })
@@ -268,20 +266,20 @@ impl Rows<'_> {
     }
 
     /// BotHelper#bot_activity_summary.
-    fn activity_summary(&self, log: &Log) -> String {
-        if let Some(message) = log.message.as_deref().filter(|message| !message.trim().is_empty()) { return message.to_string(); }
+    fn activity_summary(&self, log: &Log) -> Result<String,WebError> {
+        if let Some(message) = log.message.as_deref().filter(|message| !message.trim().is_empty()) { return Ok(message.to_string()); }
         let detail = |key: &str| match log.details.get(key) {
             Some(Value::String(text)) => text.clone(),
             None | Some(Value::Null) => String::new(),
             Some(other) => other.to_string(),
         };
         let event = |name: &str, args: &[(&str, Arg)]| i18n::text(self.ctx.locale, &format!("bot_activity.events.{name}"), args);
-        match log.event.as_str() {
+        Ok(match log.event.as_str() {
             "market_closed" => {
-                // BotHelper#format_activity_time: the date and the clock in the reader's zone; what is not a time stays as it is.
+                // R9: a present unreadable stored activity timestamp refuses the read.
                 let value = detail("next_market_open_at");
-                let time = DateTime::parse_from_rfc3339(&value).map(|at| at.with_timezone(&Utc))
-                    .map_or(value, |at| format!("{} {}", format::table_date(at, self.zone), format::table_clock(at, self.zone, self.ctx.locale)));
+                let time = parse_time(&value).map_err(|e|super::data(format!("{e:?}")))?;
+                let time = format!("{} {}", format::table_date(time, self.zone), format::table_clock(time, self.zone, self.ctx.locale));
                 event("market_closed", &[("time", Arg::Text(&time))])
             }
             "merged" => {
@@ -312,14 +310,14 @@ impl Rows<'_> {
                 ratio => event("asset_split", &[("base", Arg::Text(&detail("base"))), ("ratio", Arg::Text(&ratio))]),
             },
             other => event(other, &[]),
-        }
+        })
     }
 
     /// orders/_activity.html.erb.
-    fn activity(&self, log: &Log) -> String {
-        format!("<tr id=\"bot_activity_log_{}\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"{}\">\n  \
+    fn activity(&self, log: &Log) -> Result<String,WebError> {
+        Ok(format!("<tr id=\"bot_activity_log_{}\" class=\"text-inactive\" data-hw-animate-in-prepend=\"animate-order-in\" data-order-filter-target=\"row\" data-order-type=\"{}\">\n  \
                  <td scope=\"row\" class=\"table__when\">{}</td>\n  <td colspan=\"{}\" class=\"table__sentence\">{}</td>\n</tr>",
-                log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)))
+                log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)?)))
     }
 }
 
@@ -338,7 +336,7 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
     let cursor = cursor(ctx.params.query("before"));
     let mut items = load(c, bot, cursor.as_ref())?;
     for item in items.iter_mut().take(PAGE) {
-        if let Item::Order(order) = item { order.read()?; }
+        if let Item::Order(order) = item { order.read(c)?; }
     }
     let mut decimals = HashMap::new();
     if let (Some(quote), Some(precision)) = (bot.quote_asset.as_ref(), bot.quote_decimals()) {
@@ -360,7 +358,7 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
                 if order.submitted() { appended.push_str(&format!("\n        {}", rows.order(order))); }
                 appended.push_str(&format!("\n        {}", rows.timeline(order)));
             }
-            Item::Log(log) => appended.push_str(&format!("\n        {}", rows.activity(log))),
+            Item::Log(log) => appended.push_str(&format!("\n        {}", rows.activity(log)?)),
         }
     }
     if !appended.is_empty() { appended.push('\n'); }

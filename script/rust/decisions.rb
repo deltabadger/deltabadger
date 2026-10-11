@@ -1229,6 +1229,10 @@ when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
 when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'record' then Decisions.record(root)
+when 'record-normalized'
+  require_relative 'histories_normalized'
+  Thread.current[:normalized_figure_rows] = true
+  Decisions.record(root)
 when 'web-save' then web_save(root)
 else raise ArgumentError, USAGE
 end

@@ -38,7 +38,9 @@
     "_ => settings.get(\"base_asset_ids\").and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_i64).collect()).unwrap_or_default(),": 1,
     "top_coins: top_coins.and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok()).unwrap_or_default(),": 1,
     "weights: weights.and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default(),": 1,
-    "i64::try_from(super::format::to_i(segment)).ok().filter(|id| *id > 0)": 1
+    "i64::try_from(super::format::to_i(segment)).ok().filter(|id| *id > 0)": 1,
+    "id, kind, status, label: label.unwrap_or_default(), label_unsaved, exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,": 1,
+    "if ids.len() == 1 { asset(ids[0]).and_then(|asset| asset.name.clone()).unwrap_or_default() } else {": 1
   },
   "rust/src/web/bot/write.rs": {},
   "rust/src/web/bot/mcp_input.rs": {},
@@ -54,7 +56,8 @@
     "let pair=if multi || (base.is_some() && quote.is_some()) {format!(\"{}/{}\",base.unwrap_or_default(),quote.clone().unwrap_or_default())} else {\"N/A\".into()};": 1,
     "lines.push(format!(\"- {} | {type_name} | {pair} | {} | {name} | {} {}/{}\",label.unwrap_or_default(),exchange.unwrap_or_else(||\"N/A\".into()),str_value(&s[\"quote_amount\"]),quote.unwrap_or_default(),s.get(\"interval\").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||\"N/A\".into())));": 1,
     "let quote=quote.unwrap_or_default();": 1,
-    "lines.push(format!(\"- [{date}] {} {} {} {} | {}\",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|[\"BUY\",\"SELL\"].get(s).copied()).unwrap_or(\"\"),amount.map(|v|format!(\"{v} {}\",base.unwrap_or_default())).unwrap_or_else(||\"N/A\".into()),price.map(|v|format!(\"@ {v} {quote}\")).unwrap_or_default(),cost.map(|v|format!(\"({v} {quote})\")).unwrap_or_default(),[\"submitted\",\"failed\",\"skipped\"].get(status).copied().unwrap_or(\"\")));": 1
+    "lines.push(format!(\"- [{date}] {} {} {} {} | {}\",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|[\"BUY\",\"SELL\"].get(s).copied()).unwrap_or(\"\"),amount.map(|v|format!(\"{v} {}\",base.unwrap_or_default())).unwrap_or_else(||\"N/A\".into()),price.map(|v|format!(\"@ {v} {quote}\")).unwrap_or_default(),cost.map(|v|format!(\"({v} {quote})\")).unwrap_or_default(),[\"submitted\",\"failed\",\"skipped\"].get(status).copied().unwrap_or(\"\")));": 1,
+    "lines.push(format!(\"- {} | {type_name} | {pair} | {} | {name} | {} {}/{}\",label,exchange.unwrap_or_else(||\"N/A\".into()),str_value(&s[\"quote_amount\"]),quote.unwrap_or_default(),s.get(\"interval\").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||\"N/A\".into())));": 1
   },
   "rust/src/web/mcp/control.rs": {},
   "rust/src/web/mcp/reads.rs": {

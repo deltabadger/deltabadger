@@ -11,7 +11,7 @@ use serde_json::Value;
 fn data(what: impl std::fmt::Debug) -> FiguresError { FiguresError::Data(format!("{what:?}")) }
 /// A decimal column: the one way a number of the database comes in, measured (`dec`).
 pub(super) fn decimal(r: &SqlRow<'_>, i: usize) -> Result<Option<Dec>, FiguresError> { Ok(Dec::from_sql(r.get_ref(i)?)?) }
-pub(super) fn instant(text: &str) -> Result<At, FiguresError> { At::from_sql(text).ok_or_else(|| FiguresError::Data(format!("a time Rails did not write: {text:?}"))) }
+pub(super) fn instant(text: &str) -> Result<At, FiguresError> { At::from_sql(text).map_err(|e| FiguresError::Data(format!("{e:?}"))) }
 /// Ids as SQL literals, so each query has the shape of the one Rails sends (`IN (1, 2, 3)`); they are integers.
 fn id_list(ids: &[i64]) -> Result<String, FiguresError> {
     budget::charge(ids.len() as u64, 0)?;

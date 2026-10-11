@@ -124,7 +124,7 @@ pub fn load(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> {
             id: r.get(0)?, exchange_id: r.get(1)?, kind, base,
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
             quote, quote_amount, tx_id, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
-            at: At::from_sql(&at_text).ok_or_else(|| data(format!("a time Rails did not write: {at_text:?}")))?,
+            at: At::from_sql(&at_text).map_err(|e| data(format!("{e:?}")))?,
             per_share: json_number(raw.get("per_share_amount"))?,
             stated: json_number(manual.get("price"))?,
             linked_to: r.get(15)?,

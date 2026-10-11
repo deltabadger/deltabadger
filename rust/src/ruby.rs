@@ -361,7 +361,7 @@ impl Num {
     /// converts it (Float#to_d: 16 significant digits, BigDec::from_f64).
     fn op(&self, o: &Num, sub: bool) -> Result<Num, CodecError> {
         Ok(match (self, o) {
-            (Num::Int(a), Num::Int(b)) => Num::Int(if sub { a - b } else { a + b }),
+            (Num::Int(a), Num::Int(b)) => Num::Int(if sub { a.checked_sub(*b).ok_or(CodecError::IntegerOverflow("Num::sub"))? } else { a.checked_add(*b).ok_or(CodecError::IntegerOverflow("Num::add"))? }),
             (Num::Int(_) | Num::Float(_), Num::Int(_) | Num::Float(_)) => {
                 let (a, b) = (self.to_f(), o.to_f());
                 Num::Float(if sub { a - b } else { a + b })
@@ -392,7 +392,7 @@ impl Num {
 pub fn ruby_sum(xs: &[Num]) -> Result<Num, CodecError> {
     let mut i = 0;
     let mut n: i64 = 0;
-    while let Some(Num::Int(x)) = xs.get(i) { n += x; i += 1; }
+    while let Some(Num::Int(x)) = xs.get(i) { n = n.checked_add(*x).ok_or(CodecError::IntegerOverflow("ruby_sum"))?; i += 1; }
     let mut v = Num::Int(n);
     if let Some(Num::Float(_)) = xs.get(i) {
         let (mut f, mut c) = (n as f64, 0.0f64);

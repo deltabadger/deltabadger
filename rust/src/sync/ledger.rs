@@ -721,15 +721,9 @@ fn apply_split(c: &Connection, symbol: &str, at: DateTime<Utc>, ratio: Option<&s
 /// the bot's orders reach back past an earlier split of the symbol (then the units disagree and a zero proves nothing).
 fn bots_holding(c: &Connection, key: &Key, symbol: &str, at: DateTime<Utc>) -> Result<Vec<i64>, SyncError> {
     let naming = rows_naming(c, key.exchange_id, symbol)?;
-    let mut s = c.prepare(&format!("SELECT bot_id, side, external_status, amount, amount_exec, created_at FROM transactions WHERE {naming} AND created_at < ?4"))?;
-    let mut q = s.query(params![key.exchange_id, key.user_id, symbol, sql_time(at)])?;
+    let rows = crate::figures::fill::split_quantities(c, &naming, key.exchange_id, key.user_id, symbol, &sql_time(at)).map_err(|e| SyncError(format!("{e:?}")))?;
     let mut net: Vec<(i64, BigDec, String)> = vec![]; // bot, net position, earliest order
-    while let Some(r) = q.next()? {
-        let (bot_id, side, status): (i64, Option<i64>, Option<i64>) = (r.get(0)?, r.get(1)?, r.get(2)?);
-        let (amount, exec) = (number::stored(r.get_ref(3)?).map_err(SyncError)?, number::stored(r.get_ref(4)?).map_err(SyncError)?);
-        let created_at: String = r.get(5)?;
-        // A closed order with no recorded fill moved what it asked for.
-        let Some(exec) = exec.or(if status == Some(2) { amount } else { None }).filter(|e| !e.is_zero()) else { continue };
+    for (bot_id, side, exec, created_at) in rows {
         let signed = if side == Some(1) { &BigDec::zero() - &exec } else { exec };
         match net.iter_mut().find(|n| n.0 == bot_id) {
             Some(n) => { n.1 = &n.1 + &signed; if created_at < n.2 { n.2 = created_at; } }

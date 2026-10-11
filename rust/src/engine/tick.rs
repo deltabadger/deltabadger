@@ -105,7 +105,7 @@ pub fn stop_for_amount_limit(c: &Connection, bot_id: i64, now: DateTime<Utc>) ->
 pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<(), EngineError> {
     loop {
         let tx = model::immediate(c)?;
-        let Some((n, current)) = model::load_bot(&tx, bot_id)?.pending_amount_limit_stops() else { return Ok(()) };
+        let Some((n, current)) = model::load_bot(&tx, bot_id)?.pending_amount_limit_stops()? else { return Ok(()) };
         let remove = "UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending') WHERE id = ?1";
         if !current || n <= 0 {
             // Counted before the bot was started (afresh or continued) or its limit changed: Rails' Bot::StopJob ran before either.
@@ -164,6 +164,7 @@ impl PriceCache {
 pub struct TickContext<'a> {
     pub credential_version: Option<model::CredentialVersion>,
     pub prices: &'a PriceCache,
+    pub below_minimum: &'a dyn Fn(i64, Vec<i64>),
     /// When this process started: Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     pub process_start: chrono::DateTime<chrono::Utc>,
     /// A stop was requested (the engine's Shutdown); checked between recovery and execution.
@@ -204,7 +205,7 @@ fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: 
         // `notified_at.blank? || Time.zone.parse(notified_at) < 1.day.ago`. A value this cannot read counts as open:
         // one mail too many, never one too few.
         match budget.get(key).and_then(Value::as_str).filter(|s| !s.trim().is_empty()) {
-            Some(at) => chrono::DateTime::parse_from_rfc3339(at).map_or(true, |at| at.with_timezone(&chrono::Utc) < now - chrono::Duration::days(1)),
+            Some(at) => crate::codec::parse_time(at).map_err(|_|EngineError::Data("unreadable stored timestamp".into()))? < now - chrono::Duration::days(1),
             None => true,
         }
     };
@@ -227,13 +228,16 @@ fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: 
 
 pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts) -> Result<TickOutcome, EngineError> {
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: model::credential_version(c, &model::load_bot(c, bot_id)?)?, prices: &prices, process_start: chrono::DateTime::<chrono::Utc>::MIN_UTC, stopping: &|| false };
+    let cx = TickContext { credential_version: model::credential_version(c, &model::load_bot(c, bot_id)?)?, prices: &prices, process_start: chrono::DateTime::<chrono::Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
     tick_recovering(c, venue, bot_id, clock, attempts, &mut None, &cx).await
 }
 
 /// `tick`, also reporting the transaction a persisted intent was settled into this tick (its row carries the intent's
 /// earlier `created_at`, so the caller cannot find it by time and must queue its follow-up poll itself).
 pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
+    // R9 refuses malformed stored times before polling, bookkeeping or any persisted write.
+    model::load_bot(c,bot_id)?.validate_times()?;
+    crate::figures::fill::validate_row_times(c,bot_id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
     let handle=crate::venue::Handle::new(venue,cx.credential_version.clone());
     let venue=&handle;
     // A stop an earlier tick counted but could not run (an error outlasted it): Rails' Bot::StopJob ran long before now.
@@ -373,6 +377,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
     // Statusable#transition_working!: every status write of the tick moves only a still-working bot, so a stop that
     // lands meanwhile (during the sweep, or while AddOrder awaits its reply) wins. Stopped before executing, nothing
     // is placed, but Fundable still reads the balance as it wraps execute_action.
+    let first_tick = own_rows(c, &bot)?.is_empty();
     let working = model::transition_working(c, bot_id, BotStatus::Executing, clock.now())?;
     let bot = model::load_bot(c, bot_id)?;
     let mut placed = false;
@@ -408,6 +413,12 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
         }
         // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
         model::transition_working(c, bot_id, BotStatus::Waiting, clock.now())?;
+        if first_tick {
+            let rows = own_rows(c, &bot)?;
+            if !rows.is_empty() && rows.iter().all(|(_, status)| *status == 2) {
+                (cx.below_minimum)(bot_id, rows.into_iter().map(|(id, _)| id).collect());
+            }
+        }
     }
     // Bot::Fundable#funds_are_low?: the quote asset's balance, whatever the member tickers (an index bot has no allocations),
     // spent as Exchanges::Alpaca#spendable_balance picks it. A failed balance Result means "not low"; only a transport
@@ -417,7 +428,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
     match funds.value {
         Ok(free) => {
             let interval_seconds = match bot.interval().map(|i| i.as_str()) { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
-            let buffer = BigDec::from_f64(bot.quote_amount().unwrap_or_default() / interval_seconds * THREE_DAYS).map_err(|e| EngineError::Data(format!("{e:?}")))?;
+            let buffer = super::accounting::balance_buffer(&bot, interval_seconds, THREE_DAYS)?;
             if free < buffer && !notified_in_last_day(c, &bot, clock)? {
                 // `update!(last_end_of_funds_notification:)` then notify_end_of_funds.
                 model::credential_write(c, &funds_origin, |tx| stamp_funds_low(tx, &bot, clock.now(), true))?;
@@ -504,6 +515,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
                     placement::Begun::Intent(intent) => intent,
                     placement::Begun::Changed => break,
                     placement::Begun::CredentialsChanged => return Ok(Err(Fail::CredentialsChanged)),
+                    placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); continue; }
                 };
                 match placement::send(venue, &intent, clock).await {
                     Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }
@@ -648,4 +660,13 @@ fn park(c: &model::FencedTransaction<'_>, bot: &model::Bot, next_open: DateTime<
     }
     model::log_activity(c, bot.id, "market_closed", Level::Info, json!({ "next_market_open_at": details }), now)?;
     Ok(TickOutcome::MarketClosed { until: next_open, producer:c.producer_version() })
+}
+
+/// Bot::Composition::OrderSetter#own_transactions: IDs strictly after the inherited cutoff.
+/// Capture emptiness before execution, then require all own rows to be skipped before notifying.
+fn own_rows(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64,i64)>, EngineError> {
+    let cutoff = model::merged_history_cutoff(c, bot)?;
+    let mut s = c.prepare("SELECT id,status FROM transactions WHERE bot_id=?1 AND (?2 IS NULL OR id>?2) ORDER BY id")?;
+    let rows = s.query_map(params![bot.id,cutoff], |r|Ok((r.get(0)?,r.get(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+    Ok(rows)
 }

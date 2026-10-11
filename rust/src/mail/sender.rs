@@ -163,9 +163,10 @@ impl<C: Clock> Sender<C> {
     async fn attempt(&self, marker: Pending, attempts: &mut Attempts, said: &mut Option<String>) {
         let (tried, accepted) = attempts.get(&marker).map_or((0, false), |(n, _, accepted, _)| (*n, *accepted));
         let now = self.clock.now();
+        let raised = match marker.raised_at() { Ok(at)=>at, Err(e)=>return self.later(marker, tried, false, &format!("unreadable timestamp: {e:?}"), attempts) };
         let (outcome, accepted) = if accepted {
             ("sent".to_string(), true)
-        } else if marker.raised_at().is_none_or(|at| now - at >= chrono::Duration::hours(MAX_AGE_HOURS)) {
+        } else if now - raised >= chrono::Duration::hours(MAX_AGE_HOURS) {
             ("given up: raised seven days ago or more".to_string(), false)
         } else {
             let (m, env, urls, trust) = (marker.clone(), self.env.clone(), self.urls.clone(), self.trust_root.clone());

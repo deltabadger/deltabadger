@@ -1494,7 +1494,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!((found.allocations_total(), found.allocations_balanced(), found.quote_decimals(), found.api_key_correct()), (1.0, true, Some(2), true));
     assert_eq!((found.tickers.len(), found.quote_symbol(), found.exchange.name_id().as_str()), (1, Some("USD"), "alpaca"));
     // Weekly since 2026-09-01 10:00: the engine's schedule gives the next and the last checkpoint.
-    let checkpoints = found.checkpoints(now).unwrap();
+    let checkpoints = found.checkpoints(now).unwrap().unwrap();
     assert_eq!((checkpoints.last_us, checkpoints.next_us), (web::at("2026-09-08T10:00:00Z").timestamp_micros(), web::at("2026-09-15T10:00:00Z").timestamp_micros()));
     assert!(Bot::find(c, seeded.user_id + 1, id, bot::For::Page, "en").unwrap().is_none(), "another user's bot is not found");
 
@@ -1534,7 +1534,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(invalid(&capped).invalid, "a cap with nothing left");
     // Smart Intervals stretch the interval by slice over amount, and Rails sets the slice no upper bound: 60 a week in slices
     // of 3,130,000 is an order every 999.8 years, which is still printed; a little more is past what the calendar here is
-    // asked to hold, and a slice the size of the largest Float is no span at all. Without the rule the span is the interval.
+    // asked to hold. R8 refuses a slice above 2^53 before any interval arithmetic. Without the rule the span is the interval.
     let apart = |slice: serde_json::Value| {
         let mut slow = settings.clone();
         (slow["smart_intervaled"], slow["smart_interval_quote_amount"]) = (json!(true), slice);
@@ -1543,7 +1543,11 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().unrendered()
     };
     let too_far = Some("Smart Intervals that leave more than a thousand years between two orders");
-    assert_eq!((apart(json!(3_130_000)), apart(json!(3_131_000)), apart(json!(1.7e308))), (None, too_far, too_far));
+    assert_eq!((apart(json!(3_130_000)), apart(json!(3_131_000))), (None, too_far));
+    let mut oversized = settings.clone();
+    (oversized["smart_intervaled"], oversized["smart_interval_quote_amount"]) = (json!(true), json!(1.7e308));
+    store(&oversized);
+    assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "R8 refuses before lossy interval arithmetic");
     // And at the other end: this bot is scheduled, and a slice of nothing, of less than nothing, or small enough to
     // underflow leaves no span to compute a checkpoint from. 60 a week is an order a second at a slice of 60/604800.
     let no_time = Some("a working bot whose Smart Intervals leave no time between two orders");
@@ -1646,10 +1650,10 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         assert_eq!(refused(&|_| {}, Some(false), true), shape, "{transient}");
     }
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "last_action_job_at": "", "quote_amount_limit_enabled_at": "2026-09-01T00:00:00.000Z", "missed_quote_amount": "12.5" }).to_string(), id)).unwrap();
-    assert_eq!(refused(&|_| {}, Some(false), true), None, "an empty text is no time in Rails either");
-    // The carry as Rails writes it after a budget of 1e31 and a fill of 100: a BigDecimal's text of 31 digits, read within BigDec's bounds.
+    assert_eq!(refused(&|_| {}, Some(false), true), shape, "R9: a present empty timestamp refuses; only absent/NULL is no time");
+    // The carry Rails writes after a budget of 1e31 and a fill of 100 is readable as BigDecimal, but R8 refuses its magnitude.
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "missed_quote_amount": "9999999999999999999999999999900.0" }).to_string(), id)).unwrap();
-    assert_eq!(refused(&|_| {}, Some(false), true), None, "a carry Rails persists");
+    assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "oversized persisted carry");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
     assert_eq!(refused(&|_| {}, Some(true), true), Some("the wash-sale rule"));
     assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
@@ -1756,7 +1760,8 @@ fn hostile_install() -> (tempfile::TempDir, deltabadger::store::Opened, deltabad
     let rules = json!({ "price_limited": true, "price_drop_limited": true, "moving_average_limited": true, "indicator_limited": true, "smart_intervaled": true,
                         "limit_ordered": true, "quote_amount_limited": true, "start_time_enabled": true, "start_time_mode": "friday", "start_time_of_day": HOSTILE });
     // The settings that are free text. Those that are one of a list of words are held to the list (`bot::refusal`), so no text of theirs reaches a page.
-    let texts = json!({ "start_at": HOSTILE });
+    // R9 validates stored timestamps even when their setting is inactive.
+    let texts = json!({ "start_at": "2026-09-11T13:45:00Z" });
     let spec = |status: i64, allocations: serde_json::Value| {
         let mut spec = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("allocations", allocations);
         spec.status = status;
@@ -1988,6 +1993,11 @@ async fn no_text_from_the_database_is_markup_in_the_orders_feed() {
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     let frame = [("turbo-frame", "orders_pagination")];
+    let refused = browser.send(&app, "GET", &format!("/bots/{lone}.turbo_stream"), None, web::Csrf::None, &frame).await;
+    assert_eq!(refused.status,501,"R9: malformed stored activity timestamp refuses");
+    assert!(!refused.body.contains("<img"));
+    let stored:String=c.query_row("SELECT details FROM bot_activity_logs WHERE event='market_closed'",[],|r|r.get(0)).unwrap();assert_eq!(stored,details);
+    c.execute("UPDATE bot_activity_logs SET details=json_set(details,'$.next_market_open_at','2026-09-10T12:00:00Z') WHERE event='market_closed'",[]).unwrap();
     let first = browser.send(&app, "GET", &format!("/bots/{lone}.turbo_stream"), None, web::Csrf::None, &frame).await;
     assert_eq!(first.status, 200, "{}", first.body);
     assert_escaped("the first ten rows", &first.body);

@@ -40,14 +40,12 @@ fn raw(v: ValueRef<'_>) -> Value {
 pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
     let mut out = Map::new();
     for table in TABLES {
-        let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
-        let names: Vec<String> = s.column_names().iter().map(|n| n.to_string()).collect();
+        let (names, snapshot) = crate::figures::fill::parity_rows(c,table,"id")?;
         let mut rows = Map::new();
-        let mut q = s.query([])?;
-        while let Some(r) = q.next()? {
+        for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
-                let mut v = raw(r.get_ref(i)?);
+                let mut v = raw((&r[i]).into());
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.
                 if name == "transient_data" { if let Value::Object(m) = &mut v { for key in RUST_KEYS.iter().chain(&notice::KEYS) { m.remove(*key); } } }
@@ -184,7 +182,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     -> Result<(Option<polling::PollFailure>, Option<usize>), EngineError> {
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
+    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
     let at = |key: &str| -> Result<Option<DateTime<Utc>>, EngineError> {
         scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
     };
@@ -236,7 +234,7 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for id in &report.eligible {
         let bot = model::load_bot(&c, *id)?;
-        let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { continue };
+        let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) else { continue };
         let next = schedule::checkpoints(anchor, now.timestamp_micros(), schedule::effective(interval, quote, bot.smart_quote_amount()))?.next_us;
         let at = DateTime::from_timestamp_micros(next.saturating_add(1_000_000)).ok_or_else(|| EngineError::Data("copy checkpoint out of range".into()))?;
         let dir = out.join(format!("bot-{id}"));
@@ -322,14 +320,12 @@ const REFERENCE_JSON: [&str; 6] = ["top_coins", "top_coins_by_exchange", "availa
 pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, EngineError> {
     let mut out = Map::new();
     for table in REFERENCE_TABLES {
-        let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
-        let names: Vec<String> = s.column_names().iter().map(|n| n.to_string()).collect();
+        let (names, snapshot) = crate::figures::fill::parity_rows(c,table,"id")?;
         let mut rows = Map::new();
-        let mut q = s.query([])?;
-        while let Some(r) = q.next()? {
+        for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
-                let mut v = raw(r.get_ref(i)?);
+                let mut v = raw((&r[i]).into());
                 if REFERENCE_JSON.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 row.insert(name.clone(), v);
             }

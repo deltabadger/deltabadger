@@ -1,0 +1,43 @@
+{
+  "synthetic_only": true,
+  "sources": {
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
+    "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
+    "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
+    "script/rust/record_histories_r5.rb": "1b7605cc4156e0a01e05db5bededd6b9589094b8bad4f6a96a84d3a6067563ee"
+  },
+  "rails_unchanged": {
+    "carry": "100.0",
+    "pending": "100.0",
+    "orders": [
+      {
+        "side": "buy",
+        "asset": "AAA",
+        "quote": "75.0"
+      },
+      {
+        "side": "buy",
+        "asset": "BBB",
+        "quote": "25.0"
+      }
+    ]
+  },
+  "normalized": {
+    "carry": "50.0",
+    "pending": "50.0",
+    "orders": [
+      {
+        "side": "buy",
+        "asset": "AAA",
+        "quote": "35.0"
+      },
+      {
+        "side": "buy",
+        "asset": "BBB",
+        "quote": "15.0"
+      }
+    ]
+  }
+}

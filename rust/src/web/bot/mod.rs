@@ -27,7 +27,8 @@ pub use super::format::{stored, Stored, Unreadable, UNREADABLE};
 /// refusal path. This preserves main's response policy without turning a work bound into a 500.
 pub fn unreadable(error: &WebError) -> bool {
     super::format::unreadable(error)
-        || matches!(error, WebError::Engine(EngineError::Data(reason)) if reason == start::HISTORY_BOUND)
+        || matches!(error, WebError::Engine(EngineError::Arithmetic(_)))
+        || matches!(error, WebError::Engine(EngineError::Data(reason)) if reason == start::HISTORY_BOUND || reason == "accounting magnitude exceeds 2^53" || reason.contains("timestamp") || reason.contains("Time("))
 }
 use chrono::{DateTime, Utc};
 use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
@@ -65,6 +66,16 @@ pub const MAX_SPAN_SECONDS: f64 = 31_556_952_000.0;
 /// quotient by zero), so a working bot below this is refused before any is computed. A bot that is
 /// not working has no checkpoint to compute, and Rails prints its own error under the field.
 pub const MIN_SPAN_SECONDS: f64 = 1.0;
+
+pub(crate) fn fill_error(error: crate::figures::FiguresError) -> WebError {
+    use crate::figures::FiguresError;
+    match error {
+        FiguresError::Sqlite(error) => WebError::from(error),
+        FiguresError::Data(message) if message == start::HISTORY_BOUND || message.contains("timestamp") => data(message),
+        FiguresError::Data(_) | FiguresError::NotComputed(_) | FiguresError::Raised(_) => WebError::from(
+            rusqlite::Error::FromSqlConversionFailure(0,rusqlite::types::Type::Null,Box::new(crate::figures::fill::UnreadableFill))),
+    }
+}
 
 fn data(message: String) -> WebError {
     WebError::Engine(EngineError::Data(message))
@@ -370,7 +381,7 @@ fn fits(value: &Value, shape: &Shape) -> bool {
         Shape::Text => value.is_string(),
         Shape::OneOf(words) => value.as_str().is_some_and(|text| words.contains(&text)),
         Shape::Id => value.as_i64().is_some() || value.as_str().is_some_and(|text| !text.is_empty() && text.len() <= 18 && text.bytes().all(|b| b.is_ascii_digit())),
-        Shape::Time => value.as_str().is_some_and(|text| text.is_empty() || DateTime::parse_from_rfc3339(text).is_ok()),
+        Shape::Time => value.as_str().is_some_and(|text| parse_time(text).is_ok()),
         Shape::Threshold => match value {
             Value::Bool(false) => true,
             Value::Number(number) => number.as_f64().is_some_and(|share| share > 0.0 && share <= 1.0),
@@ -399,7 +410,7 @@ fn members_shaped(settings: &Value) -> bool {
 /// Which request asks: the feed answers many times for one page, and so is not made to walk a
 /// bot's whole history each time.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum For { Page, Feed, FiguresPage }
+pub enum For { Page, Feed, FiguresPage, Settings }
 
 /// Why a bot's pages are not served by this build. Rails serves each of these; porting what
 /// a line names removes it.
@@ -422,6 +433,7 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     if settings.get("quote_asset_id").and_then(Value::as_i64).is_none() || !members || !shaped(&settings, SETTINGS) || !shaped(&transient, TRANSIENT) || !ranges_hold(&settings) {
         return Ok(Some("a setting stored in a shape this build does not read"));
     }
+    crate::engine::accounting::validate_stored_amounts(&settings, &transient)?;
     // Shapes no form saves. Rails would print each as an error under its field; nothing can have stored them but a migration.
     let positive = |key: &str| settings.get(key).and_then(Value::as_f64).is_some_and(|number| number > 0.0);
     // `||=` in Ruby: a setting that is absent, null or false takes its default.
@@ -447,7 +459,7 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     // another type through index_bot_type_created_at (bot_id, transaction_type, created_at), on either side of 'REGULAR',
     // and a sell by walking the bot's orders (no index tells one from a buy). The feed asks neither, and neither does a
     // figures page: the feed's rows read no figure, and the figures read the whole walk.
-    let other_type = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') \
+    let other_type = matches!(asked, For::Page | For::Settings) && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') \
                                         OR EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type > 'REGULAR')", [bot_id], |r| r.get(0))?;
     let sold = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND side IS NOT 0)", [bot_id], |r| r.get(0))?;
     if (other_type || sold) && asked != For::FiguresPage { return Ok(Some(BEYOND_BUYS)); }
@@ -487,9 +499,13 @@ impl Bot {
         let kind = if class.as_deref() == Some("Bots::DcaIndex") { Kind::Index } else { Kind::Basket };
         let status = BotStatus::from_i64(status).ok_or_else(|| data(format!("bot {id}: status {status}")))?;
         let (settings, transient) = (object(&settings, "bots.settings")?, object(&transient, "bots.transient_data")?);
+        crate::codec::validate_bot_times(&Value::Object(settings.clone()), &Value::Object(transient.clone())).map_err(|e|data(format!("{e:?}")))?;
+        let changed:Option<String>=c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        changed.as_deref().map(parse_time).transpose().map_err(|e|data(format!("{e:?}")))?;
         let exchange = c.query_row("SELECT id, name, type, maker_fee FROM exchanges WHERE id = ?1", [exchange_id], |r| {
             Ok(Exchange { id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)? })
         }).optional()?.ok_or_else(|| data(format!("bot {id} has no exchange")))?;
+        if asked != For::Feed { crate::figures::fill::validate_row_times(c,id).map_err(fill_error)?; }
         let started_at = started_at.map(|text| parse_time(&text).map_err(|e| data(format!("bot {id}: started_at {e:?}")))).transpose()?;
         let quote_asset_id = settings.get("quote_asset_id").and_then(Value::as_i64);
         let quote_asset = match quote_asset_id { Some(asset_id) => Asset::find(c, asset_id)?, None => None };
@@ -717,33 +733,32 @@ impl Bot {
     }
 
     /// Bot::Startable#repeat_anchor_at: the stored start time while the starting-time rule is on, else `started_at`.
-    pub fn anchor(&self) -> Option<DateTime<Utc>> {
-        let stored = || self.text("start_at").filter(|text| !text.trim().is_empty()).and_then(|text| DateTime::parse_from_rfc3339(text).ok()).map(|time| time.with_timezone(&Utc));
-        if self.start_time_enabled() { stored().or(self.started_at) } else { self.started_at }
+    pub fn anchor(&self) -> Result<Option<DateTime<Utc>>, WebError> {
+        let stored=crate::codec::optional_time(self.settings.get("start_at")).map_err(|e|data(format!("{e:?}")))?;
+        Ok(if self.start_time_enabled() { stored.or(self.started_at) } else { self.started_at })
     }
 
     /// `next_interval_checkpoint_at` and `last_interval_checkpoint_at`. Without an anchor Rails counts from now.
-    pub fn checkpoints(&self, now: DateTime<Utc>) -> Option<Checkpoints> {
-        let anchor = self.anchor().unwrap_or(now);
-        match schedule::checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), self.effective()?) {
-            Ok(checkpoints) => Some(checkpoints),
-            Err(reason) => { crate::engine::log(&format!("[web] bot {}: {reason:?}; schedule refused", self.id)); None }
+    pub fn checkpoints(&self, now: DateTime<Utc>) -> Result<Option<Checkpoints>, WebError> {
+        let anchor = self.anchor()?.unwrap_or(now);
+        match schedule::checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), match self.effective() {Some(e)=>e,None=>return Ok(None)}) {
+            Ok(checkpoints) => Ok(Some(checkpoints)),
+            Err(reason) => Err(data(format!("{reason:?}")))
         }
     }
 
     /// The same two checkpoints (next, last) before Rails rounds them: what it enqueues the next job for and measures the progress bar from.
-    pub fn unrounded(&self, now: DateTime<Utc>) -> Option<(Unrounded, Unrounded)> {
-        let anchor = self.anchor().unwrap_or(now);
-        match schedule::unrounded(anchor.timestamp_micros(), now.timestamp_micros(), self.effective()?) {
-            Ok(checkpoints) => Some(checkpoints),
-            Err(reason) => { crate::engine::log(&format!("[web] bot {}: {reason:?}; schedule refused", self.id)); None }
+    pub fn unrounded(&self, now: DateTime<Utc>) -> Result<Option<(Unrounded, Unrounded)>, WebError> {
+        let anchor = self.anchor()?.unwrap_or(now);
+        match schedule::unrounded(anchor.timestamp_micros(), now.timestamp_micros(), match self.effective() {Some(e)=>e,None=>return Ok(None)}) {
+            Ok(checkpoints) => Ok(Some(checkpoints)),
+            Err(reason) => Err(data(format!("{reason:?}")))
         }
     }
 
     /// Automation::Schedulable#last_action_job_at: `Time.zone.parse` of the stored text.
-    pub fn last_action_job_at(&self) -> Option<DateTime<Utc>> {
-        let text = self.transient.get("last_action_job_at")?.as_str()?;
-        DateTime::parse_from_rfc3339(text).ok().map(|time| time.with_timezone(&Utc))
+    pub fn last_action_job_at(&self) -> Result<Option<DateTime<Utc>>,WebError> {
+        crate::codec::optional_time(self.transient.get("last_action_job_at")).map_err(|e|data(format!("{e:?}")))
     }
 
     /// Bot::Rebalanceable#rebalance_pending?: only a nonempty stored Hash is pending.

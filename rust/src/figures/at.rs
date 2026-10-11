@@ -18,7 +18,9 @@ impl At {
     pub fn from_utc(t: DateTime<Utc>) -> Option<At> { t.timestamp_nanos_opt().map(At) }
     pub fn utc(self) -> DateTime<Utc> { DateTime::from_timestamp_nanos(self.0) }
     /// A datetime column as Rails wrote it (UTC, microseconds when it has any).
-    pub fn from_sql(text: &str) -> Option<At> { parse_time(text).ok().and_then(At::from_utc) }
+    pub fn from_sql(text: &str) -> Result<At, crate::codec::CodecError> {
+        At::from_utc(parse_time(text)?).ok_or_else(||crate::codec::CodecError::Time("timestamp outside figures range".into()))
+    }
     pub fn plus_seconds(self, seconds: i64) -> Option<At> { seconds.checked_mul(1_000_000_000).and_then(|n| self.0.checked_add(n)).map(At) }
     /// `Time - Time`: a Float. Whole seconds are exact; otherwise Ruby divides the nanoseconds by 1e9 as doubles.
     pub fn minus(self, other: At) -> f64 {

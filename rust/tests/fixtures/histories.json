@@ -1,0 +1,2146 @@
+{
+  "synthetic_only": true,
+  "ported_sources": {
+    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/rebalance_accounting.rb": "7ed024d369e9fd4a11fe0543935c2dfca680c46a7135721edd8199d3b3e0a9b8",
+    "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
+    "app/models/bot/merge.rb": "32eaa5437e8c3159968ebfb397092104b464702dbfaeebbc69972fc98708ea7c",
+    "app/models/bot/restatable.rb": "9394822350e563d1e660264622ecb742392f3d7c83eae7f00e81804124cb1fd6",
+    "app/models/bot.rb": "1d5e683a806d462af961ba453758c463bc6edf329f809de5c2ee8959aa3c7a18",
+    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+    "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
+    "app/models/transaction.rb": "81c8b2faedbe817180d0db281160f3fc967d451a0b464629daf6c3f48d3e4d9f",
+    "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
+    "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
+    "script/rust/record_histories.rb": "ac61751cd6b5e6eb1593a62452ec024597f69013cc90916ec1d3c1dc1c03c52f"
+  },
+  "cases": [
+    {
+      "name": "sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "sell_all",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "50.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "50.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "sell_excess",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "7",
+          "7",
+          "70",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "120.0",
+        "cash": "70.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "120.0",
+        "cash": "70.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "sell_only",
+      "rows": [
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        },
+        "contributed": "20.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "5.0",
+            "quote": "50.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.0",
+            "quote": "50.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "0.0"
+        },
+        "contributed": "20.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "5.0",
+            "quote": "50.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.0",
+            "quote": "50.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "buy_after_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ],
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -7
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        },
+        "contributed": "150.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "3.5",
+            "quote": "35.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "6.5",
+            "quote": "65.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        },
+        "contributed": "150.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "3.5",
+            "quote": "35.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "6.5",
+            "quote": "65.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "null_price_buy",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          null,
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "70.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "cancelled_partial_buy",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "cancelled",
+          "10",
+          "5",
+          "50",
+          null,
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "70.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "cancelled_partial_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "cancelled",
+          "5",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "abandoned_partial_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "abandoned",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "closed_legacy_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          null,
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "unpriced_sell_with_limit_price",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          null,
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "open_partial_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "open",
+          "5",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "unknown_partial_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "unknown",
+          "5",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "cancelled_price_only_buy_in_window",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "cancelled",
+          "5",
+          "5",
+          null,
+          "10",
+          0
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "70.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "7.5",
+            "quote": "75.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "5.0",
+          "BBB": "5.0"
+        },
+        "contributed": "120.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "50.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "2.5",
+            "quote": "25.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "one_week_pending": "150.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "cancelled_price_only_buy_with_cap",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "cancelled",
+          "5",
+          "5",
+          null,
+          "10",
+          0
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": true,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "0.0",
+          "BBB": "5.0"
+        },
+        "contributed": "70.0",
+        "cash": "20.0",
+        "available": "60.0",
+        "pending": "60.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "5.5",
+            "quote": "55.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "0.499999999999999999999999999999998",
+            "quote": "4.99999999999999999999999999999998"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "5.0",
+          "BBB": "5.0"
+        },
+        "contributed": "120.0",
+        "cash": "20.0",
+        "available": "10.0",
+        "pending": "10.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "0.5",
+            "quote": "5.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "0.5",
+            "quote": "5.0"
+          }
+        ]
+      },
+      "one_week_pending": "10.0",
+      "one_week_rails_pending": "60.0"
+    },
+    {
+      "name": "waiting_partial_buy_reserves_requested_price",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "open",
+          "5",
+          "1",
+          "9",
+          "10",
+          0,
+          null
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "1.0",
+          "BBB": "5.0"
+        },
+        "contributed": "79.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "50.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "2.5",
+            "quote": "25.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "1.0",
+          "BBB": "5.0"
+        },
+        "contributed": "79.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "50.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "2.5",
+            "quote": "25.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "2.5",
+            "quote": "25.0"
+          }
+        ]
+      },
+      "one_week_pending": "150.0",
+      "one_week_rails_pending": "150.0"
+    },
+    {
+      "name": "merge_with_split",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -1
+        ]
+      ],
+      "limited": false,
+      "merged": true,
+      "split_offset": 0,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "6.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.5",
+            "quote": "45.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.5",
+            "quote": "55.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "6.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.5",
+            "quote": "45.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.5",
+            "quote": "55.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "zero_fill_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "cancelled",
+          "2",
+          "0",
+          "0",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "5.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "0.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "5.0",
+            "quote": "50.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.0",
+            "quote": "50.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "5.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "0.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "5.0",
+            "quote": "50.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.0",
+            "quote": "50.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "same_timestamp_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -1
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "split_then_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": -9,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "3.5",
+            "quote": "35.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "6.5",
+            "quote": "65.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "3.5",
+            "quote": "35.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "6.5",
+            "quote": "65.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "sell_then_split",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": -7,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "6.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.5",
+            "quote": "45.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.5",
+            "quote": "55.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "6.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "4.5",
+            "quote": "45.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "5.5",
+            "quote": "55.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "split_same_timestamp_sell",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -10
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -9
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -8
+        ]
+      ],
+      "limited": false,
+      "merged": false,
+      "split_offset": -8,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "3.5",
+            "quote": "35.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "6.5",
+            "quote": "65.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "8.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "3.5",
+            "quote": "35.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "6.5",
+            "quote": "65.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "merge_before_start",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -1
+        ]
+      ],
+      "limited": false,
+      "merged": true,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "merge_at_start",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          0
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          0
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          0
+        ]
+      ],
+      "limited": false,
+      "merged": true,
+      "split_offset": null,
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "0.0",
+        "decision": "skip_zero_pending",
+        "orders": []
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "0.0",
+        "decision": "skip_zero_pending",
+        "orders": []
+      },
+      "one_week_pending": "100.0",
+      "one_week_rails_pending": "100.0"
+    }
+  ]
+}

@@ -194,7 +194,7 @@ impl Forms<'_> {
     }
 
     /// bots/settings/_starting_time.html.erb: a weekday or "every day" with a clock time, or a date and time, in the user's zone.
-    pub fn starting_time(&self) -> String {
+    pub fn starting_time(&self) -> Result<String,WebError> {
         let (bot, key) = (self.bot, self.key());
         let zone = if self.time_zone.trim().is_empty() { "UTC" } else { self.time_zone };
         let (default_mode, default_time) = format::default_start_time_selection(self.ctx.now, zone).unwrap_or(("monday", "09:30".to_string()));
@@ -210,7 +210,7 @@ impl Forms<'_> {
                            self.t(&format!("bot.settings.starting_time.modes.display.{mode}"), &[]));
         let field = if mode == "date" {
             // The stored start is UTC; the field shows it in the user's zone. Without one: today, at the default time.
-            let stored = bot.text("start_at").and_then(|text| chrono::DateTime::parse_from_rfc3339(text).ok()).map(|at| format::datetime_local(at.with_timezone(&chrono::Utc), zone));
+            let stored = crate::codec::optional_time(bot.settings.get("start_at")).map_err(|e|super::data(format!("{e:?}")))?.map(|at| format::datetime_local(at, zone));
             let value = stored.unwrap_or_else(|| format!("{}T{default_time}", format::datetime_local(self.ctx.now, zone).split('T').next().unwrap_or("")));
             let error = self.check.and_then(|check| check.start_at);
             format!("<input value=\"{}\" class=\"sinput sinput--datetime{}\" {SUBMIT_ON_CHANGE}{} type=\"datetime-local\" name=\"{key}[start_at]\" id=\"{key}_start_at\" />{}", escape(&value),
@@ -224,9 +224,9 @@ impl Forms<'_> {
                     if error { error_line(&i18n::text(self.ctx.locale, "activerecord.errors.models.bot.attributes.start_time_of_day.invalid", &[])) } else { String::new() })
         };
         let active = bot.start_time_enabled();
-        format!("{}\n  <div class=\"toggle-group\">\n    <div class=\"toggle\">\n      {}\n      <div class=\"toggle__style\"></div>\n    </div>\n    <div class=\"toggle-group__info\">\n      <div class=\"toggle-group__info__label\">\n        \
+        Ok(format!("{}\n  <div class=\"toggle-group\">\n    <div class=\"toggle\">\n      {}\n      <div class=\"toggle__style\"></div>\n    </div>\n    <div class=\"toggle-group__info\">\n      <div class=\"toggle-group__info__label\">\n        \
                  <div class=\"conversational conversational--small conversational--disabled\">\n          {pill}\n\n            {field}\n          <span>{}</span>\n        </div>\n      </div>\n    </div>\n  </div>\n</form>",
-                self.open_rule(active), self.check_box("start_time_enabled", active, self.locked()), escape(&format::zone_abbreviation(self.ctx.now, zone)))
+                self.open_rule(active), self.check_box("start_time_enabled", active, self.locked()), escape(&format::zone_abbreviation(self.ctx.now, zone))))
     }
 
     /// bots/settings/_amount_limit.html.erb, buying: "Don't spend more than N QUOTE", and what is left of it.
@@ -572,7 +572,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || (!bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)))) {
                 out.push_str(&market_cap_rule(forms));
             }
-            out.push_str(&format!("    {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()));
+            out.push_str(&format!("    {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?));
             // BotHelper#base_select_options and #ticker_select_options.
             let mut members: Vec<(String, String)> = bot.composition_tickers().iter().map(|ticker| (ticker.base_symbol.clone().unwrap_or_default(), ticker.id.to_string())).collect();
             members.sort_by(|a, b| a.0.cmp(&b.0));
@@ -598,7 +598,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
                 flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),
                 coins: coins.into_iter().enumerate().map(|(position, coin)| Coin { visible: (position as i64) < num_coins, ..coin }).collect(), fewer_note,
             }.render()?);
-            out.push_str(&format!("\n  {}\n  {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time(), forms.rebalance()));
+            out.push_str(&format!("\n  {}\n  {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?, forms.rebalance()));
         }
     }
     out.push_str("</div>");

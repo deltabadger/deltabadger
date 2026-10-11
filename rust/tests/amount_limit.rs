@@ -50,17 +50,17 @@ fn the_tally_counts_each_bucket_as_rails_does() {
     assert_eq!(available(&o, id), Some(bd("295.85")), "500 − (60 + 64.15 + 60 + 20)");
 }
 
-/// Rails' `quote_amount_available_before_limit_reached` is nil when a closed buy has no quote_amount_exec: the cap is
-/// not reached (no stop), and sizing raises (`pending_quote_amount`), as it errors here.
+/// B2-1: a closed NULL quote with known quantity/price normalizes to its exact cost.
+/// Rails #503 returns nil; normalized engine accounting must still credit both $60 fills.
 #[test]
-fn a_closed_buy_without_its_cost_leaves_the_spend_unknown() {
+fn a_closed_buy_with_reconstructable_cost_counts_toward_the_cap() {
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &limited(json!(50.0)));
     seed::insert_tx(&o.primary, &s, id, &closed("OC", "60"));
     seed::insert_tx(&o.primary, &s, id, &tx(0, Some(2), Some("ON"), 0, None, Some("60"), Some("64000"), None, Some("0.0009375"), IN));
     let bot = model::load_bot(&o.primary, id).unwrap();
-    assert!(!amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), "unknown is not reached, though the known 60 is over 50");
-    assert!(amount::quote_amount_available(&o.primary, &bot).is_err());
+    assert!(amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), "B2-1 normalized spend is 120, over the 50 cap");
+    assert_eq!(amount::quote_amount_available(&o.primary, &bot).unwrap(),Some(bd("0")));
 }
 
 #[test]

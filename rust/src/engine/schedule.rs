@@ -3,7 +3,7 @@ use crate::ruby::{exceeds, checked_round6_micros};
 use super::EngineError;
 use chrono::{DateTime, Months, Utc};
 
-const MONTH_SECONDS: f64 = 2_629_746.0; // ActiveSupport 1.month
+pub(super) const MONTH_SECONDS: f64 = 2_629_746.0; // ActiveSupport 1.month
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Interval { Hour, Day, Week, Month }
@@ -15,7 +15,7 @@ impl Interval {
     pub fn as_str(&self) -> &'static str {
         match self { Self::Hour => "hour", Self::Day => "day", Self::Week => "week", Self::Month => "month" }
     }
-    fn seconds(&self) -> f64 {
+    pub(super) fn seconds(&self) -> f64 {
         match self { Self::Hour => 3_600.0, Self::Day => 86_400.0, Self::Week => 604_800.0, Self::Month => MONTH_SECONDS }
     }
 }
@@ -37,13 +37,7 @@ impl Effective {
 }
 
 /// `effective_interval_duration`. Smart intervals divide the interval by quote/smart as floats, then `.seconds`.
-pub fn effective(interval: Interval, quote_amount: f64, smart_quote_amount: Option<f64>) -> Effective {
-    let seconds = match smart_quote_amount {
-        Some(s) => interval.seconds() / (quote_amount / s),
-        None => return if interval == Interval::Month { Effective::Month } else { Effective::Seconds(interval.seconds()) },
-    };
-    if seconds == MONTH_SECONDS { Effective::MonthSeconds(seconds) } else { Effective::Seconds(seconds) }
-}
+pub use super::accounting::effective_interval as effective;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Checkpoints { pub next_us: i64, pub last_us: i64 }

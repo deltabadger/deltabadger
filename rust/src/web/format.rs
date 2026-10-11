@@ -359,5 +359,5 @@ pub fn stored(value: &rusqlite::types::Value) -> Result<Option<BigDec>, WebError
 
 /// Whether a request failed on a stored number this build does not read (`Unreadable`).
 pub fn unreadable(error: &WebError) -> bool {
-    matches!(error, WebError::Engine(EngineError::Sqlite(rusqlite::Error::FromSqlConversionFailure(_, _, cause))) if cause.is::<Unreadable>())
+    matches!(error, WebError::Engine(EngineError::Sqlite(rusqlite::Error::FromSqlConversionFailure(_, _, cause))) if cause.is::<Unreadable>() || cause.is::<crate::figures::fill::UnreadableFill>())
 }

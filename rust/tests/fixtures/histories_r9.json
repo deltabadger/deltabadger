@@ -1,0 +1,156 @@
+{
+  "synthetic_only": true,
+  "sources": {
+    "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
+    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
+    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
+    "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
+    "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
+    "script/rust/record_histories_r9.rb": "f9b94e1ceb3d193ac41aad01741db671a2ed448daa1310508e0126e63063da8d"
+  },
+  "cases": [
+    {
+      "stamp": "2026-01-01 00:00:00",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01 00:00:00.000000",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01 00:00:00 UTC",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01 00:00:00 +0000",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01 02:00:00.000000 +02:00",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01T00:00:00Z",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01T02:00:00+02:00",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01 00:00:00.000000Z",
+      "parsed": "2026-01-01T00:00:00.000000Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01 00:00:00.123456",
+      "parsed": "2026-01-01T00:00:00.123456Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    },
+    {
+      "stamp": "2026-01-01T02:00:00.123456+02:00",
+      "parsed": "2026-01-01T00:00:00.123456Z",
+      "cap": "40.0",
+      "carry": "40.0",
+      "pending": "40.0",
+      "orders": [
+        {
+          "side": "buy",
+          "asset": "AAA",
+          "notional": "40.00"
+        }
+      ]
+    }
+  ]
+}

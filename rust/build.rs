@@ -12,6 +12,7 @@ fn main() {
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     if let Err(error)=provenance_build_gate::check(&root){eprintln!("R4 provenance gate: {error}");std::process::exit(1);}
+    accounting_gate(&root);
     migrations(&root, &out);
     locales(&root, &out);
     assets(&root, &out);
@@ -258,5 +259,16 @@ impl EventReceiver for Flatten {
             }
             _ => {}
         }
+    }
+}
+
+// R6 is enforced on every Cargo build, including Ruby-free CI and release builds.
+fn accounting_gate(root: &Path) {
+    for path in ["rust/src", "script/rust/histories_timestamp_gate.py", "script/rust/histories_accounting_gate.py", "script/rust/histories_arithmetic_primitives.json"] {
+        println!("cargo:rerun-if-changed={}", root.join(path).display());
+    }
+    match std::process::Command::new("python3").arg(root.join("script/rust/histories_accounting_gate.py")).status() {
+        Ok(status) if status.success() => {},
+        result => { eprintln!("R6 shared arithmetic gate failed: {result:?}"); std::process::exit(1); },
     }
 }

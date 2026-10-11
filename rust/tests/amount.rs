@@ -121,6 +121,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
     let cases = common::vectors()["alpaca_sizing"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 180);
     let mut float_changed = 0;
+    let mut guarded_changes = 0;
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
@@ -133,7 +134,8 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         assert!(plan.quote_type, "{c}");
         assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum (quote-only) {c}");
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
-        let w = &c["wire"];
+        let w = &c["r1c_wire"];
+        guarded_changes += (w != &c["wire"]) as usize;
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some("BTC/USD"), Some("buy"), Some("gtc")), "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "pair {c}");
         match order.kind {
@@ -153,6 +155,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
             }
         }
     }
+    assert!(guarded_changes > 0, "R1c must exercise a Float wire round-up");
     assert!(float_changed > 0, "no vector exercises Float formatting any more");
 }
 

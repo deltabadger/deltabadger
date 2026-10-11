@@ -35,7 +35,7 @@ pub fn gate(answer: Result<ClockAnswer, VenueError>, exchange_name: &str, now: D
     let unreadable = || Gate::Retry("market clock unreadable".into());
     let Ok(v) = serde_json::from_str::<Value>(&body) else { return unreadable() };
     let (Some(is_open), Some(next_open), Some(next_close)) = (v["is_open"].as_bool(), v["next_open"].as_str(), v["next_close"].as_str()) else { return unreadable() };
-    let (Ok(open_at), Ok(close_at)) = (DateTime::parse_from_rfc3339(next_open), DateTime::parse_from_rfc3339(next_close)) else { return unreadable() };
+    let (Ok(open_at), Ok(close_at)) = (crate::codec::parse_time_offset(next_open), crate::codec::parse_time_offset(next_close)) else { return unreadable() };
     if is_open {
         // DIVERGENCE clock_stale_body / clock_stale_cache: an open clock past its own close is stale; Rails places on it.
         if close_at.with_timezone(&Utc) <= now { return Gate::Retry(format!("market clock stale: open, but its next_close {next_close} has passed")); }

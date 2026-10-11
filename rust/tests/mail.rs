@@ -125,7 +125,7 @@ fn markers_are_read_back_as_the_notices_they_were_written_for() {
                        pending(Notice::Error { kind: "throttle".into(), error: "EAPI:Rate limit exceeded".into() }),
                        pending(Notice::StoppedByError { error: "unauthorized.".into() }), pending(Notice::StoppedByAmountLimit)]);
     assert_eq!(found.iter().map(|p| p.notice.mail()).collect::<Vec<_>>(), ["end_of_funds", "notify_about_error", "notify_about_error", "stopped_by_error", "stopped_by_amount_limit"]);
-    assert_eq!(found[0].raised_at(), Some(now));
+    assert_eq!(found[0].raised_at().unwrap(), now);
     // A marker of another shape is not a notice, and a kind that is not a plain word is never turned into a JSON path.
     let odd = json!({ notice::FUNDS: "yes", notice::STOPPED: { "stamped_at": "2026-09-10T12:00:30.000Z" }, notice::ERROR: { "a.b": { "error": "x", "stamped_at": "y" } }, notice::LIMIT: {} });
     assert_eq!(notice::pending_in(7, odd.as_object().unwrap()), []);

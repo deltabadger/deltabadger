@@ -88,15 +88,13 @@ fn raw(v: ValueRef<'_>) -> Value {
 pub fn tables(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Value, String> {
     let mut out = Map::new();
     for (table, order) in [("portfolio_snapshots", "date"), ("portfolio_venue_snapshots", "exchange_id, date"), ("wash_sale_locks", "id"), ("historical_prices", "id")] {
-        let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY {order}")).map_err(|e| e.to_string())?;
-        let names: Vec<String> = s.column_names().iter().map(|n| n.to_string()).collect();
-        let mut q = s.query([]).map_err(|e| e.to_string())?;
+        let (names,snapshot) = crate::figures::fill::parity_rows(c,table,order).map_err(|e| e.to_string())?;
         let mut rows = vec![];
-        while let Some(r) = q.next().map_err(|e| e.to_string())? {
+        for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
                 if table.starts_with("portfolio") && (name == "created_at" || name == "updated_at" || name == "id") { continue; }
-                row.insert(name.clone(), raw(r.get_ref(i).map_err(|e| e.to_string())?));
+                row.insert(name.clone(), raw((&r[i]).into()));
             }
             rows.push(Value::Object(row));
         }

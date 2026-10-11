@@ -42,7 +42,7 @@ impl Intent {
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
         let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);
-        let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);
+        let t = |k: &str| crate::codec::optional_time(v.get(k)).map_err(|_|bad())?.ok_or_else(bad);
         let b = |k: &str| v[k].as_bool().ok_or_else(bad);
         // The intent names its own ticker: a basket's leg k is not the bot's first member. base_asset_id is for the logs; an
         // intent written by an earlier build has none.
@@ -141,7 +141,7 @@ pub fn remove_wait(c: &Connection, bot_id: Option<i64>) -> Result<(), EngineErro
 }
 
 fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::schedule::Checkpoints) -> i64) -> Result<(), EngineError> {
-    let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us, bot.interval(), bot.quote_amount(), bot.schedule_key()) else { return Ok(()) };
+    let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount(), bot.schedule_key()?) else { return Ok(()) };
     let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?);
     let until = DateTime::from_timestamp_micros(at).ok_or_else(super::schedule::time_range_error)?.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
@@ -152,21 +152,27 @@ fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::sch
 /// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
 /// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    match begin_checked(c, bot, plan, clock, None, None)? { Begun::Intent(intent) => Ok(*intent), _ => Err(EngineError::Data("unfenced placement skipped".into())) }
+    match begin_checked(c, bot, plan, clock, None, None)? {
+        Begun::Intent(intent) => Ok(*intent),
+        Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
+        Begun::Changed | Begun::CredentialsChanged => Err(EngineError::Data("unfenced placement skipped".into())),
+    }
 }
 
 /// `begin`, fenced: under the same write lock, the bot must still be working and its composition (exchange, quote asset and
 /// allocations, compared by value as `stranded` compares them) must still be what `sized_from` holds. Every ticker used
 /// to size the basket must also match (names, asset ids, availability, precision and minimums). Otherwise no intent is
-/// written, nothing will be sent, and `None` is returned with one log line naming the reason; the next pass sees the new row.
+/// written, nothing will be sent, and `Begun::Changed` is returned with one log line naming the reason; the next pass sees the new row.
 ///
 /// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
-pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Option<Intent>, EngineError> {
-    Ok(match begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)? { Begun::Intent(intent) => Some(*intent), _ => None })
+pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)
 }
 
-pub enum Begun { Intent(Box<Intent>), Changed, CredentialsChanged }
+/// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
+/// leg is reported as skipped, never placed.
+pub enum Begun { Intent(Box<Intent>), Changed, CredentialsChanged, BelowMinimum(Box<OrderPlan>) }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, clock: &dyn Clock) -> Result<Begun, EngineError> {
@@ -208,6 +214,15 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
             return Ok(Begun::Changed);
         }
     }
+    let guarded;
+    let plan = if model::exchange_type(&tx, &current)? == "Exchanges::Alpaca" {
+        let safe = match super::amount::guard_exact_cap(&tx, &current, plan)? {
+            super::amount::CapGuard::Place(safe) => safe,
+            super::amount::CapGuard::BelowMinimum(skipped) => return Ok(Begun::BelowMinimum(Box::new(skipped))),
+        };
+        guarded = safe;
+        &guarded
+    } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
     let intent = Intent { credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the

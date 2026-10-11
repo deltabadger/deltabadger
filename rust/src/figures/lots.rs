@@ -14,13 +14,13 @@ pub type Lots = VecDeque<Lot>;
 pub fn basis(lots: &Lots) -> Result<Num, NumError> {
     if lots.is_empty() { return Ok(Num::Int(0)); }
     let zero = Dec::zero();
-    Ok(Num::Dec(lots.iter().try_fold(Dec::zero(), |sum, lot| &sum + lot.cost.as_ref().unwrap_or(&zero))?))
+    Ok(Num::Dec(crate::engine::accounting::sum_figure_decimals(lots.iter().map(|lot| lot.cost.as_ref().unwrap_or(&zero)))?))
 }
 
 /// `lots.sum { |lot| lot[:amount] }`.
 pub fn units(lots: &Lots) -> Result<Num, NumError> {
     if lots.is_empty() { return Ok(Num::Int(0)); }
-    Ok(Num::Dec(lots.iter().try_fold(Dec::zero(), |sum, lot| &sum + &lot.amount)?))
+    Ok(Num::Dec(crate::engine::accounting::sum_figure_decimals(lots.iter().map(|lot| &lot.amount))?))
 }
 
 pub fn unknown_cost(lots: &Lots) -> bool { lots.iter().any(|lot| lot.cost.is_none()) }

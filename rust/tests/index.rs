@@ -204,7 +204,7 @@ fn stock_and_index_intents_recheck_status_members_settings_and_every_ticker() {
                 "ticker"=>{writer.execute("UPDATE tickers SET base_decimals=8 WHERE id=?1",[ticker.id]).unwrap();},
                 _=>{writer.execute("UPDATE bots SET restatement_generation=restatement_generation+1 WHERE id=?1",[id]).unwrap();},
             }
-            assert!(placement::begin_unless_changed(&o.primary,&bot,&plan,&[&ticker],&composition,&reconciled,&FixedClock(at(T0))).unwrap().is_none(),"index={index}, {mutation}");
+            assert!(matches!(placement::begin_unless_changed(&o.primary,&bot,&plan,&[&ticker],&composition,&reconciled,&FixedClock(at(T0))).unwrap(), placement::Begun::Changed),"index={index}, {mutation}");
             assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
         }
     }

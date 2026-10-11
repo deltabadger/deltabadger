@@ -205,11 +205,14 @@ fn local_orders(c:&Connection,user:i64,exchange:Option<i64>)->Result<(Vec<String
     let n:usize=c.query_row("SELECT count(*) FROM (SELECT t.id FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND t.status=0 AND t.external_status=1 AND (?2 IS NULL OR t.exchange_id=?2) LIMIT 101)",rusqlite::params![user,exchange],|r|r.get(0))?;
     if !read_limits::count(n,read_limits::LOCAL_ORDERS){return Ok((vec![read_limits::REFUSAL.into()],HashSet::new()))}
     let zone:String=c.query_row("SELECT time_zone FROM users WHERE id=?1",[user],|r|r.get(0))?;
-    let mut q=c.prepare("SELECT t.id,t.created_at,t.side,t.amount,t.base,t.quote,t.price,t.order_type,e.name,t.external_id FROM transactions t JOIN bots b ON b.id=t.bot_id JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.status=0 AND t.external_status=1 AND (?2 IS NULL OR t.exchange_id=?2) ORDER BY t.created_at DESC LIMIT 100")?;
-    let rows=q.query_map(rusqlite::params![user,exchange],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,Option<i64>>(2)?,tools::number(r,3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,tools::price(r,6)?,r.get::<_,Option<i64>>(7)?,r.get::<_,String>(8)?,r.get::<_,Option<String>>(9)?)))?;
+    let mut q=c.prepare("SELECT t.id,t.created_at,t.side,t.base,t.quote,t.order_type,e.name,t.external_id FROM transactions t JOIN bots b ON b.id=t.bot_id JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.status=0 AND t.external_status=1 AND (?2 IS NULL OR t.exchange_id=?2) ORDER BY t.created_at DESC LIMIT 100")?;
+    let rows=q.query_map(rusqlite::params![user,exchange],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,Option<i64>>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<i64>>(5)?,r.get::<_,String>(6)?,r.get::<_,Option<String>>(7)?)))?;
     let mut lines=vec![];let mut ids=HashSet::new();
     for row in rows{
-        let (id,time,side,amount,base,quote,price,kind,name,ext)=row?;
+        let (id,time,side,base,quote,kind,name,ext)=row?;
+        let [price,amount,_,_,_]=crate::figures::fill::display_amounts(c,id)?;
+        let amount=amount.map(|n|n.to_s_f());
+        let price=price.filter(|n|!n.is_zero()).map(|n|n.to_s_f());
         let date=crate::codec::parse_time(&time).map_err(|_|error())?;
         let date=crate::web::timezone::local(date,&zone).format("%Y-%m-%d %H:%M");
         let ext=ext.unwrap_or_default(); // nil interpolates to the empty string in Rails.
@@ -228,8 +231,13 @@ fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
     read_limits::charge_bot()?;
     let row=c.query_row("SELECT b.label,b.type,b.status,b.settings,e.name,b.started_at,b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1 AND b.user_id=?2 AND b.status!=3",[id,user],|r|Ok((r.get::<_,Option<String>>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?))).optional()?;
     let Some((label,kind,status,settings,exchange,started,transient))=row else{return Ok(None)};
+    crate::figures::fill::validate_row_times(c,id).map_err(fail_fig)?;
     let settings:Value=serde_json::from_str(&settings).map_err(|_|error())?;
     let transient:Value=serde_json::from_str(&transient).map_err(|_|error())?;
+    crate::codec::validate_bot_times(&settings,&transient).map_err(|_|error())?;
+    started.as_deref().map(crate::codec::parse_time).transpose().map_err(|_|error())?;
+    let changed:Option<String>=c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+    changed.as_deref().map(crate::codec::parse_time).transpose().map_err(|_|error())?;
     let quote=tools::asset(c,&settings["quote_asset_id"])?.unwrap_or_default(); // nil quote interpolates as empty.
     let members=members(c,&kind,&settings)?;
     let base=if pair_kind(&kind){tools::asset(c,&settings["base_asset_id"])?}else if members.len()==1{Some(members[0].1.clone())}else{None};
@@ -276,7 +284,7 @@ fn metrics(c:&Connection,b:&Bot,now:At)->Result<(Subject,walk::Metrics),WebError
     let m=walk::metrics(c,&s,now).map_err(fail_fig)?;
     Ok((s,m))
 }
-fn effective_started(b:&Bot,zone:&str)->Result<Option<chrono::DateTime<chrono::Utc>>,WebError>{
+fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebError>{
     let Some(raw)=&b.started else{return Ok(None)};
     let mut start=crate::codec::parse_time(raw).map_err(|_|error())?;
     // Signal and index have no trigger decorators.
@@ -286,16 +294,8 @@ fn effective_started(b:&Bot,zone:&str)->Result<Option<chrono::DateTime<chrono::U
     for trigger in ["price","price_drop","moving_average","indicator"]{
         if b.settings[format!("{prefix}{trigger}_limited")].as_bool()!=Some(true){continue}
         let Some(raw)=b.transient[format!("{prefix}{trigger}_limit_condition_met_at")].as_str().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
-        // ActionMCP::Current sets Time.zone to the calling user's zone.
-        let met=match chrono::DateTime::parse_from_rfc3339(raw){
-            Ok(t)=>t.to_utc(),
-            Err(_)=>{
-                let local=chrono::NaiveDateTime::parse_from_str(&raw.replacen('T'," ",1),"%Y-%m-%d %H:%M:%S%.f").map_err(|_|error())?;
-                use chrono::TimeZone;
-                // Rails prefers the DST occurrence at an ambiguous local time; invalid gaps refuse.
-                crate::web::timezone::zone(zone).unwrap_or(chrono_tz::Tz::UTC).from_local_datetime(&local).earliest().ok_or_else(error)?.to_utc()
-            },
-        };
+        // R9: stored SQL timestamps have the engine's UTC meaning in every adapter.
+        let met=crate::codec::parse_time(raw).map_err(|_|error())?;
         start=start.max(met);
     }
     Ok(Some(start))
@@ -363,7 +363,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<(String,bool),WebError>
     lines.push(format!("Amount per order: {} {}",tools::str_value(&b.settings["quote_amount"]),b.quote));
     let count:i64=c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND status IN (0,2)",[id],|r|r.get(0))?;
     lines.push(format!("Orders executed: {count}"));
-    if let Some(start)=effective_started(&b,&zone)?{
+    if let Some(start)=effective_started(&b)?{
         lines.push(format!("Started: {}",crate::web::timezone::local(start,&zone).format("%Y-%m-%d %H:%M %Z")));
     }
     lines.push(String::new());

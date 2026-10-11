@@ -31,6 +31,7 @@ pub fn log(line: &str) { println!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M
 pub enum EngineError {
     /// A venue answer belongs to credentials replaced while its request ran.
     CredentialsChanged,
+    Arithmetic(crate::codec::CodecError),
     Sqlite(rusqlite::Error),
     /// A stored value this build cannot read the way Rails wrote it.
     Data(String),
@@ -66,3 +67,5 @@ pub mod clock;
 pub mod splits;
 
 pub mod index;
+
+pub mod accounting;

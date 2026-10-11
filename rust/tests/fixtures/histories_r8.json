@@ -1,0 +1,54 @@
+{
+  "synthetic_only": true,
+  "sources": {
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
+    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
+    "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
+    "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
+    "script/rust/record_histories_r8.rb": "0c0f7e175387111697eb2950d75086b39166d527ceebeb8c4d499eae1fe87bbd"
+  },
+  "cases": [
+    {
+      "amount": 9007199254740995,
+      "intervals": 1,
+      "amount_class": "Integer",
+      "sql_kind": "integer",
+      "pending": "100.0",
+      "rust": "refused: accounting magnitude exceeds 2^53"
+    },
+    {
+      "amount": 9007199254740992,
+      "intervals": 1,
+      "amount_class": "Integer",
+      "sql_kind": "integer",
+      "pending": "100.0",
+      "rust": "100.0"
+    },
+    {
+      "amount": 9007199254740993,
+      "intervals": 1,
+      "amount_class": "Integer",
+      "sql_kind": "integer",
+      "pending": "100.0",
+      "rust": "refused: accounting magnitude exceeds 2^53"
+    },
+    {
+      "amount": 4503599627370497,
+      "intervals": 1,
+      "amount_class": "Integer",
+      "sql_kind": "integer",
+      "pending": "100.0",
+      "rust": "100.0"
+    },
+    {
+      "amount": 4503599627370497,
+      "intervals": 3,
+      "amount_class": "Integer",
+      "sql_kind": "integer",
+      "pending": "100.0",
+      "rust": "100.0"
+    }
+  ]
+}

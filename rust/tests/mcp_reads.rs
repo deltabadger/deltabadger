@@ -153,6 +153,9 @@ async fn four_reads_match_rails() {
             assert!(!text.contains("wrong-class") && !text.contains("ext: unknown"));
         }
         let replacements=match name {
+            // R9 requires the engine's UTC interpretation for stored SQL timestamps.
+            // Preserve actual Rails bytes, changing this one read-only presentation in the comparison copy.
+            "m3_start_combined"=>vec![("Started: 2026-09-09 14:00 UTC","Started: 2026-09-09 16:00 UTC")],
             "m3_other_venue_figures"=>vec![("Portfolio Summary\n================\nTotal bots: 3 (3 active, 0 stopped, 0 not started)\n\nGlobal P/L: +1.14%\nProfit (USD): +$9.64\n\n--- Per-Bot Summary ---\n- Basket (AAA+BBB/USD) | scheduled | P/L: +0.08% | Invested: 200.0 USD\n- Limited (AAA/USD) | scheduled | P/L: +3.64% | Invested: 346.99 USD\n- ND100 (N/A) | scheduled | P/L: -1.05% | Invested: 300.0 USD","this build reads Alpaca only")],
             "m3_other_venue"=>vec![("Failed to fetch balances from Kraken: EAPI:Invalid key","this build reads Alpaca only")],
             "m3_unpriced"=>vec![("Global P/L: -13.83%\nProfit (USD): $-117.15","Global P/L: Not available (needs market data)")],

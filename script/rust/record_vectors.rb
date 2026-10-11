@@ -1,3 +1,4 @@
+require Rails.root.join('script/rust/figures_normalized')
 # Records what the Rust crate in rust/ must reproduce, from the app's own code.
 #   bin/rails runner script/rust/record_vectors.rb rust/tests/fixtures/ruby_vectors.json
 # Inputs are fixed and non-secret because the output is committed. Re-run when Rails, bcrypt or rotp
@@ -152,7 +153,7 @@ module BotActionVectors
         single.update_columns(transient_data: single.transient_data.merge('quote_amount_limit_enabled_at' => '2026-09-01T00:00:00.000Z'))
         crypto = Pages.bot('kind' => 'coins', 'settings' => { 'allocations' => { Pages.asset_id('BTC').to_s => 1.0 } },
                            'columns' => { 'status' => 'stopped' })
-        rows = %w[users exchanges assets exchange_assets tickers indices bots bot_index_assets transactions].to_h do |table|
+        rows = %w[users exchanges api_keys assets exchange_assets tickers indices bots bot_index_assets transactions].to_h do |table|
           [table, ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a]
         end
         cases = []
@@ -655,9 +656,28 @@ alpaca_tickers = [
         else
           alpaca.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
         end
+        # R1c: keep the actual Float-formatted wire beside the conservative serialization.
+        # All floors below are Rails Ticker's existing floors; only a later Float round-up is removed.
+        guarded = captured.dup
+        floor_text = lambda do |number, scale|
+          whole, fraction = number.floor(scale).to_s('F').split('.')
+          scale.zero? ? whole : "#{whole}.#{fraction.to_s.ljust(scale, '0')}"
+        end
+        protect = lambda do |key, exact, scale|
+          guarded[key] = floor_text.call(exact, scale) if BigDecimal(captured.fetch(key).to_s) > exact.floor(scale)
+        end
+        quote_floor = ticker.adjusted_amount(amount: info[:amount], amount_type: :quote)
+        if order_type == :limit_order
+          limit_price = ticker.adjusted_price(price:)
+          qty = ticker.adjusted_amount(amount: quote_floor / limit_price, amount_type: :base)
+          protect.call(:qty, qty, ticker.base_decimals)
+          protect.call(:limit_price, limit_price, ticker.price_decimals)
+        else
+          protect.call(:notional, quote_floor, ticker.quote_decimals)
+        end
         alpaca_sizing << { 'ticker' => t.transform_values(&:to_s), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
                            'price' => price.to_s('F'), 'amount' => (x / price).to_s('F'), 'amount_type' => info[:amount_type].to_s,
-                           'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s) }
+                           'below_minimum' => info[:below_minimum_amount], 'wire' => captured.transform_keys(&:to_s).transform_values(&:to_s), 'r1c_wire' => guarded.transform_keys(&:to_s).transform_values(&:to_s) }
       end
     end
   end
@@ -784,6 +804,7 @@ def with_basket(weights, settings: {}, rows: [])
     end
     user = User.new(name: 'Vectors', email: 'rust-vectors@example.com', password: 'correct horse battery staple', confirmed_at: Time.current)
     user.save!(validate: false)
+    ApiKey.insert!({user_id: user.id, exchange_id: alpaca.id, key_type: ApiKey.key_types[:trading], status: ApiKey.statuses[:correct], created_at: Time.current, updated_at: Time.current})
     bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: alpaca, settings: {
       'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'day', 'weighting' => 'manual',
       'allocations' => weights.to_h { |sym, w| [assets.fetch(sym).id.to_s, w] }
@@ -855,9 +876,14 @@ vectors['basket_ledgers'] = ledger_cases.map do |c|
   with_basket(c[:weights], rows: c[:rows]) do |bot, assets, _alpaca|
     m = bot.metrics(force: true)
     breakdown = m[:asset_breakdown] || {}
+    Thread.current[:normalized_figure_rows] = true
+    normalized = bot.metrics(force: true)
+    Thread.current[:normalized_figure_rows] = false
+    normalized_breakdown = normalized[:asset_breakdown] || {}
     symbol_of = ->(id) { assets.find { |_, a| a.id == id }&.first }
     { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows],
       'holdings' => assets.filter_map { |sym, a| (h = breakdown.dig(bot.key_for(a.id, m), :amount)) && [sym, h.to_d.to_s('F')] }.to_h,
+      'normalized_holdings' => assets.filter_map { |sym, a| (h = normalized_breakdown.dig(bot.key_for(a.id, normalized), :amount)) && [sym, h.to_d.to_s('F')] }.to_h,
       'reserved' => bot.send(:reserved_waiting_amounts, :buy).to_h { |id, amount| [symbol_of.(id), amount.to_d.to_s('F')] } }
   end
 end
@@ -968,7 +994,12 @@ vectors['basket_splits'] = split_cases.map do |c|
       book[[t.id, :last]] = BigDecimal(p['last'])
     end
     r = bot.send(:get_orders_data, BigDecimal(c[:x]))
-    { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows], 'prices' => c[:prices], 'limit' => c[:limit], 'x' => c[:x],
+    Thread.current[:normalized_figure_rows] = true
+    normalized = bot.send(:get_orders_data, BigDecimal(c[:x]))
+    Thread.current[:normalized_figure_rows] = false
+    { 'normalized_orders' => normalized.success? ? normalized.data.map { |o| [o[:ticker].base, o[:price].to_d.to_s('F'), o[:amount].to_d.to_s('F'), o[:quote_amount].to_d.to_s('F')] } : nil,
+      'normalized_failure' => normalized.failure? ? normalized.errors.to_sentence : nil,
+      'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows], 'prices' => c[:prices], 'limit' => c[:limit], 'x' => c[:x],
       'orders' => r.success? ? r.data.map { |o| [o[:ticker].base, o[:price].to_d.to_s('F'), o[:amount].to_d.to_s('F'), o[:quote_amount].to_d.to_s('F')] } : nil,
       'failure' => r.failure? ? r.errors.to_sentence : nil }
   end
