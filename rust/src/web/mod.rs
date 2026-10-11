@@ -671,7 +671,7 @@ pub struct Params {
     pub query: Vec<(String, String)>,
     /// The fields of an `application/x-www-form-urlencoded` write body, by their literal names (`user[email]`).
     pub form: Vec<(String, String)>,
-    /// A JSON object on an OAuth POST or a supported existing-bot action.
+    /// A parsed JSON body; on setup routes, the Rails-merged query/body parameter object.
     pub json: Option<serde_json::Value>,
 }
 
@@ -850,7 +850,19 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let fullpath = with_query(&full_path);
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
-    let params = Params { full_path, fullpath, route_path, path_locale, query, form, json };
+    let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json };
+    if params.path_locale.is_none() && (matches!(params.route_path.as_str(), "/setup" | "/setup/platform_connection")
+        || params.route_path.strip_prefix("/setup.").is_some_and(|format| !format.contains('/'))) {
+        // Rails 8.1.4 shallow-merges query keys over body keys. Normalize once before the
+        // pipeline so locale, CSRF, the setup-token gate and permitted user fields agree.
+        match bot::action_params::ActionParams::parse_rails(&params) {
+            Ok(parsed) => {
+                params.json = Some(parsed.value().clone());
+                params.form.clear(); // Do not fall back to a body field replaced by a structured query value.
+            }
+            Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
+        }
+    }
     if bot::action_params::action(&params.route_path, &parts.method).is_some()
         && bot::action_params::ActionParams::parse(&params).is_err() {
         return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response();

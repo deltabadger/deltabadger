@@ -114,12 +114,27 @@ fn comparable(status: u64, headers: &BTreeMap<String, String>, body: &str) -> Va
 }
 
 /// Rails writes its cookie on every response; this crate only when the session's content changed (web::session).
-fn rails_answer(recorded: &Value, launchpad: Option<&str>) -> Value {
+fn rails_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
     let changed = recorded["session_changed"].as_bool().unwrap();
     let headers = recorded["headers"].as_object().unwrap().iter()
         .filter(|(name, _)| changed || name.as_str() != "set-cookie")
         .map(|(name, value)| (name.clone(), value.as_str().unwrap().to_string())).collect();
-    comparable(recorded["status"].as_u64().unwrap(), &headers, &masked_launchpad(recorded["body"].as_str().unwrap(), launchpad))
+    let mut body = masked_launchpad(recorded["body"].as_str().unwrap(), launchpad);
+    if recorded["status"] == 422 {
+        // Named security divergence: retain Rails' recorded answers, but require a fixed message
+        // in place of the upstream error text/URL. All surrounding markup and effects still match.
+        let diagnostic = match name {
+            "claim_server_json" => Some("{&quot;error&quot;:&quot;boom&quot;}"),
+            "claim_server_html" => Some("HTTP 502"),
+            "claim_server_blank" => Some("the server responded with status 503 for POST [launchpad]/api/claim"),
+            _ => None,
+        };
+        if let Some(diagnostic) = diagnostic {
+            assert_eq!(body.matches(diagnostic).count(), 1, "{name}: recorded diagnostic changed");
+            body = body.replace(diagnostic, web::launchpad::CLAIM_FAILED);
+        }
+    }
+    comparable(recorded["status"].as_u64().unwrap(), &headers, &body)
 }
 
 fn rust_answer(answer: &Answer, launchpad: Option<&str>) -> Value {
@@ -309,11 +324,11 @@ async fn rails_and_rust_answer_the_setup_grid_alike() {
     let only = std::env::var("SETUP").ok();
     let mut failures = vec![];
     let scenarios = vectors()["scenarios"].as_object().unwrap();
-    assert_eq!(scenarios.len(), 127, "a scenario was dropped or added without this count");
+    assert_eq!(scenarios.len(), 137, "a scenario was dropped or added without this count");
     for (name, scenario) in scenarios {
         if only.as_deref().is_some_and(|prefixes| !prefixes.split(',').any(|p| name.starts_with(p))) { continue; }
         let mut played = play(name, scenario).await;
-        let mut rails: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| rails_answer(r, scenario["launchpad_url"].as_str())).collect();
+        let mut rails: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| rails_answer(name, r, scenario["launchpad_url"].as_str())).collect();
         if name == "invalid_missing_user" || name == "followup_json_empty_user" {
             // ActionController::ParameterMissing. Rails' test environment shows its exception page for it; in
             // production it is a bare 400. Here: 400 with public/400.html, made below the controllers.
@@ -563,6 +578,108 @@ async fn claim_secrets_are_not_echoed() {
     let stored: Vec<String> = table(dir.path(), "app_configs").iter().map(|r| r["value"].to_string()).collect();
     assert!(stored.iter().all(|v| !v.contains("md-token-123") && !v.contains("proxy.example")), "values are encrypted");
     assert!(!deltabadger::web::locale::without_secret_query("/setup/platform_connection?code=c&claim_code=d").contains("=c"));
+}
+
+const JSON_HEADERS: &[(&str, &str)] = &[("content-type", "application/json"), ("accept", "text/html")];
+
+#[tokio::test(flavor = "current_thread")]
+async fn regression_setup_query_token_wins_over_body() {
+    for path in ["/setup", "/setup.html", "/setup/platform_connection"] {
+        for json_body in [true, false] {
+            let (url, requests) = fake_launchpad("ok").await;
+            let (dir, app) = fresh(&[("SETUP_TOKEN", "expected-token"), ("LAUNCHPAD_URL", &url)]).await;
+            let mut browser = Browser::default();
+            browser.get(&app, "/setup?token=expected-token").await;
+            browser.get(&app, "/setup").await;
+            let path = format!("{path}?token=wrong");
+            let answer = if json_body {
+                browser.send_body(&app, "POST", &path, Some(json!({"token": "expected-token", "claim_code": "unused",
+                    "user": {"name": "Owner", "email": "owner@example.com", "password": "Correct-horse-9"}}).to_string()), Csrf::Header, JSON_HEADERS).await
+            } else {
+                let mut fields = account("owner@example.com");
+                fields.push(("token", "expected-token"));
+                browser.send(&app, "POST", &path, Some(&fields), Csrf::Header, &[]).await
+            };
+            assert_eq!(answer.status, 403, "{path}, JSON: {json_body}");
+            assert_eq!(admins(dir.path()), 0);
+            assert!(table(dir.path(), "app_configs").is_empty());
+            assert!(requests.lock().unwrap().is_empty(), "a rejected token must not redeem a claim");
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn regression_claim_query_code_wins_over_body() {
+    for json_body in [true, false] {
+        let (url, requests) = fake_launchpad("ok").await;
+        let (_dir, app) = fresh(&[("LAUNCHPAD_URL", &url)]).await;
+        let mut browser = Browser::default();
+        browser.get(&app, "/setup").await;
+        let path = "/setup/platform_connection?claim_code=dbc_query";
+        let answer = if json_body {
+            browser.send_body(&app, "POST", path, Some(json!({"claim_code": "dbc_body"}).to_string()), Csrf::Header, JSON_HEADERS).await
+        } else {
+            browser.send(&app, "POST", path, Some(&[("claim_code", "dbc_body")]), Csrf::Header, &[]).await
+        };
+        assert_eq!(answer.status, 200);
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(serde_json::from_str::<Value>(requests[0]["body"].as_str().unwrap()).unwrap(), json!({"code": "dbc_query"}));
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn regression_setup_query_user_replaces_body_shallowly() {
+    let (dir, app) = fresh(&[]).await;
+    let mut browser = Browser::default();
+    browser.get(&app, "/setup").await;
+    let answer = browser.send_body(&app, "POST", "/setup?user%5Bname%5D=Query&locale=de", Some(json!({
+        "locale": "en", "user": {"name": "Body", "email": "body@example.com", "password": "Correct-horse-9"}
+    }).to_string()), Csrf::Header, JSON_HEADERS).await;
+    assert_eq!(answer.status, 422, "query user replaces the entire body user, including email and password");
+    assert_eq!(admins(dir.path()), 0);
+    assert!(answer.body.contains("value=\"Query\""));
+    assert!(!answer.body.contains("body@example.com"));
+    assert!(answer.body.contains("lang=\"de\""));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn regression_launchpad_error_secrets_never_reach_response_or_flash() {
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    const TOKEN: &str = "dbc_claim_secret_sentinel";
+    const CREDENTIAL: &str = "upstream_credential_sentinel";
+    for status in [400, 401, 422, 500, 502, 503] {
+        for (content_type, body) in [
+            ("application/json", json!({"error": format!("{TOKEN} {CREDENTIAL}")}).to_string()),
+            ("text/plain", format!("{TOKEN} {CREDENTIAL}")),
+            ("text/html", format!("<html>{TOKEN} {CREDENTIAL}</html>")),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(wiremock::matchers::method("POST")).and(wiremock::matchers::path("/api/claim"))
+                .respond_with(ResponseTemplate::new(status).set_body_raw(body, content_type)).mount(&server).await;
+            for automatic in [false, true] {
+                let url = server.uri();
+                let mut env = vec![("LAUNCHPAD_URL", url.as_str())];
+                if automatic { env.push(("CLAIM_TOKEN", TOKEN)); }
+                let (dir, app) = fresh(&env).await;
+                let mut browser = Browser::default();
+                let initial = browser.get(&app, "/setup").await;
+                let answer = if automatic { initial } else {
+                    browser.send(&app, "POST", "/setup/platform_connection", Some(&[("claim_code", TOKEN)]), Csrf::Header, &[]).await
+                };
+                assert_eq!(answer.status, if automatic { 200 } else { 422 });
+                for secret in [TOKEN, CREDENTIAL] {
+                    assert!(!answer.body.contains(secret), "status {status}, {content_type}, automatic: {automatic}");
+                    assert!(!format!("{:?}", answer.headers).contains(secret));
+                    let data = session::open(&app.keys.session, browser.cookie.as_deref().unwrap(), app.now()).unwrap();
+                    assert!(!format!("{:?}", data.flash).contains(secret));
+                }
+                let safe = if status == 401 { web::launchpad::INVALID_CLAIM } else { "Deltabadger could not complete the claim. Please try again." };
+                assert!(answer.body.contains(safe));
+                assert!(table(dir.path(), "app_configs").is_empty());
+            }
+        }
+    }
 }
 
 #[tokio::test(flavor = "current_thread")]
