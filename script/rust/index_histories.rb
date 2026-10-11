@@ -173,10 +173,10 @@ module IndexOracle
         'members' => members(STEADY),
         'rows' => history + [row('AAA', 'sell', 'REBALANCE', '0.1', '150', 9),
                              row('CCC', 'buy', 'REBALANCE', nil, '300', 9, ext: 'abandoned', amount: '0.05', quote_exec: nil)] },
-      # ---- special buys the walk skips (measurable.rb:153-154) though a unit count is known ----
-      { 'name' => 'redeploy_zero_quote', 'note' => 'a closed redeploy reporting 0 proceeds: Rails skips it, so its units do not count',
+      # ---- special buys with a known unit count but no usable price or proceeds: Transaction.normalized_fill counts them ----
+      { 'name' => 'redeploy_zero_quote', 'note' => 'a closed redeploy reporting 0 proceeds: valued at its order price, so its units count',
         'members' => rotated, 'rows' => history + [liq_ccc, row('DDD', 'buy', 'REDEPLOY', '0.03', '400', 11, quote_exec: '0')] },
-      { 'name' => 'redeploy_unpriced_positive_quote', 'note' => 'a closed redeploy with proceeds and no price: Rails skips it too',
+      { 'name' => 'redeploy_unpriced_positive_quote', 'note' => 'a closed redeploy with proceeds and no price: priced at proceeds / units, so its units count',
         'members' => rotated, 'rows' => history + [liq_ccc, row('DDD', 'buy', 'REDEPLOY', '0.03', nil, 11, quote_exec: '12.0')] }
     ]
   end

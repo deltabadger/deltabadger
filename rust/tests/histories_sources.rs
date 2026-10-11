@@ -14,9 +14,9 @@ fn sources_and_history_vectors_are_reviewable() {
     }
     for name in ["null_price_buy","cancelled_partial_buy"] {
         let c=v["cases"].as_array().unwrap().iter().find(|c|c["name"]==name).unwrap();
-        assert_eq!(c["rails_unchanged"]["orders"][0]["quote"],"75.0");
+        // Rails reads a buy's known fill through Transaction.normalized_fill: no divergence left.
+        assert_eq!(c["rails_unchanged"],c["normalized"],"{name}");
         assert_eq!(c["normalized"]["orders"][0]["quote"],"60.0");
-        assert_eq!(c["rails_unchanged"]["contributed"],"70.0");
         assert_eq!(c["normalized"]["contributed"],"100.0");
     }
     for (name,first,later) in [("merge_before_start","100.0","200.0"),("merge_at_start","0.0","100.0")] {

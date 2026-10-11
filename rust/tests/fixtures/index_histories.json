@@ -28,9 +28,9 @@
     "wash_sale": false
   },
   "ported_sources": {
-    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
     "app/models/bot/rebalance_accounting.rb": "7ed024d369e9fd4a11fe0543935c2dfca680c46a7135721edd8199d3b3e0a9b8",
-    "app/models/transaction.rb": "81c8b2faedbe817180d0db281160f3fc967d451a0b464629daf6c3f48d3e4d9f",
+    "app/models/transaction.rb": "31eee108cf8fe803956b92f0511dfac5bed5ebe2627a5ecf0c0916139cd393e1",
     "app/models/bot/liquidation_state.rb": "a865f2f7e80a618a5d5ede2b711e1c2f47e22065683a0be47c57e79b97926a9e",
     "app/models/bot/composition/redeployable.rb": "071908cf91e79b799b07c174c1e1eadd44a68f46ba193e8c2424ad5e009ef578",
     "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
@@ -8658,7 +8658,7 @@
     },
     {
       "name": "redeploy_zero_quote",
-      "note": "a closed redeploy reporting 0 proceeds: Rails skips it, so its units do not count",
+      "note": "a closed redeploy reporting 0 proceeds: valued at its order price, so its units count",
       "members": [
         {
           "symbol": "AAA",
@@ -8804,11 +8804,15 @@
             "CCC": {
               "amount": "0.0",
               "invested": "0.0"
+            },
+            "DDD": {
+              "amount": "0.03",
+              "invested": "12.0"
             }
           },
           "contributed": "120.0",
-          "uninvested_cash": "26.4",
-          "realised_cash": "26.4",
+          "uninvested_cash": "14.4",
+          "realised_cash": "14.4",
           "estimated_proceeds": "0.0",
           "realised_pnl": "2.4",
           "external_sales": false
@@ -8825,7 +8829,7 @@
           "spent": "0.0",
           "declined_offset": "0.0",
           "smallest_placeable": "1.0",
-          "offer": "26.4"
+          "offer": "14.4"
         },
         "pending_quote_amount": "120.0",
         "tick": {
@@ -8838,10 +8842,10 @@
               "order_type": "market_order",
               "transaction_type": "REGULAR",
               "price": "100.0",
-              "amount": "0.48",
-              "quote_amount": "48.0",
+              "amount": "0.54",
+              "quote_amount": "54.0",
               "amount_type": "quote",
-              "submitted_amount": "48.0"
+              "submitted_amount": "54.0"
             },
             {
               "base": "BBB",
@@ -8849,10 +8853,10 @@
               "order_type": "market_order",
               "transaction_type": "REGULAR",
               "price": "200.0",
-              "amount": "0.144",
-              "quote_amount": "28.8",
+              "amount": "0.162",
+              "quote_amount": "32.4",
               "amount_type": "quote",
-              "submitted_amount": "28.8"
+              "submitted_amount": "32.4"
             },
             {
               "base": "DDD",
@@ -8860,10 +8864,10 @@
               "order_type": "market_order",
               "transaction_type": "REGULAR",
               "price": "400.0",
-              "amount": "0.108",
-              "quote_amount": "43.2",
+              "amount": "0.084",
+              "quote_amount": "33.6",
               "amount_type": "quote",
-              "submitted_amount": "43.2"
+              "submitted_amount": "33.6"
             }
           ],
           "rows": [
@@ -8874,8 +8878,8 @@
               "external_status": "unknown",
               "transaction_type": "REGULAR",
               "price": "100.0",
-              "amount": "0.48",
-              "quote_amount": "48.0"
+              "amount": "0.54",
+              "quote_amount": "54.0"
             },
             {
               "base": "BBB",
@@ -8884,8 +8888,8 @@
               "external_status": "unknown",
               "transaction_type": "REGULAR",
               "price": "200.0",
-              "amount": "0.144",
-              "quote_amount": "28.8"
+              "amount": "0.162",
+              "quote_amount": "32.4"
             },
             {
               "base": "DDD",
@@ -8894,8 +8898,8 @@
               "external_status": "unknown",
               "transaction_type": "REGULAR",
               "price": "400.0",
-              "amount": "0.108",
-              "quote_amount": "43.2"
+              "amount": "0.084",
+              "quote_amount": "33.6"
             }
           ],
           "activity": [],
@@ -8905,7 +8909,7 @@
     },
     {
       "name": "redeploy_unpriced_positive_quote",
-      "note": "a closed redeploy with proceeds and no price: Rails skips it too",
+      "note": "a closed redeploy with proceeds and no price: priced at proceeds / units, so its units count",
       "members": [
         {
           "symbol": "AAA",
@@ -9051,11 +9055,15 @@
             "CCC": {
               "amount": "0.0",
               "invested": "0.0"
+            },
+            "DDD": {
+              "amount": "0.03",
+              "invested": "12.0"
             }
           },
           "contributed": "120.0",
-          "uninvested_cash": "26.4",
-          "realised_cash": "26.4",
+          "uninvested_cash": "14.4",
+          "realised_cash": "14.4",
           "estimated_proceeds": "0.0",
           "realised_pnl": "2.4",
           "external_sales": false
@@ -9085,10 +9093,10 @@
               "order_type": "market_order",
               "transaction_type": "REGULAR",
               "price": "100.0",
-              "amount": "0.48",
-              "quote_amount": "48.0",
+              "amount": "0.54",
+              "quote_amount": "54.0",
               "amount_type": "quote",
-              "submitted_amount": "48.0"
+              "submitted_amount": "54.0"
             },
             {
               "base": "BBB",
@@ -9096,10 +9104,10 @@
               "order_type": "market_order",
               "transaction_type": "REGULAR",
               "price": "200.0",
-              "amount": "0.144",
-              "quote_amount": "28.8",
+              "amount": "0.162",
+              "quote_amount": "32.4",
               "amount_type": "quote",
-              "submitted_amount": "28.8"
+              "submitted_amount": "32.4"
             },
             {
               "base": "DDD",
@@ -9107,10 +9115,10 @@
               "order_type": "market_order",
               "transaction_type": "REGULAR",
               "price": "400.0",
-              "amount": "0.108",
-              "quote_amount": "43.2",
+              "amount": "0.084",
+              "quote_amount": "33.6",
               "amount_type": "quote",
-              "submitted_amount": "43.2"
+              "submitted_amount": "33.6"
             }
           ],
           "rows": [
@@ -9121,8 +9129,8 @@
               "external_status": "unknown",
               "transaction_type": "REGULAR",
               "price": "100.0",
-              "amount": "0.48",
-              "quote_amount": "48.0"
+              "amount": "0.54",
+              "quote_amount": "54.0"
             },
             {
               "base": "BBB",
@@ -9131,8 +9139,8 @@
               "external_status": "unknown",
               "transaction_type": "REGULAR",
               "price": "200.0",
-              "amount": "0.144",
-              "quote_amount": "28.8"
+              "amount": "0.162",
+              "quote_amount": "32.4"
             },
             {
               "base": "DDD",
@@ -9141,8 +9149,8 @@
               "external_status": "unknown",
               "transaction_type": "REGULAR",
               "price": "400.0",
-              "amount": "0.108",
-              "quote_amount": "43.2"
+              "amount": "0.084",
+              "quote_amount": "33.6"
             }
           ],
           "activity": [],

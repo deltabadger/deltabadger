@@ -1,7 +1,7 @@
 {
   "synthetic_only": true,
   "ported_sources": {
-    "app/models/bot/composition/measurable.rb": "ef5e75add9624f8d03939b9196f66e241ce34f3b205767070f3e08bf2277326f",
+    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
     "app/models/bot/rebalance_accounting.rb": "7ed024d369e9fd4a11fe0543935c2dfca680c46a7135721edd8199d3b3e0a9b8",
     "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
@@ -11,10 +11,10 @@
     "app/models/bot.rb": "1d5e683a806d462af961ba453758c463bc6edf329f809de5c2ee8959aa3c7a18",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
     "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
-    "app/models/transaction.rb": "81c8b2faedbe817180d0db281160f3fc967d451a0b464629daf6c3f48d3e4d9f",
+    "app/models/transaction.rb": "31eee108cf8fe803956b92f0511dfac5bed5ebe2627a5ecf0c0916139cd393e1",
     "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
     "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
-    "script/rust/record_histories.rb": "ac61751cd6b5e6eb1593a62452ec024597f69013cc90916ec1d3c1dc1c03c52f"
+    "script/rust/record_histories.rb": "8334ff885f935ee2c3b241d5769c45badc988b817485871394111376b3982d6f"
   },
   "cases": [
     {
@@ -496,10 +496,10 @@
       "split_offset": null,
       "rails_unchanged": {
         "holdings": {
-          "AAA": "0.0",
+          "AAA": "3.0",
           "BBB": "5.0"
         },
-        "contributed": "70.0",
+        "contributed": "100.0",
         "cash": "20.0",
         "available": null,
         "pending": "100.0",
@@ -508,14 +508,14 @@
           {
             "side": "buy",
             "asset": "AAA",
-            "amount": "7.5",
-            "quote": "75.0"
+            "amount": "6.0",
+            "quote": "60.0"
           },
           {
             "side": "buy",
             "asset": "BBB",
-            "amount": "2.5",
-            "quote": "25.0"
+            "amount": "4.0",
+            "quote": "40.0"
           }
         ]
       },
@@ -586,10 +586,10 @@
       "split_offset": null,
       "rails_unchanged": {
         "holdings": {
-          "AAA": "0.0",
+          "AAA": "3.0",
           "BBB": "5.0"
         },
-        "contributed": "70.0",
+        "contributed": "100.0",
         "cash": "20.0",
         "available": null,
         "pending": "100.0",
@@ -598,14 +598,14 @@
           {
             "side": "buy",
             "asset": "AAA",
-            "amount": "7.5",
-            "quote": "75.0"
+            "amount": "6.0",
+            "quote": "60.0"
           },
           {
             "side": "buy",
             "asset": "BBB",
-            "amount": "2.5",
-            "quote": "25.0"
+            "amount": "4.0",
+            "quote": "40.0"
           }
         ]
       },
@@ -1216,10 +1216,10 @@
       "split_offset": null,
       "rails_unchanged": {
         "holdings": {
-          "AAA": "0.0",
+          "AAA": "5.0",
           "BBB": "5.0"
         },
-        "contributed": "70.0",
+        "contributed": "120.0",
         "cash": "20.0",
         "available": null,
         "pending": "100.0",
@@ -1228,14 +1228,14 @@
           {
             "side": "buy",
             "asset": "AAA",
-            "amount": "7.5",
-            "quote": "75.0"
+            "amount": "5.0",
+            "quote": "50.0"
           },
           {
             "side": "buy",
             "asset": "BBB",
-            "amount": "2.5",
-            "quote": "25.0"
+            "amount": "5.0",
+            "quote": "50.0"
           }
         ]
       },
@@ -1306,10 +1306,10 @@
       "split_offset": null,
       "rails_unchanged": {
         "holdings": {
-          "AAA": "0.0",
+          "AAA": "5.0",
           "BBB": "5.0"
         },
-        "contributed": "70.0",
+        "contributed": "120.0",
         "cash": "20.0",
         "available": "60.0",
         "pending": "60.0",
@@ -1318,14 +1318,14 @@
           {
             "side": "buy",
             "asset": "AAA",
-            "amount": "5.5",
-            "quote": "55.0"
+            "amount": "3.0",
+            "quote": "30.0"
           },
           {
             "side": "buy",
             "asset": "BBB",
-            "amount": "0.499999999999999999999999999999998",
-            "quote": "4.99999999999999999999999999999998"
+            "amount": "3.0",
+            "quote": "30.0"
           }
         ]
       },

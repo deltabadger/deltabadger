@@ -57,6 +57,10 @@ module Bot::Composition::Measurable
         # acts on, so a split sharing an order's timestamp is applied first.
         pending_splits = apply_due_splits(pending_splits, created_at, ledger, asset_prices, data, books, lots)
 
+        # Every reading below starts from the fill as Transaction.normalized_fill knows it: a buy's NULL
+        # price or missing executed value does not make a known fill unknown.
+        price, amount_exec, quote_amount_exec =
+          Transaction.normalized_fill(side, external_status, price, amount, amount_exec, quote_amount_exec)
         raw_amount_exec = amount_exec
         raw_quote_exec = quote_amount_exec
         amount_exec, quote_amount_exec =
@@ -438,12 +442,13 @@ module Bot::Composition::Measurable
   # _v7: per-asset FIFO tax lots and the harvestable flag. _v8: a scheduled (REGULAR) sell realizes into
   # its own never-drained bucket instead of reading as a half-finished swap — CSV-imported sells are
   # REGULAR, so a basket that imported any reads different figures. _v9: one holding per asset, keyed
-  # through Bot::Composition::HoldingKeys, with key_assets / key_strings beside them.
+  # through Bot::Composition::HoldingKeys, with key_assets / key_strings beside them. _v11: a buy read
+  # through Transaction.normalized_fill, so one with a NULL price or no executed value counts.
   # The cached shape lives up to 30 days, so this has to move with it or every existing bot serves
   # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v10_#{restatement_generation}"
+    "bot_#{id}_metrics_v11_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_cache_key
