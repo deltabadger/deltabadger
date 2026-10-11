@@ -24,8 +24,8 @@ module Automation::Statusable
   # job/instance BEFORE authentication, prices or polling; never adopt the current row at claim time.
   def run_identity
     [transient_data.fetch('run_generation', 0), transient_data.fetch('tick_generation', 0),
-     self[:started_at]&.iso8601(6),
-     last_action_job_at&.iso8601(6)]
+     self[:started_at]&.utc&.iso8601(6),
+     last_action_job_at&.utc&.iso8601(6)]
   end
 
   def capture_run!(identity = run_identity)

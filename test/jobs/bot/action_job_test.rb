@@ -5,6 +5,17 @@ module RunOwnershipBehaviorTests
   extend ActiveSupport::Concern
 
   included do
+    test 'ownership: a queued run identity survives a different worker time zone' do
+      bot = create_bot
+      identity = Time.use_zone('Asia/Tokyo') { Bot.find(bot.id).run_identity }
+
+      Time.use_zone('America/New_York') do
+        worker_bot = Bot.find(bot.id)
+        worker_bot.capture_run!(identity)
+        assert_predicate worker_bot, :owns_run?
+      end
+    end
+
     test 'ownership: legacy queued jobs without a run token fail closed' do
       bot = create_bot
       payload = Bot::ActionJob.new(bot).serialize
