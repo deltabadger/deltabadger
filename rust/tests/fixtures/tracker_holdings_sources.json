@@ -1,0 +1,22 @@
+{
+  "app/controllers/tracker_controller.rb": "f1dc9709d464882d2b7e23dc32c512d464e47509a057b28bb1538b7e8e4b2c78",
+  "app/models/tracker/figures.rb": "bfae57d2a68f14c67b4718d850f176730c1ff50f133fff58f1efff7cb20f4f28",
+  "app/models/account_balance.rb": "a7f3296994800366f5aa255d2342a57598c05cf839584b7d9c96421c22f1ba25",
+  "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",
+  "app/models/denomination.rb": "4763ea32cd8ffb02027943b56a17f7f1fd7338f2aa85bd51cb0f81a662dc51a6",
+  "app/models/utilities/currency.rb": "a06a70e56d0272520976995eb6357473b8f0e6ca4f1e596525626db78caf0e74",
+  "app/models/portfolio_snapshot.rb": "b13f74f516f4f787ab22e469ed20803f681edbd049139a2a38db81f2ff249ac0",
+  "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+  "app/helpers/tracker_helper.rb": "0e918379e98824fc25bcc10b6ca9af30552455e25abda670de696c24adde0301",
+  "app/helpers/application_helper.rb": "3d3ed601497033c19a8982d64ed292511ad12b338df042b4288f5ba317abd44c",
+  "app/views/assets/_logo.html.erb": "25109c3cd34c5e198f5ed4137c08139ce746c41f3457f1586ab2107b89b5d5ef",
+  "app/views/tracker/index.html.erb": "9d658aec7fa0c09980f3c31a2832fe761f3fad2d6c4eac34e1ff7a43bdb6392f",
+  "app/views/tracker/_holdings.html.erb": "11c3e4e91a2161b37f3fb470cc656b0ffa2a6246ef477cc15d35b305cb50bdc2",
+  "app/views/tracker/_holding_row.html.erb": "be99d471d9741a1cb2164a17a6973fc0a874669eabcb1c125e2b88ba3facd4cd",
+  "app/views/tracker/_tiles.html.erb": "5538f13874dd7314d93036ebe04cd17a418e5ae697ba09428c04bb4ee3e30d10",
+  "app/views/tracker/_record.html.erb": "b7a91469bfe2c4e30fa3e4d55a8dd6a897ea558725357083d5d2b5f59a8d2027",
+  "app/views/tracker/_exchange_filters.html.erb": "3372ca07a8d5eba94c36142115fb192827bbaeed485f5c9deec4880d7c2a8ac2",
+  "app/views/tracker/_chart.html.erb": "4ddc7aad19547bf72a44c4684826e11f1ad71447e046f80f35fe6b0476f9b4e2",
+  "app/views/bots/_metrics_item.html.erb": "bcf755c106a064f3eca6e5cd0d4a0607d2b2e74d4f64f5fc5fba5f97520cb3d8",
+  "Gemfile.lock": "95787405ce2f86cb20a9517ef92f9bef2f7e7975b2737d08737b87b4ad299eed"
+}
