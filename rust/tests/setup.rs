@@ -249,7 +249,7 @@ fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
 fn users_difference(app: &App, scenario: &Value, rails: &[Value], rust: &[serde_json::Map<String, Value>]) -> Option<String> {
     if rails.len() != rust.len() { return Some(format!("{} user rows in Rails, {} here", rails.len(), rust.len())); }
     let seeded = scenario["seed"]["users"].as_array().unwrap().len();
-    let password = scenario["steps"].as_array().unwrap().iter().filter_map(|s| s["form"]["user[password]"].as_str()).last();
+    let password = scenario["steps"].as_array().unwrap().iter().rev().find_map(|s| s["form"]["user[password]"].as_str());
     for (index, (theirs, ours)) in rails.iter().zip(rust).enumerate() {
         for (column, value) in theirs.as_object().unwrap() {
             let mine = ours.get(column).unwrap_or(&Value::Null);
@@ -342,7 +342,7 @@ fn admins(dir: &Path) -> i64 {
     rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().query_row("SELECT count(*) FROM users WHERE admin = 1", [], |r| r.get(0)).unwrap()
 }
 
-fn account<'a>(email: &'a str) -> Vec<(&'a str, &'a str)> {
+fn account(email: &str) -> Vec<(&str, &str)> {
     vec![("locale", "en"), ("user[name]", "Owner"), ("user[email]", email), ("user[password]", "Correct-horse-9")]
 }
 
