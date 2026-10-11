@@ -240,3 +240,22 @@ fn an_imported_start_at_a_repeated_wall_time_is_refused() {
     }
     assert!(check("2026-10-26 01:30:00").0);
 }
+
+/// Date mode reads its start in the owner's zone like every other mode, so an imported date-mode row whose owner zone this
+/// build cannot read is refused, not run on its stored instant. The same row with a readable zone runs.
+#[test]
+fn an_imported_date_start_in_an_unknown_zone_is_refused() {
+    let v = &vectors()["schedule"][6];
+    let check = |zone: &str| {
+        let (_d, o, s) = common::install();
+        let id = insert(&o.primary, &s, v);
+        o.primary.execute("UPDATE users SET time_zone = ?1", [zone]).unwrap();
+        o.primary.execute("UPDATE bots SET started_at = '2026-09-12 00:30:00', settings = json_set(settings, '$.start_at', '2026-09-12T00:30:00Z', '$.start_time_mode', 'date') WHERE id = ?1",
+                          [id]).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        (r.eligible.contains(&id), r.problems.join("; "))
+    };
+    let (ok, why) = check("Mars/Olympus");
+    assert!(!ok && why.contains("unknown time zone"), "{why}");
+    assert!(check("Asia/Tokyo").0, "a readable zone runs");
+}

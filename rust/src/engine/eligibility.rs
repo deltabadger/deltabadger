@@ -142,12 +142,13 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
     // Every day or every week at a time: the stored instant must read as that wall time in the owner's zone. Rails' fixed-day
     // step across a daylight-saving change can store it an hour off, earlier or later, with both anchors still equal.
     let mode = bot.settings.get("start_time_mode").and_then(Value::as_str);
+    // Every mode, date included, needs a zone this build reads as Rails does.
+    let name: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0))?;
+    let Some(zone) = crate::web::timezone::strict(&name) else { return Ok(Some(format!("start_time_enabled in an unknown time zone {name:?}"))) };
     if mode == Some("date") { return Ok(None); }
     if !mode.is_some_and(|m| crate::web::bot::start::MODES.contains(&m)) {
         return Ok(Some(format!("start_time_enabled with start_time_mode {mode:?}")));
     }
-    let name: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0))?;
-    let Some(zone) = crate::web::timezone::strict(&name) else { return Ok(Some(format!("start_time_enabled in an unknown time zone {name:?}"))) };
     let local = DateTime::from_timestamp_micros(at).ok_or_else(|| EngineError::Data(format!("start_at {at} is out of range")))?.with_timezone(&zone);
     let chosen = crate::web::bot::start::parse_hhmm(bot.settings.get("start_time_of_day").and_then(Value::as_str));
     use chrono::Timelike;
