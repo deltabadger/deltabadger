@@ -152,20 +152,21 @@ module TaxVectors
         coin.touch
         buy(c, 'TSLAX', '1', '300', '2026-01-05T10:00:00Z')
       } },
-      { name: 'mixed_term_sale', expect: 'refuses: a sale of lots of more than one holding term', setup: lambda { |c|
+      { name: 'mixed_term_sale', expect: 'parity', setup: lambda { |c|
         buy(c, 'BTC', '1', '30000', '2024-06-01T10:00:00Z')
+        buy(c, 'BTC', '0.5', '45000', '2025-01-01T10:00:00Z')
         buy(c, 'BTC', '1', '90000', '2026-01-01T10:00:00Z')
-        sell(c, 'BTC', '2', '200000', '2026-08-01T10:00:00Z')
+        sell(c, 'BTC', '2.5', '200000.01', '2026-08-01T10:00:00Z')
       } },
-      { name: 'leap_anniversary', year: 2025, expect: 'refuses: a holding term the day count gets wrong', setup: lambda { |c|
+      { name: 'leap_anniversary', year: 2025, expect: 'parity', setup: lambda { |c|
         buy(c, 'BTC', '1', '40000', '2024-02-10T15:00:00Z')
         sell(c, 'BTC', '1', '90000', '2025-02-10T16:00:00Z')
       } },
-      { name: 'truncated_day', expect: 'refuses: a holding term the day count gets wrong', setup: lambda { |c|
+      { name: 'truncated_day', expect: 'parity', setup: lambda { |c|
         buy(c, 'BTC', '1', '40000', '2025-01-10T15:00:00Z')
         sell(c, 'BTC', '1', '90000', '2026-01-11T10:00:00Z')
       } },
-      { name: 'local_year_boundary', year: 2025, expect: 'refuses: a sale whose tax year differs in the user', setup: lambda { |c|
+      { name: 'local_year_boundary', year: 2025, expect: 'parity', setup: lambda { |c|
         c[:user].update_columns(time_zone: 'Eastern Time (US & Canada)')
         buy(c, 'BTC', '1', '40000', '2025-03-10T15:00:00Z')
         sell(c, 'BTC', '1', '90000', '2026-01-01T03:00:00Z')
@@ -181,10 +182,39 @@ module TaxVectors
       { name: 'never_held', expect: 'refuses: a sale of more than the history holds', setup: lambda { |c|
         sell(c, 'ETH', '1', '300', '2026-01-06T10:00:00Z')
       } },
-      { name: 'crypto_fee', expect: 'refuses: a fee paid in a coin', setup: lambda { |c|
+      { name: 'cfee_into_buys', expect: 'parity', setup: lambda { |c|
+        price('BTC', '2026-01-05', '95000')
         buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
-        row(c, :fee, 'BTC', '0.0025', '2026-01-05T10:00:00Z', description: 'CFEE')
+        buy(c, 'BTC', '3', '330', '2026-01-05T15:00:00Z')
+        row(c, :fee, 'BTC', '0.0025', '2026-01-05T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
         sell(c, 'BTC', '0.9975', '300', '2026-01-06T10:00:00Z')
+      } },
+      { name: 'cfee_into_a_sale', expect: 'parity', setup: lambda { |c|
+        price('BTC', '2026-01-06', '95000')
+        buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
+        sell(c, 'BTC', '0.5', '300', '2026-01-06T10:00:00Z')
+        row(c, :fee, 'BTC', '0.001', '2026-01-06T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+      } },
+      { name: 'feb29_anniversary', year: 2025, expect: 'parity', setup: lambda { |c|
+        buy(c, 'BTC', '1', '40000', '2024-02-29T15:00:00Z')
+        buy(c, 'BTC', '1', '40000', '2024-03-01T15:00:00Z')
+        sell(c, 'BTC', '1', '90000', '2025-03-01T16:00:00Z')
+        sell(c, 'BTC', '1', '90000', '2025-03-01T17:00:00Z')
+      } },
+      # A fill at 02:00 UTC is on 6 January in UTC and on 5 January in New York: the calendars disagree, Rails leaves the fee
+      # as a row of its own, consumed at zero proceeds, and names it.
+      { name: 'cfee_calendars_disagree', expect: 'refuses: a fee paid in a coin', setup: lambda { |c|
+        price('BTC', '2026-01-05', '95000')
+        buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
+        buy(c, 'BTC', '3', '330', '2026-01-06T02:00:00Z')
+        row(c, :fee, 'BTC', '0.0025', '2026-01-05T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+        sell(c, 'BTC', '0.9975', '300', '2026-01-06T10:00:00Z')
+      } },
+      { name: 'fee_of_no_trade', expect: 'refuses: a fee paid in a coin', setup: lambda { |c|
+        price('BTC', '2026-01-09', '95000')
+        buy(c, 'BTC', '1', '100', '2026-01-05T10:00:00Z')
+        row(c, :fee, 'BTC', '0.0025', '2026-01-09T00:00:00Z', description: 'CFEE', raw_data: { 'activity_type' => 'CFEE' })
+        sell(c, 'BTC', '0.9975', '300', '2026-01-10T10:00:00Z')
       } },
       { name: 'unlinked_withdrawal', expect: 'refuses: a coin withdrawal not linked', setup: lambda { |c|
         price('BTC', '2026-01-06', '95000')
