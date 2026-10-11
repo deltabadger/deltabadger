@@ -29,8 +29,8 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("stop_ordered", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("stop_ordered", json!(true))))),
         ("volume_intervaled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("volume_intervaled", json!("1"))))),
         ("base_amount_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("base_amount_limited", json!(true))))),
-        // A starting time runs only as a fresh start leaves it (start_at = started_at); this one has no start_at.
-        ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true))))),
+        // A starting time runs only as a fresh start leaves it (start_at = started_at); this one's start_at is elsewhere.
+        ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z"))))),
         ("rebalance_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true))))),
         ("direction", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
         ("liquidation_pending", Box::new(|c, s| seed::insert_bot(c, s, &plain().transient("liquidation_pending", json!({"state": "x"}))))),
