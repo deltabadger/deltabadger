@@ -71,6 +71,7 @@ module Pages
     end
     add.call('start_missing', 'start')
     add.call('start_junk', 'start?start_fresh=junk')
+    add.call('start_junk_working', 'start?start_fresh=junk', {}, {'columns'=>{'status'=>'scheduled'}})
     add.call('start_no_key', 'start?start_fresh=true', {}, {}, {'no_key'=>true})
     add.call('start_invalid', 'start?start_fresh=true', {}, {'stored'=>{'quote_amount'=>0}})
     add.call('stop_invalid', 'stop', {}, {'stored'=>{'quote_amount'=>0},'columns'=>{'status'=>'scheduled'}})
@@ -132,7 +133,7 @@ module Pages
       end
     end
 
-    raise "expected 154 bot action cases" unless cases.size == 154
+    raise "expected 155 bot action cases" unless cases.size == 155
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -143,7 +144,6 @@ module Pages
   module_function
 
   ACTION_EXCEPTIONS = {
-    'actions_start_missing' => 500, 'actions_start_junk' => 500,
     'actions_extra_html_archive' => 406,
     'actions_extra_html_update' => 406, 'actions_extra_html_start_start_fresh_true' => 406,
     'actions_extra_html_stop' => 406, 'actions_extra_empty_root' => 400
@@ -182,7 +182,7 @@ module Pages
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 154 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 155 }
   end
 end
 

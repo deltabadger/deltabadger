@@ -155,7 +155,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     match begin_checked(c, bot, plan, clock, None, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
-        Begun::Changed | Begun::CredentialsChanged => Err(EngineError::Data("unfenced placement skipped".into())),
+        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged => Err(EngineError::Data("unfenced placement skipped".into())),
     }
 }
 
@@ -163,16 +163,19 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// allocations, compared by value as `stranded` compares them) must still be what `sized_from` holds. Every ticker used
 /// to size the basket must also match (names, asset ids, availability, precision and minimums). Otherwise no intent is
 /// written, nothing will be sent, and `Begun::Changed` is returned with one log line naming the reason; the next pass sees the new row.
+/// A bot no longer on the run that sized it (stopped, or stopped and started again) answers `Begun::Fenced` instead.
 ///
-/// A divergence from Rails, whose leg loop places an order sized before a stop or an edit landed. It only ever removes such
+/// Rails' leg loop fences a stop, or a stop and a restart, the same way (Automation::Statusable#stopped_mid_tick?) but not an
+/// edit: it places an order sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
     begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)
 }
 
 /// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
-/// leg is reported as skipped, never placed.
-pub enum Begun { Intent(Box<Intent>), Changed, CredentialsChanged, BelowMinimum(Box<OrderPlan>) }
+/// leg is reported as skipped, never placed. Fenced: a stop, or a stop and a restart, took the run from the tick that
+/// sized the order (Automation::Statusable::FENCED); that tick writes nothing more to the bot.
+pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>) }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, clock: &dyn Clock) -> Result<Begun, EngineError> {
@@ -199,8 +202,15 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 break;
             }
         }
-        let reason = if !crate::enums::BOT_WORKING.contains(&current.status) { Some("it was stopped") }
-            else if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
+        // Still the run that sized it: a stop and a start put the row back to working, so it must still be the claim this tick
+        // took (Automation::Statusable#stopped_mid_tick?): executing, with the same started_at and last_action_job_at.
+        let same_run = current.status == crate::enums::BotStatus::Executing
+            && (current.started_at_us()?, current.last_action_job_at_us()?) == (bot.started_at_us()?, bot.last_action_job_at_us()?);
+        if !same_run {
+            super::log(&format!("[engine] bot {}: {} order not placed: it was stopped after it was sized", bot.id, plan.ticker.ticker));
+            return Ok(Begun::Fenced);
+        }
+        let reason = if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
             else if &composition_snapshot(&tx, &current)? != composition { Some("its member rows or index settings changed") }
             else if current.restatement_generation != reconciled.generation { Some("its split rows changed") }

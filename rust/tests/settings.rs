@@ -1360,6 +1360,8 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
     let h=Harness::new(server.uri()).await;
     let at=h.app.now();
     let id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
+    // Claimed by a tick, as the engine sizes it: placement is fenced on that run.
+    h.c.execute("UPDATE bots SET status=4 WHERE id=?1",[id]).unwrap();
     let bot=model::load_bot(&h.c,id).unwrap();
     let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
     let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::ruby::BigDec::from_i64(60),&deltabadger::ruby::BigDec::from_i64(50_000),deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else {panic!("fixture")};

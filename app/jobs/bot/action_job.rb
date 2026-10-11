@@ -128,6 +128,11 @@ class Bot::ActionJob < BotJob
       end
       raise result.errors.to_sentence
     end
+    # Fenced: a stop, or a stop and a restart, took the run from this tick. Write nothing more.
+    if result.equal?(Automation::Statusable::FENCED)
+      Rails.logger.info("ActionJob for bot #{bot.id}: fenced, the run is no longer this tick's")
+      return
+    end
 
     # A clean run ends the streak. The notification budget deliberately survives it — see
     # Bot::Failable — so a bot that fails, recovers and fails the same way an hour later does not

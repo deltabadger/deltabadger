@@ -71,8 +71,21 @@ class Bot < ApplicationRecord
   # Hidden from the list, keeps its history, trades nothing. Archiving goes through #stop so the
   # job cancellation and the settings-dirty guard stay in one place — an archived bot must never
   # leave a tick scheduled behind it.
+  #
+  # #stop no longer validates settings, so they are checked first, as the archived row will be: a
+  # refused archive must not stop the bot on its way out.
   def archive
+    return false unless valid_as_archived?
+
     stop && update(status: :archived)
+  end
+
+  def valid_as_archived?
+    current = status
+    self.status = :archived
+    valid?
+  ensure
+    self.status = current
   end
 
   # status_was, not archived?: both #start implementations assign :scheduled before they validate,

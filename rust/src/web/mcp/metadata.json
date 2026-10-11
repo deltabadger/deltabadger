@@ -1135,11 +1135,11 @@
     "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
     "app/models/transaction.rb": "31eee108cf8fe803956b92f0511dfac5bed5ebe2627a5ecf0c0916139cd393e1",
-    "app/models/bot.rb": "1d5e683a806d462af961ba453758c463bc6edf329f809de5c2ee8959aa3c7a18",
-    "app/models/bots/dca_single_asset.rb": "25f6e01217ed32b2196f71f0819aecd26dcc14ac3fee2e90e7710067fd531aa3",
-    "app/models/bots/dca_multi_asset.rb": "aa6d29f2c6f54340f13cbd7dbb2d25e7bac0370affc1b30f3c42a3cb6119c677",
+    "app/models/bot.rb": "f237621521c8b57241d4659631f5e4443ee3f900587db8b13ff0e99f12482b28",
+    "app/models/bots/dca_single_asset.rb": "cc544a798755cbbcf2fc65015c44a42fc4cfc8a789ad6a36ab7416f624259566",
+    "app/models/bots/dca_multi_asset.rb": "eaf340245c57013eccf63e6bbe74a14794459e21a73e20920f1825f6a0ba6671",
     "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",
-    "app/models/bots/dca_index.rb": "e9b6978128122dcbb427aa8274b5e51587f7fcb491df2135c1cbd948ffebed34",
+    "app/models/bots/dca_index.rb": "b12bd11f5cefb0857a98159c9a02b9ed265a0924ba3764e6ad7396f64d7c4945",
     "app/models/bots/signal.rb": "4c3c7af8c01a9f0a833aa4da7f37a08b5c6ca3ada803973b4083859ff71d36e1",
     "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
     "app/models/tax/jurisdictions.rb": "e3044502f3d68b0c921388f6ff9649b187d3c9402302a2b44f1ad2dec556c935",
@@ -1222,7 +1222,7 @@
     "app/services/bot_api/bots/delete.rb": "e6e19e51eaffbdb89be5a0d2c4237351d71d0aa02865bfe527d14debfb15b640",
     "app/services/bot_api/bots/update_settings.rb": "4311a16ad0a05dc624a6344201816ee34f7ad3603dd0436a1fe7bbd0f1f9cad5",
     "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
-    "app/models/bot/lifecycle.rb": "eb6fabe8c521b10342862b6bbc082b1d3c3a49cd88fa48170d635a4bec3456ff",
+    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c"
   }
 }

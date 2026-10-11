@@ -162,17 +162,6 @@ async fn control_transcripts() {
             assert_eq!(rails["result"]["content"][0]["text"],"[DRY RUN] Paper trading is on, so nothing was created or started: 'start_bot' would leave a bot or rule running that moves real money. Turn Paper Trading off in Settings > MCP to use it.","{name}");
             assert_eq!(rails["result"]["isError"],true,"{name}");
         }
-        if name == "stop_bot_r1_invalid" {
-            let response:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["content"][0]["text"],"Failed to stop bot 'Control'.");
-            assert_eq!(want["rows"]["bots"][0]["status"],1);
-            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["content"][0]["text"],"Bot 'Control' stopped.");
-            assert_eq!(response["result"]["isError"],Value::Null);
-            assert_eq!(got["rows"]["bots"][0]["status"],2);
-            assert_eq!(got["rows"]["bots"][0]["settings"],want["rows"]["bots"][0]["settings"]);
-            continue; // R1 named safety divergence; no row normalization claims parity.
-        }
         if name.starts_with("start_bot_r1_key_") {
             // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
             for transcript in [&want, &got] {
@@ -293,7 +282,7 @@ async fn real_rails_ticks_and_mcp_tools_race_on_identical_files() {
         script.release.notify_one();
         tokio::time::timeout(std::time::Duration::from_secs(20),&mut future).await.unwrap().unwrap();
         let safety=["stop_bot","archive_bot","delete_bot"].contains(&name);
-        assert_eq!(rails["sent"].as_array().unwrap().len(),2,"Rails known pre-placement race");
+        assert_eq!(rails["sent"].as_array().unwrap().len(),if safety {0} else {2},"{name}: Rails placement fence");
         assert_eq!(script.sent.borrow().len(),if safety {0} else {2},"{name}: placement fence");
         let state=model::load_bot(&c,1).unwrap();
         assert_eq!(state.status as i64,rails["final"]["bots"][0]["status"].as_i64().unwrap(),"{name}: never resurrected");

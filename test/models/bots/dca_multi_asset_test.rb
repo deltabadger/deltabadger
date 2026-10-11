@@ -507,6 +507,33 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_equal 1, bot.transactions.where(external_id: 'OID-0').count, 'the accepted order persisted exactly once'
   end
 
+  # A stop that commits while a basket tick is between legs: the leg already sent stands, the
+  # rest are not sent. Each leg re-reads the bot's status right before it places.
+  test 'set_orders: a stop committed after the first leg places no further leg' do
+    bot = create(:dca_multi_asset, :started, user: @user, exchange: @exchange,
+                                             base_assets: member_assets, quote_asset: @quote)
+    setup_bot_execution_mocks(bot)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    bot.exchange.unstub(:market_buy)
+    sent = []
+    stops = []
+    bot.exchange.define_singleton_method(:market_buy) do |ticker:, **|
+      sent << ticker.base_asset_id
+      stops << Bot.find(bot.id).stop if sent.one?
+      Result::Success.new(order_id: "OID-#{sent.size}")
+    end
+
+    assert bot.transition_working!(:executing) # the tick's claim
+
+    result = bot.set_orders(total_orders_amount_in_quote: 200.to_d)
+
+    assert_predicate result, :success?
+    assert_equal [true], stops
+    assert_equal 1, sent.size, 'only the leg sent before the stop'
+    assert_equal ['OID-1'], bot.transactions.pluck(:external_id)
+  end
+
   # Part (b) — the real reschedule/second tick via execute_action → pending_quote_amount.
   # Once the first member is waiting (and, in steady state, filled), the composition sees it at/above
   # target so its offset is zero → market_buy must NOT fire again for that member's ticker.

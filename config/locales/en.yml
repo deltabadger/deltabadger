@@ -34,7 +34,8 @@ en:
   engine:
     # Rust only: a write the Rust engine cannot run is refused (422). Other locales fall back to English.
     write_refused: "This app can't run that yet: %{reason}"
-    # Rust only: a start on a bot that is already working (a stale tab) is refused, as Rails' API refuses it (409).
+    # A start on a bot that is already working (a stale tab) is refused with 422; the REST API answers 409.
+    # This and invalid_start_fresh are English only; other locales fall back.
     already_running: "This bot is already running."
     invalid_start_fresh: "Choose whether to start fresh or continue."
     # Shared with Rails: Bot#trading_key_ready refuses a start with it.

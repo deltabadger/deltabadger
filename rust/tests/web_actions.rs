@@ -166,7 +166,7 @@ mod action_transport {
         let (status, got) = h.send("PATCH", "/bots/1", "application/json", Body::from(value.to_string())).await;
         assert_eq!(status, 200); assert_eq!(got["json"], value);
         assert_eq!(got["permitted"]["smart_intervaled"], true);
-        for (flag, expected) in [(json!(true),Ok(true)),(json!(false),Ok(false)),(json!(1),Ok(true)),(json!(0),Ok(false)),(json!({}),Err(action_params::StartFlagError::Invalid)),(json!([]),Err(action_params::StartFlagError::Invalid)),(Value::Null,Err(action_params::StartFlagError::Invalid)),(json!(1.0),Err(action_params::StartFlagError::Invalid))] {
+        for (flag, expected) in [(json!(true),Ok(true)),(json!(false),Ok(false)),(json!(1),Ok(true)),(json!(0),Ok(false)),(json!({}),Err(action_params::StartFlagError::Invalid)),(json!([]),Err(action_params::StartFlagError::Invalid)),(Value::Null,Ok(true)),(json!(1.0),Err(action_params::StartFlagError::Invalid))] {
             let params = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
                 query: vec![("start_fresh".into(),"true".into())], form: vec![], json: Some(json!({"start_fresh":flag})) };
             let parsed = match ActionParams::parse(&params) { Ok(p) => p, Err(e) => panic!("{e:?}") };
@@ -962,7 +962,8 @@ mod action_write {
     async fn action_lifecycle_start_flags_carry_and_handoff() -> Result {
         for status in [0,2] {
             for paid in [false,true] {
-                for flag in [None,Some(json!(true)),Some(json!(false)),Some(json!("TRUE")),Some(json!("0"))] {
+                // A JSON null starts fresh, as no flag does (Rails reads params[:start_fresh].nil?).
+                for flag in [None,Some(Value::Null),Some(json!(true)),Some(json!(false)),Some(json!("TRUE")),Some(json!("0"))] {
                     let f=Fixture::new()?;
                     f.c.execute("UPDATE bots SET status=?1,transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:00.000Z','$.missed_quote_amount','3.75') WHERE id=?2",(status,f.id))?;
                     if paid { seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("paid".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("10"),price:Some("10000"),quote_amount_exec:Some("10"),amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()}); }
@@ -979,7 +980,7 @@ mod action_write {
                 }
             }
         }
-        for flag in [json!("bad"),json!(null),json!([]),json!({})] {
+        for flag in [json!("bad"),json!([]),json!({})] {
             let f=Fixture::new()?; let before=f.snapshot()?;
             assert!(matches!(f.lifecycle(write::Action::Start,Some(flag))?,Outcome::Invalid(_)));
             assert_eq!(f.snapshot()?,before);

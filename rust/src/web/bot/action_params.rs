@@ -73,7 +73,8 @@ impl ActionParams {
     /// Only Start uses Ruby's scalar to_s conversion; typed settings remain typed.
     pub fn start_fresh(&self) -> Result<bool, StartFlagError> {
         match self.0.get("start_fresh") {
-            None => start_fresh(None),
+            // A JSON null is Rails' params[:start_fresh].nil?: start fresh, as with no flag.
+            None | Some(Value::Null) => start_fresh(None),
             Some(Value::String(s)) => start_fresh(Some(s)),
             Some(Value::Bool(true)) => start_fresh(Some("true")),
             Some(Value::Bool(false)) => start_fresh(Some("false")),

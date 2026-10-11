@@ -560,7 +560,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 154, "all action scenarios must remain selected");
+        assert_eq!(dirs.len(), 155, "all action scenarios must remain selected");
     }
     let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
@@ -606,8 +606,8 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 157, "completed read-only baseline");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3, "complete S1 inventory");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 154, "action inventory");
-        assert_eq!(dirs.len(), 157 + 154 + 413 + 3, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 155, "action inventory");
+        assert_eq!(dirs.len(), 157 + 155 + 413 + 3, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -732,21 +732,24 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if let Some(error)=row_difference(side,&response["rows_before"],&response["rows_after"]) { return Err(error); }
                 }
             }
-            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
+            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_missing"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
             let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive");
             let scope=matches!(n,"start_invalid"|"modal_within_modal"|"start_within_true"|"start_within_false"|"update_exchange_ibkr");
             let safety=matches!(n,"stop_invalid"|"archive_invalid"|"stop_archived");
-            let flag=matches!(n,"start_missing"|"start_junk");
+            // No flag starts fresh (start_missing is an ordinary guarded start); only a junk flag is refused as such.
+            // A junk flag is refused before the row is read, so a working bot answers it too (start_junk_working).
+            let flag=matches!(n,"start_junk"|"start_junk_working");
             let empty=n=="extra_empty_root";
             if start_guard || working_start || working_settings || html || scope || safety || flag || empty {
-                let rails_status=if html {406} else if flag {500}
-                    else if empty {400} else if matches!(n,"start_no_key"|"start_invalid"|"start_within_true"|"start_within_false"|"stop_invalid"|"archive_invalid") {422} else {200};
+                let rails_status=if html {406}
+                    else if empty {400} else if working_start || flag || matches!(n,"start_no_key"|"start_invalid"|"start_within_true"|"start_within_false"|"archive_invalid") {422} else {200};
                 let rust_status=if empty {400} else if html {406} else if scope {501} else if safety {200} else {422};
                 if a["status"]!=rails_status || b["status"]!=rust_status { return Err(format!("{n}: expected Rails {rails_status}, Rust {rust_status}; got {} / {}",a["status"],b["status"])) }
                 // HTML update, stop and archive are refused before they write; HTML start still commits first.
-                let rails_rows=expected_action_rows(n,step,&a["rows_before"],rails_status==200 || n=="extra_html_start_start_fresh_true")?;
+                // Rails' stop skips settings validation, so an invalid row stops as any other does.
+                let rails_rows=expected_action_rows(if n=="stop_invalid" {"extra_html_stop"} else {n},step,&a["rows_before"],rails_status==200 || n=="extra_html_start_start_fresh_true")?;
                 if let Some(error)=row_difference("Rails measured action",&rails_rows,&a["rows_after"]) { return Err(error) }
                 let rust_rows=if safety { expected_action_rows(if n=="archive_invalid" {"extra_html_archive"}else{"extra_html_stop"},step,&b["rows_before"],true)? } else { b["rows_before"].clone() };
                 if let Some(error)=row_difference("Rust fixed action contract",&rust_rows,&b["rows_after"]) { return Err(error) }
@@ -764,11 +767,12 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if n=="archive_invalid" && stream_targets(b)!=vec!["status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","menu_bots_dca_multi_asset_1","bot-count"] { return Err("safety Archive fragments differ".into()) }
                     if n=="stop_archived" && stream_targets(b)!=vec!["settings","exchange_select","status_button_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_2"] { return Err("archived Stop fragments differ".into()) }
                 } else {
-                    let six=working_start || working_settings || empty;
+                    // A refused start on a working bot re-renders its panel, whichever refusal it is.
+                    let six=working_start || n=="start_junk_working" || working_settings || empty;
                     let targets=stream_targets(b);
                     let wanted=if six { vec!["label_bots_dca_multi_asset_1","settings","exchange_select","status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","flash"] } else {vec!["flash"]};
                     if targets!=wanted { return Err(format!("{n}: stream targets {targets:?}, expected {wanted:?}")) }
-                    let key=if working_start {"engine.already_running"} else if n=="start_junk" {"engine.invalid_start_fresh"} else {"engine.write_refused"};
+                    let key=if working_start {"engine.already_running"} else if flag {"engine.invalid_start_fresh"} else {"engine.write_refused"};
                     if start_guard || working_start || working_settings || flag {
                         let text=deltabadger::web::i18n::text(locale,key,&[("reason",deltabadger::web::i18n::Arg::Text("[reason]"))]);
                         let needle=text.split("[reason]").next().ok_or("translation")?;

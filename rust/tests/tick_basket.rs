@@ -468,3 +468,33 @@ async fn a_changed_other_member_ticker_fences_the_whole_sized_basket() {
     assert!(t.posted_orders().is_empty(), "even the unchanged BTC leg was sized from the changed basket");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
 }
+
+/// Answers as `inner`, and right after the first order is accepted the bot is stopped, started again and claimed by a new
+/// tick: the run the old tick sized its legs on is gone.
+struct RestartedAfterFirstLeg { inner: ScriptedTransport, db: std::path::PathBuf, id: i64 }
+impl deltabadger::venue::http::Transport for RestartedAfterFirstLeg {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        let reply = self.inner.send(r).await;
+        if r.method == "POST" && r.path == "/v2/orders" && self.inner.posted_orders().len() == 1 {
+            let c = rusqlite::Connection::open(&self.db).unwrap();
+            c.execute("UPDATE bots SET status = 4, transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-01T10:00:01.000Z') WHERE id = ?1", [self.id]).unwrap();
+        }
+        reply
+    }
+}
+
+/// Automation::Statusable::FENCED: a tick whose run was taken by a stop and a restart places nothing more and writes nothing
+/// after it, so the restarted run's own claim (executing, its last_action_job_at) survives the old tick.
+#[tokio::test(flavor = "current_thread")]
+async fn a_tick_fenced_by_a_restart_leaves_the_new_run_alone() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.5]);
+    let t = script(json!({}));
+    let v = AlpacaVenue::new(RestartedAfterFirstLeg { inner: t.clone(), db: o.primary.path().unwrap().into(), id }, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
+    let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    assert_eq!(notionals(&t).len(), 1, "leg 2 was sized on the old run");
+    let b = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(b.status, BotStatus::Executing, "no :waiting or :scheduled over the new run's claim");
+    assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:01.000Z");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 1, "leg 1 stands");
+}

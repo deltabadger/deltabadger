@@ -1,7 +1,7 @@
 {
   "synthetic_only": true,
   "sources": {
-    "app/models/bot/composition/order_setter.rb": "d05c4c8556749dd1c922bcf73207e3a5356e256776e47dde75a13d29b8470045",
+    "app/models/bot/composition/order_setter.rb": "db09caa8eca2a6ea75c4c37a6bff8502b2f1dbcf92bc84163541fa3ac22c15b7",
     "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
     "app/models/bot/order_setter.rb": "8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff",
     "app/models/bot/order_creator.rb": "437ac63de1299373d469a8f436d75d2002722a8e7ca960d167e93c8ae9980990",

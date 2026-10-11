@@ -42,7 +42,7 @@ class Bot::LifecycleStartCancelTest < ActiveSupport::TestCase
   end
 
   test 'a restart that reschedules rather than trading now also cancels first' do
-    bot = create(:dca_single_asset, :started)
+    bot = create(:dca_single_asset, :stopped)
     bot.stubs(:restarting_within_interval?).returns(true)
     order = sequence('restart_order')
     bot.expects(:cancel_scheduled_action_jobs).in_sequence(order)
@@ -51,10 +51,10 @@ class Bot::LifecycleStartCancelTest < ActiveSupport::TestCase
     bot.start(start_fresh: false)
   end
 
-  # A start that fails validation must leave the running bot's chain intact — cancelling on the
-  # failure path would silently stop a bot the user never asked to stop.
+  # A start that fails validation must leave the bot's chain as it was: a failed start changes
+  # nothing. (A working bot never gets this far; its start is refused first.)
   test 'a start that fails validation does not cancel the existing chain' do
-    bot = create(:dca_single_asset, :started)
+    bot = create(:dca_single_asset, :stopped)
     bot.stubs(:valid?).returns(false)
     bot.expects(:cancel_scheduled_action_jobs).never
     Bot::ActionJob.expects(:perform_later).never
@@ -64,7 +64,7 @@ class Bot::LifecycleStartCancelTest < ActiveSupport::TestCase
 
   # The end-to-end property that actually matters: one bot, one live chain.
   test 'starting a bot that already has a scheduled job leaves exactly one action job' do
-    bot = create(:dca_single_asset, :started)
+    bot = create(:dca_single_asset, :stopped)
     SolidQueue::Job.where(class_name: 'Bot::ActionJob').destroy_all
     Bot::ActionJob.set(wait_until: 1.day.from_now).perform_later(bot)
     assert_equal 1, action_jobs_for(bot).count, 'precondition: one scheduled job'

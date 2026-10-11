@@ -58,6 +58,13 @@ module Bot::Composition::OrderSetter
           next
         end
 
+        # Stopped since the tick sized this leg: send nothing more (Automation::Statusable#stopped_mid_tick?).
+        # Ahead of the wash-sale claim below, which must not be taken for a sale that never leaves.
+        if stopped_mid_tick?
+          Rails.logger.info("set_orders composition bot=#{id} event=order_not_placed_stopped #{order_log_fields(order_data)}")
+          return Automation::Statusable::FENCED
+        end
+
         # A sale at a loss locks the name BEFORE it leaves, as the rebalance and liquidation legs do: the
         # fill path only locks from a terminal fill, and a resting or partly filled sell would leave the
         # name open to a buy from any bot on the account in the meantime. Taken per order, so a later
