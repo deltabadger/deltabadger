@@ -1,8 +1,7 @@
 //! Settings and lifecycle writes own their observation, response construction and post-commit delivery.
 //! Call from App::db: cancelling its await must not cancel the committed write's wake.
 use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, Bot, For, Kind};
-use crate::{codec, engine::{eligibility, model}, ruby::BigDec};
-use crate::web::format::Num;
+use crate::{codec, engine::{eligibility, model}};
 use crate::web::{bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -196,18 +195,6 @@ fn settings_inner<T>(
 
 pub use crate::engine::accounting::web_pending as pending;
 use crate::engine::accounting::{web_effective_amount as effective_amount, web_serialized as serialized, web_minimum as minimum};
-/// A stored transient value against the one assigned, by Ruby's `==`: `assigned` is nil, a BigDecimal (written as its
-/// text) or a settings number. A stored text is a String, never equal to a BigDecimal.
-fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
-    let Some(old) = Num::from_json(stored).and_then(|n| n.to_d()) else { return stored.is_null() && assigned.is_null() };
-    match assigned {
-        // A text that is no number equals no stored number.
-        Value::String(text) => match BigDec::parse(text) { Ok(new) => old == new, Err(_) => false },
-        Value::Number(_) => Num::from_json(assigned).and_then(|n| n.to_d()) == Some(old),
-        _ => false,
-    }
-}
-
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
     transient_data = json_set(CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
@@ -406,20 +393,16 @@ fn lifecycle_inner<T>(
         }
         if delayed.is_some() {
             // Lifecycle#start assigns last_action_job_at and the carry nil, then captures after assigning the future
-            // anchor. Accountable lands the capture (`[missed_quote_amount.to_d, effective_quote_amount].min`) only when
-            // the settings changed (a new start_at) and restores the nil otherwise; ActiveRecord then writes
-            // transient_data only when the hash differs, by Ruby's ==, from the stored one.
+            // anchor. The capture lands only when start_at changes, and keeps the pending amount's
+            // numeric class. Start's new generation always dirties transient_data, so Rails writes
+            // that capture even when its numeric value equals the old one (0.0 versus 0).
             let missed=if effects.settings_changed {
-                let carry=pending(&tx,&draft.candidate,ctx.now)?.to_d().ok_or_else(||error("carry is not finite"))?;
-                serialized(minimum(Num::Dec(carry),effective_amount(&draft.candidate)?)?)?
+                serialized(minimum(pending(&tx,&draft.candidate,ctx.now)?,effective_amount(&draft.candidate)?)?)?
             } else {Value::Null};
             // A store_accessor writer does not materialize an absent key when assigned nil.
             let mut start=vec![("missed_quote_amount",missed),("missed_quote_amount_was_set",Value::Null)];
             if draft.raw_transient.contains_key("last_action_job_at") { start.push(("last_action_job_at",Value::Null)); }
-            let own=|key:&String| key=="last_action_job_at" || start.iter().any(|(k,_)| k==key);
-            let same=effects.transient.set.keys().all(own) && effects.transient.remove.is_empty()
-                && start.iter().all(|(k,v)| draft.raw_transient.get(*k).is_some_and(|old| ruby_equal(old,v)));
-            if same { effects.transient.set.retain(|k,_| !own(k)); } else { for (k,v) in start { effects.transient.set.insert(k.into(),v); } }
+            for (k,v) in start { effects.transient.set.insert(k.into(),v); }
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }

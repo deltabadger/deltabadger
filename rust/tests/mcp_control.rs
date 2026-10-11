@@ -166,7 +166,7 @@ async fn control_transcripts() {
             // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
             for transcript in [&want, &got] {
                 let response:Value=serde_json::from_str(transcript["responses"][2]["body"].as_str().unwrap()).unwrap();
-                assert_eq!(response["result"]["isError"],Value::Null,"Rails validation classification {name}");
+                assert_eq!(response["result"]["isError"],true,"Rails validation classification {name}");
                 assert_eq!(response["result"]["content"][0]["text"],"Failed to start bot 'Control': A valid trading API key is required to start this bot.","{name}");
                 assert_eq!(transcript["rows"]["bots"][0]["status"],0,"key refusal does not arm {name}");
             }

@@ -214,13 +214,24 @@ mod action_race {
             _=tokio::time::sleep(LIMIT)=>return Err("engine did not reach scripted barrier; HTTP writer not started".into()),
         }
         if !after_send {assert!(f.transient()?.get("rust_placement").is_none());}
-        f.ok("PATCH",stop,&[]).await?;
+        let completed = if after_send {
+            let finish = async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                release.notify_one();
+                tokio::time::timeout(LIMIT,&mut future).await
+            };
+            let (stopped, ticked) = tokio::join!(f.ok("PATCH",stop,&[]), finish);
+            stopped?;
+            Some(ticked)
+        } else { f.ok("PATCH",stop,&[]).await?; None };
         if edit {
             f.ok("PATCH","",&[("allocations","BTC:0,ETH:100")]).await?;
             if restart { f.ok("PATCH","/start",&[]).await?; f.clock.set(harness::at("2026-09-03T15:00:00.002Z")); }
         }
-        release.notify_one();
-        let outcome=tokio::time::timeout(LIMIT,&mut future).await?.map_err(|e|format!("{e:?}"))?;
+        let outcome = match completed {
+            Some(outcome) => outcome,
+            None => { release.notify_one(); tokio::time::timeout(LIMIT,&mut future).await }
+        }?.map_err(|e|format!("{e:?}"))?;
         assert!(f.transient()?.get("rust_placement").is_none(),"{outcome:?}");
         assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,if restart {1} else if stop=="/archive" {7} else if stop=="/delete" {3} else {2});
         assert_eq!(script.submissions.borrow().len(),usize::from(after_send));
@@ -444,7 +455,7 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
             let response:Value=serde_json::from_str(&answer.body)?;
             assert_eq!(response["result"]["isError"],if suffix=="/stop" {Value::Null}else{json!(true)},"R1 lifecycle {suffix}: {}",answer.body);
             if suffix=="/stop" {
-                assert_eq!(response["result"]["content"][0]["text"],"Bot 'Race' stopped.","R1 lifecycle /stop");
+                assert_eq!(response["result"]["content"][0]["text"],"Bot 'Race' stopped. Orders already sent to the exchange may still execute.","R1 lifecycle /stop");
                 assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
                 f.woke(true).await?;
                 let script=Script::new(f.clock.clone());
