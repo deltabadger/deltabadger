@@ -371,3 +371,6 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
     notes.sort_by(|a, b| (a.symbol.as_str(), a.kind).cmp(&(b.symbol.as_str(), b.kind)));
     Ok(Figures { total: (&value - &invested)?, value, invested, fees: ledger.fees.clone(), realised: ledger.realised.clone(), unrealised, holdings, notes })
 }
+
+/// Page-specific cold results share this service and its decimal boundary.
+pub mod page;
