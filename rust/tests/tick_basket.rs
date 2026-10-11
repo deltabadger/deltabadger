@@ -560,3 +560,30 @@ async fn ownership_fenced_tick_skips_failing_balance_and_failure_writes() {
     assert_eq!(model::load_bot(&o.primary,id).unwrap().status,BotStatus::Executing);
     assert!(!t.requests().iter().any(|r|r.path=="/v2/account"),"a fenced tick never reads balances");
 }
+
+struct OwnershipDuringVenueCreation { inner: ScriptedTransport, db: String, id: i64 }
+impl deltabadger::venue::VenueFactory for OwnershipDuringVenueCreation {
+    type V = AlpacaVenue<ScriptedTransport>;
+    fn for_bot(&self, _: &str, _: Option<deltabadger::crypto::Credentials>) -> Self::V {
+        // The engine already read its due bot. STOP + resume now creates a different scheduled run.
+        rusqlite::Connection::open(&self.db).unwrap().execute(
+            "UPDATE bots SET status=1, transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1", [self.id]).unwrap();
+        venue(&self.inner)
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_engine_keeps_the_run_selected_before_venue_creation() {
+    use deltabadger::engine::run::{self, Engine};
+    let (d, o, id, _, _) = basket_bot(60.0, &[1.0]);
+    let t = script(json!({}));
+    let factory = OwnershipDuringVenueCreation { inner: t.clone(), db:o.primary.path().unwrap().into(), id };
+    let paths=store::Paths::from_env(&|_|None,d.path());
+    let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+    let mut engine=Engine::new(o.primary,factory,seed::cipher(),lock);
+    run::step(&mut engine,&FixedClock(at(T0))).await.unwrap();
+    assert!(t.posted_orders().is_empty(),"the pass cannot adopt the run created while building its venue");
+    let bot=model::load_bot(&engine.primary,id).unwrap();
+    assert_eq!(bot.status,BotStatus::Scheduled);
+    assert!(bot.last_action_job_at_us().unwrap().is_none());
+}

@@ -61,6 +61,7 @@ class Bots::DcaMultiAssetBelowMinimumsTest < ActiveSupport::TestCase
     bot.expects(:broadcast_below_minimums_warning).with(first_tick: true)
     bot.execute_action
     skipped(bot, @base) # what that first tick wrote
+    bot.update_column(:status, :scheduled) # ActionJob completes before the next tick can claim
     bot.expects(:broadcast_below_minimums_warning).with(first_tick: false)
     bot.execute_action
   end
@@ -75,6 +76,7 @@ class Bots::DcaMultiAssetBelowMinimumsTest < ActiveSupport::TestCase
     create(:ticker, exchange: bot.exchange, base_asset: @base, quote_asset: bot.quote_asset)
     skipped(bot, @base)
     bot.expects(:broadcast_below_minimums_warning).with(first_tick: false)
+    bot.update_column(:status, :scheduled) # ActionJob completes before the next tick can claim
     bot.execute_action
   end
 

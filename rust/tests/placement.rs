@@ -270,3 +270,24 @@ async fn ownership_resume_in_the_same_second_does_not_reuse_dispatch_identity() 
     let _=placement::send(&v,&intent,&FixedClock(t0())).await;
     assert!(v.sent().is_empty(), "a resumed run is a new owner even at identical timestamps");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_recovery_does_not_defer_a_restarted_run() {
+    let (_d,o,bot,plan)=setup();
+    placement::begin(&o.primary,&bot,&plan,&FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1,'$.last_action_job_at','2026-09-30T12:00:01.000Z') WHERE id=?1",[bot.id]).unwrap();
+    assert!(matches!(placement::recover(&o.primary,&FakeVenue::new(),&reload(&o,&bot),&FixedClock(t0()+Duration::seconds(70))).await.unwrap(),Recovery::NotPlaced));
+    let current=reload(&o,&bot);
+    assert!(current.rust_placement().is_none(),"the old intent was conclusively resolved");
+    assert!(current.rust_defer_until_us().unwrap().is_none(),"an old intent cannot defer the new run");
+    assert_eq!(current.status,deltabadger::enums::BotStatus::Executing);
+}
+
+#[test]
+fn ownership_resuming_at_the_same_timestamp_invalidates_a_persisted_wait() {
+    let (_d,o,bot,_)=setup();
+    placement::defer_to_next_checkpoint(&o.primary,&bot,t0()).unwrap();
+    let previous=bot.schedule_key().unwrap();
+    o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1",[bot.id]).unwrap();
+    assert_ne!(reload(&o,&bot).schedule_key().unwrap(),previous,"a deferral belongs to one lifecycle generation");
+}
