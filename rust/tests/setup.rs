@@ -746,7 +746,7 @@ async fn recurring_jobs_resolve_market_data_config_at_each_run() {
         if initially_configured { set(&old.uri(), "old-token"); }
         let api = std::rc::Rc::new(data_api::config(&|_| None, &c, &app.cipher).unwrap().map(DataApi::live));
         let resolve = jobs::resolve::all(deltabadger::venue::alpaca::LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall());
-        let job = jobs::resolve::configured(resolve(jobs::reference::ASSETS, None).unwrap(), &|_| None);
+        let job = jobs::resolve::configured(resolve(jobs::reference::ASSETS, None).unwrap(), &|_| None, Default::default());
         set(&new.uri(), "new-token");
         let db = Db::new(c, app.cipher.clone());
         job.run(Cx { db: db.clone(), clock: &*clock, wakers: Wakers::default() }, vec![]).await;

@@ -166,6 +166,15 @@ fn listed_binance(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
             check(key_error(rust) == "unreadable free: not a plain decimal number", &format!("Rust's error: {}", key_error(rust)))?;
             Ok(())
         })(),
+        // A data-API number sent as a string that is no plain decimal: Ruby's String#to_f guesses a number and Rails writes
+        // the balances at it; Rust fails the sync, writes no balance and records which number it refused.
+        "binance-balances-rate_spelling" | "binance-balances-rate_zero_padded" | "binance-balances-price_underscore_exponent" => (|| {
+            let refused = if name.ends_with("price_underscore_exponent") { "unreadable price for bitcoin: not a plain decimal number" } else { "unreadable exchange rate for eur: not a plain decimal number" };
+            check(balances(rails).iter().any(|r| !r["after"].is_null()), "Rails no longer writes balances at a guessed number: drop the listed divergence")?;
+            check(balances(rust).is_empty(), &format!("Rust wrote balances: {:?}", balances(rust)))?;
+            check(key_error(rust) == refused, &format!("Rust's error: {}", key_error(rust)))?;
+            Ok(())
+        })(),
         // No exchange rate for EUR: Rails asks the coin market for "eur" and stores its answer as the price of cash;
         // Rust asks for no cash at the coin market and leaves the EUR row unpriced. Everything else is the same.
         "binance-balances-no_rate" => (|| {
@@ -254,7 +263,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), dirs.len()), (58, 41, 18, 117), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), dirs.len()), (58, 41, 21, 120), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -278,7 +287,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    let mut expected=["binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+    let mut expected=["binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -394,6 +403,10 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(num(&first[3]["after"]["usd_price"]), Some(1.09091322), "EUR at 60000.5 / 55000.25");
     let eur_price = |name: &str| rows(&rails_of(name), "account_balances").iter().find(|r| r["after"]["asset_id"] == 8).and_then(|r| num(&r["after"]["usd_price"]));
     assert_eq!(eur_price("binance-balances-rate_spelling"), Some(1.1), "String#to_f reads \"1_000\" as 1000");
+    assert_eq!(eur_price("binance-balances-rate_zero_padded"), Some(1.1), "String#to_f reads 256 zeros then 1 as 1");
+    assert_eq!(eur_price("binance-balances-rate_plain_string"), Some(1.1));
+    let btc_price = rows(&rails_of("binance-balances-price_underscore_exponent"), "account_balances").iter().find(|r| r["after"]["asset_id"] == 5).and_then(|r| num(&r["after"]["usd_price"]));
+    assert_eq!(btc_price, Some(1.0), "String#to_f reads \"1_e2\" as 1");
     let asked_rates = |step: usize| rails_of("binance-balances-rate_cached")["steps"][step]["requests"].as_array().unwrap().iter().any(|r| r[0] == "GET /api/v1/exchange_rates");
     assert_eq!((asked_rates(0), asked_rates(1), asked_rates(2)), (true, false, true), "a fiat rate is held 12 hours");
     assert_eq!(eur_price("binance-balances-rate_cached"), Some(1.3), "the rate asked for after 12 hours");

@@ -638,10 +638,20 @@ module SyncScenarios
         steps: [P.binance_balances(night, account: P.binance_account(['BTC', '', '0'], %w[ETH 1.5]), prices: coins)] },
       { name: 'binance-balances-whitespace_free', setup: seeded,
         steps: [P.binance_balances(night, account: P.binance_account(['BTC', '   ', '0'], %w[ETH 1.5]), prices: coins)] },
-      # A rate written as a string is read by String#to_f, which skips digit-separating underscores: EUR at 1100 / 1000.
+      # Listed divergences: a data-API number sent as a string is read only as a plain decimal. Ruby's String#to_f reads
+      # "1_000" as 1000, "1_e2" as 1 and 256 zeros then 1 as 1; Rust refuses each and fails the sync.
       { name: 'binance-balances-rate_spelling', setup: install,
         steps: [P.binance_balances(night, account: cash, rates: P.ok('data' => { 'eur' => { 'value' => '1_000' }, 'usd' => { 'value' => 1100 } }),
                                    prices: coins)] },
+      { name: 'binance-balances-price_underscore_exponent', setup: install,
+        steps: [P.binance_balances(night, account: cash, rates: eur_at.call(1.1), prices: P.prices_body('bitcoin' => '1_e2'))] },
+      { name: 'binance-balances-rate_zero_padded', setup: install,
+        steps: [P.binance_balances(night, account: cash, rates: P.ok('data' => { 'eur' => { 'value' => "#{'0' * 256}1" }, 'usd' => { 'value' => 1.1 } }),
+                                   prices: coins)] },
+      # A plain decimal string is read as the number it spells, on both sides.
+      { name: 'binance-balances-rate_plain_string', setup: install,
+        steps: [P.binance_balances(night, account: cash, rates: P.ok('data' => { 'eur' => { 'value' => '1' }, 'usd' => { 'value' => '1.10' } }),
+                                   prices: P.prices_body('bitcoin' => '60000.50'))] },
       # Repeat syncs: a fiat rate is held 12 hours (Utilities::Currency::STABLE_CACHE_DURATION). A minute later the
       # first rate is used and the rates are not asked for; 13 hours later they are asked for again.
       { name: 'binance-balances-rate_cached', setup: install,

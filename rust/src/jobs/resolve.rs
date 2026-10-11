@@ -1,7 +1,8 @@
 //! Construction of every registered job type; scheduler handles late scope registration.
-use super::{Job,Resolver,data_api::DataApi};
+use super::{Job,Resolver,data_api::{DataApi,RateCache}};
 use crate::{sync::jobs::{self,Connect},venue::http::Transport,tracker};
 use std::rc::Rc;
+use std::sync::Arc;
 pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<DataApi<T>>>,wall:tracker::jobs::Wall)->Resolver{
     Box::new(move|name,scope|{
         if scope.is_none(){
@@ -20,29 +21,37 @@ pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<D
 /// Live scheduler jobs resolve the market-data configuration at the start of each run. Keep the
 /// original job for its spec and event subscriptions; construct its consumer with the current client.
 /// This also wraps late scopes, so a claim applies to balance and tracker jobs created after startup.
-pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>) -> Box<dyn Job> {
+/// `rates`: the engine's one fiat-rate cache (Utilities::Currency's Rails.cache entries), shared by every run.
+pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>) -> Box<dyn Job> {
+    configured_with(job, env, rates, crate::venue::alpaca::LiveFactory::new())
+}
+
+/// `configured`, reaching the venues through `venues`.
+pub fn configured_with<C: Connect + Clone + 'static>(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>, venues: C) -> Box<dyn Job> {
     let name = job.spec().name;
     let uses_data = super::reference::specs().iter().any(|s| s.name == name && name != super::reference::PRUNE)
         || matches!(name, jobs::BALANCE_SYNC | tracker::jobs::TRACKER_LEDGER | tracker::jobs::PORTFOLIO_BACKFILL);
     if !uses_data { return job; }
     let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
-    Box::new(Configured { job, env })
+    Box::new(Configured { job, env, rates, venues })
 }
 
-pub fn configured_resolver(resolve: Resolver, env: &dyn Fn(&str) -> Option<String>) -> Resolver {
+pub fn configured_resolver(resolve: Resolver, env: &dyn Fn(&str) -> Option<String>, rates: Arc<RateCache>) -> Resolver {
     let env: Vec<_> = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
     Box::new(move |name, scope| {
         let job = resolve(name, scope)?;
-        Ok(configured(job, &|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone())))
+        Ok(configured(job, &|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone()), rates.clone()))
     })
 }
 
-struct Configured {
+struct Configured<C: Connect> {
     job: Box<dyn Job>,
     env: Vec<(&'static str, String)>,
+    rates: Arc<RateCache>,
+    venues: C,
 }
 
-impl Job for Configured {
+impl<C: Connect + Clone + 'static> Job for Configured<C> {
     fn spec(&self) -> super::Spec { self.job.spec() }
     fn wants(&self, event: &crate::engine::events::EngineEvent) -> bool { self.job.wants(event) }
     fn run<'a>(&'a self, cx: super::Cx<'a>, wakes: Vec<super::Wake>) -> super::JobFuture<'a> {
@@ -55,11 +64,11 @@ impl Job for Configured {
                 super::data_api::config(&|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone()), c, cipher)
             }).await;
             let api = match config {
-                Ok(config) => Rc::new(config.map(DataApi::live)),
+                Ok(config) => Rc::new(config.map(|config| DataApi::live(config).with_rates(self.rates.clone()))),
                 Err(e) => return crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
             };
             let spec = self.spec();
-            let resolve = all(crate::venue::alpaca::LiveFactory::new(), api, tracker::jobs::system_wall());
+            let resolve = all(self.venues.clone(), api, tracker::jobs::system_wall());
             match resolve(spec.name, spec.scope.as_deref()) {
                 Ok(job) => job.run_attributed(cx, wakes).await,
                 Err(e) => crate::engine::model::Produced::new(super::Outcome::Failed(e), None),

@@ -35,6 +35,10 @@ pub trait Connect {
     fn binance_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("Binance is not connected here")
     }
+    /// The host a Binance or Binance.US key's reads go to (`venue::binance::host`); a test points it at a local server.
+    fn binance_base(&self, exchange_type: &str) -> Option<String> {
+        crate::venue::binance::host(exchange_type).map(|(base, _)| base.to_string())
+    }
 }
 impl Connect for LiveFactory {
     type T = ReqwestTransport;
@@ -176,7 +180,7 @@ impl<C: Connect> Job for BalanceSync<C> {
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),
                 Ok((venue, proxy)) if crate::venue::binance::host(&venue).is_some() =>
-                    balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), &|t| self.venues.binance_base(t), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 Ok(_) => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
             };
             let outcome = outcome(done, |_| true);

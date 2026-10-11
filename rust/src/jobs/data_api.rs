@@ -45,11 +45,13 @@ pub enum ApiError {
     Transient(String),
     /// A Result::Failure: an HTTP error (`status`), an unreadable body, or a permanent transport failure (no status).
     Failed { status: Option<u16>, message: String },
+    /// An answer holding a number the engine will not read (`to_f`): the caller stops, never goes on without it.
+    Refused(String),
 }
 
 impl ApiError {
     pub fn message(&self) -> String {
-        match self { Self::Transient(m) | Self::Failed { message: m, .. } => m.clone() }
+        match self { Self::Transient(m) | Self::Failed { message: m, .. } | Self::Refused(m) => m.clone() }
     }
     /// MarketData.rate_limited_failure? (market_data.rb:423-426): a 429, which the stock and Alpaca listing syncs raise as
     /// Client::RateLimitedError.
@@ -80,7 +82,7 @@ impl Transport for ApiTransport {
     }
 }
 
-pub struct DataApi<T: Transport> { pub config: Config, normal: T, bulk: T, rates: RateCache }
+pub struct DataApi<T: Transport> { pub config: Config, normal: T, bulk: T, rates: std::sync::Arc<RateCache> }
 
 impl DataApi<ApiTransport> {
     pub fn live(config: Config) -> Self {
@@ -91,12 +93,14 @@ impl DataApi<ApiTransport> {
             } else { Err("market-data URL must have an HTTP(S) host".into()) });
         let normal = ApiTransport::new(http::client(), &config.token, base.clone());
         let bulk = ApiTransport::new(http::client_with(http::CONNECT_TIMEOUT, BULK_READ_TIMEOUT, BULK_TOTAL), &config.token, base);
-        Self { config, normal, bulk, rates: RateCache::default() }
+        Self { config, normal, bulk, rates: Default::default() }
     }
 }
 
 impl<T: Transport> DataApi<T> {
-    pub fn new(config: Config, normal: T, bulk: T) -> Self { Self { config, normal, bulk, rates: RateCache::default() } }
+    pub fn new(config: Config, normal: T, bulk: T) -> Self { Self { config, normal, bulk, rates: Default::default() } }
+    /// The rate cache this client reads and writes: the engine's one cache, which every run's client shares.
+    pub fn with_rates(mut self, rates: std::sync::Arc<RateCache>) -> Self { self.rates = rates; self }
 
     /// MarketDataSettings.deltabadger_public_url (market_data_settings.rb:60-70): logo paths are served to browsers, so the
     /// docker alias `data-api` becomes the public host.
@@ -163,20 +167,41 @@ impl<T: Transport> DataApi<T> {
         for id in external_ids { if !ids.contains(&id.as_str()) { ids.push(id); } }
         if ids.is_empty() { return Ok(BTreeMap::new()); }
         let body = self.get("/api/v1/prices", &[("coin_ids", &ids.join(",")), ("vs_currencies", currency)], false).await?;
-        Ok(ids.into_iter().filter_map(|id| to_f(&body["data"][id][currency]).map(|p| (id.to_string(), p))).collect())
+        read_prices(&body, &ids, currency)
     }
 }
 
-/// `price.to_f if price`: nil and false are no price; a number is itself; a String is String#to_f (a leading numeric
-/// prefix, digit-separating underscores skipped, else 0.0: web::bot::action_params::numeric). A string whose prefix no
-/// double holds (Ruby: Infinity) is no price here, never a different one.
-pub(crate) fn to_f(v: &Value) -> Option<f64> {
-    match v {
-        Value::Null | Value::Bool(false) => None,
-        Value::Number(n) => n.as_f64(),
-        Value::String(_) => crate::web::bot::action_params::numeric(v, false).ok()?.as_f64(),
-        _ => None,
+/// `dig('data', id, currency)` of a prices answer, read with `to_f` for each id: one that is not priced is absent; one
+/// whose price `to_f` refuses refuses the whole answer (ApiError::Refused, naming the id).
+pub fn read_prices(body: &Value, ids: &[&str], currency: &str) -> Result<BTreeMap<String, f64>, ApiError> {
+    let mut found = BTreeMap::new();
+    for id in ids {
+        let price = to_f(&body["data"][id][currency]).map_err(|why| ApiError::Refused(format!("unreadable price for {id}: {why}")))?;
+        if let Some(price) = price { found.insert(id.to_string(), price); }
     }
+    Ok(found)
+}
+
+/// `price.to_f if price`: nil and false are no price; a JSON number is itself. A string is read only when it is a plain
+/// decimal (an optional sign, digits, an optional fraction; at most 32 characters), else Err with the reason. Ruby's
+/// String#to_f reads any string ("1_e2" as 1, "12abc" as 12); the engine refuses there rather than guess (a listed
+/// divergence).
+pub(crate) fn to_f(v: &Value) -> Result<Option<f64>, &'static str> {
+    match v {
+        Value::Null | Value::Bool(false) => Ok(None),
+        Value::Number(n) => Ok(n.as_f64()),
+        Value::String(s) => plain_decimal(s).map(Some).ok_or("not a plain decimal number"),
+        _ => Ok(None),
+    }
+}
+
+fn plain_decimal(s: &str) -> Option<f64> {
+    if s.len() > 32 { return None; }
+    let unsigned = s.strip_prefix(['+', '-']).unwrap_or(s);
+    let (int, frac) = unsigned.split_once('.').unwrap_or((unsigned, ""));
+    let digits = |d: &str| d.bytes().all(|b| b.is_ascii_digit());
+    if int.len() + frac.len() == 0 || !digits(int) || !digits(frac) { return None; }
+    s.parse().ok()
 }
 
 /// The price lookup the ledger and balance syncs (the other track) and any 2f job use. `DataApi` implements it; a
@@ -258,14 +283,17 @@ impl<T: Transport> PriceSource for Option<DataApi<T>> {
 mod tests {
     use serde_json::json;
 
-    /// String#to_f, as `price.to_f` (MarketData.get_prices) and Utilities::Currency read a number sent as a string.
+    /// A data-API number sent as a string: a plain decimal is read, anything else is refused, never guessed at.
     #[test]
-    fn a_string_reads_as_ruby_string_to_f() {
-        for (s, f) in [("1_000", 1000.0), ("12abc", 12.0), (" 1.5e3x", 1500.0), ("1__0", 1.0), ("", 0.0), ("abc", 0.0), ("-2.5", -2.5), (".5", 0.5)] {
-            assert_eq!(super::to_f(&json!(s)), Some(f), "{s:?}");
+    fn a_string_is_read_only_as_a_plain_decimal() {
+        for (s, f) in [("1.10", 1.1), ("-2.5", -2.5), (".5", 0.5), ("1.", 1.0), ("60000", 60000.0)] {
+            assert_eq!(super::to_f(&json!(s)), Ok(Some(f)), "{s:?}");
         }
-        assert_eq!((super::to_f(&json!(null)), super::to_f(&json!(2))), (None, Some(2.0)));
-        let prices = crate::sync::balances::parse_prices(&json!({ "data": { "x": { "usd": "1_000" } } }), &["x".to_string()]);
-        assert_eq!(prices.get("x"), Some(&1000.0));
+        let padded = format!("{}1", "0".repeat(256));
+        for s in ["1_e2", "1_000", "1e2", "12abc", "", " 1", "-", ".", "NaN", "Infinity", padded.as_str()] {
+            assert_eq!(super::to_f(&json!(s)), Err("not a plain decimal number"), "{s:?}");
+        }
+        assert_eq!((super::to_f(&json!(null)), super::to_f(&json!(2))), (Ok(None), Ok(Some(2.0))));
+        assert!(crate::sync::balances::parse_prices(&json!({ "data": { "x": { "usd": "1_e2" } } }), &["x".to_string()]).is_err());
     }
 }

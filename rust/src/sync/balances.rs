@@ -54,8 +54,8 @@ impl PriceSource for NoPrices {
 
 /// The data API's answer to GET api/v1/prices, read as MarketData.get_prices reads it: `data[id]["usd"]`, `to_f`,
 /// absent when missing or null.
-pub fn parse_prices(body: &Value, external_ids: &[String]) -> BTreeMap<String, f64> {
-    external_ids.iter().filter_map(|id| crate::jobs::data_api::to_f(&body["data"][id.as_str()]["usd"]).map(|p| (id.clone(), p))).collect()
+pub fn parse_prices(body: &Value, external_ids: &[String]) -> Result<BTreeMap<String, f64>, ApiError> {
+    crate::jobs::data_api::read_prices(body, &external_ids.iter().map(String::as_str).collect::<Vec<_>>(), "usd")
 }
 
 /// Recorded answers for "GET /api/v1/prices", in the shape of http::ScriptedTransport's script (the parity harness
@@ -100,7 +100,7 @@ impl PriceSource for ScriptedPrices {
         Box::pin(async move {
             self.requests.borrow_mut().push(external_ids.to_vec());
             let reply = next_reply(&self.replies, PRICES_PATH);
-            scripted(&reply).map(|body| parse_prices(body, external_ids))
+            scripted(&reply).and_then(|body| parse_prices(body, external_ids))
         })
     }
     fn exchange_rates<'a>(&'a self) -> crate::jobs::data_api::RatesFuture<'a> {
@@ -289,18 +289,22 @@ pub const MAX_BINANCE_ACCOUNT_NODES: usize = 300_000;
 pub async fn sync_binance<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
                                         -> Result<Result<Summary, Failure>, SyncError> {
     let version = super::capture_bound_version(db, key_id, credentials).await?;
-    sync_binance_captured(db, transport, prices, key_id, credentials, clock, &version).await
+    let host = |t: &str| binance::host(t).map(|(base, _)| base.to_string());
+    sync_binance_captured(db, transport, &host, prices, key_id, credentials, clock, &version).await
 }
 
-pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock,
-                                                        version: &crate::engine::model::CredentialVersion) -> Result<Result<Summary, Failure>, SyncError> {
+/// `host`: the base URL for the key's exchange type (`Connect::binance_base`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, host: &dyn Fn(&str) -> Option<String>, prices: &dyn PriceSource, key_id: i64,
+                                                        credentials: &Credentials, clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                        -> Result<Result<Summary, Failure>, SyncError> {
     let (catalog, names, exchange_type) = phase(db, move |c| {
         let key = super::load_key_of(c, key_id, &[binance::BINANCE, binance::BINANCE_US])?;
         if key.status != 1 || key.key_type == 1 { return Err(SyncError(format!("api key {key_id} is not a reading key"))); }
         Ok((catalog_for(c, key.user_id, key.exchange_id)?, binance_names(c, key.exchange_id)?, key.exchange_type))
     }).await?;
-    let (base, _) = binance::host(&exchange_type).ok_or_else(|| SyncError(format!("api key {key_id} is not a Binance key")))?;
-    let venue = binance::BinanceVenue::new(transport, base, &credentials.secret);
+    let base = host(&exchange_type).ok_or_else(|| SyncError(format!("api key {key_id} is not a Binance key")))?;
+    let venue = binance::BinanceVenue::new(transport, &base, &credentials.secret);
     // #handle_api_key_failure then #record_failure: Binance's invalid-key words condemn the key; nothing else does.
     let fail = |text: String, condemn: bool| {
         let (creds, now) = (credentials.clone(), clock.now());
@@ -393,11 +397,12 @@ fn first_asset_is_currency(c: &Connection, symbol: &str) -> Result<bool, SyncErr
 /// Utilities::Currency#fiat_to_fiat_rate into USD over MarketData.get_exchange_rates' `data`: both currencies' BTC-based
 /// `value` read as Floats, both positive, USD's over the currency's; then `to_d` (Float#to_d). None where Rails has a
 /// Failure.
-fn fiat_rate(rates: &Value, symbol: &str) -> Option<BigDec> {
-    let value = |currency: &str| crate::jobs::data_api::to_f(&rates.get(currency)?.get("value")?.clone());
-    let (from, to) = (value(&symbol.to_lowercase())?, value("usd")?);
-    if !(from > 0.0 && to > 0.0) { return None; }
-    BigDec::from_f64(to / from).ok()
+/// Err: a rate `to_f` refuses, named (the sync stops there rather than leave the cash at a stale price).
+fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
+    let value = |currency: &str| crate::jobs::data_api::to_f(&rates[currency]["value"]).map_err(|why| format!("unreadable exchange rate for {currency}: {why}"));
+    let (Some(from), Some(to)) = (value(&symbol.to_lowercase())?, value("usd")?) else { return Ok(None) };
+    if !(from > 0.0 && to > 0.0) { return Ok(None); }
+    Ok(BigDec::from_f64(to / from).ok())
 }
 
 /// AccountBalance::Sync#sync! from the venue's balances on: other cash at its exchange rate, the market's prices, the
@@ -424,12 +429,13 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
             continue;
         }
         match prices.exchange_rates().await {
-            Ok(rates) => if let Some(rate) = fiat_rate(&rates, &symbol) {
+            Ok(rates) => if let Some(rate) = match fiat_rate(&rates, &symbol) { Ok(rate) => rate, Err(refused) => return Ok(Err(refused)) } {
                 if let Some(cache) = prices.rate_cache() { cache.put(&symbol, rate.clone(), clock.now()); }
                 rated.insert(symbol, Price::Decimal(rate.clone()));
                 fresh.insert(a.external_id.clone(), Price::Decimal(rate));
             },
             Err(ApiError::Transient(text)) => return Ok(Err(format!("Client::TransientNetworkError: {text}"))),
+            Err(ApiError::Refused(text)) => return Ok(Err(text)),
             Err(ApiError::Failed { .. }) => {}
         }
     }
@@ -442,6 +448,8 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
             Ok(found) => { for (id, p) in found { fresh.entry(id).or_insert(Price::Float(p)); } }
             // Rails' client raises on a transport failure a retry could fix, and the job records it and stops.
             Err(ApiError::Transient(text)) => return Ok(Err(format!("Client::TransientNetworkError: {text}"))),
+            // A price the engine will not read: the sync stops and says which, rather than go on at the last prices.
+            Err(ApiError::Refused(text)) => return Ok(Err(text)),
             // Any other failure: hosted Rails has no CoinGecko key to fall to, and goes on with its last prices.
             Err(ApiError::Failed { .. }) => errors.push(NO_PROVIDER.into()),
         }

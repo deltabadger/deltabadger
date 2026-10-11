@@ -158,7 +158,9 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let keys = EncryptionKeys::resolve(env, &secret).map_err(|e| format!("encryption keys: {e:?}"))?;
     let own = store::open(paths).map_err(explain)?;
     let cipher = Cipher::new(&keys);
-    let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(jobs::data_api::DataApi::live);
+    // Utilities::Currency's Rails.cache entries: one fiat-rate cache for the whole engine process, shared by every run.
+    let rates = std::sync::Arc::new(jobs::data_api::RateCache::default());
+    let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(|config| jobs::data_api::DataApi::live(config).with_rates(rates.clone()));
     let api = std::rc::Rc::new(api);
     let mut registered = jobs::reference::shared_jobs(api.clone());
     // Setup::SeedAndSyncJob, which a platform claim on /setup wakes: it reads the data-api configuration the claim wrote.
@@ -166,8 +168,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
-    let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env)).collect();
-    let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env);
+    let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
+    let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
     if resume_setup { scheduler.wakers().wake(jobs::setup_sync::NAME, None, None); }
     scheduler.wakers().attach_engine(engine.wake_handle());

@@ -1625,3 +1625,56 @@ async fn collision_positions_identify_before_decoding_bare_numbers() {
     assert!(balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().is_err(), "identified numbers remain strict");
     assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
 }
+
+/// Binance reached at a local server (the host `Connect::binance_base` names), with no proxy.
+#[derive(Clone)]
+struct LocalBinance(String);
+impl Connect for LocalBinance {
+    type T = ScriptedTransport;
+    fn connect(&self, _: &Credentials) -> AlpacaVenue<Self::T> { unreachable!("a Binance key only") }
+    fn binance_transport(&self, c: &Credentials, _proxy: Option<&str>) -> deltabadger::venue::http::ReqwestTransport {
+        deltabadger::venue::http::ReqwestTransport::binance(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone())
+    }
+    fn binance_base(&self, _: &str) -> Option<String> { Some(self.0.clone()) }
+}
+
+/// Utilities::Currency.exchange_rate holds a fiat rate 12 hours for every later reader. Through the live scheduler's own
+/// path (each run builds its market-data client afresh), a balance sync a minute after another uses the first run's rate
+/// and does not ask for the rates again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fiat_rate_outlives_the_run_that_asked_for_it() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::jobs::{data_api::{DataApi, RateCache}, resolve};
+    let (_dir, o, s) = common::install(); // Kraken's BTC, EUR (Currency) and XBT/EUR: made Binance's below
+    let c = o.primary;
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Binance', name = 'Binance' WHERE id = ?1", [s.exchange_id]).unwrap();
+    c.execute("UPDATE tickers SET ticker = 'BTCEUR', base = 'BTC' WHERE id = ?1", [s.ticker_id]).unwrap();
+    for asset in [s.btc, s.quote] {
+        c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) VALUES (?1, ?2, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  [s.exchange_id, asset]).unwrap();
+    }
+    let server = MockServer::start().await;
+    let reply = |body: Value| ResponseTemplate::new(200).set_body_json(body);
+    Mock::given(method("GET")).and(path("/api/v3/account")).respond_with(reply(json!({ "balances": [
+        { "asset": "BTC", "free": "0.1", "locked": "0" }, { "asset": "EUR", "free": "50", "locked": "0" }] }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v1/exchange_rates")).respond_with(reply(json!({ "data": { "usd": { "value": 1.1 }, "eur": { "value": 1 } } }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v1/prices")).respond_with(reply(json!({ "data": { "bitcoin": { "usd": 60000 } } }))).mount(&server).await;
+    let at = |t: &str| t.parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+    for (key, value) in [("market_data_provider", "deltabadger".to_string()), ("market_data_url", server.uri()), ("market_data_token", "t".into())] {
+        deltabadger::app_config::set(&c, &seed::cipher(), key, &value, at("2026-09-20T02:00:00Z")).unwrap();
+    }
+    let venues = LocalBinance(server.uri());
+    let resolve = resolve::all(venues.clone(), Rc::new(None::<DataApi<deltabadger::venue::http::ReqwestTransport>>), deltabadger::tracker::jobs::system_wall());
+    let job = resolve::configured_with(resolve(jobs::BALANCE_SYNC, Some(&s.api_key_id.to_string())).unwrap(), &|_| None, std::sync::Arc::new(RateCache::default()), venues);
+    let db = Db::new(c, seed::cipher());
+    for t in ["2026-09-20T02:30:00Z", "2026-09-20T02:31:00Z"] {
+        assert_eq!(job.run(cx(&db, &FixedClock(at(t))), vec![Wake::Schedule]).await, Outcome::Done, "{t}");
+    }
+    let requests = server.received_requests().await.unwrap();
+    let asked = |p: &str| requests.iter().filter(|r| r.url.path() == p).count();
+    assert_eq!(asked("/api/v3/account"), 2, "both runs synced");
+    let eur: f64 = db.run(move |c, _| c.query_row("SELECT usd_price FROM account_balances WHERE asset_id = ?1", [s.quote], |r| r.get(0)).map_err(|e| e.to_string())).await.unwrap();
+    assert_eq!(eur, 1.1, "EUR at the first run's rate");
+    let paths: Vec<String> = requests.iter().map(|r| r.url.path().to_string()).collect();
+    assert_eq!(asked("/api/v1/exchange_rates"), 1, "the second run used the first run's rate: {paths:?}");
+}
