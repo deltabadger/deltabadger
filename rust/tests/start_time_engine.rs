@@ -158,11 +158,12 @@ fn only_a_fresh_starts_starting_time_runs() {
     assert!(!ok && why.contains("continue"), "{why}");
     let (ok, why) = refused("UPDATE bots SET settings = json_set(settings, '$.start_at', '2026-09-12T07:30:00Z') WHERE id = ?1");
     assert!(!ok && why.contains(MOVED), "a start_at moved after the start: {why}");
+    // No start_at: Rails' repeat_anchor_at is started_at, so the rule moves nothing and the bot runs from started_at.
     let (ok, why) = refused("UPDATE bots SET settings = json_remove(settings, '$.start_at') WHERE id = ?1");
-    assert!(!ok && why.contains(MOVED), "{why}");
-    // No start_at and no started_at are not one time: still refused.
+    assert!(ok, "no start_at runs from started_at: {why}");
+    // No start_at and no started_at: no anchor at all, still refused.
     let (ok, why) = refused("UPDATE bots SET started_at = NULL, settings = json_remove(settings, '$.start_at') WHERE id = ?1");
-    assert!(!ok && why.contains(MOVED), "{why}");
+    assert!(!ok && why.contains("started_at missing"), "{why}");
     // An unreadable start_at refuses where it is read (the eligibility check), and loading the bot still works.
     let (ok, why) = refused("UPDATE bots SET settings = json_set(settings, '$.start_at', 'garbage') WHERE id = ?1");
     assert!(!ok && why.contains("garbage"), "{why}");
@@ -258,4 +259,37 @@ fn an_imported_date_start_in_an_unknown_zone_is_refused() {
     let (ok, why) = check("Mars/Olympus");
     assert!(!ok && why.contains("unknown time zone"), "{why}");
     assert!(check("Asia/Tokyo").0, "a readable zone runs");
+}
+
+/// A running bot whose starting time is still on but has no start_at (an old start left it so) behaves as Rails runs it:
+/// repeat_anchor_at falls back to started_at, so the rule moves nothing; the bot is eligible, and turning the rule off writes
+/// the flag alone, leaving the carry window where it was. Without a started_at it is still refused.
+#[test]
+fn a_running_bot_with_the_rule_on_and_no_start_at_runs_from_started_at() {
+    use deltabadger::engine::amount;
+    let v = &vectors()["schedule"][6];
+    let (_d, o, s) = common::install();
+    let id = insert(&o.primary, &s, v);
+    o.primary.execute("UPDATE bots SET started_at = '2026-10-05 19:57:47', settings = json_set(json_remove(settings, '$.start_at'), \
+                       '$.start_time_enabled', json('true'), '$.start_time_mode', 'monday', '$.start_time_of_day', '16:30') WHERE id = ?1", [id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.eligible.contains(&id), "{:?}", r.problems);
+    let before: Option<String> = o.primary.query_row("SELECT settings_changed_at FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    amount::disable_starting_time(&o.primary, id, "2026-10-12T19:58:00Z".parse().unwrap()).unwrap();
+    let (on, after): (String, Option<String>) = o.primary.query_row(
+        "SELECT json_type(settings, '$.start_time_enabled'), settings_changed_at FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(on, "false", "the rule is off");
+    assert_eq!(before, after, "the carry window does not move");
+    // A start_at stored as JSON null (Rails writes nil so) is absent too.
+    {
+        let (_d, o, s) = common::install();
+        let id = insert(&o.primary, &s, v);
+        o.primary.execute("UPDATE bots SET started_at = '2026-10-05 19:57:47', settings = json_set(settings, '$.start_time_enabled', json('true'),                            '$.start_time_mode', 'monday', '$.start_time_of_day', '16:30', '$.start_at', json('null')) WHERE id = ?1", [id]).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.eligible.contains(&id), "null start_at: {:?} {:?} {:?}", r.eligible, r.problems, r.unreadable);
+    }
+    // No anchor at all: refused.
+    o.primary.execute("UPDATE bots SET started_at = NULL WHERE id = ?1", [id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(!r.eligible.contains(&id), "{:?}", r.problems);
 }

@@ -129,13 +129,17 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
     if bot.transient.get("rust_continue_start").is_some() {
         return Ok(Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into()));
     }
-    // A missing start_at is refused below, never read as started_at; an unreadable one refuses the bot as unreadable, here
-    // at its point of use, never at load.
-    let start_at = match bot.settings.get("start_at").and_then(Value::as_str) {
+    // An unreadable start_at refuses the bot as unreadable, here at its point of use, never at load. A blank one is absent,
+    // as Rails' `presence` reads it.
+    let start_at = match bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty()) {
         None => None,
         Some(text) => Some(crate::codec::parse_time(text).map_err(|e| EngineError::Data(format!("start_at: {e:?}")))?.timestamp_micros()),
     };
     let started = bot.started_at_us()?;
+    // No start_at: Rails' repeat_anchor_at falls back to started_at, so the rule moves nothing, and the next clean run turns
+    // it off with the flag alone (disable_starting_time!'s nil-anchor branch, amount::disable_starting_time). A missing
+    // started_at is refused on its own ("never ticks").
+    if start_at.is_none() { return Ok(None); }
     let Some(at) = start_at.filter(|at| Some(*at) == started) else {
         return Ok(Some("start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into()));
     };
