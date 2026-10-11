@@ -275,7 +275,7 @@ class Exchanges::Bingx < Exchange
   end
 
   def get_order(order_id:)
-    symbol, ext_order_id = order_id.split('-', 2)
+    symbol, ext_order_id = split_order_id(order_id)
     result = client.get_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
       error = parse_error_message(result)
@@ -300,12 +300,15 @@ class Exchanges::Bingx < Exchange
   end
 
   def cancel_order(order_id:)
-    symbol, ext_order_id = order_id.split('-', 2)
+    symbol, ext_order_id = split_order_id(order_id)
     result = client.cancel_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
+    # BingX refuses a cancel with HTTP 200 and a non-zero code.
+    code = result.data['code']
+    return Result::Failure.new(result.data['msg'].presence || "BingX API error #{code}", data: result.data) if code.to_i != 0
 
     Result::Success.new(order_id)
   end
@@ -343,8 +346,9 @@ class Exchanges::Bingx < Exchange
     Result::Failure.new(message.presence || "BingX answered code #{raw_code.inspect}")
   end
 
-  def minimum_amount_logic(**)
-    :base_and_quote
+  def minimum_amount_logic(order_type:, **)
+    # Limit orders take a base quantity only; market orders take either.
+    order_type == :limit_order ? :base_and_quote_in_base : :base_and_quote
   end
 
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
@@ -538,8 +542,12 @@ class Exchanges::Bingx < Exchange
   # @param side [Symbol] must be either :buy or :sell
   # @param price [Float] must be a positive number
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
+    return Result::Failure.new("Invalid limit price for #{ticker.ticker}") unless price.to_d.positive?
+
+    # A BingX limit order takes a base quantity only: convert a quote amount at the limit price.
+    amount = amount.to_d / price.to_d if amount_type == :quote
+    amount = ticker.adjusted_amount(amount: amount, amount_type: :base)
 
     order_settings = {
       symbol: ticker.ticker,
@@ -547,7 +555,7 @@ class Exchanges::Bingx < Exchange
       type: 'LIMIT',
       time_in_force: 'GTC',
       price: price.to_d.to_s('F'),
-      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
+      quantity: amount.to_d.to_s('F')
     }
     result = client.place_order(**order_settings)
     if result.failure?
@@ -560,6 +568,12 @@ class Exchanges::Bingx < Exchange
     }
 
     Result::Success.new(data)
+  end
+
+  # "BTC-USDT-123" -> ["BTC-USDT", "123"]: the symbol has a dash, the venue id has none.
+  def split_order_id(order_id)
+    symbol, _, ext_order_id = order_id.rpartition('-')
+    [symbol, ext_order_id]
   end
 
   def parse_order_data(order_id, order_data)

@@ -17,8 +17,86 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_includes errors[:invalid_key], 'Invalid Api-Key ID'
   end
 
-  test 'minimum_amount_logic returns base_and_quote' do
-    assert_equal :base_and_quote, @exchange.minimum_amount_logic
+  test 'minimum_amount_logic sizes limit orders in base and keeps the cheaper choice for market orders' do
+    assert_equal :base_and_quote, @exchange.minimum_amount_logic(side: :buy, order_type: :market_order)
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(side: :buy, order_type: :limit_order)
+  end
+
+  # == Order ids ==
+  # Every BingX id is "<BASE>-<QUOTE>-<orderId>" (the symbol itself has a dash), stored that way
+  # since the venue was added. The venue id is everything after the last dash.
+
+  test 'get_order looks the order up by the full symbol and the venue id' do
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT')
+    raw = { 'symbol' => 'BTC-USDT', 'orderId' => 1_234_567_890, 'type' => 'LIMIT', 'side' => 'BUY',
+            'origQty' => '0.001', 'executedQty' => '0.001', 'cummulativeQuoteQty' => '60',
+            'status' => 'FILLED', 'price' => '60000' }
+    Honeymaker::Clients::BingX.any_instance.expects(:get_order)
+                              .with(symbol: 'BTC-USDT', order_id: '1234567890')
+                              .returns(Result::Success.new(raw: raw))
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTC-USDT-1234567890') }
+
+    assert_predicate result, :success?
+    assert_equal 'BTC-USDT-1234567890', result.data[:order_id]
+    assert_equal :closed, result.data[:status]
+  end
+
+  test 'cancel_order cancels by the full symbol and the venue id' do
+    Honeymaker::Clients::BingX.any_instance.expects(:cancel_order)
+                              .with(symbol: 'BTC-USDT', order_id: '1234567890')
+                              .returns(Result::Success.new({ 'code' => 0, 'data' => { 'orderId' => 1_234_567_890 } }))
+
+    result = with_dry_run(false) { @exchange.cancel_order(order_id: 'BTC-USDT-1234567890') }
+
+    assert_predicate result, :success?
+    assert_equal 'BTC-USDT-1234567890', result.data
+  end
+
+  test 'cancel_order fails when BingX refuses with HTTP 200 and a non-zero code' do
+    Honeymaker::Clients::BingX.any_instance.stubs(:cancel_order)
+                              .returns(Result::Success.new({ 'code' => 100_404, 'msg' => 'order not exist' }))
+
+    result = with_dry_run(false) { @exchange.cancel_order(order_id: 'BTC-USDT-1234567890') }
+
+    assert_predicate result, :failure?
+    assert_includes result.errors.join, 'order not exist'
+  end
+
+  # == Limit orders are base-denominated ==
+
+  test 'limit_buy with a quote amount sends a base quantity at the limit price' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT',
+                             price_decimals: 2, base_decimals: 6)
+    captured = {}
+    Honeymaker::Clients::BingX.any_instance.stubs(:place_order).with do |**kwargs|
+      captured.merge!(kwargs)
+    end.returns(Result::Success.new(order_id: 'BTC-USDT-1', raw: {}))
+
+    result = with_dry_run(false) do
+      @exchange.limit_buy(ticker: ticker, amount: BigDecimal('100'), amount_type: :quote, price: BigDecimal('62795'))
+    end
+
+    assert_predicate result, :success?
+    adj_price = ticker.adjusted_price(price: BigDecimal('62795'))
+    expected = ticker.adjusted_amount(amount: BigDecimal('100') / adj_price, amount_type: :base)
+    assert_equal expected.to_d.to_s('F'), captured[:quantity]
+    assert_operator expected, :positive?
+  end
+
+  test 'limit_sell with a base amount sends it unchanged' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT',
+                             price_decimals: 2, base_decimals: 6)
+    captured = {}
+    Honeymaker::Clients::BingX.any_instance.stubs(:place_order).with do |**kwargs|
+      captured.merge!(kwargs)
+    end.returns(Result::Success.new(order_id: 'BTC-USDT-1', raw: {}))
+
+    with_dry_run(false) do
+      @exchange.limit_sell(ticker: ticker, amount: BigDecimal('0.0012345'), amount_type: :base, price: BigDecimal('62795'))
+    end
+
+    assert_equal '0.001234', captured[:quantity]
   end
 
   test 'set_client creates a Honeymaker BingX client' do
