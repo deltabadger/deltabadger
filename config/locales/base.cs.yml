@@ -757,8 +757,8 @@ cs:
             redeploy_failed: "Opětovné vložení selhalo: %{error}"
             dca_skipped_liquidation_pending: "Příspěvek přeskočen — stále probíhá prodej"
             started: 'Bot started'
-            stopped: 'Bot stopped'
-            stopped_with_reason: 'Bot zastaven: %{reason}'
+            stopped: 'Bot stopped. Příkazy již odeslané na burzu mohou být ještě provedeny.'
+            stopped_with_reason: 'Bot zastaven: %{reason}. Příkazy již odeslané na burzu mohou být ještě provedeny.'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

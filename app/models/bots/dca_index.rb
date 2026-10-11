@@ -125,11 +125,11 @@ class Bots::DcaIndex < Bot
 
   def execute_action
     first_tick = own_transactions.none? # before anything is placed: see broadcast_below_minimums_warning
-    return Result::Success.new unless transition_working!(:executing) # stopped meanwhile: place nothing
+    return FENCED unless transition_working!(:executing) # stopped meanwhile: place nothing
 
     # Orders must use the composition derived for this tick.
     result = refresh_composition
-    return result if result.failure?
+    return result if result.failure? || result.equal?(FENCED)
 
     result = set_orders(
       total_orders_amount_in_quote: pending_quote_amount,
@@ -137,7 +137,8 @@ class Bots::DcaIndex < Bot
     )
     return result if result.failure? || result.equal?(FENCED)
 
-    transition_working!(:waiting)
+    return FENCED unless transition_working!(:waiting)
+
     broadcast_below_minimums_warning(first_tick:)
     Result::Success.new
   end

@@ -65,7 +65,7 @@ class Bots::DcaSingleAsset < Bot
 
   def execute_action
     with_api_key do
-      return Result::Success.new unless transition_working!(:executing) # stopped meanwhile: place nothing
+      return FENCED unless transition_working!(:executing) # stopped meanwhile: place nothing
 
       result = if selling?
                  # DCA-out: sell a fixed base amount per period. The buy carry is frozen
@@ -77,7 +77,8 @@ class Bots::DcaSingleAsset < Bot
                end
       return result if result.failure? || result.equal?(FENCED)
 
-      transition_working!(:waiting)
+      return FENCED unless transition_working!(:waiting)
+
       broadcast_below_minimums_warning
       Result::Success.new
     end

@@ -8,6 +8,8 @@ module Automation::Statusable
     scope :working, -> { where(status: %i[scheduled executing retrying waiting]) }
   end
 
+  STOP_DISPATCH_NOTICE = 'Orders already sent to the exchange may still execute.'.freeze
+
   # What a fenced tick returns instead of a plain Success: it no longer owns the run, so neither the
   # bot (no :waiting) nor Bot::ActionJob (no :scheduled, no next job) may write anything after it.
   # A stop leaves the bot stopped; a restart's own tick and chain carry on untouched.
@@ -17,46 +19,51 @@ module Automation::Statusable
     scheduled? || executing? || retrying? || waiting?
   end
 
-  # The tick's placement fence, read right before each order is sent. A stop, archive or delete can
-  # commit while a claimed tick (:executing in this copy) sizes its orders, and a job already running
-  # cannot be cancelled, so the tick asks the row, not this copy. Status alone is not enough: a stop
-  # and a start put the row back to working, and the restart's own tick may claim it again. So the
-  # row must still be :executing under the run this tick claimed (#claimed_run). A stop that commits
-  # after this read still lets that one order go; the next leg is fenced. Only a claimed tick is
-  # fenced: nothing else places through the tick's order setters.
-  def stopped_mid_tick?
-    return false unless executing?
-
-    run = claimed_run
-    run.nil? || run != @claimed_run
+  # A lifecycle generation changes even for a resumed Start in the same clock tick. The timestamp
+  # and tick counter distinguish successive jobs within that generation. Capture this from the
+  # job/instance BEFORE authentication, prices or polling; never adopt the current row at claim time.
+  def run_identity
+    [transient_data.fetch('run_generation', 0), transient_data.fetch('tick_generation', 0),
+     self[:started_at]&.iso8601(6),
+     last_action_job_at&.iso8601(6)]
   end
 
-  # A tick's own status write, made only while the bot is still working. A stop is a separate request
-  # that can land while the tick waits on the exchange; a plain update! would undo it and the bot
-  # would keep trading. The check and the write share one IMMEDIATE transaction, so a stop committed
-  # before it always wins. Returns whether the bot moved.
-  def transition_working!(status)
-    transaction do
-      next false unless self.class.uncached { self.class.working.exists?(id) }
+  def capture_run!(identity = run_identity)
+    @claimed_run = identity
+  end
 
+  def owns_run?
+    self.class.uncached do
+      current = self.class.find_by(id:)
+      current&.working? && current.run_identity == @claimed_run
+    end
+  end
+
+  def stopped_mid_tick?
+    @claimed_run && !owns_run?
+  end
+
+  # SQLite BEGIN IMMEDIATE serializes this check and every write/dispatch inside the block with
+  # STOP. In particular the venue call stays inside the transaction through its reply/exception.
+  # STOP can return only after that call ends; an already transmitted request may still settle.
+  def with_run_ownership
+    transaction do
+      next FENCED if @claimed_run && !owns_run?
+
+      yield
+    end
+  end
+
+  def transition_working!(status)
+    capture_run! unless @claimed_run
+    result = with_run_ownership do
+      if status.to_s == 'executing'
+        current = self.class.uncached { self.class.find_by(id:) }
+        next FENCED unless current&.scheduled? || current&.retrying?
+      end
       update!(status:)
-      @claimed_run = claimed_run if executing?
       true
     end
-  end
-
-  private
-
-  # What tells one claimed run from the next: a fresh start resets started_at, and every tick stamps
-  # last_action_job_at before it claims the bot (Bot::ActionJob#perform). Read from the row both
-  # times, so the two reads compare like for like. nil once the row is no longer :executing.
-  # Uncached, as is the check in #transition_working!: a job runs under the query cache, and a stop
-  # committed through another connection clears nothing here, so the same query would answer from
-  # the claim.
-  def claimed_run
-    self.class.uncached do
-      self.class.where(id:, status: :executing)
-          .pick(:started_at, Arel.sql("json_extract(transient_data, '$.last_action_job_at')"))
-    end
+    !result.equal?(FENCED)
   end
 end

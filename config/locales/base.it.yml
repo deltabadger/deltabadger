@@ -738,8 +738,8 @@ it:
             redeploy_failed: "Reinvestimento fallito: %{error}"
             dca_skipped_liquidation_pending: "Contributo saltato — una vendita è ancora in corso"
             started: 'Bot avviato'
-            stopped: 'Bot arrestato'
-            stopped_with_reason: 'Bot arrestato: %{reason}'
+            stopped: 'Bot arrestato. Gli ordini già inviati alla piattaforma possono ancora essere eseguiti.'
+            stopped_with_reason: 'Bot arrestato: %{reason}. Gli ordini già inviati alla piattaforma possono ancora essere eseguiti.'
             reschedule_disabled: 'Pianificazione automatica in pausa'
             market_closed: 'Mercato chiuso — prossima apertura %{time}'
             limit_paused: 'In pausa: limite %{limit} non soddisfatto'

@@ -110,6 +110,10 @@ module Bot::OrderSetter
   end
 
   def create_order(order_data, amount_info)
+    with_run_ownership { dispatch_order(order_data, amount_info) }
+  end
+
+  def dispatch_order(order_data, amount_info)
     sell = order_data[:side] == :sell
     case order_data[:order_type]
     when :market_order

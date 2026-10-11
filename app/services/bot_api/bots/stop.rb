@@ -24,7 +24,8 @@ module BotApi
 
         bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
         if bot.stop
-          Result.success({ id: bot.id, label: bot.label, status: bot.status.to_s })
+          Result.success({ id: bot.id, label: bot.label, status: bot.status.to_s,
+                           dispatch_notice: Automation::Statusable::STOP_DISPATCH_NOTICE })
         else
           Result.failure(:upstream_failed, 'bot_stop_failed', "Failed to stop bot '#{bot.label}'.")
         end

@@ -749,8 +749,8 @@ bg:
             redeploy_failed: "Повторното влагане се провали: %{error}"
             dca_skipped_liquidation_pending: "Вноската е пропусната — все още тече продажба"
             started: 'Bot started'
-            stopped: 'Bot stopped'
-            stopped_with_reason: 'Ботът е спрян: %{reason}'
+            stopped: 'Bot stopped. Поръчките, вече изпратени към борсата, все още може да бъдат изпълнени.'
+            stopped_with_reason: 'Ботът е спрян: %{reason}. Поръчките, вече изпратени към борсата, все още може да бъдат изпълнени.'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

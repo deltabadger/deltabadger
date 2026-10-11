@@ -754,8 +754,8 @@ en:
             redeploy_decline_refused: "Nothing was taken off the table — a redeploy was still working"
             dca_skipped_redeploy_pending: "Contribution skipped — a redeploy is still in progress"
             started: 'Bot started'
-            stopped: 'Bot stopped'
-            stopped_with_reason: 'Bot stopped: %{reason}'
+            stopped: 'Bot stopped. Orders already sent to the exchange may still execute.'
+            stopped_with_reason: 'Bot stopped: %{reason}. Orders already sent to the exchange may still execute.'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

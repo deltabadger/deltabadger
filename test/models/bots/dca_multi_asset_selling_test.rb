@@ -177,6 +177,10 @@ class Bots::DcaMultiAssetSellingTest < ActiveSupport::TestCase
   end
 
   test 'a placement that raised keeps the lock: the sale may have landed' do
+    # Give dispatch its own rollback boundary, as it has outside the test's outer transaction.
+    @bot.define_singleton_method(:transaction) do |**options, &block|
+      super(**options, requires_new: true, &block)
+    end
     wash_sale_rule_on
     hold(base0: 700, base1: 300)
     @bot.stubs(:sell_at_loss?).returns(true)

@@ -5,6 +5,18 @@ module RunOwnershipBehaviorTests
   extend ActiveSupport::Concern
 
   included do
+    test 'ownership: legacy queued jobs without a run token fail closed' do
+      bot = create_bot
+      payload = Bot::ActionJob.new(bot).serialize
+      before = bot.reload.attributes
+      Bot.any_instance.expects(:ensure_exchange_authenticated).never
+
+      ActiveJob::Base.execute(payload)
+
+      assert_equal before, bot.reload.attributes
+      assert_empty bot.transactions
+    end
+
     test 'ownership: a queued job keeps its identity across stop and resume in the same second' do
       bot = create_bot
       setup_action_job_mocks(bot)
@@ -132,7 +144,6 @@ module RunOwnershipBehaviorTests
       assert_equal 'executing', Bot.find(bot.id).status
       assert_nil Bot.find(bot.id).last_failure_kind
     end
-
   end
 end
 
@@ -192,6 +203,17 @@ module ActionJobBehaviorTests
 
       Bot::ActionJob.new.perform(bot)
       assert_equal 'stopped', bot.reload.status
+    end
+
+    test 'failure bookkeeping bypasses unrelated settings validation while owning the run' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.update_columns(settings: bot.settings.merge('quote_amount' => -1))
+      bot.expects(:execute_action).never
+
+      assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+
+      assert_equal 'retrying', bot.reload.status
     end
 
     # A stop cannot cancel a tick that is already running: Solid Queue's cancel reaches scheduled,

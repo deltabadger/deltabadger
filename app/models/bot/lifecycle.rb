@@ -9,6 +9,17 @@
 module Bot::Lifecycle
   extend ActiveSupport::Concern
 
+  included do
+    prepend(Module.new do
+      def execute_action
+        capture_run! unless instance_variable_defined?(:@claimed_run)
+        return Automation::Statusable::FENCED if stopped_mid_tick?
+
+        super
+      end
+    end)
+  end
+
   def api_key_type
     :trading
   end
@@ -47,14 +58,19 @@ module Bot::Lifecycle
     # otherwise re-anchor the schedule and tick at once, placing an extra order. The REST API
     # answers the same case with 409 before it gets here.
     started = transaction do
-      next false if persisted? && !self.class.where(id:).where.not(status: :deleted).exists?
+      self.class.uncached do
+        next false if persisted? && !self.class.where(id:).where.not(status: :deleted).exists?
 
-      if persisted? && self.class.working.exists?(id)
-        errors.add(:base, I18n.t('engine.already_running'))
-        next false
+        if persisted? && self.class.working.exists?(id)
+          errors.add(:base, I18n.t('engine.already_running'))
+          next false
+        end
+
+        # Read under the same write lock as the Start, including a resumed Start.
+        current = self.class.find_by(id:)
+        transient_data['run_generation'] = current&.transient_data&.fetch('run_generation', 0).to_i + 1
+        valid?(:start) && save
       end
-
-      valid?(:start) && save
     end
 
     if started
@@ -70,16 +86,6 @@ module Bot::Lifecycle
       # destroy the job just created. Mirrors #stop (:68), Bot::Reversible (reversible.rb:116) and
       # Bot::RepairOrphanedBotsJob#repair_bot (repair_orphaned_bots_job.rb:67) — start was the only
       # re-enqueue site that did not do this.
-      #
-      # RESIDUAL, pre-existing and shared by every cancellation site: cancel_solid_queue_jobs
-      # (schedulable.rb:105-133) reaches Scheduled, Ready and Blocked executions but NOT Claimed
-      # ones. A job already running cannot be cancelled, so a stop-then-restart landing inside that
-      # execution window leaves the in-flight job to finish against stale in-memory state and
-      # reschedule itself — re-creating the second chain this call exists to prevent.
-      # transition_working_bot! does not close it either: it requires a working status, but a
-      # restart has already flipped the row back to :scheduled. Closing it properly needs an
-      # execution fence (a generation counter bumped here and re-checked before the job's final
-      # writes), which is a schema change and deliberately not bolted on here.
       cancel_scheduled_action_jobs
       if use_delayed_first
         Bot::ActionJob.set(wait_until: computed_start_at).perform_later(self)
@@ -98,25 +104,17 @@ module Bot::Lifecycle
   end
 
   def stop(stop_message_key: nil)
-    # A stop that lands after archiving — a queued Bot::StopJob, a stale tab — must not write
-    # :stopped over :archived and drop the bot back into Inactive. It is already stopped.
-    #
-    # :deleted is the same case and was simply missed: Automation::Executable#destroy is a soft
-    # delete, so a REST/MCP delete racing a queued stop would have been resurrected as a live
-    # :stopped bot. Both are terminal, both already mean "not running".
-    return true if archived? || deleted?
-
-    # A freshly loaded bot can carry recomputed settings defaults (after_initialize
-    # concerns), which marks settings dirty — Accountable then requires
-    # set_missed_quote_amount before any save (same guard start uses above).
-    set_missed_quote_amount if settings_was != settings
-    # Without settings validation: a setting that no longer validates has nothing to do with
-    # stopping, and refusing the stop would leave the bot trading. The status and its log row
-    # commit together.
-    self.status = :stopped
-    self.stopped_at = Time.current
-    self.stop_message_key = stop_message_key
     stopped = transaction do
+      # STOP owns only the stop fields. Reload under the dispatch lock so a stale request cannot
+      # restore old transient data (including run identity) or resurrect an archived/deleted row.
+      reload
+      next true if archived? || deleted?
+
+      set_missed_quote_amount if settings_was != settings
+      self.status = :stopped
+      self.stopped_at = Time.current
+      self.stop_message_key = stop_message_key
+      # Unrelated invalid settings must never prevent STOP.
       next false unless save(validate: false)
 
       log_activity('stopped', details: { stop_message_key: }.compact)

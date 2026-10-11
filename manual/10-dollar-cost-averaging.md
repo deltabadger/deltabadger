@@ -26,6 +26,12 @@ Deltabadger solves it using **Smart Intervals**:
 > [!TIP]
 > You want to buy Bitcoin for 5 USD/day, but the minimum order size is 10 USD. Deltabadger spends 10 USD every 2 days, so on average you still get the rate you asked for.
 
+## Stopping and restarting
+
+Once STOP succeeds, the stopped run cannot submit any more orders. If an order submission is already in progress, STOP waits for it to finish or time out before confirming the stop.
+
+Orders already sent to the exchange may still execute, including a submission whose reply timed out. STOP does not cancel these orders; use the **Cancel** button for an open order. Restarting creates a new run, and work left over from the previous run cannot change its schedule.
+
 ## FeeCutter
 
 <p><img width="466" height="92" alt="Screenshot 2026-09-06 at 18 24 46" src="https://github.com/user-attachments/assets/34a1f71a-bb22-4894-9a12-3cbdc5ff787e" /></p>

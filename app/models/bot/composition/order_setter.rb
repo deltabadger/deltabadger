@@ -38,7 +38,9 @@ module Bot::Composition::OrderSetter
       orders_data.each do |order_data|
         if order_data[:amount].zero?
           Rails.logger.info("set_orders composition bot=#{id} event=order_ignored #{order_log_fields(order_data)}")
-          log_activity('order_ignored', details: order_log_details(order_data))
+          ignored = with_run_ownership { log_activity('order_ignored', details: order_log_details(order_data)) }
+          return ignored if ignored.equal?(Automation::Statusable::FENCED)
+
           next
         end
 
@@ -65,40 +67,50 @@ module Bot::Composition::OrderSetter
           return Automation::Statusable::FENCED
         end
 
-        # A sale at a loss locks the name BEFORE it leaves, as the rebalance and liquidation legs do: the
-        # fill path only locks from a terminal fill, and a resting or partly filled sell would leave the
-        # name open to a buy from any bot on the account in the meantime. Taken per order, so a later
-        # order's failure can never hand back an earlier sale's claim.
-        claim = lock_buying!(order_data[:ticker].base_asset_id) if order_data[:side] == :sell && sell_at_loss?(order_data)
+        # Commit the wash-sale claim before transmission: a timeout or process crash must not roll
+        # it back while a sale may be live. Dispatch takes the database lock again and rechecks the
+        # run. If STOP won that gap, only this unused reservation is restored by its claim token.
+        claim = with_run_ownership do
+          lock_buying!(order_data[:ticker].base_asset_id) if order_data[:side] == :sell && sell_at_loss?(order_data)
+        end
+        return claim if claim.equal?(Automation::Statusable::FENCED)
 
-        Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
-        result = create_order(order_data, amount_info)
-        if result.failure?
-          Rails.logger.error(
-            "set_orders composition bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
-            "errors=#{result.errors.to_sentence}"
-          )
-          # Only a definitive rejection proves nothing was sold. A timeout, a gateway 5xx or a lost
-          # acknowledgement may be on the book, and keeps the lock — as does a placement that raises.
-          restore_buy_lock!(order_data[:ticker].base_asset_id, claim) if claim && !exchange.ambiguous_placement_error?(result)
-          # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
-          # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
-          create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
-          return result
-        else
-          placed += 1
-          log_wash_sale_lock(order_data[:ticker].base_asset_id) if claim
-          order_id = result.data[:order_id]
-          Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
-          transaction = persist_accepted_order!(order_data, order_id)
-          Bot::FetchAndUpdateOrderJob.perform_later(
-            transaction,
-            update_missed_quote_amount: update_missed_quote_amount
-          )
+        leg_result = with_run_ownership do
+          Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
+          result = create_order(order_data, amount_info)
+          return result if result.equal?(Automation::Statusable::FENCED)
+
+          if result.failure?
+            Rails.logger.error(
+              "set_orders composition bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
+              "errors=#{result.errors.to_sentence}"
+            )
+            # Only a definitive rejection proves nothing was sold. A timeout, a gateway 5xx or a lost
+            # acknowledgement may be on the book, and keeps the lock — as does a placement that raises.
+            restore_buy_lock!(order_data[:ticker].base_asset_id, claim) if claim && !exchange.ambiguous_placement_error?(result)
+            # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
+            # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
+            create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
+            return result
+          else
+            placed += 1
+            log_wash_sale_lock(order_data[:ticker].base_asset_id) if claim
+            order_id = result.data[:order_id]
+            Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
+            transaction = persist_accepted_order!(order_data, order_id)
+            Bot::FetchAndUpdateOrderJob.perform_later(
+              transaction,
+              update_missed_quote_amount: update_missed_quote_amount
+            )
+          end
+        end
+        if leg_result.equal?(Automation::Statusable::FENCED)
+          restore_buy_lock!(order_data[:ticker].base_asset_id, claim) if claim
+          return leg_result
         end
       end
     ensure
-      record_skipped_orders!(skipped, placed_any: placed.positive?)
+      with_run_ownership { record_skipped_orders!(skipped, placed_any: placed.positive?) }
     end
 
     Result::Success.new

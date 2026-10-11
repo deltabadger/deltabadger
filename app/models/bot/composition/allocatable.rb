@@ -23,8 +23,10 @@ module Bot::Composition::Allocatable
     result = derive_composition
     return result if result.failure?
 
-    update_bot_index_assets(result.data)
-    Result::Success.new(result.data)
+    with_run_ownership do
+      update_bot_index_assets(result.data)
+      Result::Success.new(result.data)
+    end
   end
 
   def current_allocations

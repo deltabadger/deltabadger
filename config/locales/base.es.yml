@@ -739,8 +739,8 @@ es:
             redeploy_failed: "La reinversión falló: %{error}"
             dca_skipped_liquidation_pending: "Aportación omitida — una venta sigue en curso"
             started: 'Bot iniciado'
-            stopped: 'Bot detenido'
-            stopped_with_reason: 'Bot detenido: %{reason}'
+            stopped: 'Bot detenido. Las órdenes ya enviadas a la plataforma aún pueden ejecutarse.'
+            stopped_with_reason: 'Bot detenido: %{reason}. Las órdenes ya enviadas a la plataforma aún pueden ejecutarse.'
             reschedule_disabled: 'Programación automática en pausa'
             market_closed: 'Mercado cerrado — próxima apertura %{time}'
             limit_paused: 'En pausa: límite %{limit} no alcanzado'

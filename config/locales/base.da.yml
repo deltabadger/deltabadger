@@ -749,8 +749,8 @@ da:
             redeploy_failed: "Geninvesteringen mislykkedes: %{error}"
             dca_skipped_liquidation_pending: "Indbetaling sprunget over — et salg er stadig i gang"
             started: 'Bot started'
-            stopped: 'Bot stopped'
-            stopped_with_reason: 'Bot stoppet: %{reason}'
+            stopped: 'Bot stopped. Ordrer, der allerede er sendt til børsen, kan stadig blive gennemført.'
+            stopped_with_reason: 'Bot stoppet: %{reason}. Ordrer, der allerede er sendt til børsen, kan stadig blive gennemført.'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

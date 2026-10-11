@@ -749,8 +749,8 @@ el:
             redeploy_failed: "Η επανεπένδυση απέτυχε: %{error}"
             dca_skipped_liquidation_pending: "Η εισφορά παραλείφθηκε — μια πώληση είναι ακόμη σε εξέλιξη"
             started: 'Bot started'
-            stopped: 'Bot stopped'
-            stopped_with_reason: 'Το bot σταμάτησε: %{reason}'
+            stopped: 'Bot stopped. Οι εντολές που έχουν ήδη σταλεί στο ανταλλακτήριο ενδέχεται ακόμη να εκτελεστούν.'
+            stopped_with_reason: 'Το bot σταμάτησε: %{reason}. Οι εντολές που έχουν ήδη σταλεί στο ανταλλακτήριο ενδέχεται ακόμη να εκτελεστούν.'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

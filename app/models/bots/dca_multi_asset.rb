@@ -95,10 +95,10 @@ class Bots::DcaMultiAsset < Bot
 
   def execute_action
     first_tick = own_transactions.none? # before anything is placed: see broadcast_below_minimums_warning
-    return Result::Success.new unless transition_working!(:executing) # stopped meanwhile: place nothing
+    return FENCED unless transition_working!(:executing) # stopped meanwhile: place nothing
 
     result = refresh_composition
-    return result if result.failure?
+    return result if result.failure? || result.equal?(FENCED)
 
     result = if selling?
                # Never pending_quote_amount while selling: that is the FROZEN buy carry
@@ -114,7 +114,8 @@ class Bots::DcaMultiAsset < Bot
              end
     return result if result.failure? || result.equal?(FENCED)
 
-    transition_working!(:waiting)
+    return FENCED unless transition_working!(:waiting)
+
     broadcast_below_minimums_warning(first_tick:)
     Result::Success.new
   end

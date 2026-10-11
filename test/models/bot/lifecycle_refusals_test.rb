@@ -10,6 +10,19 @@ class Bot::LifecycleRefusalsTest < ActiveSupport::TestCase
   end
 
   # The REST API answers this with 409 before it reaches the model; the web did not ask at all.
+  test 'Start reads the current generation past the query cache' do
+    bot = create(:dca_single_asset, :stopped)
+    ActiveRecord::Base.cache do
+      bot.class.find_by(id: bot.id)
+      bot.class.connection.raw_connection.execute(
+        "UPDATE bots SET transient_data = json_set(transient_data, '$.run_generation', 1) WHERE id = #{bot.id}"
+      )
+      assert bot.start(start_fresh: false)
+    end
+
+    assert_equal 2, bot.reload.transient_data['run_generation']
+  end
+
   test 'a stale STOP cannot restore an earlier run generation from transient data' do
     bot = create(:dca_single_asset, :started)
     stale = Bot.find(bot.id)
