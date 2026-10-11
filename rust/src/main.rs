@@ -161,6 +161,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let api = jobs::data_api::config(env, &own.primary, &cipher)?.map(jobs::data_api::DataApi::live);
     let api = std::rc::Rc::new(api);
     let mut registered = jobs::reference::shared_jobs(api.clone());
+    // Setup::SeedAndSyncJob, which a platform claim on /setup wakes: it reads the data-api configuration the claim wrote.
+    registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(jobs::resolve::all(LiveFactory::new(),api,deltabadger::tracker::jobs::system_wall()));
@@ -219,7 +221,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 }
 
 /// `deltabadger serve`: `run` and the web UI in one process. Every refusal, the web side's
-/// included (assets, config, no admin user, the port), comes before the claim, so a `serve` that cannot serve leaves
+/// included (assets, config, the port), comes before the claim, so a `serve` that cannot serve leaves
 /// the install Rails'. Exit codes as `run`: 0 stopped as asked, 1 refused before claiming, 2 ended otherwise.
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     if !deltabadger::web::assets::BUILT {

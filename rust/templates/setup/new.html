@@ -1,0 +1,46 @@
+<form data-turbo="false" data-controller="form--html5-validations form--label-animations form--password-strength" data-form--password-strength-success-class-value="form__validation--success" data-form--password-strength-length-pattern-value=".{8,}" data-form--password-strength-uppercase-pattern-value="(?=.*[A-Z])" data-form--password-strength-lowercase-pattern-value="(?=.*[a-z])" data-form--password-strength-digit-pattern-value="(?=.*\d)" data-form--password-strength-symbol-pattern-value="(?=.*[\W_])" action="/setup?locale={{ v.locale }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+{% if !errors.is_empty() %}
+    <div class="form__errors">
+      <ul>
+{% for message in errors %}
+          <li>{{ message.full }}</li>
+{% endfor %}
+      </ul>
+    </div>
+{% endif %}
+
+  <input type="hidden" name="locale" id="locale" value="{{ v.locale }}" />
+
+  {% include "svg/_40x30_logo.html" %}
+
+  {% include "layouts/_language_dropdown_full.html" %}
+
+  <h1>{{ v.t("setup.admin_account")|safe }}</h1>
+
+  {% include "setup/_identity_fields.html" %}
+
+  <div class="form__row db-has-unmask" data-controller="form--password-unmask">
+    <input autocomplete="new-password" class="form__input form__input--has-icon form__input--large{% if password_error.is_some() %} is-invalid{% endif %}" data-form--password-unmask-target="input" data-form--password-strength-target="input" data-action="input-&gt;form--password-strength#checkPasswordStrength" data-html5-error-message="{{ v.t("setup.validations.password_required")|safe }}" required="required" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}" id="user_password" type="password" name="user[password]" />
+{% if let Some(message) = password_error %}
+             <div class="form__info form__info--invalid">{{ message }}</div>
+{% endif %}
+    <label class="form__label" for="user_password">{{ v.t("activerecord.attributes.user.password")|safe }}</label>
+
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+      {% include "svg/_mi_visibility.html" %}
+      {% include "svg/_mi_visibility_off.html" %}
+    </div>
+</div>
+  <div data-form--password-strength-target="requirementsList" class="hidden">
+    <ul class="password-requirements">
+      <li class="form__validation" data-form--password-strength-target="length">{{ v.t_count("devise.passwords.validations.length", 8)|safe }}</li>
+      <li class="form__validation" data-form--password-strength-target="uppercase">{{ v.t("devise.passwords.validations.uppercase")|safe }}</li>
+      <li class="form__validation" data-form--password-strength-target="lowercase">{{ v.t("devise.passwords.validations.lowercase")|safe }}</li>
+      <li class="form__validation" data-form--password-strength-target="digit">{{ v.t("devise.passwords.validations.digit")|safe }}</li>
+      <li class="form__validation" data-form--password-strength-target="symbol">{{ v.t("devise.passwords.validations.symbol")|safe }}</li>
+    </ul>
+  </div>
+
+  <input type="submit" name="commit" value="{{ v.t("setup.continue")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("setup.continue")|safe }}" />
+</form>
+{% include "setup/_connect_platform.html" %}

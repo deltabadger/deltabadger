@@ -1,0 +1,25 @@
+<turbo-frame style="width: 100%;" id="setup_platform_connection">
+{% if platform.connected %}
+    <p class="form__info form__info--notice" style="text-align: center;">
+      {% if platform.proxies %}{{ v.t("setup.platform.connected_with_proxies")|safe }}{% else %}{{ v.t("setup.platform.connected_without_proxies")|safe }}{% endif %}
+    </p>
+{% else %}
+    <details{% if claim_error.is_some() %} open="open"{% endif %}>
+      <summary>{{ v.t("setup.platform.prompt")|safe }}</summary>
+
+      <form data-turbo-frame="setup_platform_connection" data-controller="form--html5-validations form--label-animations" action="{{ claim_action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ v.csrf_token() }}" />
+{% if let Some(error) = claim_error %}
+          <div class="form__info form__info--alert" role="alert">{{ error }}</div>
+{% endif %}
+
+        <div class="form__row form__row--input">
+          <input type="text" name="claim_code" id="claim_code" class="form__input form__input--large" required="required" autocomplete="off" />
+          <label class="form__label" for="claim_code">{{ v.t("setup.platform.code")|safe }}</label>
+        </div>
+
+        <input type="submit" name="commit" value="{{ v.t("setup.platform.connect")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("setup.platform.connect")|safe }}" />
+</form></details>
+{%- endif %}
+{%- if platform.connected %}
+{% endif -%}
+</turbo-frame>

@@ -1,0 +1,8 @@
+<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down">
+  {{ v.language_name() }} {% include "svg/_16x16_down.html" %}
+  <div class="dropdown">
+{% for language in languages %}
+      <a class="dropdown__item" data-turbo="false" href="{{ language.href }}">{{ language.label }}</a>
+{% endfor %}
+  </div>
+</div>

@@ -46,6 +46,10 @@ pub struct SessionData {
     pub auto_open_bot_wizard: bool,
     /// The tracker remembers the venue chosen before submitting its key form.
     pub tracker_connect: Option<i64>,
+    /// The SETUP_TOKEN this browser presented to /setup (SetupController#require_setup_token).
+    pub setup_token: Option<String>,
+    /// The subscriber's name and email from a redeemed platform claim, prefilled on /setup until the admin is made.
+    pub platform_identity: Option<(Option<String>, Option<String>)>,
 }
 
 impl SessionData {
@@ -62,6 +66,8 @@ impl SessionData {
             "return_to": self.return_to,
             "auto_open_bot_wizard": self.auto_open_bot_wizard,
             "tracker_connect": self.tracker_connect,
+            "setup_token": self.setup_token,
+            "platform_identity": self.platform_identity.as_ref().map(|(name, email)| json!([name, email])),
         })
     }
 
@@ -75,6 +81,8 @@ impl SessionData {
             return_to: text(&v["return_to"]),
             auto_open_bot_wizard: v["auto_open_bot_wizard"] == true,
             tracker_connect: v["tracker_connect"].as_i64(),
+            setup_token: text(&v["setup_token"]),
+            platform_identity: v["platform_identity"].as_array().map(|a| (a.first().and_then(text), a.get(1).and_then(text))),
         }
     }
 }

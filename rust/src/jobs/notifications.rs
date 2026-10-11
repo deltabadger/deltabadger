@@ -32,6 +32,12 @@ impl Notifications {
     pub fn ledger_done(&self, owner: i64) {
         self.publish(owner, "<turbo-stream action=\"refresh\"></turbo-stream>");
     }
+    /// Setup::SeedAndSyncJob#broadcast_sync_completed: the "syncing" banner goes.
+    pub fn setup_synced(&self) {
+        if (self.send)("settings_sync", "<turbo-stream action=\"remove\" target=\"flash-syncing\"></turbo-stream>").is_err() {
+            (self.log)("[setup] completion broadcast failed");
+        }
+    }
     fn publish(&self, owner: i64, payload: &str) {
         if (self.send)(&format!("user_{owner}:sync"), payload).is_err() {
             (self.log)("[tracker] completion broadcast failed");

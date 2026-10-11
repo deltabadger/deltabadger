@@ -128,6 +128,18 @@ on:
       - 'app/views/tracker/_chart.html.erb'
       - 'app/views/tracker/_record.html.erb'
       - 'app/controllers/application_controller.rb'
+      # The first-run setup (rust/tests/fixtures/setup_vectors.json "sources").
+      - 'app/controllers/setup_controller.rb'
+      - 'app/controllers/errors_controller.rb'
+      - 'app/views/setup/**'
+      - 'app/views/layouts/_language_dropdown_full.html.erb'
+      - 'app/models/user.rb'
+      - 'app/models/user/**'
+      - 'config/initializers/devise.rb'
+      - 'app/services/platform/redeem_claim.rb'
+      - 'app/models/clients/launchpad.rb'
+      - 'app/jobs/setup/seed_and_sync_job.rb'
+      - 'script/rust/setup.rb'
       # The B2b index-history oracle (rust/tests/fixtures/index_histories.json "ported_sources").
       - 'script/rust/index_histories*'
       - 'app/models/transaction.rb'
@@ -268,6 +280,18 @@ on:
       - 'app/views/tracker/_chart.html.erb'
       - 'app/views/tracker/_record.html.erb'
       - 'app/controllers/application_controller.rb'
+      # The first-run setup (rust/tests/fixtures/setup_vectors.json "sources").
+      - 'app/controllers/setup_controller.rb'
+      - 'app/controllers/errors_controller.rb'
+      - 'app/views/setup/**'
+      - 'app/views/layouts/_language_dropdown_full.html.erb'
+      - 'app/models/user.rb'
+      - 'app/models/user/**'
+      - 'config/initializers/devise.rb'
+      - 'app/services/platform/redeem_claim.rb'
+      - 'app/models/clients/launchpad.rb'
+      - 'app/jobs/setup/seed_and_sync_job.rb'
+      - 'script/rust/setup.rb'
       # The B2b index-history oracle (rust/tests/fixtures/index_histories.json "ported_sources").
       - 'script/rust/index_histories*'
       - 'app/models/transaction.rb'
@@ -348,4 +372,4 @@ jobs:
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
           --test lease_portable --test web --test normaliser --test bigdec_bounds --test decode_alloc --test current_fx --test tracker_index_contract --test tracker_cache_contract --test tracker_deadline --test tracker_first_sync_contract --test histories_sources --test index_histories_contract --test figures_vectors --test figures_limits --test market_pages --test figure_pages_limits
-          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time
+          --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup

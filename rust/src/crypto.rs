@@ -69,6 +69,16 @@ impl Cipher {
     }
 
     pub fn encrypt(&self, plain: &str) -> String {
+        self.encrypt_as(plain, None)
+    }
+
+    /// `encrypt` for a value Ruby holds as a binary string (an OTP seed from ROTP::Base32.random): the envelope
+    /// names its encoding in "e", as ActiveRecord::Encryption writes it for a string that is not UTF-8.
+    pub fn encrypt_binary(&self, plain: &str) -> String {
+        self.encrypt_as(plain, Some("ASCII-8BIT"))
+    }
+
+    fn encrypt_as(&self, plain: &str, encoding: Option<&str>) -> String {
         let (bytes, compressed) = if plain.len() > COMPRESSION_THRESHOLD {
             let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
             z.write_all(plain.as_bytes()).expect("in-memory write");
@@ -80,6 +90,9 @@ impl Cipher {
         let mut sealed = self.aead.encrypt(Nonce::from_slice(&iv), bytes.as_slice()).expect("AES-GCM encrypt");
         let tag = sealed.split_off(sealed.len() - 16);
         let mut headers = json!({ "iv": B64.encode(iv), "at": B64.encode(tag) });
+        if let Some(encoding) = encoding {
+            headers["e"] = json!(B64.encode(encoding));
+        }
         if compressed {
             headers["c"] = json!(true);
         }
