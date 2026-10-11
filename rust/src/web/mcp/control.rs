@@ -22,7 +22,7 @@ fn lifecycle_response(c:&Connection,_:&Ctx,id:i64,action:Action,view:&LifecycleV
     let text=if view.errors.is_empty() {
         match action {
             Action::Stop=> {
-                let pending: bool = c.query_row("SELECT CASE WHEN json_valid(transient_data) THEN coalesce(json_type(transient_data,'$.rust_placement'),'null') <> 'null' ELSE 0 END FROM bots WHERE id=?1", [id], |r| r.get(0))?;
+                let pending = write::orders_may_execute(c, id)?;
                 format!("Bot '{label}' stopped.{}", if pending { " Orders already sent to the exchange may still execute." } else { "" })
             },
             Action::Archive=>format!("Bot '{label}' archived."),

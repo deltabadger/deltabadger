@@ -450,6 +450,40 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
         }
         Ok(())
     }
+    async fn accepted_order_stop_notice(external_status: i64) -> Result {
+        let f = Fixture::new().await?;
+        // Accepted order: its intent has already been cleared, only the submitted row remains.
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        seed::insert_tx(&f.c, &f.seed, f.id, &seed::TxSpec {
+            status: 0, external_status: Some(external_status), external_id: Some("accepted-limit".into()),
+            order_type: 1, amount: Some("0.0012"), quote_amount: Some("60"), price: Some("50000"),
+            quote_amount_exec: None, amount_exec: None, created_at: "2026-09-03 14:59:00".into(),
+        });
+        assert!(f.transient()?.get("rust_placement").is_none());
+        let answer = f.send("PATCH", "/stop", &[]).await?;
+        let response: Value = serde_json::from_str(&answer.body)?;
+        assert_eq!(response["result"]["isError"], Value::Null);
+        assert_eq!(response["result"]["content"][0]["text"], "Bot 'Race' stopped. Orders already sent to the exchange may still execute.");
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, 2);
+        // Terminal and non-submitted rows must not warn, even though the order id remains.
+        for (status, external) in [(0, 2), (0, 3), (0, 4), (1, 0), (2, 1)] {
+            f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+            f.c.execute("UPDATE transactions SET status=?1,external_status=?2 WHERE bot_id=?3", (status, external, f.id))?;
+            let answer = f.send("PATCH", "/stop", &[]).await?;
+            assert!(!answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        }
+        // Another bot's open order cannot cause this bot's notice.
+        let other = seed::insert_bot(&f.c, &f.seed, &seed::BotSpec::weekly(60.0, ANCHOR));
+        f.c.execute("UPDATE transactions SET bot_id=?1,status=0,external_status=1 WHERE bot_id=?2", (other, f.id))?;
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        let answer = f.send("PATCH", "/stop", &[]).await?;
+        assert!(!answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        Ok(())
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_notice_for_accepted_unknown_order() -> Result { accepted_order_stop_notice(0).await }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_notice_for_accepted_open_order() -> Result { accepted_order_stop_notice(1).await }
     #[tokio::test(flavor="current_thread")]
     async fn divergence_in_flight_stop_notice() -> Result {
         let f = Fixture::new().await?;

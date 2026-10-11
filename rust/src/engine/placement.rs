@@ -365,9 +365,11 @@ pub fn drop_intent(c: &Connection, bot_id: i64) -> Result<(), EngineError> { set
 #[derive(Debug)]
 pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
 
-pub fn pending_owned(bot: &Bot) -> Result<bool, EngineError> {
+/// Legacy intents cannot identify their producing run. Settling one must conservatively
+/// retain Rails' ambiguous-placement checkpoint wait; this does not grant dispatch ownership.
+pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(false) };
-    let Some(run) = raw.get("run_identity").filter(|v| !v.is_null()) else { return Ok(false) };
+    let Some(run) = raw.get("run_identity").filter(|v| !v.is_null()) else { return Ok(true) };
     let run = model::RunIdentity::from_json(run).ok_or_else(||EngineError::Data("unreadable intent run identity".into()))?;
     Ok(run == bot.run_identity()?)
 }
@@ -405,7 +407,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
                 polling::owe_limit_mail(&tx, bot.id, now)?;
                 super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
             }
-            if intent_owned(&tx, &intent)? { defer_failure(&fenced, bot, now)?; }
+            if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, now)?; }
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -414,7 +416,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
-            if intent_owned(&tx, &intent)? { defer_failure(&fenced, bot, started)?; }
+            if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, started)?; }
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -445,7 +447,7 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         OperatorResolution::NotPlaced => ("not_placed", None),
     };
     set_intent(&tx, bot_id, None)?;
-    if intent_owned(&tx, &intent)? { defer_to_next_checkpoint(&tx, &bot, now)?; }
+    if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_to_next_checkpoint(&tx, &bot, now)?; }
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;

@@ -22,6 +22,18 @@ pub struct Prepared<T> {
     pub broadcasts: Vec<(String, String)>,
 }
 
+/// Read inside the lifecycle transaction: a cleared intent may already be a submitted order.
+/// Match Transaction.waiting (submitted with unknown/open external status), scoped to this bot.
+pub fn orders_may_execute(c: &Connection, id: i64) -> rusqlite::Result<bool> {
+    c.query_row(
+        "SELECT CASE WHEN json_valid(transient_data) \
+         THEN coalesce(json_type(transient_data, '$.rust_placement'), 'null') <> 'null' ELSE 0 END \
+         OR EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1)) \
+         FROM bots WHERE id=?1",
+        [id], |r| r.get(0),
+    )
+}
+
 const SET_SETTING: &str = "UPDATE bots
 SET settings = json_set(settings, ?1, json(?2))
 WHERE id = ?3 AND user_id = ?4 AND type = ?5 AND status <> 3;";

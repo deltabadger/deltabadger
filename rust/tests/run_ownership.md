@@ -13,7 +13,7 @@ Named stricter divergences:
 | `stale_tick_completion` | The old tick can transition the restarted run to waiting. | `placement::divergence_stale_tick_completion_cannot_write_over_a_new_run` refuses the write; `tick_basket` tests pre-claim and final-leg races. |
 | `settings_held_until_reconciliation` | A stopped bot accepts an amount edit with an unresolved commitment. | `web_actions::action_write::divergence_settings_held_until_reconciliation` refuses the edit and preserves the carry window and intent. |
 | `accepted_order_recovery` | Ambiguous venue responses can leave Rails without a submitted row. | The existing named decision-parity divergences in `parity.rs` require Rust to retain the client-ID intent, reconcile the accepted order once, and hold further placement. `placement` tests preserve original run attribution across STOP and credential rotation. |
-| `in_flight_stop_notice` | Rails' STOP response has no in-flight notice. | Browser and MCP STOP responses warn when Rust retains an unresolved intent. This changes no order or lifecycle decision. |
+| `in_flight_stop_notice` | Rails' STOP response has no in-flight notice. | Browser and MCP STOP responses warn when Rust retains an unresolved intent or a submitted transaction has unknown/open external status. This changes no order or lifecycle decision. |
 
 `fixtures/run_ownership.json` records the first three witnesses using unchanged Rails code in a
 clean archive of main. `script/rust/record_run_ownership.rb` runs only synthetic data, with network
@@ -35,3 +35,9 @@ request: it commits promptly, while the reply is recorded in a separate short tr
 Fenced cleanup is an atomic compare-and-remove of the matching **undispatched** intent. A different
 intent or one already marked dispatched remains available for reconciliation. No database write
 transaction spans venue I/O.
+
+Legacy intents written by main have no `run_identity`. Recovery and operator resolution preserve
+Rails' ambiguous-placement checkpoint wait for these intents, using the current schedule under
+the settlement write lock. Missing attribution never grants dispatch ownership. The `run` upgrade
+test constructs main's persisted intent format, proves absence, restarts the engine, and asserts
+no purchase until strictly after the next checkpoint.

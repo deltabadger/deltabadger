@@ -52,11 +52,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     let csrf = ctx.csrf_token();
     let (_,configured) = bots::market_data(c,&ctx.app)?;
-    let stop_notice = if action == Action::Stop && c.query_row(
-        "SELECT CASE WHEN json_valid(transient_data) \
-         THEN coalesce(json_type(transient_data, '$.rust_placement'), 'null') <> 'null' ELSE 0 END FROM bots WHERE id=?1",
-        [id], |r| r.get::<_,bool>(0),
-    )? {
+    let stop_notice = if action == Action::Stop && write::orders_may_execute(c, id)? {
         turbo::prepend_flash(flash::render(&[flash::Message { style: "primary", text: "Orders already sent to the exchange may still execute.".into() }])?.trim_end())
     } else { String::new() };
     let bot = match &view.draft {

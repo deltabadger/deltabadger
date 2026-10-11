@@ -311,7 +311,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     let bot_id = bot.id;
     model::require_run(c, bot)?;
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
-    let owned_intent = placement::pending_owned(bot)?;
+    let checkpoint_after_recovery = placement::pending_requires_checkpoint(bot)?;
     let settled = match placement::recover_since(c, venue, bot, clock, cx.process_start).await? {
         Recovery::Pending => return Ok(TickOutcome::AwaitingReconciliation),
         Recovery::Recorded(tx) => { *recovered = Some(tx); true }
@@ -327,7 +327,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     // one asset or a basket's leg k: what was not bought is owed again at the next checkpoint, as in Rails.
     if settled {
         *attempts = Attempts::default();
-        return Ok(if owned_intent { TickOutcome::Rescheduled } else { TickOutcome::Skipped });
+        return Ok(if checkpoint_after_recovery { TickOutcome::Rescheduled } else { TickOutcome::Skipped });
     }
     // Decide nothing from reference data past its bound.
     if let Some(s) = staleness::stale(c, bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
