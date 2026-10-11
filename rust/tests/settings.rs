@@ -2535,8 +2535,10 @@ async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
     for venue in ["Binance","BinanceUs","Bingx","Bitget","Bitmart","Bitrue","Bitvavo","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Kraken","Kucoin","Mexc"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
-        assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,501);
-        let modern=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret")],Csrf::Header).await;assert_eq!(modern.status,501);assert_eq!(h.snapshot(),before);
+        // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
+        let refused=if venue=="Bitmart"{302}else{501};
+        assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,refused);
+        let modern=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret")],Csrf::Header).await;assert_eq!(modern.status,refused);assert_eq!(h.snapshot(),before);
         let key=format!("0x{}","a".repeat(40));let secret="b".repeat(64);
         let legacy=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]",&key),("api_key[secret]",&secret)],Csrf::Header).await;
         assert_eq!(legacy.status,501,"{venue} must visibly refuse instead of accepting a pending key with no validator");assert_eq!(h.snapshot(),before);
