@@ -387,7 +387,7 @@ fn lifecycle_inner<T>(
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
         if submitted.mcp() && !effects.settings_changed &&
-            (action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
+            (matches!(action,Action::Delete|Action::Unarchive) || action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
             effects.transient.set.insert("missed_quote_amount".into(),draft.raw_transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
