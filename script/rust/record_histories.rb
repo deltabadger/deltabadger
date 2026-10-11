@@ -114,7 +114,9 @@ vectors = cases.map do |name, rows|
     Thread.current[:normalized_figure_rows] = true
     normalized = capture.call
     Thread.current[:normalized_figure_rows] = false
-    allowed_divergences = %w[null_price_buy cancelled_partial_buy cancelled_price_only_buy_in_window cancelled_price_only_buy_with_cap]
+    # Buys whose fill is known count in Rails' own walk (Transaction.normalized_fill). What is left: a cancelled buy with only a
+    # price, which Rails' pending and cap credits still read as nothing; Rust credits its value and spends less.
+    allowed_divergences = %w[cancelled_price_only_buy_in_window cancelled_price_only_buy_with_cap]
     raise "Unreviewed oracle divergence: #{name}" unless unchanged == normalized || allowed_divergences.include?(name)
     travel_to(NOW + 1.week + 1)
     later_unchanged = bot.pending_quote_amount.to_d.to_s('F')

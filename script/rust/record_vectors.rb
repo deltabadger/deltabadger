@@ -1,4 +1,3 @@
-require Rails.root.join('script/rust/figures_normalized')
 # Records what the Rust crate in rust/ must reproduce, from the app's own code.
 #   bin/rails runner script/rust/record_vectors.rb rust/tests/fixtures/ruby_vectors.json
 # Inputs are fixed and non-secret because the output is committed. Re-run when Rails, bcrypt or rotp
@@ -876,14 +875,9 @@ vectors['basket_ledgers'] = ledger_cases.map do |c|
   with_basket(c[:weights], rows: c[:rows]) do |bot, assets, _alpaca|
     m = bot.metrics(force: true)
     breakdown = m[:asset_breakdown] || {}
-    Thread.current[:normalized_figure_rows] = true
-    normalized = bot.metrics(force: true)
-    Thread.current[:normalized_figure_rows] = false
-    normalized_breakdown = normalized[:asset_breakdown] || {}
     symbol_of = ->(id) { assets.find { |_, a| a.id == id }&.first }
     { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows],
       'holdings' => assets.filter_map { |sym, a| (h = breakdown.dig(bot.key_for(a.id, m), :amount)) && [sym, h.to_d.to_s('F')] }.to_h,
-      'normalized_holdings' => assets.filter_map { |sym, a| (h = normalized_breakdown.dig(bot.key_for(a.id, normalized), :amount)) && [sym, h.to_d.to_s('F')] }.to_h,
       'reserved' => bot.send(:reserved_waiting_amounts, :buy).to_h { |id, amount| [symbol_of.(id), amount.to_d.to_s('F')] } }
   end
 end
@@ -994,12 +988,7 @@ vectors['basket_splits'] = split_cases.map do |c|
       book[[t.id, :last]] = BigDecimal(p['last'])
     end
     r = bot.send(:get_orders_data, BigDecimal(c[:x]))
-    Thread.current[:normalized_figure_rows] = true
-    normalized = bot.send(:get_orders_data, BigDecimal(c[:x]))
-    Thread.current[:normalized_figure_rows] = false
-    { 'normalized_orders' => normalized.success? ? normalized.data.map { |o| [o[:ticker].base, o[:price].to_d.to_s('F'), o[:amount].to_d.to_s('F'), o[:quote_amount].to_d.to_s('F')] } : nil,
-      'normalized_failure' => normalized.failure? ? normalized.errors.to_sentence : nil,
-      'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows], 'prices' => c[:prices], 'limit' => c[:limit], 'x' => c[:x],
+    { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows], 'prices' => c[:prices], 'limit' => c[:limit], 'x' => c[:x],
       'orders' => r.success? ? r.data.map { |o| [o[:ticker].base, o[:price].to_d.to_s('F'), o[:amount].to_d.to_s('F'), o[:quote_amount].to_d.to_s('F')] } : nil,
       'failure' => r.failure? ? r.errors.to_sentence : nil }
   end

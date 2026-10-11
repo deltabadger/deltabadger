@@ -33,7 +33,7 @@ fn every_recorded_rails_ledger_is_reproduced() {
     for (i, case) in cases.iter().enumerate() {
         let (_d, o, id, ids) = build(case);
         let bot = model::load_bot(&o.primary, id).unwrap();
-        assert_eq!(by_symbol(&ids, basket::holdings(&o.primary, &bot).unwrap()), case["normalized_holdings"], "case {i} holdings: {case}");
+        assert_eq!(by_symbol(&ids, basket::holdings(&o.primary, &bot).unwrap()), case["holdings"], "case {i} holdings: {case}");
         assert_eq!(by_symbol(&ids, basket::reserved(&o.primary, &bot).unwrap()), case["reserved"], "case {i} reserved: {case}");
     }
 }
@@ -155,7 +155,7 @@ fn every_recorded_rails_split_is_reproduced() {
             basket::Priced { member: m, reference, price }
         }).collect();
         let got = basket::split(&priced, &basket::holdings(&o.primary, &bot).unwrap(), &basket::reserved(&o.primary, &bot).unwrap(), &bd(case["x"].as_str().unwrap()));
-        match (got, &case["normalized_orders"]) {
+        match (got, &case["orders"]) {
             (Ok(legs), Value::Array(want)) => {
                 let price_of = |id: i64| priced.iter().find(|p| p.member.ticker.id == id).unwrap().price.clone();
                 let got: Vec<Value> = legs.iter().map(|l| {
@@ -164,7 +164,7 @@ fn every_recorded_rails_split_is_reproduced() {
                 }).collect();
                 assert_eq!(&got, want, "case {i}: {case}");
             }
-            (Err(decimals), Value::Null) => assert_eq!(case["normalized_failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
+            (Err(decimals), Value::Null) => assert_eq!(case["failure"], format!("limit price rounds to zero at {decimals} decimals"), "case {i}"),
             (got, want) => panic!("case {i}: Rust {:?}, Rails {want}", got.map(|legs| legs.len())),
         }
     }
