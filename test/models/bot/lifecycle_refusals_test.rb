@@ -80,6 +80,17 @@ class Bot::LifecycleRefusalsTest < ActiveSupport::TestCase
     assert_predicate bot.reload, :stopped?
   end
 
+  test 'STOP cannot restore a carry captured before another writer committed' do
+    bot = create(:dca_single_asset, :started)
+    bot.set_missed_quote_amount
+    current = Bot.find(bot.id)
+    current.update_column(:transient_data, current.transient_data.merge('missed_quote_amount' => 37))
+
+    assert bot.stop
+
+    assert_equal 37.to_d, bot.reload.missed_quote_amount
+  end
+
   # Archive still validates, and refuses before it stops anything: a refused archive changes nothing.
   test 'an archive of such a bot is refused whole' do
     bot = invalid_working_bot

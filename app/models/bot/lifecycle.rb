@@ -108,6 +108,9 @@ module Bot::Lifecycle
       # STOP owns only the stop fields. Reload under the dispatch lock so a stale request cannot
       # restore old transient data (including run identity) or resurrect an archived/deleted row.
       reload
+      # Accountable's capture lives in instance variables, which reload does not reset. Its save
+      # callback must not restore the pre-reload carry over money committed during dispatch.
+      @carry_capture_pending = false
       next true if archived? || deleted?
 
       set_missed_quote_amount if settings_was != settings
