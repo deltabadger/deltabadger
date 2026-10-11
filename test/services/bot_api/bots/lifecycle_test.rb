@@ -5,6 +5,15 @@ require 'test_helper'
 class BotApi::Bots::LifecycleTest < ActiveSupport::TestCase
   setup { @user = create(:user) }
 
+  test 'STOP reports that orders already transmitted may still execute' do
+    bot = create(:dca_single_asset, :started, user: @user)
+    result = BotApi::Bots::Stop.call(user: @user, bot_id: bot.id)
+    assert result.success?
+    assert_equal 'Orders already sent to the exchange may still execute.', result.data[:dispatch_notice]
+    assert_includes ApplicationController.helpers.bot_activity_summary(bot.bot_activity_logs.last),
+                    'Orders already sent to the exchange may still execute.'
+  end
+
   test 'delete hides a stopped bot and cancels nothing that is not there' do
     bot = create(:dca_single_asset, :stopped, user: @user)
     result = BotApi::Bots::Delete.call(user: @user, bot_id: bot.id)

@@ -498,3 +498,65 @@ async fn a_tick_fenced_by_a_restart_leaves_the_new_run_alone() {
     assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:01.000Z");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 1, "leg 1 stands");
 }
+
+/// Pauses at the clock read before claim or completion, after the preceding work committed.
+struct OwnershipClock<'a> { c: &'a rusqlite::Connection, id: i64, after_placement: bool, fired: std::cell::Cell<bool> }
+impl deltabadger::engine::Clock for OwnershipClock<'_> {
+    fn now(&self) -> DateTime<Utc> {
+        let ready: bool = self.c.query_row(if self.after_placement {
+            "SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0)"
+        } else {
+            "SELECT status=1 AND json_extract(transient_data,'$.last_action_job_at') IS NOT NULL FROM bots WHERE id=?1"
+        }, [self.id], |r| r.get(0)).unwrap();
+        if ready && !self.fired.replace(true) {
+            self.c.execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1,'$.last_action_job_at','2026-09-01T10:00:01.000Z') WHERE id=?1", [self.id]).unwrap();
+        }
+        at(T0)
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_pre_claim_pause_cannot_adopt_a_restarted_run() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.5]);
+    let t = script(json!({}));
+    let clock = OwnershipClock { c: &o.primary, id, after_placement: false, fired: std::cell::Cell::new(false) };
+    let out = tick::tick(&o.primary, &venue(&t), id, &clock, &mut Attempts::default()).await.unwrap();
+    assert!(clock.fired.get(), "pause reached");
+    assert!(t.posted_orders().is_empty(), "{out:?}: the old $60 tick must not trade");
+    let b = model::load_bot(&o.primary,id).unwrap();
+    assert_eq!(b.status, BotStatus::Executing);
+    assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:01.000Z");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_final_leg_cannot_complete_over_a_restarted_claim() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[1.0]);
+    let t = script(json!({}));
+    let clock = OwnershipClock { c: &o.primary, id, after_placement: true, fired: std::cell::Cell::new(false) };
+    let out = tick::tick(&o.primary, &venue(&t), id, &clock, &mut Attempts::default()).await.unwrap();
+    assert!(clock.fired.get());
+    assert_eq!(t.posted_orders().len(),1);
+    assert!(matches!(out,TickOutcome::Skipped), "{out:?}");
+    assert_eq!(model::load_bot(&o.primary,id).unwrap().status,BotStatus::Executing);
+}
+
+struct OwnershipDuringPrice { inner: ScriptedTransport, db: String, id: i64 }
+impl deltabadger::venue::http::Transport for OwnershipDuringPrice {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        if r.path.ends_with("/quotes") {
+            rusqlite::Connection::open(&self.db).unwrap().execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1,'$.last_action_job_at','2026-09-01T10:00:01.000Z') WHERE id=?1", [self.id]).unwrap();
+        }
+        self.inner.send(r).await
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_fenced_tick_skips_failing_balance_and_failure_writes() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.5]);
+    let t = script(json!({"GET /v2/account":[{"status":200,"body":"not json"}]}));
+    let v = AlpacaVenue::new(OwnershipDuringPrice { inner:t.clone(),db:o.primary.path().unwrap().into(),id }, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
+    let out=run_on(&o,&v,id,at(T0)).await;
+    assert!(matches!(out,TickOutcome::Skipped),"{out:?}");
+    assert_eq!(model::load_bot(&o.primary,id).unwrap().status,BotStatus::Executing);
+    assert!(!t.requests().iter().any(|r|r.path=="/v2/account"),"a fenced tick never reads balances");
+}

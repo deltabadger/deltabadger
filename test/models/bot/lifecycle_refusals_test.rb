@@ -10,6 +10,19 @@ class Bot::LifecycleRefusalsTest < ActiveSupport::TestCase
   end
 
   # The REST API answers this with 409 before it reaches the model; the web did not ask at all.
+  test 'a stale STOP cannot restore an earlier run generation from transient data' do
+    bot = create(:dca_single_asset, :started)
+    stale = Bot.find(bot.id)
+    stale.missed_quote_amount = 123
+    assert Bot.find(bot.id).stop
+    assert Bot.find(bot.id).start(start_fresh: false)
+    generation = Bot.find(bot.id).transient_data['run_generation']
+
+    assert stale.stop
+
+    assert_equal generation, Bot.find(bot.id).transient_data['run_generation']
+  end
+
   test 'a start on a working bot is refused and writes nothing' do
     bot = create(:dca_single_asset, started_at: 2.days.ago)
     %i[scheduled executing retrying waiting].each do |status|

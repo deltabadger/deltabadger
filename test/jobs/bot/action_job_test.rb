@@ -1,8 +1,145 @@
 require 'test_helper'
 
+# Race tests shared by pair, basket and index ticks.
+module RunOwnershipBehaviorTests
+  extend ActiveSupport::Concern
+
+  included do
+    test 'ownership: a queued job keeps its identity across stop and resume in the same second' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      job = Bot::ActionJob.perform_later(bot)
+      Bot.find(bot.id).stop
+      Bot.find(bot.id).start(start_fresh: false)
+      current = Bot.find(bot.id)
+      before = current.attributes
+      current.expects(:ensure_exchange_authenticated).never
+
+      Bot::ActionJob.new.perform(current, job.arguments[1])
+
+      assert_equal before, current.reload.attributes
+      assert_empty current.transactions
+    end
+
+    test 'ownership: authentication finishing after restart writes nothing' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      before = nil
+      bot.define_singleton_method(:ensure_exchange_authenticated) do
+        Bot.find(id).stop
+        Bot.find(id).start(start_fresh: false)
+        before = Bot.find(id).attributes
+      end
+      bot.exchange.expects(:market_buy).never
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_equal before, Bot.find(bot.id).attributes
+      assert_empty bot.transactions
+    end
+
+    test 'ownership: a balance exception after the final leg cannot fail the new run' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      before = nil
+      bot.define_singleton_method(:funds_are_low?) do
+        Bot.find(id).stop
+        Bot.find(id).start(start_fresh: false)
+        before = Bot.find(id).attributes
+        raise Client::TransientNetworkError, 'balance unavailable after restart'
+      end
+      bot.expects(:record_failure!).never
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_equal before, Bot.find(bot.id).attributes
+      assert bot.transactions.submitted.exists?
+    end
+
+    test 'ownership: a pre-claim pause cannot adopt a restarted run' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.expects(:market_buy).never
+      bot.define_singleton_method(:transition_working!) do |status|
+        if status == :executing
+          Bot.find(id).stop
+          Bot.find(id).start(start_fresh: false)
+        end
+        super(status)
+      end
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_empty bot.transactions
+      assert_equal 'scheduled', Bot.find(bot.id).status
+    end
+
+    test 'ownership: the final leg cannot complete over a restarted claim' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      method = bot.is_a?(Bots::DcaSingleAsset) ? :set_order : :set_orders
+      bot.define_singleton_method(method) do |**args|
+        result = super(**args)
+        Bot.find(id).stop
+        fresh = Bot.find(id)
+        fresh.start(start_fresh: false)
+        fresh.update!(last_action_job_at: 1.second.from_now)
+        fresh.transition_working!(:executing)
+        result
+      end
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert bot.transactions.submitted.exists?
+      assert_equal 'executing', Bot.find(bot.id).status
+    end
+
+    test 'ownership: STOP in the dispatch gap prevents the venue call' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.expects(:market_buy).never
+      bot.define_singleton_method(:stopped_mid_tick?) do
+        fenced = super()
+        Bot.find(id).stop unless fenced
+        fenced
+      end
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_empty bot.transactions
+      assert_equal 'stopped', Bot.find(bot.id).status
+    end
+
+    test 'ownership: a fenced tick skips a failing balance read and failure handling' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.define_singleton_method(:pending_quote_amount) do
+        if Bot.find(id).executing?
+          Bot.find(id).stop
+          fresh = Bot.find(id)
+          fresh.start(start_fresh: false)
+          fresh.update!(last_action_job_at: 1.second.from_now)
+          fresh.transition_working!(:executing)
+        end
+        super()
+      end
+      bot.expects(:funds_are_low?).never
+      bot.stubs(:get_balance).raises(StandardError, 'unreadable balance')
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert_empty bot.transactions
+      assert_equal 'executing', Bot.find(bot.id).status
+      assert_nil Bot.find(bot.id).last_failure_kind
+    end
+
+  end
+end
+
 # Shared behavior tests for Bot::ActionJob across both bot types
 module ActionJobBehaviorTests
   extend ActiveSupport::Concern
+  include RunOwnershipBehaviorTests
   include ActiveJob::TestHelper
   include ActiveSupport::Testing::TimeHelpers
 
@@ -550,6 +687,34 @@ class Bot::ActionJobWithMultiAssetTest < ActiveSupport::TestCase
     # dca_multi_asset_test.rb's execute_action test uses, reaches whichever instance is used.
     Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
     create(:dca_multi_asset, :started)
+  end
+end
+
+class Bot::ActionJobWithIndexOwnershipTest < ActiveSupport::TestCase
+  include RunOwnershipBehaviorTests
+  include ActiveJob::TestHelper
+
+  private
+
+  def create_bot
+    bot = create(:dca_index, status: :scheduled, started_at: Time.current, with_api_key: true)
+    assets = %w[AAA BBB].map do |symbol|
+      asset = create(:asset, symbol:, external_id: "ownership-#{symbol}")
+      create(:ticker, exchange: bot.exchange, base_asset: asset, quote_asset: bot.quote_asset)
+      asset
+    end
+    coins = assets.map { |asset| { 'id' => asset.external_id, 'market_cap' => 100.0, 'current_price' => 1.0 } }
+    MarketData.stubs(:configured?).returns(true)
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(coins))
+    Exchanges::Kraken.any_instance.stubs(:get_ask_price).returns(Result::Success.new(100.to_d))
+    bot
+  end
+
+  def setup_action_job_mocks(bot)
+    setup_bot_execution_mocks(bot)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
   end
 end
 

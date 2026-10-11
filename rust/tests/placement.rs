@@ -209,3 +209,64 @@ fn an_intent_without_its_snapshot_counts_as_stranded_and_begin_records_one() {
     o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.allocations') WHERE id = ?1", [bot.id]).unwrap();
     assert_eq!(placement::stranded(&o.primary).unwrap(), vec![bot.id], "no snapshot: fail closed");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_stop_in_the_dispatch_gap_sends_nothing() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().next_add(AddOutcome::Accept("should-not-leave".into()));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE bots SET status=2 WHERE id=?1",[bot.id]).unwrap();
+    let _ = placement::send(&venue, &intent, &FixedClock(t0())).await;
+    assert!(venue.sent().is_empty(), "STOP committed before this $60 order was handed to the venue");
+}
+
+struct StopDuringDispatch {
+    inner: FakeVenue,
+    db: String,
+    bot_id: i64,
+    stopper: std::cell::RefCell<Option<std::thread::JoinHandle<()>>>,
+}
+impl deltabadger::venue::Venue for StopDuringDispatch {
+    fn rules(&self) -> &'static deltabadger::engine::venue_rules::VenueRules { self.inner.rules() }
+    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<BigDec, deltabadger::venue::VenueError> { self.inner.price(t,s).await }
+    async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String,deltabadger::venue::VenueError> {
+        let (started_tx,started_rx)=std::sync::mpsc::channel();
+        let (done_tx,done_rx)=std::sync::mpsc::channel();
+        let db=self.db.clone(); let id=self.bot_id;
+        *self.stopper.borrow_mut()=Some(std::thread::spawn(move || {
+            let c=rusqlite::Connection::open(db).unwrap();
+            c.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
+            started_tx.send(()).unwrap();
+            c.execute("UPDATE bots SET status=2 WHERE id=?1",[id]).unwrap();
+            let _=done_tx.send(());
+        }));
+        started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert!(done_rx.recv_timeout(std::time::Duration::from_millis(100)).is_err(), "STOP returned while dispatch was still inside the venue call");
+        self.inner.add_order(o).await
+    }
+    async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.orders(ids).await }
+    async fn order_by_client_id(&self, id: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.order_by_client_id(id,since).await }
+    async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.fills_from_trades(ids,since).await }
+    async fn balance(&self, asset: &str, crypto: bool) -> Result<BigDec,deltabadger::venue::VenueError> { self.inner.balance(asset,crypto).await }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_stop_and_dispatch_share_the_database_lock() {
+    let (_d,o,bot,plan)=setup();
+    let v=StopDuringDispatch { inner:FakeVenue::new().next_add(AddOutcome::Accept("transmitted".into())),db:o.primary.path().unwrap().into(),bot_id:bot.id,stopper:std::cell::RefCell::new(None) };
+    let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(t0())).unwrap();
+    assert!(matches!(placement::send(&v,&intent,&FixedClock(t0())).await,Sent::Accepted(_)));
+    v.stopper.borrow_mut().take().unwrap().join().unwrap();
+    assert_eq!(reload(&o,&bot).status,deltabadger::enums::BotStatus::Stopped);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_resume_in_the_same_second_does_not_reuse_dispatch_identity() {
+    let (_d,o,bot,plan)=setup();
+    let v=FakeVenue::new().next_add(AddOutcome::Accept("old-run".into()));
+    let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(t0())).unwrap();
+    // Resume preserves started_at and last_action_job_at, even when the clock has not advanced.
+    o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1",[bot.id]).unwrap();
+    let _=placement::send(&v,&intent,&FixedClock(t0())).await;
+    assert!(v.sent().is_empty(), "a resumed run is a new owner even at identical timestamps");
+}
