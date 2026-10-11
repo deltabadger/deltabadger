@@ -124,6 +124,8 @@ module D5HoldingsGrid
     add.call('dates_bad', '/tracker?from=2024-02-30')
     cases['holdings_dates_bad']['steps'].last.merge!('expect' => 500, 'rails_exception_status' => 500)
     %w[name symbol labels].each { |field| add.call("null_#{field}", '/tracker', {}, "null_#{field}") }
+    # Rails' page for balances no completed Rust sync of the current key produced (Rails keeps no provenance).
+    add.call('unsynced', '/tracker')
     cases
   end
 end
