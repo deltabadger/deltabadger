@@ -31,9 +31,8 @@ fn scenario(name: &str) -> &'static Value {
 }
 
 /// What the engine keeps refusing, and the reason `check` names. Rails trades on the last two (RULING-B2B-1 MQ1,
-/// RULING-B2B-R1 item 1): their fill is unknown, so a Yes or the next split could spend the same money twice. Rails also
-/// trades on the two special buys it skips; the normalizer would count their units and buy more of every other member.
-const REFUSED: [(&str, &str); 14] = [
+/// RULING-B2B-R1 item 1): their fill is unknown, so a Yes or the next split could spend the same money twice.
+const REFUSED: [(&str, &str); 12] = [
     ("liquidation_waiting", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
     ("liquidation_partly_filled_open", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
     ("liquidation_unknown", "waiting LIQUIDATION/REDEPLOY/REBALANCE"),
@@ -46,11 +45,7 @@ const REFUSED: [(&str, &str); 14] = [
     ("rebalance_buying", "rebalance_pending"),
     ("redeploy_abandoned", "unresolved abandoned REDEPLOY"),
     ("rebalance_abandoned", "abandoned REBALANCE"),
-    ("redeploy_zero_quote", "REBALANCE/REDEPLOY buy(s) the Rails walk skips"),
-    ("redeploy_unpriced_positive_quote", "REBALANCE/REDEPLOY buy(s) the Rails walk skips"),
 ];
-/// Special buys Rails' walk skips: the engine refuses to size from them (display keeps the normalized reading).
-const SKIPPED_BUYS: [&str; 2] = ["redeploy_zero_quote", "redeploy_unpriced_positive_quote"];
 fn refusal(name: &str) -> Option<&'static str> { REFUSED.iter().find(|(n, _)| *n == name).map(|(_, r)| *r) }
 
 struct Built { _d: tempfile::TempDir, o: deltabadger::store::Opened, id: i64, assets: BTreeMap<String, i64> }
@@ -144,23 +139,11 @@ fn walks_and_books_match_rails_for_every_index_history() {
         let c = &b.o.primary;
         let rails = &sc["rails"]["walk"];
         let bot = model::load_bot(c, b.id).unwrap();
-        let mut rails = rails.clone();
-        let mut spent_want = sc["rails"]["redeploy"]["spent"].as_str().unwrap().to_string();
-        if SKIPPED_BUYS.contains(&name) {
-            let refused = basket::walk(c, &bot, at()).unwrap_err();
-            assert!(format!("{refused:?}").contains("the Rails walk skips"), "{name}: {refused:?}");
-            // The figures page keeps the normalized reading: the 0.03 DDD at $12 Rails skips, paid from the proceeds.
-            rails["holdings"]["DDD"] = json!({ "amount": "0.03", "invested": "12.0" });
-            for k in ["uninvested_cash", "realised_cash"] { rails[k] = json!("14.4"); }
-            spent_want = "12.0".into();
-        } else {
-            let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
-            for (sym, want) in rails["holdings"].as_object().unwrap() {
-                assert_eq!(BigDec::parse(&d(w.amounts.get(&b.assets[sym]).cloned())).unwrap(), BigDec::parse(want["amount"].as_str().unwrap()).unwrap(),
-                           "{name}: engine units of {sym}");
-            }
+        let w = basket::walk(c, &bot, at()).unwrap_or_else(|e| panic!("{name}: engine walk {e:?}"));
+        for (sym, want) in rails["holdings"].as_object().unwrap() {
+            assert_eq!(BigDec::parse(&d(w.amounts.get(&b.assets[sym]).cloned())).unwrap(), BigDec::parse(want["amount"].as_str().unwrap()).unwrap(),
+                       "{name}: engine units of {sym}");
         }
-        let rails = &rails;
         let subject = db::Subject::load(c, b.id).unwrap();
         let m = walk::metrics(c, &subject, At::from_utc(at()).unwrap()).unwrap_or_else(|e| panic!("{name}: figures walk {e:?}"));
         let num = |n: &deltabadger::figures::num::Num| n.to_d().unwrap().to_s_f();
@@ -180,7 +163,11 @@ fn walks_and_books_match_rails_for_every_index_history() {
         want.as_object_mut().unwrap().remove("holdings");
         assert_eq!(got, want, "{name}: books");
         let (banked, spent) = accounting::index_redeploy_totals(&db::orders(c, b.id).unwrap()).unwrap();
-        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.clone()),
+        // Redeployable#redeploy_spent sums the proceeds the venue reported, so a closed redeploy reporting 0 spends nothing
+        // in Rails; Rust values it at price × units (0.03 × 400) like every buy. Display only: the offer is capped at the
+        // walk's uninvested cash, 14.4 on both sides, and this build has no redeploy action.
+        let spent_want = if name == "redeploy_zero_quote" { "12.0" } else { sc["rails"]["redeploy"]["spent"].as_str().unwrap() };
+        assert_eq!((banked.to_s_f(), spent.to_s_f()), (sc["rails"]["redeploy"]["banked"].as_str().unwrap().into(), spent_want.into()),
                    "{name}: redeploy banked/spent");
         assert_eq!(amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap().to_s_f(), sc["rails"]["pending_quote_amount"], "{name}: carry");
     }

@@ -378,5 +378,5 @@ fn normalized_oracle_changes_only_the_named_r4_histories() {
     // Rails reads buys through Transaction.normalized_fill itself; what is left is a sale with no reported proceeds,
     // which Rails books P/L-neutral and judges "unknown" on purpose. B2b: random_6 and unpriced_sales differed from
     // Rails only in unpriced LIQUIDATION sells, which the counterfactual now reads raw, as Rails does (RULING-B2B-1 MQ6).
-    assert_eq!(changed, vec!["random_10", "random_11", "random_12", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_22", "random_24", "random_3", "random_4", "random_7", "random_9"]);
+    assert_eq!(changed, vec!["random_10", "random_12", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_22", "random_24", "random_3", "random_4", "random_7", "random_9"]);
 }
