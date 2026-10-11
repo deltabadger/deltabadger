@@ -325,7 +325,8 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i6
         Err(e) => Err(Fail::General { message: format!("{e:?}"), errors: vec![], failed_row: false }),
     };
     let outcome = match executed {
-        Ok(placed) => {
+        Ok(Ran { fenced: true, .. }) => { *attempts = Attempts::default(); TickOutcome::Skipped }
+        Ok(Ran { placed, .. }) => {
             *attempts = Attempts::default();
             // clear_failure_state!, then back to scheduled unless stopped meanwhile.
             model::credential_write(c, &cx.credential_version, |tx| {
@@ -343,14 +344,14 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i6
 }
 
 /// DcaMultiAsset#execute_action with the sweep in front and Fundable behind. Ok(placed) = success.
-async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<bool, Fail>, EngineError> {
+async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<Ran, Fail>, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action (rebalanceable.rb:75-82): a restatement the
     // market has not priced yet, or a split the bot cannot size. No sweep, no order, no balance read; success, so the bot goes
     // back to scheduled, and the contribution is carried by the interval count.
     if splits::untrusted(c, &bot, clock.now())? {
         model::log_activity(c, bot_id, "dca_skipped_restatement", Level::Info, json!({}), clock.now())?;
-        return Ok(Ok(false));
+        return Ok(Ok(Ran { placed: false, fenced: false }));
     }
 
     if let Err(f) = polling::sweep(c, venue, &bot, clock.now()).await {
@@ -369,11 +370,11 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
             model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":reason}), clock.now())
         })?;
         super::log(&format!("[engine] bot {bot_id}: split reconciliation required: {reason}; refresh the ledger and correct its split records before restarting; no trade is required"));
-        return Ok(Ok(false));
+        return Ok(Ok(Ran { placed: false, fenced: false }));
     }
     if splits::snapshot(c, &bot)? != reconciled {
         model::log_activity(c, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":"split generation or held assets changed during reconciliation"}), clock.now())?;
-        return Ok(Ok(false));
+        return Ok(Ok(Ran { placed: false, fenced: false }));
     }
     c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_split_hold') WHERE id=?1 AND json_extract(transient_data,'$.rust_split_hold') IS NOT NULL", [bot_id])?;
     // Statusable#transition_working!: every status write of the tick moves only a still-working bot, so a stop that
@@ -382,7 +383,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
     let first_tick = own_rows(c, &bot)?.is_empty();
     let working = model::transition_working(c, bot_id, BotStatus::Executing, clock.now())?;
     let bot = model::load_bot(c, bot_id)?;
-    let mut placed = false;
+    let (mut placed, mut fenced) = (false, false);
     if working {
         // Bots::DcaMultiAsset#refresh_composition: the members are re-derived and written before anything is sized; with no
         // tradable weighted member the tick fails with no order row.
@@ -410,12 +411,13 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
             if !legs.skipped.is_empty() {
                 model::credential_write(c, &cx.credential_version, |tx| record_skipped(tx, &bot, &legs.skipped, legs.placed, clock.now()))?;
             }
-            placed = legs.placed;
+            (placed, fenced) = (legs.placed, legs.fenced);
             if let Err(f) = bought? { return Ok(Err(f)); }
         }
         // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
-        model::transition_working(c, bot_id, BotStatus::Waiting, clock.now())?;
-        if first_tick {
+        // Fenced, the run is no longer this tick's: no :waiting over a restarted run's claim, no below-minimum notice.
+        if !fenced { model::transition_working(c, bot_id, BotStatus::Waiting, clock.now())?; }
+        if first_tick && !fenced {
             let rows = own_rows(c, &bot)?;
             if !rows.is_empty() && rows.iter().all(|(_, status)| *status == 2) {
                 (cx.below_minimum)(bot_id, rows.into_iter().map(|(id, _)| id).collect());
@@ -446,12 +448,16 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, 
         // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
-    Ok(Ok(placed))
+    Ok(Ok(Ran { placed, fenced }))
 }
+
+/// What a tick's execute_action did. Fenced (Automation::Statusable::FENCED): Bot::Fundable still ran, but Bot::ActionJob
+/// writes nothing more (no clear_failure_state!, no :scheduled).
+struct Ran { placed: bool, fenced: bool }
 
 /// What a basket buy did before it returned, for the skipped-leg report that runs on every way out.
 #[derive(Default)]
-struct Legs { placed: bool, skipped: Vec<amount::OrderPlan> }
+struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan> }
 
 /// Bot::Composition::OrderSetter#set_orders(side: :buy) over get_orders_data: holdings, every member's price before any
 /// order (Step 1), the split, then the legs in member order. Each leg is settled (row written, intent cleared) before the next
@@ -516,6 +522,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
                 let intent = match placement::begin_with_credentials(c, bot, &plan, &tickers, &composition, reconciled, &cx.credential_version, clock)? {
                     placement::Begun::Intent(intent) => intent,
                     placement::Begun::Changed => break,
+                    placement::Begun::Fenced => { legs.fenced = true; break; }
                     placement::Begun::CredentialsChanged => return Ok(Err(Fail::CredentialsChanged)),
                     placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); continue; }
                 };
