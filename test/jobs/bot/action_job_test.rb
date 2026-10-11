@@ -121,16 +121,39 @@ module RunOwnershipBehaviorTests
       bot = create_bot
       setup_action_job_mocks(bot)
       bot.exchange.expects(:market_buy).never
-      bot.define_singleton_method(:stopped_mid_tick?) do
-        fenced = super()
-        Bot.find(id).stop unless fenced
-        fenced
+      bot.define_singleton_method(:create_order) do |*args|
+        Bot.find(id).stop
+        super(*args)
       end
 
       Bot::ActionJob.new.perform(bot)
 
       assert_empty bot.transactions
       assert_equal 'stopped', Bot.find(bot.id).status
+    end
+
+    test 'ownership: enqueue failure cannot roll back an accepted order' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      Bot::FetchAndUpdateOrderJob.stubs(:perform_later).raises(StandardError, 'queue unavailable')
+
+      Bot::ActionJob.new.perform(bot)
+
+      assert bot.transactions.submitted.exists?, 'the venue accepted it; orphan polling must find it'
+    end
+
+    test 'ownership: a stale trigger save cannot restore the old generation' do
+      bot = create_bot
+      bot.capture_run!
+      Bot.find(bot.id).stop
+      Bot.find(bot.id).start(start_fresh: false)
+      before = Bot.find(bot.id).attributes
+      begin
+        bot.update!(transient_data: bot.transient_data.merge('price_limit_condition_met_at' => Time.current))
+      rescue ActiveRecord::RecordNotSaved
+        # A fenced save may refuse explicitly.
+      end
+      assert_equal before, Bot.find(bot.id).attributes
     end
 
     test 'ownership: a fenced tick skips a failing balance read and failure handling' do

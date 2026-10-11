@@ -66,6 +66,7 @@ class Bots::DcaMultiAssetDayOrderFillTest < ActiveSupport::TestCase
 
   def tick(bot, at:)
     travel_to at
+    bot.update_column(:status, :scheduled) # the next ActionJob owns a scheduled checkpoint
     result = with_dry_run(false) { bot.execute_action }
     assert_predicate result, :success?, -> { result.errors.to_sentence }
     Bot.find(bot.id)

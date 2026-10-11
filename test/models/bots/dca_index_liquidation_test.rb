@@ -562,6 +562,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   end
 
   test 'a DCA tick promotes a dead placement intent instead of skipping forever' do
+    @bot.update_column(:status, :scheduled)
     # The tick holds the same exchange semaphore a placement would, so surviving `placing` intent is
     # a dead worker. If the tick only ever returned, the bot would skip every contribution while the
     # halt it should be showing stayed invisible — and only a Sell click would ever surface it.
@@ -574,6 +575,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   end
 
   test 'the DCA tick sweeps the order it is standing down for, instead of waiting forever' do
+    @bot.update_column(:status, :scheduled)
     # This guard is prepended AHEAD of Bot::LimitOrderable, so returning early skips the open-order
     # sweep that would advance the very order being waited on. Without sweeping here the bot stands
     # down permanently on a row nothing else ever polls.

@@ -33,7 +33,7 @@ class Bot::LifecycleRefusalsTest < ActiveSupport::TestCase
 
     assert stale.stop
 
-    assert_equal generation, Bot.find(bot.id).transient_data['run_generation']
+    assert_equal generation + 1, Bot.find(bot.id).transient_data['run_generation']
   end
 
   test 'a start on a working bot is refused and writes nothing' do

@@ -4,7 +4,7 @@
 //! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
 //! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use crate::venue::Attributed;
-use super::amount::{write_order_row, OrderPlan, RowKind};
+use super::amount::{write_accepted_order, write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
 use super::schedule::{checkpoints, effective};
 use super::{polling, Clock, EngineError};
@@ -256,21 +256,24 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced }
 
-/// STOP and dispatch take the same SQLite write lock. It stays held through the venue reply,
-/// timeout or cancellation, so only a request already handed to the transport can execute after
-/// STOP succeeds. A timeout/process death cannot retract transmitted bytes; recovery owns those.
+/// Commit the dispatch reservation before entering any venue code (including session-lock
+/// acquisition). STOP can invalidate this run while the response is in flight.
 pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
-    let tx = model::immediate(c)?;
-    let sent = send_locked(&tx, venue, intent, clock).await?;
-    tx.commit()?;
-    Ok(sent)
+    {
+        let tx = model::immediate(c)?;
+        if !intent_owned(&tx, intent)? || !still_pending(&tx, intent.bot_id, &intent.cl_ord_id)? { return Ok(Sent::Fenced); }
+        model::check_credential_result(&tx, &intent.credential_version)?;
+        tx.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement.dispatched',json('true')) WHERE id=?1", [intent.bot_id])?;
+        tx.commit()?;
+    }
+    Ok(send_to_venue(venue, intent, clock).await)
 }
 
-/// Production dispatch records its answer before releasing STOP's lock. The committed intent
-/// predates this transaction, so an ambiguous reply, rollback or crash leaves recovery possible.
+/// An accepted order is an immutable fact, even when STOP/restart changed the run meanwhile.
+/// Record and clear its intent in a new short transaction, before any follow-up work.
 pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
+    let sent = send(c, venue, intent, clock).await?;
     let tx = model::immediate(c)?;
-    let sent = send_locked(&tx, venue, intent, clock).await?;
     match &sent {
         Sent::Accepted(id) => { record_accepted_in(&tx, bot, intent, id)?; }
         Sent::Rejected(errors) => { record_rejected_in(&tx, bot, intent, errors)?; }
@@ -283,12 +286,6 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
 
 fn intent_owned(c: &Connection, intent: &Intent) -> Result<bool, EngineError> {
     match &intent.run { Some(run) => model::owns_identity(c, intent.bot_id, run), None => Ok(false) }
-}
-
-async fn send_locked<V: Venue>(tx: &rusqlite::Transaction<'_>, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
-    if !intent_owned(tx, intent)? || !still_pending(tx, intent.bot_id, &intent.cl_ord_id)? { return Ok(Sent::Fenced); }
-    model::check_credential_result(tx, &intent.credential_version)?;
-    Ok(send_to_venue(venue, intent, clock).await)
 }
 
 async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
@@ -324,9 +321,8 @@ pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -
     Ok(id)
 }
 fn record_accepted_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
-    let fenced = model::check_credential_result(tx, &intent.credential_version)?;
     if !still_pending(tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
-    let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
+    let id = write_accepted_order(tx, bot, &intent.plan, txid, intent.at, intent.run.as_ref())?;
     set_intent(tx, bot.id, None)?;
     Ok(id)
 }
@@ -386,7 +382,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let tx = model::immediate(c)?;
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
-            let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
+            let id = write_accepted_order(&tx, bot, &intent.plan, &state.txid, intent.at, intent.run.as_ref())?;
             // The intent goes before the fill is applied: the amount cap counts an unresolved intent as spent, and this one is
             // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
@@ -431,7 +427,7 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         if dup > 0 { return Err(EngineError::Data(format!("order {t} is already recorded"))); }
     }
     let (label, txid) = match resolution {
-        OperatorResolution::Placed(txid) => { let fenced=model::check_credential_result(&tx,&intent.credential_version)?; write_order_row(&fenced, &bot, &intent.plan, RowKind::Submitted { external_id: txid.clone() }, intent.at)?; ("placed", Some(txid)) }
+        OperatorResolution::Placed(txid) => { write_accepted_order(&tx, &bot, &intent.plan, &txid, intent.at, intent.run.as_ref())?; ("placed", Some(txid)) }
         OperatorResolution::NotPlaced => ("not_placed", None),
     };
     set_intent(&tx, bot_id, None)?;

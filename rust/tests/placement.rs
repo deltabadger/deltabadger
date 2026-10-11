@@ -237,11 +237,12 @@ impl deltabadger::venue::Venue for StopDuringDispatch {
             let c=rusqlite::Connection::open(db).unwrap();
             c.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
             started_tx.send(()).unwrap();
-            c.execute("UPDATE bots SET status=2 WHERE id=?1",[id]).unwrap();
+            c.execute("UPDATE bots SET status=2, transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1",[id]).unwrap();
             let _=done_tx.send(());
         }));
         started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
-        assert!(done_rx.recv_timeout(std::time::Duration::from_millis(100)).is_err(), "STOP returned while dispatch was still inside the venue call");
+        std::thread::sleep(std::time::Duration::from_secs(6)); // reply exceeds production busy_timeout
+        done_rx.recv_timeout(std::time::Duration::from_millis(100)).expect("STOP must commit before the slow reply");
         self.inner.add_order(o).await
     }
     async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.orders(ids).await }
@@ -251,13 +252,17 @@ impl deltabadger::venue::Venue for StopDuringDispatch {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn ownership_stop_and_dispatch_share_the_database_lock() {
+async fn ownership_stop_commits_during_slow_dispatch_and_accepted_order_is_recorded() {
     let (_d,o,bot,plan)=setup();
     let v=StopDuringDispatch { inner:FakeVenue::new().next_add(AddOutcome::Accept("transmitted".into())),db:o.primary.path().unwrap().into(),bot_id:bot.id,stopper:std::cell::RefCell::new(None) };
     let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&o.primary, &v,&intent,&FixedClock(t0())).await.unwrap(),Sent::Accepted(_)));
+    assert!(matches!(placement::send_recorded(&o.primary, &v,&bot,&intent,&FixedClock(t0())).await.unwrap(),Sent::Accepted(_)));
     v.stopper.borrow_mut().take().unwrap().join().unwrap();
     assert_eq!(reload(&o,&bot).status,deltabadger::enums::BotStatus::Stopped);
+    assert_eq!(count(&o,"SELECT count(*) FROM transactions WHERE external_id='transmitted'"),1);
+    assert!(reload(&o,&bot).rust_placement().is_none());
+    let identity: String = o.primary.query_row("SELECT run_identity FROM transactions WHERE external_id='transmitted'", [], |r|r.get(0)).unwrap();
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&identity).unwrap()[0], 0, "attribute the order to the run that sent it");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -290,4 +295,13 @@ fn ownership_resuming_at_the_same_timestamp_invalidates_a_persisted_wait() {
     let previous=bot.schedule_key().unwrap();
     o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1",[bot.id]).unwrap();
     assert_ne!(reload(&o,&bot).schedule_key().unwrap(),previous,"a deferral belongs to one lifecycle generation");
+}
+
+#[test]
+fn accepted_order_is_a_fact_even_if_credentials_rotate_before_recording() {
+    let (_d, o, bot, plan) = setup();
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE api_keys SET key='rotated' WHERE user_id=?1", [bot.user_id]).unwrap();
+    placement::record_accepted(&o.primary, &bot, &intent, "accepted-old-credentials").unwrap();
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions WHERE external_id='accepted-old-credentials'"), 1);
 }

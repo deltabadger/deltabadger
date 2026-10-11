@@ -161,6 +161,7 @@ class Bots::DcaMultiAssetOneAssetSellingTest < ActiveSupport::TestCase
     @bot.transactions.find_by!(external_id: 'q-1').update_columns(external_status: 'closed', amount_exec: 1,
                                                                   quote_amount_exec: 100)
     sell_base(0.02)
+    @bot.update_column(:status, :scheduled)
     @bot.execute_action
 
     assert_in_delta 1.0, @bot.transactions.find_by!(external_id: 'q-1').amount.to_f, 1e-9, '100 USD at 100'

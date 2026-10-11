@@ -210,7 +210,7 @@ const WEB_REQUEST_START_DECISION: &str = "UPDATE bots SET \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status = 1";
 
 const WEB_STOP: &str = "UPDATE bots SET status = 2, stopped_at = ?4, \
-    stop_message_key = NULL, updated_at = ?4 \
+    stop_message_key = NULL, transient_data = json_set(transient_data, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?4 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status <> 3";
 
 const WEB_DELETE: &str = "UPDATE bots SET status = 3, updated_at = ?4 \
@@ -251,7 +251,7 @@ fn lifecycle_inner<T>(
     response_builder: impl FnOnce(&Connection, &Ctx, &LifecycleView) -> Result<Prepared<T>, WebError>,
 ) -> Result<Outcome<T>, WebError> {
     use crate::enums::{ApiKeyStatus, BotStatus};
-    let tx = model::immediate(c)?;
+    let tx = if matches!(action, Action::Stop | Action::Archive | Action::Delete) { model::immediate_retry_busy(c)? } else { model::immediate(c)? };
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
     let row = tx.query_row("SELECT type,status,settings,transient_data FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaMultiAsset','Bots::DcaIndex')",

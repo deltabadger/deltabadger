@@ -47,7 +47,14 @@ class Bots::Signal < Bot
     self.stop_message_key = nil
     self.started_at = Time.current if start_fresh
 
-    if valid?(:start) && save
+    started = transaction do
+      current = self.class.uncached { self.class.find_by(id:) }
+      next false if current && (current.working? || current.archived? || current.deleted?)
+
+      transient_data['run_generation'] = current&.transient_data&.fetch('run_generation', 0).to_i + 1
+      valid?(:start) && save
+    end
+    if started
       log_activity('started', details: { start_fresh: start_fresh })
       true
     else
@@ -56,19 +63,20 @@ class Bots::Signal < Bot
   end
 
   def stop(stop_message_key: nil)
-    # A stop that lands after archiving — a queued Bot::StopJob, a stale tab — must not write
-    # :stopped over :archived and drop the bot back into Inactive. It is already stopped.
-    return true if archived?
+    retry_sqlite_busy do
+      transaction do
+        reload
+        next true if archived? || deleted?
 
-    if update(
-      status: :stopped,
-      stopped_at: Time.current,
-      stop_message_key:
-    )
-      log_activity('stopped', details: { stop_message_key: stop_message_key }.compact)
-      true
-    else
-      false
+        self.status = :stopped
+        self.stopped_at = Time.current
+        self.stop_message_key = stop_message_key
+        transient_data['run_generation'] = transient_data.fetch('run_generation', 0) + 1
+        next false unless save(validate: false)
+
+        log_activity('stopped', details: { stop_message_key: }.compact)
+        true
+      end
     end
   end
 

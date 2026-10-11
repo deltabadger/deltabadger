@@ -87,6 +87,11 @@ module Bot::Lifecycle
       # Bot::RepairOrphanedBotsJob#repair_bot (repair_orphaned_bots_job.rb:67) — start was the only
       # re-enqueue site that did not do this.
       cancel_scheduled_action_jobs
+      # Cancellation only touches older generations. If STOP/Start superseded this request,
+      # leave its new chain alone; an enqueue that races this read still carries our old token.
+      current = self.class.uncached { self.class.find_by(id:) }
+      return true unless current&.working? && current.run_identity == run_identity
+
       if use_delayed_first
         Bot::ActionJob.set(wait_until: computed_start_at).perform_later(self)
         Bot::BroadcastAfterScheduledActionJob.perform_later(self)
@@ -104,24 +109,27 @@ module Bot::Lifecycle
   end
 
   def stop(stop_message_key: nil)
-    stopped = transaction do
-      # STOP owns only the stop fields. Reload under the dispatch lock so a stale request cannot
-      # restore old transient data (including run identity) or resurrect an archived/deleted row.
-      reload
-      # Accountable's capture lives in instance variables, which reload does not reset. Its save
-      # callback must not restore the pre-reload carry over money committed during dispatch.
-      @carry_capture_pending = false
-      next true if archived? || deleted?
+    stopped = retry_sqlite_busy do
+      transaction do
+        # STOP owns only the stop fields. Reload under the dispatch lock so a stale request cannot
+        # restore old transient data (including run identity) or resurrect an archived/deleted row.
+        reload
+        # Accountable's capture lives in instance variables, which reload does not reset. Its save
+        # callback must not restore the pre-reload carry over money committed during dispatch.
+        @carry_capture_pending = false
+        next true if archived? || deleted?
 
-      set_missed_quote_amount if settings_was != settings
-      self.status = :stopped
-      self.stopped_at = Time.current
-      self.stop_message_key = stop_message_key
-      # Unrelated invalid settings must never prevent STOP.
-      next false unless save(validate: false)
+        set_missed_quote_amount if settings_was != settings
+        transient_data['run_generation'] = transient_data.fetch('run_generation', 0) + 1
+        self.status = :stopped
+        self.stopped_at = Time.current
+        self.stop_message_key = stop_message_key
+        # Unrelated invalid settings must never prevent STOP.
+        next false unless save(validate: false)
 
-      log_activity('stopped', details: { stop_message_key: }.compact)
-      true
+        log_activity('stopped', details: { stop_message_key: }.compact)
+        true
+      end
     end
     cancel_scheduled_action_jobs if stopped
     stopped

@@ -76,11 +76,17 @@ pub fn stop_owing_mail(c: &Connection, bot_id: i64, stop_message_key: &str, mail
 /// The one stop write: status, stopped_at, stop_message_key and the optional mail marker where `condition` holds, then its
 /// `stopped` log, in one transaction. Returns whether it stopped the bot.
 fn stop_if(c: &Connection, bot_id: i64, stop_message_key: &str, mail: Option<(&str, Value)>, condition: &str, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    if c.is_autocommit() {
+        let tx = model::immediate_retry_busy(c)?;
+        let stopped = stop_if(&tx, bot_id, stop_message_key, mail, condition, now)?;
+        tx.commit()?;
+        return Ok(stopped);
+    }
     let (path, marker) = match &mail { Some((key, marker)) => (format!("$.{key}"), marker.to_string()), None => ("$".into(), String::new()) };
     model::locked(c, |c| {
-        // Without a mail the CASE leaves transient_data exactly as stored.
+        // STOP invalidates even a same-timestamp run; preserve every unrelated transient key.
         let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2, \
-                                    transient_data = CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END \
+                                    transient_data = json_set(CASE WHEN ?5 = '$' THEN transient_data ELSE json_set(transient_data, ?5, json(?6)) END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'),0)+1) \
                                     WHERE id = ?4 AND {condition}"),
                   params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id, path, marker])?;
         if n == 0 { return Ok(false); }

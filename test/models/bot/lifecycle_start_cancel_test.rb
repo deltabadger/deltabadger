@@ -76,6 +76,24 @@ class Bot::LifecycleStartCancelTest < ActiveSupport::TestCase
                  'and place twice'
   end
 
+  test 'a Start superseded after commit cannot cancel the newer job' do
+    bot = create(:dca_single_asset, :stopped)
+    newer = nil
+    bot.define_singleton_method(:cancel_scheduled_action_jobs) do
+      unless newer
+        fresh = Bot.find(id)
+        fresh.stop
+        fresh.start(start_fresh: false)
+        newer = fresh.run_identity
+      end
+      super()
+    end
+
+    assert bot.start
+    jobs = action_jobs_for(bot)
+    assert jobs.any? { |job| job.arguments['arguments'][1] == newer }, 'new generation keeps its execution chain'
+  end
+
   private
 
   def action_jobs_for(bot)

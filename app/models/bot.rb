@@ -417,6 +417,8 @@ class Bot < ApplicationRecord
   def merge_transient_data!(values)
     merged = nil
     self.class.transaction do
+      return false if stopped_mid_tick?
+
       fresh = self.class.lock.find(id)
       merged = fresh.transient_data.merge(values.stringify_keys).compact
       fresh.update_columns(transient_data: merged)

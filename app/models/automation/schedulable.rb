@@ -135,14 +135,14 @@ module Automation::Schedulable
     SolidQueue::ScheduledExecution.joins(:job)
                                   .where(solid_queue_jobs: { class_name: job_class.to_s })
                                   .find_each do |execution|
-      execution.job.destroy if job_matches_record?(execution.job, global_id)
+      execution.job.destroy if job_matches_record?(execution.job, global_id) && cancellable_generation?(execution.job, record)
     end
 
     # Cancel ready (queued) jobs
     SolidQueue::ReadyExecution.joins(:job)
                               .where(solid_queue_jobs: { class_name: job_class.to_s })
                               .find_each do |execution|
-      execution.job.destroy if job_matches_record?(execution.job, global_id)
+      execution.job.destroy if job_matches_record?(execution.job, global_id) && cancellable_generation?(execution.job, record)
     end
 
     # Cancel blocked jobs. Bot jobs are per-exchange concurrency-limited (one thread per exchange
@@ -152,8 +152,18 @@ module Automation::Schedulable
     SolidQueue::BlockedExecution.joins(:job)
                                 .where(solid_queue_jobs: { class_name: job_class.to_s })
                                 .find_each do |execution|
-      execution.job.destroy if job_matches_record?(execution.job, global_id)
+      execution.job.destroy if job_matches_record?(execution.job, global_id) && cancellable_generation?(execution.job, record)
     end
+  end
+
+  # Lifecycle requests can finish out of order across the primary and queue databases. An older
+  # Start/STOP must never delete a job from a newer generation, even after a stale ownership read.
+  def cancellable_generation?(job, record)
+    return true unless job.class_name == 'Bot::ActionJob' && record.respond_to?(:run_identity)
+
+    args = job.arguments.is_a?(Hash) ? job.arguments['arguments'] : job.arguments
+    identity = args[1]
+    !identity.is_a?(Array) || identity[0].to_i <= record.run_identity[0].to_i
   end
 
   # Collapse duplicate live jobs of one class for one record down to a single survivor, keeping the

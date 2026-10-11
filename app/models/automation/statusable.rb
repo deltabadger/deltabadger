@@ -2,6 +2,11 @@ module Automation::Statusable
   extend ActiveSupport::Concern
 
   included do
+    # Active Record saves already run in a write transaction. Fence ALL decorators and store
+    # accessors here, including writes made before the tick claims :executing.
+    before_save :require_captured_run, prepend: true
+    after_save -> { capture_run! if @claimed_run }
+
     # `archived` is appended, never inserted: the column stores the position.
     enum :status, %i[created scheduled stopped deleted executing retrying waiting archived]
 
@@ -32,10 +37,10 @@ module Automation::Statusable
     @claimed_run = identity
   end
 
-  def owns_run?
+  def owns_run?(working: true)
     self.class.uncached do
       current = self.class.find_by(id:)
-      current&.working? && current.run_identity == @claimed_run
+      current && (!working || current.working?) && current.run_identity == @claimed_run
     end
   end
 
@@ -43,15 +48,32 @@ module Automation::Statusable
     @claimed_run && !owns_run?
   end
 
-  # SQLite BEGIN IMMEDIATE serializes this check and every write/dispatch inside the block with
-  # STOP. In particular the venue call stays inside the transaction through its reply/exception.
-  # STOP can return only after that call ends; an already transmitted request may still settle.
-  def with_run_ownership
+  # Short database work only. Never put exchange I/O inside this block.
+  def with_run_ownership(working: true)
     transaction do
-      next FENCED if @claimed_run && !owns_run?
+      next FENCED if @claimed_run && !owns_run?(working:)
 
       yield
     end
+  end
+
+  def update_columns(attributes)
+    return super unless @claimed_run
+
+    with_run_ownership { super }
+  end
+
+  def retry_sqlite_busy
+    yield
+  rescue ActiveRecord::StatementInvalid => e
+    raise unless e.cause.is_a?(SQLite3::BusyException)
+
+    sleep 0.01
+    retry
+  end
+
+  def require_captured_run
+    throw(:abort) if @claimed_run && !owns_run?
   end
 
   def transition_working!(status)

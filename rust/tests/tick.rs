@@ -391,7 +391,7 @@ async fn a_stop_while_addorder_awaits_its_reply_wins() {
             let _ = done_tx.send(());
         }));
         started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
-        assert!(done_rx.recv_timeout(std::time::Duration::from_millis(100)).is_err(), "STOP waits for the transmitted order's reply and recording");
+        done_rx.recv_timeout(std::time::Duration::from_secs(1)).expect("STOP commits while the transmitted order awaits its reply");
     });
     run(&o, &v, id, "2026-09-01T10:00:01Z").await;
     stopper.borrow_mut().take().unwrap().join().unwrap();

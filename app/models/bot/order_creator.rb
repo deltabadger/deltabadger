@@ -26,11 +26,21 @@ module Bot::OrderCreator
   # taken for the order just accepted here (the table's global unique index then refuses the insert
   # loudly, which beats recording a fill against the wrong row).
   def persist_accepted_order!(order_data, order_id)
-    transactions.find_by(exchange_id:, external_id: order_id) ||
-      create_submitted_order!(order_data.merge(order_id: order_id, status: :unknown))
+    # Ownership may have moved while the exchange replied. This fact belongs in the ledger
+    # regardless; commit it and settle its marker before any queue or notification work.
+    transaction do
+      row = transactions.find_by(exchange_id:, external_id: order_id) ||
+            create_submitted_order!(order_data.merge(order_id: order_id, status: :unknown))
+      clear_placement_intent!(order_data[:placement_token])
+      row
+    end
   end
 
   def create_failed_order!(order_data)
+    with_run_ownership { create_failed_order_record!(order_data) }
+  end
+
+  def create_failed_order_record!(order_data)
     order_values = base_order_values(order_data).merge(
       status: :failed,
       external_status: order_data[:status],
@@ -82,6 +92,7 @@ module Bot::OrderCreator
   def order_identity_values(order_data = {})
     {
       transaction_type: order_data[:transaction_type].presence || 'REGULAR',
+      run_identity: order_data[:run_identity],
       exchange: exchange,
       base_asset_id: order_data[:ticker]&.base_asset_id,
       quote_asset_id: order_data[:ticker]&.quote_asset_id

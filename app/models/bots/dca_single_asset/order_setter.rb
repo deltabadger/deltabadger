@@ -87,31 +87,28 @@ module Bots::DcaSingleAsset::OrderSetter
       return Automation::Statusable::FENCED
     end
 
-    placed = with_run_ownership do
-      Rails.logger.info("set_order bot=#{id} event=order_creating #{order_log_fields(order_data)}")
-      result = create_order(order_data, amount_info)
-      return result if result.equal?(Automation::Statusable::FENCED)
+    Rails.logger.info("set_order bot=#{id} event=order_creating #{order_log_fields(order_data)}")
+    result = create_order(order_data, amount_info)
+    return result if result.equal?(Automation::Statusable::FENCED)
 
-      if result.failure?
-        Rails.logger.error(
-          "set_order bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
-          "errors=#{result.errors.to_sentence}"
-        )
-        # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
-        # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
-        create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
-        return result
-      else
-        order_id = result.data[:order_id]
-        Rails.logger.info("set_order bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
-        transaction = persist_accepted_order!(order_data, order_id)
-        Bot::FetchAndUpdateOrderJob.perform_later(
-          transaction,
-          update_missed_quote_amount: update_missed_quote_amount
-        )
-      end
+    if result.failure?
+      Rails.logger.error(
+        "set_order bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
+        "errors=#{result.errors.to_sentence}"
+      )
+      # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
+      # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
+      create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
+      return result
+    else
+      order_id = result.data[:order_id]
+      Rails.logger.info("set_order bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
+      transaction = persist_accepted_order!(order_data, order_id)
+      Bot::FetchAndUpdateOrderJob.perform_later(
+        transaction,
+        update_missed_quote_amount: update_missed_quote_amount
+      )
     end
-    return placed if placed.equal?(Automation::Statusable::FENCED)
 
     Result::Success.new
   end

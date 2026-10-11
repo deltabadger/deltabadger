@@ -198,6 +198,7 @@ module Bots::Signal::OrderSetter
     Rails.logger.info("execute_signal bot=#{id} event=order_creating #{order_log_fields(order_data)}")
     result = create_order(order_data, amount_info)
     result = create_order(order_data, amount_info) if result.failure? && exchange.placement_transient_error?(result.errors)
+    return Outcome.of(:skipped) if result.equal?(Automation::Statusable::FENCED)
 
     if result.success?
       order_id = result.data[:order_id]
@@ -209,6 +210,9 @@ module Bots::Signal::OrderSetter
     return ambiguous_placement(order_data, result.errors.to_sentence) if exchange.ambiguous_placement_error?(result)
 
     record_signal_failure(side, result.errors, order_data: order_data)
+  rescue Bot::OrderSetter::AcceptedOrderRecordingError => e
+    order_data[:recording_error] = e
+    Outcome.of(:submitted, order_id: e.order_id)
   rescue StandardError => e
     ambiguous_placement(order_data, e.message)
   end
@@ -227,6 +231,8 @@ module Bots::Signal::OrderSetter
   # the exchange order id, so it can be reconciled by hand. Returns the row, or nil if there is none.
   def track_signal_order(order_data, order_id)
     Rails.logger.info("execute_signal bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
+    raise order_data.delete(:recording_error) if order_data[:recording_error]
+
     transaction = persist_accepted_order!(order_data, order_id)
     raise 'the confirmation job was not enqueued' unless Bot::FetchAndUpdateOrderJob.perform_later(transaction)
 

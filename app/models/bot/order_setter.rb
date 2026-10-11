@@ -1,6 +1,15 @@
 module Bot::OrderSetter
   extend ActiveSupport::Concern
 
+  class AcceptedOrderRecordingError < StandardError
+    attr_reader :order_id
+
+    def initialize(order_id, message)
+      @order_id = order_id
+      super(message)
+    end
+  end
+
   private
 
   # Stable, aggregatable fields for an order — used for both log lines and the
@@ -110,7 +119,46 @@ module Bot::OrderSetter
   end
 
   def create_order(order_data, amount_info)
-    with_run_ownership { dispatch_order(order_data, amount_info) }
+    # This column is separate from transient_data: an unrelated save cannot erase an in-flight
+    # order. Commit the run and order snapshot before entering venue/session-lock code.
+    token = SecureRandom.uuid
+    intent = with_run_ownership do
+      current = self.class.uncached { self.class.find(id) }
+      identity = @claimed_run || run_identity
+      next Automation::Statusable::FENCED unless current.run_identity == identity && current.status == status
+
+      value = { 'run_identity' => identity, 'ticker_id' => order_data[:ticker].id,
+                'side' => order_data[:side].to_s, 'amount' => amount_info[:amount].to_s,
+                'at' => Time.current.iso8601(6) }
+      current.update_columns(placement_intents: current.placement_intents.merge(token => value))
+      value
+    end
+    return intent if intent.equal?(Automation::Statusable::FENCED)
+
+    order_data[:placement_token] = token
+    order_data[:run_identity] = intent.fetch('run_identity')
+    result = dispatch_order(order_data, amount_info)
+    if result.success? && exchange.acknowledged_order_id?(result.data[:order_id])
+      begin
+        persist_accepted_order!(order_data, result.data[:order_id])
+      rescue StandardError => e
+        raise AcceptedOrderRecordingError.new(result.data[:order_id], e.message)
+      end
+    end
+    clear_placement_intent!(token) if result.failure? && !exchange.ambiguous_placement_error?(result)
+    result
+  rescue Client::TransientNetworkError
+    clear_placement_intent!(token)
+    raise
+  end
+
+  def clear_placement_intent!(token)
+    return unless token
+
+    transaction do
+      current = self.class.uncached { self.class.find(id) }
+      current.update_columns(placement_intents: current.placement_intents.except(token))
+    end
   end
 
   def dispatch_order(order_data, amount_info)

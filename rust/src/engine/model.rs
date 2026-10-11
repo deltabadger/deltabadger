@@ -32,6 +32,12 @@ impl RunIdentity {
         serde_json::json!({"bot_type":self.bot_type, "generation":self.generation, "tick":self.tick,
             "started":self.started, "last_action":self.last_action})
     }
+    /// Persisted order attribution uses the same array and UTC timestamps as Rails.
+    pub fn rails_json(&self) -> Value {
+        let time = |us: Option<i64>| us.and_then(DateTime::<Utc>::from_timestamp_micros)
+            .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true));
+        serde_json::json!([self.generation, self.tick, time(self.started), time(self.last_action)])
+    }
     pub fn from_json(v: &Value) -> Option<Self> {
         let time = |key: &str| { let value = v.get(key)?; if value.is_null() { Some(None) } else { value.as_i64().map(Some) } };
         Some(Self { bot_type:v.get("bot_type")?.as_str()?.into(), generation:v.get("generation")?.as_i64()?,
@@ -586,6 +592,17 @@ pub fn transition_working(c: &Connection, bot_id: i64, status: BotStatus, now: D
 /// never interleave with another writer. Every multi-statement write in the engine opens one of these.
 pub fn immediate(c: &Connection) -> Result<rusqlite::Transaction<'_>, EngineError> {
     Ok(rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?)
+}
+
+/// Safety writes retry contention after SQLite's busy timeout. No network work is allowed in
+/// the resulting transaction; dispatch never holds this database-wide lock while awaiting I/O.
+pub fn immediate_retry_busy(c: &Connection) -> Result<rusqlite::Transaction<'_>, EngineError> {
+    loop {
+        match rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate) {
+            Err(rusqlite::Error::SqliteFailure(e, _)) if e.code == rusqlite::ErrorCode::DatabaseBusy => std::thread::sleep(std::time::Duration::from_millis(10)),
+            other => return Ok(other?),
+        }
+    }
 }
 
 /// Runs `f` under the write lock: inside the caller's transaction if there is one, else in its own.

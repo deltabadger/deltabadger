@@ -82,6 +82,7 @@ class Bot::RestatedPriceQuarantineTest < ActiveSupport::TestCase
   end
 
   test 'the DCA leg stands down rather than sizing against the mismatch' do
+    @bot.update_column(:status, :scheduled)
     split!(at: 2.hours.ago)
     @bot.expects(:set_orders).never
 

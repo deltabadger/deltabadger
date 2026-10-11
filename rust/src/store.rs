@@ -134,7 +134,7 @@ const PRIMARY: &[TableContract] = &[
         ("started_at", "datetime", false), ("stopped_at", "datetime", false), ("stop_message_key", "varchar", false),
         ("settings_changed_at", "datetime", false), ("last_end_of_funds_notification", "datetime", false),
         ("label", "varchar", false), ("position", "integer", true),
-        ("updated_at", "datetime", true), ("restatement_generation", "integer", true),
+        ("updated_at", "datetime", true), ("restatement_generation", "integer", true), ("placement_intents", "json", true),
     ], unique_indexes: &[] },
     TableContract { name: "transactions", columns: &[
         ("id", "integer", true), ("bot_id", "bigint", false), ("exchange_id", "bigint", true), ("external_id", "varchar", false),
@@ -143,7 +143,7 @@ const PRIMARY: &[TableContract] = &[
         ("amount_exec", "decimal", false), ("quote_amount_exec", "decimal", false), ("base", "varchar", false), ("quote", "varchar", false),
         ("base_asset_id", "integer", false), ("quote_asset_id", "integer", false), ("bot_interval", "varchar", true),
         ("bot_quote_amount", "decimal", true), ("transaction_type", "varchar", true), ("error_messages", "json", true),
-        ("created_at", "datetime", true), ("updated_at", "datetime", true),
+        ("created_at", "datetime", true), ("updated_at", "datetime", true), ("run_identity", "json", false),
     ], unique_indexes: &[&["external_id"]] },
     TableContract { name: "tickers", columns: &[
         ("id", "integer", true), ("exchange_id", "bigint", true), ("ticker", "varchar", true), ("base", "varchar", true),
