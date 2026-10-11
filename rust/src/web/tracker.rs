@@ -115,12 +115,12 @@ pub async fn fund_classifications(State(app): State<App>, Extension(ctx): Extens
 pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
     app.db(move |c| write(c,&ctx,owner,|c,owner,_| {
-        // This build registers venue sync jobs only for Alpaca. Never announce a sync
+        // This build syncs the ledger of Alpaca and Binance keys only. Never announce a sync
         // for a venue whose sync implementation is not available.
-        let unsupported: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.status=1 AND k.key_type<>1 AND e.type<>?2)",
-            (owner,crate::sync::ALPACA),|r|r.get(0))?;
-        if unsupported { return Ok(Prepared { response:layout::refused(&ctx,"tracker sync for a venue other than Alpaca"),jobs:vec![] }); }
-        let keys = crate::sync::reading_keys(c).map_err(|_| WebError::Config("tracker reading keys unavailable".into()))?;
+        let unsupported: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.status=1 AND k.key_type<>1 AND e.type NOT IN (?2,?3))",
+            (owner,crate::sync::LEDGER_VENUES[0],crate::sync::LEDGER_VENUES[1]),|r|r.get(0))?;
+        if unsupported { return Ok(Prepared { response:layout::refused(&ctx,"tracker sync for a venue other than Alpaca and Binance"),jobs:vec![] }); }
+        let keys = crate::sync::ledger_reading_keys(c).map_err(|_| WebError::Config("tracker reading keys unavailable".into()))?;
         let mut names = vec![];
         let mut jobs = vec![];
         for key in keys {
