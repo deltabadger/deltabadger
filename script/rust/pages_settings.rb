@@ -55,7 +55,7 @@ module Pages
       case scenario['settings_fixture']
       when 'keys', 'keys_warnings'
         exchange = Exchanges::Alpaca.first || Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: 0, taker_fee: 0)
-        ApiKey.create!(user: owner, exchange:, key_type: :trading, status: :correct,
+        ApiKey.create!(user: owner, exchange:, key_type: :trading, status: scenario.fetch('key_status', 'correct'),
                        key: 'previous-key', secret: 'previous-secret', passphrase: scenario.fetch('key_mode', 'paper'))
         if scenario['settings_fixture'] == 'keys_warnings'
           kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: 0, taker_fee: 0)
@@ -67,6 +67,12 @@ module Pages
           key.update_columns(created_at: Time.utc(2026, 1, 1))
           AccountTransaction.create!(user: owner, exchange:, api_key: key, base_amount: 0.25, base_currency: 'BTC', entry_type: 0,
                                      transacted_at: Time.utc(2026, 9, 1))
+        end
+      when 'venues'
+        # D5b: every venue the tracker's picker may list. Gemini is not available; BitMart is retired but still available.
+        [['Alpaca', 'Alpaca'], ['Binance', 'Binance'], ['BinanceUs', 'Binance.US'], ['Coinbase', 'Coinbase'], ['Kraken', 'Kraken'],
+         ['Bitmart', 'BitMart'], ['Gemini', 'Gemini', false], ['Hyperliquid', 'Hyperliquid'], ['Bitget', 'Bitget']].each do |klass, name, available|
+          "Exchanges::#{klass}".constantize.create!(name:, maker_fee: 0, taker_fee: 0, available: available != false)
         end
       when 'clients'
         other = User.create!(name: 'Other', email: 'other@example.com', password: PASSWORD, confirmed_at: Time.current)
@@ -368,6 +374,7 @@ module Pages
     grid['settings_key_permissions'] = settings_case(get('/settings/api_key_permissions/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
     grid['settings_key_delete_modal'] = settings_case(get('/settings/confirm_destroy_api_key/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
+    tracker_connect_scenarios(grid)
     { 'nbsp' => "\u00a0", 'em_space' => "\u2003", 'nul' => "\0" }.each do |name, padding|
       accepted = name == 'nul'
       grid["settings_sign_in_email_#{name}"] = {
@@ -377,5 +384,44 @@ module Pages
       }
     end
     grid
+  end
+
+  # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
+  def self.tracker_connect_scenarios(grid)
+    pick = get('/tracker/pick_exchange/new')
+    choose = ->(id, opts = {}) { post('/tracker/pick_exchange', id ? { 'exchange_id' => id } : {}, { 'csrf' => 'both', 'headers' => TURBO }.merge(opts)) }
+    I18n.available_locales.each do |locale|
+      grid["settings_pick_page_#{locale}"] = settings_case(get("/#{locale}/tracker/pick_exchange/new"), fixture: 'venues')
+      grid["settings_pick_frame_#{locale}"] = settings_case(get("/#{locale}/tracker/pick_exchange/new", 'Turbo-Frame' => 'modal'), fixture: 'venues')
+    end
+    grid['settings_pick_signed_out'] = { 'steps' => [pick] }
+    grid['settings_pick_create_alpaca'] = settings_case(pick, choose.call('1', 'expect' => 302), get('/tracker/add_api_key/new'), fixture: 'venues')
+    grid['settings_pick_create_unavailable'] = settings_case(pick, choose.call('7', 'expect' => 302), fixture: 'venues')
+    grid['settings_pick_csrf'] = settings_case(pick, choose.call('1', 'csrf' => 'none', 'expect' => 302), fixture: 'venues')
+    grid['missing_tracker_pick_unknown'] = settings_case(pick, choose.call('999'), fixture: 'venues')
+    grid['missing_tracker_pick_without_id'] = settings_case(pick, choose.call(nil), fixture: 'venues')
+    grid['not_ported_tracker_key_form_unavailable'] = settings_case(pick, choose.call('7'), get('/tracker/add_api_key/new'), fixture: 'venues')
+    grid['not_ported_tracker_key_form_kraken'] = settings_case(get('/tracker/add_api_key/new?exchange_id=5'), fixture: 'venues')
+    grid['settings_key_no_exchange'] = settings_case(get('/tracker/add_api_key/new'), fixture: 'venues')
+    grid['settings_key_retired_form'] = settings_case(get('/tracker/add_api_key/new?exchange_id=6&key_type=read_only').merge('expect' => 302),
+                                                      fixture: 'venues')
+    grid['settings_key_retired_save'] =
+      settings_case(post('/tracker/add_api_key', { 'exchange_id' => '6', 'key_type' => 'read_only', 'api_key[key]' => 'placeholder-key',
+                                                   'api_key[secret]' => 'placeholder-value-123' },
+                         'csrf' => 'header', 'headers' => TURBO, 'expect' => 302, 'settings_snapshot' => true), fixture: 'venues')
+    grid['settings_key_untyped_form'] = settings_case(get('/tracker/add_api_key/new?exchange_id=1'), fixture: 'venues')
+    grid['settings_key_untyped_reconnect'] = settings_case(get('/tracker/add_api_key/new?exchange_id=1', 'Turbo-Frame' => 'modal'), fixture: 'venues')
+    grid['settings_key_untyped_unknown_type'] = settings_case(get('/tracker/add_api_key/new?exchange_id=1&key_type=withdrawal'), fixture: 'keys')
+    %w[trading read_only].each do |type|
+      grid["settings_key_passive_revalidation_#{type}"] =
+        settings_case(get("/tracker/add_api_key/new?exchange_id=1&key_type=#{type}").merge('settings_snapshot' => true), fixture: 'keys')
+        .merge('key_status' => 'incorrect')
+    end
+    grid['settings_key_passive_untyped'] =
+      settings_case(get('/tracker/add_api_key/new?exchange_id=1').merge('settings_snapshot' => true), fixture: 'keys').merge('key_status' => 'incorrect')
+    grid['settings_key_signed_out_form'] = { 'steps' => [get('/tracker/add_api_key/new?exchange_id=1')] }
+    grid['settings_key_signed_out_save'] =
+      { 'steps' => [get('/login'), post('/tracker/add_api_key', { 'exchange_id' => '1', 'api_key[key]' => 'placeholder-key' },
+                                        'csrf' => 'header', 'headers' => TURBO)] }
   end
 end
