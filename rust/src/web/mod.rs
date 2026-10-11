@@ -924,7 +924,7 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
 
     // ApplicationController#redirect_to_setup_if_needed: after Devise's prepended filters and the CSRF check.
-    let to_setup = setup::gated(&context.params) && match app.db(|c| setup::admin_exists(c)).await {
+    let to_setup = setup::gated(&context.params) && match app.db(setup::admin_exists).await {
         Ok(exists) => !exists,
         Err(error) => return finish(&app, &session, &before, &nonce, now, signed_in, error.into_response()),
     };
