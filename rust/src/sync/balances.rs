@@ -16,6 +16,7 @@ use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::ruby::BigDec;
 use crate::venue::alpaca::AlpacaVenue;
+use crate::venue::binance;
 use crate::venue::http::Transport;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -26,6 +27,7 @@ use std::sync::Arc;
 
 pub const SNAPSHOTS_PATH: &str = "/v2/stocks/snapshots";
 pub const PRICES_PATH: &str = "/api/v1/prices";
+pub const EXCHANGE_RATES_PATH: &str = "/api/v1/exchange_rates";
 /// MarketData.get_prices' failure on a hosted instance whose data API did not answer (no CoinGecko key to fall to).
 pub const NO_PROVIDER: &str = "No market data provider available for prices";
 /// What one answer may hold, in bytes: the account is one small object; the positions and the snapshots have one
@@ -67,33 +69,50 @@ pub fn parse_prices(body: &Value, external_ids: &[String]) -> BTreeMap<String, f
 /// Recorded answers for "GET /api/v1/prices", in the shape of http::ScriptedTransport's script (the parity harness
 /// serves the same replies beneath Rails' Clients::MarketData). The last reply repeats; an unscripted call panics.
 #[derive(Default)]
-pub struct ScriptedPrices { replies: RefCell<VecDeque<Value>>, requests: RefCell<Vec<Vec<String>>> }
+pub struct ScriptedPrices { replies: RefCell<VecDeque<Value>>, requests: RefCell<Vec<Vec<String>>>, rates: RefCell<VecDeque<Value>>, rate_requests: RefCell<usize> }
 
 impl ScriptedPrices {
     pub fn from_script(script: &Value) -> Self {
-        Self { replies: RefCell::new(script[format!("GET {PRICES_PATH}")].as_array().cloned().unwrap_or_default().into()), requests: RefCell::default() }
+        let replies = |path: &str| RefCell::new(script[format!("GET {path}")].as_array().cloned().unwrap_or_default().into());
+        Self { replies: replies(PRICES_PATH), requests: RefCell::default(), rates: replies(EXCHANGE_RATES_PATH), rate_requests: RefCell::default() }
     }
     /// The id lists asked for, in order.
     pub fn requests(&self) -> Vec<Vec<String>> { self.requests.borrow().clone() }
+    /// How many times the exchange rates were asked for.
+    pub fn rate_requests(&self) -> usize { *self.rate_requests.borrow() }
+}
+
+/// A scripted reply: a network failure, an HTTP failure, or the body.
+fn scripted(reply: &Value) -> Result<&Value, ApiError> {
+    let message = reply["message"].as_str().unwrap_or_default().to_string();
+    match (reply["network"].as_str(), reply["status"].as_u64().unwrap_or(200)) {
+        // A certificate failure is returned by Rails' client, not raised.
+        (Some("permanent"), _) => Err(ApiError::Failed { status: None, message }),
+        (Some(_), _) => Err(ApiError::Transient(message)),
+        (None, status) if !(200..300).contains(&status) => Err(ApiError::Failed { status: Some(status as u16), message: reply["body"].to_string() }),
+        (None, _) => Ok(&reply["body"]),
+    }
+}
+
+fn next_reply(q: &RefCell<VecDeque<Value>>, path: &str) -> Value {
+    let mut q = q.borrow_mut();
+    if q.is_empty() { panic!("unscripted call GET {path}"); }
+    if q.len() > 1 { q.pop_front().unwrap_or(Value::Null) } else { q[0].clone() }
 }
 
 impl PriceSource for ScriptedPrices {
     fn prices<'a>(&'a self, external_ids: &'a [String], _currency: &'a str) -> PriceFuture<'a> {
         Box::pin(async move {
             self.requests.borrow_mut().push(external_ids.to_vec());
-            let reply = {
-                let mut q = self.replies.borrow_mut();
-                if q.is_empty() { panic!("unscripted call GET {PRICES_PATH}"); }
-                if q.len() > 1 { q.pop_front().unwrap_or(Value::Null) } else { q[0].clone() }
-            };
-            let message = reply["message"].as_str().unwrap_or_default().to_string();
-            match (reply["network"].as_str(), reply["status"].as_u64().unwrap_or(200)) {
-                // A certificate failure is returned by Rails' client, not raised.
-                (Some("permanent"), _) => Err(ApiError::Failed { status: None, message }),
-                (Some(_), _) => Err(ApiError::Transient(message)),
-                (None, status) if !(200..300).contains(&status) => Err(ApiError::Failed { status: Some(status as u16), message: reply["body"].to_string() }),
-                (None, _) => Ok(parse_prices(&reply["body"], external_ids)),
-            }
+            let reply = next_reply(&self.replies, PRICES_PATH);
+            scripted(&reply).map(|body| parse_prices(body, external_ids))
+        })
+    }
+    fn exchange_rates<'a>(&'a self) -> crate::jobs::data_api::RatesFuture<'a> {
+        Box::pin(async move {
+            *self.rate_requests.borrow_mut() += 1;
+            let reply = next_reply(&self.rates, EXCHANGE_RATES_PATH);
+            scripted(&reply).map(|body| body["data"].clone())
         })
     }
 }
@@ -227,11 +246,11 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
     };
     let held = match complete_balances(&catalog, cash, held) {
-        Ok(rows) => rows.into_iter().filter(|(_, qty)| qty.is_positive()).collect::<Vec<_>>(),
+        Ok(rows) => rows.into_iter().filter(|(_, qty)| qty.is_positive()).map(|(id, qty)| (id, qty, BigDec::zero())).collect::<Vec<_>>(),
         Err(why) => return fail(why, false).await,
     };
 
-    let ids: Vec<i64> = held.iter().map(|(id, _)| *id).collect();
+    let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
 
     // The venue's own quotes for stocks; a failure there sends the stocks to the market source with everything else.
@@ -255,8 +274,157 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
             Err((text, false)) => errors.push(text),
         }
     }
+    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step).await? {
+        Ok(summary) => Ok(Ok(summary)),
+        Err(why) => fail(why, false).await,
+    }
+}
+
+/// GET /api/v3/account with `omitZeroBalances`: Exchanges::Binance#get_balances.
+pub const BINANCE_ACCOUNT_PATH: &str = "/api/v3/account";
+/// What a Binance account answer may hold: one entry per asset held (a few hundred at most), and its permissions.
+pub const MAX_BINANCE_ACCOUNT_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_BINANCE_ACCOUNT_NODES: usize = 300_000;
+
+/// One balance sync of one Binance or Binance.US key, as AccountBalance::SyncJob runs it for that key: `transport`
+/// reaches the venue (through the configured proxy, `jobs`), the key's exchange type picks the host. Read only: one
+/// signed GET. What it writes and when is the Alpaca sync's (`sync`): nothing until the answer is read whole and every
+/// number in it checked; a failure records the venue's text, and Binance's invalid-key words mark the key incorrect.
+pub async fn sync_binance<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                        -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_binance_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock,
+                                                        version: &crate::engine::model::CredentialVersion) -> Result<Result<Summary, Failure>, SyncError> {
+    let (catalog, names, exchange_type) = phase(db, move |c| {
+        let key = super::load_key_of(c, key_id, &[binance::BINANCE, binance::BINANCE_US])?;
+        if key.status != 1 || key.key_type == 1 { return Err(SyncError(format!("api key {key_id} is not a reading key"))); }
+        Ok((catalog_for(c, key.user_id, key.exchange_id)?, binance_names(c, key.exchange_id)?, key.exchange_type))
+    }).await?;
+    let (base, _) = binance::host(&exchange_type).ok_or_else(|| SyncError(format!("api key {key_id} is not a Binance key")))?;
+    let venue = binance::BinanceVenue::new(transport, base, &credentials.secret);
+    // #handle_api_key_failure then #record_failure: Binance's invalid-key words condemn the key; nothing else does.
+    let fail = |text: String, condemn: bool| {
+        let (creds, now) = (credentials.clone(), clock.now());
+        async move {
+            let error = super::commit_for(db, version, move |c| {
+                if condemn && binance::condemns(&text) {
+                    c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
+                }
+                record_sync_error(c, key_id, &text, &creds)
+            }).await?;
+            Ok::<_, SyncError>(Err(Failure { error, raised: false }))
+        }
+    };
+    let query = vec![("omitZeroBalances", "true".to_string()), ("recvWindow", binance::READ_RECV_WINDOW.to_string())];
+    let text = match venue.signed_get(BINANCE_ACCOUNT_PATH, query, clock.now(), MAX_BINANCE_ACCOUNT_BYTES).await {
+        Ok(text) => text,
+        Err(text) => return fail(binance::error_message(&text), true).await,
+    };
+    let asset_ids = catalog.asset_ids.clone();
+    let read = tokio::task::spawn_blocking(move || binance_held(&text, &names, &asset_ids).map_err(|unread| (unread, text))).await
+        .unwrap_or_else(|_| Err((Unread::Raised("reading the venue's answer was interrupted".into()), String::new())));
+    let held = match read {
+        Ok(Ok(held)) => held,
+        Ok(Err(why)) => return fail(why, false).await,
+        // A 2xx body that is not JSON: honeymaker's failure is the body itself, read as any failure is.
+        Err((Unread::NotJson, body)) => return fail(binance::error_message(&body), true).await,
+        Err((Unread::Raised(why), _)) => return fail(why, false).await,
+    };
+    let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
+    let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
+    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None).await? {
+        Ok(summary) => Ok(Ok(summary)),
+        Err(why) => fail(why, false).await,
+    }
+}
+
+/// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
+/// asset by the ticker's own spelling; the first ticker to name a symbol wins it.
+fn binance_names(c: &Connection, exchange_id: i64) -> Result<HashMap<String, i64>, SyncError> {
+    let mut s = c.prepare("SELECT base, base_asset_id, quote, quote_asset_id FROM tickers WHERE exchange_id = ?1 AND available = 1 ORDER BY id")?;
+    let rows = s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)))?.collect::<Result<Vec<_>, _>>()?;
+    let mut names = HashMap::new();
+    for (base, base_id, quote, quote_id) in rows {
+        names.entry(base).or_insert(base_id);
+        names.entry(quote).or_insert(quote_id);
+    }
+    Ok(names)
+}
+
+/// Exchanges::Binance#get_balances then AccountBalance::Sync's `nonzero`: per asset the venue lists, its free and locked
+/// quantities (a later entry for the same asset wins), in the order of `asset_ids`, only those holding something. An
+/// entry whose symbol names no listed asset is not a balance. A missing `balances` or a missing quantity is Rails'
+/// KeyError; a quantity that is no number fails the sync (Rails reads it as 0 and deletes the stored balance: a listed
+/// divergence, D2b ruling Q10).
+fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<(i64, BigDec, BigDec)>, String>, Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let Ok(account) = Raw::from_node(&node) else { return Ok(Err("unreadable account".into())) };
+    let entries = match account.member("balances") {
+        None => return Ok(Err("KeyError: Key path balances not found".into())),
+        Some(Node::Scalar(token)) if token == "null" => return Ok(Err("KeyError: Key path balances not found".into())),
+        Some(Node::Array(entries)) => entries,
+        Some(_) => return Ok(Err("unreadable balances".into())),
+    };
+    let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    for entry in entries {
+        let Ok(entry) = Raw::from_node(entry) else { return Ok(Err("unreadable balance".into())) };
+        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(a)).filter(|id| asset_ids.contains(id)) else { continue };
+        let quantity = |key: &str| match entry.number(key) {
+            Ok(Some(n)) => Ok(n),
+            Ok(None) => Err(format!("KeyError: Key path {key} not found")),
+            Err(why) => Err(why),
+        };
+        let free = match quantity("free") { Ok(n) => n, Err(why) => return Ok(Err(why)) };
+        let locked = match quantity("locked") { Ok(n) => n, Err(why) => return Ok(Err(why)) };
+        found.insert(*asset, (free, locked));
+    }
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+}
+
+/// Utilities::Currency#fiat?'s asset half: the first asset by that symbol is of category Currency.
+fn first_asset_is_currency(c: &Connection, symbol: &str) -> Result<bool, SyncError> {
+    Ok(c.query_row("SELECT category FROM assets WHERE symbol = ?1 ORDER BY id LIMIT 1", [symbol], |r| r.get::<_, Option<String>>(0)).optional()?.flatten().as_deref() == Some("Currency"))
+}
+
+/// Utilities::Currency#fiat_to_fiat_rate into USD over MarketData.get_exchange_rates' `data`: both currencies' BTC-based
+/// `value` read as Floats, both positive, USD's over the currency's; then `to_d` (Float#to_d). None where Rails has a
+/// Failure.
+fn fiat_rate(rates: &Value, symbol: &str) -> Option<BigDec> {
+    let value = |currency: &str| crate::jobs::data_api::to_f(&rates.get(currency)?.get("value")?.clone());
+    let (from, to) = (value(&symbol.to_lowercase())?, value("usd")?);
+    if !(from > 0.0 && to > 0.0) { return None; }
+    BigDec::from_f64(to / from).ok()
+}
+
+/// AccountBalance::Sync#sync! from the venue's balances on: other cash at its exchange rate, the market's prices, the
+/// checks, then the rows `BATCH` at a time, what is gone, and the key's clock. `fresh` holds the venue's own quotes
+/// (Alpaca's stocks), `errors` why some could not be read. `Ok(Err(text))`: the sync fails with `text`, nothing written.
+#[allow(clippy::too_many_arguments)]
+async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<(i64, BigDec, BigDec)>, assets: Arc<Vec<Asset>>,
+                mut fresh: HashMap<String, Price>, mut errors: Vec<String>, prices: &dyn PriceSource, key_id: i64, clock: &dyn Clock, step: Option<&BalanceStep<'_>>)
+                -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
-    let cash = |a: &Asset| a.category.as_deref().is_some_and(|c| CASH_CATEGORIES.contains(&c)) && a.symbol.as_deref() == Some("USD");
+    // Other cash is converted at the market API's exchange rates (cash_prices_for); a currency with no rate is left out
+    // and goes stale or unpriced, never to the coin market (where Rails sends it: `usd` and `eur` are coin ids there too).
+    let cash = |a: &Asset| a.category.as_deref().is_some_and(|c| CASH_CATEGORIES.contains(&c));
+    let mut rated: HashMap<String, Price> = HashMap::new();
+    for a in assets.iter().filter(|a| cash(a) && a.symbol.as_deref() != Some("USD")) {
+        let Some(symbol) = a.symbol.as_deref().map(str::to_uppercase) else { continue };
+        if let Some(Price::Decimal(rate)) = rated.get(&symbol) { fresh.insert(a.external_id.clone(), Price::Decimal(rate.clone())); continue; }
+        let fiat = { let s = symbol.clone(); phase(db, move |c| first_asset_is_currency(c, &s)).await? } || crate::figures::totals::FIAT_SYMBOLS.contains(&symbol.as_str());
+        if !fiat { continue; }
+        match prices.exchange_rates().await {
+            Ok(rates) => if let Some(rate) = fiat_rate(&rates, &symbol) {
+                rated.insert(symbol, Price::Decimal(rate.clone()));
+                fresh.insert(a.external_id.clone(), Price::Decimal(rate));
+            },
+            Err(ApiError::Transient(text)) => return Ok(Err(format!("Client::TransientNetworkError: {text}"))),
+            Err(ApiError::Failed { .. }) => {}
+        }
+    }
     let mut remaining: Vec<String> = vec![];
     for a in assets.iter().filter(|a| !cash(a) && !fresh.contains_key(&a.external_id)) {
         if !remaining.contains(&a.external_id) { remaining.push(a.external_id.clone()); }
@@ -265,31 +433,32 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         match prices.prices(&remaining, "usd").await {
             Ok(found) => { for (id, p) in found { fresh.entry(id).or_insert(Price::Float(p)); } }
             // Rails' client raises on a transport failure a retry could fix, and the job records it and stops.
-            Err(ApiError::Transient(text)) => return fail(format!("Client::TransientNetworkError: {text}"), false).await,
+            Err(ApiError::Transient(text)) => return Ok(Err(format!("Client::TransientNetworkError: {text}"))),
             // Any other failure: hosted Rails has no CoinGecko key to fall to, and goes on with its last prices.
             Err(ApiError::Failed { .. }) => errors.push(NO_PROVIDER.into()),
         }
     }
-    for a in assets.iter().filter(|a| cash(a)) { fresh.insert(a.external_id.clone(), Price::Decimal(BigDec::one())); }
+    for a in assets.iter().filter(|a| cash(a) && a.symbol.as_deref() == Some("USD")) { fresh.insert(a.external_id.clone(), Price::Decimal(BigDec::one())); }
 
     // Every price, and every value a row will hold (from a fresh price or the last stored one), within a venue
     // number's caps before the first write. Rails has no such check: a price of 1e300 on a billion coins would be
     // stored as an infinite value and reported as a success. Here the sync fails and writes no balance.
-    if !fresh.values().all(|p| within(price_f(p))) { return fail(PRICE_OUT_OF_RANGE.into(), false).await; }
+    if !fresh.values().all(|p| within(price_f(p))) { return Ok(Err(PRICE_OUT_OF_RANGE.into())); }
     let (user_id, exchange_id) = (catalog.user_id, catalog.exchange_id);
     let origin = version.clone();
     let (last, allow_old) = phase(db, move |c| {
         let allowed = super::cache::produced_by(c, user_id, exchange_id, &origin).map_err(|_| SyncError("cannot read balance cache origin".into()))?;
         Ok((if allowed {last_prices(c, user_id, exchange_id)?} else {HashMap::new()}, allowed))
     }).await?;
-    for (asset_id, total) in &held {
+    for (asset_id, free, locked) in &held {
+        let total = &(free + locked);
         let Some(asset) = assets.iter().find(|a| a.id == *asset_id) else { continue };
         let price = match fresh.get(&asset.external_id) {
             Some(Price::Float(f)) => BigDec::from_f64(*f).ok(),
             Some(Price::Decimal(d)) => Some(d.clone()),
             None => last.get(asset_id).cloned().flatten(),
         };
-        if price.is_some_and(|p| !within(value_of(total, &p))) { return fail(VALUE_OUT_OF_RANGE.into(), false).await; }
+        if price.is_some_and(|p| !within(value_of(total, &p))) { return Ok(Err(VALUE_OUT_OF_RANGE.into())); }
     }
 
     // The rows, `BATCH` at a time; then what is gone, and the key's clock in the last unit.
@@ -306,7 +475,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         summary = super::commit_for(db, version, move |c| upsert(c, user_id, exchange_id, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
         if let Some(step)=step {step(from/BATCH+1).await;}
     }
-    let kept: HashSet<i64> = held.iter().map(|(id, _)| *id).collect();
+    let kept: HashSet<i64> = held.iter().map(|(id, _, _)| *id).collect();
     let mut gone = phase(db, move |c| gone(c, user_id, exchange_id, &kept)).await?;
     loop {
         let rest = gone.split_off(gone.len().min(BATCH));
@@ -327,6 +496,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
     summary.pricing_error = (!errors.is_empty()).then(|| errors.join("; "));
     Ok(Ok(summary))
 }
+
 
 /// Alpaca's snapshots, reduced to the latest trade price of each asked symbol that has one. A snapshot with no latest
 /// trade (or a price of 0) is no venue price: the stock is asked of the market source, like one with no snapshot.
@@ -471,15 +641,16 @@ fn last_prices(c: &Connection, user_id: i64, exchange_id: i64) -> Result<HashMap
 
 /// AccountBalance::Sync#sync!'s write for at most `BATCH` holdings: each upserted on (user, exchange, asset).
 #[allow(clippy::too_many_arguments)]
-fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchange_id: i64, held: &[(i64, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
+fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchange_id: i64, held: &[(i64, BigDec, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
           now: DateTime<Utc>, allow_old: bool) -> Result<Summary, SyncError> {
     let at = sql_time(now);
-    for (asset_id, total) in held {
+    for (asset_id, free, locked) in held {
+        let total = &(free + locked);
         let Some(asset) = assets.iter().find(|a| a.id == *asset_id) else { continue };
         let existing = c.query_row("SELECT id, usd_price FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3 LIMIT 1",
                                    params![user_id, exchange_id, asset_id], |r| Ok((r.get::<_, i64>(0)?, stored_decimal(r.get_ref(1)?, 8)))).optional()?;
         let (id, old_price) = match existing { Some((id, price)) => (Some(id), if allow_old {price?} else {None}), None => (None, None) };
-        let free = cast_decimal(total, 16).to_f();
+        let (free, locked) = (cast_decimal(free, 16).to_f(), cast_decimal(locked, 16).to_f());
         // Checked before the first unit; checked again here, so no unit ever writes a value that is no number.
         let value = |price: &BigDec| Some(value_of(total, price)).filter(|v| within(*v)).ok_or_else(|| SyncError(VALUE_OUT_OF_RANGE.into()));
         match (fresh.get(&asset.external_id), old_price) {
@@ -491,24 +662,24 @@ fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchang
                 };
                 let (Some(stored), Some(exact)) = (stored, exact) else { return Err(SyncError(format!("a price for {} that is not a number", asset.external_id))) };
                 match id {
-                    Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = 0, usd_price = ?2, priced_at = ?3, usd_value = ?4, synced_at = ?3, updated_at = ?3 WHERE id = ?5",
-                                          params![free, stored.to_f(), at, value(&exact)?, id])?,
+                    Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = ?6, usd_price = ?2, priced_at = ?3, usd_value = ?4, synced_at = ?3, updated_at = ?3 WHERE id = ?5",
+                                          params![free, stored.to_f(), at, value(&exact)?, id, locked])?,
                     None => c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, priced_at, usd_value, synced_at, created_at, updated_at) \
-                                       VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?6, ?6, ?6)", params![user_id, exchange_id, asset_id, free, stored.to_f(), at, value(&exact)?])?,
+                                       VALUES (?1, ?2, ?3, ?4, ?8, ?5, ?6, ?7, ?6, ?6, ?6)", params![user_id, exchange_id, asset_id, free, stored.to_f(), at, value(&exact)?, locked])?,
                 };
             }
             // Stale: the last price and its time stay as they are; the value follows the new quantity.
             (None, Some(price)) => {
                 summary.priced_stale += 1;
-                c.execute("UPDATE account_balances SET free = ?1, locked = 0, usd_value = ?2, synced_at = ?3, updated_at = ?3 WHERE id = ?4", params![free, value(&price)?, at, id])?;
+                c.execute("UPDATE account_balances SET free = ?1, locked = ?5, usd_value = ?2, synced_at = ?3, updated_at = ?3 WHERE id = ?4", params![free, value(&price)?, at, id, locked])?;
             }
             (None, None) => {
                 summary.unpriced += 1;
                 match id {
-                    Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = 0, usd_price = NULL, priced_at = NULL, usd_value = NULL, synced_at = ?2, updated_at = ?2 WHERE id = ?3",
-                                          params![free, at, id])?,
-                    None => c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, synced_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5, ?5)",
-                                      params![user_id, exchange_id, asset_id, free, at])?,
+                    Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = ?4, usd_price = NULL, priced_at = NULL, usd_value = NULL, synced_at = ?2, updated_at = ?2 WHERE id = ?3",
+                                          params![free, at, id, locked])?,
+                    None => c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, synced_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?6, ?5, ?5, ?5)",
+                                      params![user_id, exchange_id, asset_id, free, at, locked])?,
                 };
             }
         }
