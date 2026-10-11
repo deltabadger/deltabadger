@@ -161,12 +161,9 @@ struct Entry { row: walk::Row, tx_id: Option<String>, stated: bool }
 /// Tax::PriceService#enrich(currency: 'USD'). Prices come from `historical_prices`; one Rails would fetch first is not
 /// fetched here, and a missing one states no figure (Rails values it at zero and banners the report incomplete).
 fn enrich(c: &Connection, venue: &Venue, scoped: &[Stored], today: NaiveDate) -> Result<Vec<Entry>, FiguresError> {
+    // Only the prices the rows use: Rails' range prefetch adds days no row reads, and a day a row reads but the table
+    // lacks halts the walk below.
     let reference = Reference::load(c, venue, &prices::symbols(scoped))?;
-    for f in prices::prefetch(&reference, scoped, venue)? {
-        if !prices::covered(&f, &prices::stored_days(c, &f.symbol, f.from, f.to)?) {
-            return Err(no_figure(&format!("no price of {} for every day from {} to {}: fetching prices is not ported to the tax report", f.symbol, f.from, f.to)));
-        }
-    }
     let fetched = HashMap::new();
     let mut book = PriceBook { r: &reference, venue: venue.clone(), today, fetched: &fetched, warnings: 0 };
     let rows = match walk::enrich(scoped, &mut book) {

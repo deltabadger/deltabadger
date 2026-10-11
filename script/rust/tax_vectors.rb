@@ -114,6 +114,14 @@ module TaxVectors
         sell(c, 'BTC', '0.05', '5000', '2026-03-10T08:00:00Z')
         sell(c, 'SOL', '3', '600', '2026-04-10T08:00:00Z')
       } },
+      # No price on 6 January, which no row needs: Rails' range fetch fails and every valuation is still there.
+      { name: 'sparse_prices', expect: 'parity', setup: lambda { |c|
+        price('ETH', '2026-01-05', '100')
+        price('ETH', '2026-01-07', '200')
+        row(c, :staking_reward, 'ETH', '1', '2026-01-05T00:00:00Z')
+        row(c, :staking_reward, 'ETH', '1', '2026-01-07T00:00:00Z')
+        sell(c, 'ETH', '2', '500', '2026-01-08T10:00:00Z')
+      } },
       { name: 'sync_banners_and_escaping', expect: 'parity', setup: lambda { |c|
         c[:key].update_columns(last_sync_error: 'boom')
         ApiKey.new(user: c[:user], exchange: c[:alpaca], key: 'r', secret: 's', status: :correct, key_type: :read_only).save!(validate: false)
