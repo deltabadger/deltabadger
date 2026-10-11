@@ -17,6 +17,57 @@ pub fn all<C:Connect+Clone+'static,T:Transport+'static>(venues:C,api:Rc<Option<D
         Ok(job)
     })
 }
+/// Live scheduler jobs resolve the market-data configuration at the start of each run. Keep the
+/// original job for its spec and event subscriptions; construct its consumer with the current client.
+/// This also wraps late scopes, so a claim applies to balance and tracker jobs created after startup.
+pub fn configured(job: Box<dyn Job>, env: &dyn Fn(&str) -> Option<String>) -> Box<dyn Job> {
+    let name = job.spec().name;
+    let uses_data = super::reference::specs().iter().any(|s| s.name == name && name != super::reference::PRUNE)
+        || matches!(name, jobs::BALANCE_SYNC | tracker::jobs::TRACKER_LEDGER | tracker::jobs::PORTFOLIO_BACKFILL);
+    if !uses_data { return job; }
+    let env = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
+    Box::new(Configured { job, env })
+}
+
+pub fn configured_resolver(resolve: Resolver, env: &dyn Fn(&str) -> Option<String>) -> Resolver {
+    let env: Vec<_> = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN"].into_iter().filter_map(|name| env(name).map(|value| (name, value))).collect();
+    Box::new(move |name, scope| {
+        let job = resolve(name, scope)?;
+        Ok(configured(job, &|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone())))
+    })
+}
+
+struct Configured {
+    job: Box<dyn Job>,
+    env: Vec<(&'static str, String)>,
+}
+
+impl Job for Configured {
+    fn spec(&self) -> super::Spec { self.job.spec() }
+    fn wants(&self, event: &crate::engine::events::EngineEvent) -> bool { self.job.wants(event) }
+    fn run<'a>(&'a self, cx: super::Cx<'a>, wakes: Vec<super::Wake>) -> super::JobFuture<'a> {
+        Box::pin(async move { self.run_attributed(cx, wakes).await.value })
+    }
+    fn run_attributed<'a>(&'a self, cx: super::Cx<'a>, wakes: Vec<super::Wake>) -> super::AttributedJobFuture<'a> {
+        Box::pin(async move {
+            let env = self.env.clone();
+            let config = cx.db.run(move |c, cipher| {
+                super::data_api::config(&|name| env.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone()), c, cipher)
+            }).await;
+            let api = match config {
+                Ok(config) => Rc::new(config.map(DataApi::live)),
+                Err(e) => return crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
+            };
+            let spec = self.spec();
+            let resolve = all(crate::venue::alpaca::LiveFactory::new(), api, tracker::jobs::system_wall());
+            match resolve(spec.name, spec.scope.as_deref()) {
+                Ok(job) => job.run_attributed(cx, wakes).await,
+                Err(e) => crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
+            }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests{
     #[test]

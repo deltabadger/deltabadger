@@ -16,6 +16,13 @@ const STATUS: &str = "setup_sync_status";
 /// What SeedAndSyncJob's deltabadger branch syncs, in its order (the stock sync it enqueues runs last).
 const SYNCS: [&str; 4] = [reference::TICKERS, reference::ASSETS, reference::INDICES, reference::STOCKS];
 
+/// A committed claim survives process shutdown even if its in-memory wake did not. Only a persisted
+/// connection with unfinished work is recovered; completed or never-connected installs stay idle.
+pub fn unfinished(c: &rusqlite::Connection, cipher: &crate::crypto::Cipher) -> Result<bool, String> {
+    let connected = app_config::get(c, cipher, "platform_connected_at")?.is_some_and(|at| !crate::ruby::blank(&at));
+    Ok(connected && matches!(app_config::get(c, cipher, STATUS)?.as_deref(), Some("pending" | "in_progress")))
+}
+
 pub struct SeedAndSync<T: Transport> {
     /// MARKET_DATA_URL and MARKET_DATA_TOKEN as the process was started with them.
     env: Vec<(&'static str, String)>,

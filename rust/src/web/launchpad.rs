@@ -122,7 +122,7 @@ fn redeem(payload: &Map<String, Value>) -> Result<Claim, Failure> {
 
 /// POST {"code": code} to the claim URL and read the answer. A failure to connect (nothing was sent) asks to try
 /// again; any other transport failure may have spent the one-time code.
-pub async fn claim(base: &str, code: Option<&str>) -> Result<Claim, Failure> {
+pub async fn claim(base: &str, code: Value) -> Result<Claim, Failure> {
     let url = url(base);
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(5))
