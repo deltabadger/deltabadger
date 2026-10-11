@@ -8,7 +8,7 @@ use crate::engine::events::EngineEvent;
 use crate::jobs::data_api::PriceSource;
 use crate::jobs::schedule::{Jitter, Schedule};
 use crate::jobs::{Cx, Db, Job, JobFuture, AttributedJobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
-use super::{credentials_with_version, ledger, reading_keys, Failure, SyncError, ALPACA};
+use super::{balance_reading_keys, credentials_with_version, ledger, reading_keys, Failure, SyncError, ALPACA};
 use crate::crypto::Credentials;
 use crate::venue::alpaca::{AlpacaVenue, LiveFactory};
 use crate::venue::http::{ReqwestTransport, Transport};
@@ -30,10 +30,36 @@ pub const LEDGER_DEADLINE: Duration = Duration::from_secs(3600);
 pub trait Connect {
     type T: Transport;
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<Self::T>;
+    /// How a balance sync reaches Binance or Binance.US for one key: through `proxy` when one is configured
+    /// (ExchangeProxy.for), never around it. By default nothing is sent.
+    fn binance_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Binance is not connected here")
+    }
 }
 impl Connect for LiveFactory {
     type T = ReqwestTransport;
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<ReqwestTransport> { self.for_bot(ALPACA, Some(credentials.clone())) }
+    fn binance_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
+}
+
+/// The venue type of a key and, for Binance and Binance.US, the proxy its reads go through: AppConfig `proxy_<name>`
+/// (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
+async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
+    let (venue, stored) = db.run(move |c, cipher| {
+        let venue: String = c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1", [key], |r| r.get(0)).map_err(|e| e.to_string())?;
+        let Some((_, name)) = crate::venue::binance::host(&venue) else { return Ok((venue, None)) };
+        let stored: Option<Option<String>> = rusqlite::OptionalExtension::optional(c.query_row("SELECT value FROM app_configs WHERE key = ?1", [format!("proxy_{name}")], |r| r.get(0))).map_err(|e| e.to_string())?;
+        let stored = stored.flatten().map(|v| cipher.decrypt(&v).map_err(|_| format!("app_configs[proxy_{name}] is unreadable"))).transpose()?;
+        Ok((venue, stored))
+    }).await.map_err(SyncError)?;
+    let proxy = crate::venue::binance::host(&venue).and_then(|(_, name)| crate::venue::binance::proxy_for(name, stored, &|k| std::env::var(k).ok()));
+    Ok((venue, proxy))
 }
 
 async fn key_credentials(db: &Db, key: i64) -> Result<(Credentials, crate::engine::model::CredentialVersion), SyncError> {
@@ -147,7 +173,13 @@ impl<C: Connect> Job for BalanceSync<C> {
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-            let outcome = outcome(balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await, |_| true);
+            let done = match venue_of(&cx.db, self.key_id).await {
+                Err(e) => Err(e),
+                Ok((venue, proxy)) if crate::venue::binance::host(&venue).is_some() =>
+                    balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                Ok(_) => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+            };
+            let outcome = outcome(done, |_| true);
             // Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
             // rewrites today's rows.
             if outcome == Outcome::NothingNew { cx.wakers.wake(BALANCE_SYNC, Some(&self.key_id.to_string()), None); }
@@ -161,13 +193,13 @@ impl<C: Connect> Job for BalanceSync<C> {
 }
 
 /// The jobs of an install, for the scheduler's start: per reading Alpaca key (`ApiKey.reading`, what Rails' nightly
-/// jobs iterate) one ledger job and one balance job, every ledger job before every balance job, so jobs due together
-/// run in Rails' order. New scopes are registered by the same constructors on their first wake.
+/// jobs iterate) one ledger job, and per reading Alpaca, Binance or Binance.US key one balance job (the Binance ledger
+/// is not synced by this build yet), every ledger job before every balance job, so jobs due together run in Rails'
+/// order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
-    let keys = reading_keys(c)?;
     let mut jobs: Vec<Box<dyn Job>> = vec![];
-    for key in &keys { jobs.push(Box::new(LedgerSync::new(venues.clone(), *key))); }
-    for key in &keys { jobs.push(Box::new(BalanceSync::new(venues.clone(), prices.clone(), *key))); }
+    for key in reading_keys(c)? { jobs.push(Box::new(LedgerSync::new(venues.clone(), key))); }
+    for key in balance_reading_keys(c)? { jobs.push(Box::new(BalanceSync::new(venues.clone(), prices.clone(), key))); }
     jobs.push(Box::new(ScopeFactory { venues: venues.clone(), prices }));
     Ok(jobs)
 }

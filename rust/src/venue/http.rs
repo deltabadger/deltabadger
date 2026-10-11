@@ -133,6 +133,17 @@ fn number_in_caps(token: &str) -> Result<(), DecodeError> {
 pub fn client() -> reqwest::Client { client_with(CONNECT_TIMEOUT, READ_TIMEOUT, TOTAL_TIMEOUT) }
 
 pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwest::Client {
+    builder(connect, read, total).build().expect("a static reqwest configuration builds")
+}
+
+/// `client`, sent through `proxy` (ExchangeProxy.for's URL): every request goes to the proxy, never directly. A URL
+/// reqwest cannot use is an error, and then nothing is sent at all.
+pub fn client_via(proxy: &str) -> Result<reqwest::Client, String> {
+    let proxy = reqwest::Proxy::all(proxy).map_err(|_| "the configured exchange proxy is not a usable URL".to_string())?;
+    builder(CONNECT_TIMEOUT, READ_TIMEOUT, TOTAL_TIMEOUT).proxy(proxy).build().map_err(|_| "the configured exchange proxy is not a usable URL".to_string())
+}
+
+fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::ClientBuilder {
     reqwest::Client::builder()
         .connect_timeout(connect)
         .read_timeout(read)
@@ -143,27 +154,29 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
         // Rails' effective User-Agent: Clients::Alpaca replaces Faraday's headers, so Net::HTTP sends "Ruby".
         .user_agent("Ruby")
         // Rails reaches Alpaca directly (there is no PROXY_ALPACA); never pick up HTTP(S)_PROXY from the environment.
+        // (`client_via` adds its one proxy after this.)
         .no_proxy()
         // Faraday has no follow-redirects middleware here: a 3xx is an answer, never a second request to another host
         // (a followed 307/308 would re-send the order elsewhere).
         .redirect(reqwest::redirect::Policy::none())
         // One call, one request: a transport retry could re-send an order and blur "never sent" into "sent twice".
         .retry(reqwest::retry::never())
-        .build()
-        .expect("a static reqwest configuration builds")
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync> }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, binance: bool }
 
 impl ReqwestTransport {
     /// Use the same clock that creates the order deadline; production defaults to SystemClock.
     pub fn with_clock(mut self, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>) -> Self { self.clock = clock; self }
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock) } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), binance: false } }
+    /// Honeymaker::Clients::Binance#headers: the key in X-MBX-APIKEY; the secret only signs (`venue::binance`) and is
+    /// never sent.
+    pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { binance: true, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock) } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), binance: false } }
 }
 
 impl Transport for ReqwestTransport {
@@ -173,10 +186,9 @@ impl Transport for ReqwestTransport {
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
-        let mut b = self.client.request(method, r.url())
-            .header("APCA-API-KEY-ID", &self.key)
-            .header("APCA-API-SECRET-KEY", &self.secret)
-            .header("Accept", "application/json")
+        let b = self.client.request(method, r.url());
+        let b = if self.binance { b.header("X-MBX-APIKEY", &self.key) } else { b.header("APCA-API-KEY-ID", &self.key).header("APCA-API-SECRET-KEY", &self.secret) };
+        let mut b = b.header("Accept", "application/json")
             .header("Content-Type", "application/json");
         if let Some(body) = &r.body { b = b.body(body.to_string()); }
         if let Some(not_after) = r.not_after {
@@ -312,7 +324,7 @@ impl Transport for ScriptedTransport {
         }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
-            Some("pre_send" | "pre_send_data") => Err(TransportError::NotSent(message)),
+            Some("pre_send" | "pre_send_data" | "binance_pre_send") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),
             Some("post_send") => Err(TransportError::MaybeSent(message)),
             Some(other) => panic!("unknown network kind {other:?} scripted for {key}"),

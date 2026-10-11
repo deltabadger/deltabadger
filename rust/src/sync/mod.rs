@@ -196,9 +196,20 @@ pub struct Failure { pub error: String, pub raised: bool }
 pub struct Key {
     pub id: i64, pub user_id: i64, pub exchange_id: i64, pub status: i64, pub key_type: i64,
     pub last_synced_at: Option<DateTime<Utc>>, pub last_sync_error: Option<String>,
+    /// `exchanges.type`: one of the venues this build syncs.
+    pub exchange_type: String,
 }
 
+/// The venues whose balances this build syncs. The ledger is synced for Alpaca only (`load_key`).
+pub const BALANCE_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US];
+
+/// The key being synced, when it is an Alpaca key: the ledger sync's key.
 pub fn load_key(c: &Connection, id: i64) -> Result<Key, SyncError> {
+    load_key_of(c, id, &[ALPACA])
+}
+
+/// The key being synced, when its venue is one of `venues`.
+pub fn load_key_of(c: &Connection, id: i64, venues: &[&str]) -> Result<Key, SyncError> {
     let row = c.query_row(
         "SELECT k.user_id, k.exchange_id, k.status, k.key_type, k.last_synced_at, k.last_sync_error, e.type \
          FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1",
@@ -207,19 +218,29 @@ pub fn load_key(c: &Connection, id: i64) -> Result<Key, SyncError> {
     let Some((user_id, exchange_id, status, key_type, synced, last_sync_error, exchange_type)) = row else {
         return Err(SyncError(format!("api key {id} does not exist")));
     };
-    if exchange_type.as_deref() != Some(ALPACA) { return Err(SyncError(format!("api key {id} is not an Alpaca key"))); }
+    let Some(exchange_type) = exchange_type.filter(|t| venues.contains(&t.as_str())) else {
+        return Err(SyncError(if venues == [ALPACA] { format!("api key {id} is not an Alpaca key") } else { format!("api key {id} is not on a venue this build syncs") }));
+    };
     let last_synced_at = synced.map(|s| parse_time(&s)).transpose()?;
-    Ok(Key { id, user_id, exchange_id, status, key_type, last_synced_at, last_sync_error })
+    Ok(Key { id, user_id, exchange_id, status, key_type, last_synced_at, last_sync_error, exchange_type })
 }
 
 /// ApiKey.reading, for Alpaca: per user, the key the venue is read with. Status correct, never a withdrawal key; the
 /// trading key if there is one, else the read-only one. (`missing_permission?` cannot hold for Alpaca: it lists no
 /// permission error.) This is what the nightly jobs iterate.
-pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> {
+pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &[ALPACA]) }
+
+/// ApiKey.reading over the venues whose balances this build syncs (Binance and Binance.US list no permission error
+/// either, so `missing_permission?` cannot hold for them).
+pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &BALANCE_VENUES) }
+
+fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
     let mut s = c.prepare(
-        "SELECT k.id, k.user_id, k.exchange_id, k.key_type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.status = 1 AND k.key_type != 1 AND e.type = ?1 ORDER BY k.id")?;
-    let rows = s.query_map([ALPACA], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?)))?.collect::<Result<Vec<_>, _>>()?;
+        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id")?;
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    let rows = rows.into_iter().filter(|r| r.4.as_deref().is_some_and(|t| venues.contains(&t))).map(|r| (r.0, r.1, r.2, r.3));
     let mut picked: Vec<(i64, i64, i64, i64)> = vec![];
     for row in rows {
         match picked.iter_mut().find(|p| (p.1, p.2) == (row.1, row.2)) {

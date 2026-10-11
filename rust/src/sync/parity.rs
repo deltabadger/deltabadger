@@ -1,8 +1,8 @@
 //! The Rust half of the sync row-parity harness (script/rust/sync.rb is the Rails half): the scenario's steps on a
 //! marked scratch copy, each a real sync over the recorded bodies Rails' jobs read, reported in the shape Rails reports.
-use super::balances::{self, ScriptedPrices, PRICES_PATH};
+use super::balances::{self, ScriptedPrices, EXCHANGE_RATES_PATH, PRICES_PATH};
 use crate::jobs::Db;
-use super::{ledger, reading_keys, SyncError};
+use super::{balance_reading_keys, ledger, SyncError};
 use crate::crypto::{Cipher, Credentials};
 use crate::engine::FixedClock;
 use crate::lease;
@@ -115,18 +115,20 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     let producer=crate::engine::model::credential_version_by_id(&opened.primary,key_id)?.ok_or_else(||data("credential producer"))?;
     { let tx=opened.primary.unchecked_transaction()?; super::cache::record_ledger(&crate::engine::model::check_credential_result(&tx,&Some(producer.clone()))?,key_id,&producer,Utc::now())?; tx.commit()?; }
     let before = snapshot(&opened.primary)?;
-    let reading = reading_keys(&opened.primary)?;
+    let reading = balance_reading_keys(&opened.primary)?;
     let db = Db::new(opened.primary, (*cipher).clone());
 
     let mut steps = vec![];
     for step in scenario["steps"].as_array().ok_or_else(|| data("steps"))? {
         let at: DateTime<Utc> = step["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| data("step.at"))?;
-        let transport = ScriptedTransport::from_script(&step["alpaca"]);
+        let binance = step.get("binance").is_some();
+        let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]);
         let raised = match step["kind"].as_str() {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
         };
@@ -136,6 +138,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             query.sort();
             json!([format!("{} {}", r.method, r.path), query])
         }).collect();
+        requests.extend((0..prices.rate_requests()).map(|_| json!([format!("GET {EXCHANGE_RATES_PATH}"), []])));
         requests.extend(prices.requests().iter().map(|ids| json!([format!("GET {PRICES_PATH}"), [["coin_ids", ids.join(",")], ["vs_currencies", "usd"]]])));
         let generations = db.run(|c, _| generations(c).map_err(|e| e.0)).await.map_err(SyncError)?;
         steps.push(json!({ "requests": requests, "raised": raised, "generations": generations }));

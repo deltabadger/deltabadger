@@ -169,7 +169,7 @@ impl<T: Transport> DataApi<T> {
 
 /// `price.to_f if price`: nil and false are no price; a number is itself; a String is String#to_f. ponytail: the longest
 /// leading prefix that parses as a float, else 0.0 (Ruby's rule up to exotic forms like "1_000"); data-api sends numbers.
-fn to_f(v: &Value) -> Option<f64> {
+pub(crate) fn to_f(v: &Value) -> Option<f64> {
     match v {
         Value::Null | Value::Bool(false) => None,
         Value::Number(n) => n.as_f64(),
@@ -186,7 +186,14 @@ fn to_f(v: &Value) -> Option<f64> {
 pub trait PriceSource {
     /// Prices in `currency` by external id; ids data-api does not price are absent. Err: the request failed.
     fn prices<'a>(&'a self, external_ids: &'a [String], currency: &'a str) -> PriceFuture<'a>;
+    /// MarketData.get_exchange_rates on the deltabadger provider: the answer's `data` (currency → its BTC-based
+    /// `value`). Err: the request failed, or (by default) there is no provider to ask.
+    fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> {
+        Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }) })
+    }
 }
+
+pub type RatesFuture<'a> = Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>>;
 
 /// Not Send: polled on the runtime thread, as every job is.
 pub type PriceFuture<'a> = Pin<Box<dyn Future<Output = Result<BTreeMap<String, f64>, ApiError>> + 'a>>;
@@ -195,6 +202,7 @@ impl<T: Transport> PriceSource for DataApi<T> {
     fn prices<'a>(&'a self, external_ids: &'a [String], currency: &'a str) -> PriceFuture<'a> {
         Box::pin(DataApi::prices(self, external_ids, currency))
     }
+    fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> { Box::pin(DataApi::exchange_rates(self)) }
 }
 
 /// with_rescue's message for an HTTP error: "HTTP <status>" for an HTML body, else the raw body, else Faraday's own.
@@ -216,6 +224,12 @@ impl<T: Transport> PriceSource for Option<DataApi<T>> {
         match self {
             Some(api) => PriceSource::prices(api, ids, currency),
             None => Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider available for prices".into() }) }),
+        }
+    }
+    fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> {
+        match self {
+            Some(api) => PriceSource::exchange_rates(api),
+            None => Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }) }),
         }
     }
 }
