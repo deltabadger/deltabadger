@@ -199,12 +199,16 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement market_sell"
   end
 
+  # Every caller (bots, REST, MCP) places limit orders through these two, and every venue's
+  # set_limit_order receives a BASE amount. A limit order is a quantity at a price: a quote amount
+  # becomes base at the limit price, floored so it never spends more than asked. A venue that took
+  # the quote figure as-is sent no quantity (Binance family, MEXC, Bitrue) or read it as base (Gemini).
   def limit_buy(ticker:, amount:, amount_type:, price:)
-    raise NotImplementedError, "#{self.class.name} must implement limit_buy"
+    place_limit_order(ticker:, amount:, amount_type:, side: :buy, price:)
   end
 
   def limit_sell(ticker:, amount:, amount_type:, price:)
-    raise NotImplementedError, "#{self.class.name} must implement limit_sell"
+    place_limit_order(ticker:, amount:, amount_type:, side: :sell, price:)
   end
 
   # Format a price to the exchange's tick rule before it is sent to the API.
@@ -638,6 +642,26 @@ class Exchange < ApplicationRecord
   end
 
   private
+
+  def place_limit_order(ticker:, amount:, amount_type:, side:, price:)
+    price = ticker.adjusted_price(price: price.to_d)
+    return Result::Failure.new("Invalid limit price for #{ticker.ticker}: the limit price must be positive") unless price.positive?
+
+    # Floor the amount as given first (a quote amount to quote_decimals), then the base quantity.
+    amount_type = amount_type.to_sym
+    amount = ticker.adjusted_amount(amount: amount.to_d, amount_type:)
+    base_amount = ticker.adjusted_amount(amount: amount_type == :quote ? amount / price : amount, amount_type: :base)
+    # A quantity that floors to nothing, or under the venue's base floor, is refused here rather than
+    # sent as a zero. The quote floor stays with the sizing that chose the amount (Bot::OrderSetter).
+    if base_amount <= 0 || base_amount < ticker.minimum_base_size
+      return Result::Failure.new(
+        "Limit order of #{base_amount.to_s('F')} #{ticker.base} is below the minimum of " \
+        "#{ticker.minimum_base_size.to_d.to_s('F')} #{ticker.base} for #{ticker.ticker}"
+      )
+    end
+
+    set_limit_order(ticker:, amount: base_amount, amount_type: :base, side:, price:)
+  end
 
   def client
     @client ||= set_client

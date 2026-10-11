@@ -229,28 +229,6 @@ class Exchanges::Bitvavo < Exchange
     )
   end
 
-  # @param amount_type [Symbol] :base or :quote
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :buy,
-      price: price
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :sell,
-      price: price
-    )
-  end
-
   def get_order(order_id:)
     # Bitvavo order_id format: "MARKET-orderId" e.g. "BTC-EUR-abc123" (market can contain a dash).
     market, ext_order_id = split_order_id(order_id)

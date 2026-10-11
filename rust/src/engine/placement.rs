@@ -262,6 +262,11 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Se
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
     }
     let rules = venue.rules();
+    match intent.plan.limit_refusal() {
+        Ok(Some(refusal)) => return Sent::Rejected(vec![refusal]),
+        Ok(None) => {}
+        Err(e) => return Sent::NotSent(format!("{e}; not sent")),
+    }
     let order = match intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire) {
         Ok(o) => o,
         Err(e) => return Sent::NotSent(format!("{e}; not sent")),

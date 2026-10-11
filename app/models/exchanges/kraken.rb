@@ -340,28 +340,6 @@ class Exchanges::Kraken < Exchange
     )
   end
 
-  # @param amount_type [Symbol] :base or :quote
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker:,
-      amount:,
-      amount_type:,
-      side: :buy,
-      price:
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker:,
-      amount:,
-      amount_type:,
-      side: :sell,
-      price:
-    )
-  end
-
   def get_order(order_id:)
     result = client.query_orders_info(txid: order_id)
     return result if result.failure?

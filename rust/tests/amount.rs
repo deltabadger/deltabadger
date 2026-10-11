@@ -120,6 +120,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
     let cases = common::vectors()["alpaca_sizing"].as_array().unwrap().clone();
     assert_eq!(cases.len(), 180);
+    let mut refused = 0;
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
@@ -131,6 +132,10 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         assert_eq!(c["amount_type"], "quote", "Alpaca sizes every buy in quote {c}");
         assert!(plan.quote_type, "{c}");
         assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum (quote-only) {c}");
+        // Exchange#limit_buy refuses a quantity under minimum_base_size (or zero): nothing reaches the wire.
+        let refusal = plan.limit_refusal().unwrap();
+        assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
+        if refusal.is_some() { refused += 1; continue; }
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some("BTC/USD"), Some("buy"), Some("gtc")), "{c}");
@@ -151,6 +156,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
             }
         }
     }
+    assert_eq!(refused, 34, "limit quantities under minimum_base_size Rails refuses");
 }
 
 #[test]
@@ -250,6 +256,7 @@ fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
         };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
+        assert_eq!(plan.limit_refusal().unwrap(), None, "{c}");
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
         assert_eq!(w["time_in_force"], "day", "Rails sends a stock as a day order {c}");
@@ -262,5 +269,20 @@ fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
                 assert_eq!(price, w["limit_price"].as_str().unwrap(), "limit_price floored to 2 decimals {c}");
             }
         }
+    }
+}
+
+#[test]
+fn an_alpaca_limit_quantity_under_the_base_minimum_is_refused_before_sending() {
+    // Exchange#limit_buy: 1 USD floors to 0.0000 BTC at 64160.69 (4 decimals), and to 0.00002 BTC at 50000, under 0.000027.
+    for (min, decimals, price, message) in [
+        ("0.0001", "4", "64160.69", "Limit order of 0.0 BTC is below the minimum of 0.0001 BTC for BTC/USD"),
+        ("0.000027", "9", "50000", "Limit order of 0.00002 BTC is below the minimum of 0.000027 BTC for BTC/USD"),
+    ] {
+        let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
+            ..sizing_ticker(&json!({"base_decimals": decimals, "quote_decimals": "2", "price_decimals": "2", "minimum_base_size": min, "minimum_quote_size": "1"})) };
+        let plan = amount::OrderPlan { ticker: t, limit: true, price: bd(price), amount: bd("1").div(&bd(price)).unwrap(), quote_amount: bd("1"),
+            quote_type: true, volume: bd("1") };
+        assert_eq!(plan.limit_refusal().unwrap().as_deref(), Some(message));
     }
 }
