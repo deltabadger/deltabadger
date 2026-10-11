@@ -14,6 +14,7 @@ pub mod ruby;
 pub mod store;
 pub mod supervisor;
 pub mod sync;
+pub mod tax;
 pub mod tracker;
 pub mod venue;
 pub mod web;
