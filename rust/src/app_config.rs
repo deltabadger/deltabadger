@@ -33,10 +33,13 @@ pub fn get_plain(c: &Connection, key: &str) -> Result<Option<String>, String> { 
 
 pub fn set_plain(c: &Connection, key: &str, value: &str, now: DateTime<Utc>) -> Result<(), String> { write(c, key, value, now) }
 
+/// An update of the existing row, else an insert, as find_or_initialize_by + save! does. (An upsert would spend an
+/// AUTOINCREMENT id on every update, and the next new row would get a different id than Rails gives it.)
 fn write(c: &Connection, key: &str, value: &str, now: DateTime<Utc>) -> Result<(), String> {
-    c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
-               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-              (key, value, format_time(now)))
-        .map(|_| ())
-        .map_err(|e| format!("app_configs[{key}]: {e}"))
+    let at = format_time(now);
+    let updated = c.execute("UPDATE app_configs SET value = ?2, updated_at = ?3 WHERE key = ?1", (key, value, &at)).map_err(|e| format!("app_configs[{key}]: {e}"))?;
+    if updated == 0 {
+        c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)", (key, value, &at)).map_err(|e| format!("app_configs[{key}]: {e}"))?;
+    }
+    Ok(())
 }
