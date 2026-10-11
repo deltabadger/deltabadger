@@ -245,7 +245,7 @@ module Tax
       return unless period
 
       old_stock_cutoff = jurisdiction[:old_stock_cutoff]
-      in_force_from = jurisdiction.dig(:czech_exemptions, :time_test_from)
+      in_force_from = jurisdiction.dig(:czech_exemptions, :exemptions_from)
       lambda do |acquired_at, disposed_at|
         acquired_on = local_date(acquired_at)
         next false if old_stock_cutoff && acquired_on >= old_stock_cutoff
@@ -570,14 +570,17 @@ module Tax
       csv << [I18n.t('tax_report.summary.tax_percent', pct: pct), tax]
     end
 
+    # Neither test reaches a disposal before `exemptions_from`, and the value test sums only the
+    # proceeds of those after it (the time test is gated in `holding_rule`).
     def apply_czech_exemptions(disposals)
       config = jurisdiction[:czech_exemptions]
+      in_force = disposals.select { |d| local_date(d[:date]) >= config[:exemptions_from] }
 
-      total_proceeds = disposals.sum { |d| d[:proceeds] || 0 }
+      total_proceeds = in_force.sum { |d| d[:proceeds] || 0 }
       value_test_passed = total_proceeds <= config[:value_test]
 
       disposals.each do |d|
-        if value_test_passed
+        if value_test_passed && in_force.include?(d)
           d[:tax_exempt] = true
           d[:exempt_reason] = 'hodnotový test'
         elsif d[:long_held]

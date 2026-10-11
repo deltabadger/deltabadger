@@ -96,6 +96,23 @@ class Tax::ReportHoldingAndYearTest < ActiveSupport::TestCase
     assert_equal ['false', nil], row.fields.last(2)
   end
 
+  test 'the Czech value test does not exempt a disposal before 15 February 2025' do
+    trade(:buy, 1, 20_000, Time.utc(2021, 1, 10), currency: 'CZK')
+    trade(:sell, 1, 50_000, Time.utc(2025, 2, 14, 12), currency: 'CZK')
+
+    assert_equal ['false', nil], disposals('CZ', 2025).first.fields.last(2)
+  end
+
+  test 'the Czech value test counts only proceeds from 15 February 2025 and exempts those disposals' do
+    trade(:buy, 2, 40_000, Time.utc(2024, 6, 1), currency: 'CZK')
+    trade(:sell, 1, 90_000, Time.utc(2025, 1, 20), currency: 'CZK')
+    trade(:sell, 1, 50_000, Time.utc(2025, 3, 1), currency: 'CZK')
+
+    rows = disposals('CZ', 2025)
+
+    assert_equal([['false', nil], ['true', 'hodnotový test']], rows.map { |row| row.fields.last(2) })
+  end
+
   test 'Slovakia taxes a long holding at the normal rate: no 7% and no term split' do
     trade(:buy, 1, 10_000, Time.utc(2023, 1, 10, 20), currency: 'EUR')
     trade(:buy, 1, 40_000, Time.utc(2024, 1, 10), currency: 'EUR')

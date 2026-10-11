@@ -40,9 +40,10 @@ module Tax
       'DK' => { name: 'Denmark', method: :fifo, currency: 'DKK', locale: :da,
                 danish_wash_sale: true, per_asset_summary: true,
                 loss_deduction_rate_on_losses: 0.26 },
-      # The time test exempts disposals from 15 February 2025 on; holding time before then counts.
+      # Both tests exempt only disposals from 15 February 2025 on, and the value test counts only their
+      # proceeds; holding time before then counts towards the time test.
       'CZ' => { name: 'Czech Republic', method: :fifo, currency: 'CZK', locale: :cs,
-                czech_exemptions: { time_test: 3.years, time_test_from: Date.new(2025, 2, 15), value_test: 100_000,
+                czech_exemptions: { time_test: 3.years, exemptions_from: Date.new(2025, 2, 15), value_test: 100_000,
                                     annual_cap: 40_000_000 } },
       # No holding period: the 7% rate for crypto held over a year was repealed before it took effect
       # (Act 530/2023, Article XVIII, from 31 December 2023).

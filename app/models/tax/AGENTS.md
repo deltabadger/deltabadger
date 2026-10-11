@@ -289,8 +289,8 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   units go with the short side. Every `apply_*` holding flag reads `long_held`, never `holding_days`
   (still printed: whole elapsed days). The split rows are settled in cents (`Fifo#settle_in_cents`)
   so the printed rows add up to the printed sale. Slovakia has no holding period: its 7% long-held
-  rate was repealed before it took effect. The Czech time test only exempts disposals from
-  2025-02-15 (`time_test_from`).
+  rate was repealed before it took effect. The Czech time and value tests only exempt disposals
+  from 2025-02-15, and the value test sums only their proceeds (`exemptions_from`).
 - **Portugal**: a swap restarts the holding. Exception (ruling 28969): a coin already held 365 days,
   swapped into a stablecoin and sold for fiat on the swap's Lisbon calendar day, keeps the coin's
   start for that sale (`Fifo#immediate_fiat_exit?`, the lot's `technical_start`).
