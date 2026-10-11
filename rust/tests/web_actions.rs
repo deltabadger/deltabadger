@@ -1431,6 +1431,19 @@ mod action_race {
     }
 
     #[tokio::test(flavor="current_thread")]
+    async fn stop_reports_an_in_flight_order_in_the_browser() -> Result {
+        for column in ["placement_intents", "transient_data"] {
+            let mut f=Fixture::new().await?;
+            f.ok("PATCH","/start",&[]).await?;
+            let value=if column=="placement_intents" { json!({"sent":{"run_identity":[1,0,null,null]}}) } else { json!({"rust_placement":{"dispatched":true}}) };
+            f.c.execute(&format!("UPDATE bots SET {column}=?1 WHERE id=?2"),(value.to_string(),f.id))?;
+            let answer=f.ok("PATCH","/stop",&[]).await?;
+            assert!(answer.body.contains("Orders already sent to the exchange may still execute."),"{column}: {}",answer.body);
+            assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
+        }
+        Ok(())
+    }
+    #[tokio::test(flavor="current_thread")]
     async fn stop_with_archived_bot_without_exchange() -> Result {
         let mut f=Fixture::new().await?;
         f.ok("PATCH","/start",&[]).await?;

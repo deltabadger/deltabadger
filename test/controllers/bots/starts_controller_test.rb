@@ -61,6 +61,17 @@ class Bots::StartsControllerTest < ActionDispatch::IntegrationTest
     assert_predicate bot.reload, :stopped?
   end
 
+  test 'STOP shows the in-flight warning in its browser response' do
+    bot = create(:dca_single_asset, :started, user: @user)
+    bot.update_columns(placement_intents: { 'sent' => { 'run_identity' => bot.run_identity } })
+
+    patch bot_stop_path(bot_id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+
+    assert_response :success
+    assert_predicate bot.reload, :stopped?
+    assert_includes response.body, Automation::Statusable::STOP_DISPATCH_NOTICE
+  end
+
   private
 
   def stub_enqueues

@@ -441,12 +441,9 @@ fn lifecycle_inner<T>(
         },
         Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
     }
-    let guarded = match eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
-        // STOP only reduces activity and writes no money, settings or history, so it always persists, whatever data
-        // damage the install holds; check and every ordinary writer still refuse that damage.
-        Err(eligibility::Refusal::Unreadable(_)) if action == Action::Stop => Ok(()),
-        result => result,
-    };
+    // STOP only reduces activity. Outstanding reconciliation or unrelated eligibility
+    // damage cannot veto it; ordinary writers still validate the entire install.
+    let guarded = if action == Action::Stop { Ok(()) } else { eligibility::guard(&tx,&ctx.app.cipher,Some(id)) };
     if let Err(refusal)=guarded {
         let reason=refusal.reason();
         view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
