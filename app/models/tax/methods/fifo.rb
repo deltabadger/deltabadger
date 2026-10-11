@@ -165,7 +165,9 @@ module Tax
       # disposals under the law, each with its own share of the proceeds and the fee and its own basis.
       # Units no lot covered have no holding period, so they go with the short side.
       def record_disposal_by_term(disposals, transaction, asset, amount, fiat_value, tranches, has_lots)
-        groups = tranches.group_by { |tranche| @holding_rule.call(holding_ref(tranche), transaction[:transacted_at]) ? true : false }
+        groups = tranches.group_by do |tranche|
+          @holding_rule.call(holding_ref(tranche, transaction), transaction[:transacted_at]) ? true : false
+        end
         uncovered = amount - tranches.sum(0.to_d) { |tranche| tranche[:amount] }
         groups[false] ||= [] if uncovered.positive? || groups.empty?
         fee = transaction[:fee_fiat_value] || 0.to_d
@@ -193,7 +195,7 @@ module Tax
       end
 
       def disposal_row(transaction, asset, amount, fiat_value, fee_fiat, tranches, has_lots)
-        holding_ref_date = tranches.first && holding_ref(tranches.first)
+        holding_ref_date = tranches.first && holding_ref(tranches.first, transaction)
         cost_basis = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
         basis_assumed = tranches.any? { |tranche| tranche[:basis_assumed] }
         # The units that opened at a price nobody had, and their share of what this sale brought in
@@ -229,9 +231,27 @@ module Tax
         }
       end
 
-      # The holding period runs from the lot's own date, or from where a swap restarted it (PT).
-      def holding_ref(tranche)
+      # The holding period runs from the lot's own date, or from where a swap restarted it (PT) —
+      # unless the swap was a technical stablecoin conversion and this is its immediate fiat exit.
+      def holding_ref(tranche, transaction)
+        return tranche[:technical_start] if immediate_fiat_exit?(tranche, transaction)
+
         tranche[:holding_start] || tranche[:date]
+      end
+
+      # Portuguese ruling 28969 (§§12–14): a coin that had already served its 365 days, swapped into a
+      # stablecoin only to reach euros and sold for them straight away, keeps its exemption. "Straight
+      # away" is read narrowly: sold for fiat on the swap's own calendar day in Lisbon. Anything later
+      # runs from the swap, as every other Portuguese swap does.
+      def immediate_fiat_exit?(tranche, transaction)
+        return false unless tranche[:technical_start] && fiat_exit?(transaction)
+
+        lisbon = ActiveSupport::TimeZone['Europe/Lisbon']
+        tranche[:holding_start].in_time_zone(lisbon).to_date == transaction[:transacted_at].in_time_zone(lisbon).to_date
+      end
+
+      def fiat_exit?(transaction)
+        Tax::PriceService::FIAT_CURRENCIES.include?(transaction[:quote_currency])
       end
 
       # true, false, or nil when a price nobody had decides it. A missing price is not a zero: proceeds
@@ -345,18 +365,18 @@ module Tax
                         unpriced: 0.to_d)
         lot = { amount: amount, cost_per_unit: cost_per_unit, date: date, basis_assumed: basis_assumed,
                 unpriced: unpriced }
-        if @swap_resets_holding_period && !technical_stablecoin_swap?(transaction, holding_start || date)
+        if @swap_resets_holding_period
           lot[:holding_start] = transaction[:transacted_at]
+          held_since = holding_start || date
+          lot[:technical_start] = held_since if technical_stablecoin_swap?(transaction, held_since)
         elsif holding_start
           lot[:holding_start] = holding_start
         end
         asset_lots << lot
       end
 
-      # Portuguese ruling 28969 (§§12–14): a coin that has already served its holding period, swapped
-      # into a stablecoin on the way to fiat, keeps it — the stablecoin lot runs from the coin's start.
-      # ponytail: the ruling's facts are an immediate sale for euros; a stablecoin held on afterwards
-      # keeps the start too.
+      # A swap into a stablecoin of a coin that had served its holding period by then: the stablecoin
+      # lot remembers the coin's start for an immediate fiat exit (`immediate_fiat_exit?`).
       def technical_stablecoin_swap?(transaction, held_since)
         return false unless STABLECOINS.include?(transaction[:base_currency]) && @holding_rule
 
@@ -521,6 +541,7 @@ module Tax
             unpriced: unpriced
           }
           tranche[:holding_start] = lot[:holding_start] if lot[:holding_start]
+          tranche[:technical_start] = lot[:technical_start] if lot[:technical_start]
           tranches << tranche
 
           if lot[:amount] <= remaining

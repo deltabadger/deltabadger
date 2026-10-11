@@ -103,11 +103,17 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
   end
 
   # Portuguese ruling 28969 (§§12–14): a technical swap of a coin already held 365 days into a
-  # stablecoin, to reach euros, keeps the exemption — the stablecoin carries the coin's holding start.
-  test 'Portugal: a stablecoin swap of a coin already held 365 days keeps its holding start' do
+  # stablecoin, sold for euros straight away, keeps the exemption — that sale runs from the coin's start.
+  test 'Portugal: a stablecoin swap of a coin already held 365 days, sold for euros the same day, keeps its holding start' do
     disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC')
 
     assert_equal [true, Time.utc(2023, 1, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
+  test 'Portugal: a stablecoin from a long-held coin, held on for months before the sale, restarts the holding' do
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC', sold_at: Time.utc(2024, 8, 1))
+
+    assert_equal [false, Time.utc(2024, 2, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
   end
 
   test 'Portugal: a stablecoin swap of a coin held under 365 days restarts the holding' do
@@ -384,7 +390,7 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
 
   private
 
-  def portuguese_stablecoin_exit(bought_at, swap_into:)
+  def portuguese_stablecoin_exit(bought_at, swap_into:, sold_at: Time.utc(2024, 2, 1, 0, 5))
     transactions = [
       { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
         fiat_value: 10_000.to_d, transacted_at: bought_at, tx_id: 'buy-1', exchange: 'binance' },
@@ -395,7 +401,7 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
         fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'swap-in',
         exchange: 'binance', group_id: 'swap_1' },
       { entry_type: :sell, base_currency: swap_into, base_amount: 20_000.to_d,
-        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1, 0, 5), tx_id: 'sell-1',
+        fiat_value: 20_000.to_d, transacted_at: sold_at, tx_id: 'sell-1',
         exchange: 'binance', quote_currency: 'EUR' }
     ]
     holding_rule = lambda do |acquired_at, disposed_at|
