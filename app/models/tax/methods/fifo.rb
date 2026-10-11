@@ -5,6 +5,8 @@ module Tax
       include ReturnOfCapital
 
       STABLECOINS = Tax::PriceService::STABLECOINS
+      # The precision Tax::Report prints money in.
+      CENTS = 2
 
       # The lots left standing after a run. A tax report only ever wanted the disposals; the tracker
       # reads what is still held, so the open positions and the report share one walk of the ledger.
@@ -163,29 +165,39 @@ module Tax
       # disposals under the law, each with its own share of the proceeds and the fee and its own basis.
       # Units no lot covered have no holding period, so they go with the short side.
       def record_disposal_by_term(disposals, transaction, asset, amount, fiat_value, tranches, has_lots)
-        groups = tranches.group_by { |tranche| @holding_rule.call(holding_ref(tranche), transaction[:transacted_at]) ? true : false }
+        groups = tranches.group_by do |tranche|
+          @holding_rule.call(holding_ref(tranche, transaction), transaction[:transacted_at]) ? true : false
+        end
         uncovered = amount - tranches.sum(0.to_d) { |tranche| tranche[:amount] }
         groups[false] ||= [] if uncovered.positive? || groups.empty?
         fee = transaction[:fee_fiat_value] || 0.to_d
-        proceeds_left = fiat_value
-        fee_left = fee
-
-        groups.each_with_index do |(long_held, group), index|
+        rows = groups.map do |long_held, group|
           group_amount = group.sum(0.to_d) { |tranche| tranche[:amount] }
           group_amount += uncovered unless long_held
-          last = index == groups.size - 1
-          # The last row takes what is left, so the rows add up to the sale exactly.
-          proceeds = last ? proceeds_left : fiat_value * group_amount / amount
-          group_fee = last ? fee_left : fee * group_amount / amount
-          proceeds_left -= proceeds
-          fee_left -= group_fee
-          disposals << disposal_row(transaction, asset, group_amount, proceeds, group_fee, group, has_lots)
-                       .merge(long_held: long_held)
+          disposal_row(transaction, asset, group_amount, fiat_value * group_amount / amount, fee * group_amount / amount,
+                       group, has_lots).merge(long_held: long_held)
+        end
+        settle_in_cents(rows, fiat_value, fee) if rows.size > 1
+        disposals.concat(rows)
+      end
+
+      # The report prints money in cents. Every row but the last is cut to the cent and the last takes
+      # what is left, so the printed rows add up to the printed sale — proceeds, fee, basis and gain.
+      # The last row's gain is what is left of the sale's gain AS PRINTED: rounding its own
+      # fractional-cent figures could drift a cent from it, all the more across rows of opposite sign.
+      def settle_in_cents(rows, proceeds, fee)
+        basis = rows.sum(0.to_d) { |row| row[:cost_basis] }
+        left = { proceeds: proceeds, fee: fee, cost_basis: basis, gain_loss: (proceeds - basis - fee).round(CENTS) }
+        rows.each_with_index do |row, index|
+          last = index == rows.size - 1
+          %i[proceeds fee cost_basis].each { |key| row[key] = last ? left[key] : row[key].round(CENTS) }
+          row[:gain_loss] = last ? left[:gain_loss] : row[:proceeds] - row[:cost_basis] - row[:fee]
+          left.each_key { |key| left[key] -= row[key] }
         end
       end
 
       def disposal_row(transaction, asset, amount, fiat_value, fee_fiat, tranches, has_lots)
-        holding_ref_date = tranches.first && holding_ref(tranches.first)
+        holding_ref_date = tranches.first && holding_ref(tranches.first, transaction)
         cost_basis = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
         basis_assumed = tranches.any? { |tranche| tranche[:basis_assumed] }
         # The units that opened at a price nobody had, and their share of what this sale brought in
@@ -221,9 +233,27 @@ module Tax
         }
       end
 
-      # The holding period runs from the lot's own date, or from where a swap restarted it (PT).
-      def holding_ref(tranche)
+      # The holding period runs from the lot's own date, or from where a swap restarted it (PT) —
+      # unless the swap was a technical stablecoin conversion and this is its immediate fiat exit.
+      def holding_ref(tranche, transaction)
+        return tranche[:technical_start] if immediate_fiat_exit?(tranche, transaction)
+
         tranche[:holding_start] || tranche[:date]
+      end
+
+      # Portuguese ruling 28969 (§§12–14): a coin that had already served its 365 days, swapped into a
+      # stablecoin only to reach euros and sold for them straight away, keeps its exemption. "Straight
+      # away" is read narrowly: sold for fiat on the swap's own calendar day in Lisbon. Anything later
+      # runs from the swap, as every other Portuguese swap does.
+      def immediate_fiat_exit?(tranche, transaction)
+        return false unless tranche[:technical_start] && fiat_exit?(transaction)
+
+        lisbon = ActiveSupport::TimeZone['Europe/Lisbon']
+        tranche[:holding_start].in_time_zone(lisbon).to_date == transaction[:transacted_at].in_time_zone(lisbon).to_date
+      end
+
+      def fiat_exit?(transaction)
+        Tax::PriceService::FIAT_CURRENCIES.include?(transaction[:quote_currency])
       end
 
       # true, false, or nil when a price nobody had decides it. A missing price is not a zero: proceeds
@@ -339,10 +369,20 @@ module Tax
                 unpriced: unpriced }
         if @swap_resets_holding_period
           lot[:holding_start] = transaction[:transacted_at]
+          held_since = holding_start || date
+          lot[:technical_start] = held_since if technical_stablecoin_swap?(transaction, held_since)
         elsif holding_start
           lot[:holding_start] = holding_start
         end
         asset_lots << lot
+      end
+
+      # A swap into a stablecoin of a coin that had served its holding period by then: the stablecoin
+      # lot remembers the coin's start for an immediate fiat exit (`immediate_fiat_exit?`).
+      def technical_stablecoin_swap?(transaction, held_since)
+        return false unless STABLECOINS.include?(transaction[:base_currency]) && @holding_rule
+
+        @holding_rule.call(held_since, transaction[:transacted_at]) ? true : false
       end
 
       def transfer_swap_out(transferred, asset_lots, transaction, amount)
@@ -503,6 +543,7 @@ module Tax
             unpriced: unpriced
           }
           tranche[:holding_start] = lot[:holding_start] if lot[:holding_start]
+          tranche[:technical_start] = lot[:technical_start] if lot[:technical_start]
           tranches << tranche
 
           if lot[:amount] <= remaining

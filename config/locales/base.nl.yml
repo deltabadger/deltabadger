@@ -781,6 +781,8 @@ nl:
             deposit_basis_assumed_hint: Koppel elke storting in de Tracker aan de bijbehorende opname om de werkelijke aanschafkosten te gebruiken.
             stated_values: "Waarden die je zelf hebt ingevuld"
             stated_values_hint: "Deze bedragen komen van jou, niet van de exchange. Controleer ze aan de hand van je eigen administratie voordat je aangifte doet."
+            unattributed_coin_fees: "Alpaca-kosten in crypto die niet aan een transactie zijn gekoppeld, omdat hun datum in UTC en New Yorkse tijd op verschillende transacties valt; elk is zonder opbrengst van de oudste positie afgetrokken"
+            unattributed_coin_fees_hint: "Controleer elk met je Alpaca-overzicht: de aanschafkosten van latere verkopen van dit asset kunnen tot de waarde van de kosten afwijken."
             exchange_sync_failed: 'Gegevens van %{exchange} kunnen ontbreken: de laatste synchronisatie is mislukt. Synchroniseer opnieuw in de Tracker en maak dit rapport opnieuw aan.'
             exchange_never_synced: '%{exchange} is nog nooit gesynchroniseerd — geen enkele transactie van dit platform staat in dit rapport. Synchroniseer het in de Tracker en maak het rapport opnieuw aan.'
         headers:

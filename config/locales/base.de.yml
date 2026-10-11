@@ -783,6 +783,8 @@ de:
             deposit_basis_assumed_hint: Verknüpfe jede Einzahlung im Tracker mit der passenden Auszahlung, um die tatsächlichen Anschaffungskosten zu verwenden.
             stated_values: "Von dir selbst angegebene Werte"
             stated_values_hint: "Diese Beträge stammen von dir, nicht von der Börse. Prüfe sie vor der Abgabe anhand deiner eigenen Unterlagen."
+            unattributed_coin_fees: "Alpaca-Gebühren in Coins, die keinem Trade zugeordnet wurden, weil ihr Datum in UTC und New Yorker Zeit auf verschiedene Trades fällt; jede wurde ohne Erlös vom ältesten Bestand abgezogen"
+            unattributed_coin_fees_hint: "Prüfe jede anhand deiner Alpaca-Abrechnung: Die Anschaffungskosten späterer Verkäufe dieses Assets können um bis zum Wert der Gebühr abweichen."
             exchange_sync_failed: 'Daten von %{exchange} könnten fehlen — die letzte Synchronisierung ist fehlgeschlagen. Synchronisiere die Daten im Tracker erneut und erstelle diesen Bericht neu.'
             exchange_never_synced: '%{exchange} wurde noch nie synchronisiert — daher enthält dieser Bericht keine Transaktionen dieser Börse. Synchronisiere sie im Tracker und erstelle den Bericht neu.'
         headers:

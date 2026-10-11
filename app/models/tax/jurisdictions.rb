@@ -40,11 +40,15 @@ module Tax
       'DK' => { name: 'Denmark', method: :fifo, currency: 'DKK', locale: :da,
                 danish_wash_sale: true, per_asset_summary: true,
                 loss_deduction_rate_on_losses: 0.26 },
+      # Both tests exempt only disposals from 15 February 2025 on, and the value test counts only their
+      # proceeds; holding time before then counts towards the time test.
       'CZ' => { name: 'Czech Republic', method: :fifo, currency: 'CZK', locale: :cs,
-                czech_exemptions: { time_test: 3.years, value_test: 100_000, annual_cap: 40_000_000 } },
+                czech_exemptions: { time_test: 3.years, exemptions_from: Date.new(2025, 2, 15), value_test: 100_000,
+                                    annual_cap: 40_000_000 } },
+      # No holding period: the 7% rate for crypto held over a year was repealed before it took effect
+      # (Act 530/2023, Article XVIII, from 31 December 2023).
       'SK' => { name: 'Slovakia', method: :fifo, currency: 'EUR', locale: :sk,
-                crypto_to_crypto_taxable: false, stablecoin_ambiguous: true,
-                short_long_term: true, holding_tax_rate: { short: '19%', long: '7%' } }
+                crypto_to_crypto_taxable: false, stablecoin_ambiguous: true }
     }.freeze
 
     def self.for(code)
@@ -52,7 +56,7 @@ module Tax
     end
 
     # The holding period a jurisdiction's law measures, as [period, inclusive], or nil when it has
-    # none. "More than a year" (DE §23 EStG, US §1222, SK, AT's old stock) and the Czech "more than
+    # none. "More than a year" (DE §23 EStG, US §1222, AT's old stock) and the Czech "more than
     # three years" are strict; Portugal's 365 days counts a holding of exactly that long.
     def self.holding_period(jurisdiction)
       if jurisdiction[:holding_exemption]

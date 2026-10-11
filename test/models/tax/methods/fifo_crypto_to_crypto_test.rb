@@ -102,6 +102,32 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
     assert_equal 10_000.to_d, disposals.first[:cost_basis]
   end
 
+  # Portuguese ruling 28969 (§§12–14): a technical swap of a coin already held 365 days into a
+  # stablecoin, sold for euros straight away, keeps the exemption — that sale runs from the coin's start.
+  test 'Portugal: a stablecoin swap of a coin already held 365 days, sold for euros the same day, keeps its holding start' do
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC')
+
+    assert_equal [true, Time.utc(2023, 1, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
+  test 'Portugal: a stablecoin from a long-held coin, held on for months before the sale, restarts the holding' do
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC', sold_at: Time.utc(2024, 8, 1))
+
+    assert_equal [false, Time.utc(2024, 2, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
+  test 'Portugal: a stablecoin swap of a coin held under 365 days restarts the holding' do
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 6, 1), swap_into: 'USDC')
+
+    assert_equal [false, Time.utc(2024, 2, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
+  test 'Portugal: a swap of a long-held coin into another coin still restarts the holding' do
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'ETH')
+
+    assert_equal [false, Time.utc(2024, 2, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
   test 'stablecoin disposal treated as fiat when flag set' do
     transactions = [
       { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
@@ -360,5 +386,29 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
     assert_equal 300.to_d, sale[:unpriced_proceeds], 'two thirds of the sale, in proportion'
     assert_equal(0.5.to_d, @fifo.lots['BNB'].sum { |lot| lot[:amount] })
     assert_equal 0.to_d, @fifo.lots['BNB'].sum { |lot| lot[:unpriced] }, 'what is left is the priced half'
+  end
+
+  private
+
+  def portuguese_stablecoin_exit(bought_at, swap_into:, sold_at: Time.utc(2024, 2, 1, 0, 5))
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: bought_at, tx_id: 'buy-1', exchange: 'binance' },
+      { entry_type: :swap_out, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'swap-out',
+        exchange: 'binance', group_id: 'swap_1', quote_currency: swap_into },
+      { entry_type: :swap_in, base_currency: swap_into, base_amount: 20_000.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'swap-in',
+        exchange: 'binance', group_id: 'swap_1' },
+      { entry_type: :sell, base_currency: swap_into, base_amount: 20_000.to_d,
+        fiat_value: 20_000.to_d, transacted_at: sold_at, tx_id: 'sell-1',
+        exchange: 'binance', quote_currency: 'EUR' }
+    ]
+    holding_rule = lambda do |acquired_at, disposed_at|
+      Tax::Jurisdictions.held_long?(acquired_at.to_date, disposed_at.to_date, 365.days, inclusive: true)
+    end
+
+    @fifo.calculate(transactions, crypto_to_crypto_taxable: false, swap_resets_holding_period: true,
+                                  holding_rule: holding_rule)
   end
 end

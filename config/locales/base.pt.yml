@@ -780,6 +780,8 @@ pt:
             deposit_basis_assumed_hint: Associa cada depósito ao levantamento correspondente no Tracker para usar o custo de aquisição real.
             stated_values: "Valores que indicaste manualmente"
             stated_values_hint: "Estes montantes são teus, não da exchange. Confirma-os com os teus próprios registos antes de entregar a declaração."
+            unattributed_coin_fees: "Comissões da Alpaca em cripto não associadas a uma operação, porque a data cai em operações diferentes em UTC e na hora de Nova Iorque; cada uma foi deduzida do lote mais antigo sem valor de realização"
+            unattributed_coin_fees_hint: "Confirma cada uma com o teu extrato da Alpaca: o custo de aquisição das vendas seguintes deste ativo pode diferir até ao valor da comissão."
             exchange_sync_failed: 'Podem faltar dados da plataforma %{exchange}: a última sincronização falhou. Volte a sincronizar no Tracker e gere novamente este relatório.'
             exchange_never_synced: 'A plataforma %{exchange} nunca foi sincronizada — nenhuma das respetivas transações consta deste relatório. Sincronize-a no Tracker e volte a gerar o relatório.'
         summary:

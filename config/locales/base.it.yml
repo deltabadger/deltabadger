@@ -781,6 +781,8 @@ it:
             deposit_basis_assumed_hint: Collega ogni deposito al prelievo corrispondente nel Tracker per utilizzare il costo di acquisto reale.
             stated_values: "Valori inseriti da te a mano"
             stated_values_hint: "Questi importi sono tuoi, non dell'exchange. Verificali con i tuoi documenti prima di presentare la dichiarazione."
+            unattributed_coin_fees: "Commissioni Alpaca in cripto non abbinate a un'operazione, perché la loro data cade su operazioni diverse in UTC e nell'ora di New York; ciascuna è stata detratta dal lotto più vecchio senza corrispettivo"
+            unattributed_coin_fees_hint: "Verifica ciascuna con il tuo estratto Alpaca: il costo di acquisto delle vendite successive di questo asset può differire fino al valore della commissione."
             exchange_sync_failed: 'Potrebbero mancare dati di %{exchange}: l’ultima sincronizzazione non è riuscita. Sincronizza di nuovo nel Tracker e rigenera il report.'
             exchange_never_synced: '%{exchange} non è mai stato sincronizzato: nessuna delle sue transazioni è inclusa in questo report. Sincronizzalo nel Tracker e rigenera il report.'
         summary:

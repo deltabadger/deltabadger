@@ -283,11 +283,17 @@ to refuse, and an all-refused report still returns an all-zero KAP.
 ## Holding Periods, Tax Years, Trade Fees
 
 - **One row per term.** For a jurisdiction with a holding period (`Jurisdictions.holding_period`:
-  DE, PT, US, SK, CZ, AT's old stock) `Report#holding_rule` goes to the FIFO engine, which splits a
+  DE, PT, US, CZ, AT's old stock) `Report#holding_rule` goes to the FIFO engine, which splits a
   sale across lots of different terms into one row per term, each with its own share of the proceeds
   and the fee and its own basis (`Fifo#record_disposal_by_term`, `long_held` on each row). Uncovered
   units go with the short side. Every `apply_*` holding flag reads `long_held`, never `holding_days`
-  (still printed: whole elapsed days).
+  (still printed: whole elapsed days). The split rows are settled in cents (`Fifo#settle_in_cents`)
+  so the printed rows add up to the printed sale. Slovakia has no holding period: its 7% long-held
+  rate was repealed before it took effect. The Czech time and value tests only exempt disposals
+  from 2025-02-15, and the value test sums only their proceeds (`exemptions_from`).
+- **Portugal**: a swap restarts the holding. Exception (ruling 28969): a coin already held 365 days,
+  swapped into a stablecoin and sold for fiat on the swap's Lisbon calendar day, keeps the coin's
+  start for that sale (`Fifo#immediate_fiat_exit?`, the lot's `technical_start`).
 - **Calendar anniversary in the user's zone** (`Jurisdictions.held_long?`): "more than a year" is any
   date after the anniversary, 29 February's being 28 February. Portugal counts 365 days, inclusive.
 - **The tax year is the user's** (`users.time_zone`, passed by the job): disposals, the IT rate
@@ -296,6 +302,8 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   and reading those in a zone west of UTC would move 1 January into the year before.
 - **Alpaca CFEE** is folded into that day's fills of the coin (`Report#attribute_trade_fees`): buys
   first (fewer coins, same cost), else sales (more coins out, same proceeds). Never a disposal.
+  Which calendar the CFEE date is in is unknown, so it is folded only when its UTC and New York day
+  give the same fills; otherwise it stays a fee row and the report names it in a NOTE.
 
 ## Key Design Decisions
 

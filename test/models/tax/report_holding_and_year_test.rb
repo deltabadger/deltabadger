@@ -79,22 +79,52 @@ class Tax::ReportHoldingAndYearTest < ActiveSupport::TestCase
   end
 
   test 'the Czech time test passes the day after the third anniversary' do
-    trade(:buy, 1, 1_000_000, Time.utc(2021, 1, 10, 20), currency: 'CZK')
-    trade(:sell, 1, 2_000_000, Time.utc(2024, 1, 11, 8), currency: 'CZK') # 1095.5 days
+    trade(:buy, 1, 1_000_000, Time.utc(2022, 3, 10, 20), currency: 'CZK')
+    trade(:sell, 1, 2_000_000, Time.utc(2025, 3, 11, 8), currency: 'CZK') # 1095.5 days
 
-    row = disposals('CZ', 2024).first
+    row = disposals('CZ', 2025).first
 
     assert_equal 'časový test', row.fields.last
   end
 
-  test 'Slovakia applies the long-term rate per row of a split sale' do
-    trade(:buy, 1, 10_000, Time.utc(2022, 1, 10), currency: 'EUR')
+  test 'the Czech time test does not exempt a disposal before 15 February 2025, however long the holding' do
+    trade(:buy, 1, 1_000_000, Time.utc(2021, 1, 10), currency: 'CZK')
+    trade(:sell, 1, 2_000_000, Time.utc(2025, 2, 14, 12), currency: 'CZK')
+
+    row = disposals('CZ', 2025).first
+
+    assert_equal ['false', nil], row.fields.last(2)
+  end
+
+  test 'the Czech value test does not exempt a disposal before 15 February 2025' do
+    trade(:buy, 1, 20_000, Time.utc(2021, 1, 10), currency: 'CZK')
+    trade(:sell, 1, 50_000, Time.utc(2025, 2, 14, 12), currency: 'CZK')
+
+    assert_equal ['false', nil], disposals('CZ', 2025).first.fields.last(2)
+  end
+
+  test 'the Czech value test counts only proceeds from 15 February 2025 and exempts those disposals' do
+    trade(:buy, 2, 40_000, Time.utc(2024, 6, 1), currency: 'CZK')
+    trade(:sell, 1, 90_000, Time.utc(2025, 1, 20), currency: 'CZK')
+    trade(:sell, 1, 50_000, Time.utc(2025, 3, 1), currency: 'CZK')
+
+    rows = disposals('CZ', 2025)
+
+    assert_equal([['false', nil], ['true', 'hodnotový test']], rows.map { |row| row.fields.last(2) })
+  end
+
+  test 'Slovakia taxes a long holding at the normal rate: no 7% and no term split' do
+    trade(:buy, 1, 10_000, Time.utc(2023, 1, 10, 20), currency: 'EUR')
     trade(:buy, 1, 40_000, Time.utc(2024, 1, 10), currency: 'EUR')
-    trade(:sell, 2, 120_000, Time.utc(2024, 6, 1), currency: 'EUR')
+    trade(:sell, 2, 70_000, Time.utc(2024, 6, 1), currency: 'EUR')
 
-    rate = I18n.t('tax_report.headers.tax_rate', locale: :sk)
+    csv = report_csv('SK', 2024)
+    headers = CSV.parse_line(csv)
 
-    assert_equal(%w[7% 19%], disposals('SK', 2024).map { |row| row[rate] })
+    assert_equal 1, disposals('SK', 2024).size
+    assert_not_includes headers, I18n.t('tax_report.headers.tax_rate', locale: :sk)
+    assert_not_includes headers, I18n.t('tax_report.headers.term', locale: :sk)
+    assert_not_includes csv, '7%'
   end
 
   test 'Austrian old stock is decided per lot of a sale that also takes new stock' do
@@ -105,6 +135,42 @@ class Tax::ReportHoldingAndYearTest < ActiveSupport::TestCase
     old_stock = I18n.t('tax_report.headers.old_stock', locale: :de)
 
     assert_equal(%w[true false], disposals('AT', 2024).map { |row| row[old_stock] })
+  end
+
+  # --- Split rows add up to the sale as printed ---
+
+  test 'the split rows of a sale print proceeds and gains that add up to the sale in cents' do
+    trade(:buy, 1, 10, Time.utc(2022, 1, 10))
+    trade(:buy, 1, 10, Time.utc(2024, 1, 10))
+    trade(:sell, 2, '100.01', Time.utc(2024, 6, 1))
+
+    rows = disposals('US', 2024)
+
+    assert_equal 2, rows.size
+    assert_equal('100.01'.to_d, rows.sum { |row| row[4].to_d })
+    assert_equal('80.01'.to_d, rows.sum { |row| row[6].to_d })
+  end
+
+  test 'the split rows of a sale print fees that add up to the fee in cents' do
+    trade(:buy, 1, 10, Time.utc(2022, 1, 10))
+    trade(:buy, 1, 10, Time.utc(2024, 1, 10))
+    trade(:sell, 2, 100, Time.utc(2024, 6, 1), fee: '0.01')
+
+    rows = disposals('US', 2024)
+
+    assert_equal('0.01'.to_d, rows.sum { |row| row[9].to_d })
+    assert_equal('79.99'.to_d, rows.sum { |row| row[6].to_d })
+  end
+
+  test 'split rows of opposite sign over a fractional-cent basis print gains that add up to the printed sale' do
+    trade(:buy, 1, 10_000, Time.utc(2022, 1, 10))
+    trade(:buy, 2, '179999.99', Time.utc(2024, 1, 10))
+    trade(:sell, 2, 100_000, Time.utc(2024, 6, 1)) # basis 99,999.995, gain 0.005, printed 0.01
+
+    rows = disposals('US', 2024)
+
+    assert_equal 2, rows.size
+    assert_equal('0.01'.to_d, rows.sum { |row| row[6].to_d })
   end
 
   # --- The tax year is the year in the user's zone ---
@@ -169,6 +235,30 @@ class Tax::ReportHoldingAndYearTest < ActiveSupport::TestCase
     assert_equal [0.49.to_d, 4_900.to_d], [rows.last[3].to_d, rows.last[5].to_d]
   end
 
+  test 'a coin fee whose day reads differently in UTC and New York time is left unattributed and named' do
+    alpaca = create(:alpaca_exchange)
+    [Date.new(2024, 7, 1), Date.new(2024, 7, 2)].each do |day|
+      HistoricalPrice.create!(asset: 'BTC', currency: 'USD', date: day, price: 60_000.to_d)
+    end
+    fill = { exchange: alpaca, raw: { 'activity_type' => 'FILL' } }
+    trade(:buy, 1, 60_000, Time.utc(2024, 7, 1, 15), **fill)
+    trade(:buy, 1, 60_000, Time.utc(2024, 7, 2, 1), **fill) # 1 July in New York
+    trade(:buy, 1, 60_000, Time.utc(2024, 7, 2, 15), **fill)
+    cfee(alpaca, '0.004', Time.utc(2024, 7, 1))
+    cfee(alpaca, '0.002', Time.utc(2024, 7, 2))
+    trade(:sell, '1.996', 139_720, Time.utc(2024, 8, 1), **fill)
+
+    csv = report_csv('US', 2024)
+    rows = CSV.parse(csv, headers: true).select { |row| row[2] == 'BTC' }
+
+    # Neither fee reaches a fill: both leave the oldest lot as fees of their own, never the second
+    # buy twice (which reported $120,060).
+    assert_equal(119_760.to_d, rows.sum { |row| row[5].to_d })
+    assert_includes csv, I18n.t('tax_report.warnings.unattributed_coin_fees')
+    assert_includes csv, 'BTC 0.004 2024-07-01'
+    assert_includes csv, 'BTC 0.002 2024-07-02'
+  end
+
   private
 
   def trade(side, amount, quote, at, currency: 'USD', fee: nil, exchange: @exchange, raw: {})
@@ -187,8 +277,11 @@ class Tax::ReportHoldingAndYearTest < ActiveSupport::TestCase
   end
 
   def disposals(country, year, time_zone: 'UTC')
-    csv = Tax::Report.new(country: country, year: year, transactions: AccountTransaction.for_user(@user),
-                          time_zone: time_zone).to_csv
-    CSV.parse(csv, headers: true).select { |row| row[2] == 'BTC' }
+    CSV.parse(report_csv(country, year, time_zone: time_zone), headers: true).select { |row| row[2] == 'BTC' }
+  end
+
+  def report_csv(country, year, time_zone: 'UTC')
+    Tax::Report.new(country: country, year: year, transactions: AccountTransaction.for_user(@user),
+                    time_zone: time_zone).to_csv
   end
 end

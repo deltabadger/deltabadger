@@ -785,6 +785,8 @@ pl:
             deposit_basis_assumed_hint: Połącz każdą wpłatę z odpowiadającą jej wypłatą w Trackerze, aby zastosować rzeczywisty koszt nabycia.
             stated_values: "Wartości podane przez Ciebie ręcznie"
             stated_values_hint: "Te kwoty pochodzą od Ciebie, nie z giełdy. Zweryfikuj je z własnymi zapisami przed złożeniem zeznania."
+            unattributed_coin_fees: "Opłaty Alpaca w kryptoaktywach nieprzypisane do transakcji, bo ich data wskazuje różne transakcje w UTC i czasie nowojorskim; każdą odjęto od najstarszej partii bez przychodu"
+            unattributed_coin_fees_hint: "Sprawdź każdą z wyciągiem z Alpaca: koszt nabycia późniejszych sprzedaży tego aktywa może się różnić maksymalnie o wartość opłaty."
             exchange_sync_failed: 'Może brakować danych z %{exchange} — ostatnia synchronizacja nie powiodła się. Ponownie zsynchronizuj dane w Trackerze i wygeneruj raport jeszcze raz.'
             exchange_never_synced: 'Giełda %{exchange} nie została jeszcze zsynchronizowana — w tym raporcie nie ma żadnych jej transakcji. Zsynchronizuj ją w Trackerze i wygeneruj raport ponownie.'
         summary:
