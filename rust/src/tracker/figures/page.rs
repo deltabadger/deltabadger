@@ -9,6 +9,8 @@ pub struct Cold {pub holdings:Vec<Holding>,pub value:Option<Dec>,pub synced:Opti
 fn time(raw:Option<String>)->Result<Option<DateTime<Utc>>,FiguresError>{raw.map(|s|crate::codec::parse_time(&s).map_err(|_|FiguresError::Data("unreadable balance timestamp".into()))).transpose()}
 /// Rails' waiting_for_ledger groups by asset identity, not symbol. Predicates stay in SQLite.
 pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result<Cold,FiguresError>{
+    // One snapshot: the balances and the stamp saying which key produced them.
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=cold(&tx,owner,exchange,show_cash)?;tx.commit()?;return Ok(out)}
     let mut s=c.prepare("SELECT a.id,a.symbol,a.name,a.category,a.color,a.image_url,b.usd_value,b.priced_at,b.synced_at FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.exchange_id=?2) AND b.free+b.locked>0 ORDER BY b.id")?;
     let mut q=s.query(rusqlite::params![owner,exchange])?;
     let mut holdings:Vec<Holding>=vec![];let mut synced=None;let mut oldest=None;let mut unpriced=vec![];let mut missing_time=false;
@@ -30,7 +32,9 @@ pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result
     let mut s=c.prepare("SELECT balances_synced_at FROM api_keys WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2)")?;
     for mark in s.query_map(rusqlite::params![owner,exchange],|r|r.get::<_,Option<String>>(0))?{synced=synced.max(time(mark?)?);}
     let stale=oldest.zip(synced).is_some_and(|(p,s)|s.signed_duration_since(p)>chrono::Duration::seconds(300));
-    let reason=if stale{Some("Tracker figures unavailable: stale prices")}else if missing_time{Some("Tracker figures unavailable: price timestamp missing")}else if !unpriced.is_empty(){Some("Tracker figures unavailable: unpriced holdings")}else{None};
+    // Balances not produced by a completed sync of the current key are what the navbar already withholds.
+    let unsynced=crate::sync::cache::stale(c,owner,exchange).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?;
+    let reason=if unsynced{Some("Tracker figures unavailable: balances not yet synced with the current key")}else if stale{Some("Tracker figures unavailable: stale prices")}else if missing_time{Some("Tracker figures unavailable: price timestamp missing")}else if !unpriced.is_empty(){Some("Tracker figures unavailable: unpriced holdings")}else{None};
     holdings.sort_by(|a,b|b.value.cmp(&a.value));
     let had_holdings=!holdings.is_empty();
     if !show_cash{holdings.retain(|h|!super::super::cash(&h.symbol));}
