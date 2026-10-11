@@ -181,12 +181,19 @@ async fn a_web_stop_during_an_in_flight_tick_wins_and_nothing_more_is_placed() {
         until("the tick to send its order", || !v.sent().is_empty()).await;
         // Lifecycle#stop as the web writes it.
         let now = codec::format_time(chrono::Utc::now());
-        app.db(move |c| {
+        let stopping = app.db(move |c| {
             c.execute(WEB_STOP, rusqlite::params![now, bot])?;
             Ok(())
-        }).await.unwrap();
+        });
+        // STOP waits for dispatch's database lock. Release the held reply while the web write
+        // is pending; waiting for STOP before releasing it would deadlock this artificial gate.
+        let release = async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            gate.notify_one();
+        };
+        let (stopped, ()) = tokio::join!(stopping, release);
+        stopped.unwrap();
         app.wake_engine();
-        gate.notify_one();
         until("the tick in hand to record its order", || outstanding(&db, "OFAKE-1") == 1).await;
         // Due again, and owing: anchored eight days back with no last action. Only the stop keeps it from buying now.
         let anchor = codec::format_time(chrono::Utc::now() - chrono::Duration::days(8));
