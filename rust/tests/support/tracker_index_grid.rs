@@ -4,8 +4,9 @@ use deltabadger::web::{csrf, session, cable};
 use rusqlite::{Connection, types::{Value as Sql, ValueRef}};
 use serde_json::{json, Map, Value};
 use std::path::Path;
+#[allow(dead_code)]
 #[derive(Clone,Copy)]
-pub enum Mode { Exact, Deferred, FirstSync }
+pub enum Mode { Exact, Deferred, FirstSync, Holdings }
 pub fn snapshot(c: &Connection) -> Value {
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
@@ -95,6 +96,10 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
                 c.execute(&format!("INSERT INTO {table}({columns}) VALUES({slots})"),rusqlite::params_from_iter(row.values().map(scalar))).unwrap();}}
         c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
         let app=web::app(dir.path(),scenario["secret_key_base"].as_str().unwrap(),TestClock::at(scenario["at"].as_str().unwrap()));
+        let app=if matches!(mode(&name),Mode::Holdings){
+            let rates=if name=="holdings_fx_unavailable"{json!({})}else{json!({"usd":{"value":100.0},"eur":{"value":80.0},"gbp":{"value":50.0},"chf":{"value":90.0},"pln":{"value":400.0}})};
+            app.with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({"GET 127.0.0.1:1/api/v1/exchange_rates":{"body":{"data":rates}}}))).unwrap()
+        }else{app};
         let (owner,hash):(i64,String)=c.query_row("SELECT id,encrypted_password FROM users ORDER BY id LIMIT 1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
         let token=csrf::new_token();let data=session::SessionData{user:Some((owner,hash.chars().take(29).collect())),csrf:Some(token.clone()),..Default::default()};
         let mut browser=Browser{cookie:Some(session::seal(&app.keys.session,&data,app.now())),page:None};
@@ -112,6 +117,25 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
             assert_eq!(answer.body,body,"{name}: public error body");continue;
         }
         let actual=masked(&answer.body,Some(&app),Some(&token));let mut oracle=masked(expected["body"].as_str().unwrap(),None,None);
+        if matches!(mode(&name),Mode::Holdings) {
+            let reason=match name.as_str(){
+                "holdings_stale"|"holdings_stale_hidden"=>Some("Tracker figures unavailable: stale prices"),
+                "holdings_fx_unavailable"=>Some("Currency conversion unavailable"),
+                "holdings_missing_price"=>Some("Tracker figures unavailable: price timestamp missing"),
+                "holdings_unpriced"|"holdings_zero_value"=>Some("Tracker figures unavailable: unpriced holdings"),_=>None};
+            if let Some(reason)=reason {
+                let head=oracle.find("    <div class=\"widget tracker-holdings ").unwrap();
+                let end=head+oracle[head..].find("    <div class=\"tracker-record\"").unwrap();
+                oracle.replace_range(head..end,&format!("    <div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>\n\n"));
+                if name!="holdings_stale_hidden" {
+                let tile=oracle.find("data-grid__item__value \">\n      <small>$</small>").unwrap();
+                let head=tile+oracle[tile..].find("      <small>").unwrap();let end=head+oracle[head..].find('\n').unwrap();
+                oracle.replace_range(head..end,&format!("      <span class=\"no-value\" title=\"{reason}\">—</span>"));
+                }
+            }
+            std::fs::write(source.join("rust.html"),&actual).unwrap();
+            std::fs::write(source.join("rails-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
+        }
         if matches!(mode(&name),Mode::FirstSync) && !c.query_row("SELECT hide_balances FROM users WHERE id=?1",[owner],|r|r.get::<_,bool>(0)).unwrap() {
             let zero=match name.as_str() {
                 "first_currency_EUR"=>"      <small>€</small>0.00\n",
