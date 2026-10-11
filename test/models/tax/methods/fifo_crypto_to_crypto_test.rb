@@ -110,6 +110,21 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
     assert_equal [true, Time.utc(2023, 1, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
   end
 
+  test 'Portugal: an immediate fiat exit across midnight still keeps the holding start' do
+    swapped_at = Time.utc(2024, 2, 1, 23, 59) # Lisbon is on UTC in February
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC', swapped_at: swapped_at,
+                                                                 sold_at: Time.utc(2024, 2, 2, 0, 1))
+
+    assert_equal [true, Time.utc(2023, 1, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
+  test 'Portugal: a fiat exit 24 hours and a minute after the swap restarts the holding' do
+    disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC',
+                                                                 sold_at: Time.utc(2024, 2, 2, 0, 1))
+
+    assert_equal [false, Time.utc(2024, 2, 1)], [disposals.first[:long_held], disposals.first[:acquisition_date]]
+  end
+
   test 'Portugal: a stablecoin from a long-held coin, held on for months before the sale, restarts the holding' do
     disposals = portuguese_stablecoin_exit(Time.utc(2023, 1, 1), swap_into: 'USDC', sold_at: Time.utc(2024, 8, 1))
 
@@ -390,15 +405,15 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
 
   private
 
-  def portuguese_stablecoin_exit(bought_at, swap_into:, sold_at: Time.utc(2024, 2, 1, 0, 5))
+  def portuguese_stablecoin_exit(bought_at, swap_into:, swapped_at: Time.utc(2024, 2, 1), sold_at: swapped_at + 5.minutes)
     transactions = [
       { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
         fiat_value: 10_000.to_d, transacted_at: bought_at, tx_id: 'buy-1', exchange: 'binance' },
       { entry_type: :swap_out, base_currency: 'BTC', base_amount: 1.to_d,
-        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'swap-out',
+        fiat_value: 20_000.to_d, transacted_at: swapped_at, tx_id: 'swap-out',
         exchange: 'binance', group_id: 'swap_1', quote_currency: swap_into },
       { entry_type: :swap_in, base_currency: swap_into, base_amount: 20_000.to_d,
-        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'swap-in',
+        fiat_value: 20_000.to_d, transacted_at: swapped_at, tx_id: 'swap-in',
         exchange: 'binance', group_id: 'swap_1' },
       { entry_type: :sell, base_currency: swap_into, base_amount: 20_000.to_d,
         fiat_value: 20_000.to_d, transacted_at: sold_at, tx_id: 'sell-1',

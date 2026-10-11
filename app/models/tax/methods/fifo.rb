@@ -7,6 +7,8 @@ module Tax
       STABLECOINS = Tax::PriceService::STABLECOINS
       # The precision Tax::Report prints money in.
       CENTS = 2
+      # How soon a Portuguese technical stablecoin conversion must reach fiat (`immediate_fiat_exit?`).
+      IMMEDIATE_EXIT = 24.hours
 
       # The lots left standing after a run. A tax report only ever wanted the disposals; the tracker
       # reads what is still held, so the open positions and the report share one walk of the ledger.
@@ -243,13 +245,13 @@ module Tax
 
       # Portuguese ruling 28969 (§§12–14): a coin that had already served its 365 days, swapped into a
       # stablecoin only to reach euros and sold for them straight away, keeps its exemption. "Straight
-      # away" is read narrowly: sold for fiat on the swap's own calendar day in Lisbon. Anything later
-      # runs from the swap, as every other Portuguese swap does.
+      # away" is read narrowly: sold for fiat within 24 hours of the swap, by the clock, so a swap just
+      # before midnight still qualifies. Anything later runs from the swap, as every other Portuguese
+      # swap does.
       def immediate_fiat_exit?(tranche, transaction)
         return false unless tranche[:technical_start] && fiat_exit?(transaction)
 
-        lisbon = ActiveSupport::TimeZone['Europe/Lisbon']
-        tranche[:holding_start].in_time_zone(lisbon).to_date == transaction[:transacted_at].in_time_zone(lisbon).to_date
+        transaction[:transacted_at] - tranche[:holding_start] <= IMMEDIATE_EXIT
       end
 
       def fiat_exit?(transaction)
