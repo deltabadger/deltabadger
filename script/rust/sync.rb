@@ -24,7 +24,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -36,6 +36,10 @@ module ScriptedSync
 
   def self.reply(env)
     host = env.url.host.to_s
+    if binance_state && (host.end_with?('binance.com') || host.end_with?('binance.us'))
+      requests << ["#{env.method.to_s.upcase} #{env.url.path}", URI.decode_www_form(env.url.query.to_s).sort]
+      return FakeBinance.reply(binance_state, env.url.path, URI.decode_www_form(env.url.query.to_s).to_h)
+    end
     script = if host.end_with?('alpaca.markets') then alpaca
              elsif host.start_with?('api.binance.') then binance
              elsif host == 'data-api' then market
@@ -75,6 +79,59 @@ module ScriptedSync
       env.response = Faraday::Response.new
       save_response(env, reply.fetch('status', 200), body, { 'Content-Type' => 'application/json' })
       @app.call(env)
+    end
+  end
+end
+
+# A Binance account, served from a scenario's `binance_state` as Binance serves it, whatever each side asks: the
+# histories by their documented windows and pages, the trade list by `fromId` (trades >= it, by id), by `startTime`
+# (from it on, by id; ponytail: the docs do not say what an open-ended startTime returns, so nothing is cut off at
+# 24 hours here) or else the most recent `limit`. Rust's half (rust/src/sync/parity.rs FakeBinance) serves the same.
+# The sources Rails reads and Rust does not yet (convert, fiat, dust, dividends, earn, margin, futures) answer empty.
+module FakeBinance
+  module_function
+
+  EMPTY = {
+    '/sapi/v1/convert/tradeFlow' => { 'list' => [] }, '/sapi/v1/fiat/payments' => { 'data' => [] },
+    '/sapi/v1/asset/dribblet' => { 'total' => 0, 'userAssetDribblets' => [] }, '/sapi/v1/asset/assetDividend' => { 'rows' => [], 'total' => 0 },
+    '/sapi/v1/margin/interestHistory' => { 'rows' => [], 'total' => 0 }, '/sapi/v1/margin/forceLiquidationRec' => { 'rows' => [], 'total' => 0 },
+    '/fapi/v1/income' => [], '/dapi/v1/income' => []
+  }.freeze
+
+  def applied(text) = (Time.utc(*text.scan(/\d+/).map(&:to_i)).to_r * 1000).to_i
+
+  def reply(state, path, query)
+    failures = state.fetch('fail', {})
+    failure = failures["#{path}?symbol=#{query['symbol']}"] || failures[path]
+    return failure if failure
+
+    body = case path
+           when '/api/v3/account'
+             { 'accountType' => 'SPOT', 'balances' => state.fetch('balances', []).map { |a, f, l| { 'asset' => a, 'free' => f, 'locked' => l || '0.00000000' } } }
+           when '/api/v3/exchangeInfo'
+             { 'timezone' => 'UTC', 'symbols' => state.fetch('symbols', []).map { |s, b, q, st| { 'symbol' => s, 'status' => st || 'TRADING', 'baseAsset' => b, 'quoteAsset' => q } } }
+           when '/sapi/v1/capital/deposit/hisrec' then window(state.fetch('deposits', []), query) { |d| d['insertTime'] }
+           when '/sapi/v1/capital/withdraw/history' then window(state.fetch('withdrawals', []), query) { |w| applied(w['applyTime']) }
+           when '/api/v3/myTrades' then trades(state.fetch('trades', {}).fetch(query['symbol'], []), query)
+           when %r{\A/sapi/v1/simple-earn/} then { 'rows' => [], 'total' => 0 }
+           else EMPTY.fetch(path) { raise Harness::Unscripted, "fake Binance has no #{path}" }
+           end
+    { 'status' => 200, 'body' => body }
+  end
+
+  def window(rows, query)
+    from = query['startTime']&.to_i
+    to = query['endTime']&.to_i
+    rows.select { |r| (t = yield(r)) && (from.nil? || t >= from) && (to.nil? || t <= to) }
+        .drop(query.fetch('offset', '0').to_i).first(query.fetch('limit', '1000').to_i)
+  end
+
+  def trades(rows, query)
+    limit = query.fetch('limit', '500').to_i
+    sorted = rows.sort_by { |t| t['id'] }
+    if query['fromId'] then sorted.select { |t| t['id'] >= query['fromId'].to_i }.first(limit)
+    elsif query['startTime'] then sorted.select { |t| t['time'] >= query['startTime'].to_i }.first(limit)
+    else sorted.last(limit)
     end
   end
 end
@@ -252,6 +309,26 @@ module SyncParity
     ctx[:binance] = venue
   end
 
+  def ms(time) = (time.to_r * 1000).to_i
+
+  def bn_trade(id, order, price, qty, at, buyer:, commission: '0.00000000', asset: 'BNB')
+    { 'id' => id, 'orderId' => order, 'orderListId' => -1, 'price' => price, 'qty' => qty,
+      'quoteQty' => (price.to_d * qty.to_d).to_s('F'), 'commission' => commission, 'commissionAsset' => asset,
+      'time' => at.is_a?(Integer) ? at : ms(at), 'isBuyer' => buyer, 'isMaker' => false, 'isBestMatch' => true }
+  end
+
+  def bn_deposit(id, coin, amount, at, status: 1, tx: "0xd#{id}")
+    { 'id' => id.to_s, 'amount' => amount, 'coin' => coin, 'network' => coin, 'status' => status, 'address' => 'addr', 'addressTag' => '',
+      'txId' => tx, 'insertTime' => at.is_a?(Integer) ? at : ms(at), 'transferType' => 0, 'confirmTimes' => '1/1', 'unlockConfirm' => 0, 'walletType' => 0 }
+  end
+
+  def bn_withdrawal(id, coin, amount, at, fee: '0.0005', status: 6, tx: "0xw#{id}")
+    { 'id' => "w#{id}", 'amount' => amount, 'transactionFee' => fee, 'coin' => coin, 'status' => status, 'address' => 'addr',
+      'txId' => tx, 'applyTime' => at.utc.strftime('%Y-%m-%d %H:%M:%S'), 'network' => coin, 'transferType' => 0 }.compact
+  end
+
+  def binance_ledger(at, state) = { 'kind' => 'ledger', 'at' => at, 'binance_state' => state }
+
   BINANCE_ACCOUNT = 'GET /api/v3/account'.freeze
   EXCHANGE_RATES = 'GET /api/v1/exchange_rates'.freeze
 
@@ -318,6 +395,7 @@ module SyncParity
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
         ScriptedSync.binance = step.fetch('binance', {}).transform_values(&:dup)
+        ScriptedSync.binance_state = step['binance_state']
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true
