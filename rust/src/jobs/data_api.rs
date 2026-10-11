@@ -80,7 +80,7 @@ impl Transport for ApiTransport {
     }
 }
 
-pub struct DataApi<T: Transport> { pub config: Config, normal: T, bulk: T }
+pub struct DataApi<T: Transport> { pub config: Config, normal: T, bulk: T, rates: RateCache }
 
 impl DataApi<ApiTransport> {
     pub fn live(config: Config) -> Self {
@@ -91,12 +91,12 @@ impl DataApi<ApiTransport> {
             } else { Err("market-data URL must have an HTTP(S) host".into()) });
         let normal = ApiTransport::new(http::client(), &config.token, base.clone());
         let bulk = ApiTransport::new(http::client_with(http::CONNECT_TIMEOUT, BULK_READ_TIMEOUT, BULK_TOTAL), &config.token, base);
-        Self { config, normal, bulk }
+        Self { config, normal, bulk, rates: RateCache::default() }
     }
 }
 
 impl<T: Transport> DataApi<T> {
-    pub fn new(config: Config, normal: T, bulk: T) -> Self { Self { config, normal, bulk } }
+    pub fn new(config: Config, normal: T, bulk: T) -> Self { Self { config, normal, bulk, rates: RateCache::default() } }
 
     /// MarketDataSettings.deltabadger_public_url (market_data_settings.rb:60-70): logo paths are served to browsers, so the
     /// docker alias `data-api` becomes the public host.
@@ -167,16 +167,14 @@ impl<T: Transport> DataApi<T> {
     }
 }
 
-/// `price.to_f if price`: nil and false are no price; a number is itself; a String is String#to_f. ponytail: the longest
-/// leading prefix that parses as a float, else 0.0 (Ruby's rule up to exotic forms like "1_000"); data-api sends numbers.
+/// `price.to_f if price`: nil and false are no price; a number is itself; a String is String#to_f (a leading numeric
+/// prefix, digit-separating underscores skipped, else 0.0: web::bot::action_params::numeric). A string whose prefix no
+/// double holds (Ruby: Infinity) is no price here, never a different one.
 pub(crate) fn to_f(v: &Value) -> Option<f64> {
     match v {
         Value::Null | Value::Bool(false) => None,
         Value::Number(n) => n.as_f64(),
-        Value::String(s) => {
-            let t = s.trim_start();
-            Some((1..=t.len()).rev().filter(|&n| t.is_char_boundary(n)).find_map(|n| t[..n].parse::<f64>().ok()).unwrap_or(0.0))
-        }
+        Value::String(_) => crate::web::bot::action_params::numeric(v, false).ok()?.as_f64(),
         _ => None,
     }
 }
@@ -191,6 +189,26 @@ pub trait PriceSource {
     fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> {
         Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }) })
     }
+    /// Where Utilities::Currency.exchange_rate keeps the rates it computed; none: every sync asks again.
+    fn rate_cache(&self) -> Option<&RateCache> { None }
+}
+
+/// Utilities::Currency.exchange_rate's Rails.cache entries for fiat into USD: a successful rate is held
+/// STABLE_CACHE_DURATION (12 hours, both currencies fiat) and read instead of asking again; a failure is never held.
+/// In-process: it starts empty when the engine starts (Rails' cache store outlives a restart).
+#[derive(Default)]
+pub struct RateCache(std::sync::Mutex<std::collections::HashMap<String, (crate::ruby::BigDec, chrono::DateTime<chrono::Utc>)>>);
+
+impl RateCache {
+    pub const DURATION: chrono::TimeDelta = chrono::TimeDelta::hours(12);
+    /// The rate for `from` written less than DURATION before `now` (ActiveSupport::Cache::Entry#expired? at `now`).
+    pub fn get(&self, from: &str, now: chrono::DateTime<chrono::Utc>) -> Option<crate::ruby::BigDec> {
+        let held = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        held.get(from).filter(|(_, at)| now < *at + Self::DURATION).map(|(rate, _)| rate.clone())
+    }
+    pub fn put(&self, from: &str, rate: crate::ruby::BigDec, now: chrono::DateTime<chrono::Utc>) {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).insert(from.to_string(), (rate, now));
+    }
 }
 
 pub type RatesFuture<'a> = Pin<Box<dyn Future<Output = Result<Value, ApiError>> + 'a>>;
@@ -203,6 +221,7 @@ impl<T: Transport> PriceSource for DataApi<T> {
         Box::pin(DataApi::prices(self, external_ids, currency))
     }
     fn exchange_rates<'a>(&'a self) -> RatesFuture<'a> { Box::pin(DataApi::exchange_rates(self)) }
+    fn rate_cache(&self) -> Option<&RateCache> { Some(&self.rates) }
 }
 
 /// with_rescue's message for an HTTP error: "HTTP <status>" for an HTML body, else the raw body, else Faraday's own.
@@ -231,5 +250,22 @@ impl<T: Transport> PriceSource for Option<DataApi<T>> {
             Some(api) => PriceSource::exchange_rates(api),
             None => Box::pin(async { Err(ApiError::Failed { status: None, message: "No market data provider configured".into() }) }),
         }
+    }
+    fn rate_cache(&self) -> Option<&RateCache> { self.as_ref().and_then(PriceSource::rate_cache) }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    /// String#to_f, as `price.to_f` (MarketData.get_prices) and Utilities::Currency read a number sent as a string.
+    #[test]
+    fn a_string_reads_as_ruby_string_to_f() {
+        for (s, f) in [("1_000", 1000.0), ("12abc", 12.0), (" 1.5e3x", 1500.0), ("1__0", 1.0), ("", 0.0), ("abc", 0.0), ("-2.5", -2.5), (".5", 0.5)] {
+            assert_eq!(super::to_f(&json!(s)), Some(f), "{s:?}");
+        }
+        assert_eq!((super::to_f(&json!(null)), super::to_f(&json!(2))), (None, Some(2.0)));
+        let prices = crate::sync::balances::parse_prices(&json!({ "data": { "x": { "usd": "1_000" } } }), &["x".to_string()]);
+        assert_eq!(prices.get("x"), Some(&1000.0));
     }
 }

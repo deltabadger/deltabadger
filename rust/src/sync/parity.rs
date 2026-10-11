@@ -119,13 +119,14 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     let db = Db::new(opened.primary, (*cipher).clone());
 
     let mut steps = vec![];
+    let rate_cache = Arc::new(crate::jobs::data_api::RateCache::default()); // Rails' cache store, cleared per scenario
     for step in scenario["steps"].as_array().ok_or_else(|| data("steps"))? {
         let at: DateTime<Utc> = step["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| data("step.at"))?;
         let binance = step.get("binance").is_some();
         let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
-        let prices = ScriptedPrices::from_script(&step["market"]);
+        let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
         let raised = match step["kind"].as_str() {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),

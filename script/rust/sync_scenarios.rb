@@ -599,6 +599,8 @@ module SyncScenarios
     held = P.binance_account(%w[BTC 0.50000000 0.10000000], %w[ETH 2.00000000], %w[USDT 100.50000000], %w[EUR 50.00], %w[LDBTC 1.00000000],
                              %w[BNB 3.00000000], %w[DOGE 0.00000000])
     install = ->(ctx) { P.binance(ctx) }
+    cash = P.binance_account(%w[EUR 50], %w[BTC 0.1])
+    eur_at = ->(usd) { P.ok('data' => { 'btc' => { 'value' => 1 }, 'usd' => { 'value' => usd }, 'eur' => { 'value' => 1 } }) }
     seeded = lambda do |ctx|
       P.binance(ctx)
       P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2')
@@ -631,6 +633,21 @@ module SyncScenarios
       # Listed divergences. A quantity that is no number: Ruby reads 0 and deletes the stored balance; Rust fails the sync.
       { name: 'binance-balances-garbage_free', setup: seeded,
         steps: [P.binance_balances(night, account: P.binance_account(%w[BTC abc], %w[ETH 1.5]), prices: coins)] },
+      # The same divergence for a blank or whitespace quantity: Ruby's String#to_d reads 0 there too.
+      { name: 'binance-balances-blank_free', setup: seeded,
+        steps: [P.binance_balances(night, account: P.binance_account(['BTC', '', '0'], %w[ETH 1.5]), prices: coins)] },
+      { name: 'binance-balances-whitespace_free', setup: seeded,
+        steps: [P.binance_balances(night, account: P.binance_account(['BTC', '   ', '0'], %w[ETH 1.5]), prices: coins)] },
+      # A rate written as a string is read by String#to_f, which skips digit-separating underscores: EUR at 1100 / 1000.
+      { name: 'binance-balances-rate_spelling', setup: install,
+        steps: [P.binance_balances(night, account: cash, rates: P.ok('data' => { 'eur' => { 'value' => '1_000' }, 'usd' => { 'value' => 1100 } }),
+                                   prices: coins)] },
+      # Repeat syncs: a fiat rate is held 12 hours (Utilities::Currency::STABLE_CACHE_DURATION). A minute later the
+      # first rate is used and the rates are not asked for; 13 hours later they are asked for again.
+      { name: 'binance-balances-rate_cached', setup: install,
+        steps: [P.binance_balances(night, account: cash, rates: eur_at.call(1.1), prices: coins),
+                P.binance_balances('2026-09-20T02:31:00.750000Z', account: cash, rates: eur_at.call(1.2), prices: coins),
+                P.binance_balances('2026-09-20T15:31:00.750000Z', account: cash, rates: eur_at.call(1.3), prices: coins)] },
       # No exchange rate for cash: Ruby asks the coin market for "eur" and stores what it says; Rust leaves EUR unpriced.
       { name: 'binance-balances-no_rate', setup: install,
         steps: [P.binance_balances(night, account: P.binance_account(%w[EUR 50], %w[BTC 0.1]), rates: P::SERVER_ERROR,

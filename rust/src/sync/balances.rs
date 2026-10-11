@@ -54,28 +54,23 @@ impl PriceSource for NoPrices {
 
 /// The data API's answer to GET api/v1/prices, read as MarketData.get_prices reads it: `data[id]["usd"]`, `to_f`,
 /// absent when missing or null.
-/// ponytail: String#to_f reads a numeric prefix of garbage; this reads garbage as 0. The data API sends JSON numbers.
 pub fn parse_prices(body: &Value, external_ids: &[String]) -> BTreeMap<String, f64> {
-    external_ids.iter().filter_map(|id| {
-        let price = match &body["data"][id.as_str()]["usd"] {
-            Value::Number(n) => n.as_f64()?,
-            Value::String(s) => s.trim().parse().unwrap_or(0.0),
-            _ => return None,
-        };
-        Some((id.clone(), price))
-    }).collect()
+    external_ids.iter().filter_map(|id| crate::jobs::data_api::to_f(&body["data"][id.as_str()]["usd"]).map(|p| (id.clone(), p))).collect()
 }
 
 /// Recorded answers for "GET /api/v1/prices", in the shape of http::ScriptedTransport's script (the parity harness
 /// serves the same replies beneath Rails' Clients::MarketData). The last reply repeats; an unscripted call panics.
 #[derive(Default)]
-pub struct ScriptedPrices { replies: RefCell<VecDeque<Value>>, requests: RefCell<Vec<Vec<String>>>, rates: RefCell<VecDeque<Value>>, rate_requests: RefCell<usize> }
+pub struct ScriptedPrices { replies: RefCell<VecDeque<Value>>, requests: RefCell<Vec<Vec<String>>>, rates: RefCell<VecDeque<Value>>, rate_requests: RefCell<usize>,
+                            rate_cache: Arc<crate::jobs::data_api::RateCache> }
 
 impl ScriptedPrices {
     pub fn from_script(script: &Value) -> Self {
         let replies = |path: &str| RefCell::new(script[format!("GET {path}")].as_array().cloned().unwrap_or_default().into());
-        Self { replies: replies(PRICES_PATH), requests: RefCell::default(), rates: replies(EXCHANGE_RATES_PATH), rate_requests: RefCell::default() }
+        Self { replies: replies(PRICES_PATH), requests: RefCell::default(), rates: replies(EXCHANGE_RATES_PATH), rate_requests: RefCell::default(), rate_cache: Arc::default() }
     }
+    /// The rate cache one run of syncs shares (Rails' cache store across the steps of one scenario).
+    pub fn with_rate_cache(mut self, cache: Arc<crate::jobs::data_api::RateCache>) -> Self { self.rate_cache = cache; self }
     /// The id lists asked for, in order.
     pub fn requests(&self) -> Vec<Vec<String>> { self.requests.borrow().clone() }
     /// How many times the exchange rates were asked for.
@@ -115,6 +110,7 @@ impl PriceSource for ScriptedPrices {
             scripted(&reply).map(|body| body["data"].clone())
         })
     }
+    fn rate_cache(&self) -> Option<&crate::jobs::data_api::RateCache> { Some(&self.rate_cache) }
 }
 
 /// AccountBalance::Sync::Summary.
@@ -360,8 +356,8 @@ type Held = (i64, BigDec, BigDec);
 /// Exchanges::Binance#get_balances then AccountBalance::Sync's `nonzero`: per asset the venue lists, its free and locked
 /// quantities (a later entry for the same asset wins), in the order of `asset_ids`, only those holding something. An
 /// entry whose symbol names no listed asset is not a balance. A missing `balances` or a missing quantity is Rails'
-/// KeyError; a quantity that is no number fails the sync (Rails reads it as 0 and deletes the stored balance: a listed
-/// divergence, D2b ruling Q10).
+/// KeyError; a quantity that is no number, blank and whitespace included, fails the sync (Rails reads it as 0 and
+/// deletes the stored balance: a listed divergence, D2b ruling Q10).
 fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let Ok(account) = Raw::from_node(&node) else { return Ok(Err("unreadable account".into())) };
@@ -375,7 +371,9 @@ fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
     for entry in entries {
         let Ok(entry) = Raw::from_node(entry) else { return Ok(Err("unreadable balance".into())) };
         let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(a)).filter(|id| asset_ids.contains(id)) else { continue };
+        // number::json reads a blank string as 0 (String#to_d, which the Alpaca sync matches); here it is no number.
         let quantity = |key: &str| match entry.number(key) {
+            _ if entry.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
             Ok(None) => Err(format!("KeyError: Key path {key} not found")),
             Err(why) => Err(why),
@@ -419,8 +417,15 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
         if let Some(Price::Decimal(rate)) = rated.get(&symbol) { fresh.insert(a.external_id.clone(), Price::Decimal(rate.clone())); continue; }
         let fiat = { let s = symbol.clone(); phase(db, move |c| first_asset_is_currency(c, &s)).await? } || crate::figures::totals::FIAT_SYMBOLS.contains(&symbol.as_str());
         if !fiat { continue; }
+        // Utilities::Currency.exchange_rate: a rate computed within the last 12 hours is used as it is.
+        if let Some(rate) = prices.rate_cache().and_then(|cache| cache.get(&symbol, clock.now())) {
+            rated.insert(symbol, Price::Decimal(rate.clone()));
+            fresh.insert(a.external_id.clone(), Price::Decimal(rate));
+            continue;
+        }
         match prices.exchange_rates().await {
             Ok(rates) => if let Some(rate) = fiat_rate(&rates, &symbol) {
+                if let Some(cache) = prices.rate_cache() { cache.put(&symbol, rate.clone(), clock.now()); }
                 rated.insert(symbol, Price::Decimal(rate.clone()));
                 fresh.insert(a.external_id.clone(), Price::Decimal(rate));
             },

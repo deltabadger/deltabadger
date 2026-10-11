@@ -158,9 +158,9 @@ fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>>
 fn listed_binance(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let balances = |out: &Value| rows(out, "account_balances");
     Some(match name {
-        // A quantity that is no number: Rails reads it as 0 and deletes the stored BTC balance (and writes ETH); Rust
-        // fails the sync, writes no balance and records why.
-        "binance-balances-garbage_free" => (|| {
+        // A quantity that is no number (garbage, blank or whitespace): Rails reads it as 0 and deletes the stored BTC
+        // balance (and writes ETH); Rust fails the sync, writes no balance and records why.
+        "binance-balances-garbage_free" | "binance-balances-blank_free" | "binance-balances-whitespace_free" => (|| {
             check(balances(rails).iter().any(|r| r["after"].is_null() && r["before"]["asset_id"] == 5), "Rails no longer deletes the BTC balance on a garbage quantity: drop the listed divergence")?;
             check(balances(rust).is_empty(), &format!("Rust wrote balances: {:?}", balances(rust)))?;
             check(key_error(rust) == "unreadable free: not a plain decimal number", &format!("Rust's error: {}", key_error(rust)))?;
@@ -254,7 +254,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), dirs.len()), (58, 41, 14, 113), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), dirs.len()), (58, 41, 18, 117), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -278,7 +278,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    let mut expected=["binance-balances-garbage_free", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+    let mut expected=["binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -392,6 +392,11 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(first.iter().map(|r| r["after"]["asset_id"].clone()).collect::<Vec<_>>(), [json!(5), json!(6), json!(7), json!(8)]);
     assert_eq!((num(&first[0]["after"]["free"]), num(&first[0]["after"]["locked"]), num(&first[0]["after"]["usd_value"])), (Some(0.5), Some(0.1), Some(36000.3)));
     assert_eq!(num(&first[3]["after"]["usd_price"]), Some(1.09091322), "EUR at 60000.5 / 55000.25");
+    let eur_price = |name: &str| rows(&rails_of(name), "account_balances").iter().find(|r| r["after"]["asset_id"] == 8).and_then(|r| num(&r["after"]["usd_price"]));
+    assert_eq!(eur_price("binance-balances-rate_spelling"), Some(1.1), "String#to_f reads \"1_000\" as 1000");
+    let asked_rates = |step: usize| rails_of("binance-balances-rate_cached")["steps"][step]["requests"].as_array().unwrap().iter().any(|r| r[0] == "GET /api/v1/exchange_rates");
+    assert_eq!((asked_rates(0), asked_rates(1), asked_rates(2)), (true, false, true), "a fiat rate is held 12 hours");
+    assert_eq!(eur_price("binance-balances-rate_cached"), Some(1.3), "the rate asked for after 12 hours");
     assert_eq!(rails_of("binance-balances-us")["steps"][0]["requests"][0][0], "GET /api/v3/account");
     assert_eq!(rows(&rails_of("binance-balances-invalid_key"), "api_keys")[0]["after"]["status"], 2, "Binance's invalid-key words condemn the key");
     for kept in ["recv_window", "throttled", "bad_gateway", "network"] {
