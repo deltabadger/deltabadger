@@ -340,7 +340,10 @@ fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent
     let fenced = model::check_credential_result(tx, &intent.credential_version)?;
     if !still_pending(tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
     let safe = safe_rejection(errors);
-    if !safe { write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
+    if !safe {
+        let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?;
+        tx.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1", params![id, intent.run.as_ref().map(|r| r.rails_json().to_string())])?;
+    }
     set_intent(tx, bot.id, None)?;
     Ok(!safe)
 }

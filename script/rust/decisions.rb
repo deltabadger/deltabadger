@@ -100,6 +100,9 @@ module Decisions
   def rows(table)
     ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a.to_h do |r|
       r = r.transform_values { |v| raw(v) }
+      # Dispatch bookkeeping differs in representation, like rust_placement below. Its
+      # durability and cleanup are asserted by the dispatch protocol tests in each runtime.
+      r.delete('placement_intents')
       JSON_COLUMNS.each { |c| r[c] = JSON.parse(r[c]) if r[c].is_a?(String) }
       r['transient_data'] = r['transient_data'].except(*RUST_KEYS) if r['transient_data'].is_a?(Hash)
       [r['id'], r]

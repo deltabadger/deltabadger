@@ -114,11 +114,12 @@ pub fn run_pending_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime
 
 fn drain_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>, owner: Option<&model::Bot>) -> Result<(), EngineError> {
     let mut stopped_here = false;
+    let mut expected_run = owner.map(model::Bot::run_identity).transpose()?;
     loop {
         let tx = model::immediate(c)?;
-        if let Some(owner) = owner {
+        if let Some(expected_run) = &expected_run {
             let current = model::load_bot(&tx, bot_id)?;
-            if current.run_identity()? != owner.run_identity()?
+            if &current.run_identity()? != expected_run
                 || (!stopped_here && !crate::enums::BOT_WORKING.contains(&current.status)) { return Ok(()); }
         }
         let Some((n, current)) = model::load_bot(&tx, bot_id)?.pending_amount_limit_stops()? else { return Ok(()) };
@@ -132,6 +133,9 @@ fn drain_amount_limit_stops(c: &Connection, bot_id: i64, now: DateTime<Utc>, own
         }
         stop_for_amount_limit(&tx, bot_id, now)?;
         stopped_here = true;
+        // Our own STOP advances the generation. Continue only from that identity, so a
+        // concurrent restart still fences the remaining callbacks between transactions.
+        if expected_run.is_some() { expected_run = Some(model::load_bot(&tx, bot_id)?.run_identity()?); }
         if n == 1 {
             tx.execute(remove, [bot_id])?;
         } else {

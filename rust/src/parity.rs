@@ -45,6 +45,9 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
         for r in snapshot {
             let mut row = Map::new();
             for (i, name) in names.iter().enumerate() {
+                // Rails' dispatch bookkeeping, like rust_placement below: each runtime's
+                // protocol tests assert its persistence and cleanup directly.
+                if name == "placement_intents" { continue; }
                 let mut v = raw((&r[i]).into());
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.

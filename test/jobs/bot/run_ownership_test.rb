@@ -113,6 +113,35 @@ class Bot::RunOwnershipTest < ActiveSupport::TestCase
     Exchange.where(id: exchange&.id).delete_all
   end
 
+  test 'market clock refresh never runs inside the ownership transaction' do
+    user = create(:user, email: "ownership-#{SecureRandom.hex}@example.com")
+    base = create(:asset, :bitcoin, external_id: "ownership-#{SecureRandom.hex}")
+    quote = create(:asset, :usd, external_id: "ownership-#{SecureRandom.hex}")
+    bot = create(:dca_single_asset, :started, user:, base_asset: base, quote_asset: quote, with_api_key: false)
+    exchange = bot.exchange
+    bot.stubs(:ensure_exchange_authenticated)
+    exchange.stubs(:market_open?).returns(false)
+    reads = []
+    exchange.define_singleton_method(:next_market_open_at) do |**|
+      reads << ActiveRecord::Base.connection.transaction_open?
+      1.hour.from_now
+    end
+
+    Bot::ActionJob.new.perform(bot)
+
+    assert_equal [false], reads, 'fetch the venue clock once before taking the database writer'
+    assert bot.reload.waiting_for_market_open
+  ensure
+    bot&.transactions&.delete_all
+    bot&.bot_activity_logs&.delete_all
+    Bot.where(id: bot&.id).delete_all
+    user&.destroy!
+    Ticker.where(exchange_id: exchange&.id).delete_all
+    ExchangeAsset.where(asset_id: [base&.id, quote&.id]).delete_all
+    Asset.where(id: [base&.id, quote&.id]).delete_all
+    Exchange.where(id: exchange&.id).delete_all
+  end
+
   private
 
   def join_for_cleanup(thread)
