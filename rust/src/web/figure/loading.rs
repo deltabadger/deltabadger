@@ -15,10 +15,14 @@ pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
 pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
 /// What this account's figures were filled for, as values: the rows Rails' metrics cache is recomputed for (a bot's
 /// transactions, and the bot: its settings, status, venue, restatement, and the operation flags that hide its Sell and
-/// Redeploy controls), the account's own rows the figures read, and the reference data they read (the listings of every
-/// venue the bots trade or traded on, the composition's tickers wherever listed, and the assets those listings, the
-/// orders, the bots' settings, the index, the ledger and the balances name). Left out: `updated_at`, the rest of a bot's
-/// transient bookkeeping, and what a sync rewrites that no figure reads (a market cap, an ATH).
+/// Redeploy controls), the account's own rows the figures read, and the reference data they read: the account's
+/// tickers (the composition's, wherever listed, and its venues' listings of the assets the bots' settings, compositions
+/// and orders name or that the orders were placed under), what the split rows' names resolve to (`splits::lookups`), and
+/// the assets all of these, the ledger and the balances name. Never a venue's whole listing: a sync rewrites thousands
+/// of rows no figure of this account reads. Left out as well: `updated_at`, the rest of a bot's transient bookkeeping,
+/// and what a sync rewrites that no figure reads (a market cap, an ATH). An index bot also reads its venue's other
+/// tradable listings in its quote (`db::tickers`): what it asks the market for, and the coarsest quote precision among
+/// them; only those of its holdings are here.
 /// The scheduler records every job run (app_configs) and its syncs rewrite the reference data all the time, and a
 /// whole-database revision never held figures from one page load to the next. A replay (`Service::latest`) is checked
 /// against this alone, so anything a figure reads belongs here.
@@ -26,26 +30,52 @@ pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Cre
 pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     use std::hash::{Hash,Hasher};
     use rusqlite::types::ValueRef;
+    use crate::figures::FiguresError;
     let mut hash=std::hash::DefaultHasher::new();
     let mut read=0;
+    // A figure that cannot be computed is a value too: its reason, so long as it holds.
+    fn computed<T>(result:Result<T,FiguresError>,hash:&mut impl Hasher)->Result<Option<T>,rusqlite::Error> {
+        match result { Ok(v)=>Ok(Some(v)), Err(FiguresError::Sqlite(e))=>Err(e), Err(other)=>{format!("{other:?}").hash(hash);Ok(None)} }
+    }
+    // What each split row's name stands for on the venue it was reported on, as the walk of each bot's orders resolves
+    // it. A name resolves alike for every bot that traded on its venue: one lookup over all their orders.
+    let mut orders=vec![];
+    for (id,_) in computed(db::account_bots(c,user),&mut hash)?.unwrap_or_default() { orders.extend(computed(db::orders(c,id),&mut hash)?.unwrap_or_default()); }
+    let resolved:std::collections::BTreeMap<_,_>=computed(crate::figures::splits::lookups(c,user,&orders),&mut hash)?.map(|(_,named)|named.into_iter().collect()).unwrap_or_default();
+    "names".hash(&mut hash);
+    for entry in &resolved { read+=1; entry.hash(&mut hash); }
+    let resolved:String=resolved.values().flatten().map(|id|format!(" UNION VALUES ({id})")).collect();
     let bots="SELECT id FROM bots WHERE user_id=?1";
     // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the
     // bot's venue now.
     let venues=format!("SELECT exchange_id FROM bots WHERE user_id=?1 UNION SELECT exchange_id FROM transactions WHERE bot_id IN ({bots})");
-    let tickers=format!("SELECT id FROM tickers WHERE exchange_id IN ({venues}) OR id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id IN ({bots}))");
     // The settings' asset ids as db::bot and pair::load read them (allocations' keys, base_asset_ids, the pair's base, the quote).
     let settings="CASE WHEN json_valid(b.settings) THEN b.settings ELSE '{}' END";
     let named=format!("SELECT CAST(j.value AS INTEGER) FROM bots b, json_each({settings},'$.base_asset_ids') j WHERE b.user_id=?1 \
         UNION SELECT CAST(j.key AS INTEGER) FROM bots b, json_each({settings},'$.allocations') j WHERE b.user_id=?1 \
         UNION SELECT CAST(json_extract({settings},'$.quote_asset_id') AS INTEGER) FROM bots b WHERE b.user_id=?1 \
         UNION SELECT CAST(json_extract({settings},'$.base_asset_id') AS INTEGER) FROM bots b WHERE b.user_id=?1");
+    // The account's tickers: a composition member's by its id (db::composition_minimum), and the listings on the
+    // account's venues of what it trades or traded (db::tickers, db::pair_ticker, db::listings), or of a holding known only
+    // by the name its orders were placed under (live::ticker_for_key).
+    let traded=format!("{named} UNION SELECT asset_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT base_asset_id FROM transactions WHERE bot_id IN ({bots}){resolved}");
+    // A holding recorded before its orders stored their asset is known by the name they were placed under: a scan of
+    // the venue's listing, made only for those names.
+    let spelled=format!("SELECT base FROM transactions WHERE bot_id IN ({bots}) AND base_asset_id IS NULL");
+    let mut tickers=format!("SELECT ticker_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base_asset_id IN ({traded})");
+    if c.query_row(&format!("SELECT EXISTS({spelled})"),[user],|r|r.get(0))? { tickers+=&format!(" UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base IN ({spelled})"); }
+    // Read once, as literals: each query below that names them would otherwise read them again.
+    let tickers=c.prepare(&tickers)?.query_map([user],|r|r.get::<_,Option<i64>>(0))?.filter_map(Result::transpose)
+        .map(|id|id.map(|id|id.to_string())).collect::<Result<Vec<_>,_>>()?.join(",");
+    let tickers=if tickers.is_empty(){"NULL".to_string()}else{tickers};
     let assets=format!("SELECT base_asset_id FROM tickers WHERE id IN ({tickers}) UNION SELECT quote_asset_id FROM tickers WHERE id IN ({tickers}) \
-        UNION SELECT base_asset_id FROM transactions WHERE bot_id IN ({bots}) UNION SELECT quote_asset_id FROM transactions WHERE bot_id IN ({bots}) UNION {named} \
-        UNION SELECT asset_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT asset_id FROM account_balances WHERE user_id=?1 \
+        UNION {traded} UNION SELECT quote_asset_id FROM transactions WHERE bot_id IN ({bots}) \
+        UNION SELECT asset_id FROM account_balances WHERE user_id=?1 \
         UNION SELECT base_asset_id FROM account_transactions WHERE user_id=?1 UNION SELECT asset_id FROM wash_sale_locks WHERE user_id=?1");
     // A conversion reads an asset by its symbol alone (db::asset_by_symbol): any asset under one of these symbols, and
     // the currencies an account is shown in.
-    let assets=format!("SELECT id FROM assets WHERE id IN ({assets}) OR symbol IN (SELECT symbol FROM assets WHERE id IN ({assets})) OR category='Currency'");
+    let assets=format!("SELECT id FROM assets WHERE id IN ({assets}) UNION SELECT id FROM assets WHERE symbol IN (SELECT symbol FROM assets WHERE id IN ({assets})) \
+        UNION SELECT id FROM assets WHERE category='Currency'");
     let unread:&[&str]=&["updated_at","transient_data","ath","ath_updated_at","market_cap","market_cap_rank","circulating_supply"];
     let sets=[
         ("SELECT * FROM users WHERE id=?1".to_string(),"users"),
@@ -70,7 +100,8 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     for (sql,name) in sets {
         let mut statement=c.prepare(&sql)?;
         let kept:Vec<usize>=statement.column_names().iter().enumerate().filter(|(_,column)|!unread.contains(*column)).map(|(i,_)|i).collect();
-        let mut rows=statement.query([user])?;
+        let user:&[&dyn rusqlite::ToSql]=&[&user];
+        let mut rows=statement.query(&user[..statement.parameter_count()])?;
         name.hash(&mut hash);
         while let Some(row)=rows.next()? {
             read+=1;
