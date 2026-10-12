@@ -48,7 +48,7 @@ module Api
       end
 
       def start
-        render_result BotApi::Bots::Start.call(user: current_user, bot_id: params[:id])
+        render_result BotApi::Bots::Start.call(user: current_user, bot_id: params[:id], start_fresh: params[:start_fresh])
       end
 
       def stop

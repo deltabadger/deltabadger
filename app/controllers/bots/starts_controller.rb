@@ -25,7 +25,7 @@ class Bots::StartsController < ApplicationController
   def update
     return render turbo_stream: wash_sale_prompt_stream(@bot), status: :unprocessable_entity if wash_sale_prompt_due?(@bot)
 
-    fresh = start_fresh
+    fresh = BotApi::Bots::Start.start_fresh(params[:start_fresh])
     return refuse(t('engine.invalid_start_fresh')) if fresh.nil?
     return if @bot.start(start_fresh: fresh)
 
@@ -33,14 +33,6 @@ class Bots::StartsController < ApplicationController
   end
 
   private
-
-  # No flag starts fresh, as the plain Start button does; a flag that is neither true nor false is
-  # nil, and refused rather than guessed.
-  def start_fresh
-    params[:start_fresh].nil? || Utilities::String.to_boolean(params[:start_fresh])
-  rescue ArgumentError
-    nil
-  end
 
   def refuse(message)
     flash.now[:alert] = message

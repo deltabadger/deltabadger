@@ -132,4 +132,12 @@ class GetBotDetailsToolTest < ActiveSupport::TestCase
     assert_match(/Exited holdings: DOGE, SHIB/, text)
     assert_match(/Redeploy offer \(answer with answer_redeploy_offer\): 25\.5/, text)
   end
+
+  test 'names the bot with its id' do
+    bot = create(:dca_single_asset, user: @user, status: :stopped, label: 'ND100')
+
+    text = GetBotDetailsTool.call('bot_id' => bot.id).contents.first.text
+
+    assert_equal "Bot: ND100 (ID #{bot.id})", text.lines.first.chomp
+  end
 end

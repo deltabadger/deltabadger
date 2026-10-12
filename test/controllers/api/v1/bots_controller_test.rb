@@ -283,6 +283,34 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert bot.reload.working?
   end
 
+  test 'POST /api/v1/bots/:id/start refuses an unreadable start_fresh with 422' do
+    @user.set_rest_tool_enabled('start_bot', true)
+    bot = create(:dca_single_asset, user: @user, status: :stopped)
+    token = create_token(scopes: 'api')
+
+    post "/api/v1/bots/#{bot.id}/start", params: { start_fresh: 'maybe' }, headers: bearer(token)
+
+    assert_response :unprocessable_entity
+    assert_equal 'invalid_start_fresh', JSON.parse(response.body)['error']['code']
+    assert bot.reload.stopped?
+  end
+
+  test 'POST /api/v1/bots/:id/start with start_fresh=false continues' do
+    @user.set_rest_tool_enabled('start_bot', true)
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::ActionJob.stubs(:set).returns(Bot::ActionJob)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+    bot = create(:dca_single_asset, user: @user, status: :stopped, started_at: 3.days.ago)
+    started = bot.reload.started_at
+    token = create_token(scopes: 'api')
+
+    post "/api/v1/bots/#{bot.id}/start", params: { start_fresh: 'false' }, headers: bearer(token)
+
+    assert_response :ok
+    assert bot.reload.working?
+    assert_equal started, bot.started_at
+  end
+
   test 'POST /api/v1/bots/:id/start returns 409 when bot is already running' do
     @user.set_rest_tool_enabled('start_bot', true)
     bot = create(:dca_single_asset, user: @user, status: :scheduled, started_at: Time.current)

@@ -2,7 +2,7 @@
 
 class GetPortfolioSummaryTool < ApplicationMCPTool
   tool_name 'get_portfolio_summary'
-  description 'Get a portfolio summary including global P/L, bot count breakdown, and per-bot P/L'
+  description 'Get a portfolio summary including global P/L, bot count breakdown, and per-bot P/L with each bot ID'
   read_only
 
   def perform
@@ -49,17 +49,17 @@ class GetPortfolioSummaryTool < ApplicationMCPTool
   end
 
   def bot_line(bot)
-    pair = bot[:pair] || 'N/A'
+    name = "- #{bot[:label]} (ID #{bot[:id]}) (#{bot[:pair] || 'N/A'})"
 
     if bot[:metrics_error]
-      "- #{bot[:label]} (#{pair}) | #{bot[:status]} | Metrics unavailable"
+      "#{name} | #{bot[:status]} | Metrics unavailable"
     elsif bot[:metrics]
       metrics = bot[:metrics]
       pnl_sign = metrics[:pnl] >= 0 ? '+' : ''
       invested = metrics[:invested]&.round(2)
-      "- #{bot[:label]} (#{pair}) | #{bot[:status]} | P/L: #{pnl_sign}#{(metrics[:pnl] * 100).round(2)}% | Invested: #{invested} #{bot[:quote_asset]}"
+      "#{name} | #{bot[:status]} | P/L: #{pnl_sign}#{(metrics[:pnl] * 100).round(2)}% | Invested: #{invested} #{bot[:quote_asset]}"
     else
-      "- #{bot[:label]} (#{pair}) | #{bot[:status]} | No metrics yet"
+      "#{name} | #{bot[:status]} | No metrics yet"
     end
   end
 end
