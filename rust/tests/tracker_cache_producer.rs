@@ -28,24 +28,53 @@ async fn producer_retries_three_changed_passes_and_never_publishes_them(){
     assert!(matches!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(_)),"moving inputs must not look successful");
     db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Cold));assert_eq!(c.query_row("SELECT n FROM passes",[],|r|r.get::<_,i64>(0)).unwrap(),3);Ok(())}).await.unwrap();
 }
-struct StopAfterSuccess { inner:Box<dyn Job>,stop:tokio::sync::watch::Sender<bool>,runs:Arc<std::sync::atomic::AtomicUsize> }
-impl Job for StopAfterSuccess {
+fn ledger_wakes(wakers:&jobs::Wakers)->usize{wakers.pending().iter().filter(|(job,_)|job==tracker::jobs::TRACKER_LEDGER).count()}
+/// A walk that fails can never publish: the run ends with the walk's own error and wakes nothing (it used to wake
+/// itself, and a refused walk then ran forever in a tight loop).
+#[tokio::test(flavor="current_thread")]
+async fn a_failed_walk_returns_its_error_and_never_wakes_itself(){
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
+    o.primary.execute_batch(&format!("INSERT INTO exchanges(type,name,maker_fee,taker_fee,created_at,updated_at) VALUES('Exchanges::Binance','Binance','0.1','0.1','2026-09-01 00:00:00','2026-09-01 00:00:00');
+        INSERT INTO api_keys(user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES({u},last_insert_rowid(),'k','s',1,0,'2026-09-01 00:00:00','2026-09-01 00:00:00');
+        INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at) SELECT {u},exchange_id,(SELECT min(id) FROM assets),1,0,'2026-09-01 00:00:00','2026-09-01 00:00:00','2026-09-01 00:00:00' FROM api_keys WHERE key='k';",u=s.user_id)).unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
+    let outcome=job(s.user_id).run(Cx{db,clock:&clock(),wakers:wakers.clone()},vec![]).await;
+    assert_eq!(outcome,Outcome::Failed("the tracker walk is not ported for balances on a venue other than Alpaca".into()));
+    assert_eq!(ledger_wakes(&wakers),0,"a failed walk must not wake another tracker_ledger run");
+}
+/// Inputs that move during every pass end the run as moving, with no wake of its own: the writer that moved them wakes it.
+#[tokio::test(flavor="current_thread")]
+async fn moving_inputs_end_the_run_without_waking_itself(){
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
+    o.primary.execute_batch("CREATE TRIGGER change_on_insert AFTER INSERT ON portfolio_snapshots BEGIN UPDATE account_transactions SET updated_at=datetime(updated_at,'+1 second'); END; CREATE TRIGGER change_on_update AFTER UPDATE ON portfolio_snapshots BEGIN UPDATE account_transactions SET updated_at=datetime(updated_at,'+1 second'); END;").unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
+    let outcome=job(s.user_id).run(Cx{db,clock:&clock(),wakers:wakers.clone()},vec![]).await;
+    assert_eq!(outcome,Outcome::Failed("Tracker ledger unavailable: inputs changed during calculation".into()));
+    assert_eq!(ledger_wakes(&wakers),0,"moving inputs rely on the writer's wake, not a self-wake");
+}
+/// Stands in for the writer that moved the inputs: it wakes the job, as the syncs do (`wake_for_key`).
+struct WriterWakes { inner:Box<dyn Job>,stop:tokio::sync::watch::Sender<bool>,runs:Arc<std::sync::atomic::AtomicUsize> }
+impl Job for WriterWakes {
     fn spec(&self)->jobs::Spec{self.inner.spec()}
     fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<jobs::Wake>)->jobs::JobFuture<'a>{Box::pin(async move{
         self.runs.fetch_add(1,std::sync::atomic::Ordering::SeqCst);
+        let wakers=cx.wakers.clone();let scope=self.inner.spec().scope;
         let outcome=self.inner.run(cx,wakes).await;
-        if outcome==Outcome::Done {self.stop.send(true).unwrap();}
+        match &outcome {
+            Outcome::Done=>{self.stop.send(true).unwrap();}
+            _=>{assert_eq!(ledger_wakes(&wakers),0,"the job woke itself");wakers.wake(tracker::jobs::TRACKER_LEDGER,scope.as_deref(),None);}
+        }
         outcome
     })}
 }
 #[tokio::test(flavor="current_thread")]
-async fn producer_changed_inputs_wake_the_scheduler_for_a_later_stable_run(){
+async fn producer_changed_inputs_run_again_on_the_writers_wake(){
     let (dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
     o.primary.execute_batch("CREATE TABLE passes(n INTEGER); INSERT INTO passes VALUES(0); CREATE TRIGGER change_on_insert AFTER INSERT ON portfolio_snapshots WHEN (SELECT n FROM passes)<3 BEGIN UPDATE passes SET n=n+1; UPDATE account_transactions SET updated_at=datetime(updated_at,'+1 second'); END; CREATE TRIGGER change_on_update AFTER UPDATE ON portfolio_snapshots WHEN (SELECT n FROM passes)<3 BEGIN UPDATE passes SET n=n+1; UPDATE account_transactions SET updated_at=datetime(updated_at,'+1 second'); END;").unwrap();
     let (stop,rx)=tokio::sync::watch::channel(false);let runs=Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(StopAfterSuccess{inner:job(s.user_id),stop,runs:runs.clone()})],None);
+    let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(WriterWakes{inner:job(s.user_id),stop,runs:runs.clone()})],None);
     scheduler.wakers().wake(tracker::jobs::TRACKER_LEDGER,Some(&s.user_id.to_string()),None);
-    tokio::time::timeout(std::time::Duration::from_secs(3),scheduler.run(rx,&clock())).await.expect("changed-input retry wake must be delivered").unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(3),scheduler.run(rx,&clock())).await.expect("the writer's wake must be delivered").unwrap();
     assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),2);
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }

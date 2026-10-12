@@ -284,8 +284,11 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner
             super::cache::publish(c,owner,&before,cached.as_ref(),venue,now).map(|published|(published,false))
         }).map_err(message)).await?;
         if published || historical {return result.map(|produced|produced.value);}
+        // A walk that failed cannot publish; another pass or a self-wake would only fail again.
+        result?;
     }
-    cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);
+    // No self-wake: a writer that moves the inputs wakes this job itself. Waking here re-ran
+    // a walk that could never publish in a tight loop.
     Err(CACHE_MOVING.into())
 }
 
