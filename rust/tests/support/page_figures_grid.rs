@@ -639,6 +639,34 @@ async fn figures_fragments_match_the_rails_page_partials() {
         if name.starts_with("locked_") {
             assert!(expected["bots"]["1"]["metrics"].as_str().unwrap().contains("wash_sale_table"), "{name}: Rails did not record a lock");
         }
+        if name == "index_specials" {
+            // The bot page of an index bot with liquidation, redeploy and rebalance legs, once its figures are filled: served,
+            // with the metrics Rails rendered (less the redeploy refusal this build adds, as for the fragments below).
+            use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
+            let env=common::web::env(common::web::SECRET);
+            let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap()))
+                .unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+            let user=sc["user_id"].as_i64().unwrap();
+            let password:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
+            let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
+            let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
+            loading::publish(&app,user).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(10),async { loop {
+                match loading::prepare(&app,user).await.unwrap() {
+                    loading::Snapshot::Ready(..)=>break,
+                    loading::Snapshot::Failed(why)=>panic!("{name}: fill failed: {why:?}"),
+                    _=>tokio::task::yield_now().await,
+                }
+            } }).await.unwrap();
+            let id=sc["bot_ids"][0].to_string();
+            let page=browser.get(&app,&format!("/bots/{id}")).await;
+            assert_eq!(page.status,200,"{name}: {}",page.body);
+            let selector=scraper::Selector::parse("#metrics").unwrap();
+            let got=scraper::Html::parse_document(&page.body).select(&selector).next().unwrap().html().replacen("<p role=\"status\">Redeploy unavailable</p>\n","",1);
+            let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
+            let want=want.select(&selector).next().unwrap().html();
+            assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"{name}: GET /bots/{id}");
+        }
         if name == "price_untraded" {
             let document=scraper::Html::parse_fragment(actual["bots"]["1"]["metrics"].as_str().unwrap());
             let row=document.select(&scraper::Selector::parse("tr[data-symbol=BBB]").unwrap()).next().unwrap();
@@ -673,7 +701,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let got = &actual["bots"][id][part];
                 if name == "price_untraded" || name == "index_rotation" || name == "old_rows" { assert!(got.as_str().unwrap().contains("no-value"), "{name} {part}"); continue; }
                 let mut got = got.as_str().unwrap().to_string();
-                if ["stranded_offset", "liquidations"].contains(&name) && part == "metrics" {
+                if ["stranded_offset", "liquidations", "index_specials"].contains(&name) && part == "metrics" {
                     let refusal = "<p role=\"status\">Redeploy unavailable</p>\n";
                     assert!(got.contains(refusal));
                     assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a Rails read keeps the saved decline");

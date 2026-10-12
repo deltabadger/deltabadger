@@ -509,6 +509,10 @@ module Pages
       'not_ported_bot_market_cap_weights' => with_bots([stopped('coins', 'settings' => { 'weighting' => 'market_cap' }), { 'kind' => 'single' }],
                                                        signed_in(get('/bots/1'))),
       'not_ported_bot_that_sold' => with_bots([stopped('single', 'orders' => 'sold'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
+      # An index bot's liquidation, redeploy and rebalance legs: the engine reads them, and its start modal and starts are served
+      # (actions_index_history_*). A page without figures has no realised profit or loss to show, so this grid's page is refused;
+      # the figures page serves such histories (script/rust/page_figures.rb, index_specials).
+      'not_ported_bot_index_history' => with_bots([stopped('index', 'orders' => 'index_rotation'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
       'not_ported_bot_wash_sale_rule' => with_bots(three, signed_in(get('/bots/1')), 'user' => owner('wash_sale_enabled' => true, 'wash_sale_jurisdiction' => 'US')),
       'not_ported_bot_wash_sale_question' => with_bots([stopped('single', 'orders' => 'one_fill'), { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1')),
                                                        'user' => owner('wash_sale_enabled' => nil)),

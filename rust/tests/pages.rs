@@ -560,7 +560,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 155, "all action scenarios must remain selected");
+        assert_eq!(dirs.len(), 161, "all action scenarios must remain selected");
     }
     let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
@@ -604,10 +604,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 157 + 4, "completed read-only baseline, with D5b's two missing_ and two not_ported_ connect scenarios");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 158 + 4, "completed read-only baseline, with D5b's two missing_ and two not_ported_ connect scenarios");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45, "complete S1 inventory and D5b's connect flow");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 155, "action inventory");
-        assert_eq!(dirs.len(), 157 + 4 + 155 + 413 + 3 + 45, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 161, "action inventory");
+        assert_eq!(dirs.len(), 158 + 4 + 161 + 413 + 3 + 45, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 6, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -748,7 +748,16 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if let Some(error)=row_difference(side,&response["rows_before"],&response["rows_after"]) { return Err(error); }
                 }
             }
-            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_missing"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false");
+            let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_missing"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false"
+                |"index_history_start_false"|"index_history_start_true"|"basket_sold_start_false"|"basket_sold_start_true");
+            // Their histories pass the page and the engine; the guard refuses only what refuses every stock bot of this grid, whose
+            // listings carry no instrument type.
+            if n.starts_with("index_history_start") || n.starts_with("basket_sold_start") {
+                let body=b["body"].to_string();
+                if !body.contains("asset category Stock / instrument") || body.contains("order(s)") || body.contains("row(s)") {
+                    return Err(format!("{n}: the guard refused something other than the grid's stock listings: {body}"));
+                }
+            }
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
             let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive");

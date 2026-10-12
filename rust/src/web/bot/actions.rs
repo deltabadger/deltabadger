@@ -65,7 +65,7 @@ async fn form(app: App, ctx: Ctx, segment: String, form: &'static str) -> Result
     let result = app.db(move |c| {
         let tx = c.unchecked_transaction()?;
         view.now = inner.now();
-        let (found,_) = page::find(&tx,&inner,&owner,&segment,false,super::For::Page,view.locale)?;
+        let (found,_) = page::find(&tx,&inner,&owner,&segment,false,super::For::Settings,view.locale)?;
         let page::Found::Bot(bot) = found else { return Ok(Err(found)) };
         let csrf = if form == "start" && !bot.restarting() { String::new() } else { view.csrf_token() };
         let body = action_view::modal(&tx,&view,&bot,form,&csrf)?;

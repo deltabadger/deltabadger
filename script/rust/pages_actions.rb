@@ -127,13 +127,21 @@ module Pages
     add.call('extra_hour','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'hour','start_time_of_day'=>'13:00'}})
     add.call('extra_date_past','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'date','start_at'=>'2026-09-09T10:00:00Z'}})
 
+    # Histories the engine reads: the start modal and both starts of a stopped index bot with liquidation, redeploy and
+    # rebalance legs, and of a basket that sold.
+    { 'index_history' => %w[index index_rotation], 'basket_sold' => %w[basket basket_sold] }.each do |name, (kind, orders)|
+      %w[modal start?start_fresh=false start?start_fresh=true].each do |act|
+        add.call("#{name}_#{act.split('?')[0]}_#{act.split('=').last}", act, {}, base_restart.merge('kind' => kind, 'orders' => orders), { 'wash_off' => true })
+      end
+    end
+
     %w[single basket index].each do |kind|
       %w[rename_modal delete_modal archive_modal].each do |action|
         add.call("extra_form_#{kind}_#{action}", action, {}, { 'kind' => kind })
       end
     end
 
-    raise "expected 155 bot action cases" unless cases.size == 155
+    raise "expected 161 bot action cases" unless cases.size == 161
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -182,7 +190,7 @@ module Pages
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 155 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 161 }
   end
 end
 

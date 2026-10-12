@@ -218,6 +218,28 @@ module Pages
                                                                            amount: '0.01')),
               order_row(record, symbol, '2026-09-10T11:30:00Z', sell.merge(transaction_type: 'LIQUIDATION', external_status: 'unknown',
                                                                            amount: '0.03'))]
+           when 'index_rotation'
+             # An index bot's settled special history, as Rails' liquidation, redeploy and rebalance legs write it: a scheduled buy,
+             # a liquidation sale, its proceeds redeployed into another member, and a rebalance that sold one member to buy another.
+             sell = { side: 'sell', quote_amount: nil }
+             [order_row(record, 'NVDA', '2026-09-08T13:30:01Z', price: '410', amount: '0.12', amount_exec: '0.12', quote_amount: '49.2',
+                                                                quote_amount_exec: '49.2'),
+              order_row(record, 'NVDA', '2026-09-09T13:30:01Z', sell.merge(transaction_type: 'LIQUIDATION', price: '412.5', amount: '0.04',
+                                                                           amount_exec: '0.04', quote_amount_exec: '16.5')),
+              order_row(record, 'MSFT', '2026-09-09T15:00:00Z', transaction_type: 'REDEPLOY', price: '412.5', amount: '0.04', amount_exec: '0.04',
+                                                                quote_amount: '16.5', quote_amount_exec: '16.5'),
+              order_row(record, 'NVDA', '2026-09-09T16:00:00Z', sell.merge(transaction_type: 'REBALANCE', price: '415', amount: '0.02',
+                                                                           amount_exec: '0.02', quote_amount_exec: '8.3')),
+              order_row(record, 'MSFT', '2026-09-09T16:00:05Z', transaction_type: 'REBALANCE', price: '415', amount: '0.02', amount_exec: '0.02',
+                                                                quote_amount: '8.3', quote_amount_exec: '8.3')]
+           when 'basket_sold'
+             # A basket that bought both members and then sold part of one.
+             [order_row(record, 'QQQM', '2026-09-08T13:30:01Z', price: '200', amount: '0.15', amount_exec: '0.15', quote_amount: '30',
+                                                                quote_amount_exec: '30'),
+              order_row(record, 'IBIT', '2026-09-08T13:30:02Z', price: '50', amount: '0.4', amount_exec: '0.4', quote_amount: '20',
+                                                                quote_amount_exec: '20'),
+              order_row(record, 'QQQM', '2026-09-09T13:30:01Z', side: 'sell', price: '210', amount: '0.05', amount_exec: '0.05', quote_amount: nil,
+                                                                quote_amount_exec: '10.5')]
            else raise "unknown orders #{name}"
            end
     Transaction.insert_all!(rows)

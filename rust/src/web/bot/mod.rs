@@ -456,14 +456,18 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
         "SELECT EXISTS(SELECT 1 FROM tickers t WHERE (t.exchange_id = (SELECT exchange_id FROM bots WHERE id = ?1) OR t.id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id = ?1)) \
          AND (t.base_decimals NOT BETWEEN 0 AND ?2 OR t.quote_decimals NOT BETWEEN 0 AND ?2))", (bot_id, MAX_DECIMALS), |r| r.get(0))?;
     if unbounded { return Ok(Some("a ticker with more decimals than this build rounds to")); }
-    // The metrics walk is what reads sells, swaps and corporate actions; a page without figures asks once: an order of
-    // another type through index_bot_type_created_at (bot_id, transaction_type, created_at), on either side of 'REGULAR',
-    // and a sell by walking the bot's orders (no index tells one from a buy). The feed asks neither, and neither does a
-    // figures page: the feed's rows read no figure, and the figures read the whole walk.
-    let other_type = matches!(asked, For::Page | For::Settings) && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') \
-                                        OR EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type > 'REGULAR')", [bot_id], |r| r.get(0))?;
-    let sold = asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND side IS NOT 0)", [bot_id], |r| r.get(0))?;
-    if (other_type || sold) && asked != For::FiguresPage { return Ok(Some(BEYOND_BUYS)); }
+    // A LIQUIDATION, REDEPLOY or REBALANCE row the engine does not read (engine::eligibility::unread_special_rows, the rule its
+    // guard applies) is refused here too; one it reads is served, and the guard's own refusals stand at the start. The feed does
+    // not ask: Rails picks its ten rows first, and its rows read no figure. Neither does a figures page: the figures read the walk.
+    if matches!(asked, For::Page | For::Settings)
+        && !crate::engine::eligibility::unread_special_rows(c, &crate::engine::model::load_bot(c, bot_id)?)?.is_empty() {
+        return Ok(Some(UNREAD_ORDERS));
+    }
+    // A sale realises a profit or loss, which a bot page shows beside its two figures (bots/composition/_metrics): only the
+    // metrics walk knows it, and a page without figures does not run it. The forms read no figure.
+    if asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND side IS NOT 0)", [bot_id], |r| r.get(0))? {
+        return Ok(Some(REALISED_WITHOUT_FIGURES));
+    }
     match wash_sale_enabled {
         // The feed has no figures and no modal: BotsController#show answers it whatever the rule says.
         _ if asked == For::Feed => {}
@@ -477,8 +481,10 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     Ok(None)
 }
 
-/// The reason a bot with a sell, a swap or a corporate action in its history is refused.
-pub const BEYOND_BUYS: &str = "orders other than scheduled buys";
+/// The reason a bot with special rows the engine does not read is refused (engine::eligibility::unread_special_rows).
+pub const UNREAD_ORDERS: &str = "orders this build does not read yet";
+/// The reason a page without figures refuses a bot that has sold.
+pub const REALISED_WITHOUT_FIGURES: &str = "a realised profit or loss on a page without figures";
 
 fn object(text: &str, what: &str) -> Result<Map<String, Value>, WebError> {
     match serde_json::from_str(text) {
