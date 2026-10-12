@@ -849,7 +849,7 @@
     },
     {
       "name": "start_bot",
-      "description": "Start a stopped or newly created DCA bot. Restarting a stopped bot takes the web restart dialog's choice as start_fresh.",
+      "description": "Start a stopped or newly created DCA bot. A bot that can sell is refused until the wash-sale question is answered in the web app.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -860,7 +860,7 @@
           },
           "start_fresh": {
             "type": "boolean",
-            "description": "true (default, as the Start button): skip — start a new schedule now, or at the bot's starting time, and skip anything missed. false: continue the original schedule — wait out the current countdown, or invest what was missed while the bot was stopped."
+            "description": "Omitted or true: resets the schedule and can place an order immediately, unless a future starting time applies. false: keeps the schedule, but can invest amounts missed while the bot was stopped."
           }
         },
         "required": [
@@ -1183,7 +1183,7 @@
     "app/mcp/tools/market_sell_tool.rb": "d07ab8b4bf703f9cbda5e8dc51281595366a5b668f4c0713e7409a5db77e75f6",
     "app/mcp/tools/set_transaction_price_tool.rb": "cfd819c09ced1217602cc143cd4725efa882ca61261c2b90e1f02c9ba4f66cea",
     "app/mcp/tools/set_transfer_link_tool.rb": "3242ebed23ca45c4c00abd902d6ccb55ae36d3e2de82febb42fef2a36031d931",
-    "app/mcp/tools/start_bot_tool.rb": "ecd3d1ef32273984cb33a5902ef5690ddde87c73a85e89fdb040b366d9f4d706",
+    "app/mcp/tools/start_bot_tool.rb": "01b11c88d81deea4bc6960ae7a0f56e3f57c317833491dc460022955c2108c8a",
     "app/mcp/tools/start_rule_tool.rb": "f2d66faad59969c38e29bddd91a502c55d7508e87fda12c15d0ff1e710e4c0c7",
     "app/mcp/tools/stop_bot_tool.rb": "2d1b6920b7202d6008fa07a8bdc5485c039d4a0d26981acd7bd6099d60f79696",
     "app/mcp/tools/stop_rule_tool.rb": "0739e769ec64c3e8d8ee14c7404fb8042f08ae996da964bd43a9b236ad1cc363",
@@ -1213,7 +1213,7 @@
     "app/models/bot/moving_average_limitable.rb": "853350ff2ae43531e9a1da58a02048638e92f3dee7ec14691000b8c07afb7ae2",
     "app/models/bot/indicator_limitable.rb": "e3572b673e52fe2f6676dbc79ec4914df4dbcc6b1ed352d1f001dfdcaff965ab",
     "app/services/bot_api/bots/create_support.rb": "cfa0c14c38b5e7af52f99adae8d6f68f4c898252ab335bb53d9575c4665d59e3",
-    "app/services/bot_api/bots/start.rb": "7970e56e305df499d41bf1eb81c3455a97a4c465b8b64f58d2f377416dc9bdaa",
+    "app/services/bot_api/bots/start.rb": "515b3b2f6669084b7872c01dc7539c5ca04aee92609ec776d8e32a89c1f487de",
     "app/services/bot_api/bots/liquidate_exited.rb": "8de8ad400b8dc12a040bf7520b384c0161311283c2bbeedea271c26c3bdbcfea",
     "app/services/bot_api/bots/archive.rb": "001b38a685c17f98fe04a8452dd1083a16ac83397bda743edeb01fd55c5ca341",
     "app/services/bot_api/bots/lifecycle_support.rb": "cbaf8f8ef544a44bfec36481a765a46d81b18ee94dbe431750de20c12c67fe11",

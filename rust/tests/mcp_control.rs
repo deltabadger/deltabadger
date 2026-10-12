@@ -107,7 +107,7 @@ async fn control_transcripts() {
         let steps = read(dir.join("steps.json"));
         let rust = tempfile::tempdir().unwrap();
         copy_install(dir, rust.path());
-        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds");
+        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap()=="start_wash_question_held" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds");
         let before=if unicode_symbol {
             let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
             for step in steps.as_array().unwrap() {if let Some(sql)=step["sql"].as_array() {for command in sql {c.execute_batch(command.as_str().unwrap()).unwrap();}}}
@@ -145,6 +145,21 @@ async fn control_transcripts() {
             }
             if let Ok(path)=std::env::var("M4_EVIDENCE") {
                 std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
+            }
+            continue;
+        }
+        if name=="start_wash_question_held" {
+            // Rails knows the bot holds BTC from its metrics walk (Liquidatable#held_symbols) and asks the
+            // question; Rust refuses the start it cannot judge, as its web start does, and writes nothing.
+            let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert_eq!(rails["result"]["content"][0]["text"],"Bot 'Control' can sell, so answer the wash-sale question first, on the bot's page or in Settings.");
+            assert_eq!(rails["result"]["isError"],true);
+            let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
+            assert_eq!(response["result"]["content"][0]["text"],"This app can't run that yet: the wash-sale question not answered yet");
+            assert_eq!(response["result"]["isError"],true);
+            for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
+                assert_eq!(got["rows"][table],got["before_business"][table],"held refusal rolls back: {table}");
+                assert_eq!(want["rows"][table],got["before_business"][table],"Rails refusal writes nothing either: {table}");
             }
             continue;
         }

@@ -222,8 +222,8 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
-    transient_data = json_set(CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
-      '$.last_action_job_at', json('null')), '$.missed_quote_amount', json('null')) \
+    transient_data = json_set(CASE WHEN ?4 THEN json_replace(transient_data, \
+      '$.last_action_job_at', json('null'), '$.missed_quote_amount', json('null')) \
       ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
 
@@ -252,6 +252,30 @@ pub struct LifecycleView {
     pub draft: Option<Draft>,
     pub errors: Vec<FieldError>,
 }
+/// Bot#sell_capable? for the classes this path serves: Some(true) or Some(false) where the settings
+/// decide it, None where only holdings could (a basket or index bot that has placed an order).
+fn sell_capable(c: &Connection, id: i64, class: &str, raw: &str) -> Result<Option<bool>, WebError> {
+    // ActiveModel::Type::Boolean#cast, nil and "" read as false here as `.present?` and `if` do.
+    fn cast(v: Option<&Value>) -> bool {
+        match v {
+            None | Some(Value::Null) => false,
+            Some(Value::Bool(b)) => *b,
+            Some(Value::Number(n)) => n.as_f64() != Some(0.0),
+            Some(Value::String(s)) => !["", "0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&s.as_str()),
+            Some(_) => true,
+        }
+    }
+    let settings = super::object(raw, "bots.settings")?;
+    // Bot::Reversible is a basket's, not an index bot's.
+    let reversible = class == "Bots::DcaMultiAsset";
+    let selling = reversible && settings.get("direction").and_then(Value::as_str) == Some("selling");
+    let armed = reversible && settings.iter().any(|(key, value)| value.as_str() == Some("start_selling")
+        && key.strip_suffix("_limit_action").is_some_and(|stem| cast(settings.get(&format!("{stem}_limited")))));
+    if selling || armed || cast(settings.get("rebalance_enabled")) { return Ok(Some(true)); }
+    let ordered: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0)", [id], |r| r.get(0))?;
+    Ok(if ordered { None } else { Some(false) })
+}
+
 impl LifecycleView {
     fn add(&mut self, locale: &str, key: &str) {
         self.errors.push(FieldError { field: "base".into(), message: i18n::text(locale, key, &[]) });
@@ -287,6 +311,23 @@ fn lifecycle_inner<T>(
         let label: String = tx.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1",[id],|r|r.get(0))?;
         let name = match status {0=>"created",1=>"scheduled",2=>"stopped",3=>"deleted",4=>"executing",5=>"retrying",6=>"waiting",7=>"archived",_=>return Err(error("unknown bot status"))};
         let working = matches!(status,1|4|5|6);
+        // BotApi::Bots::Start asks BotApi::Bots::Start.wash_sale_question_owed? before anything else, as the web start does.
+        if action == Action::Start {
+            let wash: Option<bool> = tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
+            if wash.is_none() {
+                match sell_capable(&tx,id,&class,&raw)? {
+                    Some(true) => {
+                        view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.wash_sale_question_owed",&[("label",i18n::Arg::Text(&label))])});
+                        let prepared=response_builder(&tx,&ctx,&view)?;
+                        tx.rollback()?;
+                        return Ok(Outcome::Invalid(prepared.response));
+                    }
+                    // Holdings are the metrics walk's to know (Liquidatable#held_symbols); the web refuses the same case.
+                    None => return Ok(Outcome::Unported("the wash-sale question not answered yet")),
+                    Some(false) => {}
+                }
+            }
+        }
         let message = match action {
             Action::Stop if !working => Some(format!("Bot '{label}' is not running ({name}).")),
             Action::Start if working => Some(format!("Bot '{label}' is already running ({name}).")),
@@ -365,7 +406,12 @@ fn lifecycle_inner<T>(
             if draft.candidate.transient.contains_key("last_action_job_at") {
                 draft.candidate.transient.insert("last_action_job_at".into(),Value::Null);
             }
-            draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
+            // A store_accessor writer does not materialize an absent key when assigned nil.
+            if draft.raw_transient.contains_key("missed_quote_amount") {
+                draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
+            } else {
+                draft.candidate.transient.remove("missed_quote_amount");
+            }
         }
         draft.validate(&tx,if action==Action::Start {ValidationContext::Start}else{ValidationContext::Update},ctx.now,configured,ctx.locale)?;
         if action == Action::Start { writer_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now)?; }
@@ -406,13 +452,15 @@ fn lifecycle_inner<T>(
             draft.candidate.transient.insert("missed_quote_amount".into(),Value::Null);
         }
         let mut effects=draft.save_effects(&tx,ctx.now)?;
-        if submitted.mcp() && effects.settings_changed && delayed.is_none() {
+        // BotApi's own capture before a save (UpdateSettings, Delete, Unarchive); Start hands the bot to Bot#start as the web does.
+        let service_capture = submitted.mcp() && action != Action::Start;
+        if service_capture && effects.settings_changed && delayed.is_none() {
             let carry=pending(&tx,&draft.original,ctx.now)?;
             effects.transient.set.insert("missed_quote_amount".into(),serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?);
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
-        if submitted.mcp() && !effects.settings_changed &&
-            (matches!(action,Action::Delete|Action::Unarchive) || action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
+        if service_capture && !effects.settings_changed &&
+            (matches!(action,Action::Delete|Action::Unarchive) || !effects.settings.set.is_empty()) {
             effects.transient.set.insert("missed_quote_amount".into(),draft.raw_transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
@@ -449,9 +497,6 @@ fn lifecycle_inner<T>(
     match action {
         Action::Start => {
             one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
-            if submitted.mcp() && fresh && delayed.is_none() {
-                one(tx.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount_was_set',json('true')) WHERE id=?1",[id])?)?;
-            }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
