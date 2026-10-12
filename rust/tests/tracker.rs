@@ -185,7 +185,7 @@ async fn many_held_symbols_record_in_linear_work_or_are_refused_before_the_write
     let w = walls.clone();
     let wall: deltabadger::tracker::jobs::Wall = std::sync::Arc::new(move || { w.fetch_add(1, Ordering::SeqCst); at });
     let api = None::<&DataApi<ScriptedTransport>>;
-    let out = ledger_run(&db, api, user, &clock, wall.clone(), &mut Allowance { steps: 1_000_000, fetches: 0 }).await;
+    let out = ledger_run(&db, api, user, &clock, wall.clone(), &mut Allowance { steps: 1_000_000, fetches: 0, stored: 0 }).await;
     assert_eq!(out.err().as_deref(), Some(deltabadger::figures::OVER_BUDGET));
     assert_eq!(walls.load(Ordering::SeqCst), 0, "refused before the write lock");
     let mut run = Allowance::run();
