@@ -1,6 +1,7 @@
-//! At most two fills, one per account, no waiting queue, and no decimal crosses this boundary. Who waits for a
-//! publication (`want`) is kept here with that account's own allowance of fills, so that a fill that is turned away
-//! or overtaken leaves its demand behind, and waiting behind another account never spends it.
+//! At most two fills, one per account, and no decimal crosses this boundary. Who waits for a publication (`want`) is
+//! kept here with that account's own allowance of fills, so that a fill that is turned away or overtaken leaves its
+//! demand behind, and waiting behind another account never spends it. Figures work for the `figures` service is queued
+//! here too, one entry per account (`enqueue`), with what its CPU work runs on (`Workers`).
 use crate::figures::page_market::Cache;
 use std::collections::{BTreeMap,BTreeSet};
 use std::sync::{Arc,Mutex,MutexGuard};

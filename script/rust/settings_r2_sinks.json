@@ -14,7 +14,7 @@
   {
     "label": "wire-body",
     "file": "web/figure/loading.rs",
-    "anchor": "body:self.redact_diagnostic(&reply[\"body\"].as_str().map(str::to_string).unwrap_or_else(||reply[\"body\"].to_string()))",
+    "anchor": "HttpResponse{status:reply.status,body:real.redact_diagnostic(&reply.body)}",
     "count": 1
   },
   {

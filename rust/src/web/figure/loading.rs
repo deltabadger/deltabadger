@@ -164,14 +164,16 @@ pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
     pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None,compute:None} }
-    /// Each answer is settled (`ReqwestTransport::settle`: checked and scrubbed, a pass over the whole body) off the
-    /// runtime's thread, under the figures' compute permit.
+    /// Each answer is settled (a pass over the whole body) off the runtime's thread, under the figures' compute permit.
     pub(crate) fn settled_under(mut self,compute:std::sync::Arc<tokio::sync::Semaphore>)->Self { self.compute=Some(compute);self }
-    async fn settle(&self,reply:HttpResponse)->Result<HttpResponse,TransportError> {
-        let Some(compute)=&self.compute else { return Ok(self.real.settle(reply)) };
-        let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
+    /// A live answer as `ReqwestTransport::settle` settles it (checked and scrubbed); a scripted one scrubbed as a live
+    /// body is. Off the runtime's thread when the fill says so (`settled_under`).
+    async fn settle(&self,reply:HttpResponse,live:bool)->Result<HttpResponse,TransportError> {
         let real=self.real.clone();
-        tokio::task::spawn_blocking(move||{ let _permit=permit; real.settle(reply) }).await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))
+        let work=move||if live { real.settle(reply) } else { HttpResponse{status:reply.status,body:real.redact_diagnostic(&reply.body)} };
+        let Some(compute)=&self.compute else { return Ok(work()) };
+        let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
+        tokio::task::spawn_blocking(move||{ let _permit=permit; work() }).await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))
     }
 }
 impl Transport for Wire {
@@ -179,7 +181,7 @@ impl Transport for Wire {
     fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
-            Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?).await,
+            Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?,true).await,
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)=>{
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
@@ -193,18 +195,12 @@ impl Transport for Wire {
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
                 if let Some(ms)=reply["delay_ms"].as_u64(){tokio::time::sleep(Duration::from_millis(ms)).await;}
-                let body=reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string());
-                let status=reply["status"].as_u64().unwrap_or(200) as u16;
-                // Scrubbed as a live answer is, and where: off the runtime's thread when the fill says so.
-                let Some(compute)=&self.compute else { return Ok(HttpResponse{status,body:self.redact_diagnostic(&body)}) };
-                let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
-                let real=self.real.clone();
-                tokio::task::spawn_blocking(move||{ let _permit=permit; HttpResponse{status,body:real.redact_diagnostic(&body)} }).await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))
+                self.settle(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string())},false).await
             }
         }
     }
     async fn send_limited(&self,r:&HttpRequest,limit:usize)->Result<HttpResponse,TransportError>{
-        if matches!(self.source,Source::Live){return self.settle(self.real.send_unsettled(r,limit).await?).await;}
+        if matches!(self.source,Source::Live){return self.settle(self.real.send_unsettled(r,limit).await?,true).await;}
         let reply=self.send(r).await?;
         if reply.body.len()>limit{Err(TransportError::Permanent("Market data unavailable".into()))}else{Ok(reply)}
     }
@@ -338,7 +334,9 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(build(app,move|c|Ok(walk_reason(c,user))).await?))};
+    // No paper Alpaca key, so no fill: why its figures are absent is read from its stored fills, as it always was (no
+    // figures CPU work waits for it, nor it for theirs).
+    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(app.db(move|c|Ok(walk_reason(c,user))).await?))};
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
