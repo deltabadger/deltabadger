@@ -358,17 +358,43 @@ async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_sti
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_stock_jobs_switch_and_a_legacy_row_stop_it_before_any_request() {
+async fn the_stock_jobs_switch_stops_it_and_a_legacy_row_without_a_backfill_stops_it_after_one_request() {
     let (d, c) = db();
     deltabadger::app_config::set(&c, &seed::cipher(), "stock_sync_enabled", "false", at("2026-10-01T00:00:00Z")).unwrap();
     let t = ScriptedTransport::default(); // any request would panic: nothing is scripted
     assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("switched off")));
+    assert!(t.requests().is_empty());
     let c = reopen(&d);
     c.execute("DELETE FROM app_configs", []).unwrap();
     asset(&c, "alpaca_0b5c", "IBIT", "Stock");
-    assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("legacy")));
-    assert!(t.requests().is_empty());
+    // A payload with no alpaca identifier: the backfill leaves its flag unset, which gates the sync.
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/assets", 200, json!({ "data": [{ "external_id": "IBIT.US", "symbol": "IBIT", "type": "etf" }] }));
+    assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("canonical backfill")));
+    assert_eq!(t.requests().len(), 1);
     assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "not even the backfill flag");
+    assert_eq!(one::<String>(&reopen(&d), "SELECT external_id FROM assets WHERE symbol = 'IBIT'"), "alpaca_0b5c");
+}
+
+/// A floating-point canonical id is refused before any write: its spelling would not be Rails' Float#to_s, so the
+/// existing-canonical check could miss ("1e+20" against "1.0e+20").
+#[tokio::test(flavor = "current_thread")]
+async fn a_float_canonical_id_is_refused_before_any_write() {
+    let (d, c) = db();
+    asset(&c, "1.0e+20", "BIG", "Stock");
+    asset(&c, "alpaca_0b5d", "AAPL", "Stock");
+    let before: Vec<(i64, String)> = { let mut s = c.prepare("SELECT id, external_id FROM assets ORDER BY id").unwrap();
+        s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect() };
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/assets", 200, json!({ "data": [{ "external_id": 1e20, "symbol": "AAPL", "type": "stock",
+        "identifiers": [{ "scheme": "alpaca", "value": "us_equity:AAPL" }] }] }));
+    let out = run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("not an integer")), "{out:?}");
+    let c = reopen(&d);
+    let after: Vec<(i64, String)> = { let mut s = c.prepare("SELECT id, external_id FROM assets ORDER BY id").unwrap();
+        s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect() };
+    assert_eq!(after, before, "no asset changes");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM app_configs"), 0, "no flag");
 }
 
 #[tokio::test(flavor = "current_thread")]

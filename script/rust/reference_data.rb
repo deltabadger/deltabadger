@@ -143,10 +143,25 @@ module Reference
   end
 
   def stock_seed(legacy: false)
+    @owner = @key = nil
     @alpaca = venue('Exchanges::Alpaca')
     @usd = asset('usd', 'USD', 'Currency') # the stock sync reassigns it to Fiat
     ticker(@alpaca, asset('OLD.US', 'OLD', 'Stock'), @usd, 'OLD', 'OLD', 'USD') # not in the listings: swept
     asset('alpaca_5f1c2b', 'S0001', 'Stock') if legacy
+  end
+
+  # A scheduled DCA bot on `asset`, with the Alpaca paper key the engine needs to run it.
+  def running_bot(asset)
+    @owner ||= User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+                        confirmed_at: Time.current, setup_completed: true).tap { |u| u.save!(validate: false) }
+    @key ||= ApiKey.new(user: @owner, exchange: @alpaca, key: 'k', secret: 's', passphrase: 'paper', status: :correct,
+                        key_type: :trading).tap { |k| k.save!(validate: false) }
+    bot = @owner.bots.new(type: 'Bots::DcaMultiAsset', exchange: @alpaca, settings: {
+      'quote_asset_id' => @usd.id, 'quote_amount' => 60, 'interval' => 'week', 'weighting' => 'manual', 'allocations' => { asset.id.to_s => 1.0 }
+    })
+    bot.set_missed_quote_amount
+    bot.save!(validate: false)
+    bot.update_columns(status: Bot.statuses[:scheduled], started_at: Time.iso8601('2026-08-30T00:00:00Z'), settings_changed_at: nil)
   end
 
   def venue_seed
@@ -163,7 +178,9 @@ module Reference
 
   def scenarios # rubocop:disable Metrics/MethodLength,Metrics/AbcSize
     list = []
-    add = ->(name, job, http, env: ON, &setup) { list << { 'name' => name, 'job' => job, 'http' => http, 'env' => env, 'setup' => setup } }
+    add = lambda do |name, job, http, env: ON, raises: false, &setup|
+      list << { 'name' => name, 'job' => job, 'http' => http, 'env' => env, 'raises' => raises, 'setup' => setup }
+    end
 
     # Asset::FetchAllAssetsDataFromCoingeckoJob
     job = 'fetch_all_assets_data_from_coingecko_job'
@@ -281,6 +298,71 @@ module Reference
       AppConfig.set('stock_sync_enabled', 'false')
     end
     add.('stocks-legacy-row', job, both) { stock_seed(legacy: true) }
+    # backfill_canonical_stock_external_ids! over a mixed install: rewritten, defensive skips, unmatched, ambiguous, LIKE's
+    # case-insensitive wildcard, a non-stock row; then the listings' legacy collision guard and the sweep's legacy exclusion.
+    renamed = [
+      stocks.first.merge('external_id' => 'IBIT.US', 'symbol' => 'IBIT', 'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' }]),
+      stocks.first.merge('external_id' => 'LDRC.US', 'symbol' => 'LDRC',
+                         'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:LDRC' }, { 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' },
+                                           { 'scheme' => 'figi', 'value' => 'BBG000000001' }])
+    ]
+    ibit_listing = listings.first.merge('ticker' => 'IBIT', 'base' => 'IBIT', 'base_external_id' => 'LDRC.US')
+    add.('stocks-legacy-mix', job, { assets_key => [ok('data' => stocks + renamed)], listings_key => [ok('data' => listings + [ibit_listing])] }) do
+      stock_seed
+      ticker(@alpaca, asset('alpaca_a1', 'S0002', 'Stock'), @usd, 'S0002', 'S0002', 'USD') # rewritten: its ticker refreshes
+      asset('S0003.US', 'S0003', 'Stock')
+      ticker(@alpaca, asset('alpaca_a2', 'S0003', 'Stock'), @usd, 'S0003', 'S0003', 'USD') # canonical present: kept, listing dropped
+      ticker(@alpaca, asset('alpaca_a3', 'GONE', 'Stock'), @usd, 'GONE', 'GONE', 'USD')    # unmatched: never swept
+      ticker(@alpaca, asset('alpaca_a4', 'IBIT', 'Stock'), @usd, 'IBIT', 'IBIT', 'USD')    # ambiguous: kept, listing dropped
+      asset('alpaca_a5', 'LDRC', 'Stock')                                                  # its canonical carries two ids
+      asset('alpaca_a6', 'S0004', 'Stock')                                                 # rewritten
+      asset('alpaca_a7', 'S0004', 'Stock')                                                 # the canonical now exists
+      asset('ALPACAxb1', 'S0005', 'Stock')                                                 # LIKE: rewritten
+      asset('alpaca_c1', 'S0006', 'Cryptocurrency')                                        # not a stock
+    end
+    bare = stocks.map { |s| s.except('identifiers') }
+    legacy = lambda do |flagged|
+      stock_seed(legacy: true)
+      AppConfig.set('stock_canonical_backfill_completed_at', '2026-08-01T00:00:00Z') if flagged
+    end
+    [false, true].each do |flagged|
+      tag = flagged ? '-flagged' : ''
+      add.("stocks-legacy-no-identifiers#{tag}", job, { assets_key => [ok('data' => bare)], listings_key => [ok('data' => listings)] }) { legacy.(flagged) }
+      add.("stocks-legacy-backfill-fail#{tag}", job,
+           { assets_key => [error(500, { 'error' => 'boom' }), ok('data' => stocks)], listings_key => [ok('data' => listings)] }) { legacy.(flagged) }
+    end
+    # Running bots on legacy rows the Alpaca asset sync left without an instrument_type: Rails completes the migration,
+    # whether or not another running bot sits on a legacy row the backfill cannot resolve.
+    add.('stocks-legacy-running-bot', job, both) do
+      stock_seed
+      a = asset('alpaca_r1', 'S0002', 'Stock')
+      ticker(@alpaca, a, @usd, 'S0002', 'S0002', 'USD')
+      running_bot(a)
+    end
+    add.('stocks-legacy-running-bots-unresolved', job, both) do
+      stock_seed
+      a = asset('alpaca_r1', 'S0002', 'Stock')
+      ticker(@alpaca, a, @usd, 'S0002', 'S0002', 'USD')
+      running_bot(a)
+      gone = asset('alpaca_r2', 'GONE', 'Stock')
+      ticker(@alpaca, gone, @usd, 'GONE', 'GONE', 'USD')
+      running_bot(gone)
+    end
+    # A non-string canonical id takes the string column's cast ("f"), in the backfill as in the upsert: one identity.
+    falsy = { 'external_id' => false, 'type' => 'stock', 'symbol' => 'FALSY', 'name' => 'Falsy',
+              'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:FALSY' }] }
+    add.('stocks-legacy-false-id', job, { assets_key => [ok('data' => stocks + [falsy])], listings_key => [ok('data' => listings)] }) do
+      stock_seed
+      asset('alpaca_f1', 'FALSY', 'Stock')
+    end
+    # Object-valued identifiers raise while the map is built: nothing is rewritten and no flag is written.
+    malformed = { 'external_id' => 'MSFT.US', 'type' => 'stock', 'symbol' => 'MSFT', 'name' => 'Microsoft',
+                  'identifiers' => { 'scheme' => 'alpaca', 'value' => 'us_equity:MSFT' } }
+    add.('stocks-legacy-malformed-identifiers', job, { assets_key => [ok('data' => stocks + [malformed])], listings_key => [ok('data' => listings)] },
+         raises: true) do
+      stock_seed(legacy: true)
+    end
+    add.('stocks-legacy-backfill-rate-limited', job, { assets_key => [error(429, { 'error' => 'slow' })] }) { legacy.(true) }
     add.('stocks-assets-fail', job, { assets_key => [error(500, { 'error' => 'boom' })] }) { stock_seed }
     add.('stocks-listings-rate-limited', job, { assets_key => [ok('data' => stocks)], listings_key => [error(429, { 'error' => 'slow' })] }) { stock_seed }
     add.('stocks-degraded', job, { assets_key => [ok('data' => stocks)], listings_key => [ok('data' => stock_listings(999))] }) { stock_seed }
@@ -339,7 +421,7 @@ module Reference
       build(dir, sc)
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate({
-        'parity_scratch' => true, 'job' => sc['job'], 'at' => AT, 'env' => sc['env'], 'script' => sc['http'],
+        'parity_scratch' => true, 'job' => sc['job'], 'at' => AT, 'env' => sc['env'], 'script' => sc['http'], 'raises' => sc['raises'],
         # The keys this Rails encrypted the scenario's app_configs with, so the Rust side reads them as Rails does.
         'encryption' => { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt }
       }))
@@ -373,7 +455,15 @@ module Reference
       ScriptedDataApi.http = sc['script'].transform_values(&:dup)
       ScriptedDataApi.requests = []
       before = snapshot
-      travel_to(Time.iso8601(sc['at']), with_usec: true) { perform(sc['job']) }
+      raised = begin
+        travel_to(Time.iso8601(sc['at']), with_usec: true) { perform(sc['job']) }
+        false
+      rescue StandardError => e
+        raise unless sc['raises']
+
+        e
+      end
+      raise "#{dir}: the job was expected to raise" if sc['raises'] && !raised
       retried = ActiveJob::Base.queue_adapter.enqueued_jobs.any? do |j|
         j['job_class'] == JOB_CLASSES.fetch(sc['job']) && j['executions'].to_i.positive?
       end

@@ -314,6 +314,101 @@ fn stock_listing(mut l: Value) -> Value {
     l
 }
 
+/// `Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'")`, as SQL: LIKE's case-insensitive match and its `_`
+/// wildcard included.
+const LEGACY_STOCK: &str = "category = 'Stock' AND external_id LIKE 'alpaca_%'";
+
+fn flag_unset(c: &Connection, cipher: &crate::crypto::Cipher) -> Result<bool, String> {
+    Ok(app_config::get(c, cipher, BACKFILL_FLAG)?.is_none_or(|v| v.trim().is_empty()))
+}
+
+/// The legacy stock tickers on Alpaca: (id, ticker).
+fn legacy_tickers(c: &Connection, alpaca: i64) -> Result<Vec<(i64, String)>, String> {
+    let mut s = c.prepare("SELECT t.id, t.ticker FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
+                           WHERE t.exchange_id = ?1 AND a.category = 'Stock' AND a.external_id LIKE 'alpaca_%'").map_err(|e| e.to_string())?;
+    let rows = s.query_map([alpaca], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string());
+    rows
+}
+
+/// The backfill's rows, as Ruby walks `Array(result.data && result.data['data'])`: what Ruby would raise on is an error here,
+/// before anything is written; a String row or identifier is indexed as a substring and never matches, so it is skipped.
+fn backfill_rows(body: &Value) -> Result<Vec<&serde_json::Map<String, Value>>, String> {
+    let malformed = |what: &str, v: &Value| Err(format!("stock backfill: malformed payload ({what} is {v}); nothing rewritten"));
+    let data = match body { Value::Object(m) => m.get("data").unwrap_or(&Value::Null), Value::Null | Value::String(_) => &Value::Null, v => return malformed("the body", v) };
+    let rows: &[Value] = match data { Value::Null | Value::String(_) => &[], Value::Array(a) => a, v => return malformed("data", v) };
+    let mut out = vec![];
+    for row in rows {
+        let row = match row { Value::Object(m) => m, Value::String(_) => continue, v => return malformed("a row", v) };
+        // Float#to_s ("1.0e+20") is not serde's spelling ("1e+20"): a float id would miss the existing-canonical check.
+        if let Some(Value::Number(n)) = row.get("external_id") {
+            if !(n.is_i64() || n.is_u64()) { return Err(format!("stock backfill: external_id {n} is not an integer or a string; nothing rewritten")); }
+        }
+        let ids: &[Value] = match row.get("identifiers").unwrap_or(&Value::Null) {
+            Value::Null | Value::String(_) => &[],
+            Value::Object(m) if m.is_empty() => &[],
+            Value::Array(a) => a,
+            v => return malformed("identifiers", v),
+        };
+        for i in ids { if !matches!(i, Value::Object(_) | Value::String(_)) { return malformed("an identifier", i); } }
+        out.push(row);
+    }
+    Ok(out)
+}
+
+/// MarketData.backfill_canonical_stock_external_ids! (:733-823) on a fetched payload: each legacy alpaca_<uuid> stock row
+/// whose symbol maps to exactly one canonical external_id takes it, keeping its id (so every bot, ticker and ledger row
+/// referring to it follows). A symbol is excluded when it resolves to more than one canonical, or its canonical carries
+/// more than one alpaca identifier; a row is left alone when its canonical already exists. The flag is set unless the
+/// payload carries no alpaca identifier at all. Every rewrite is planned, and checked, before the first is written.
+fn backfill(c: &Connection, cipher: &crate::crypto::Cipher, body: &Value, now: DateTime<Utc>) -> Result<Vec<i64>, String> {
+    use std::collections::{BTreeSet, HashMap, HashSet};
+    // Keyed by the raw JSON value, as Ruby's Set and Hash key `false`, `5` and "5" apart.
+    let mut canonicals: HashMap<String, BTreeSet<String>> = HashMap::new();
+    let mut alpaca_ids: HashMap<String, usize> = HashMap::new();
+    let mut raw: HashMap<String, &Value> = HashMap::new();
+    for row in backfill_rows(body)? {
+        let ext = row.get("external_id").unwrap_or(&Value::Null);
+        let key = ext.to_string();
+        for i in row.get("identifiers").and_then(Value::as_array).into_iter().flatten() {
+            if i["scheme"].as_str() != Some("alpaca") { continue; }
+            let value = match &i["value"] { Value::Null => String::new(), Value::String(s) => s.clone(), v => v.to_string() }; // to_s
+            canonicals.entry(value.replacen("us_equity:", "", 1)).or_default().insert(key.clone()); // String#sub
+            *alpaca_ids.entry(key.clone()).or_default() += 1;
+            raw.insert(key.clone(), ext);
+        }
+    }
+    if canonicals.is_empty() { return Ok(vec![]); } // no alpaca identifiers: the flag stays unset for a retry
+    let to_canonical: HashMap<&String, &Value> = canonicals.iter().filter_map(|(symbol, set)| {
+        let only = set.iter().next().filter(|_| set.len() == 1)?;
+        (alpaca_ids[only] == 1).then(|| (symbol, raw[only]))
+    }).collect();
+    let mut s = c.prepare(&format!("SELECT id, symbol FROM assets WHERE {LEGACY_STOCK} ORDER BY id")).map_err(|e| e.to_string())?;
+    let legacy: Vec<(i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>().map_err(|e| e.to_string())?;
+    let mut claimed = HashSet::new();
+    let mut plan = vec![];
+    for (id, symbol) in legacy {
+        let Some(&canonical) = symbol.as_ref().and_then(|s| to_canonical.get(s)) else { continue };
+        // The string column's cast (import::string, as the stock upsert writes it): `false` is "f". nil is unmatched.
+        let canonical = match canonical {
+            Value::Null => continue,
+            Value::Array(_) | Value::Object(_) => return Err(format!("stock backfill: canonical external_id {canonical} is not a string; nothing rewritten")),
+            v => import::string(v).unwrap_or_default(),
+        };
+        let exists: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE external_id = ?1)", [&canonical], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if exists || !claimed.insert(canonical.clone()) { continue; }
+        plan.push((id, canonical));
+    }
+    let mut rewritten = vec![];
+    for (id, canonical) in plan {
+        // update_columns: updated_at stays.
+        c.execute("UPDATE assets SET external_id = ?1 WHERE id = ?2", rusqlite::params![canonical, id]).map_err(|e| e.to_string())?;
+        rewritten.push(id);
+    }
+    app_config::set(c, cipher, BACKFILL_FLAG, &now.to_rfc3339_opts(SecondsFormat::Secs, true), now)?;
+    Ok(rewritten)
+}
+
 /// Asset::SyncStocksFromDeltabadgerJob#perform, the jitter split out to the scheduler (Spec.jitter): the switch, the
 /// backfill's no-op case, the stock assets, then the Alpaca listings.
 async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
@@ -321,21 +416,33 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     let gate = cx.db.run(move |c, cipher| {
         // The per-container emergency switch: any value but "false" means on (:43-50).
         if app_config::get(c, cipher, "stock_sync_enabled")?.as_deref() == Some("false") {
-            return Ok(Some("stock sync is switched off (app_configs stock_sync_enabled = false)".to_string()));
+            return Ok(Err("stock sync is switched off (app_configs stock_sync_enabled = false)".to_string()));
         }
-        // backfill_canonical_stock_external_ids! (:723-813) rewrites legacy alpaca_<uuid> stock rows; without one it only sets
-        // its flag (:731-734), which gates the sync (:64). The rewrite is not ported: refuse instead.
-        let legacy: i64 = c.query_row("SELECT count(*) FROM assets WHERE category = 'Stock' AND external_id LIKE 'alpaca_%'", [], |r| r.get(0))
-            .map_err(|e| e.to_string())?;
-        if legacy > 0 {
-            return Ok(Some(format!("{legacy} legacy alpaca_<uuid> stock asset(s): the canonical backfill is not ported; run the Rails app's stock sync once")));
-        }
-        if app_config::get(c, cipher, BACKFILL_FLAG)?.is_none_or(|v| v.trim().is_empty()) {
+        // backfill_canonical_stock_external_ids!: with no legacy row it only sets its flag (:741-744).
+        let legacy: i64 = c.query_row(&format!("SELECT count(*) FROM assets WHERE {LEGACY_STOCK}"), [], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if legacy == 0 && flag_unset(c, cipher)? {
             app_config::set(c, cipher, BACKFILL_FLAG, &now.to_rfc3339_opts(SecondsFormat::Secs, true), now)?; // Time.current.iso8601
         }
-        Ok(None)
+        Ok(Ok(legacy > 0))
     }).await;
-    match gate { Ok(None) => {}, Ok(Some(m)) | Err(m) => return Outcome::Failed(m) }
+    let legacy = match gate { Ok(Ok(l)) => l, Ok(Err(m)) | Err(m) => return Outcome::Failed(m) };
+    if legacy {
+        // The backfill's own fetch (:746-753): a 429 or a network failure raises out of the job; any other failure leaves
+        // the flag as it is.
+        match api.stocks().await {
+            Err(e) if e.rate_limited() || matches!(e, ApiError::Transient(_)) => return api_failure(e),
+            Err(_) => {}
+            Ok(body) => if let Err(m) = cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "stock backfill", |c| {
+                backfill(c, cipher, &body, now).map(|ids| ((), import::Touched::Assets(ids)))
+            })).await { return Outcome::Failed(m); },
+        }
+        // The sync is gated on the flag (sync_stocks_from_deltabadger_job.rb:62-64); Rails returns quietly.
+        match cx.db.run(flag_unset).await {
+            Ok(false) => {}
+            Ok(true) => return Outcome::Failed("legacy alpaca_<uuid> stock assets and no completed canonical backfill (data-api gave no alpaca identifiers); stock sync skipped".into()),
+            Err(m) => return Outcome::Failed(m),
+        }
+    }
 
     // sync_stocks_from_deltabadger! (:428-463). A failure skips the listings (sync_stocks_from_deltabadger_job.rb:66-73).
     let body = match api.stocks().await { Ok(b) => b, Err(e) => return api_failure(e) };
@@ -354,9 +461,14 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         let resolved = import::ticker_records_for(c, &listings, Some("Stock"))?.len() as i64; // import_tickers!' own builder, post-dedup (:514-520)
         let last_good = app_config::get(c, cipher, ALPACA_LISTINGS_LAST_GOOD)?;
         if stocks_degraded(resolved, last_good.as_deref()) { return Ok(Err(degraded(resolved, listings.len(), last_good.as_deref()))); }
-        // The legacy collision guard (:539-551) and the sweep's legacy exclusion (:563) have nothing to act on: the gate
-        // above refused any legacy row.
-        Ok(Ok((alpaca, resolved, import::plan_tickers(c, alpaca, &listings, Some("Stock"))?)))
+        // The legacy collision guard (:539-560): a listing whose ticker a legacy stock ticker on Alpaca holds is dropped.
+        let held = legacy_tickers(c, alpaca)?;
+        let (ids, names): (std::collections::HashSet<i64>, std::collections::HashSet<String>) = held.into_iter().unzip();
+        let listings: Vec<Value> = listings.into_iter().filter(|l| !l["ticker"].as_str().is_some_and(|t| names.contains(t))).collect();
+        let mut plan = import::plan_tickers(c, alpaca, &listings, Some("Stock"))?;
+        // The sweep never marks a legacy stock ticker unavailable (:572-576).
+        plan.sweep.retain(|id| !ids.contains(id));
+        Ok(Ok((alpaca, resolved, plan)))
     }).await;
     let (alpaca, resolved, plan) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = import::publish_tickers(&cx.db, alpaca, plan, now).await { return Outcome::Failed(m); }
