@@ -10,7 +10,7 @@
   "app/views/tracker/add_api_keys/new.html.erb": "2ad433464dfbbab1ededa60986169790d2262fb7358e3e98c26f467926f26428",
   "app/views/tracker/add_api_keys/reconnect.html.erb": "5b21424c9203a47dfeeaf666783f7b332a0142c2e7d9ca545ce0500090694403",
   "app/views/shared/_api_key_form.html.erb": "a96b6a9b1fb79978ab534686a6f627c13d84447323319bef7463d5a5eb9b0954",
-  "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
+  "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
   "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
   "config/routes.rb": "3419624238f923699907a0751adddae4b685b72c23a9015982598568a5b4d119",
   "app/views/svg/exchanges/_alpaca.html.erb": "49ac864253f38f06a7206e3cb436ab4235defcb110a0343fb84dd024dec81277",
