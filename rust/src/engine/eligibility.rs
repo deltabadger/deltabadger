@@ -199,15 +199,7 @@ fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64>
 /// trust checks remain in engine::splits.
 fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     crate::figures::fill::validate_row_times(c,bot.id).map_err(|e|EngineError::Data(format!("{e:?}")))?;
-    let (sells, other, imported, no_asset): (i64, i64, i64, i64) = c.query_row(
-        "SELECT coalesce(sum(side = 1), 0), coalesce(sum(transaction_type <> 'REGULAR'), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
-                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
-        [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
-    if !alpaca && sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
-    if alpaca && bot.bot_type == "Bots::DcaIndex" { special_reasons(c, bot, r)?; }
-    else if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
-    if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
-    if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
+    order_kind_reasons(c, bot, alpaca, r)?;
     if !model::all_crypto(c, bot)? { return Ok(()); }
     // Bot::Restatable#grouped_split_rows applies a split recorded in account_transactions (corporate_action 'split') inside
     // the walk; the ported walk does not. Crypto never splits, so this refuses only what this build does not port. Broader than Rails'
@@ -229,6 +221,39 @@ fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], spl
     let splits = rows.iter().filter(|(asset, currency)| asset.is_some_and(|a| members.contains(&a)) || names.contains(&Some(currency.clone()))).count();
     if splits > 0 { r.push(format!("{splits} split(s) recorded for its assets (split-adjusted history is not supported by this engine yet)")); }
     Ok(())
+}
+
+/// The kinds of order a bot's history holds that this build does not read: sells off Alpaca, special rows outside what
+/// special_reasons admits, imported rows, and orders without an asset.
+fn order_kind_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
+    let (sells, imported, no_asset): (i64, i64, i64) = c.query_row(
+        "SELECT coalesce(sum(side = 1), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
+                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
+        [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    if !alpaca && sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
+    special_row_reasons(c, bot, alpaca, r)?;
+    if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
+    if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
+    Ok(())
+}
+
+/// The LIQUIDATION, REDEPLOY and REBALANCE rows this build does not read: every one off an Alpaca index bot, and on one
+/// those special_reasons names.
+fn special_row_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
+    if alpaca && bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
+    let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR'", [bot.id], |r| r.get(0))?;
+    if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
+    Ok(())
+}
+
+/// The special rows of a bot's history the engine does not read (special_row_reasons, the rule its guard applies). The web
+/// pages refuse a bot by it (web/bot/mod.rs `refusal`), so a page never refuses a history the engine reads. The guard's
+/// other refusals stand at the start itself.
+pub fn unread_special_rows(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
+    let mut r = vec![];
+    special_row_reasons(c, bot, exchange.as_deref() == Some("Exchanges::Alpaca"), &mut r)?;
+    Ok(r)
 }
 
 /// What of an index bot's special history the walk does not read as Rails writes it. Waiting, pending and abandoned rows

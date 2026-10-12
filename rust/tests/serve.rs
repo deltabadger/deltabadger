@@ -1744,28 +1744,32 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     store(&settings);
     c.execute("UPDATE bots SET type = 'Bots::DcaMultiAsset' WHERE id = ?1", [id]).unwrap();
 
-    // An order that is not a scheduled buy needs the metrics walk; an account that has not answered the wash-sale question needs it once it has traded.
-    let order = |side: i64, kind: &str| c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, transaction_type, bot_interval, bot_quote_amount, error_messages, created_at, updated_at) \
-                                                   VALUES (?1, ?2, 0, 2, ?3, ?4, 'week', 60, '[]', '2026-09-08 10:00:00', '2026-09-08 10:00:00')", (id, seeded.exchange_id, side, kind)).unwrap();
+    // Special rows the engine does not read are refused as the engine refuses them; an account that has not answered the wash-sale
+    // question is refused once it has traded.
+    let order = |side: i64, kind: &str| c.execute("INSERT INTO transactions (bot_id, exchange_id, base_asset_id, status, external_status, side, transaction_type, bot_interval, bot_quote_amount, error_messages, created_at, updated_at) \
+                                                   VALUES (?1, ?2, ?3, 0, 2, ?4, ?5, 'week', 60, '[]', '2026-09-08 10:00:00', '2026-09-08 10:00:00')", (id, seeded.exchange_id, seeded.btc, side, kind)).unwrap();
     order(0, "REGULAR");
     assert_eq!(refusal(), None);
     assert_eq!(bot::refusal(c, id, None, true, bot::For::Page).unwrap(), Some("the wash-sale question not answered yet"));
+    // A sale on Alpaca is read by the engine's walk: the forms and the figures page serve it. A page without figures cannot
+    // show the profit or loss it realised.
     order(1, "REGULAR");
-    assert_eq!(refusal(), Some("orders other than scheduled buys"));
-    // The feed is asked page after page and does not walk the history for a sell: it refuses the page of rows that holds one.
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None);
-    c.execute("DELETE FROM transactions WHERE side = 1", []).unwrap();
-    // An order of another type is found by the page through an index, on either side of 'REGULAR' in its order. The feed does
-    // not ask: Rails picks its ten rows first, and the page of rows that holds such an order is the one refused (Task 8).
-    for kind in ["REBALANCE", "LIQUIDATION", "REDEPLOY"] {
-        order(0, kind);
-        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some("orders other than scheduled buys"), "{kind}");
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
+    assert_eq!(refusal(), Some(bot::REALISED_WITHOUT_FIGURES));
+    // A basket with an index bot's special rows is still refused, by the page and the settings; the feed does not ask.
+    for (side, kind) in [(1, "REBALANCE"), (1, "LIQUIDATION"), (0, "REDEPLOY")] {
+        order(side, kind);
+        for asked in [bot::For::Page, bot::For::Settings] {
+            assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS), "{kind}");
+        }
         assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None, "{kind}");
         c.execute("DELETE FROM transactions WHERE transaction_type = ?1", [kind]).unwrap();
     }
-    let plan: String = c.prepare("EXPLAIN QUERY PLAN SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type < 'REGULAR') OR EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type > 'REGULAR')")
-        .unwrap().query_map([id], |r| r.get::<_, String>(3)).unwrap().map(Result::unwrap).collect::<Vec<_>>().join("; ");
-    assert_eq!(plan.matches("index_bot_type_created_at (bot_id=? AND transaction_type").count(), 2, "{plan}");
+    // An order whose asset is not recorded is not a special row: the settings serve it, and the engine's guard refuses its start.
+    c.execute("UPDATE transactions SET base_asset_id = NULL WHERE side = 1", []).unwrap();
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    c.execute("DELETE FROM transactions WHERE side = 1", []).unwrap();
     // The feed is not given the four facts about the bot's orders either: each may walk the history.
     assert!(Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().has_orders);
     assert!(!Bot::find(c, seeded.user_id, id, bot::For::Feed, "en").unwrap().unwrap().has_orders);

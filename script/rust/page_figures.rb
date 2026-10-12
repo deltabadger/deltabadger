@@ -48,6 +48,14 @@ module PageFigures
     single['settings']['limit_ordered'] = true
     owner['bots'] = [basket, single, index]
     list << owner
+    # An index bot's liquidation, redeploy and rebalance legs: the bot page (GET /bots/:id) is compared on it too.
+    specials = list.find { |s| s['name'] == 'liquidations' }.deep_dup
+    specials['name'] = 'index_specials'
+    specials['provider'] = 'deltabadger'
+    rebalanced = Figures::T0 + (9 * Figures::D) + 60
+    specials['bots'].first['orders'] += [Figures.sell('AAA', rebalanced, '53', '0.1', type: 'REBALANCE'),
+                                         Figures.buy('DDD', rebalanced + 1, '90.1', '0.058823529', type: 'REBALANCE')]
+    list << specials
     list.each do |sc|
       dir = File.join(root, sc['name'])
       FileUtils.mkdir_p(dir)
