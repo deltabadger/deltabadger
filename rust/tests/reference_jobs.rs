@@ -358,17 +358,22 @@ async fn without_the_deltabadger_provider_every_data_api_job_fails_and_prune_sti
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn the_stock_jobs_switch_and_a_legacy_row_stop_it_before_any_request() {
+async fn the_stock_jobs_switch_stops_it_and_a_legacy_row_without_a_backfill_stops_it_after_one_request() {
     let (d, c) = db();
     deltabadger::app_config::set(&c, &seed::cipher(), "stock_sync_enabled", "false", at("2026-10-01T00:00:00Z")).unwrap();
     let t = ScriptedTransport::default(); // any request would panic: nothing is scripted
     assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("switched off")));
+    assert!(t.requests().is_empty());
     let c = reopen(&d);
     c.execute("DELETE FROM app_configs", []).unwrap();
     asset(&c, "alpaca_0b5c", "IBIT", "Stock");
-    assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("legacy")));
-    assert!(t.requests().is_empty());
+    // A payload with no alpaca identifier: the backfill leaves its flag unset, which gates the sync.
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/assets", 200, json!({ "data": [{ "external_id": "IBIT.US", "symbol": "IBIT", "type": "etf" }] }));
+    assert!(matches!(run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await, Outcome::Failed(m) if m.contains("canonical backfill")));
+    assert_eq!(t.requests().len(), 1);
     assert_eq!(one::<i64>(&reopen(&d), "SELECT count(*) FROM app_configs"), 0, "not even the backfill flag");
+    assert_eq!(one::<String>(&reopen(&d), "SELECT external_id FROM assets WHERE symbol = 'IBIT'"), "alpaca_0b5c");
 }
 
 #[tokio::test(flavor = "current_thread")]

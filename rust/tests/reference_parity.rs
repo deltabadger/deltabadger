@@ -29,12 +29,6 @@ fn copy_dir(from: &Path, to: &Path) {
     for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
 }
 
-/// Listed divergence: a legacy alpaca_<uuid> stock row. Rails' canonical backfill rewrites it and
-/// syncs; Rust refuses before any request or write.
-const DIVERGENCES: [&str; 1] = ["stocks-legacy-row"];
-
-fn wrote(out: &Value) -> bool { out["changes"].as_object().unwrap().values().any(|t| !t.as_array().unwrap().is_empty()) }
-
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -42,7 +36,7 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 33, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 39, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -51,13 +45,6 @@ async fn rails_and_rust_write_the_same_reference_rows_for_every_scripted_payload
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::reference(&rust_root.path().join(&name)).await.unwrap();
-        if DIVERGENCES.contains(&name.as_str()) {
-            if !wrote(&rails_out) { failures.push(format!("{name}: Rails no longer writes for a legacy row: drop the listed divergence")); }
-            if wrote(&rust_out) || !rust_out["requests"].as_array().unwrap().is_empty() {
-                failures.push(format!("{name}: Rust must refuse before any request or write: {rust_out}"));
-            }
-            continue;
-        }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
     // Listed divergence: a JSON column's text. ActiveSupport escapes <, > and & (as \u003c and so on) and serde does not;

@@ -281,6 +281,40 @@ module Reference
       AppConfig.set('stock_sync_enabled', 'false')
     end
     add.('stocks-legacy-row', job, both) { stock_seed(legacy: true) }
+    # backfill_canonical_stock_external_ids! over a mixed install: rewritten, defensive skips, unmatched, ambiguous, LIKE's
+    # case-insensitive wildcard, a non-stock row; then the listings' legacy collision guard and the sweep's legacy exclusion.
+    renamed = [
+      stocks.first.merge('external_id' => 'IBIT.US', 'symbol' => 'IBIT', 'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' }]),
+      stocks.first.merge('external_id' => 'LDRC.US', 'symbol' => 'LDRC',
+                         'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:LDRC' }, { 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' },
+                                           { 'scheme' => 'figi', 'value' => 'BBG000000001' }])
+    ]
+    ibit_listing = listings.first.merge('ticker' => 'IBIT', 'base' => 'IBIT', 'base_external_id' => 'LDRC.US')
+    add.('stocks-legacy-mix', job, { assets_key => [ok('data' => stocks + renamed)], listings_key => [ok('data' => listings + [ibit_listing])] }) do
+      stock_seed
+      ticker(@alpaca, asset('alpaca_a1', 'S0002', 'Stock'), @usd, 'S0002', 'S0002', 'USD') # rewritten: its ticker refreshes
+      asset('S0003.US', 'S0003', 'Stock')
+      ticker(@alpaca, asset('alpaca_a2', 'S0003', 'Stock'), @usd, 'S0003', 'S0003', 'USD') # canonical present: kept, listing dropped
+      ticker(@alpaca, asset('alpaca_a3', 'GONE', 'Stock'), @usd, 'GONE', 'GONE', 'USD')    # unmatched: never swept
+      ticker(@alpaca, asset('alpaca_a4', 'IBIT', 'Stock'), @usd, 'IBIT', 'IBIT', 'USD')    # ambiguous: kept, listing dropped
+      asset('alpaca_a5', 'LDRC', 'Stock')                                                  # its canonical carries two ids
+      asset('alpaca_a6', 'S0004', 'Stock')                                                 # rewritten
+      asset('alpaca_a7', 'S0004', 'Stock')                                                 # the canonical now exists
+      asset('ALPACAxb1', 'S0005', 'Stock')                                                 # LIKE: rewritten
+      asset('alpaca_c1', 'S0006', 'Cryptocurrency')                                        # not a stock
+    end
+    bare = stocks.map { |s| s.except('identifiers') }
+    legacy = lambda do |flagged|
+      stock_seed(legacy: true)
+      AppConfig.set('stock_canonical_backfill_completed_at', '2026-08-01T00:00:00Z') if flagged
+    end
+    [false, true].each do |flagged|
+      tag = flagged ? '-flagged' : ''
+      add.("stocks-legacy-no-identifiers#{tag}", job, { assets_key => [ok('data' => bare)], listings_key => [ok('data' => listings)] }) { legacy.(flagged) }
+      add.("stocks-legacy-backfill-fail#{tag}", job,
+           { assets_key => [error(500, { 'error' => 'boom' }), ok('data' => stocks)], listings_key => [ok('data' => listings)] }) { legacy.(flagged) }
+    end
+    add.('stocks-legacy-backfill-rate-limited', job, { assets_key => [error(429, { 'error' => 'slow' })] }) { legacy.(true) }
     add.('stocks-assets-fail', job, { assets_key => [error(500, { 'error' => 'boom' })] }) { stock_seed }
     add.('stocks-listings-rate-limited', job, { assets_key => [ok('data' => stocks)], listings_key => [error(429, { 'error' => 'slow' })] }) { stock_seed }
     add.('stocks-degraded', job, { assets_key => [ok('data' => stocks)], listings_key => [ok('data' => stock_listings(999))] }) { stock_seed }
