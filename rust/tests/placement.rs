@@ -221,6 +221,28 @@ async fn ownership_stop_in_the_dispatch_gap_sends_nothing() {
     assert!(venue.sent().is_empty(), "STOP committed before this $60 order was handed to the venue");
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn the_real_kraken_adapter_is_fenced_and_recorded_like_any_venue() {
+    use deltabadger::venue::{http::ScriptedTransport, kraken::KrakenVenue};
+    let (_d, o, bot, plan) = setup();
+    let script = json!({ "POST /0/private/AddOrder": [{ "status": 200, "body": { "error": [], "result": { "txid": ["OTX-K"] } } }] });
+    let transport = ScriptedTransport::from_script(&script);
+    let venue = KrakenVenue::new(transport.clone());
+    // A STOP between the intent and the send: the real adapter is never called.
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE bots SET status=2 WHERE id=?1", [bot.id]).unwrap();
+    assert!(matches!(placement::send_recorded(&o.primary, &venue, &bot, &intent, &FixedClock(t0())).await.unwrap(), Sent::Fenced));
+    assert!(transport.requests().is_empty(), "a fenced Kraken order never reaches the transport");
+    // The owning run's send goes out and is recorded with that run's identity.
+    let (_d, o, bot, plan) = setup();
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(matches!(placement::send_recorded(&o.primary, &venue, &bot, &intent, &FixedClock(t0())).await.unwrap(), Sent::Accepted(id) if id == "OTX-K"));
+    assert_eq!(transport.requests().len(), 1);
+    let identity: Option<String> = o.primary.query_row("SELECT run_identity FROM transactions WHERE external_id='OTX-K'", [], |r| r.get(0)).unwrap();
+    assert!(identity.is_some(), "the accepted Kraken order carries the run that sent it");
+    assert!(reload(&o, &bot).rust_placement().is_none());
+}
+
 struct StopDuringDispatch {
     inner: FakeVenue,
     db: String,

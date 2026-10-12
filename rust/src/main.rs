@@ -206,7 +206,8 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let code = rt.block_on(async move {
-        let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
+        let factory = LiveFactory::for_install(&o.primary, &cipher);
+        let mut engine = Engine::new(o.primary, factory, cipher, lock);
         engine.stop_handle().on_signals();
         let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, None) {
             Ok(s) => s,
@@ -254,7 +255,8 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let mail = mail_sender(env, &cipher);
     if let Err(code) = claim_install(&lock, &o, &cipher) { return code; }
     let code = rt.block_on(async move {
-        let mut engine = Engine::new(o.primary, LiveFactory::new(), cipher, lock);
+        let factory = LiveFactory::for_install(&o.primary, &cipher);
+        let mut engine = Engine::new(o.primary, factory, cipher, lock);
         engine.stop_handle().on_signals();
         let scheduler = match scheduler_service(env, &paths(env), &mut engine, &SystemClock, Some(&app)) {
             Ok(s) => s,
@@ -283,7 +285,7 @@ fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let (lock, o, cipher) = open_install(env);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     // The factory and the wait live inside the runtime; the process start and the wait are hand_back_cli's.
-    let result = rt.block_on(async { handover::hand_back_cli(&lock, &o, &LiveFactory::new(), &cipher, &SystemClock).await });
+    let result = rt.block_on(async { handover::hand_back_cli(&lock, &o, &LiveFactory::for_install(&o.primary, &cipher), &cipher, &SystemClock).await });
     let code = handover::handback_exit_code(&result);
     match result {
         Ok(n) => log(&format!("handed back: {n} bot(s) scheduled; the Rails app may start now")),

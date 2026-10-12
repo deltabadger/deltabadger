@@ -12,8 +12,7 @@ use crate::store::Opened;
 use crate::venue::alpaca::{AlpacaVenue, Urls};
 use crate::venue::http::{request_key, ScriptedTransport};
 use crate::venue::Venue;
-use crate::venue::fake::FakeVenue;
-use crate::venue::{NewOrder, OrderKind};
+use crate::venue::kraken::KrakenVenue;
 use chrono::{DateTime, Utc};
 use rusqlite::types::ValueRef;
 use rusqlite::Connection;
@@ -74,15 +73,23 @@ pub fn diff(before: &Value, after: &Value) -> Value {
     Value::Object(out)
 }
 
-/// The AddOrder body Honeymaker::Clients::Kraken posts for this order, minus nonce (and Rust's cl_ord_id/deadline).
-pub fn wire(o: &NewOrder) -> Value {
-    let mut v = json!({ "type": "buy", "volume": o.volume, "pair": o.pair });
-    if o.quote_volume { v["oflags"] = json!("viqc"); }
-    match &o.kind {
-        OrderKind::Market => { v["ordertype"] = json!("market"); }
-        OrderKind::Limit { price } => { v["ordertype"] = json!("limit"); v["price"] = json!(price); }
+/// The Kraken script as the real adapter's transport is answered: each recorded body (the Rails harness serves it beneath
+/// Honeymaker::Clients::Kraken#get_public / #post_private) as an HTTP 200 for "GET /0/public/…" or "POST /0/private/…".
+pub fn kraken_script(script: &Value) -> Value {
+    let mut out = Map::new();
+    for (path, bodies) in script["http"].as_object().into_iter().flatten() {
+        let method = if path.starts_with("/0/public/") { "GET" } else { "POST" };
+        let replies = bodies.as_array().into_iter().flatten().map(|b| json!({ "status": 200, "body": b })).collect();
+        out.insert(format!("{method} {path}"), Value::Array(replies));
     }
-    v
+    Value::Object(out)
+}
+
+/// The AddOrder fields the adapter posted, as the Rails harness records them (nonce dropped there; the transport adds it
+/// here), without Rust's own cl_ord_id and deadline.
+fn kraken_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == "/0/private/AddOrder").filter_map(|r| r.body)
+        .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("cl_ord_id"); m.shift_remove("deadline"); } b }).collect()
 }
 
 /// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
@@ -166,10 +173,12 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
-    let venue = FakeVenue::from_script(&scenario["script"]);
-    let posted = || venue.sent().len();
+    // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken.
+    let transport = ScriptedTransport::from_script(&kraken_script(&scenario["script"]));
+    let posted = || kraken_sent(&transport).len();
+    let venue = KrakenVenue::new(transport.clone());
     let (poll, _) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
-    let sent: Vec<Value> = venue.sent().iter().map(wire).collect();
+    let sent = kraken_sent(&transport);
     let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
     // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
     // scenarios fail a Kraken poll; anywhere else the key's presence alone makes the outputs differ).

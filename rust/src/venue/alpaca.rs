@@ -380,40 +380,79 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
 /// Before 3.0 the engine trades Alpaca paper only.
 pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build (paper only before 3.0)";
 
-/// The real venues by exchange type. This build connects Alpaca paper only; anything else gets a venue that sends nothing
-/// (`run`'s preflight refuses such bots before it claims the install, so this is the second line). A passphrase that does
-/// not decrypt never reaches here: `model::credentials_for` fails that bot's tick (and preflight refuses it).
+/// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper only before 3.0)
+/// and Kraken (through its proxy, ExchangeProxy.for, read each time a venue is built). A venue with no Rust code yet gets a
+/// venue that sends nothing; `run`'s preflight refuses such bots before it claims the install, so this is the second line.
+/// A passphrase that does not decrypt never reaches here: `model::credentials_for` fails that bot's tick.
 #[derive(Clone)]
-pub struct LiveFactory { client: reqwest::Client, paper_boundary: Option<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync> }
+pub struct LiveFactory { client: reqwest::Client, paper_boundary: Option<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>,
+    settings: Option<(std::path::PathBuf, Cipher)> }
+
+/// What a factory with no install to read `proxy_<venue>` from answers for a proxied venue: it cannot know whether a proxy
+/// is configured, so it never connects directly.
+const SETTINGS_UNREAD: &str = "this process has no install to read the venue's proxy setting from (LiveFactory::for_install)";
 
 impl LiveFactory {
     /// Share the deadline producer clock with every real HTTP venue handle.
     pub fn with_clock(mut self,clock:std::sync::Arc<dyn crate::engine::Clock + Send + Sync>)->Self{self.clock=clock;self}
-    pub fn new() -> Self { Self { client: http::client(), paper_boundary: None, clock: std::sync::Arc::new(crate::engine::SystemClock) } }
+    pub fn new() -> Self { Self { client: http::client(), paper_boundary: None, clock: std::sync::Arc::new(crate::engine::SystemClock), settings: None } }
+    /// The engine's factory: each venue it builds reads its proxy from this install's database (`c`'s file) at that moment.
+    pub fn for_install(c: &Connection, cipher: &Cipher) -> Self {
+        Self { settings: c.path().filter(|p| !p.is_empty()).map(|p| (p.into(), cipher.clone())), ..Self::new() }
+    }
+    /// A venue's egress now: its client and proxy URL (venue::live::egress), from a fresh read of the install's settings.
+    fn egress(&self, name: &str) -> super::live::Egress {
+        let (path, cipher) = self.settings.as_ref().ok_or(SETTINGS_UNREAD)?;
+        let c = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(|_| format!("the {name} proxy setting is unreadable"))?;
+        super::live::egress(&c, cipher, &|k| std::env::var(k).ok(), name, &self.client)
+    }
     /// Explicit local HTTP boundary for native production-adapter tests.
-    #[doc(hidden)] pub fn with_paper_boundary(url:String)->Self{Self{client:http::client(),paper_boundary:Some(url),clock:std::sync::Arc::new(crate::engine::SystemClock)}}
+    #[doc(hidden)] pub fn with_paper_boundary(url:String)->Self{Self{paper_boundary:Some(url),..Self::new()}}
 }
 
 impl Default for LiveFactory {
     fn default() -> Self { Self::new() }
 }
 
+impl LiveFactory {
+    /// An Alpaca venue for this key (the bot's, or a sync job's): paper host only; a live key gets a transport that sends
+    /// nothing.
+    pub fn alpaca(&self, credentials: Option<Credentials>, sensitive: Vec<String>) -> AlpacaVenue<ReqwestTransport> {
+        let live = credentials.as_ref().is_some_and(|c| c.passphrase.as_deref() == Some("live"));
+        let transport = match credentials {
+            _ if live => ReqwestTransport::refused(LIVE_REFUSED),
+            Some(c) => ReqwestTransport::new(self.client.clone(), c.key, c.secret).with_sensitive_values(c.redaction_values),
+            // Rails' unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
+            None => ReqwestTransport::new(self.client.clone(), String::new(), String::new()),
+        };
+        // Every key that gets this far is paper (anything but exactly "live"), so the live host is never even named.
+        AlpacaVenue::new(transport.with_clock(self.clock.clone()).with_sensitive_values(sensitive), match &self.paper_boundary{Some(url)=>Urls{trading:url.clone(),data:url.clone()},None=>Urls::for_passphrase(None)})
+    }
+}
+
 impl VenueFactory for LiveFactory {
-    type V = AlpacaVenue<ReqwestTransport>;
+    type V = super::live::LiveVenue;
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V {
         self.for_bot_with_redaction(exchange_type,credentials,Vec::new())
     }
     fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,sensitive:Vec<String>)->Self::V{
-        let live = credentials.as_ref().is_some_and(|c| c.passphrase.as_deref() == Some("live"));
-        let transport = match (exchange_type, credentials) {
-            ("Exchanges::Alpaca", _) if live => ReqwestTransport::refused(LIVE_REFUSED),
-            ("Exchanges::Alpaca", Some(c)) => ReqwestTransport::new(self.client.clone(), c.key, c.secret).with_sensitive_values(c.redaction_values),
-            // Rails' unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
-            ("Exchanges::Alpaca", None) => ReqwestTransport::new(self.client.clone(), String::new(), String::new()),
-            (other, _) => ReqwestTransport::refused(&format!("{other} is not connected in this build")),
-        };
-        // Every key that gets this far is paper (anything but exactly "live"), so the live host is never even named.
-        AlpacaVenue::new(transport.with_clock(self.clock.clone()).with_sensitive_values(sensitive), match &self.paper_boundary{Some(url)=>Urls{trading:url.clone(),data:url.clone()},None=>Urls::for_passphrase(None)})
+        use super::live::LiveVenue;
+        let refused = |why: String| ReqwestTransport::refused(&format!("{exchange_type} is not connected in this build{why}"));
+        match exchange_type {
+            "Exchanges::Alpaca" => LiveVenue::Alpaca(self.alpaca(credentials, sensitive)),
+            "Exchanges::Kraken" => {
+                let transport = match self.egress("kraken") {
+                    Err(why) => refused(format!(": {why}")),
+                    Ok((client, proxy)) => {
+                        let (key, secret, mut values) = credentials.map(|c| (c.key, c.secret, c.redaction_values)).unwrap_or_default();
+                        values.extend(proxy);
+                        ReqwestTransport::new(client, key, secret).kraken().with_sensitive_values(values).with_clock(self.clock.clone())
+                    }
+                };
+                LiveVenue::Kraken(super::kraken::KrakenVenue::new(transport.with_sensitive_values(sensitive)))
+            }
+            _ => LiveVenue::Alpaca(AlpacaVenue::new(refused(String::new()), Urls::for_passphrase(None))),
+        }
     }
 }
 
@@ -445,10 +484,13 @@ pub fn preflight(c: &Connection, cipher: &Cipher) -> Result<Vec<i64>, Vec<String
 fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String>, EngineError> {
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
-    if exchange != ALPACA.exchange_type { return Ok(Some(format!("{exchange} is not connected in this build (Alpaca paper only)"))); }
+    let alpaca = exchange == ALPACA.exchange_type;
+    let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken and Alpaca)")));
+    };
     Ok(match model::credentials_for(c, cipher, &bot)? {
-        None => Some("no Alpaca API key".into()),
-        Some(k) if k.passphrase.as_deref() == Some("live") => Some(LIVE_REFUSED.into()),
+        None => Some(format!("no {} API key", rules.name)),
+        Some(k) if alpaca && k.passphrase.as_deref() == Some("live") => Some(LIVE_REFUSED.into()),
         Some(_) => None,
     })
 }

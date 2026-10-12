@@ -136,6 +136,14 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
     builder(connect, read, total).build().expect("a static reqwest configuration builds")
 }
 
+/// ExchangeProxy.for(name), for every proxied venue (Binance, Binance.US, Kraken): AppConfig `proxy_<name>` when present,
+/// else ENV `PROXY_<NAME>` when present (Rails' `presence`: a blank value is none). `app_config` is the decrypted AppConfig
+/// value, read when the venue's client is built.
+pub fn proxy_for(name: &str, app_config: Option<String>, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
+    let present = |v: Option<String>| v.filter(|v| !crate::ruby::blank(v));
+    present(app_config).or_else(|| present(env(&format!("PROXY_{}", name.to_uppercase()))))
+}
+
 /// `client`, sent through `proxy` (ExchangeProxy.for's URL): every request goes to the proxy, never directly. A URL
 /// reqwest cannot use is an error, and then nothing is sent at all.
 pub fn client_via(proxy: &str) -> Result<reqwest::Client, String> {
@@ -164,19 +172,41 @@ fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::Clien
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, binance: bool }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire }
+
+/// Whose headers and body a request carries.
+#[derive(Clone, Copy, PartialEq)]
+enum Wire {
+    /// Clients::Alpaca: key and secret headers, a JSON body.
+    Alpaca,
+    /// Honeymaker::Clients::Binance#headers: the key in X-MBX-APIKEY; the secret only signs (`venue::binance`) and is never sent.
+    Binance,
+    /// Honeymaker::Clients::Kraken (venue::kraken): a private call is a nonce-first form body signed at send time.
+    Kraken,
+}
 
 impl ReqwestTransport {
     /// Use the same clock that creates the order deadline; production defaults to SystemClock.
     pub fn with_clock(mut self, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>) -> Self { self.clock = clock; self }
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), binance: false } }
-    /// Honeymaker::Clients::Binance#headers: the key in X-MBX-APIKEY; the secret only signs (`venue::binance`) and is
-    /// never sent.
-    pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { binance: true, ..Self::new(client, key, secret) } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    /// Honeymaker::Clients::Binance's wire.
+    pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Binance, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
+    /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
+    pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
+    /// The stderr line for a failed or unreadable answer (the "http-log" sink of script/rust/settings_r2_sinks.json).
+    /// The venue's label goes in BEFORE redaction, so the whole printed line is what gets scrubbed (a relabel after the scrub
+    /// could rebuild a credential). `diagnostic` is shadowed by the labelling closure so the pinned sink line stays verbatim.
+    pub fn failure_line(&self, response: &HttpResponse) -> String {
+        let diagnostic = |status: Option<u16>, body: &str| {
+            let line = diagnostic(status, body);
+            if self.wire == Wire::Kraken { line.replacen("[Alpaca]", "[Kraken]", 1) } else { line }
+        };
+        self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
+    }
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), binance: false } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
 }
 
 impl Transport for ReqwestTransport {
@@ -186,11 +216,21 @@ impl Transport for ReqwestTransport {
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
-        let b = self.client.request(method, r.url());
-        let b = if self.binance { b.header("X-MBX-APIKEY", &self.key) } else { b.header("APCA-API-KEY-ID", &self.key).header("APCA-API-SECRET-KEY", &self.secret) };
-        let mut b = b.header("Accept", "application/json")
-            .header("Content-Type", "application/json");
-        if let Some(body) = &r.body { b = b.body(body.to_string()); }
+        let mut b = self.client.request(method, r.url());
+        match self.wire {
+            Wire::Alpaca | Wire::Binance => {
+                b = if self.wire == Wire::Binance { b.header("X-MBX-APIKEY", &self.key) } else { b.header("APCA-API-KEY-ID", &self.key).header("APCA-API-SECRET-KEY", &self.secret) };
+                b = b.header("Accept", "application/json").header("Content-Type", "application/json");
+                if let Some(body) = &r.body { b = b.body(body.to_string()); }
+            }
+            Wire::Kraken if r.method == "POST" => {
+                // The nonce is minted here, at send time, and the signature covers the exact bytes sent.
+                let form = crate::venue::kraken::private_form(r, &self.key);
+                for (k, v) in crate::venue::kraken::private_headers(&r.path, &form, &self.key, &self.secret) { b = b.header(k, v); }
+                b = b.body(form);
+            }
+            Wire::Kraken => { for (k, v) in crate::venue::kraken::public_headers() { b = b.header(k, v); } }
+        }
         if let Some(not_after) = r.not_after {
             // Use the deadline producer's clock immediately before the send: what is left of the absolute bound becomes this request's whole timeout.
             // LISTED RESIDUAL: this bounds when a send may start and how long reqwest keeps it alive, not when the bytes leave.
@@ -208,7 +248,7 @@ impl Transport for ReqwestTransport {
         }
         let mut response=read_limited(b.send().await.map_err(classify)?, limit).await?;
         if !(200..300).contains(&response.status) || decode_json(&response.body).is_err() {
-            eprintln!("{}",self.redact_diagnostic(&diagnostic(Some(response.status),&response.body)));
+            eprintln!("{}", self.failure_line(&response));
         }
         response.body=self.redact_diagnostic(&response.body);
         Ok(response)

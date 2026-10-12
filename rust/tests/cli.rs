@@ -60,13 +60,14 @@ fn run_and_handback_refuse_a_database_url_and_a_missing_secret_before_touching_a
 }
 
 #[test]
-fn run_refuses_a_kraken_bot_a_live_key_and_an_unreadable_key_and_claims_nothing() {
+fn run_refuses_a_kraken_bot_without_a_key_a_live_key_and_an_unreadable_key_and_claims_nothing() {
     let (dir, o, s) = common::install();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
     drop(o);
     let out = cli(dir.path(), &["run"]).output().unwrap();
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("Exchanges::Kraken is not connected in this build"), "{}", stderr(&out));
+    assert!(stderr(&out).contains("no Kraken API key"), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 
     let (dir, o, s) = common::install_alpaca();
@@ -97,10 +98,11 @@ fn run_refuses_a_stopped_bot_whose_orders_it_could_not_poll() {
     let (dir, o, s) = common::install(); // Kraken
     let bot = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
     open(&o.primary, &s, bot);
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
     drop(o);
     let out = cli(dir.path(), &["run"]).output().unwrap();
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains(&format!("bot {bot}: Exchanges::Kraken is not connected in this build")), "{}", stderr(&out));
+    assert!(stderr(&out).contains(&format!("bot {bot}: no Kraken API key")), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none());
 
     let (dir, o, s) = common::install_alpaca();
@@ -229,13 +231,14 @@ fn serve_takes_the_install_over_holds_the_one_lock_until_sigterm_stops_both_then
 
 #[test]
 fn serve_refusals_come_before_the_claim() {
-    // What the engine refuses: a Kraken bot in this build.
+    // What the engine refuses: a Kraken bot without a key.
     let (dir, o, s) = common::install();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
     drop(o);
     let out = finished(cli(dir.path(), &["serve"]).env("PORT", free_port().to_string()));
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("Exchanges::Kraken is not connected in this build"), "{}", stderr(&out));
+    assert!(stderr(&out).contains("no Kraken API key"), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none(), "nothing claimed");
 
     // What the web refuses: a port already taken.

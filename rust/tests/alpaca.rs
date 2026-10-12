@@ -212,9 +212,9 @@ async fn live_factory_connects_paper_only() {
     let f = alpaca::LiveFactory::new();
     let creds = |p: Option<&str>| Some(Credentials { redaction_values:vec![], key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
     for p in [Some("paper"), None, Some("Live"), Some("live ")] {
-        assert_eq!(f.for_bot("Exchanges::Alpaca", creds(p)).urls().trading, PAPER_TRADING_URL, "{p:?}");
+        assert_eq!(f.alpaca(creds(p), vec![]).urls().trading, PAPER_TRADING_URL, "{p:?}");
     }
-    let live = f.for_bot("Exchanges::Alpaca", creds(Some("live")));
+    let live = f.alpaca(creds(Some("live")), vec![]);
     assert_eq!(live.urls().trading, PAPER_TRADING_URL, "never the live host");
     match live.price(&btc_usd(), PriceSide::Ask).await {
         Err(VenueError::Transient(m)) => assert_eq!(m, alpaca::LIVE_REFUSED),
@@ -240,6 +240,18 @@ fn preflight_refuses_a_live_key_and_an_undecryptable_passphrase() {
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [other.encrypt("paper")]).unwrap();
     let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
     assert!(e.iter().any(|p| p.starts_with(&format!("bot {id}:")) && p.contains("api key unreadable")), "{e:?}");
+}
+
+/// A Kraken bot passes preflight like Rails: a connected key is all it needs (no live gate). Without a key it is refused as
+/// on Alpaca.
+#[test]
+fn a_kraken_bot_passes_preflight_like_rails() {
+    use common::seed::{self, BotSpec};
+    let (_d, o, s) = common::install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]));
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Err(vec![format!("bot {id}: no Kraken API key")]));
 }
 
 fn aapl() -> Ticker {

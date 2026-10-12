@@ -268,8 +268,8 @@ fn a_report_refuses_problems_first_then_unreadable_rows_in_checks_words() {
     assert_eq!(r.refusal().unwrap(), vec![1, 2]);
 }
 
-/// The guard refuses what this build cannot trade, in `preflight`'s words, inside the write: the
-/// start of an idle Kraken bot, and starts on Alpaca with a live key or with no key. Each start rolls back.
+/// The guard refuses what this build cannot trade, in `preflight`'s words, inside the write: a start with no key (Kraken,
+/// Alpaca) and an Alpaca start with a live key. Each refused start rolls back; a Kraken start with its key goes through.
 #[test]
 fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() {
     use deltabadger::engine::model;
@@ -284,12 +284,16 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     let status = |c: &rusqlite::Connection, id: i64| -> i64 { c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
     let untradable = |r: &eligibility::Refusal, line: &str| matches!(r, eligibility::Refusal::Untradable(p) if p == &vec![line.to_string()]);
 
-    // A stopped Kraken bot is not traded, so the install is fine until the start.
+    // A Kraken bot with its key starts like in Rails (no live gate); without a key the start is refused and rolls back.
     let (_d, o, s) = install();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
-    assert!(eligibility::guard(&o.primary, &seed::cipher(), Some(id)).is_ok(), "an idle Kraken bot is not traded");
+    assert!(start(&o.primary, id).is_ok(), "a Kraken bot with a key starts");
+    assert_eq!(status(&o.primary, id), 1);
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
     let refused = start(&o.primary, id).unwrap_err();
-    assert!(untradable(&refused, &format!("bot {id}: Exchanges::Kraken is not connected in this build (Alpaca paper only)")), "{refused:?}");
+    assert!(untradable(&refused, &format!("bot {id}: no Kraken API key")), "{refused:?}");
     assert_eq!(status(&o.primary, id), 2, "rolled back");
 
     // Alpaca with a live key, then with no key.

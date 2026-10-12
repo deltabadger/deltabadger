@@ -256,8 +256,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced }
 
-/// Acquire the dispatch write lock before rechecking the captured generation. The production
-/// Alpaca adapter has no blocking preflight or session lock between this check and HTTP send.
+/// Acquire the dispatch write lock before rechecking the captured generation. Neither production
+/// adapter (Alpaca, Kraken) has a blocking preflight or session lock between this check and HTTP send.
 /// Any future adapter with such a wait must recheck after it, before transmission. STOP can
 /// invalidate this run while the response is in flight; the accepted order still gets recorded.
 pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {

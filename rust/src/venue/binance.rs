@@ -20,13 +20,6 @@ pub fn host(exchange_type: &str) -> Option<(&'static str, &'static str)> {
     match exchange_type { BINANCE => Some((URL, "binance")), BINANCE_US => Some((US_URL, "binance_us")), _ => None }
 }
 
-/// ExchangeProxy.for(name): AppConfig `proxy_<name>` when present, else ENV `PROXY_<NAME>` when present (Rails'
-/// `presence`: a blank value is none). `app_config` is the decrypted AppConfig value.
-pub fn proxy_for(name: &str, app_config: Option<String>, env: &dyn Fn(&str) -> Option<String>) -> Option<String> {
-    let present = |v: Option<String>| v.filter(|v| !crate::ruby::blank(v));
-    present(app_config).or_else(|| present(env(&format!("PROXY_{}", name.to_uppercase()))))
-}
-
 /// Faraday::Utils.escape: everything but `[a-zA-Z0-9 .~_-]` percent-encoded (upper-case hex), then a space as "+".
 fn escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -122,6 +115,7 @@ mod tests {
 
     #[test]
     fn the_proxy_is_resolved_as_exchange_proxy_does() {
+        use crate::venue::http::proxy_for;
         let env = |k: &str| (k == "PROXY_BINANCE").then(|| "http://proxy:8080".to_string());
         assert_eq!(proxy_for("binance", None, &env).as_deref(), Some("http://proxy:8080"));
         assert_eq!(proxy_for("binance", Some("http://app:1".into()), &env).as_deref(), Some("http://app:1"), "AppConfig wins");

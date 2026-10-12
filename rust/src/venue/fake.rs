@@ -2,6 +2,7 @@
 //! of placed orders so recovery by cl_ord_id behaves like the real venue.
 use super::*;
 use crate::engine::venue_rules::KRAKEN;
+use super::kraken::{aggregate_trades, check, free_balance, parse_order, ticker_price};
 use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -31,45 +32,9 @@ struct State {
 #[derive(Clone, Default)]
 pub struct FakeVenue { s: Rc<RefCell<State>> }
 
-const ASSET_MAP: [(&str, &str); 10] = [("ZUSD", "USD"), ("ZEUR", "EUR"), ("ZGBP", "GBP"), ("ZJPY", "JPY"), ("ZCHF", "CHF"),
-    ("ZCAD", "CAD"), ("ZAUD", "AUD"), ("XXBT", "XBT"), ("XETH", "ETH"), ("XXDG", "XDG")];
-
-/// A Kraken decimal: absent or null is None (Ruby's nil). Anything present must be a finite decimal within BigDec's
-/// bounds, or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from Ruby on purpose
-/// (ruby::json_to_d): Rails' `.to_d` reads "garbage" as 0 and "NaN" as NaN.
-fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::ruby::json_to_d(v).map_err(|_| unreadable()) }
-
 /// A raw Kraken QueryOrders/ClosedOrders order, parsed as Exchanges::Kraken#parse_order_data does.
 pub fn kraken_order(txid: &str, o: &Value) -> OrderState {
     parse_order(txid, o).expect("a parseable Kraken order")
-}
-
-/// `parse_order_data` raises on an unknown status or order type; here that is an error, never a guess.
-fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
-    let status = match o["status"].as_str() {
-        Some("open") => OrderStatus::Open, Some("closed") => OrderStatus::Closed,
-        Some("canceled") | Some("expired") => OrderStatus::Cancelled, Some("pending") => OrderStatus::Unknown,
-        other => return Err(VenueError::Ambiguous(format!("Unknown Kraken order status: {}", other.unwrap_or("")))),
-    };
-    if !matches!(o["descr"]["ordertype"].as_str(), Some("market") | Some("limit")) {
-        return Err(VenueError::Ambiguous(format!("Unknown Kraken order type: {}", o["descr"]["ordertype"].as_str().unwrap_or(""))));
-    }
-    let viqc = o["oflags"].as_str().is_some_and(|f| f.split(',').any(|x| x == "viqc"));
-    let limit = o["descr"]["ordertype"] == "limit";
-    // Kraken's parse_venue_number requires every order number; absent fills never mean zero.
-    let required = |value: &Value| dec(value)?.ok_or_else(unreadable);
-    let vol = Some(required(&o["vol"])?);
-    let mut price = required(&o["price"])?;
-    if price.is_zero() && limit { price = required(&o["descr"]["price"])?; }
-    Ok(OrderState {
-        asset_class: None,
-        txid: txid.into(),
-        status,
-        price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
-        amount_exec: required(&o["vol_exec"])?, quote_amount_exec: required(&o["cost"])?, limit,
-        sell: o["descr"]["type"] == "sell",
-        pair: o["descr"]["pair"].as_str().map(str::to_string),
-    })
 }
 
 impl FakeVenue {
@@ -119,16 +84,6 @@ impl FakeVenue {
     }
 }
 
-/// `Ok(())` for a clean body; `Rejected` for a non-empty `error`; `Ambiguous` when `error` is missing or not an
-/// array, or a success body has no `result` (honeymaker 0.12.3: unreadable).
-fn check(body: &Value) -> Result<(), VenueError> {
-    let Some(e) = body["error"].as_array() else { return Err(unreadable()) };
-    if !e.is_empty() { return Err(VenueError::Rejected(e.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())); }
-    if body.get("result").is_none() { return Err(unreadable()); }
-    Ok(())
-}
-fn unreadable() -> VenueError { VenueError::Ambiguous("Kraken: unreadable response".into()) }
-
 impl Venue for FakeVenue {
     fn rules(&self) -> &'static VenueRules { &KRAKEN }
 
@@ -138,12 +93,7 @@ impl Venue for FakeVenue {
         if let Some(f) = hook { f(); }
         let body = self.body("/0/public/Ticker").ok_or_else(|| VenueError::Transient("no scripted Ticker".into()))?;
         check(&body)?;
-        let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;
-        let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Last => ("c", "last") };
-        let p = dec(&t[key][0])?.unwrap_or_else(BigDec::zero);
-        // Exchanges::Kraken#get_ask_price / #get_last_price raise on a zero book, naming the pair (kraken.rb:225, :255).
-        if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
-        Ok(p)
+        ticker_price(&body, ticker, side)
     }
 
     async fn add_order(&self, order: &NewOrder) -> Result<String, VenueError> {
@@ -240,37 +190,14 @@ impl Venue for FakeVenue {
             for (id, t) in page { if seen.insert(id) { trades.push(t); } }
             if seen.len() as u64 >= body["result"]["count"].as_u64().unwrap_or(0) { break; }
         }
-        let mut by: Vec<(String, BigDec, BigDec, bool, bool, Option<String>)> = vec![];
-        for trade in trades.iter() {
-            let Some(o) = trade["ordertxid"].as_str().filter(|o| txids.iter().any(|t| t == o)) else { continue };
-            let (vol, cost) = (dec(&trade["vol"])?.unwrap_or_else(BigDec::zero), dec(&trade["cost"])?.unwrap_or_else(BigDec::zero));
-            match by.iter_mut().find(|(t, ..)| t == o) {
-                Some(e) => { e.1 = &e.1 + &vol; e.2 = &e.2 + &cost; }
-                None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell", trade["pair"].as_str().map(str::to_string))),
-            }
-        }
-        // The aggregate names its first trade's pair (honeymaker's aggregate_trades), which Rails looks up as a ticker
-        // (kraken.rb:833): a pair spelled like the ticker (SOLEUR) resolves, Kraken's own spelling (XXBTZEUR) does not.
-        Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
-            asset_class: None,
-            txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair,
-        }).collect())
+        aggregate_trades(&trades, txids)
     }
 
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {
         self.wait().await;
         let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
         check(&body)?;
-        // Rails assigns per row, so with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins.
-        let mut free = BigDec::zero();
-        for (code, b) in body["result"].as_object().into_iter().flatten() {
-            let head = code.split('.').next().unwrap_or(code);
-            let name = ASSET_MAP.iter().find(|(k, _)| *k == head).map(|(_, v)| *v).unwrap_or(head);
-            if name == asset_symbol {
-                free = &dec(&b["balance"])?.unwrap_or_else(BigDec::zero) - &dec(&b["hold_trade"])?.unwrap_or_else(BigDec::zero);
-            }
-        }
-        Ok(free)
+        free_balance(&body, asset_symbol)
     }
 }
 
