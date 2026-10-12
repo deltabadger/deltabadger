@@ -34,6 +34,7 @@ fn script(delay_ms: u64) -> Value {
 }
 
 /// An install with `users` accounts, each with a paper Alpaca key and a basket of AAA bought once.
+#[allow(dead_code)]
 struct Install { _dir: tempfile::TempDir, file: PathBuf, clock: Arc<common::web::TestClock>, app: App }
 impl Install {
     fn new(users: i64, delay_ms: u64) -> Install { Install::with_script(users, script(delay_ms)) }
@@ -57,6 +58,7 @@ impl Install {
         for user in 1..=users { add_account(&c, &app, user); }
         Install { _dir: dir, file, clock, app }
     }
+    #[allow(dead_code)]
     fn connection(&self) -> rusqlite::Connection { rusqlite::Connection::open(&self.file).unwrap() }
     /// The `figures` service of `serve`, with no engine: what consumes the queue.
     fn consume(&self) -> tokio::sync::watch::Sender<bool> {
@@ -177,4 +179,56 @@ async fn debounce_coalesces_job_wakes() {
     until(10, "the debounced publication", async || published(&install.app, 1).await).await;
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(fills(&install.app, 1), 1, "three wakes, one fill");
+}
+
+// ---- Task 3: a page never computes figures; the fill keeps what it rendered ------------------------------------------
+
+/// Reads of the tables only a figure computation reads, on the connection that renders a page.
+fn figure_reads(c: &rusqlite::Connection, reads: Arc<std::sync::atomic::AtomicUsize>) {
+    use rusqlite::hooks::{AuthAction, Authorization};
+    c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+        if let AuthAction::Read { table_name, .. } = context.action {
+            if ["transactions", "tickers", "bot_index_assets", "account_transactions", "wash_sale_locks", "assets"].contains(&table_name) { reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+        }
+        Authorization::Allow
+    }));
+}
+
+#[tokio::test]
+async fn render_runs_no_figure_computation() {
+    use deltabadger::web::figure::loading::Snapshot;
+    let install = Install::new(1, 0);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the figures", async || published(&install.app, 1).await).await;
+    let ready = loading::prepare(&install.app, 1).await.unwrap();
+    let Snapshot::Ready(cache, at, revision, mark) = ready.clone() else { panic!("not ready") };
+    let mut unkept = cache.clone();
+    unkept.set_stamp(at);
+    // (case, snapshot, locale, prefix, whether the page's connection has seen no write since `prepare`)
+    let mut cases = vec![
+        ("ready, kept", ready.clone(), "en", "", true),
+        ("ready, nothing kept", Snapshot::Ready(unkept, at, revision, mark), "en", "", true),
+        ("ready, another locale", ready.clone(), "de", "/de", true),
+        ("failed", Snapshot::Failed(None), "en", "", true),
+        // Written since `prepare`: the fingerprint is read again, and only it.
+        ("stale", Snapshot::Ready(cache.clone(), at, revision.wrapping_add(1), None), "en", "", false),
+    ];
+    install.clock.set(install.clock_now() + chrono::Duration::minutes(5));
+    cases.push(("expired", loading::prepare(&install.app, 1).await.unwrap(), "en", "", true));
+    for (case, snapshot, locale, prefix, unchanged) in cases {
+        let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = reads.clone();
+        let (shown, steps) = install.app.db(move |c| {
+            figure_reads(c, counted);
+            let (out, used) = budget::scope(budget::FIGURE, || loading::render(c, 1, &snapshot, locale, "token", prefix));
+            c.authorizer(None::<fn(rusqlite::hooks::AuthContext<'_>) -> rusqlite::hooks::Authorization>);
+            Ok((out?, used.steps))
+        }).await.unwrap();
+        // Written since `prepare`, the fingerprint is read again: whatever it costs, and nothing more.
+        let fingerprint = if unchanged { 0 } else { install.app.db(|c| Ok(budget::scope(budget::FIGURE, || loading::revision(c, 1)).1.steps)).await.unwrap() };
+        assert_eq!(steps, fingerprint, "{case}: a page computed figures");
+        if unchanged { assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0, "{case}: a page read what only a computation reads"); }
+        if case.starts_with("ready, n") || case == "ready, another locale" || case == "expired" { assert!(shown.is_none(), "{case}: Rails' loading state"); }
+    }
 }

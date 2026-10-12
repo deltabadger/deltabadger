@@ -218,7 +218,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             other_bots.push((ctx.path(&format!("/bots/{id}")), label));
         }
         let hide_money = user.hide_balances;
-        let figures = crate::web::figure::loading::render(c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
+        let figures = crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
         let metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
@@ -268,8 +268,8 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     };
     let csrf = ctx.csrf_token();
     let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
-    let (view,owner,id,token)=(ctx.clone(),user.clone(),bot.id,csrf.clone());
-    let ready = app.db(move|c|Ok(crate::web::figure::loading::render(c,owner.id,&snapshot,view.locale,&token,&view.path(""))?
+    let (view,owner,id,token,inner)=(ctx.clone(),user.clone(),bot.id,csrf.clone(),app.clone());
+    let ready = app.db(move|c|Ok(crate::web::figure::loading::render_page(&inner,c,owner.id,&snapshot,view.locale,&token,&view.path(""))?
         .and_then(|v|v["bots"][id.to_string()]["chart"].as_str().map(str::to_string)))).await?;
     // Bots::ChartsController: a refresh is asked for by a cold chart, or by a page whose own panels found no figures.
     let refresh = ready.is_none() || ctx.params.query("metrics_missing").is_some_and(|value| !value.trim().is_empty());

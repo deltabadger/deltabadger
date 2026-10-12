@@ -313,8 +313,16 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let err=deltabadger::web::figure::account(&c,sc["user_id"].as_i64().unwrap(),&reader,now,"en","token","").unwrap_err();
             assert!(matches!(err,deltabadger::figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"));
             assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"Rails recorded its skipped-row figure");
-            use deltabadger::web::figure::loading::{self,Snapshot};
-            let rendered=loading::render(&c,sc["user_id"].as_i64().unwrap(),&Snapshot::Failed(None),"en","token","").unwrap().unwrap();
+            use deltabadger::web::{App,Config,figure::loading::{self,Snapshot,Source}};
+            // The fill fails, and keeps why with the failure: the page reads no order to say it.
+            let env=common::web::env(common::web::SECRET);
+            let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+            let user=sc["user_id"].as_i64().unwrap();
+            let failed=tokio::time::timeout(std::time::Duration::from_secs(10),async { loop {
+                match loading::prepare(&app,user).await.unwrap() { Snapshot::Cold=>tokio::time::sleep(std::time::Duration::from_millis(20)).await, other=>break other }
+            }}).await.unwrap();
+            assert!(matches!(failed,Snapshot::Failed(Some("executed fill value unavailable"))),"{name}: the fill keeps its reason");
+            let rendered=loading::render(&c,user,&failed,"en","token","").unwrap().unwrap();
             let absent="<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
             assert_eq!(rendered,serde_json::json!({"bots":{"1":{
                 "tile":format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"),
@@ -1068,5 +1076,61 @@ async fn chronology_matches_rails_fresh_bytes() {
         let differing: Vec<&String> = fresh.keys().filter(|key| actual[*key] != fresh[*key]).collect();
         if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart Rails kept: {differing:?}"); }
         else { assert!(differing.is_empty(), "{name}: Rails' cached read and its fresh computation differ outside W1: {differing:?}"); }
+    }
+}
+
+/// A page whose figures are not kept (here: ready figures kept in the account's own locale, the page read in another)
+/// shows Rails' loading state at every figure target, exactly as Rails' cold page shows it, and computes nothing.
+#[tokio::test]
+async fn cold_pages_match_rails_loading_state() {
+    use deltabadger::web::{App, Config, session::{self, SessionData}, figure::loading::{self, Source}};
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let out = std::process::Command::new(root.join("bin/rails")).current_dir(root)
+        .args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()])
+        .env("SECRET_KEY_BASE", common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let element = |body: &str, css: &str| -> Option<Vec<String>> {
+        let doc = scraper::Html::parse_document(body);
+        doc.select(&scraper::Selector::parse(css).unwrap()).next().map(|e| common::html::normalize(&e.html()))
+    };
+    for name in ["basket_buys", "hidden", "owner_account"] {
+        let dir = scratch.path().join(name);
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
+        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let user = sc["user_id"].as_i64().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let file = work.path().join("production.sqlite3");
+        std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
+        // The account reads its pages in French: what a fill keeps is French.
+        rusqlite::Connection::open(&file).unwrap().execute("UPDATE users SET locale='fr' WHERE id=?1", [user]).unwrap();
+        let env = common::web::env(common::web::SECRET);
+        let app = App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap()
+            .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while !matches!(loading::prepare(&app, user).await.unwrap(), loading::Snapshot::Ready(..)) { tokio::time::sleep(std::time::Duration::from_millis(20)).await; }
+        }).await.unwrap();
+        let password: String = rusqlite::Connection::open(&file).unwrap().query_row("SELECT encrypted_password FROM users WHERE id=?1", [user], |r| r.get(0)).unwrap();
+        let signed = SessionData { user: Some((user, password.chars().take(29).collect())), ..SessionData::default() };
+        let mut browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &signed, common::web::at(sc["at"].as_str().unwrap()))), page: None };
+        for id in sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()) {
+            let page = browser.get(&app, &format!("/en/bots/{id}")).await;
+            assert_eq!(page.status, 200, "{name}: {}", page.body);
+            let rails = expected["cold"]["bots"][&id]["page"].as_str().unwrap();
+            for css in ["#metrics", "turbo-frame#bot_chart"] {
+                assert_eq!(element(&page.body, css).map(|lines| lines.into_iter().map(|l| l.replace("/en/bots", "/bots")).collect::<Vec<_>>()), element(rails, css), "{name} bot {id}: {css}");
+            }
+        }
+        if let Some(rails) = expected["cold"]["dashboard"].as_str() {
+            let page = browser.get(&app, "/en/bots").await;
+            assert_eq!(page.status, 200, "{name}");
+            assert_eq!(element(&page.body, "#global-pnl"), element(rails, "#global-pnl"), "{name}: the headline");
+            for id in sc["bot_ids"].as_array().unwrap() {
+                for kind in ["dca_multi_asset", "dca_index"] {
+                    let css = format!("#pnl_bots_{kind}_{id}");
+                    assert_eq!(element(&page.body, &css), element(rails, &css), "{name}: {css}");
+                }
+            }
+        }
     }
 }

@@ -64,7 +64,7 @@ impl Service {
         if let Some(entry)=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()&&e.revision==revision) {
             if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }
         }
-        if state.wanted.get(&user)==Some(&0) { return Load::Failed(None); }
+        if state.wanted.get(&user)==Some(&0) { return Load::Failed(state.entries.get(&user).and_then(|e|e.reason)); }
         // Waiting for capacity spends nothing.
         if state.active>=2 { return Load::Busy; }
         if state.entries.len()>=ACCOUNTS && !state.entries.contains_key(&user) {
