@@ -43,25 +43,8 @@ module PageFigures
     session.response.body
   end
 
-  def run(root)
-    Rails.logger.level = :warn
-    Rails.cache = ActiveSupport::Cache::MemoryStore.new
-    Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedMarket::Adapter)
-    ActionCable.server.singleton_class.prepend(Module.new do
-      def broadcast(stream, message, **)
-        PageFigures.broadcasts << [stream, message] if PageFigures.broadcasts
-      end
-    end)
-    template = Dir.mktmpdir('page-figures')
-    assets = Figures.world(template)
-    list = Figures.scenarios.select { |s| NAMES.include?(s['name']) }
-    raise 'missing scenario' unless list.size == NAMES.size
-
-    list << list.find { |s| s['name'] == 'basket_buys' }.merge('name' => 'hidden', 'hide_balances' => true)
-    %w[locked locked_sold locked_gb locked_sold_gb locked_blank locked_whitespace locked_unicode stranded_offset no_composition].each do |name|
-      source = name.start_with?('locked_sold') ? 'sold_out' : 'basket_buys'
-      list << list.find { |s| s['name'] == source }.merge('name' => name)
-    end
+  # The owner's account: a basket, a pair bot and an index, on the hosted provider.
+  def owner_account(list)
     owner = list.find { |s| s['name'] == 'index_rotation' }.deep_dup
     owner['name'] = 'owner_account'
     owner['provider'] = 'deltabadger'
@@ -80,7 +63,136 @@ module PageFigures
     end
     single['settings']['limit_ordered'] = true
     owner['bots'] = [basket, single, index]
-    list << owner
+    owner
+  end
+
+  # Each bot's tile, metrics panel and chart as Rails renders them from what its caches hold (computed where they hold nothing).
+  def bot_fragments(user, bots)
+    bots.to_h do |bot|
+      data = bot.metrics_with_current_prices
+      marked = bot.metrics_with_current_prices_and_candles
+      render = ->(partial, locals) { ApplicationController.render(partial:, locals:) }
+      profit = bot.profit_in_usd(data, cache_only: false) unless user.hide_balances?
+      [bot.id, {
+        'tile' => render.call('bots/bot_tile/bot_tile_pnl',
+                              { bot:, pnl: data[:pnl], profit_usd: profit, denomination: user.denomination, loading: false }),
+        'metrics' => render.call('bots/composition/metrics', { bot:, metrics: data, loading: false, exited_title_key: bot.exited_title_key }),
+        'chart' => render.call('bots/chart', { bot:, metrics: marked, loading: false, current_user: user })
+      }]
+    end
+  end
+
+  def account_fragment(user)
+    snapshot = User::PnlHistory.snapshot(user, live: true)
+    ApplicationController.render(partial: 'bots/global_pnl', locals: {
+                                   global_pnl: user.global_pnl(use_cache: false), history: snapshot[:result], loading: false,
+                                   hide_balances: user.hide_balances?, denomination: user.denomination
+                                 })
+  end
+
+  def harness
+    Rails.logger.level = :warn
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedMarket::Adapter)
+    ActionCable.server.singleton_class.prepend(Module.new do
+      def broadcast(stream, message, **)
+        PageFigures.broadcasts << [stream, message] if PageFigures.broadcasts
+      end
+    end)
+  end
+
+  def scenario_list
+    list = Figures.scenarios.select { |s| NAMES.include?(s['name']) }
+    raise 'missing scenario' unless list.size == NAMES.size
+
+    list
+  end
+
+  # What the owner's figures look like over time, a step at a time: what a page reads from Rails' caches as they stand
+  # (`actual`), and a fresh computation (`fresh`): every cache layer cleared (the three metrics keys, the candle series,
+  # the rates), rendered at `t_c`, the moment the figures being compared were computed. `t_r` is when the page reads.
+  #   warm; a reread with no write; an order filled (Bot::UpdateMetricsJob and its broadcast); a reread; the cut; the
+  #   provider failing at the next cut.
+  # `writes`: the rows a step committed, as stored. The provider failure's `script` replaces the market's from its step on.
+  def chronology(root)
+    harness
+    template = Dir.mktmpdir('page-figures')
+    assets = Figures.world(template)
+    sc = owner_account(scenario_list)
+    dir = File.join(root, sc['name'])
+    FileUtils.mkdir_p(dir)
+    user, bots = Figures.build(sc.merge('dir' => dir), template, assets)
+    user.update_columns(wash_sale_enabled: false)
+    Rails.cache.clear
+    ScriptedMarket.http = sc['script']
+    ScriptedMarket.requests = []
+    ScriptedMarket.gaps = []
+    ActiveRecord::Base.connection.execute("VACUUM INTO '#{File.join(dir, 'initial.sqlite3')}'")
+    t0 = Figures.time(sc['at'])
+    cut = Time.at((t0.to_i / 300 * 300) + 300).utc
+    t3 = t0 + 120
+    failing = sc['script'].to_h { |key, reply| [key, key.match?(%r{/snapshots|/latest/trades}) ? { 'status' => 503, 'body' => {} } : reply] }
+    reload = -> { [User.find(user.id), bots.map { |bot| Bot.find(bot.id) }] }
+    read = lambda do |at|
+      reader, readers = reload.call
+      Figures.travel_to(at, with_usec: true) { { 'bots' => bot_fragments(reader, readers), 'account' => account_fragment(reader) } }
+    end
+    fresh = lambda do |at|
+      kept = Rails.cache
+      Rails.cache = ActiveSupport::Cache::MemoryStore.new
+      read.call(at)
+    ensure
+      Rails.cache = kept
+    end
+    steps = []
+    step = lambda do |name, t_r, t_c, **rest|
+      steps << { 'name' => name, 't_r' => t_r.utc.iso8601(9), 't_c' => t_c.utc.iso8601(9), 'actual' => read.call(t_r), 'fresh' => fresh.call(t_c) }.merge(rest.stringify_keys)
+    end
+    step.call('warm', t0, t0)
+    step.call('reread', t0 + 90, t0)
+    basket = bots.first
+    row = { 'bot_id' => basket.id, 'exchange_id' => basket.exchange_id, 'base_asset_id' => assets['AAA'], 'quote_asset_id' => basket.settings['quote_asset_id'],
+            'base' => 'AAA', 'quote' => 'USD', 'side' => 'buy', 'transaction_type' => 'REGULAR', 'status' => 'submitted', 'external_status' => 'closed',
+            'external_id' => 'chronology-fill', 'order_type' => 'market_order', 'price' => '104.5', 'amount' => '0.2', 'amount_exec' => '0.2',
+            'quote_amount_exec' => '20.9', 'bot_interval' => 'week', 'bot_quote_amount' => 100.0, 'error_messages' => [], 'created_at' => t3, 'updated_at' => t3 }
+    id = Transaction.insert!(row).rows.first&.first || Transaction.find_by!(external_id: 'chronology-fill').id
+    written = ActiveRecord::Base.connection.select_one("SELECT * FROM transactions WHERE id = #{id.to_i}")
+    PageFigures.broadcasts = []
+    adapter = ActiveJob::Base.queue_adapter
+    ActiveJob::Base.queue_adapter = :test
+    Figures.travel_to(t3, with_usec: true) do
+      Bot::UpdateMetricsJob.perform_now(Bot.find(basket.id))
+      Bot::BroadcastMetricsUpdateJob.perform_now(Bot.find(basket.id))
+    end
+    ActiveJob::Base.queue_adapter = adapter
+    step.call('filled', t3, t3, writes: [['transactions', written]], broadcasts: PageFigures.broadcasts)
+    PageFigures.broadcasts = nil
+    step.call('reread_filled', t3 + 60, t3)
+    step.call('cut', cut + 5, cut + 5)
+    ScriptedMarket.http = failing
+    step.call('provider_failure', cut + 305, cut + 305, script: failing)
+    raise "unscripted market: #{ScriptedMarket.gaps.uniq}" unless ScriptedMarket.gaps.empty?
+
+    File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate({ 'parity_scratch' => true, 'at' => t0.utc.iso8601(9), 'user_id' => user.id,
+                                                                        'bot_ids' => bots.map(&:id), 'script' => sc['script'] }))
+    File.write(File.join(dir, 'chronology.json'), JSON.pretty_generate({ 'w1' => %w[filled reread_filled], 'steps' => steps }))
+    ActiveRecord::Base.connection_pool.disconnect!
+  ensure
+    FileUtils.rm_rf(template) if template
+  end
+
+  def run(root)
+    harness
+    template = Dir.mktmpdir('page-figures')
+    assets = Figures.world(template)
+    list = scenario_list
+
+    list << list.find { |s| s['name'] == 'basket_buys' }.merge('name' => 'hidden', 'hide_balances' => true)
+    %w[locked locked_sold locked_gb locked_sold_gb locked_blank locked_whitespace locked_unicode stranded_offset no_composition].each do |name|
+      source = name.start_with?('locked_sold') ? 'sold_out' : 'basket_buys'
+      list << list.find { |s| s['name'] == source }.merge('name' => name)
+    end
+    list << owner_account(list)
     # An index bot's liquidation, redeploy and rebalance legs: the bot page (GET /bots/:id) is compared on it too.
     specials = list.find { |s| s['name'] == 'liquidations' }.deep_dup
     specials['name'] = 'index_specials'
@@ -115,29 +227,14 @@ module PageFigures
       out = {}
       Figures.travel_to(Figures.time(sc['at']), with_usec: true) do
         out['cold'] = pages(user, bots) if FRAMED.include?(sc['name'])
-        out['bots'] = bots.to_h do |bot|
-          data = bot.metrics_with_current_prices
-          marked = bot.metrics_with_current_prices_and_candles
-          render = ->(partial, locals) { ApplicationController.render(partial:, locals:) }
-          profit = bot.profit_in_usd(data, cache_only: false) unless user.hide_balances?
-          [bot.id, {
-            'tile' => render.call('bots/bot_tile/bot_tile_pnl',
-                                  { bot:, pnl: data[:pnl], profit_usd: profit, denomination: user.denomination, loading: false }),
-            'metrics' => render.call('bots/composition/metrics', { bot:, metrics: data, loading: false, exited_title_key: bot.exited_title_key }),
-            'chart' => render.call('bots/chart', { bot:, metrics: marked, loading: false, current_user: user })
-          }]
-        end
+        out['bots'] = bot_fragments(user, bots)
         bots.each do |bot|
           bot.broadcast_pnl_update
           bot.broadcast_metrics_panel
           bot.broadcast_chart
         end
         user.broadcast_global_pnl_update
-        snapshot = User::PnlHistory.snapshot(user, live: true)
-        out['account'] = ApplicationController.render(partial: 'bots/global_pnl', locals: {
-                                                        global_pnl: user.global_pnl(use_cache: false), history: snapshot[:result], loading: false,
-                                                        hide_balances: user.hide_balances?, denomination: user.denomination
-                                                      })
+        out['account'] = account_fragment(user)
         out['warm'] = pages(user, bots) if FRAMED.include?(sc['name'])
       end
       raise 'unscripted market' unless ScriptedMarket.gaps.empty?

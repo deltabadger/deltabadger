@@ -9,6 +9,7 @@ mod plot;
 mod headline;
 pub mod service;
 pub mod loading;
+pub mod warm;
 use crate::figures::totals;
 
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
@@ -90,7 +91,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             let missing = missing(&subject, &marked_live, market)?;
             let marked = chart::marked(c, &subject, &marked_live, market, now)?;
             let mut offsets = vec![];
-            let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some("") => holdings::Token::None, Some(token) => holdings::Token::Value(token) };
+            let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some(token) => holdings::Token::Value(token) };
             let metrics = holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, &mut token, prefix, now)?;
             if !offsets.is_empty() { slots.push((id.to_string(), offsets)); }
             bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), user.hide_balances)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));

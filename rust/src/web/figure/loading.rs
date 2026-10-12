@@ -1,5 +1,5 @@
 //! Network work never owns the database lock. Only raw JSON and request descriptions cross threads.
-use super::{account,service::Load};
+use super::service::{Load,Work};
 use crate::figures::{at::At,budget,db,page_market::{Cache,Reader}};
 use crate::venue::http::{self,HttpRequest,HttpResponse,ReqwestTransport,Transport,TransportError};
 use crate::web::{App,WebError};
@@ -11,9 +11,9 @@ use std::time::Duration;
 #[derive(Clone,Default)]
 pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
-/// Ready: the cache, its stamp, the revision it was prepared against, and where the database stood when that revision was
-/// read (`unchanged_since`), if on the connection that renders it.
-pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>) }
+/// Ready: the cache, its stamp, the revision it was prepared against, where the database stood when that revision was
+/// read (`unchanged_since`), if on the connection that renders it, and until when (Unix seconds) its figures may be shown.
+pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>,i64) }
 pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
 /// Where a connection's view of the database stands: what other connections committed (`PRAGMA data_version`) and what
 /// it wrote itself (total changes). Equal on that connection, nothing was written in between.
@@ -160,17 +160,28 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     let revision=revision(c,user)?.0;
     Ok(Some(Info{identity,revision,mark:mark(c)?,credentials,origin:version}))
 }
-pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion> }
+pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None,compute:None} }
+    /// Each answer is settled (a pass over the whole body) off the runtime's thread, under the figures' compute permit.
+    pub(crate) fn settled_under(mut self,compute:std::sync::Arc<tokio::sync::Semaphore>)->Self { self.compute=Some(compute);self }
+    /// A live answer as `ReqwestTransport::settle` settles it (checked and scrubbed); a scripted one scrubbed as a live
+    /// body is. Off the runtime's thread when the fill says so (`settled_under`).
+    async fn settle(&self,reply:HttpResponse,live:bool)->Result<HttpResponse,TransportError> {
+        let real=self.real.clone();
+        let work=move||if live { real.settle(reply) } else { HttpResponse{status:reply.status,body:real.redact_diagnostic(&reply.body)} };
+        let Some(compute)=&self.compute else { return Ok(work()) };
+        let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
+        tokio::task::spawn_blocking(move||{ let _permit=permit; work() }).await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))
+    }
 }
 impl Transport for Wire {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.origin.clone()}
     fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
-            Source::Live=>self.real.send(r).await,
+            Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?,true).await,
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)=>{
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
@@ -184,12 +195,12 @@ impl Transport for Wire {
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
                 if let Some(ms)=reply["delay_ms"].as_u64(){tokio::time::sleep(Duration::from_millis(ms)).await;}
-                Ok(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:self.redact_diagnostic(&reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string()))})
+                self.settle(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string())},false).await
             }
         }
     }
     async fn send_limited(&self,r:&HttpRequest,limit:usize)->Result<HttpResponse,TransportError>{
-        if matches!(self.source,Source::Live){return self.real.send_limited(r,limit).await;}
+        if matches!(self.source,Source::Live){return self.settle(self.real.send_unsettled(r,limit).await?,true).await;}
         let reply=self.send(r).await?;
         if reply.body.len()>limit{Err(TransportError::Permanent("Market data unavailable".into()))}else{Ok(reply)}
     }
@@ -207,9 +218,81 @@ pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::Figur
     }
     Ok(names.into_iter().collect())
 }
-type FillResult=Result<(),Option<&'static str>>;
-async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At)->FillResult {
-    fill_result(app,user,cache,wire,now,|_,_|Ok(true),move|c,reader|account(c,user,reader,now,"en","","").map(|_|())).await
+/// Figures CPU work on the builder's own connection, off the runtime's thread, holding the one compute permit
+/// (`Service::compute`) until it returns, never on the connection pages use (`App::db`). An in-memory database has no
+/// second connection: there the work runs on the page's, still under the permit.
+async fn build<T:Send+'static>(app:&App,work:impl FnOnce(&Connection)->Result<T,WebError>+Send+'static)->Result<T,WebError> {
+    let permit=app.figure_service.compute().acquire_owned().await.map_err(|e|WebError::Task(e.to_string()))?;
+    let path=match app.figure_service.builder_path() {
+        Some(path)=>path,
+        None=>{ let path=app.db(|c|Ok(c.path().unwrap_or_default().to_string())).await?; app.figure_service.set_builder_path(path.clone()); path }
+    };
+    if path.is_empty() { return app.db(move|c|{ let _permit=permit; work(c) }).await; }
+    let service=app.figure_service.clone();
+    tokio::task::spawn_blocking(move||{ let _permit=permit; service.with_builder(work) }).await.map_err(|e|WebError::Task(e.to_string()))?
+}
+/// Figures rendered for kept use, by (locale, path prefix).
+type Rendered=Vec<((String,String),(Value,super::Slots))>;
+/// The key a publication renders: the account's own locale and its paths (Bot#with_user_locale,
+/// ApplicationController#default_url_options).
+pub(crate) fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::Error> {
+    let chosen:Option<String>=c.query_row("SELECT locale FROM users WHERE id=?1",[user],|r|r.get(0)).optional()?.flatten();
+    let locale=crate::web::locale::switch(None,chosen.as_deref());
+    Ok((locale.to_string(),crate::web::locale::path(locale,"")))
+}
+fn kept_key(revision:u64,at:At,locale:&str,prefix:&str)->String { serde_json::json!([revision,at.0,locale,prefix]).to_string() }
+fn kept_value((value,slots):(Value,super::Slots))->std::sync::Arc<Value> { std::sync::Arc::new(serde_json::json!({"figures":value,"slots":slots})) }
+/// The fill's computation: its last pass, with every market answer it needs, renders the account's own key and every key
+/// of the work it carries, to be kept with the cache (`spawn_fill`).
+async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,keys:std::collections::BTreeSet<(String,String)>)->Result<Rendered,Option<&'static str>> {
+    fill_result(app,user,cache,wire,now,|_,_|Ok(true),move|c,reader|{
+        let mut keys=keys.clone();
+        keys.insert(own_key(c,user)?);
+        let mut out=vec![];
+        for (locale,prefix) in keys {
+            let rendered=super::kept_account(c,user,reader,now,&locale,&prefix)?;
+            // A pass that still lacks market data fetches it first; only the last pass renders every key.
+            if reader.failed() || !reader.demands().is_empty() { return Ok(vec![]); }
+            out.push(((locale,prefix),rendered));
+        }
+        Ok(out)
+    }).await
+}
+/// The earliest end (Unix seconds) of a wash-sale lock the account's figures show, after `now`: a held asset's row moves
+/// out of the locked table then. Only where the rule applies (holdings::render: enabled, and US, GB or IE, US when blank).
+fn lock_deadline(c:&Connection,user:i64,now:At)->Result<Option<i64>,WebError> {
+    let (enabled,jurisdiction):(Option<bool>,Option<String>)=c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[user],|r|Ok((r.get(0)?,r.get(1)?)))?;
+    let jurisdiction=jurisdiction.as_deref().filter(|j|!j.trim().is_empty()).unwrap_or("US");
+    if enabled!=Some(true) || !["US","GB","IE"].contains(&jurisdiction) { return Ok(None); }
+    let mut statement=c.prepare("SELECT buy_locked_until FROM wash_sale_locks WHERE user_id=?1 AND buy_locked_until IS NOT NULL")?;
+    let mut earliest:Option<At>=None;
+    for until in statement.query_map([user],|r|r.get::<_,String>(0))? {
+        // An unreadable deadline ends the figures at once: the next read refills.
+        let until=At::from_sql(&until?).unwrap_or(now);
+        if until>now { earliest=Some(earliest.map_or(until,|e|e.min(until))); }
+    }
+    Ok(earliest.map(|at|at.utc().timestamp()))
+}
+/// Why a failed account's figures are absent, from its stored fills alone: an executed fill whose value is unknown.
+fn walk_reason(c:&Connection,user:i64)->Option<&'static str> {
+    let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
+        for (id,_) in db::account_bots(c,user)?{for order in db::orders(c,id)?{crate::figures::fill::parse(&order)?;}}
+        Ok(())
+    });
+    matches!(fills,Err(crate::figures::FiguresError::NotComputed(ref why)) if why=="executed fill value unavailable").then_some("executed fill value unavailable")
+}
+/// The render-only pass: keys this ready cache has not kept are rendered from it, with no market request, and kept.
+fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collections::BTreeSet<(String,String)>)->Result<(),crate::figures::FiguresError> {
+    let missing:Vec<&(String,String)>=keys.iter().filter(|(locale,prefix)|cache.kept(&kept_key(prepared,at,locale,prefix)).is_none()).collect();
+    if missing.is_empty() { return Ok(()); }
+    budget::within(||{
+        let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(symbols(c,user)?);
+        let mut out=vec![];
+        for (locale,prefix) in missing { out.push((kept_key(prepared,at,locale,prefix),super::kept_account(c,user,&reader,at,locale,prefix)?)); }
+        if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0!=prepared { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
+        for (key,rendered) in out { cache.keep(key,kept_value(rendered)); }
+        Ok(())
+    })
 }
 /// The MCP caller needs only readiness; the page caller retains a safe reason from computation.
 pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->bool+Clone+Send+'static)->bool {
@@ -217,28 +300,29 @@ pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:
 }
 /// Compute, fetch demands and retry at most four times. Only a fixed public reason crosses into
 /// failed snapshots: arbitrary provider diagnostics and stored data cannot become page text.
-async fn fill_result(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->Result<(),crate::figures::FiguresError>+Clone+Send+'static)->FillResult {
+async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->Result<T,crate::figures::FiguresError>+Clone+Send+'static)->Result<T,Option<&'static str>> {
     for _ in 0..4 {
         let snapshot=cache.clone();let work=work.clone();
-        let pass=app.db(move|c|{
+        let pass=build(app,move|c|{
             if !admit(c,user)? { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
                 let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names);
                 let result=work(c,&reader);
-                let ready=result.is_ok() && !reader.failed();
-                let reason=match result {
-                    Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>Some("Currency conversion unavailable"),
-                    _=>None,
+                let failed=reader.failed();
+                let (out,reason)=match result {
+                    Ok(out)=>(Some(out).filter(|_|!failed),None),
+                    Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>(None,Some("Currency conversion unavailable")),
+                    Err(_)=>(None,None),
                 };
-                Ok::<_,crate::figures::FiguresError>((reader.demands(),ready,reason))
+                Ok::<_,crate::figures::FiguresError>((reader.demands(),out,reason))
             });
             Ok(result.ok()) // allow-swallow: computation failure becomes a failed fill; only the safe reason above is retained
         }).await;
-        let Ok(Some((demands,ready,reason)))=pass else { return Err(None) };
-        if demands.is_empty(){return if ready{Ok(())}else{Err(reason)};}
+        let Ok(Some((demands,out,reason)))=pass else { return Err(None) };
+        if demands.is_empty(){return out.ok_or(reason);}
         if demands.len()>crate::figures::page_market::MAX_ENTRIES{return Err(None);}
-        cache.fill(wire,demands,now.utc().timestamp()).await;
+        cache.fill_bounded(wire,demands,now.utc().timestamp(),&app.figure_service.compute()).await;
     }
     Err(None)
 }
@@ -250,110 +334,117 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(None))};
+    // No paper Alpaca key, so no fill: why its figures are absent is read from its stored fills, as it always was (no
+    // figures CPU work waits for it, nor it for theirs).
+    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(app.db(move|c|Ok(walk_reason(c,user))).await?))};
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
         Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
-        Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark)))},
-        Load::Start(ticket,mut cache)=>{
-            let inner=app.clone();let source=app.figure_source.clone();
-            tokio::spawn(async move {
-                let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone());
-                let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(Err(None));
-                let check=inner.clone();
-                let current=inner.db(move|c|read_info(c,&check,user)).await;
-                let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
-                cache.set_stamp(now);
-                let reason=if unchanged{result.as_ref().err().copied().flatten()}else{None};
-                ticket.finish_with_reason(cache,result.is_ok()&&unchanged,reason,inner.now().timestamp());
-                // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
-                // limit turned away. A fill a write overtook is not published: publishing starts the next fill, and each
-                // fill a waiting account starts spends one of its own allowance (`service::ALLOWANCE`), so failures and
-                // writes end in a publication, not a loop. Waiting behind another account spends nothing.
-                // ponytail: every waiting account per fill end; one queue of accounts if installs grow past a handful.
-                // A publication that fails here (a transient database error) is handed to the `figures` service, which tries
-                // it again with its backoff (`follow`).
-                for waiting in inner.figure_service.waiting_idle() {
-                    if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
-                }
-            });
-            Ok(Snapshot::Cold)
-        }
+        Load::Ready(cache,_,until)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark),until))},
+        Load::Start(ticket,cache)=>{ spawn_fill(app,user,info,now,ticket,cache,None); Ok(Snapshot::Cold) }
     }
 })}
+/// A fill of this account's market cache, on a task of its own. `work`: what the queue asked of it (`follow`).
+fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,mut cache:Cache,work:Option<Work>) {
+    let inner=app.clone();let source=app.figure_source.clone();
+    tokio::spawn(async move {
+        let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
+        let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
+        // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
+        let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),fill(&inner,user,&mut cache,&wire,now,keys)).await;
+        let timed_out=timed.is_err();
+        let result=timed.unwrap_or(Err(None));
+        let check=inner.clone();
+        let current=inner.db(move|c|read_info(c,&check,user)).await;
+        let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
+        cache.set_stamp(now);
+        let (ready,reason,deadline)=match result {
+            // What the last pass rendered is kept with the cache: no page computes it.
+            Ok(rendered) if unchanged=>match build(&inner,move|c|lock_deadline(c,user,now)).await {
+                Ok(deadline)=>{ for ((locale,prefix),rendered) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered)); } (true,None,deadline) }
+                Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
+            },
+            Err(Some(reason)) if unchanged=>(false,Some(reason),None),
+            // Stored at once: no CPU work (which would wait for the worker still running) before the failure is known.
+            Err(None) if timed_out=>(false,None,None),
+            _=>(false,build(&inner,move|c|Ok(walk_reason(c,user))).await.unwrap_or(None),None), // allow-swallow: an unread reason shows the plain no value
+        };
+        ticket.finish_until(cache,ready,reason,inner.now().timestamp(),deadline);
+        // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
+        // limit turned away. A fill a write overtook is not published: publishing starts the next fill, and each
+        // fill a waiting account starts spends one of its own allowance (`service::ALLOWANCE`), so failures and
+        // writes end in a publication, not a loop. Waiting behind another account spends nothing.
+        // ponytail: every waiting account per fill end; one queue of accounts if installs grow past a handful.
+        // A publication that fails here (a transient database error) is handed to the `figures` service, which tries
+        // it again with its backoff (`follow`).
+        let mut publish:std::collections::BTreeSet<i64>=inner.figure_service.waiting_idle().into_iter().collect();
+        if work.is_some_and(|work|work.publish) { publish.insert(user); }
+        for waiting in publish {
+            if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
+        }
+    });
+}
 /// Kept figures with the request's form token written where the renderer left each form's empty token
 /// (`figure::kept_account`), and nowhere else: stored text is never searched.
 fn with_token(figures:&Value,slots:&super::Slots,csrf:&str)->Value {
     let mut out=figures.clone();
-    let token=crate::web::i18n::escape(csrf);
     for (bot,offsets) in slots {
         if let Some(Value::String(metrics))=out.get_mut("bots").and_then(|bots|bots.get_mut(bot)).and_then(|bot|bot.get_mut("metrics")) {
-            for &at in offsets.iter().rev() { metrics.insert_str(at,&token); }
+            *metrics=super::holdings::with_token(metrics,offsets,csrf);
         }
     }
     out
 }
 /// Converts a terminal computation failure into absence at every dependent presentation target.
 /// `Ok(None)` while the figures are cold; an error only when the fallback cannot read the account's bots.
-pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
-    if matches!(snapshot,Snapshot::Cold){return Ok(None);}
-    let mut fx_unavailable=matches!(snapshot,Snapshot::Failed(Some("Currency conversion unavailable")));
-    if let Snapshot::Ready(cache,now,prepared_revision,read)=snapshot {
-        let computed=budget::within(||{
-            let unavailable=||crate::figures::FiguresError::NotComputed("Market data unavailable".into());
-            let current=cache.producer().as_ref().map(|origin|crate::engine::model::credential_is_current(c,origin)).transpose().map_err(|_|unavailable())?.unwrap_or(false);
+pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str,clock:&dyn crate::engine::Clock)->Result<Option<Value>,WebError>{
+    let reason=match snapshot {
+        Snapshot::Cold=>return Ok(None),
+        Snapshot::Failed(reason)=>*reason,
+        Snapshot::Ready(cache,now,prepared_revision,read,until)=>{
+            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
             // connection (App::db's one): read again only if anything was written since.
             let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
-            if !current || !unchanged && revision(c,user)?.0 != *prepared_revision { return Err(unavailable()); }
-            // The figures are a function of this cache, the revision and `now` (the cache's stamp), and of how they are
-            // rendered: one computation serves every page load until a fill, a new stamp or a write. A form token is
-            // per request, so it is rendered as a placeholder and put in on the way out.
-            let key=serde_json::json!([prepared_revision,now.0,locale,prefix,csrf.is_empty()]).to_string();
-            let token=|kept:&Value|->Result<Value,crate::figures::FiguresError> {
-                let slots:super::Slots=serde_json::from_value(kept["slots"].clone()).map_err(|_|unavailable())?;
-                Ok(with_token(&kept["figures"],&slots,csrf))
-            };
-            if let Some(kept)=cache.kept(&key) { return token(&kept); }
-            let names=symbols(c,user)?;
-            let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
-            let (value,slots)=if csrf.is_empty() { (account(c,user,&reader,*now,locale,"",prefix)?,vec![]) } else { super::kept_account(c,user,&reader,*now,locale,prefix)? };
-            // Core live calculations may return ledger values after a market failure.
-            // Publish only after all reads succeeded against the prepared revision.
-            if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0 != *prepared_revision {
-                return Err(unavailable());
+            if current && (unchanged || revision(c,user).ok().map(|(revision,_)|revision)==Some(*prepared_revision)) {
+                // The figures are a function of this cache, the revision and `now` (the cache's stamp), and of how they
+                // are rendered. The fill or the queue renders them; a page only reads what was kept, and a form token is
+                // per request: kept figures record where each form's field goes, and a page writes its own.
+                let Some(kept)=cache.kept(&kept_key(*prepared_revision,*now,locale,prefix)) else { return Ok(None) };
+                let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
+                let shown=with_token(&kept["figures"],&slots,csrf);
+                // Their lifetime is checked as they are shown, not when the page prepared them: past the cut (or a wash-sale
+                // lock's end) the page shows the loading state and the queue fills again.
+                if clock.now().timestamp()>=*until { return Ok(None); }
+                return Ok(Some(shown));
             }
-            let kept=serde_json::json!({"figures":value,"slots":slots});
-            let out=token(&kept)?;
-            cache.keep(key,std::sync::Arc::new(kept));
-            Ok(out)
-        });
-        match computed {
-            Ok(value)=>return Ok(Some(value)),
-            Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>fx_unavailable=true,
-            Err(_)=>{},
+            None
         }
-    }
-    // A failed cache has no metrics. Recover the shared stored-fill refusal under the same budget.
-    let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
-        for (id,_) in db::account_bots(c,user)?{for order in db::orders(c,id)?{crate::figures::fill::parse(&order)?;}}
-        Ok(())
-    });
-    let no_value=if fx_unavailable {"<span class=\"no-value\">Currency conversion unavailable</span>"}else{match fills{
-        Err(crate::figures::FiguresError::NotComputed(why)) if why=="executed fill value unavailable"=>"<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>",
+    };
+    let no_value=match reason {
+        Some("Currency conversion unavailable")=>"<span class=\"no-value\">Currency conversion unavailable</span>",
+        Some("executed fill value unavailable")=>"<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>",
         _=>super::NO_VALUE,
-    }};
+    };
     // The fallback is every bot's no value, or nothing: a failure to read the bots fails the render, never publishes the
-    // headline alone.
+    // headline alone. Read as `db::account_bots` reads them, outside any figure's budget.
     let mut bots=serde_json::Map::new();
-    let ids=db::account_bots(c,user).map_err(|e|WebError::Task(format!("figures fallback: {e:?}")))?;
-    for (id,kind) in ids {
+    let mut statement=c.prepare("SELECT id, type FROM bots WHERE user_id = ?1 AND status != ?2")?;
+    for row in statement.query_map(rusqlite::params![user,crate::enums::BotStatus::Deleted as i64],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))? {
+        let (id,kind)=row?;
         let kind=if kind.as_deref()==Some("Bots::DcaIndex"){"dca_index"}else{"dca_multi_asset"};
         bots.insert(id.to_string(),serde_json::json!({"tile":format!("<div id=\"pnl_bots_{kind}_{id}\">{}</div>",no_value),"metrics":format!("<div id=\"metrics\">{}</div>",no_value),"chart":format!("<div id=\"chart\">{}</div>",no_value)}));
     }
     Ok(Some(serde_json::json!({"bots":bots,"account":format!("<div id=\"global-pnl\">{}</div>",no_value)})))
+}
+/// What a page shows: the kept figures, or None (Rails' loading state) while they are not kept, and then the queue makes
+/// and publishes them in the page's locale and paths.
+pub fn render_page(app:&App,c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
+    let shown=render(c,user,snapshot,locale,csrf,prefix,&*app.clock)?;
+    if shown.is_none() && !matches!(app.figure_source,Source::Disabled) { enqueue_page(app,user,locale,prefix); }
+    Ok(shown)
 }
 /// Puts the user's figures on their streams (`figure::streams`): every tile, each bot page's metrics and chart, and the
 /// account headline. Each is rendered as Rails renders a broadcast: in the user's locale and under its paths
@@ -373,17 +464,21 @@ async fn publish_with(app:App,user:i64)->Result<(),WebError>{
         let serial=app.figure_service.settled(user);
         let ready=matches!(snapshot,Snapshot::Ready(..));
         let inner=app.clone();
-        let (streams,info)=app.db(move|c|{
-            let chosen:Option<String>=c.query_row("SELECT locale FROM users WHERE id=?1",[user],|r|r.get(0)).optional()?.flatten();
-            let locale=crate::web::locale::switch(None,chosen.as_deref());
-            let streams=match render(c,user,&snapshot,locale,"",&crate::web::locale::path(locale,""))? {
+        let (streams,info,unkept,expired)=app.db(move|c|{
+            let key=own_key(c,user)?;
+            let expired=matches!(&snapshot,Snapshot::Ready(..,until) if inner.now().timestamp()>=*until);
+            let (streams,unkept)=match render(c,user,&snapshot,&key.0,"",&key.1,&*inner.clock)? {
                 // A failure here fails the publication: nothing is recorded or delivered, and the caller's retry keeps the demand.
-                Some(rendered)=>super::streams(c,user,&rendered).map_err(|e|WebError::Task(format!("figure streams: {e:?}")))?,
-                None=>vec![],
+                Some(rendered)=>(super::streams(c,user,&rendered).map_err(|e|WebError::Task(format!("figure streams: {e:?}")))?,None),
+                None=>(vec![],(ready&&!expired).then_some(key)),
             };
             let info=if ready { read_info(c,&inner,user)? } else { None };
-            Ok((streams,info))
+            Ok((streams,info,unkept,expired))
         }).await?;
+        // Expired while it was being rendered: tried once more, which fills anew.
+        if expired { continue; }
+        // Ready, and nothing kept in the account's own key: the queue renders it from this cache and publishes.
+        if let Some(key)=unkept { app.figure_service.enqueue(user,Work{publish:true,locales:[key].into(),not_before:app.now().timestamp()}); return Ok(()); }
         if ready {
             let fresh=info.is_some_and(|info|app.figure_service.record(user,serial,&info.identity,info.revision,app.now().timestamp(),&streams));
             if !fresh { continue; }
@@ -409,6 +504,42 @@ pub async fn deliver(app:&App,streams:Vec<(String,String)>){
 /// machinery, and the fill's end publishes. So a page that stays mounted converges after any reconnect: after a
 /// dropped publication, after its figures expired or were written, after the account was evicted, after a restart.
 /// An account with no figures (no paper Alpaca key, or market data disabled) is sent and asks nothing.
+/// The account's latest publication on `stream` while its figures are fresh (`Service::latest`), asking nothing.
+pub async fn latest(app:&App,user:i64,stream:&str)->Option<Vec<std::sync::Arc<str>>>{
+    let inner=app.clone();
+    let info=app.db(move|c|read_info(c,&inner,user)).await.ok()??;
+    app.figure_service.latest(user,&info.identity,info.revision,app.now().timestamp(),stream)
+}
+/// A page in `locale` under `prefix` found no figures to show: they are made and published by the queue.
+pub fn enqueue_page(app:&App,user:i64,locale:&str,prefix:&str) {
+    app.figure_service.enqueue(user,Work{publish:true,locales:[(locale.to_string(),prefix.to_string())].into(),not_before:app.now().timestamp()});
+}
+/// One account's queued work (`follow`). A ready entry renders the keys it lacks from its own cache, with no market
+/// request; otherwise a fill starts and carries the work, or the work waits for the fill that runs (`Service::enqueue`
+/// parks it) or for capacity.
+async fn consume(app:&App,user:i64,mut work:Work) {
+    if matches!(app.figure_source,Source::Disabled){return;}
+    let inner=app.clone();
+    let info=match app.db(move|c|read_info(c,&inner,user)).await {
+        Ok(Some(info))=>info,
+        Ok(None)=>return, // no figures for this account
+        Err(_)=>{ work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; }
+    };
+    let Some(now)=At::from_utc(app.now()) else{return};
+    match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
+        Load::Ready(cache,_,_)=>{
+            let at=cache.stamp().unwrap_or(now);
+            let (publish,mut keys,revision)=(work.publish,work.locales,info.revision);
+            let kept=build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: unkept keys leave the page's loading state, which asks again
+            // Published only once its own key is kept: a publication never computes.
+            if kept && publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
+        }
+        Load::Start(ticket,cache)=>spawn_fill(app,user,info,now,ticket,cache,Some(work)),
+        Load::Cold=>app.figure_service.enqueue(user,work),
+        Load::Busy=>{ work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); }
+        Load::Failed(_)=>if work.publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); },
+    }
+}
 pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str>>{
     if matches!(app.figure_source,Source::Disabled){return Vec::new();}
     let inner=app.clone();
@@ -423,6 +554,8 @@ pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str
 
 /// How long the `figures` service gathers marks before it publishes: a basket's legs and a sweep's fills come together.
 const COALESCE:Duration=Duration::from_millis(500);
+/// The longest the `figures` service sleeps before it looks at the queue's clock again.
+const QUEUE_POLL:Duration=Duration::from_secs(1);
 /// A publication that failed (a transient database error) is tried again after `BACKOFF`, doubling, at most `RETRIES`
 /// times in a row: about eight seconds in all.
 const BACKOFF:Duration=Duration::from_millis(250);
@@ -443,8 +576,16 @@ pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crat
     };
     let publishing=async {
         let mut failures=0u32;
+        let mut tick=super::warm::next_tick(app.now().timestamp());
         loop {
-            service.marked_wait().await;
+            if app.now().timestamp()>=tick { super::warm::tick(&app).await; tick=super::warm::next_tick(app.now().timestamp()); }
+            // Woken by a mark, by queued work, or by the earliest queued work falling due.
+            // ponytail: the clock is looked at once a second while nothing else wakes this; a clock-change signal if that matters.
+            let due=service.next_due().map_or(tick,|due|due.min(tick));
+            let wait=Duration::from_secs(due.saturating_sub(app.now().timestamp()).max(0) as u64).min(QUEUE_POLL);
+            if !wait.is_zero() { tokio::select!{ _=service.marked_wait()=>{}, _=tokio::time::sleep(wait)=>{} } }
+            for (user,work) in service.take_due(app.now().timestamp()) { consume(&app,user,work).await; }
+            if service.marked()==0 && !service.has_owners() { continue; }
             tokio::time::sleep(COALESCE).await;
             let bots=service.take_marked();
             let mut owners=service.take_owners();
@@ -616,16 +757,18 @@ mod tests {
     }
     #[test]
     fn kept_figures_take_each_request_s_own_token_in_each_form_only() {
-        // Two forms; stored text around them that holds a marker-like string, `value="` and the token itself.
-        let metrics="<img src=\"figuresFormTokenPlaceholder7f3a9c\" alt=\"x\"><form><input value=\"\" /></form><td>value=\"\"</td><form><input value=\"\" /></form>";
-        let first=metrics.find("<input value=\"").unwrap()+"<input value=\"".len();
-        let second=metrics.rfind("<input value=\"").unwrap()+"<input value=\"".len();
+        // Two forms; stored text around them that holds a marker-like string, a token field and the token itself.
+        let field="<input type=\"hidden\" name=\"authenticity_token\" value=\"a+b&amp;c&quot;\" autocomplete=\"off\" />";
+        let metrics="<img src=\"figuresFormTokenPlaceholder7f3a9c\" alt=\"x\"><form><button></button></form><td>value=\"\" name=\"authenticity_token\"</td><form><button></button></form>";
+        let first=metrics.find("</form>").unwrap();
+        let second=metrics.rfind("</form>").unwrap();
         let kept=serde_json::json!({"bots":{"1":{"metrics":metrics,"tile":"<div>value=\"\"</div>"},"2":{"metrics":metrics}}});
         let slots=vec![("1".to_string(),vec![first,second])];
         let out=super::with_token(&kept,&slots,"a+b&c\"");
-        assert_eq!(out["bots"]["1"]["metrics"],metrics.replacen("<input value=\"\"","<input value=\"a+b&amp;c&quot;\"",2));
+        assert_eq!(out["bots"]["1"]["metrics"],metrics.replace("</form>",&format!("{field}</form>")));
         assert_eq!(out["bots"]["1"]["tile"],kept["bots"]["1"]["tile"]);
         assert_eq!(out["bots"]["2"],kept["bots"]["2"],"a bot with no slots is as rendered");
+        assert_eq!(super::with_token(&kept,&slots,""),kept,"a broadcast takes the kept fragment as it is");
     }
     #[test]
     fn many_resolved_names_stay_one_compound_term() {

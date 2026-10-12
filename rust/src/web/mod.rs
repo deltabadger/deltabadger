@@ -907,6 +907,8 @@ fn finish(app: &App, session: &session::Session, before: &session::SessionData, 
         headers::cache_control(response.headers_mut(), status, false);
     } else {
         headers::controller_defaults(response.headers_mut(), status, signed_in);
+        // ApplicationController's `after_action :mark_web_activity, if: :user_signed_in?`: the figures' warm tick follows use.
+        if let Some((user, _)) = data.user { app.figure_service.mark_active(user, now.timestamp()); }
     }
     response
 }

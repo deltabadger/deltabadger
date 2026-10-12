@@ -276,21 +276,25 @@ impl Transport for Wire {
         Ok(HttpResponse { status: reply["status"].as_u64().unwrap_or(200) as u16, body: reply["body"].as_str().map(str::to_string).unwrap_or_else(|| reply["body"].to_string()) })
     }
 }
-#[tokio::test]
-async fn figures_fragments_match_the_rails_page_partials() {
+/// `script/rust/pages.rb <command> <scratch>`, as pages.rs runs Rails: the test environment, booted against scratch
+/// databases only. Development would check the checkout's own databases for pending migrations on every page and answer
+/// 500 where they are missing (CI).
+fn record(scratch: &tempfile::TempDir, command: &str) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    // As pages.rs runs Rails: the test environment, booted against scratch databases only. Development would check the
-    // checkout's own databases for pending migrations on every page and answer 500 where they are missing (CI).
     let boot = tempfile::tempdir().unwrap();
     let mut cmd = std::process::Command::new(root.join("bin/rails"));
-    cmd.current_dir(root).args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()]).env_remove("DATABASE_URL")
+    cmd.current_dir(root).args(["runner", "script/rust/pages.rb", command, scratch.path().to_str().unwrap()]).env_remove("DATABASE_URL")
         .env("RAILS_ENV", "test").env("SECRET_KEY_BASE",common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true");
     for db in ["primary", "queue", "cache", "cable"] {
         cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", boot.path().display()));
     }
     let out = cmd.output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+}
+#[tokio::test]
+async fn figures_fragments_match_the_rails_page_partials() {
+    let scratch = tempfile::tempdir().unwrap();
+    record(&scratch, "figures");
     for entry in std::fs::read_dir(scratch.path()).unwrap() {
         let dir = entry.unwrap().path();
         let name = dir.file_name().unwrap().to_str().unwrap();
@@ -313,8 +317,16 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let err=deltabadger::web::figure::account(&c,sc["user_id"].as_i64().unwrap(),&reader,now,"en","token","").unwrap_err();
             assert!(matches!(err,deltabadger::figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"));
             assert!(!expected["bots"]["1"]["tile"].as_str().unwrap().contains("no-value"),"Rails recorded its skipped-row figure");
-            use deltabadger::web::figure::loading::{self,Snapshot};
-            let rendered=loading::render(&c,sc["user_id"].as_i64().unwrap(),&Snapshot::Failed(None),"en","token","").unwrap().unwrap();
+            use deltabadger::web::{App,Config,figure::loading::{self,Snapshot,Source}};
+            // The fill fails, and keeps why with the failure: the page reads no order to say it.
+            let env=common::web::env(common::web::SECRET);
+            let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+            let user=sc["user_id"].as_i64().unwrap();
+            let failed=tokio::time::timeout(std::time::Duration::from_secs(10),async { loop {
+                match loading::prepare(&app,user).await.unwrap() { Snapshot::Cold=>tokio::time::sleep(std::time::Duration::from_millis(20)).await, other=>break other }
+            }}).await.unwrap();
+            assert!(matches!(failed,Snapshot::Failed(Some("executed fill value unavailable"))),"{name}: the fill keeps its reason");
+            let rendered=loading::render(&c,user,&failed,"en","token","",&*app.clock).unwrap().unwrap();
             let absent="<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
             assert_eq!(rendered,serde_json::json!({"bots":{"1":{
                 "tile":format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"),
@@ -408,11 +420,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
             assert_eq!(common::web::Browser::default().get(&app,"/bots/1").await.status,302);
             if name == "owner_account" {
                 let prepared=loading::prepare(&app,user).await.unwrap();
-                let loading::Snapshot::Ready(mut refused,at,revision,_)=prepared.clone() else { panic!("not warm") };
+                let loading::Snapshot::Ready(mut refused,at,revision,_,until)=prepared.clone() else { panic!("not warm") };
                 // A missing cache entry must never expose the core's successful ledger fallback.
-                let pending=loading::Snapshot::Ready(Cache::default(),at,revision,None);
-                let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","")).await.unwrap().unwrap();
-                let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed(None),"en","token","")).await.unwrap().unwrap();
+                let pending=loading::Snapshot::Ready(Cache::default(),at,revision,None,until);
+                let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
+                let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed(None),"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                 assert_eq!(pending,failed,"pending demands published a ledger figure or account total");
                 // Cache a refused price demand and require the same honest unavailable result.
                 let names=app.db(move|c| Ok(loading::symbols(c,user).unwrap())).await.unwrap();
@@ -428,8 +440,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 assert!(reader.prices(&venue,&[]).is_err());
                 assert!(reader.failed());
                 assert!(reader.demands().is_empty());
-                let refused=loading::Snapshot::Ready(refused,at,revision,None);
-                let refused=app.db(move|c| loading::render(c,user,&refused,"en","token","")).await.unwrap().unwrap();
+                let refused=loading::Snapshot::Ready(refused,at,revision,None,until);
+                let refused=app.db(move|c| loading::render(c,user,&refused,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                 assert_eq!(refused,failed,"failed demand published a ledger figure or account total");
                 // Keep successful prices, but replace every candle response with a failure or unreadable bar.
                 for body in [serde_json::json!({"status":503,"body":{}}),
@@ -454,8 +466,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     let _ = deltabadger::web::figure::account(&c,user,&reader,at,"en","token","");
                     assert!(reader.demands().is_empty(), "publication must fail on cached candles, not pending reads");
                     assert!(reader.failed(), "cached candle failure escaped publication guard");
-                    let snapshot = loading::Snapshot::Ready(cache,at,revision,None);
-                    let rendered = app.db(move|c| loading::render(c,user,&snapshot,"en","token","")).await.unwrap().unwrap();
+                    let snapshot = loading::Snapshot::Ready(cache,at,revision,None,until);
+                    let rendered = app.db(move|c| loading::render(c,user,&snapshot,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                     assert_eq!(rendered,failed,"failed candles published a chart or account sparkline");
                 }
                 // Index tickers use the venue's entire symbol union. Synchronization inserts
@@ -469,7 +481,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     else { rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().execute(insert,[]).unwrap(); }
                     let changed=app.db(move|c| {
                         assert!(loading::symbols(c,user).unwrap().iter().any(|s|s=="USD_TEST"));
-                        loading::render(c,user,&prepared,"en","token","")
+                        loading::render(c,user,&prepared,"en","token","",&deltabadger::engine::FixedClock(at.utc()))
                     }).await.unwrap().unwrap();
                     assert_eq!(changed,failed,"new ticker published a ledger figure or account total (written by the page's connection: {own})");
                     app.db(|c| { c.execute("DELETE FROM tickers WHERE ticker='USD_TEST'",[])?; Ok(()) }).await.unwrap();
@@ -486,10 +498,10 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     match loading::prepare(&app,user).await.unwrap() { ready@loading::Snapshot::Ready(..)=>break ready, _=>tokio::time::sleep(Duration::from_millis(20)).await }
                 } }).await.expect("the figures never became ready again") };
                 let prepared=warm(app.clone()).await;
-                let loading::Snapshot::Ready(cache,at,_,_)=prepared.clone() else { panic!("not warm") };
+                let loading::Snapshot::Ready(cache,at,..)=prepared.clone() else { panic!("not warm") };
                 for token in ["first-token","second-token"] {
                     let snapshot=prepared.clone();
-                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"")).await.unwrap().unwrap();
+                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                     let reader=Reader::new(&cache,at.utc().timestamp()).with_current(&c).with_symbols(loading::symbols(&c,user).unwrap());
                     assert_eq!(kept,deltabadger::web::figure::account(&c,user,&reader,at,"en",token,"").unwrap(),"kept figures under {token}");
                     assert!(kept.to_string().contains(marker) && !kept.to_string().contains(&format!("images.example/{token}")),"the stored image URL is shown as stored");
@@ -673,7 +685,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 app.db(|c| { c.execute_batch("ALTER TABLE bots RENAME TO bots_away")?; Ok(()) }).await.unwrap();
                 // Check the fallback's own boundary: the later stream lookup can also fail and mask a swallowed read.
                 app.db(move |c| {
-                    assert!(loading::render(c,user,&loading::Snapshot::Failed(None),"en","","").is_err(),
+                    assert!(loading::render(c,user,&loading::Snapshot::Failed(None),"en","","",&deltabadger::engine::FixedClock(chrono::Utc::now())).is_err(),
                         "a fallback whose bots cannot be read must fail before constructing a partial page");
                     Ok(())
                 }).await.unwrap();
@@ -983,4 +995,139 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
 
 fn db_time(text: &str) -> chrono::DateTime<chrono::Utc> {
     At::from_sql(text).unwrap().utc()
+}
+
+/// Rails over time (script/rust/page_figures.rb `chronology`), on the owner's account: warm, a reread with no write, an
+/// order filled, a reread, the cut, and the provider failing at the next cut. At each step what this build shows (its
+/// kept figures, or the ones its fill published) equals Rails' figures computed fresh at the moment the shown figures
+/// were computed (`t_c`, the chart's last label), never relabelled to the moment of the read (`t_r`). Rails' own
+/// cached read (`actual`) differs from fresh only inside W1 (`Bot::UpdateMetricsJob` refreshes the prices and keeps the
+/// chart it cached until the cut) and agrees again at the cut.
+#[tokio::test]
+async fn chronology_matches_rails_fresh_bytes() {
+    use deltabadger::web::{App, Config, figure::loading::{self, Source, Snapshot}};
+    let scratch = tempfile::tempdir().unwrap();
+    record(&scratch, "chronology");
+    let dir = scratch.path().join("owner_account");
+    let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
+    let chronology: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("chronology.json")).unwrap()).unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let file = work.path().join("production.sqlite3");
+    std::fs::copy(dir.join("initial.sqlite3"), &file).unwrap();
+    let user = sc["user_id"].as_i64().unwrap();
+    let env = common::web::env(common::web::SECRET);
+    let steps = chronology["steps"].as_array().unwrap();
+    let clock = common::web::TestClock::at(steps[0]["t_r"].as_str().unwrap());
+    let open = |script: &Value| App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), clock.clone()).unwrap().with_figure_source(Source::Script(script.clone())).unwrap();
+    let mut app = open(&sc["script"]);
+    let w1: Vec<&str> = chronology["w1"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    let parts = |figures: &Value| -> BTreeMap<String, Vec<String>> {
+        let mut out = BTreeMap::new();
+        for (id, bot) in figures["bots"].as_object().unwrap() {
+            for part in ["tile", "metrics", "chart"] { out.insert(format!("{id} {part}"), common::html::normalize(bot[part].as_str().unwrap())); }
+        }
+        out.insert("account".into(), common::html::normalize(figures["account"].as_str().unwrap()));
+        out
+    };
+    for step in steps {
+        let name = step["name"].as_str().unwrap();
+        // The provider's answers change from this step on: a process with the new market, and nothing kept from the old one.
+        if let Some(script) = step.get("script") { app = open(script); }
+        clock.set(common::web::at(step["t_r"].as_str().unwrap()));
+        let writer = rusqlite::Connection::open(&file).unwrap();
+        for write in step["writes"].as_array().into_iter().flatten() {
+            let (table, row) = (write[0].as_str().unwrap(), write[1].as_object().unwrap());
+            let columns: Vec<&String> = row.keys().collect();
+            let sql = format!("INSERT INTO {table}({}) VALUES ({})", columns.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(","), vec!["?"; columns.len()].join(","));
+            let values: Vec<rusqlite::types::Value> = row.values().map(|v| match v {
+                Value::Null => rusqlite::types::Value::Null,
+                Value::Number(n) if n.is_i64() => rusqlite::types::Value::Integer(n.as_i64().unwrap()),
+                Value::Number(n) => rusqlite::types::Value::Real(n.as_f64().unwrap()),
+                Value::String(s) => rusqlite::types::Value::Text(s.clone()),
+                other => rusqlite::types::Value::Text(other.to_string()),
+            }).collect();
+            writer.execute(&sql, rusqlite::params_from_iter(values)).unwrap();
+        }
+        drop(writer);
+        let reread = name.starts_with("reread");
+        let mut snapshot = loading::prepare(&app, user).await.unwrap();
+        if reread { assert!(matches!(snapshot, Snapshot::Ready(..)), "{name}: a reread with no write is served what was kept, with no fill"); }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while matches!(snapshot, Snapshot::Cold) {
+            assert!(std::time::Instant::now() < deadline, "{name}: the fill never ended");
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            snapshot = loading::prepare(&app, user).await.unwrap();
+        }
+        let t_c = common::web::at(step["t_c"].as_str().unwrap());
+        if let Snapshot::Ready(_, at, ..) = &snapshot { assert_eq!(at.utc(), t_c, "{name}: the figures shown were computed at t_c, whenever they are read"); }
+        let shown = snapshot.clone();
+        let read_at = deltabadger::engine::FixedClock(common::web::at(step["t_r"].as_str().unwrap()));
+        let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "", &read_at)).await.unwrap().expect("figures");
+        let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
+        if matches!(snapshot, Snapshot::Failed(_)) {
+            // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
+            // page shows this build's unavailable state (Rails shows its stale figures there, a difference older than kept
+            // figures, held by the grid's refused-price case).
+            assert_eq!(name, "provider_failure", "{name}: the fill failed");
+            assert!(ours.values().all(|lines| lines.iter().any(|line| line.contains("\"—\""))), "{name}: {ours:?}");
+        } else {
+            for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against Rails computed fresh at t_c"); }
+            assert_eq!(ours.len(), fresh.len(), "{name}");
+        }
+        let differing: Vec<&String> = fresh.keys().filter(|key| actual[*key] != fresh[*key]).collect();
+        if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart Rails kept: {differing:?}"); }
+        else { assert!(differing.is_empty(), "{name}: Rails' cached read and its fresh computation differ outside W1: {differing:?}"); }
+    }
+}
+
+/// A page whose figures are not kept (here: ready figures kept in the account's own locale, the page read in another)
+/// shows Rails' loading state at every figure target, exactly as Rails' cold page shows it, and computes nothing.
+#[tokio::test]
+async fn cold_pages_match_rails_loading_state() {
+    use deltabadger::web::{App, Config, session::{self, SessionData}, figure::loading::{self, Source}};
+    let scratch = tempfile::tempdir().unwrap();
+    record(&scratch, "figures");
+    let element = |body: &str, css: &str| -> Option<Vec<String>> {
+        let doc = scraper::Html::parse_document(body);
+        doc.select(&scraper::Selector::parse(css).unwrap()).next().map(|e| common::html::normalize(&e.html()))
+    };
+    for name in ["basket_buys", "hidden", "owner_account"] {
+        let dir = scratch.path().join(name);
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
+        let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        let user = sc["user_id"].as_i64().unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let file = work.path().join("production.sqlite3");
+        std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
+        // The account reads its pages in French: what a fill keeps is French.
+        rusqlite::Connection::open(&file).unwrap().execute("UPDATE users SET locale='fr' WHERE id=?1", [user]).unwrap();
+        let env = common::web::env(common::web::SECRET);
+        let app = App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap()
+            .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while !matches!(loading::prepare(&app, user).await.unwrap(), loading::Snapshot::Ready(..)) { tokio::time::sleep(std::time::Duration::from_millis(20)).await; }
+        }).await.unwrap();
+        let password: String = rusqlite::Connection::open(&file).unwrap().query_row("SELECT encrypted_password FROM users WHERE id=?1", [user], |r| r.get(0)).unwrap();
+        let signed = SessionData { user: Some((user, password.chars().take(29).collect())), ..SessionData::default() };
+        let mut browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &signed, common::web::at(sc["at"].as_str().unwrap()))), page: None };
+        for id in sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()) {
+            let page = browser.get(&app, &format!("/en/bots/{id}")).await;
+            assert_eq!(page.status, 200, "{name}: {}", page.body);
+            let rails = expected["cold"]["bots"][&id]["page"].as_str().unwrap();
+            for css in ["#metrics", "turbo-frame#bot_chart"] {
+                assert_eq!(element(&page.body, css).map(|lines| lines.into_iter().map(|l| l.replace("/en/bots", "/bots")).collect::<Vec<_>>()), element(rails, css), "{name} bot {id}: {css}");
+            }
+        }
+        if let Some(rails) = expected["cold"]["dashboard"].as_str() {
+            let page = browser.get(&app, "/en/bots").await;
+            assert_eq!(page.status, 200, "{name}");
+            assert_eq!(element(&page.body, "#global-pnl"), element(rails, "#global-pnl"), "{name}: the headline");
+            for id in sc["bot_ids"].as_array().unwrap() {
+                for kind in ["dca_multi_asset", "dca_index"] {
+                    let css = format!("#pnl_bots_{kind}_{id}");
+                    assert_eq!(element(&page.body, &css), element(rails, &css), "{name}: {css}");
+                }
+            }
+        }
+    }
 }

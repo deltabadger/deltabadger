@@ -214,6 +214,23 @@ impl Transport for ReqwestTransport {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, MAX_BODY).await }
 
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
+        Ok(self.settle(self.send_unsettled(r, limit).await?))
+    }
+}
+
+impl ReqwestTransport {
+    /// What an answer costs to settle, off the network: its failure line when it is one, and its body scrubbed of every
+    /// known credential (`send_limited` settles each answer at once; the figures' fill settles them off the runtime's thread).
+    pub fn settle(&self, mut response: HttpResponse) -> HttpResponse {
+        if !(200..300).contains(&response.status) || decode_json(&response.body).is_err() {
+            eprintln!("{}", self.failure_line(&response));
+        }
+        response.body=self.redact_diagnostic(&response.body);
+        response
+    }
+
+    /// `send_limited` without `settle`: the answer as it was read.
+    pub async fn send_unsettled(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
         let mut b = self.client.request(method, r.url());
@@ -246,12 +263,7 @@ impl Transport for ReqwestTransport {
                 _ => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
             }
         }
-        let mut response=read_limited(b.send().await.map_err(classify)?, limit).await?;
-        if !(200..300).contains(&response.status) || decode_json(&response.body).is_err() {
-            eprintln!("{}", self.failure_line(&response));
-        }
-        response.body=self.redact_diagnostic(&response.body);
-        Ok(response)
+        read_limited(b.send().await.map_err(classify)?, limit).await
     }
 }
 

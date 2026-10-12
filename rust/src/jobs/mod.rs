@@ -288,9 +288,12 @@ impl Slot {
 }
 
 pub type Resolver = Box<dyn Fn(&str, Option<&str>) -> Result<Box<dyn Job>, String>>;
+/// Told the name and scope of each job that ran.
+pub type Ran = Box<dyn Fn(&str, Option<&str>)>;
 
 pub struct Scheduler {
     resolver: Option<Resolver>,
+    ran: Option<Ran>,
     db: Db,
     /// The database file, for the runner's own state writes on a connection of their own (never behind `db`'s mutex,
     /// which a run dropped at its deadline may hold for its unit in hand). None: an in-memory database.
@@ -308,12 +311,15 @@ impl Scheduler {
             .map(|job| Slot { spec: job.spec(), job, scheduled: None, retry_at: None, replay: vec![], pending: vec![], pending_since: None, transient: 0, rate: 0 })
             .collect();
         let records = db.path().filter(|p| !p.is_empty()).map(String::from);
-        Self { db: Db::new(db, cipher), records, slots, wakers: Wakers::default(), events, resolver: None }
+        Self { db: Db::new(db, cipher), records, slots, wakers: Wakers::default(), events, resolver: None, ran: None }
     }
 
     pub fn with_notifications(mut self, notifications: notifications::Notifications) -> Self { self.db = self.db.with_notifications(notifications); self }
 
     pub fn with_resolver(mut self, resolver: Resolver) -> Self { self.resolver=Some(resolver); self }
+
+    /// Told of every run, whatever its outcome, once it ended (`web::figure::warm::job_ran`).
+    pub fn with_ran(mut self, ran: Ran) -> Self { self.ran=Some(ran); self }
 
     pub fn wakers(&self) -> Wakers { self.wakers.clone() }
 
@@ -438,6 +444,7 @@ impl Scheduler {
         };
         let version=outcome.origin().clone();
         let outcome=outcome.value;
+        if let Some(ran) = &self.ran { ran(name, scope.as_deref()); }
         let end = clock.now();
         let s = &mut self.slots[i];
         if fired { s.scheduled = s.spec.schedule.map(|sch| sch.next_fire(end) + s.spec.jitter.draw()); }

@@ -1,6 +1,7 @@
-//! At most two fills, one per account, no waiting queue, and no decimal crosses this boundary. Who waits for a
-//! publication (`want`) is kept here with that account's own allowance of fills, so that a fill that is turned away
-//! or overtaken leaves its demand behind, and waiting behind another account never spends it.
+//! At most two fills, one per account, and no decimal crosses this boundary. Who waits for a publication (`want`) is
+//! kept here with that account's own allowance of fills, so that a fill that is turned away or overtaken leaves its
+//! demand behind, and waiting behind another account never spends it. Figures work for the `figures` service is queued
+//! here too, one entry per account (`enqueue`), with what its CPU work runs on (`Workers`).
 use crate::figures::page_market::Cache;
 use std::collections::{BTreeMap,BTreeSet};
 use std::sync::{Arc,Mutex,MutexGuard};
@@ -10,18 +11,105 @@ const ACCOUNTS:usize=8;
 /// Fills one waiting account may start before its wait ends in no value: the first, and two overtaken by writes.
 pub const ALLOWANCE:u8=3;
 #[derive(Default,Clone)]
-pub struct Service(Arc<Mutex<State>>,Arc<Notify>);
+pub struct Service(Arc<Mutex<State>>,Arc<Notify>,Arc<Workers>);
+/// What the figures' CPU work runs on: one permit for all of it (a fill's decoding and merging, its computations, the
+/// queue's render-only passes), held by the worker until its closure returns; the builder's own connection, never the
+/// one pages use; how long a fill may run.
+struct Workers { compute:Arc<tokio::sync::Semaphore>, builder:Mutex<Builder>, timeout:Mutex<std::time::Duration> }
+type BuilderHook=Box<dyn FnOnce(&rusqlite::Connection)+Send>;
 #[derive(Default)]
-struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest> }
+struct Builder { connection:Option<rusqlite::Connection>, path:Option<String>, hooks:Vec<BuilderHook>, logged:Vec<String> }
+/// Readers never block a writer or each other only in WAL, which Rails sets and this build leaves alone (`store::configure`).
+const NOT_WAL:&str="figures: database not in WAL; page latency during background work is not guaranteed";
+impl Default for Workers {
+    fn default()->Self { Workers{ compute:Arc::new(tokio::sync::Semaphore::new(1)), builder:Mutex::default(), timeout:Mutex::new(std::time::Duration::from_secs(90)) } }
+}
+#[derive(Default)]
+struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest>,
+    /// Work waiting for the `figures` service (`loading::follow`), one entry per account.
+    pending:BTreeMap<i64,Work>,
+    /// Work for an account whose fill is running: back to `pending` when that fill ends (`Ticket::store`).
+    parked:BTreeMap<i64,Work>,
+    /// When each account was last signed in on a request (Unix seconds).
+    signed_in:BTreeMap<i64,i64> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
 struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,reason:Option<&'static str>,cache:Cache }
 /// `Busy`: both fills are taken by other accounts. `Failed` also when a fill is needed and the waiting account has no
 /// allowance left.
-pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64), Start(Ticket,Cache) }
+/// `Ready`: the cache, when its fill began, and until when its figures may be shown (`Entry::until`).
+pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64,i64), Start(Ticket,Cache) }
 pub struct Ticket { service:Service,user:i64,serial:u64,finished:bool }
+/// Figures work for one account: publish them, and the (locale, path prefix) keys to render. Due from `not_before`.
+#[derive(Clone,Debug,Default,PartialEq,Eq)]
+pub struct Work { pub publish:bool, pub locales:BTreeSet<(String,String)>, pub not_before:i64 }
+impl Work {
+    /// One entry per account: what either asks for, due at the earlier time. A later enqueue never pushes it back.
+    fn merge(&mut self,other:Work) { self.publish|=other.publish; self.locales.extend(other.locales); self.not_before=self.not_before.min(other.not_before); }
+}
+fn put(queue:&mut BTreeMap<i64,Work>,user:i64,work:Work) {
+    match queue.entry(user) { std::collections::btree_map::Entry::Occupied(mut entry)=>entry.get_mut().merge(work), std::collections::btree_map::Entry::Vacant(entry)=>{entry.insert(work);} }
+}
 impl Service {
+    /// Queues figures work for this account, merged with what it already waits for. While the account's fill runs the
+    /// work is parked, and that fill's end queues it again: nothing asked for after a fill captured its work is lost.
+    pub fn enqueue(&self,user:i64,work:Work) {
+        let mut state=self.state();
+        let parked=state.active_users.contains(&user);
+        put(if parked { &mut state.parked } else { &mut state.pending },user,work);
+        drop(state);
+        self.1.notify_one();
+    }
+    /// The queued work due at `now`, taken off the queue.
+    pub fn take_due(&self,now:i64)->Vec<(i64,Work)> {
+        let mut state=self.state();
+        let due:Vec<i64>=state.pending.iter().filter(|(_,w)|w.not_before<=now).map(|(user,_)|*user).collect();
+        due.into_iter().filter_map(|user|state.pending.remove(&user).map(|w|(user,w))).collect()
+    }
+    /// The one permit for the figures' CPU work.
+    pub fn compute(&self)->Arc<tokio::sync::Semaphore> { self.2.compute.clone() }
+    /// How long a fill may run before its waiter stops (a started worker still finishes, holding its permit).
+    pub fn fill_timeout(&self)->std::time::Duration { *self.2.timeout.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
+    pub fn set_fill_timeout(&self,timeout:std::time::Duration) { *self.2.timeout.lock().unwrap_or_else(std::sync::PoisonError::into_inner)=timeout; }
+    /// For tests: run on the builder's connection when it opens (at once if it is open).
+    pub fn on_builder(&self,hook:impl FnOnce(&rusqlite::Connection)+Send+'static) {
+        let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        match &builder.connection { Some(c)=>hook(c), None=>builder.hooks.push(Box::new(hook)) }
+    }
+    /// What the builder logged when it opened.
+    pub fn logged(&self)->Vec<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).logged.clone() }
+    /// The database file the builder opens; None until told (`loading::build`).
+    pub fn builder_path(&self)->Option<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path.clone() }
+    pub fn set_builder_path(&self,path:String) { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path=Some(path); }
+    /// `work` on the builder's connection, opened on first use with the install's settings (`store::configure`). Called on
+    /// a blocking thread that holds the compute permit, so the lock is never contended.
+    pub fn with_builder<T>(&self,work:impl FnOnce(&rusqlite::Connection)->Result<T,crate::web::WebError>)->Result<T,crate::web::WebError> {
+        use crate::web::WebError;
+        let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if builder.connection.is_none() {
+            let path=builder.path.clone().ok_or_else(||WebError::Config("figures builder has no database".into()))?;
+            let c=rusqlite::Connection::open(&path)?;
+            crate::store::configure(&c)?;
+            // Page latency during a fill holds only in WAL: said once, when the builder opens.
+            if !c.query_row("PRAGMA journal_mode",[],|r|r.get::<_,String>(0))?.eq_ignore_ascii_case("wal") { crate::engine::log(NOT_WAL); builder.logged.push(NOT_WAL.into()); }
+            for hook in std::mem::take(&mut builder.hooks) { hook(&c); }
+            builder.connection=Some(c);
+        }
+        let Some(c)=builder.connection.as_ref() else { return Err(WebError::Config("figures builder unavailable".into())) };
+        let out=work(c);
+        if !c.is_autocommit() {
+            c.execute_batch("ROLLBACK").map_err(|_|WebError::Config("figures builder rollback failed".into()))?;
+            if out.is_ok() { return Err(WebError::Config("figures builder left an uncommitted transaction".into())); }
+        }
+        out
+    }
+    /// A signed-in request of this account (Bot::WarmMetricsCachesJob.mark_activity!), per account.
+    pub fn mark_active(&self,user:i64,now:i64) { self.state().signed_in.insert(user,now); }
+    /// The accounts signed in since `since`.
+    pub fn active_since(&self,since:i64)->BTreeSet<i64> { let mut state=self.state(); state.signed_in.retain(|_,at|*at>=since); state.signed_in.keys().copied().collect() }
+    /// When the earliest queued work is due.
+    pub fn next_due(&self)->Option<i64> { self.state().pending.values().map(|w|w.not_before).min() }
     fn state(&self)->MutexGuard<'_,State> { self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
     pub fn begin(&self,user:i64,identity:&str,revision:u64,now:i64)->Load {
         let mut state=self.state();
@@ -31,9 +119,9 @@ impl Service {
         }
         if state.active_users.contains(&user){return Load::Cold;}
         if let Some(entry)=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()&&e.revision==revision) {
-            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }
+            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started,entry.until) } else { Load::Failed(entry.reason) }; }
         }
-        if state.wanted.get(&user)==Some(&0) { return Load::Failed(None); }
+        if state.wanted.get(&user)==Some(&0) { return Load::Failed(state.entries.get(&user).and_then(|e|e.reason)); }
         // Waiting for capacity spends nothing.
         if state.active>=2 { return Load::Busy; }
         if state.entries.len()>=ACCOUNTS && !state.entries.contains_key(&user) {
@@ -75,6 +163,7 @@ impl Service {
     pub fn mark_owner(&self,user:i64) { if self.state().owners.insert(user) { self.1.notify_one(); } }
     /// The accounts marked since the last call.
     pub fn take_owners(&self)->BTreeSet<i64> { std::mem::take(&mut self.state().owners) }
+    pub fn has_owners(&self)->bool { !self.state().owners.is_empty() }
     /// The serial of the figures kept for this account (0: none), taken as a publication begins (`record`).
     pub fn settled(&self,user:i64)->u64 { self.state().entries.get(&user).map_or(0,|e|e.serial) }
     /// Whether these are the figures kept for this account and still fresh: ready, of this `serial` with no fill begun
@@ -117,17 +206,24 @@ impl Service {
 impl Ticket {
     /// `now`: when the fill ended. A failure is kept for a minute from then, however long the fill ran.
     pub fn finish(self,cache:Cache,ready:bool,now:i64) { self.finish_with_reason(cache,ready,None,now); }
-    pub fn finish_with_reason(mut self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64) { self.store(cache,ready,reason,Some(now));self.finished=true; }
-    fn store(&self,cache:Cache,ready:bool,reason:Option<&'static str>,ended:Option<i64>) {
+    pub fn finish_with_reason(self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64) { self.finish_until(cache,ready,reason,now,None); }
+    /// `deadline`: when ready figures stop being true before the next five-minute cut (a wash-sale lock's end).
+    pub fn finish_until(mut self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64,deadline:Option<i64>) { self.store(cache,ready,reason,Some(now),deadline);self.finished=true; }
+    fn store(&self,cache:Cache,ready:bool,reason:Option<&'static str>,ended:Option<i64>,deadline:Option<i64>) {
         let mut state=self.service.state();
         state.active=state.active.saturating_sub(1);state.active_users.remove(&self.user);
         if let Some(entry)=state.entries.get_mut(&self.user).filter(|e|e.serial==self.serial) {
             entry.loading=false;entry.ready=ready;entry.reason=if ready{None}else{reason};entry.cache=cache;
-            entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
+            // Ready figures last until the next five-minute cut (UTC midnight is one), or a lock's end before it.
+            entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)).min(deadline.unwrap_or(i64::MAX)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
         }
+        // What arrived while this fill ran is due now.
+        if let Some(mut work)=state.parked.remove(&self.user) { work.not_before=i64::MIN; put(&mut state.pending,self.user,work); }
+        drop(state);
+        self.service.1.notify_one();
     }
 }
-impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None); } } }
+impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None,None); } } }
 
 #[cfg(test)]
 mod r4_service_tests {
