@@ -118,6 +118,14 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
                   AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data,'$.corporate_action') END='split' ORDER BY id",crate::figures::db::ADJUSTMENT),"splits"),
         ("SELECT DISTINCT base_currency,base_asset_id FROM account_transactions WHERE user_id=?1 ORDER BY 1,2".to_string(),"ledger classes"),
         ("SELECT DISTINCT asset_id FROM account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
+        // An index reads every tradable listing of its venue in its quote (db::tickers): their coarsest quote precision
+        // rounds its chart (chart::quote_decimals), and which are tradable is what it asks the market for. Per quote on
+        // each index's venue, as an aggregate over the venue's index rather than a hash of thousands of listings: how
+        // many, which (the sum and the highest of their ids), and their coarsest and finest precision. A listing's ticker
+        // renamed in place only changes what is asked for, and a held one's row is in the tickers above.
+        ("SELECT exchange_id,quote_asset_id,count(*),total(id),max(id),min(quote_decimals),max(quote_decimals) FROM tickers \
+          WHERE exchange_id IN (SELECT exchange_id FROM bots WHERE user_id=?1 AND type='Bots::DcaIndex') AND available=1 AND trading_enabled=1 \
+          GROUP BY exchange_id,quote_asset_id ORDER BY 1,2".to_string(),"index listings"),
     ];
     for (sql,name) in sets {
         let mut statement=c.prepare(&sql)?;
@@ -276,16 +284,17 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         }
     }
 })}
-/// Stands in for the request's form token in kept figures: letters and digits only, so escaping leaves it as it is.
-const TOKEN_PLACEHOLDER:&str="figuresFormTokenPlaceholder7f3a9c";
-/// Kept figures with the request's form token in place of the placeholder.
-fn with_token(value:&Value,csrf:&str)->Value {
-    match value {
-        Value::String(s) if s.contains(TOKEN_PLACEHOLDER)=>Value::String(s.replace(TOKEN_PLACEHOLDER,&crate::web::i18n::escape(csrf))),
-        Value::Array(items)=>Value::Array(items.iter().map(|v|with_token(v,csrf)).collect()),
-        Value::Object(map)=>Value::Object(map.iter().map(|(k,v)|(k.clone(),with_token(v,csrf))).collect()),
-        other=>other.clone(),
+/// Kept figures with the request's form token written where the renderer left each form's empty token
+/// (`figure::kept_account`), and nowhere else: stored text is never searched.
+fn with_token(figures:&Value,slots:&super::Slots,csrf:&str)->Value {
+    let mut out=figures.clone();
+    let token=crate::web::i18n::escape(csrf);
+    for (bot,offsets) in slots {
+        if let Some(Value::String(metrics))=out.get_mut("bots").and_then(|bots|bots.get_mut(bot)).and_then(|bot|bot.get_mut("metrics")) {
+            for &at in offsets.iter().rev() { metrics.insert_str(at,&token); }
+        }
     }
+    out
 }
 /// Converts a terminal computation failure into absence at every dependent presentation target.
 /// `Ok(None)` while the figures are cold; an error only when the fallback cannot read the account's bots.
@@ -304,18 +313,22 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             // rendered: one computation serves every page load until a fill, a new stamp or a write. A form token is
             // per request, so it is rendered as a placeholder and put in on the way out.
             let key=serde_json::json!([prepared_revision,now.0,locale,prefix,csrf.is_empty()]).to_string();
-            let token=if csrf.is_empty(){""}else{TOKEN_PLACEHOLDER};
-            if let Some(kept)=cache.kept(&key) { return Ok(with_token(&kept,csrf)); }
+            let token=|kept:&Value|->Result<Value,crate::figures::FiguresError> {
+                let slots:super::Slots=serde_json::from_value(kept["slots"].clone()).map_err(|_|unavailable())?;
+                Ok(with_token(&kept["figures"],&slots,csrf))
+            };
+            if let Some(kept)=cache.kept(&key) { return token(&kept); }
             let names=symbols(c,user)?;
             let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
-            let value=account(c,user,&reader,*now,locale,token,prefix)?;
+            let (value,slots)=if csrf.is_empty() { (account(c,user,&reader,*now,locale,"",prefix)?,vec![]) } else { super::kept_account(c,user,&reader,*now,locale,prefix)? };
             // Core live calculations may return ledger values after a market failure.
             // Publish only after all reads succeeded against the prepared revision.
             if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0 != *prepared_revision {
                 return Err(unavailable());
             }
-            let out=with_token(&value,csrf);
-            cache.keep(key,std::sync::Arc::new(value));
+            let kept=serde_json::json!({"figures":value,"slots":slots});
+            let out=token(&kept)?;
+            cache.keep(key,std::sync::Arc::new(kept));
             Ok(out)
         });
         match computed {
@@ -585,12 +598,30 @@ mod tests {
         let (after,crowded)=measure(&c);
         assert_eq!(before,after,"nothing the figures read changed");
         assert!(crowded<=alone+alone/50,"the fingerprint took {crowded} VM steps beside the rest of the install, {alone} without it");
+        // The index rounds its chart by the coarsest quote precision of every tradable listing of its venue in its quote
+        // (chart::quote_decimals), held or not; another venue's listings it never reads.
+        c.execute("UPDATE tickers SET quote_decimals=0 WHERE id=9000",[]).unwrap();
+        assert_eq!(measure(&c).0,after,"a listing on a venue the account never used");
+        c.execute("UPDATE tickers SET quote_decimals=0 WHERE id=5000",[]).unwrap();
+        assert_ne!(measure(&c).0,after,"a never-held tradable listing in the index's venue and quote");
     }
     #[test]
-    fn kept_figures_take_each_request_s_own_token() {
-        let kept=serde_json::json!({"bots":{"1":{"metrics":format!("<input value=\"{0}\"><input value=\"{0}\">",super::TOKEN_PLACEHOLDER),"tile":"<div>"}}});
-        assert_eq!(super::with_token(&kept,"a+b&c")["bots"]["1"]["metrics"],"<input value=\"a+b&amp;c\"><input value=\"a+b&amp;c\">");
-        assert_eq!(super::with_token(&kept,"x")["bots"]["1"]["tile"],"<div>");
+    fn stored_text_that_looks_like_a_placeholder_gets_no_token() {
+        let kept=serde_json::json!({"bots":{"1":{"metrics":"<img src=\"https://images.example/figuresFormTokenPlaceholder7f3a9c.png\">"}}});
+        assert_eq!(super::with_token(&kept,&vec![],"secret"),kept);
+    }
+    #[test]
+    fn kept_figures_take_each_request_s_own_token_in_each_form_only() {
+        // Two forms; stored text around them that holds a marker-like string, `value="` and the token itself.
+        let metrics="<img src=\"figuresFormTokenPlaceholder7f3a9c\" alt=\"x\"><form><input value=\"\" /></form><td>value=\"\"</td><form><input value=\"\" /></form>";
+        let first=metrics.find("<input value=\"").unwrap()+"<input value=\"".len();
+        let second=metrics.rfind("<input value=\"").unwrap()+"<input value=\"".len();
+        let kept=serde_json::json!({"bots":{"1":{"metrics":metrics,"tile":"<div>value=\"\"</div>"},"2":{"metrics":metrics}}});
+        let slots=vec![("1".to_string(),vec![first,second])];
+        let out=super::with_token(&kept,&slots,"a+b&c\"");
+        assert_eq!(out["bots"]["1"]["metrics"],metrics.replacen("<input value=\"\"","<input value=\"a+b&amp;c&quot;\"",2));
+        assert_eq!(out["bots"]["1"]["tile"],kept["bots"]["1"]["tile"]);
+        assert_eq!(out["bots"]["2"],kept["bots"]["2"],"a bot with no slots is as rendered");
     }
     #[test]
     fn many_resolved_names_stay_one_compound_term() {

@@ -81,7 +81,13 @@ pub(crate) fn redeploy_offer(c: &Connection, s: &Subject, m: &Metrics, _members:
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, csrf: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
+/// Where a form's authenticity token goes: nowhere (a broadcast: Rails' renderer has no session and writes no field),
+/// this token, or an empty value whose byte offset in the output is recorded, for kept figures to be given each
+/// request's own token there and nowhere else (loading::render).
+pub(crate) enum Token<'a> { None, Value(&'a str), Slots(&'a mut Vec<usize>) }
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, csrf: &mut Token<'_>, prefix: &str, now: At) -> Result<String, FiguresError> {
     let quote = s.quote.as_deref().unwrap_or("");
     let (status, settings, transient): (i64, String, String) = c.query_row("SELECT status, settings, transient_data FROM bots WHERE id=?1", [s.bot.id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
     let settings: Value = serde_json::from_str(&settings).map_err(|_| FiguresError::Data("Invalid settings".into()))?;
@@ -179,11 +185,16 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 let amount = precision(&Num::Dec(offer),2,true)?;
                 let prompt = i18n::t(locale,"bot.redeploy.prompt",&[("amount",Arg::Text(&amount)),("symbol",Arg::Text(quote))]);
                 out.push_str(&format!("<div class=\"widget redeploy-prompt\">\n<span class=\"label\">\n{prompt}\n</span>\n<div class=\"redeploy-prompt__actions\" id=\"redeploy-prompt-actions\">\n"));
-                // A broadcast has no session, and Rails' renderer then writes no token (loading::publish).
-                let token = if csrf.is_empty() { String::new() } else { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" autocomplete=\"off\" />", escape(csrf)) };
                 for (decline, colour, label) in [(false,"success","confirm"),(true,"danger","decline")] {
                     let method = if decline { "<input type=\"hidden\" name=\"_method\" value=\"delete\" autocomplete=\"off\" />" } else { "" };
-                    out.push_str(&format!("<form class=\"button_to\" method=\"post\" action=\"{}/bots/{}/redeploy\">{method}<button class=\"rbutton rbutton--{colour}\" type=\"submit\">{}</button>{token}</form>\n",escape(prefix),s.bot.id,t(locale,&format!("bot.redeploy.{label}"))));
+                    out.push_str(&format!("<form class=\"button_to\" method=\"post\" action=\"{}/bots/{}/redeploy\">{method}<button class=\"rbutton rbutton--{colour}\" type=\"submit\">{}</button>",escape(prefix),s.bot.id,t(locale,&format!("bot.redeploy.{label}"))));
+                    let field = "<input type=\"hidden\" name=\"authenticity_token\" value=\"";
+                    match csrf {
+                        Token::None => {}
+                        Token::Value(token) => { out.push_str(field); out.push_str(&escape(token)); out.push_str("\" autocomplete=\"off\" />"); }
+                        Token::Slots(slots) => { out.push_str(field); slots.push(out.len()); out.push_str("\" autocomplete=\"off\" />"); }
+                    }
+                    out.push_str("</form>\n");
                 }
                 out.push_str("</div>\n</div>\n");
             }

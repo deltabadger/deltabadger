@@ -204,6 +204,14 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         ("an unrelated listing on the bots' venue resized",
          format!("{}{}UPDATE tickers SET available=0 WHERE id=102;", asset(30,"UNR"), listing(102,alpaca,"UNR",30)),
          "UPDATE tickers SET minimum_quote_size=7, minimum_base_size=3 WHERE id=102".to_string(), true),
+        // The index reads every tradable listing of its venue in its quote: the coarsest quote precision among them rounds
+        // its chart (chart::quote_decimals). One the account never held, re-precisioned, is read; one on another venue is not.
+        ("a never-held tradable listing in the index's venue and quote re-precisioned",
+         format!("{}{}", asset(31,"NVR"), listing(103,alpaca,"NVR",31)),
+         "UPDATE tickers SET quote_decimals=0 WHERE id=103".to_string(), false),
+        ("a listing on a venue the account never used re-precisioned",
+         format!("{}{}{}", venue(4), asset(32,"OTH"), listing(104,4,"OTH",32)),
+         "UPDATE tickers SET quote_decimals=0 WHERE id=104".to_string(), true),
     ].into_iter().map(|(what, prep, sql, kept)| (what.to_string(), prep, sql, kept)).collect();
     // What hides the Sell and Redeploy controls while an operation runs.
     for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] {
@@ -391,14 +399,6 @@ async fn figures_fragments_match_the_rails_page_partials() {
             if name == "owner_account" {
                 let prepared=loading::prepare(&app,user).await.unwrap();
                 let loading::Snapshot::Ready(mut refused,at,revision,_)=prepared.clone() else { panic!("not warm") };
-                // Kept figures are what a computation gives: rendered again under another form token, they equal a fresh
-                // computation under it.
-                for token in ["first-token","second-token"] {
-                    let snapshot=prepared.clone();
-                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"")).await.unwrap().unwrap();
-                    let reader=Reader::new(&refused,at.utc().timestamp()).with_current(&c).with_symbols(loading::symbols(&c,user).unwrap());
-                    assert_eq!(kept,deltabadger::web::figure::account(&c,user,&reader,at,"en",token,"").unwrap(),"kept figures under {token}");
-                }
                 // A missing cache entry must never expose the core's successful ledger fallback.
                 let pending=loading::Snapshot::Ready(Cache::default(),at,revision,None);
                 let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","")).await.unwrap().unwrap();
@@ -464,6 +464,28 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     assert_eq!(changed,failed,"new ticker published a ledger figure or account total (written by the page's connection: {own})");
                     app.db(|c| { c.execute("DELETE FROM tickers WHERE ticker='USD_TEST'",[])?; Ok(()) }).await.unwrap();
                 }
+                // Kept figures are what a computation gives: rendered again under another form token, they equal a fresh
+                // computation under it. Stored text that holds what a kept page once used as its token's placeholder is
+                // text: it reaches the page as stored and never carries the request's token (an image URL would send it
+                // to the image's host).
+                let marker="https://images.example/figuresFormTokenPlaceholder7f3a9c.png";
+                let aaa="UPDATE assets SET image_url=?1 WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='AAA')";
+                let original:Option<String>=c.query_row("SELECT image_url FROM assets WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='AAA')",[],|r|r.get(0)).unwrap();
+                app.db(move|c| { c.execute(aaa,[marker])?; Ok(()) }).await.unwrap();
+                let warm=|app:App|async move { tokio::time::timeout(Duration::from_secs(10),async { loop {
+                    match loading::prepare(&app,user).await.unwrap() { ready@loading::Snapshot::Ready(..)=>break ready, _=>tokio::time::sleep(Duration::from_millis(20)).await }
+                } }).await.expect("the figures never became ready again") };
+                let prepared=warm(app.clone()).await;
+                let loading::Snapshot::Ready(cache,at,_,_)=prepared.clone() else { panic!("not warm") };
+                for token in ["first-token","second-token"] {
+                    let snapshot=prepared.clone();
+                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"")).await.unwrap().unwrap();
+                    let reader=Reader::new(&cache,at.utc().timestamp()).with_current(&c).with_symbols(loading::symbols(&c,user).unwrap());
+                    assert_eq!(kept,deltabadger::web::figure::account(&c,user,&reader,at,"en",token,"").unwrap(),"kept figures under {token}");
+                    assert!(kept.to_string().contains(marker) && !kept.to_string().contains(&format!("images.example/{token}")),"the stored image URL is shown as stored");
+                }
+                app.db(move|c| { c.execute(aaa,[original])?; Ok(()) }).await.unwrap();
+                warm(app.clone()).await;
             }
             if name == "owner_account" {
                 // A large account's publication does not outrun the hub: 600 payloads, two hundred bots' worth, all reach
