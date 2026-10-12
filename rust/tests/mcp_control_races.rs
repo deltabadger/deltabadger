@@ -80,6 +80,8 @@ mod action_race {
                 ("DELETE","/archive")=>"unarchive_bot",(_,"/archive")=>"archive_bot",(_,_)=>"start_bot",
             };
             let mut args=json!({"bot_id":self.id});
+            // The web restart dialog's `?start_fresh=` is start_bot's own argument.
+            if let Some(flag)=suffix.split_once("?start_fresh=").map(|(_,f)|f) {args["start_fresh"]=json!(flag=="true");}
             for (key,value) in fields {
                 let key=key.strip_prefix("bots_dca_multi_asset[").and_then(|k|k.strip_suffix(']')).unwrap_or(key);
                 args[key]=if key=="quote_amount" {json!(value.parse::<f64>()?)} else {json!(value)};

@@ -959,7 +959,8 @@ async fn r9_mcp_settings_cancel_resume_tick_spends_rails_40() {
         assert_eq!(model::load_bot(&o.primary,id).unwrap().missed_quote_amount().unwrap().to_s_f(),"40.0","R9 captured carry {stamp}");
         // Venue cancellation without execution restores cap availability, but not owed carry.
         o.primary.execute("UPDATE transactions SET external_status=3 WHERE bot_id=?1 AND external_status=0",[id]).unwrap();
-        let result=r9_call(&app,&sid,"start_bot",json!({"bot_id":id})).await;
+        // The oracle resumes (record_histories_r9.rb: start_fresh: false), the restart dialog's Continue.
+        let result=r9_call(&app,&sid,"start_bot",json!({"bot_id":id,"start_fresh":false})).await;
         assert_ne!(result["result"]["isError"],true,"{result}");
         let t=history_market();
         let result=deltabadger::engine::tick::tick(&o.primary,&common::scripted::venue(&t),id,&FixedClock(now()+chrono::Duration::seconds(1)),&mut Default::default()).await.unwrap();
