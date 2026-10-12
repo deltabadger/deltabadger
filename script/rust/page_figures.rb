@@ -17,7 +17,6 @@ module PageFigures
   # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
   def pages(user, bots)
     Warden.test_mode!
-    ActiveRecord.validate_migration_timestamps = false # the pending-migration check runs at the scenario's (earlier) time
     session = ActionDispatch::Integration::Session.new(Rails.application)
     session.host! 'localhost:3000'
     heard = PageFigures.broadcasts
@@ -38,7 +37,7 @@ module PageFigures
 
   def page(session, user, path, headers = {})
     Warden.on_next_request { |proxy| proxy.set_user(user, scope: :user) }
-    session.get(path, headers:)
+    session.get(path, headers:, env: { 'action_dispatch.show_exceptions' => :none }) # an error raises with its own message
     raise "#{path}: #{session.response.status}" unless session.response.status == 200
 
     session.response.body

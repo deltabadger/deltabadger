@@ -269,9 +269,16 @@ impl Transport for Wire {
 async fn figures_fragments_match_the_rails_page_partials() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
-    let out = std::process::Command::new(root.join("bin/rails")).current_dir(root)
-        .args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()])
-        .env("SECRET_KEY_BASE",common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
+    // As pages.rs runs Rails: the test environment, booted against scratch databases only. Development would check the
+    // checkout's own databases for pending migrations on every page and answer 500 where they are missing (CI).
+    let boot = tempfile::tempdir().unwrap();
+    let mut cmd = std::process::Command::new(root.join("bin/rails"));
+    cmd.current_dir(root).args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()]).env_remove("DATABASE_URL")
+        .env("RAILS_ENV", "test").env("SECRET_KEY_BASE",common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true");
+    for db in ["primary", "queue", "cache", "cable"] {
+        cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", boot.path().display()));
+    }
+    let out = cmd.output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     for entry in std::fs::read_dir(scratch.path()).unwrap() {
         let dir = entry.unwrap().path();

@@ -134,6 +134,8 @@ module Figures
   def install(sc, template, asset_ids)
     %w[production.sqlite3 production_queue.sqlite3].each { |file| FileUtils.cp(File.join(template, file), File.join(sc['dir'], file)) }
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(sc['dir'], 'production.sqlite3'))
+    # The bot page reads its next run from the queue: the install's own, as Rust reads it, never the checkout's.
+    SolidQueue::Record.establish_connection(adapter: 'sqlite3', database: File.join(sc['dir'], 'production_queue.sqlite3'))
     user = User.sole
     user.update_columns(hide_balances: sc.fetch('hide_balances', false), display_currency: sc.fetch('display_currency', 'USD'),
                         time_zone: sc.fetch('time_zone', 'UTC'))
