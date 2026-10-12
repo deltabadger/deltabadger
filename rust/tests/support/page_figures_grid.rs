@@ -153,26 +153,60 @@ async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, 
 }
 
 /// A connection that subscribes again is sent the account's last publication only while nothing the figures read has
-/// changed (`loading::resubscribed`): a ticker disabled, a split's ratio corrected or a ledger row resolved to another
-/// asset refuse the replay; a sync that rewrites a row's timestamps (and the reference data the figures never read)
-/// keeps it. On a copy of the scenario's install, so that the rest of the scenario reads the one Rails recorded.
+/// changed (`loading::resubscribed`): a ticker disabled, a split's ratio corrected, a ledger row resolved to another
+/// asset, a listing on a venue the bot left corrected, an asset only an order or a bot's settings name changed, a
+/// composition ticker on another venue resized, or an operation flag set or cleared refuse the replay; a sync that
+/// rewrites a row's timestamps (and the reference data the figures never read) and other transient bookkeeping keep it. On a copy of the scenario's install, so that the rest of the scenario reads the one Rails recorded.
 async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<String>, dir: &Path, sc: &Value, user: i64, stream: &str) {
     use deltabadger::web::{App,Config,figure::loading::{self,Source}};
     let at = sc["at"].as_str().unwrap();
     let ccc: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
         .query_row("SELECT base_asset_id FROM tickers WHERE ticker='CCC'", [], |r| r.get(0)).unwrap();
-    let cases: [(&str, &str, bool); 5] = [
-        ("a sync that rewrites timestamps and reference data the figures never read",
+    // A venue and a listing on it, copied from AAA's, for the cases below that read another venue.
+    let venue = |id: i64| format!("INSERT INTO exchanges(id,name,type,created_at,updated_at) VALUES ({id},'Old {id}','Exchanges::Kraken','2020-01-01','2020-01-01');");
+    let listing = |id: i64, exchange: i64, base: &str, asset: i64| format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,updated_at) \
+        SELECT {id},'{base}',{asset},base_decimals,created_at,{exchange},minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,'{base}/USD',updated_at FROM tickers WHERE ticker='AAA';");
+    let asset = |id: i64, symbol: &str| format!("INSERT INTO assets(id,category,created_at,external_id,name,symbol,updated_at) VALUES ({id},'Stock','2020-01-01','{symbol}','{symbol} Inc','{symbol}','2020-01-01');");
+    let aaa: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT base_asset_id FROM tickers WHERE ticker='AAA'", [], |r| r.get(0)).unwrap();
+    // (what, the state the figures are published in, the edit after, whether the publication is still replayed)
+    let mut cases: Vec<(String, String, String, bool)> = [
+        ("a sync that rewrites timestamps and reference data the figures never read", String::new(),
          "UPDATE tickers SET updated_at='2030-01-01 00:00:00', ath=1234.5, ath_updated_at='2030-01-01 00:00:00'; UPDATE assets SET updated_at='2030-01-01 00:00:00', market_cap=coalesce(market_cap,0)+1, market_cap_rank=7; \
-          UPDATE account_transactions SET updated_at='2030-01-01 00:00:00'", true),
-        ("a held ticker disabled", "UPDATE tickers SET available=0 WHERE ticker='AAA'", false),
-        ("a held asset recategorised", "UPDATE assets SET category='Cryptocurrency' WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='BBB')", false),
-        ("a split's ratio corrected in place", "UPDATE account_transactions SET raw_data='{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}' WHERE entry_type=15", false),
-        ("a ledger row resolved to another asset", &format!("UPDATE account_transactions SET base_asset_id={ccc} WHERE entry_type=15"), false),
-    ];
+          UPDATE account_transactions SET updated_at='2030-01-01 00:00:00'".to_string(), true),
+        ("a held ticker disabled", String::new(), "UPDATE tickers SET available=0 WHERE ticker='AAA'".to_string(), false),
+        ("a held asset recategorised", String::new(), "UPDATE assets SET category='Cryptocurrency' WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='BBB')".to_string(), false),
+        ("a split's ratio corrected in place", String::new(), "UPDATE account_transactions SET raw_data='{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}' WHERE entry_type=15".to_string(), false),
+        ("a ledger row resolved to another asset", String::new(), format!("UPDATE account_transactions SET base_asset_id={ccc} WHERE entry_type=15"), false),
+        // The bot traded AAA on a venue it left, as OLD there; the split reported there names no asset, so its venue's
+        // listing decides which holding it is.
+        ("the asset a left venue lists a split's name under corrected",
+         format!("{}{}UPDATE transactions SET exchange_id=2, base='OLD' WHERE id=(SELECT min(id) FROM transactions WHERE base='AAA'); \
+                  INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
+                  VALUES ({user},2,15,'OLD',NULL,0,'{{\"corporate_action\":\"split\",\"split_ratio\":\"3:1\"}}','2021-01-01 00:00:00','{at}','{at}');", venue(2), listing(100,2,"OLD",ccc)),
+         format!("UPDATE tickers SET base_asset_id={aaa} WHERE id=100"), false),
+        ("other transient bookkeeping", String::new(), "UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount',5)".to_string(), true),
+        // Read by no listing: an asset only an order names, and one only a bot's settings name.
+        ("an asset only an order names renamed",
+         format!("{}UPDATE transactions SET base='ZZZ', base_asset_id=20 WHERE id=(SELECT min(id) FROM transactions WHERE base='BBB');", asset(20,"ZZZ")),
+         "UPDATE assets SET name='Zed Holdings' WHERE id=20".to_string(), false),
+        ("an asset only a bot's settings name removed",
+         format!("{}UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"21\":1.0}}')) WHERE id=(SELECT bot_id FROM bot_index_assets GROUP BY bot_id HAVING count(*)=1);", asset(21,"YYY")),
+         "DELETE FROM assets WHERE id=21".to_string(), false),
+        // A composition member's ticker is read by its id, whichever venue lists it.
+        ("a composition ticker on another venue resized",
+         format!("{}{}UPDATE bot_index_assets SET ticker_id=101 WHERE bot_id=(SELECT bot_id FROM bot_index_assets GROUP BY bot_id HAVING count(*)=1);", venue(3), listing(101,3,"AAA",aaa)),
+         "UPDATE tickers SET minimum_quote_size=7 WHERE id=101".to_string(), false),
+    ].into_iter().map(|(what, prep, sql, kept)| (what.to_string(), prep, sql, kept)).collect();
+    // What hides the Sell and Redeploy controls while an operation runs.
+    for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] {
+        let set = format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{flag}','2026-01-01T00:00:00Z')");
+        cases.push((format!("{flag} set"), String::new(), set.clone(), false));
+        cases.push((format!("{flag} cleared"), set, format!("UPDATE bots SET transient_data=json_remove(transient_data,'$.{flag}')"), false));
+    }
     let mut wrong = vec![];
     // Each edit on a fresh copy, so that one edit's refusal leaves the next its own warm publication.
-    for (what, sql, kept) in cases {
+    for (what, prep, sql, kept) in cases {
         let copy = tempfile::tempdir().unwrap();
         let file = copy.path().join("production.sqlite3");
         std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
@@ -180,6 +214,7 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         // A split already in the ledger, for the edits below to correct.
         c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
                    SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
+        c.execute_batch(&prep).unwrap();
         let app = App::new(Config::from_env(env).unwrap(), env, rusqlite::Connection::open(&file).unwrap(), common::web::TestClock::at(at)).unwrap()
             .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
         tokio::time::timeout(Duration::from_secs(10), async {
@@ -187,7 +222,7 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         }).await.expect("the figures never became ready");
         loading::publish(&app, user).await.unwrap();
         assert!(!loading::resubscribed(&app, user, stream).await.is_empty(), "a fresh publication is replayed");
-        c.execute_batch(sql).unwrap();
+        c.execute_batch(&sql).unwrap();
         if loading::resubscribed(&app, user, stream).await.is_empty() == kept { wrong.push(format!("{what}: replayed {}", if kept { "nothing" } else { "the old figures" })); }
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
