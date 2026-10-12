@@ -14,9 +14,11 @@ pub enum Source { #[default] Live, Disabled, Script(Value) }
 pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
 pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
 /// What this account's figures were filled for, as values: the rows Rails' metrics cache is recomputed for (a bot's
-/// transactions, and the bot: its settings, status, venue, restatement), the account's own rows the figures read, and
-/// the reference data they read (the listings of the bots' venues, and the assets those listings, the index, the ledger
-/// and the balances name). Left out: `updated_at`, and what a sync rewrites that no figure reads (a market cap, an ATH).
+/// transactions, and the bot: its settings, status, venue, restatement, and the operation flags that hide its Sell and
+/// Redeploy controls), the account's own rows the figures read, and the reference data they read (the listings of every
+/// venue the bots trade or traded on, the composition's tickers wherever listed, and the assets those listings, the
+/// orders, the bots' settings, the index, the ledger and the balances name). Left out: `updated_at`, the rest of a bot's
+/// transient bookkeeping, and what a sync rewrites that no figure reads (a market cap, an ATH).
 /// The scheduler records every job run (app_configs) and its syncs rewrite the reference data all the time, and a
 /// whole-database revision never held figures from one page load to the next. A replay (`Service::latest`) is checked
 /// against this alone, so anything a figure reads belongs here.
@@ -25,8 +27,18 @@ fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
     use rusqlite::types::ValueRef;
     let mut hash=std::hash::DefaultHasher::new();
     let bots="SELECT id FROM bots WHERE user_id=?1";
-    let venues="SELECT exchange_id FROM bots WHERE user_id=?1";
-    let assets=format!("SELECT base_asset_id FROM tickers WHERE exchange_id IN ({venues}) UNION SELECT quote_asset_id FROM tickers WHERE exchange_id IN ({venues}) \
+    // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the
+    // bot's venue now.
+    let venues=format!("SELECT exchange_id FROM bots WHERE user_id=?1 UNION SELECT exchange_id FROM transactions WHERE bot_id IN ({bots})");
+    let tickers=format!("SELECT id FROM tickers WHERE exchange_id IN ({venues}) OR id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id IN ({bots}))");
+    // The settings' asset ids as db::bot and pair::load read them (allocations' keys, base_asset_ids, the pair's base, the quote).
+    let settings="CASE WHEN json_valid(b.settings) THEN b.settings ELSE '{}' END";
+    let named=format!("SELECT CAST(j.value AS INTEGER) FROM bots b, json_each({settings},'$.base_asset_ids') j WHERE b.user_id=?1 \
+        UNION SELECT CAST(j.key AS INTEGER) FROM bots b, json_each({settings},'$.allocations') j WHERE b.user_id=?1 \
+        UNION SELECT CAST(json_extract({settings},'$.quote_asset_id') AS INTEGER) FROM bots b WHERE b.user_id=?1 \
+        UNION SELECT CAST(json_extract({settings},'$.base_asset_id') AS INTEGER) FROM bots b WHERE b.user_id=?1");
+    let assets=format!("SELECT base_asset_id FROM tickers WHERE id IN ({tickers}) UNION SELECT quote_asset_id FROM tickers WHERE id IN ({tickers}) \
+        UNION SELECT base_asset_id FROM transactions WHERE bot_id IN ({bots}) UNION SELECT quote_asset_id FROM transactions WHERE bot_id IN ({bots}) UNION {named} \
         UNION SELECT asset_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT asset_id FROM account_balances WHERE user_id=?1 \
         UNION SELECT base_asset_id FROM account_transactions WHERE user_id=?1 UNION SELECT asset_id FROM wash_sale_locks WHERE user_id=?1");
     // A conversion reads an asset by its symbol alone (db::asset_by_symbol): any asset under one of these symbols, and
@@ -36,11 +48,15 @@ fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
     let sets=[
         ("SELECT * FROM users WHERE id=?1".to_string(),"users"),
         ("SELECT * FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"bots"),
+        // Of a bot's transient data, only what web::figure::holdings reads: the operation flags, and whether it parses.
+        ("SELECT id,json_valid(transient_data),CASE WHEN json_valid(transient_data) THEN json_array(json_extract(transient_data,'$.rebalance_pending'),\
+          json_extract(transient_data,'$.liquidation_pending'),json_extract(transient_data,'$.liquidation_selling_since'),json_extract(transient_data,'$.redeploy_pending')) END \
+          FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"operations"),
         (format!("SELECT * FROM transactions WHERE bot_id IN ({bots}) ORDER BY id"),"transactions"),
         (format!("SELECT * FROM bot_index_assets WHERE bot_id IN ({bots}) ORDER BY id"),"bot_index_assets"),
         ("SELECT * FROM wash_sale_locks WHERE user_id=?1 ORDER BY id".to_string(),"wash_sale_locks"),
         (format!("SELECT * FROM exchanges WHERE id IN ({venues}) ORDER BY id"),"exchanges"),
-        (format!("SELECT * FROM tickers WHERE exchange_id IN ({venues}) ORDER BY id"),"tickers"),
+        (format!("SELECT * FROM tickers WHERE id IN ({tickers}) ORDER BY id"),"tickers"),
         (format!("SELECT * FROM assets WHERE id IN ({assets}) ORDER BY id"),"assets"),
         // The ledger is read for its split rows (db::split_rows: every field of them) and for the assets its rows name
         // under each symbol (db::account_classes); a row edited in place into or out of either changes these.
