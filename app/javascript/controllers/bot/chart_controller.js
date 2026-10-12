@@ -129,6 +129,22 @@ export default class extends Controller {
     buyLogos: Object,
   };
 
+  // Stimulus parses a value's JSON again on every read. On a bot with many assets these attributes
+  // run to megabytes, and one click reads them many times, so a filter that only picks a subset
+  // froze the page for seconds. Each is parsed once, and again only when its attribute changes.
+  #parsed = {};
+  #data(name) {
+    if (!(name in this.#parsed)) this.#parsed[name] = this[`${name}Value`];
+    return this.#parsed[name];
+  }
+  seriesValueChanged() { delete this.#parsed.series; }
+  labelsValueChanged() { delete this.#parsed.labels; }
+  pnlValueChanged() { delete this.#parsed.pnl; }
+  assetsValueChanged() { delete this.#parsed.assets; }
+  buysValueChanged() { delete this.#parsed.buys; }
+  pricesValueChanged() { delete this.#parsed.prices; }
+  buyLogosValueChanged() { delete this.#parsed.buyLogos; }
+
   connect() {
     // PnL is what the chart opens on, and the switch is rendered on it. A reader who picked VALUE
     // gets it back from the `segmented` control's own memory, which replays the choice as a click
@@ -335,7 +351,7 @@ export default class extends Controller {
   // A holding with no marked point anywhere — every one of its points kept a fill mark — has no
   // curve to draw, so it is neither hoverable nor pinnable rather than blanking the chart.
   #chartable(symbol) {
-    const asset = symbol ? this.assetsValue?.[symbol] : null;
+    const asset = symbol ? this.#data("assets")?.[symbol] : null;
     return asset?.value?.some((amount) => amount !== null) ? symbol : null;
   }
 
@@ -364,8 +380,8 @@ export default class extends Controller {
 
   // The value and invested curves in force: the focused holding's own, or the whole bot's.
   get #series() {
-    const asset = this.focused && this.assetsValue[this.focused];
-    const series = asset ? [asset.value, asset.invested] : this.seriesValue;
+    const asset = this.focused && this.#data("assets")[this.focused];
+    const series = asset ? [asset.value, asset.invested] : this.#data("series");
     return this.from ? series.map((serie) => serie.slice(this.from)) : series;
   }
 
@@ -378,7 +394,7 @@ export default class extends Controller {
   // including it would cost every asset the same margin of empty frame for nothing. The portfolio
   // keeps its own scale, so the axis moves only when the pointer enters or leaves the tables.
   get #assetBounds() {
-    this.bounds ||= Object.values(this.assetsValue).reduce(
+    this.bounds ||= Object.values(this.#data("assets")).reduce(
       (span, asset) => {
         asset.value.forEach((amount, i) => {
           const cost = asset.invested[i];
@@ -413,7 +429,7 @@ export default class extends Controller {
 
   #rawPnl() {
     if (!this.focused) {
-      const portfolio = this.pnlValue || [];
+      const portfolio = this.#data("pnl") || [];
       return this.from ? portfolio.slice(this.from) : portfolio;
     }
 
@@ -433,7 +449,7 @@ export default class extends Controller {
   }
 
   #allTimestamps() {
-    this.stamps ||= this.labelsValue.map((date) => new Date(date).getTime());
+    this.stamps ||= this.#data("labels").map((date) => new Date(date).getTime());
     return this.stamps;
   }
 
@@ -715,7 +731,7 @@ export default class extends Controller {
     const to = timestamps.at(-1);
     const stacks = [];
 
-    this.buysValue
+    this.#data("buys")
       // Outside the window in view, or on an asset the reader is not looking at, there is nothing
       // to mark: the curve above does not go there either.
       .filter(([at, symbol]) => {
@@ -845,7 +861,7 @@ export default class extends Controller {
   // over it, so a symbol the venue has no ticker for still gets a disc — in the grey the holdings
   // tables fall back to — rather than the purchase silently going unmarked.
   #disc(symbol, className) {
-    const asset = this.buyLogosValue[symbol] || {};
+    const asset = this.#data("buyLogos")[symbol] || {};
     const disc = document.createElement("span");
     disc.className = className;
     disc.style.background = asset.color || "#8A9BA8";
@@ -1028,14 +1044,14 @@ export default class extends Controller {
   // The assets whose prices are worth drawing: the focused holding alone, or all of them. A
   // focused symbol the chart could not price draws nothing rather than falling back to the rest.
   get #pricedSymbols() {
-    const symbols = Object.keys(this.pricesValue || {});
+    const symbols = Object.keys(this.#data("prices") || {});
     if (!this.focused) return symbols;
 
     return symbols.includes(this.focused) ? [this.focused] : [];
   }
 
   #priceSeries(symbol) {
-    const serie = this.pricesValue[symbol] || [];
+    const serie = this.#data("prices")[symbol] || [];
     return this.from ? serie.slice(this.from) : serie;
   }
 
@@ -1085,7 +1101,7 @@ export default class extends Controller {
   // the venue has no ticker for, the same fallback the marks and the tables use.
   #priceDataset(symbol, points, base, scale) {
     const color = this.#setTransparency(
-      this.#safeColor(this.buyLogosValue[symbol]?.color || "#8A9BA8"), 0.65
+      this.#safeColor(this.#data("buyLogos")[symbol]?.color || "#8A9BA8"), 0.65
     );
     return {
       label: symbol,
