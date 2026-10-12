@@ -1,0 +1,3314 @@
+[
+  {
+    "api_key": "key",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "pN0Gk5S+b3T9gSu39lHhNvkn368jSXAoVO9nVwki128G+IJDEQonRLhdDHWuMwqumyA6qHztKEm5fpiI3hmdCw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "KZ5IrYqUTyg2hlqqPsC9tQwsxleIxUe5xg+jDe947ApVD+eN9NCvXtGZvHBTarn/v3ZwLTBB8lM5zNuOBA7shQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "5GovIYmdHDCx1TKVxEQg2IqrrJJBez+X8qTceBTWZ9eOl+ROWDT3XHTBLdgfAUlgOPlpJEL/VxHzUG64KND/EQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "Rl97u/css4g77hju+ejsHL/vcSc6gSLeuGFsheNfN2tkg2SE/5P5MTN3h7jIzkEkDJjmfRtwqMp6zbE9nPYxSA==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzdF9zZWNyZXRfa2V5XzEyMzQ1Njc4OTAxMjM0NTY=",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "746573745f7365637265745f6b65795f31323334353637383930313233343536",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "nFPyqqUxSGb1VAn+XZozrzVgjcFzSxiPADeCiyCddWdRHqzimt570zI7DsTQ9wv2XBXQXKdVqZ/se0BOEEFbOA==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "20mfsrpsmBwPKOwOweEsJm2Z+jGn2HN5DZ3NKntvuD66luU8LF8/6L8v5Pm0j9BbvXAGSp5Rb4WDj2YZ/4Oh6A==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "CU8ChmXU3228v89PO2tW9+S8co0vdDWTFIdP/AxI9xChqXjKdmFXyn97NnPIHK7aZVXbu71dPqmim1u1rrnzvw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "1a2duD8lwP/U7j6qwC0iLTdOqiDJ/tI2P5xR3Y426ryge6uC6rCRP/2/Pc1hkHNyp8S8jJy9emQgr3V3pYSS9A==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "dGVzd A==\n!!-_x",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "74657374",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "abc",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "YgZJxq9dfqWo8+bcEYqtP+VZzPPHPa7TDd02RQT9Hr088fNKQy4vSP3Y/sleJKsOt1lrepZ7Lcu6UPEsXd9q2w==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "abc",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "pl0wpwJ0cx0J1LWxW7LY3VAIRamfT93r4RM9YsJPBDm/x9TwwYZUarJMnsY36TKJlJytEs1iiYvo/X9iq+5gmw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "abc",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "9w+vgc1CVgmw4fzTW5RcXvcGGMKLyssBSajfYTRGmTtwZnc3tsretSxGl6WpQtucxy/cVW0OMeZt/NrnTb/c3g==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "abc",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "UMl7JuvCNbyT4oY9pYmLSAA34UxtcIYAXXag/uY+ztvMSPTED7BNJ2cHTxvYoN7GcGLD/tI7UMkFLiJ1/Nvglw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "abc",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "abc",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "abc",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "abc",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "=abc",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "YgZJxq9dfqWo8+bcEYqtP+VZzPPHPa7TDd02RQT9Hr088fNKQy4vSP3Y/sleJKsOt1lrepZ7Lcu6UPEsXd9q2w==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "=abc",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "pl0wpwJ0cx0J1LWxW7LY3VAIRamfT93r4RM9YsJPBDm/x9TwwYZUarJMnsY36TKJlJytEs1iiYvo/X9iq+5gmw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "=abc",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "9w+vgc1CVgmw4fzTW5RcXvcGGMKLyssBSajfYTRGmTtwZnc3tsretSxGl6WpQtucxy/cVW0OMeZt/NrnTb/c3g==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "=abc",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "UMl7JuvCNbyT4oY9pYmLSAA34UxtcIYAXXag/uY+ztvMSPTED7BNJ2cHTxvYoN7GcGLD/tI7UMkFLiJ1/Nvglw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "=abc",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "=abc",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "=abc",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "=abc",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "69b7",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "   ",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "YkqrqOSkSTm3NFZeKT32hQm3EVjdFbPSlChH/+0ghq/tr4XnjSX1GsNjoucLl+6XiRJkXQuR0BnO+kGiTXmFkQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "   ",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "74UhxYhq6iNfgcCHMKupPzRdOKD9EJ22lF2icLUG/b/3/soH4xXrQyYXxr8DzGOp/9Ggvw3xJmkCiIqrJnFEow==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "   ",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "JvSWV6AEO1R4BjOXVI9FZ37/HzIe9BoQ22sN0roQZPEvQXoeMtv5WiYiuRc3EqokTBZkHnLhkjC26C5Gl5lczQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "   ",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "N/VJgNy4ic5Aao2/iWIxFo6PhsUfko2JtGiRGkHdgCKhQKLWZqc6OODQbl+pqkpaiY26qM521DTLbH/lfd/qmg==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "   ",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "   ",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "   ",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "   ",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "a",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "YkqrqOSkSTm3NFZeKT32hQm3EVjdFbPSlChH/+0ghq/tr4XnjSX1GsNjoucLl+6XiRJkXQuR0BnO+kGiTXmFkQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "a",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "74UhxYhq6iNfgcCHMKupPzRdOKD9EJ22lF2icLUG/b/3/soH4xXrQyYXxr8DzGOp/9Ggvw3xJmkCiIqrJnFEow==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "a",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "JvSWV6AEO1R4BjOXVI9FZ37/HzIe9BoQ22sN0roQZPEvQXoeMtv5WiYiuRc3EqokTBZkHnLhkjC26C5Gl5lczQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "a",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "N/VJgNy4ic5Aao2/iWIxFo6PhsUfko2JtGiRGkHdgCKhQKLWZqc6OODQbl+pqkpaiY26qM521DTLbH/lfd/qmg==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "a",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "a",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "a",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "a",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "ab==cd",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "EuSMRlIZ82BdezWinzNibpmUrUwqapb3WVSnWUpRN2wsSQ2pJkn5zOWDB60Sv8hnj6W72VqYu7jBOlzQjsLj3A==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "ab==cd",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "/M9lJL9MFITVyugze0miBX/SvSINjonEsi4+YwOa2GxZZFj51uKfZqt7r3YSTQGuj1kICoSJjFhod/kHKlKoWQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "ab==cd",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "So4jbT/R2muNQ8oZqrQXncKkLty9q1uRq4+VfT9WINILphGdsoYWJDx02q+92GDReAGJHnuI/naQc456bv6Ouw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "ab==cd",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "6t1HUc75s2apsjpsOE/x+C+gvqt+9omAw+MYcKuy7QIPNmSK2tBpMGqIUL/+f7HkBMhvWELB8aOwIf5WOvOkTw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "ab==cd",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "ab==cd",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "ab==cd",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "ab==cd",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "69",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "sN7Tq7CuE7X63b/1CMX9PN3KGTvUO1CA0DAsZ34eFFxg3sGIcqlm9rSwjXPOLlTc483OnMLq12aUpxqUAv6/lw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "3efPpzXyiAHs/+w7HcTO6Nt6DUpZs0GMeBYgwpWjmi2khy+lehjJvgn8qVgcUPeYCIknH9NTIcMvbWk6ZCBYyQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "Ti8LNfU3EXP+ZiXt6y/6IiniJkxIKGkTSGCmq+YcZ+gQoZVXgWYWLZABY2C5n/SWCE7Fddw2+EYe0TjKmpJncg==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "X8ABM+WH3gbMykGqzcHABdhY4wZn8Di4z+o684l5vQACbE4QJYRQuJhMclBoTtli/rRp7Zu69OOG/5iw+iXICg==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "not base64 at all ~~~",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "9e8b5b6ac7bae1ab5a96",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "oDBSuGvxbePI1gSCCuQM0M4H49AaS1HMz1uleiFZpzXdLxe8iRYtGTd0xn8iEHSyMczBzZz49GZAxUMLO7vUeQ==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "rqpGbayOwCkqCVc4j15dLj9uN5rcoUpmiNoh3qdVCtRV0ShPVtnDIdInRYVTlXR8RKue/vshVR7Sa7a2slEJzA==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "EGvgllZ8oNCRp43VgMoab0nFF1ouBObWoJ+wzRGsv/HeTtyw48AIkkGwfkWHj3Op9zjN8aawh0yRwfLrNOoWtA==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "API-Key": "key",
+      "API-Sign": "QwXgI1Ji1+bF2t0P/4M8LU93WeZgW2fTaVyW7KffKvN2jr+WdfKl9r43MVUtQtL1P0ZjzdvoVmV4PYf7J4avBw==",
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "",
+    "api_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/BalanceEx",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000001"
+      ]
+    ],
+    "body": "nonce=1727000000000001",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/AddOrder",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000002"
+      ],
+      [
+        "ordertype",
+        "market"
+      ],
+      [
+        "type",
+        "buy"
+      ],
+      [
+        "volume",
+        "0.001"
+      ],
+      [
+        "pair",
+        "XBTUSDT"
+      ],
+      [
+        "oflags",
+        "viqc"
+      ],
+      [
+        "close[ordertype]",
+        "limit"
+      ]
+    ],
+    "body": "nonce=1727000000000002&ordertype=market&type=buy&volume=0.001&pair=XBTUSDT&oflags=viqc&close%5Bordertype%5D=limit",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/QueryOrders",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000003"
+      ],
+      [
+        "txid",
+        "O1,O2"
+      ],
+      [
+        "consolidate_taker",
+        "true"
+      ]
+    ],
+    "body": "nonce=1727000000000003&txid=O1%2CO2&consolidate_taker=true",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  },
+  {
+    "api_key": "key",
+    "api_secret": "",
+    "path": "/0/private/Earn/Allocations",
+    "pairs": [
+      [
+        "nonce",
+        "1727000000000004"
+      ],
+      [
+        "asset",
+        "a b~*-._/,:[]é+&="
+      ]
+    ],
+    "body": "nonce=1727000000000004&asset=a+b%7E*-._%2F%2C%3A%5B%5D%C3%A9%2B%26%3D",
+    "decoded_secret_hex": "",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Honeymaker Ruby"
+    }
+  }
+]

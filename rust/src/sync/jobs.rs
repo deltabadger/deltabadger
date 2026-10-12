@@ -12,7 +12,6 @@ use super::{balance_reading_keys, credentials_with_version, ledger, reading_keys
 use crate::crypto::Credentials;
 use crate::venue::alpaca::{AlpacaVenue, LiveFactory};
 use crate::venue::http::{ReqwestTransport, Transport};
-use crate::venue::VenueFactory;
 use rusqlite::Connection;
 use std::rc::Rc;
 use std::time::Duration;
@@ -42,7 +41,7 @@ pub trait Connect {
 }
 impl Connect for LiveFactory {
     type T = ReqwestTransport;
-    fn connect(&self, credentials: &Credentials) -> AlpacaVenue<ReqwestTransport> { self.for_bot(ALPACA, Some(credentials.clone())) }
+    fn connect(&self, credentials: &Credentials) -> AlpacaVenue<ReqwestTransport> { self.alpaca(Some(credentials.clone()), Vec::new()) }
     fn binance_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
         let client = match proxy {
             None => crate::venue::http::client(),
@@ -58,11 +57,10 @@ async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncErr
     let (venue, stored) = db.run(move |c, cipher| {
         let venue: String = c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1", [key], |r| r.get(0)).map_err(|e| e.to_string())?;
         let Some((_, name)) = crate::venue::binance::host(&venue) else { return Ok((venue, None)) };
-        let stored: Option<Option<String>> = rusqlite::OptionalExtension::optional(c.query_row("SELECT value FROM app_configs WHERE key = ?1", [format!("proxy_{name}")], |r| r.get(0))).map_err(|e| e.to_string())?;
-        let stored = stored.flatten().map(|v| cipher.decrypt(&v).map_err(|_| format!("app_configs[proxy_{name}] is unreadable"))).transpose()?;
+        let stored = crate::app_config::get(c, cipher, &format!("proxy_{name}"))?;
         Ok((venue, stored))
     }).await.map_err(SyncError)?;
-    let proxy = crate::venue::binance::host(&venue).and_then(|(_, name)| crate::venue::binance::proxy_for(name, stored, &|k| std::env::var(k).ok()));
+    let proxy = crate::venue::binance::host(&venue).and_then(|(_, name)| crate::venue::http::proxy_for(name, stored, &|k| std::env::var(k).ok()));
     Ok((venue, proxy))
 }
 
