@@ -13,9 +13,39 @@ pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
 pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
 pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
-fn revision(c:&Connection)->Result<u64,rusqlite::Error> {
-    let version:u64=c.query_row("PRAGMA data_version",[],|r|r.get(0))?;
-    Ok(version.wrapping_mul(1_000_000_007).wrapping_add(c.total_changes()))
+/// What this account's figures were filled for: the rows Rails' metrics cache is recomputed for (a bot's transactions,
+/// and the bot: its settings, status, venue, restatement) and the account's own rows its figures read. Not a write to
+/// anything else: the scheduler records every job run (app_configs) and its syncs rewrite the reference data, all the
+/// time, and a whole-database revision never held figures for one page load to the next. A figure that needs a ticker
+/// or an asset the cache does not hold is refused at render (`reader.demands()`), whatever this says.
+fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
+    use std::hash::{Hash,Hasher};
+    use rusqlite::types::ValueRef;
+    let mut hash=std::hash::DefaultHasher::new();
+    let bots="SELECT id FROM bots WHERE user_id=?1";
+    for (table,scope) in [("users","id=?1"),("bots","user_id=?1"),("transactions",&format!("bot_id IN ({bots})") as &str),
+                          ("bot_index_assets",&format!("bot_id IN ({bots})")),("wash_sale_locks","user_id=?1")] {
+        let mut statement=c.prepare(&format!("SELECT * FROM {table} WHERE {scope} ORDER BY id"))?;
+        let kept:Vec<usize>=statement.column_names().iter().enumerate().filter(|(_,name)|!matches!(**name,"updated_at"|"transient_data")).map(|(i,_)|i).collect();
+        let mut rows=statement.query([user])?;
+        table.hash(&mut hash);
+        while let Some(row)=rows.next()? {
+            for &i in &kept {
+                match row.get_ref(i)? {
+                    ValueRef::Null=>0u8.hash(&mut hash),
+                    ValueRef::Integer(v)=>(1u8,v).hash(&mut hash),
+                    ValueRef::Real(v)=>(2u8,v.to_bits()).hash(&mut hash),
+                    ValueRef::Text(v)|ValueRef::Blob(v)=>(3u8,v).hash(&mut hash),
+                }
+            }
+        }
+    }
+    // The ledger's split rows and the balances' assets name the classes of a restated holding (db::split_rows,
+    // db::account_classes); a sync appends rows and reprices balances, which only the first of these is.
+    let ledger:(i64,Option<i64>)=c.query_row("SELECT count(*),max(id) FROM account_transactions WHERE user_id=?1",[user],|r|Ok((r.get(0)?,r.get(1)?)))?;
+    let held:String=c.query_row("SELECT coalesce(group_concat(asset_id),'') FROM (SELECT DISTINCT asset_id FROM account_balances WHERE user_id=?1 ORDER BY asset_id)",[user],|r|r.get(0))?;
+    (ledger,held).hash(&mut hash);
+    Ok(hash.finish())
 }
 pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_info(&tx,app,user)?;tx.commit()?;return Ok(out)}
@@ -28,7 +58,7 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     if !matches!(credentials.passphrase.as_deref(),None|Some("paper")) { return Ok(None); }
     let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
     let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
-    let revision=revision(c)?;
+    let revision=revision(c,user)?;
     Ok(Some(Info{identity,revision,credentials,origin:version}))
 }
 pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion> }
@@ -163,13 +193,13 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         let computed=budget::within(||{
             let unavailable=||crate::figures::FiguresError::NotComputed("Market data unavailable".into());
             let current=cache.producer().as_ref().map(|origin|crate::engine::model::credential_is_current(c,origin)).transpose().map_err(|_|unavailable())?.unwrap_or(false);
-            if !current || revision(c)? != *prepared_revision { return Err(unavailable()); }
+            if !current || revision(c,user)? != *prepared_revision { return Err(unavailable()); }
             let names=symbols(c,user)?;
             let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
             let value=account(c,user,&reader,*now,locale,csrf,prefix)?;
             // Core live calculations may return ledger values after a market failure.
             // Publish only after all reads succeeded against the prepared revision.
-            if reader.failed() || !reader.demands().is_empty() || revision(c)? != *prepared_revision {
+            if reader.failed() || !reader.demands().is_empty() || revision(c,user)? != *prepared_revision {
                 return Err(unavailable());
             }
             Ok(value)
