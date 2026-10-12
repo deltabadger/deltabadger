@@ -169,6 +169,8 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
     let asset = |id: i64, symbol: &str| format!("INSERT INTO assets(id,category,created_at,external_id,name,symbol,updated_at) VALUES ({id},'Stock','2020-01-01','{symbol}','{symbol} Inc','{symbol}','2020-01-01');");
     let aaa: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
         .query_row("SELECT base_asset_id FROM tickers WHERE ticker='AAA'", [], |r| r.get(0)).unwrap();
+    let alpaca: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT exchange_id FROM tickers WHERE ticker='AAA'", [], |r| r.get(0)).unwrap();
     // (what, the state the figures are published in, the edit after, whether the publication is still replayed)
     let mut cases: Vec<(String, String, String, bool)> = [
         ("a sync that rewrites timestamps and reference data the figures never read", String::new(),
@@ -197,6 +199,11 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         ("a composition ticker on another venue resized",
          format!("{}{}UPDATE bot_index_assets SET ticker_id=101 WHERE bot_id=(SELECT bot_id FROM bot_index_assets GROUP BY bot_id HAVING count(*)=1);", venue(3), listing(101,3,"AAA",aaa)),
          "UPDATE tickers SET minimum_quote_size=7 WHERE id=101".to_string(), false),
+        // A listing of the bots' venue that no bot trades, no order names and no split's name resolves to; delisted, so
+        // that no bot prices it.
+        ("an unrelated listing on the bots' venue resized",
+         format!("{}{}UPDATE tickers SET available=0 WHERE id=102;", asset(30,"UNR"), listing(102,alpaca,"UNR",30)),
+         "UPDATE tickers SET minimum_quote_size=7, minimum_base_size=3 WHERE id=102".to_string(), true),
     ].into_iter().map(|(what, prep, sql, kept)| (what.to_string(), prep, sql, kept)).collect();
     // What hides the Sell and Redeploy controls while an operation runs.
     for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] {
@@ -225,6 +232,25 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         c.execute_batch(&sql).unwrap();
         if loading::resubscribed(&app, user, stream).await.is_empty() == kept { wrong.push(format!("{what}: replayed {}", if kept { "nothing" } else { "the old figures" })); }
     }
+    // The fingerprint reads the account's rows, not its venues' whole listings: 10,000 more listings on the bots' venue,
+    // tradable in the bots' quote, of assets nothing in the account names, add no row to it.
+    let copy = tempfile::tempdir().unwrap();
+    let file = copy.path().join("production.sqlite3");
+    std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
+    let c = rusqlite::Connection::open(&file).unwrap();
+    c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
+               SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
+    let read = |c: &rusqlite::Connection| { let started = std::time::Instant::now(); let (_, rows) = loading::revision(c, user).unwrap(); (rows, started.elapsed()) };
+    let (alone, _) = read(&c);
+    c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<10000) \
+        INSERT INTO assets(id,category,created_at,external_id,name,symbol,updated_at) SELECT 200000+i,'Stock','2020-01-01','U'||i,'U'||i||' Inc','U'||i,'2020-01-01' FROM n; \
+        WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<10000) \
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,updated_at) \
+        SELECT 200000+i,'U'||i,200000+i,t.base_decimals,t.created_at,t.exchange_id,t.minimum_base_size,t.minimum_quote_size,t.price_decimals,t.quote,t.quote_asset_id,t.quote_decimals,'U'||i||'/USD',t.updated_at \
+        FROM n, (SELECT * FROM tickers WHERE ticker='AAA') t;").unwrap();
+    let (crowded, took) = read(&c);
+    eprintln!("revision beside 10,000 unrelated listings: {took:?}, {crowded} rows read ({alone} without them)");
+    if crowded != alone { wrong.push(format!("the fingerprint read {} rows beside 10,000 unrelated listings, {alone} without them", crowded)); }
     assert!(wrong.is_empty(), "{wrong:#?}");
 }
 

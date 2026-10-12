@@ -22,10 +22,12 @@ pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Cre
 /// The scheduler records every job run (app_configs) and its syncs rewrite the reference data all the time, and a
 /// whole-database revision never held figures from one page load to the next. A replay (`Service::latest`) is checked
 /// against this alone, so anything a figure reads belongs here.
-fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
+/// Also how many rows it read, for the tests that hold it to the account's own.
+pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     use std::hash::{Hash,Hasher};
     use rusqlite::types::ValueRef;
     let mut hash=std::hash::DefaultHasher::new();
+    let mut read=0;
     let bots="SELECT id FROM bots WHERE user_id=?1";
     // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the
     // bot's venue now.
@@ -71,6 +73,7 @@ fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
         let mut rows=statement.query([user])?;
         name.hash(&mut hash);
         while let Some(row)=rows.next()? {
+            read+=1;
             for &i in &kept {
                 match row.get_ref(i)? {
                     ValueRef::Null=>0u8.hash(&mut hash),
@@ -81,7 +84,7 @@ fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
             }
         }
     }
-    Ok(hash.finish())
+    Ok((hash.finish(),read))
 }
 pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_info(&tx,app,user)?;tx.commit()?;return Ok(out)}
@@ -94,7 +97,7 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     if !matches!(credentials.passphrase.as_deref(),None|Some("paper")) { return Ok(None); }
     let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
     let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
-    let revision=revision(c,user)?;
+    let revision=revision(c,user)?.0;
     Ok(Some(Info{identity,revision,credentials,origin:version}))
 }
 pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion> }
@@ -229,13 +232,13 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         let computed=budget::within(||{
             let unavailable=||crate::figures::FiguresError::NotComputed("Market data unavailable".into());
             let current=cache.producer().as_ref().map(|origin|crate::engine::model::credential_is_current(c,origin)).transpose().map_err(|_|unavailable())?.unwrap_or(false);
-            if !current || revision(c,user)? != *prepared_revision { return Err(unavailable()); }
+            if !current || revision(c,user)?.0 != *prepared_revision { return Err(unavailable()); }
             let names=symbols(c,user)?;
             let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
             let value=account(c,user,&reader,*now,locale,csrf,prefix)?;
             // Core live calculations may return ledger values after a market failure.
             // Publish only after all reads succeeded against the prepared revision.
-            if reader.failed() || !reader.demands().is_empty() || revision(c,user)? != *prepared_revision {
+            if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0 != *prepared_revision {
                 return Err(unavailable());
             }
             Ok(value)
