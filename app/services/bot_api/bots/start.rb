@@ -16,6 +16,10 @@ module BotApi
         nil
       end
 
+      # The wash-sale question is owed at the first thing that can sell, and every start of such a bot
+      # (web, MCP, REST) waits for the answer. A bot that only buys is never held up by it.
+      def self.wash_sale_question_owed?(user, bot) = !user.wash_sale_decided? && bot.sell_capable?
+
       def initialize(user:, bot_id:, start_fresh: nil)
         @user = user
         @bot_id = bot_id
@@ -25,7 +29,7 @@ module BotApi
       def call
         bot = @user.bots.not_deleted.find_by(id: @bot_id.to_i)
         return Result.failure(:not_found, 'bot_not_found', 'Bot not found.') unless bot
-        if @user.wash_sale_question_owed_for?(bot)
+        if self.class.wash_sale_question_owed?(@user, bot)
           return Result.failure(:validation_failed, 'wash_sale_question_owed', I18n.t('engine.wash_sale_question_owed', label: bot.label))
         end
         return Result.failure(:validation_failed, 'invalid_start_fresh', I18n.t('engine.invalid_start_fresh')) if @start_fresh.nil?

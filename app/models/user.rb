@@ -116,10 +116,6 @@ class User < ApplicationRecord
   # why the account box carries a Confirm button while this is nil.
   def wash_sale_decided? = !wash_sale_enabled.nil?
 
-  # The question is owed at the first thing that can sell, and every start of such a bot (web, MCP,
-  # REST) waits for the answer. A bot that only buys is never held up by it.
-  def wash_sale_question_owed_for?(bot) = !wash_sale_decided? && bot.sell_capable?
-
   # The asset ids this taxpayer may not buy right now — read by every buy leg on every bot type and
   # by the direct-order services. Empty while the rule is off or undecided: switching it off releases
   # buying at once, and the stored deadlines stay so switching it back on resumes the windows already
