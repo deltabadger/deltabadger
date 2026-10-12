@@ -68,7 +68,18 @@ pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Resu
 
 #[allow(clippy::too_many_arguments)]
 pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: &str, prefix: &str) -> Result<Value, FiguresError> {
+    Ok(computed(c, user_id, market, now, locale, Some(csrf), prefix)?.0)
+}
+/// Where each bot's metrics take a form token: (bot id, byte offsets into its `metrics`).
+pub(crate) type Slots = Vec<(String, Vec<usize>)>;
+/// `account` with every form token left empty and where it goes recorded, for figures kept across requests.
+pub(crate) fn kept_account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<(Value, Slots), FiguresError> {
+    computed(c, user_id, market, now, locale, None, prefix)
+}
+/// `csrf`: the token, or None to record where it goes.
+fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: Option<&str>, prefix: &str) -> Result<(Value, Slots), FiguresError> {
     budget::within(|| {
+        let mut slots = vec![];
         let mut bots = Map::new();
         let mut computed = vec![];
         let user = db::user(c, user_id)?;
@@ -78,7 +89,11 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
             let marked_live = live::live(c, &subject, &walked, market, now)?;
             let missing = missing(&subject, &marked_live, market)?;
             let marked = chart::marked(c, &subject, &marked_live, market, now)?;
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), user.hide_balances)?, "metrics": holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, csrf, prefix, now)?, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
+            let mut offsets = vec![];
+            let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some("") => holdings::Token::None, Some(token) => holdings::Token::Value(token) };
+            let metrics = holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, &mut token, prefix, now)?;
+            if !offsets.is_empty() { slots.push((id.to_string(), offsets)); }
+            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), user.hide_balances)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
             computed.push((subject, marked_live, marked, missing));
         }
         let unavailable = computed.iter().any(|(s,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() || s.quote.as_deref() != Some("USD"));
@@ -90,7 +105,7 @@ pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, l
         if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
         budget::charge(bytes as u64,0)?;
         budget::check()?;
-        Ok(out)
+        Ok((out, slots))
     })
 }
 

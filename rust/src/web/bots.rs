@@ -153,10 +153,11 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
         // Bot::Merge.members: the current members, heaviest first.
         let mut members: Vec<&bot::Membership> = bot.memberships.iter().filter(|m| m.in_index).collect();
         members.sort_by(|a, b| b.target_allocation.cmp(&a.target_allocation));
-        // Bot::Merge.venues_for: where each member trades at this quote, on a venue a user can still pick.
+        // Bot::Merge.venues_for: where each member trades at this quote, on a venue a user can still pick. By the base's
+        // listings (`+` keeps the planner off the quote's index: every listing in USD, once per member).
         let mut venues = c.prepare("SELECT DISTINCT t.exchange_id FROM tickers t JOIN exchanges e ON e.id = t.exchange_id \
                                     WHERE t.available = 1 AND t.trading_enabled = 1 AND e.available = 1 AND e.type IS NOT 'Exchanges::Bitmart' \
-                                    AND t.base_asset_id = ?1 AND t.quote_asset_id IS ?2 ORDER BY t.exchange_id")?;
+                                    AND t.base_asset_id = ?1 AND +t.quote_asset_id IS ?2 ORDER BY t.exchange_id")?;
         for member in members {
             let ids = venues.query_map((member.asset.id, quote_id), |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
             chips.push(Chip {

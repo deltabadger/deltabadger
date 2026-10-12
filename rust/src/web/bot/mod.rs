@@ -535,13 +535,15 @@ impl Bot {
             }
         }
         // set_tickers: available, trading-enabled tickers of this venue in the quote; a basket's are
-        // further narrowed to every asset that is or ever was in its composition.
-        let tradable = Ticker::all(c, "t.exchange_id = ?1 AND t.quote_asset_id IS ?2 AND t.available = 1 AND t.trading_enabled = 1", &[&exchange.id, &quote_asset_id])?;
+        // further narrowed to every asset that is or ever was in its composition. Each by the venue's index: the quote's
+        // holds every venue's listings in it (`+`), and a basket's assets, as literals, take the (venue, base, quote) one.
+        let tradable = "t.available = 1 AND t.trading_enabled = 1 AND t.exchange_id = ?1";
         let tickers = match kind {
-            Kind::Index => tradable,
+            Kind::Index => Ticker::all(c, &format!("{tradable} AND +t.quote_asset_id IS ?2"), &[&exchange.id, &quote_asset_id])?,
             Kind::Basket => {
-                let known: std::collections::HashSet<i64> = allocation_ids(&settings).into_iter().chain(memberships.iter().map(|m| m.asset.id)).collect();
-                tradable.into_iter().filter(|ticker| known.contains(&ticker.base_asset_id)).collect()
+                let known: std::collections::BTreeSet<i64> = allocation_ids(&settings).into_iter().chain(memberships.iter().map(|m| m.asset.id)).collect();
+                let known = known.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+                if known.is_empty() { vec![] } else { Ticker::all(c, &format!("{tradable} AND t.quote_asset_id IS ?2 AND t.base_asset_id IN ({known})"), &[&exchange.id, &quote_asset_id])? }
             }
         };
         let api_key = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 ORDER BY id LIMIT 1", [user_id, exchange.id], |r| r.get(0)).optional()?;

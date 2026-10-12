@@ -121,10 +121,10 @@ pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
 /// Per (venue, NAME), the one asset that name stands for on the venue; None: more than one.
 pub type Names = HashMap<(i64, String), Option<i64>>;
 
-/// What the split rows these orders are eligible for name, as `groups` resolves it: the rows and their names.
-/// The figures' fingerprint reads it too.
-pub fn lookups(c: &Connection, user_id: i64, orders: &[Order]) -> Result<(Vec<SplitRow>, Names), FiguresError> {
-    names(c, user_id, &eligibility(orders)?.2)
+/// What the split rows on these venues name, as `groups` resolves it: the rows and their names. The figures'
+/// fingerprint reads it for the venues the account's orders are eligible on (`eligibility`), sorted.
+pub fn lookups(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names), FiguresError> {
+    names(c, user_id, exchange_ids)
 }
 
 /// The (venue, name) and (venue, asset) pairs these orders traded, and their venues, sorted.

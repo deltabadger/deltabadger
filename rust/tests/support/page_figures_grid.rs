@@ -204,6 +204,17 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         ("an unrelated listing on the bots' venue resized",
          format!("{}{}UPDATE tickers SET available=0 WHERE id=102;", asset(30,"UNR"), listing(102,alpaca,"UNR",30)),
          "UPDATE tickers SET minimum_quote_size=7, minimum_base_size=3 WHERE id=102".to_string(), true),
+        // The index reads every tradable listing of its venue in its quote: the coarsest quote precision among them rounds
+        // its chart (chart::quote_decimals). One the account never held, re-precisioned, is read; one on another venue is not.
+        ("a never-held tradable listing in the index's venue and quote re-precisioned",
+         format!("{}{}", asset(31,"NVR"), listing(103,alpaca,"NVR",31)),
+         "UPDATE tickers SET quote_decimals=0 WHERE id=103".to_string(), false),
+        ("a never-held tradable listing in the index's venue and quote renamed",
+         format!("{}{}", asset(33,"NVS"), listing(105,alpaca,"NVS",33)),
+         "UPDATE tickers SET ticker='NVS2' WHERE id=105".to_string(), false),
+        ("a listing on a venue the account never used re-precisioned",
+         format!("{}{}{}", venue(4), asset(32,"OTH"), listing(104,4,"OTH",32)),
+         "UPDATE tickers SET quote_decimals=0 WHERE id=104".to_string(), true),
     ].into_iter().map(|(what, prep, sql, kept)| (what.to_string(), prep, sql, kept)).collect();
     // What hides the Sell and Redeploy controls while an operation runs.
     for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] {
@@ -349,7 +360,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             tokio::time::timeout(std::time::Duration::from_secs(5),async {
                 loop {
                     match loading::prepare(&app,user).await.unwrap() {
-                        loading::Snapshot::Ready(_,_,_)=>break,
+                        loading::Snapshot::Ready(..)=>break,
                         loading::Snapshot::Failed(_)=>panic!("fill failed"),
                         _=>tokio::task::yield_now().await,
                     }
@@ -397,9 +408,9 @@ async fn figures_fragments_match_the_rails_page_partials() {
             assert_eq!(common::web::Browser::default().get(&app,"/bots/1").await.status,302);
             if name == "owner_account" {
                 let prepared=loading::prepare(&app,user).await.unwrap();
-                let loading::Snapshot::Ready(mut refused,at,revision)=prepared.clone() else { panic!("not warm") };
+                let loading::Snapshot::Ready(mut refused,at,revision,_)=prepared.clone() else { panic!("not warm") };
                 // A missing cache entry must never expose the core's successful ledger fallback.
-                let pending=loading::Snapshot::Ready(Cache::default(),at,revision);
+                let pending=loading::Snapshot::Ready(Cache::default(),at,revision,None);
                 let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","")).await.unwrap().unwrap();
                 let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed(None),"en","token","")).await.unwrap().unwrap();
                 assert_eq!(pending,failed,"pending demands published a ledger figure or account total");
@@ -417,7 +428,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 assert!(reader.prices(&venue,&[]).is_err());
                 assert!(reader.failed());
                 assert!(reader.demands().is_empty());
-                let refused=loading::Snapshot::Ready(refused,at,revision);
+                let refused=loading::Snapshot::Ready(refused,at,revision,None);
                 let refused=app.db(move|c| loading::render(c,user,&refused,"en","token","")).await.unwrap().unwrap();
                 assert_eq!(refused,failed,"failed demand published a ledger figure or account total");
                 // Keep successful prices, but replace every candle response with a failure or unreadable bar.
@@ -443,22 +454,48 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     let _ = deltabadger::web::figure::account(&c,user,&reader,at,"en","token","");
                     assert!(reader.demands().is_empty(), "publication must fail on cached candles, not pending reads");
                     assert!(reader.failed(), "cached candle failure escaped publication guard");
-                    let snapshot = loading::Snapshot::Ready(cache,at,revision);
+                    let snapshot = loading::Snapshot::Ready(cache,at,revision,None);
                     let rendered = app.db(move|c| loading::render(c,user,&snapshot,"en","token","")).await.unwrap().unwrap();
                     assert_eq!(rendered,failed,"failed candles published a chart or account sparkline");
                 }
                 // Index tickers use the venue's entire symbol union. Synchronization inserts
-                // another listing after prepare; all dependent targets must lose their numbers.
-                app.db(|c| {
-                    c.execute("INSERT INTO tickers (base,base_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,updated_at) SELECT 'USD_TEST',quote_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,'USD_TEST',updated_at FROM tickers WHERE ticker='AAA' LIMIT 1",[])?;
-                    Ok(())
-                }).await.unwrap();
-                let changed=app.db(move|c| {
-                    assert!(loading::symbols(c,user).unwrap().iter().any(|s|s=="USD_TEST"));
-                    loading::render(c,user,&prepared,"en","token","")
-                }).await.unwrap().unwrap();
-                assert_eq!(changed,failed,"new ticker published a ledger figure or account total");
-                app.db(|c| { c.execute("DELETE FROM tickers WHERE ticker='USD_TEST'",[])?; Ok(()) }).await.unwrap();
+                // another listing after prepare; all dependent targets must lose their numbers. Whether the page's own
+                // connection writes it or the sync's.
+                let insert="INSERT INTO tickers (base,base_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,updated_at) SELECT 'USD_TEST',quote_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,'USD_TEST',updated_at FROM tickers WHERE ticker='AAA' LIMIT 1";
+                for own in [true,false] {
+                    let prepared=loading::prepare(&app,user).await.unwrap();
+                    assert!(matches!(prepared,loading::Snapshot::Ready(..)));
+                    if own { app.db(move|c| { c.execute(insert,[])?; Ok(()) }).await.unwrap(); }
+                    else { rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().execute(insert,[]).unwrap(); }
+                    let changed=app.db(move|c| {
+                        assert!(loading::symbols(c,user).unwrap().iter().any(|s|s=="USD_TEST"));
+                        loading::render(c,user,&prepared,"en","token","")
+                    }).await.unwrap().unwrap();
+                    assert_eq!(changed,failed,"new ticker published a ledger figure or account total (written by the page's connection: {own})");
+                    app.db(|c| { c.execute("DELETE FROM tickers WHERE ticker='USD_TEST'",[])?; Ok(()) }).await.unwrap();
+                }
+                // Kept figures are what a computation gives: rendered again under another form token, they equal a fresh
+                // computation under it. Stored text that holds what a kept page once used as its token's placeholder is
+                // text: it reaches the page as stored and never carries the request's token (an image URL would send it
+                // to the image's host).
+                let marker="https://images.example/figuresFormTokenPlaceholder7f3a9c.png";
+                let aaa="UPDATE assets SET image_url=?1 WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='AAA')";
+                let original:Option<String>=c.query_row("SELECT image_url FROM assets WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='AAA')",[],|r|r.get(0)).unwrap();
+                app.db(move|c| { c.execute(aaa,[marker])?; Ok(()) }).await.unwrap();
+                let warm=|app:App|async move { tokio::time::timeout(Duration::from_secs(10),async { loop {
+                    match loading::prepare(&app,user).await.unwrap() { ready@loading::Snapshot::Ready(..)=>break ready, _=>tokio::time::sleep(Duration::from_millis(20)).await }
+                } }).await.expect("the figures never became ready again") };
+                let prepared=warm(app.clone()).await;
+                let loading::Snapshot::Ready(cache,at,_,_)=prepared.clone() else { panic!("not warm") };
+                for token in ["first-token","second-token"] {
+                    let snapshot=prepared.clone();
+                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"")).await.unwrap().unwrap();
+                    let reader=Reader::new(&cache,at.utc().timestamp()).with_current(&c).with_symbols(loading::symbols(&c,user).unwrap());
+                    assert_eq!(kept,deltabadger::web::figure::account(&c,user,&reader,at,"en",token,"").unwrap(),"kept figures under {token}");
+                    assert!(kept.to_string().contains(marker) && !kept.to_string().contains(&format!("images.example/{token}")),"the stored image URL is shown as stored");
+                }
+                app.db(move|c| { c.execute(aaa,[original])?; Ok(()) }).await.unwrap();
+                warm(app.clone()).await;
             }
             if name == "owner_account" {
                 // A large account's publication does not outrun the hub: 600 payloads, two hundred bots' worth, all reach
@@ -493,7 +530,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let mut mounted=Cable::open(&mounted_app,&cookie,&streams).await;
                 mounted_app.hub.broadcast(&user_stream,&"x".repeat(deltabadger::web::cable::MAILBOX_BYTES+1));
                 tokio::time::timeout(Duration::from_secs(5),async {
-                    while !matches!(loading::prepare(&mounted_app,user).await.unwrap(),loading::Snapshot::Ready(_,_,_)) { tokio::time::sleep(Duration::from_millis(20)).await; }
+                    while !matches!(loading::prepare(&mounted_app,user).await.unwrap(),loading::Snapshot::Ready(..)) { tokio::time::sleep(Duration::from_millis(20)).await; }
                 }).await.unwrap();
                 loading::publish(&mounted_app,user).await.unwrap(); // the final publication, which the full mailbox drops
                 let closed=tokio::time::timeout(Duration::from_secs(5),async {
@@ -759,7 +796,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 tokio::time::timeout(std::time::Duration::from_secs(5),async {
                     loop {
                         match loading::prepare(&app,user).await.unwrap() {
-                            loading::Snapshot::Ready(_,_,_)=>break,
+                            loading::Snapshot::Ready(..)=>break,
                             loading::Snapshot::Failed(_)=>panic!("corrected fill failed"),
                             _=>tokio::task::yield_now().await,
                         }
