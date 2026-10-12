@@ -29,6 +29,8 @@ pub fn log(line: &str) { println!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M
 
 #[derive(Debug)]
 pub enum EngineError {
+    /// The tick's captured run was stopped, restarted or claimed by another tick. No failure writes.
+    RunFenced,
     /// A venue answer belongs to credentials replaced while its request ran.
     CredentialsChanged,
     Arithmetic(crate::codec::CodecError),

@@ -114,7 +114,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
     use deltabadger::engine::eligibility;
     let (_d,o,id,_)=build(&vectors()["cases"][0]);
     for (sql,reason) in [
-        ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'))","start_time_enabled"),
+        ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_at','2026-01-06T12:00:00Z')","start_time_enabled"),
         ("UPDATE bots SET settings=json_set(settings,'$.price_limited',json('true'))","price_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","direction"),
@@ -257,6 +257,8 @@ async fn r9e_damaged_cap_tick_and_stop() {
     assert!(status.is_success(),"STOP {status}: {}",String::from_utf8_lossy(&body));
     let stopped=model::load_bot(&o.primary,id).unwrap();
     assert_eq!(stopped.status,deltabadger::enums::BotStatus::Stopped);
-    assert_eq!(stopped.transient,before,"STOP preserves timestamp evidence");
+    let mut expected=before;
+    expected["run_generation"]=json!(1);
+    assert_eq!(stopped.transient,expected,"STOP preserves timestamp evidence while advancing generation");
     assert_eq!(eligibility::check_install(&o.primary).unwrap().unreadable,report.unreadable);
 }

@@ -141,6 +141,7 @@ pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Conn
     let by_asset: HashMap<i64, f64> = caps.into_iter().map(|(id, _)| id).zip(weights).collect();
     let members: Vec<(i64, i64, f64)> = chosen.iter().map(|(asset, ticker, _)| (*asset, *ticker, by_asset[asset])).collect();
     model::credential_write(c, version, |tx| {
+        model::require_run(tx, bot)?;
         let current = model::load_bot(tx, bot.id)?;
         let source_now: Option<(Option<String>, Option<String>, Option<String>)> = tx.query_row(
             "SELECT source, top_coins, weights FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category],

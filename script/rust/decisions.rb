@@ -88,7 +88,7 @@ module Decisions
   # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
   MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
   # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
-  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending] + MAIL_MARKERS).freeze
+  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation] + MAIL_MARKERS).freeze
   # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
   SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
                      'rust_error_mail_pending' => { 'unknown' => { 'error' => 'an <old> "error"', 'stamped_at' => '2026-08-31T09:00:00.000Z' } },
@@ -100,6 +100,8 @@ module Decisions
   def rows(table)
     ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a.to_h do |r|
       r = r.transform_values { |v| raw(v) }
+      # Rust-only run ownership attribution, asserted by placement/tick_basket protocol tests.
+      r.delete('run_identity') if table == 'transactions'
       JSON_COLUMNS.each { |c| r[c] = JSON.parse(r[c]) if r[c].is_a?(String) }
       r['transient_data'] = r['transient_data'].except(*RUST_KEYS) if r['transient_data'].is_a?(Hash)
       [r['id'], r]

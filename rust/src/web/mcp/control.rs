@@ -21,7 +21,10 @@ fn lifecycle_response(c:&Connection,_:&Ctx,id:i64,action:Action,view:&LifecycleV
     let label:String=c.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1",[id],|r|r.get(0))?;
     let text=if view.errors.is_empty() {
         match action {
-            Action::Stop=>format!("Bot '{label}' stopped."),
+            Action::Stop=> {
+                let pending = write::orders_may_execute(c, id)?;
+                format!("Bot '{label}' stopped.{}", if pending { " Orders already sent to the exchange may still execute." } else { "" })
+            },
             Action::Archive=>format!("Bot '{label}' archived."),
             Action::Unarchive=>format!("Bot '{label}' reactivated (stopped)."),
             Action::Delete=>format!("Bot '{label}' deleted."),

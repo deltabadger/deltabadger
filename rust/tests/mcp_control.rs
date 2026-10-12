@@ -52,9 +52,10 @@ fn snapshot(dir:&Path)->Value {
         }).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
         tables.insert(table.to_string(),json!(rows));
     }
-    Value::Object(tables)
+    common::ownership_business_rows(Value::Object(tables))
 }
 fn comparable(mut transcript: Value) -> Value {
+    transcript["rows"] = common::ownership_business_rows(transcript["rows"].take());
     if let Some(id) = transcript["session"].as_str().map(str::to_string) {
         assert_eq!(id.len(),32); assert!(id.bytes().all(|b| b.is_ascii_hexdigit()));
         for table in transcript["rows"].as_object_mut().unwrap().values_mut() {
@@ -166,7 +167,7 @@ async fn control_transcripts() {
             // #507 rejects missing/pending/incorrect keys in production validation, before arming a tick.
             for transcript in [&want, &got] {
                 let response:Value=serde_json::from_str(transcript["responses"][2]["body"].as_str().unwrap()).unwrap();
-                assert_eq!(response["result"]["isError"],Value::Null,"Rails validation classification {name}");
+                assert_eq!(response["result"]["isError"],true,"Rails validation classification {name}");
                 assert_eq!(response["result"]["content"][0]["text"],"Failed to start bot 'Control': A valid trading API key is required to start this bot.","{name}");
                 assert_eq!(transcript["rows"]["bots"][0]["status"],0,"key refusal does not arm {name}");
             }
@@ -233,6 +234,8 @@ impl deltabadger::venue::VenueFactory for PriceBarrier {
     }
 }
 fn changes(before:&Value,after:&Value)->Value {
+    let before = common::ownership_business_rows(before.clone());
+    let after = common::ownership_business_rows(after.clone());
     let mut changes=serde_json::Map::new();
     for table in ["bots","bot_index_assets","bot_activity_logs","transactions","api_keys","users"] {
         let mut rows=vec![];

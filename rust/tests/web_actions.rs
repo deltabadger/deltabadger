@@ -540,6 +540,23 @@ mod action_write {
     }
 
     #[test]
+    fn divergence_settings_held_until_reconciliation() -> Result {
+        use deltabadger::engine::{amount, model, placement, FixedClock};
+        use deltabadger::ruby::BigDec;
+        let rails = common::ownership_case("settings_held_until_reconciliation");
+        assert_eq!(rails["rails_update_succeeded"], true);
+        assert_eq!(rails["rails_quote_amount"], 100.0);
+        let f = Fixture::new()?;
+        let bot = model::load_bot(&f.c, f.id).unwrap();
+        let ticker = model::ticker_for(&f.c, &bot).unwrap().ok_or("ticker")?;
+        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(5), &BigDec::from_i64(50_000), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!("plan") };
+        placement::begin(&f.c, &bot, &plan, &FixedClock(harness::at(NOW))).unwrap();
+        let before = f.snapshot()?;
+        assert!(matches!(f.write(json!({"quote_amount":"100"}))?, Outcome::GuardRefused(_)));
+        assert_eq!(f.snapshot()?, before, "refusal preserves the carry window and unresolved order");
+        Ok(())
+    }
+    #[test]
     fn action_write_amount_preserves_columns_and_json() -> Result {
         let f = Fixture::new()?;
         assert!(matches!(f.write(json!({"quote_amount":"37.25"}))?, Outcome::Committed(_)));
@@ -972,6 +989,7 @@ mod action_write {
                     assert!(matches!(f.lifecycle(write::Action::Start,flag)?,Outcome::Committed(_)));
                     let after=f.stored()?;
                     let mut expected=before["transient"].clone();
+                    expected["run_generation"]=json!(1);
                     if fresh { expected["last_action_job_at"]=Value::Null; expected["missed_quote_amount"]=Value::Null; }
                     else { expected["rust_continue_start"]=json!({"requested_at":NOW,"was_stopped":status==2}); }
                     assert_eq!(after["transient"],expected);
@@ -1057,7 +1075,10 @@ mod action_write {
             let anchor:String=f.c.query_row("SELECT started_at FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
             assert_eq!(anchor,rails["started_at"].as_str().ok_or("started_at")?,"{mode}");
             assert_eq!(stored["settings"]["start_at"],rails["settings"]["start_at"],"{mode}");
-            assert_eq!(stored["transient"],rails["transient_data"],"{mode}: the whole transient_data, no key Rails leaves absent");
+            let mut expected_transient = rails["transient_data"].clone();
+            assert!(expected_transient.get("run_generation").is_none(), "Rails has no ownership generation");
+            expected_transient["run_generation"] = json!(1);
+            assert_eq!(stored["transient"], expected_transient, "{mode}: Rails state plus exactly one Rust start generation");
             let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
             assert_eq!(json!(status),rails["status"],"{mode}");
             let changed=if mode=="date" {changed_before} else {json!(rails["settings_changed_at"])};
@@ -1429,6 +1450,49 @@ mod action_race {
         }
     }
 
+    async fn accepted_order_stop_notice(external_status: i64) -> Result {
+        let mut f = Fixture::new().await?;
+        // Accepted order: its intent has already been cleared, only the submitted row remains.
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        seed::insert_tx(&f.c, &f.seed, f.id, &seed::TxSpec {
+            status: 0, external_status: Some(external_status), external_id: Some("accepted-limit".into()),
+            order_type: 1, amount: Some("0.0012"), quote_amount: Some("60"), price: Some("50000"),
+            quote_amount_exec: None, amount_exec: None, created_at: "2026-09-03 14:59:00".into(),
+        });
+        assert!(f.transient()?.get("rust_placement").is_none());
+        let answer = f.ok("PATCH", "/stop", &[]).await?;
+        assert!(answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, 2);
+        // Terminal and non-submitted rows must not warn, even though the order id remains.
+        for (status, external) in [(0, 2), (0, 3), (0, 4), (1, 0), (2, 1)] {
+            f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+            f.c.execute("UPDATE transactions SET status=?1,external_status=?2 WHERE bot_id=?3", (status, external, f.id))?;
+            let answer = f.ok("PATCH", "/stop", &[]).await?;
+            assert!(!answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        }
+        // Another bot's open order cannot cause this bot's notice.
+        let other = seed::insert_bot(&f.c, &f.seed, &seed::BotSpec::weekly(60.0, ANCHOR));
+        f.c.execute("UPDATE transactions SET bot_id=?1,status=0,external_status=1 WHERE bot_id=?2", (other, f.id))?;
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        let answer = f.ok("PATCH", "/stop", &[]).await?;
+        assert!(!answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        Ok(())
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_notice_for_accepted_unknown_order() -> Result { accepted_order_stop_notice(0).await }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_notice_for_accepted_open_order() -> Result { accepted_order_stop_notice(1).await }
+    #[tokio::test(flavor="current_thread")]
+    async fn divergence_in_flight_stop_notice_in_the_browser() -> Result {
+        let mut f=Fixture::new().await?;
+        f.ok("PATCH","/start",&[]).await?;
+        let value=json!({"rust_placement":{"dispatched":true}});
+        f.c.execute("UPDATE bots SET transient_data=?1 WHERE id=?2",(value.to_string(),f.id))?;
+        let answer=f.ok("PATCH","/stop",&[]).await?;
+        assert!(answer.body.contains("Orders already sent to the exchange may still execute."),"{}",answer.body);
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
+        Ok(())
+    }
     #[tokio::test(flavor="current_thread")]
     async fn stop_with_archived_bot_without_exchange() -> Result {
         let mut f=Fixture::new().await?;
@@ -1572,14 +1636,22 @@ mod action_race {
             _=tokio::time::sleep(LIMIT)=>return Err("engine did not reach scripted barrier; HTTP writer not started".into()),
         }
         if !after_send {assert!(f.transient()?.get("rust_placement").is_none());}
-        f.ok("PATCH","/stop",&[]).await?;
+        let completed = if after_send {
+            tokio::time::timeout(LIMIT, f.ok("PATCH","/stop",&[])).await??;
+            assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, 2);
+            assert!(f.transient()?.get("rust_placement").is_some(), "STOP keeps the in-flight intent");
+            release.notify_one();
+            Some(tokio::time::timeout(LIMIT,&mut future).await)
+        } else { f.ok("PATCH","/stop",&[]).await?; None };
         if edit {
             let eth=f.eth.to_string(); let btc=f.seed.btc.to_string();
             f.ok("PATCH","",&[("bots_dca_multi_asset[add_asset_id]",&eth),("bots_dca_multi_asset[remove_asset_id]",&btc)]).await?;
             if restart { f.ok("PATCH","/start",&[]).await?; f.clock.set(harness::at("2026-09-03T15:00:00.002Z")); }
         }
-        release.notify_one();
-        let outcome=tokio::time::timeout(LIMIT,&mut future).await?.map_err(|e|format!("{e:?}"))?;
+        let outcome = match completed {
+            Some(outcome) => outcome,
+            None => { release.notify_one(); tokio::time::timeout(LIMIT,&mut future).await }
+        }?.map_err(|e|format!("{e:?}"))?;
         assert!(f.transient()?.get("rust_placement").is_none(),"{outcome:?}");
         assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,if restart {1} else {2});
         assert_eq!(script.submissions.borrow().len(),usize::from(after_send));

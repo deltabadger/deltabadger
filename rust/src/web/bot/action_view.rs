@@ -52,6 +52,9 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     let csrf = ctx.csrf_token();
     let (_,configured) = bots::market_data(c,&ctx.app)?;
+    let stop_notice = if action == Action::Stop && write::orders_may_execute(c, id)? {
+        turbo::prepend_flash(flash::render(&[flash::Message { style: "primary", text: "Orders already sent to the exchange may still execute.".into() }])?.trim_end())
+    } else { String::new() };
     let bot = match &view.draft {
         Some(d) => Some(d.candidate.clone()),
         None if action == Action::Archive => match Bot::find(c,user.id,id,super::For::Page,ctx.locale) {
@@ -61,7 +64,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
         },
         None => None,
     };
-    let body = match action {
+    let mut body = match action {
         Action::Delete => turbo::redirect(&ctx.path("/bots")),
         Action::Unarchive => turbo::refresh().into(),
         Action::Archive => {
@@ -96,12 +99,13 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
             })();
             match rendered {
                 Ok(Some(body)) => body,
-                Ok(None) => return Ok(Prepared { response: response(turbo::refresh().into(),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
-                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(turbo::refresh().into(),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
+                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
+                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
                 Err(e) => return Err(e),
             }
         }
     };
+    if !stop_notice.is_empty() { body.push('\n'); body.push_str(&stop_notice); }
     Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? } })
 }
 fn broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -> Result<Vec<(String,String)>, WebError> {

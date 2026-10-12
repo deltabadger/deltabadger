@@ -396,3 +396,48 @@ async fn stored_out_of_range_schedule_refuses_one_bot_and_other_bots_keep_tickin
         assert_eq!(v.sent().len(),2);
     }
 }
+
+/// Upgrade from main's Intent::to_json + begin_checked snapshot, before run ownership existed.
+/// Deliberately construct the persisted format rather than using this branch's placement::begin.
+#[tokio::test(flavor = "current_thread")]
+async fn legacy_intent_absence_preserves_the_checkpoint_wait_across_upgrade_and_restart() {
+    let v = priced();
+    let spec = BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+        .transient("last_action_job_at", json!("2026-09-01T10:00:01.000Z"));
+    let (dir, mut e, id, _) = engine(spec, v.clone());
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let ticker = model::ticker_for(&e.primary, &bot).unwrap().unwrap();
+    let legacy = json!({
+        "cl_ord_id": "9a13a7d0-13bc-4c79-a0a0-089e2a684314",
+        "deadline": "2026-09-01T10:00:11+00:00", "at": "2026-09-01T10:00:01+00:00",
+        "ticker_id": ticker.id, "base_asset_id": ticker.base_asset_id,
+        "limit": false, "price": "50000.0", "amount": "0.0012", "quote_amount": "60.0",
+        "quote_type": true, "volume": "60.0",
+        "exchange_id": bot.exchange_id, "quote_asset_id": bot.quote_asset_id(),
+        "allocations": bot.settings.get("allocations").cloned().unwrap_or(serde_json::Value::Null),
+        "composition": placement::composition_snapshot(&e.primary, &bot).unwrap()
+    });
+    assert!(legacy.get("run_identity").is_none());
+    e.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement',json(?1)) WHERE id=?2",
+                      (legacy.to_string(), id)).unwrap();
+    // The upgraded engine first proves absence after Kraken's deadline + 60 seconds.
+    run::step(&mut e, &at("2026-09-01T10:05:00Z")).await.unwrap();
+    let recovered = model::load_bot(&e.primary, id).unwrap();
+    assert!(recovered.rust_placement().is_none(), "complete lookup proved absence");
+    assert_eq!(recovered.rust_defer_until_us().unwrap(), Some(us("2026-09-08T10:00:00Z")),
+               "legacy ambiguity must persist Rails' checkpoint wait");
+    run::step(&mut e, &at("2026-09-01T10:05:01Z")).await.unwrap();
+    assert!(v.sent().is_empty(), "no immediately due retry after recovery");
+    // Lose every in-memory retry entry; the persisted wait must still prevent an early purchase.
+    drop(e);
+    let paths = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&paths, at("2026-09-01T11:00:00Z").0).unwrap();
+    let opened = store::open(&paths).unwrap();
+    let mut e = Engine::new(opened.primary, FakeFactory(v.clone()), seed::cipher(), lock);
+    for time in ["2026-09-01T11:00:00Z", "2026-09-08T09:59:59Z", "2026-09-08T10:00:00Z"] {
+        run::step(&mut e, &at(time)).await.unwrap();
+        assert!(v.sent().is_empty(), "no purchase before the next checkpoint: {time}");
+    }
+    run::step(&mut e, &at("2026-09-08T10:00:00.001Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "reconciliation does not strand the bot");
+}

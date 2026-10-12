@@ -131,8 +131,20 @@ impl OrderPlan {
 
 pub enum RowKind { Submitted { external_id: String }, Failed { errors: Vec<String> }, Skipped }
 
-/// Bot::OrderCreator: persist_accepted_order! / create_failed_order! / create_skipped_order!.
+/// Bot::OrderCreator: create_submitted_order! / create_failed_order! / create_skipped_order!.
 pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>) -> Result<i64, EngineError> {
+    write_order_row_in(c, bot, plan, kind, created_at)
+}
+
+/// Accepted orders are ledger facts, not a cache of the current credential's account state.
+/// The intent already authorized dispatch; never discard the acknowledgement on a later fence.
+pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &OrderPlan, external_id: &str, created_at: DateTime<Utc>, run: Option<&super::model::RunIdentity>) -> Result<i64, EngineError> {
+    let id = write_order_row_in(c, bot, plan, RowKind::Submitted { external_id: external_id.to_owned() }, created_at)?;
+    c.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1 AND run_identity IS NULL", params![id, run.map(|r| r.order_json().to_string())])?;
+    Ok(id)
+}
+
+fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>) -> Result<i64, EngineError> {
     let zero = Some(0.0f64);
     let (status, external_status, external_id, errors, exec) = match kind {
         RowKind::Submitted { external_id } => (TxStatus::Submitted, Some(TxExternalStatus::Unknown as i64), Some(external_id), vec![], None),
@@ -140,7 +152,7 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
         RowKind::Skipped => (TxStatus::Skipped, None, None, vec![], zero),
     };
     if let Some(ref id) = external_id {
-        // persist_accepted_order!: an existing row for this (exchange, external_id) wins.
+        // An existing accepted row for this (exchange, external_id) wins.
         let existing: Option<i64> = c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2",
             params![bot.exchange_id, id], |r| r.get(0)).optional()?;
         if let Some(existing) = existing { return Ok(existing); }

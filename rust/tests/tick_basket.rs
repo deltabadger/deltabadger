@@ -290,7 +290,7 @@ async fn a_settled_bot_stopped_and_started_fresh_buys_at_once() {
     i.sql("UPDATE bots SET status = 2"); // stopped while its order is unresolved
     step(&mut e, "2026-09-01T10:20:01Z").await; // the idle reconciliation settles it as not placed
     assert!(i.bot().rust_placement().is_none());
-    assert!(i.bot().rust_defer_until_us().unwrap().is_some(), "the wait is written for a stopped bot too");
+    assert!(i.bot().rust_defer_until_us().unwrap().is_none(), "recovery cannot write a deferral after STOP");
     i.sql("UPDATE bots SET status = 1, started_at = '2026-09-02 09:00:00', transient_data = json_remove(transient_data, '$.last_action_job_at')");
     step(&mut e, "2026-09-02T09:00:01Z").await;
     assert_eq!(i.t.posted_orders().len(), 2, "a fresh start buys at once");
@@ -357,29 +357,22 @@ async fn an_unreadable_stored_wait_refuses_and_is_kept() {
     assert_eq!(i.bot().transient["rust_defer_until"], "not a time", "kept");
 }
 
-/// Alpaca whose AddOrder runs `hook` first: a test's concurrent writer while the order is in flight.
-struct Hooked(AlpacaVenue<ScriptedTransport>, Box<dyn Fn()>);
-impl deltabadger::venue::Venue for Hooked {
-    fn rules(&self) -> &'static deltabadger::engine::venue_rules::VenueRules { self.0.rules() }
-    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
-    async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String, deltabadger::venue::VenueError> { (self.1)(); self.0.add_order(o).await }
-    async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
-    async fn order_by_client_id(&self, cl: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(cl, since).await }
-    async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
-    async fn balance(&self, a: &str, _all_crypto: bool) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(a, _all_crypto).await }
+fn stop_after_leg(c: &rusqlite::Connection, id: i64, restart: bool) {
+    common::after_order_commit(c, id, move |writer| {
+        writer.execute(if restart {
+            "UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1,'$.last_action_job_at','2026-09-01T10:00:01.000Z') WHERE id=?1"
+        } else { "UPDATE bots SET status=2 WHERE id=?1" }, [id])?;
+        Ok(())
+    });
 }
 
-/// A stop always wins over a tick in progress: the order in hand finishes, nothing more is placed. A listed divergence:
-/// Rails' leg loop never re-reads the bot's status, so it places the remaining legs.
+/// STOP between committed legs preserves the first order and prevents later submissions on both engines.
 #[tokio::test(flavor = "current_thread")]
 async fn a_web_stop_between_legs_places_nothing_more() {
     let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.3, 0.2]);
-    let db = o.primary.path().unwrap().to_string();
     let t = script(json!({}));
-    let v = Hooked(venue(&t), Box::new(move || {
-        rusqlite::Connection::open(&db).unwrap().execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
-    }));
-    run_on(&o, &v, id, at(T0)).await;
+    stop_after_leg(&o.primary, id, false);
+    run_on(&o, &venue(&t), id, at(T0)).await;
     assert_eq!(notionals(&t), vec![("BTC/USD".into(), "30.00".into())], "leg 1 finishes; legs 2 and 3 are never sent");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 1);
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
@@ -469,32 +462,108 @@ async fn a_changed_other_member_ticker_fences_the_whole_sized_basket() {
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
 }
 
-/// Answers as `inner`, and right after the first order is accepted the bot is stopped, started again and claimed by a new
-/// tick: the run the old tick sized its legs on is gone.
-struct RestartedAfterFirstLeg { inner: ScriptedTransport, db: std::path::PathBuf, id: i64 }
-impl deltabadger::venue::http::Transport for RestartedAfterFirstLeg {
-    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
-        let reply = self.inner.send(r).await;
-        if r.method == "POST" && r.path == "/v2/orders" && self.inner.posted_orders().len() == 1 {
-            let c = rusqlite::Connection::open(&self.db).unwrap();
-            c.execute("UPDATE bots SET status = 4, transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-01T10:00:01.000Z') WHERE id = ?1", [self.id]).unwrap();
-        }
-        reply
-    }
-}
-
 /// Automation::Statusable::FENCED: a tick whose run was taken by a stop and a restart places nothing more and writes nothing
 /// after it, so the restarted run's own claim (executing, its last_action_job_at) survives the old tick.
 #[tokio::test(flavor = "current_thread")]
 async fn a_tick_fenced_by_a_restart_leaves_the_new_run_alone() {
     let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.5]);
     let t = script(json!({}));
-    let v = AlpacaVenue::new(RestartedAfterFirstLeg { inner: t.clone(), db: o.primary.path().unwrap().into(), id }, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
-    let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    stop_after_leg(&o.primary, id, true);
+    let out = run_on(&o, &venue(&t), id, at(T0)).await;
     assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
     assert_eq!(notionals(&t).len(), 1, "leg 2 was sized on the old run");
     let b = model::load_bot(&o.primary, id).unwrap();
     assert_eq!(b.status, BotStatus::Executing, "no :waiting or :scheduled over the new run's claim");
     assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:01.000Z");
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 1, "leg 1 stands");
+}
+
+/// Pauses at the clock read before claim or completion, after the preceding work committed.
+struct OwnershipClock<'a> { c: &'a rusqlite::Connection, id: i64, after_placement: bool, fired: std::cell::Cell<bool> }
+impl deltabadger::engine::Clock for OwnershipClock<'_> {
+    fn now(&self) -> DateTime<Utc> {
+        let ready: bool = self.c.query_row(if self.after_placement {
+            "SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0)"
+        } else {
+            "SELECT status=1 AND json_extract(transient_data,'$.last_action_job_at') IS NOT NULL FROM bots WHERE id=?1"
+        }, [self.id], |r| r.get(0)).unwrap();
+        if ready && !self.fired.replace(true) {
+            assert!(self.c.is_autocommit(), "the pause must be outside the dispatch transaction");
+            self.c.execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1,'$.last_action_job_at','2026-09-01T10:00:01.000Z') WHERE id=?1", [self.id]).unwrap();
+        }
+        at(T0)
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_pre_claim_pause_cannot_adopt_a_restarted_run() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.5]);
+    let t = script(json!({}));
+    let clock = OwnershipClock { c: &o.primary, id, after_placement: false, fired: std::cell::Cell::new(false) };
+    let out = tick::tick(&o.primary, &venue(&t), id, &clock, &mut Attempts::default()).await.unwrap();
+    assert!(clock.fired.get(), "pause reached");
+    assert!(t.posted_orders().is_empty(), "{out:?}: the old $60 tick must not trade");
+    let b = model::load_bot(&o.primary,id).unwrap();
+    assert_eq!(b.status, BotStatus::Executing);
+    assert_eq!(b.transient["last_action_job_at"], "2026-09-01T10:00:01.000Z");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_final_leg_cannot_complete_over_a_restarted_claim() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[1.0]);
+    let t = script(json!({}));
+    let clock = OwnershipClock { c: &o.primary, id, after_placement: true, fired: std::cell::Cell::new(false) };
+    let out = tick::tick(&o.primary, &venue(&t), id, &clock, &mut Attempts::default()).await.unwrap();
+    assert!(clock.fired.get());
+    assert_eq!(t.posted_orders().len(),1);
+    assert!(matches!(out,TickOutcome::Skipped), "{out:?}");
+    assert_eq!(model::load_bot(&o.primary,id).unwrap().status,BotStatus::Executing);
+}
+
+struct OwnershipDuringPrice { inner: ScriptedTransport, db: String, id: i64 }
+impl deltabadger::venue::http::Transport for OwnershipDuringPrice {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        if r.path.ends_with("/quotes") {
+            rusqlite::Connection::open(&self.db).unwrap().execute("UPDATE bots SET status=4, transient_data=json_set(transient_data,'$.run_generation',1,'$.last_action_job_at','2026-09-01T10:00:01.000Z') WHERE id=?1", [self.id]).unwrap();
+        }
+        self.inner.send(r).await
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_fenced_tick_skips_failing_balance_and_failure_writes() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.5]);
+    let t = script(json!({"GET /v2/account":[{"status":200,"body":"not json"}]}));
+    let v = AlpacaVenue::new(OwnershipDuringPrice { inner:t.clone(),db:o.primary.path().unwrap().into(),id }, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
+    let out=run_on(&o,&v,id,at(T0)).await;
+    assert!(matches!(out,TickOutcome::Skipped),"{out:?}");
+    assert_eq!(model::load_bot(&o.primary,id).unwrap().status,BotStatus::Executing);
+    assert!(!t.requests().iter().any(|r|r.path=="/v2/account"),"a fenced tick never reads balances");
+}
+
+struct OwnershipDuringVenueCreation { inner: ScriptedTransport, db: String, id: i64 }
+impl deltabadger::venue::VenueFactory for OwnershipDuringVenueCreation {
+    type V = AlpacaVenue<ScriptedTransport>;
+    fn for_bot(&self, _: &str, _: Option<deltabadger::crypto::Credentials>) -> Self::V {
+        // The engine already read its due bot. STOP + resume now creates a different scheduled run.
+        rusqlite::Connection::open(&self.db).unwrap().execute(
+            "UPDATE bots SET status=1, transient_data=json_set(transient_data,'$.run_generation',1) WHERE id=?1", [self.id]).unwrap();
+        venue(&self.inner)
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_engine_keeps_the_run_selected_before_venue_creation() {
+    use deltabadger::engine::run::{self, Engine};
+    let (d, o, id, _, _) = basket_bot(60.0, &[1.0]);
+    let t = script(json!({}));
+    let factory = OwnershipDuringVenueCreation { inner: t.clone(), db:o.primary.path().unwrap().into(), id };
+    let paths=store::Paths::from_env(&|_|None,d.path());
+    let lock=deltabadger::lease::lock(&paths,at(T0)).unwrap();
+    let mut engine=Engine::new(o.primary,factory,seed::cipher(),lock);
+    run::step(&mut engine,&FixedClock(at(T0))).await.unwrap();
+    assert!(t.posted_orders().is_empty(),"the pass cannot adopt the run created while building its venue");
+    let bot=model::load_bot(&engine.primary,id).unwrap();
+    assert_eq!(bot.status,BotStatus::Scheduled);
+    assert!(bot.last_action_job_at_us().unwrap().is_none());
 }

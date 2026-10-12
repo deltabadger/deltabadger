@@ -187,3 +187,21 @@ fn r9c_damaged_timestamp_loading_is_lazy_and_stopping_preserves_evidence() {
         assert_eq!(stopped.transient, bot.transient);
     }
 }
+
+#[test]
+fn a_safety_write_retries_busy_until_the_short_competing_transaction_commits() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let writer = rusqlite::Connection::open(o.primary.path().unwrap()).unwrap();
+    writer.busy_timeout(std::time::Duration::from_millis(20)).unwrap();
+    let tx = model::immediate(&o.primary).unwrap();
+    let worker = std::thread::spawn(move || {
+        deltabadger::engine::tick::stop(&writer, id, "test", now()).unwrap();
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    tx.commit().unwrap();
+    worker.join().unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(bot.status, BotStatus::Stopped);
+    assert_eq!(bot.run_generation(), 1);
+}

@@ -694,6 +694,22 @@ fn action_snapshot_forbids_other_primary_writes() {
 /// Only the named action response is adapted; authentication and every other fragment stay compared.
 fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(),String>> {
     if !name.starts_with("actions_") { return None }
+    // Rust-only ownership bookkeeping is asserted by the lifecycle/placement protocol
+    // tests. Keep every business field and response byte in this Rails comparison.
+    let business = |source: &Value| {
+        let mut value = source.clone();
+        for response in value["responses"].as_array_mut().unwrap() {
+            for key in ["rows_before", "rows_after"] {
+                if response.get(key).is_some() {
+                    response[key] = common::ownership_business_rows(response[key].take());
+                }
+            }
+        }
+        value
+    };
+    let rails = business(rails);
+    let rust = business(rust);
+    let (rails, rust) = (&rails, &rust);
     Some((|| {
         if let Some(kind) = scenario.get("divergence") {
             if kind != "crypto_actions" { return Err(format!("unknown divergence: {kind}")); }

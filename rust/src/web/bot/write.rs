@@ -22,6 +22,18 @@ pub struct Prepared<T> {
     pub broadcasts: Vec<(String, String)>,
 }
 
+/// Read inside the lifecycle transaction: a cleared intent may already be a submitted order.
+/// Match Transaction.waiting (submitted with unknown/open external status), scoped to this bot.
+pub fn orders_may_execute(c: &Connection, id: i64) -> rusqlite::Result<bool> {
+    c.query_row(
+        "SELECT CASE WHEN json_valid(transient_data) \
+         THEN coalesce(json_type(transient_data, '$.rust_placement'), 'null') <> 'null' ELSE 0 END \
+         OR EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1)) \
+         FROM bots WHERE id=?1",
+        [id], |r| r.get(0),
+    )
+}
+
 const SET_SETTING: &str = "UPDATE bots
 SET settings = json_set(settings, ?1, json(?2))
 WHERE id = ?3 AND user_id = ?4 AND type = ?5 AND status <> 3;";
@@ -210,9 +222,9 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
     started_at = CASE WHEN ?4 THEN ?5 ELSE started_at END, \
-    transient_data = CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
+    transient_data = json_set(CASE WHEN ?4 THEN json_set(json_replace(transient_data, \
       '$.last_action_job_at', json('null')), '$.missed_quote_amount', json('null')) \
-      ELSE transient_data END, updated_at = ?5 \
+      ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
 
 // Provisional spelling: MUST match the merged engine PR before execution.
@@ -223,7 +235,7 @@ const WEB_REQUEST_START_DECISION: &str = "UPDATE bots SET \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status = 1";
 
 const WEB_STOP: &str = "UPDATE bots SET status = 2, stopped_at = ?4, \
-    stop_message_key = NULL, updated_at = ?4 \
+    stop_message_key = NULL, transient_data = json_set(transient_data, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?4 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status <> 3";
 
 const WEB_DELETE: &str = "UPDATE bots SET status = 3, updated_at = ?4 \
@@ -264,7 +276,7 @@ fn lifecycle_inner<T>(
     response_builder: impl FnOnce(&Connection, &Ctx, &LifecycleView) -> Result<Prepared<T>, WebError>,
 ) -> Result<Outcome<T>, WebError> {
     use crate::enums::{ApiKeyStatus, BotStatus};
-    let tx = model::immediate(c)?;
+    let tx = if matches!(action, Action::Stop | Action::Archive | Action::Delete) { model::immediate_retry_busy(c)? } else { model::immediate(c)? };
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
     let row = tx.query_row("SELECT type,status,settings,transient_data FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type IN ('Bots::DcaMultiAsset','Bots::DcaIndex')",
@@ -400,7 +412,7 @@ fn lifecycle_inner<T>(
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
         if submitted.mcp() && !effects.settings_changed &&
-            (action==Action::Stop || action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
+            (matches!(action,Action::Delete|Action::Unarchive) || action==Action::Start && !fresh || !effects.settings.set.is_empty()) {
             effects.transient.set.insert("missed_quote_amount".into(),draft.raw_transient.get("missed_quote_amount").cloned().unwrap_or(Value::Null));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
@@ -458,12 +470,9 @@ fn lifecycle_inner<T>(
         },
         Action::Unarchive => one(tx.execute(WEB_UNARCHIVE,(id,owner,&class,&at))?)?,
     }
-    let guarded = match eligibility::guard(&tx,&ctx.app.cipher,Some(id)) {
-        // STOP only reduces activity and writes no money, settings or history, so it always persists, whatever data
-        // damage the install holds; check and every ordinary writer still refuse that damage.
-        Err(eligibility::Refusal::Unreadable(_)) if action == Action::Stop => Ok(()),
-        result => result,
-    };
+    // STOP only reduces activity. Outstanding reconciliation or unrelated eligibility
+    // damage cannot veto it; ordinary writers still validate the entire install.
+    let guarded = if action == Action::Stop { Ok(()) } else { eligibility::guard(&tx,&ctx.app.cipher,Some(id)) };
     if let Err(refusal)=guarded {
         let reason=refusal.reason();
         view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});

@@ -1,0 +1,21 @@
+{
+  "sources": {
+    "script/rust/record_run_ownership.rb": "da181cdf46278c00aaa06980616effa54c218787b55caa458a967f54b8c606b9",
+    "app/models/automation/statusable.rb": "f5eb0a0e1f8e266b87f816d8df7d1849a336c1e58e162ed6b9bc4f9a5530c39f",
+    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
+    "app/services/bot_api/bots/update_settings.rb": "4311a16ad0a05dc624a6344201816ee34f7ad3603dd0436a1fe7bbd0f1f9cad5"
+  },
+  "cases": {
+    "same_timestamp_restart": {
+      "rails_fenced": false
+    },
+    "stale_tick_completion": {
+      "rails_write_succeeded": true,
+      "rails_status": "waiting"
+    },
+    "settings_held_until_reconciliation": {
+      "rails_update_succeeded": true,
+      "rails_quote_amount": 100.0
+    }
+  }
+}

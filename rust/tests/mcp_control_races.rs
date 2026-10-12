@@ -214,13 +214,21 @@ mod action_race {
             _=tokio::time::sleep(LIMIT)=>return Err("engine did not reach scripted barrier; HTTP writer not started".into()),
         }
         if !after_send {assert!(f.transient()?.get("rust_placement").is_none());}
-        f.ok("PATCH",stop,&[]).await?;
+        let completed = if after_send {
+            tokio::time::timeout(LIMIT, f.ok("PATCH",stop,&[])).await??;
+            assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, if stop=="/archive" {7} else if stop=="/delete" {3} else {2});
+            assert!(f.transient()?.get("rust_placement").is_some(), "STOP keeps the in-flight intent");
+            release.notify_one();
+            Some(tokio::time::timeout(LIMIT,&mut future).await)
+        } else { f.ok("PATCH",stop,&[]).await?; None };
         if edit {
             f.ok("PATCH","",&[("allocations","BTC:0,ETH:100")]).await?;
             if restart { f.ok("PATCH","/start",&[]).await?; f.clock.set(harness::at("2026-09-03T15:00:00.002Z")); }
         }
-        release.notify_one();
-        let outcome=tokio::time::timeout(LIMIT,&mut future).await?.map_err(|e|format!("{e:?}"))?;
+        let outcome = match completed {
+            Some(outcome) => outcome,
+            None => { release.notify_one(); tokio::time::timeout(LIMIT,&mut future).await }
+        }?.map_err(|e|format!("{e:?}"))?;
         assert!(f.transient()?.get("rust_placement").is_none(),"{outcome:?}");
         assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,if restart {1} else if stop=="/archive" {7} else if stop=="/delete" {3} else {2});
         assert_eq!(script.submissions.borrow().len(),usize::from(after_send));
@@ -383,7 +391,7 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
     }
 
     #[tokio::test(flavor="current_thread")]
-    async fn each_write_rolls_back_on_guard_refusal()->Result {
+    async fn only_stop_bypasses_an_unrelated_guard_refusal()->Result {
         for (tool,status) in [("stop_bot",1),("archive_bot",2),("unarchive_bot",7),("delete_bot",2),("update_bot_settings",2),("start_bot",0)] {
             let f=Fixture::new().await?;
             let other=seed::insert_bot(&f.c,&f.seed,&seed::BotSpec::weekly(60.0,ANCHOR).with("price_limited",json!(true)));
@@ -393,6 +401,14 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
             let fields=if tool=="update_bot_settings" {vec![("label","Candidate")]} else {vec![]};
             let answer=f.send(method,suffix,&fields).await?;
             let result:Value=serde_json::from_str(&answer.body)?;
+            if tool=="stop_bot" {
+                assert_ne!(result["result"]["isError"],true,"{}",answer.body);
+                assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,2);
+                assert_eq!(f.one::<i64>("SELECT json_extract(transient_data,'$.run_generation') FROM bots WHERE id=?1")?,1);
+                assert_eq!(f.c.query_row("SELECT status FROM bots WHERE id=?1",[other],|r|r.get::<_,i64>(0))?,1,"leave the unrelated bot alone");
+                f.woke(true).await?;
+                continue;
+            }
             assert_eq!(result["result"]["isError"],true,"{tool}: {}",answer.body);
             let text=result["result"]["content"][0]["text"].as_str().ok_or("guard text")?;
             assert!(text.starts_with("This app can't run that yet:"),"{text}");
@@ -432,6 +448,52 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
             f.woke(false).await?;
             f.evidence(branch,&answer,&before)?;
         }
+        Ok(())
+    }
+    async fn accepted_order_stop_notice(external_status: i64) -> Result {
+        let f = Fixture::new().await?;
+        // Accepted order: its intent has already been cleared, only the submitted row remains.
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        seed::insert_tx(&f.c, &f.seed, f.id, &seed::TxSpec {
+            status: 0, external_status: Some(external_status), external_id: Some("accepted-limit".into()),
+            order_type: 1, amount: Some("0.0012"), quote_amount: Some("60"), price: Some("50000"),
+            quote_amount_exec: None, amount_exec: None, created_at: "2026-09-03 14:59:00".into(),
+        });
+        assert!(f.transient()?.get("rust_placement").is_none());
+        let answer = f.send("PATCH", "/stop", &[]).await?;
+        let response: Value = serde_json::from_str(&answer.body)?;
+        assert_eq!(response["result"]["isError"], Value::Null);
+        assert_eq!(response["result"]["content"][0]["text"], "Bot 'Race' stopped. Orders already sent to the exchange may still execute.");
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, 2);
+        // Terminal and non-submitted rows must not warn, even though the order id remains.
+        for (status, external) in [(0, 2), (0, 3), (0, 4), (1, 0), (2, 1)] {
+            f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+            f.c.execute("UPDATE transactions SET status=?1,external_status=?2 WHERE bot_id=?3", (status, external, f.id))?;
+            let answer = f.send("PATCH", "/stop", &[]).await?;
+            assert!(!answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        }
+        // Another bot's open order cannot cause this bot's notice.
+        let other = seed::insert_bot(&f.c, &f.seed, &seed::BotSpec::weekly(60.0, ANCHOR));
+        f.c.execute("UPDATE transactions SET bot_id=?1,status=0,external_status=1 WHERE bot_id=?2", (other, f.id))?;
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        let answer = f.send("PATCH", "/stop", &[]).await?;
+        assert!(!answer.body.contains("Orders already sent to the exchange may still execute."), "{}", answer.body);
+        Ok(())
+    }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_notice_for_accepted_unknown_order() -> Result { accepted_order_stop_notice(0).await }
+    #[tokio::test(flavor="current_thread")]
+    async fn stop_notice_for_accepted_open_order() -> Result { accepted_order_stop_notice(1).await }
+    #[tokio::test(flavor="current_thread")]
+    async fn divergence_in_flight_stop_notice() -> Result {
+        let f = Fixture::new().await?;
+        f.c.execute("UPDATE bots SET status=1, transient_data=json_set(transient_data,'$.rust_placement',json(?1)) WHERE id=?2",
+                    (json!({"cl_ord_id":"pending","dispatched":true}).to_string(), f.id))?;
+        let answer = f.send("PATCH", "/stop", &[]).await?;
+        let response: Value = serde_json::from_str(&answer.body)?;
+        assert_eq!(response["result"]["content"][0]["text"], "Bot 'Race' stopped. Orders already sent to the exchange may still execute.");
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?, 2);
+        assert_eq!(f.transient()?["rust_placement"]["cl_ord_id"], "pending");
         Ok(())
     }
     #[tokio::test(flavor="current_thread")]
