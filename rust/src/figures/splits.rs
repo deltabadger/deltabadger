@@ -67,41 +67,9 @@ fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
 /// asset known, only the same asset matches; otherwise the strings decide, and only while the string names one class
 /// of asset in the user's account (`account_classes`) — a name that is both is grouped under no date.
 pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
-    let mut string_pairs = HashSet::new();
-    let mut asset_pairs = HashSet::new();
-    let mut exchange_ids = vec![];
-    let mut exchanges_seen = HashSet::new();
-    for order in orders {
-        budget::charge(1, 0)?;
-        let Some(exchange_id) = order.exchange_id else { continue };
-        let base = order.base.as_deref().filter(|b| !b.trim().is_empty());
-        if let Some(base) = base { string_pairs.insert((exchange_id, base)); }
-        if let Some(asset_id) = order.asset_id { asset_pairs.insert((exchange_id, asset_id)); }
-        if (base.is_some() || order.asset_id.is_some()) && exchanges_seen.insert(exchange_id) { exchange_ids.push(exchange_id); }
-    }
-    if exchange_ids.is_empty() { return Ok(vec![]); }
-    budget::charge((exchange_ids.len() as u64).saturating_mul(u64::from(exchange_ids.len().ilog2()) + 1), 0)?;
-    exchange_ids.sort_unstable();
-    let rows = db::split_rows(c, user_id, &exchange_ids)?;
+    let (string_pairs, asset_pairs, exchange_ids) = eligibility(orders)?;
+    let (rows, named) = names(c, user_id, &exchange_ids)?;
     if rows.is_empty() { return Ok(vec![]); }
-
-    let mut wanted: HashMap<i64, Vec<String>> = HashMap::new();
-    let mut seen = HashSet::new();
-    for row in &rows {
-        budget::charge(1, 0)?;
-        if row.base_currency.trim().is_empty() { continue; }
-        let name = row.base_currency.to_uppercase();
-        if seen.insert((row.exchange_id, name.clone())) { wanted.entry(row.exchange_id).or_default().push(name); }
-    }
-    // None means that more than one asset claims this name on the venue.
-    let mut named: HashMap<(i64, String), Option<i64>> = HashMap::new();
-    for exchange_id in exchange_ids {
-        budget::charge(1, 0)?;
-        for (name, id) in db::asset_ids_by_name(c, exchange_id, wanted.get(&exchange_id).map_or(&[], Vec::as_slice))? {
-            budget::charge(1, 0)?;
-            named.entry((exchange_id, name)).and_modify(|found| { if *found != Some(id) { *found = None; } }).or_insert(Some(id));
-        }
-    }
     let mut holding_strings = Vec::new();
     for holding in holdings {
         budget::charge(1, 0)?;
@@ -148,6 +116,59 @@ pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holdin
     }
     budget::check()?;
     Ok(out)
+}
+
+/// Per (venue, NAME), the one asset that name stands for on the venue; None: more than one.
+pub type Names = HashMap<(i64, String), Option<i64>>;
+
+/// What the split rows these orders are eligible for name, as `groups` resolves it: the rows and their names.
+/// The figures' fingerprint reads it too.
+pub fn lookups(c: &Connection, user_id: i64, orders: &[Order]) -> Result<(Vec<SplitRow>, Names), FiguresError> {
+    names(c, user_id, &eligibility(orders)?.2)
+}
+
+/// The (venue, name) and (venue, asset) pairs these orders traded, and their venues, sorted.
+#[allow(clippy::type_complexity)]
+fn eligibility(orders: &[Order]) -> Result<(HashSet<(i64, &str)>, HashSet<(i64, i64)>, Vec<i64>), FiguresError> {
+    let mut string_pairs = HashSet::new();
+    let mut asset_pairs = HashSet::new();
+    let mut exchange_ids = vec![];
+    let mut exchanges_seen = HashSet::new();
+    for order in orders {
+        budget::charge(1, 0)?;
+        let Some(exchange_id) = order.exchange_id else { continue };
+        let base = order.base.as_deref().filter(|b| !b.trim().is_empty());
+        if let Some(base) = base { string_pairs.insert((exchange_id, base)); }
+        if let Some(asset_id) = order.asset_id { asset_pairs.insert((exchange_id, asset_id)); }
+        if (base.is_some() || order.asset_id.is_some()) && exchanges_seen.insert(exchange_id) { exchange_ids.push(exchange_id); }
+    }
+    if !exchange_ids.is_empty() { budget::charge((exchange_ids.len() as u64).saturating_mul(u64::from(exchange_ids.len().ilog2()) + 1), 0)?; }
+    exchange_ids.sort_unstable();
+    Ok((string_pairs, asset_pairs, exchange_ids))
+}
+
+/// The marked rows of these venues, and what each row's name stands for on its venue (Ticker.asset_ids_by_name).
+fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names), FiguresError> {
+    let mut named = Names::new();
+    if exchange_ids.is_empty() { return Ok((vec![], named)); }
+    let rows = db::split_rows(c, user_id, exchange_ids)?;
+    if rows.is_empty() { return Ok((rows, named)); }
+    let mut wanted: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut seen = HashSet::new();
+    for row in &rows {
+        budget::charge(1, 0)?;
+        if row.base_currency.trim().is_empty() { continue; }
+        let name = row.base_currency.to_uppercase();
+        if seen.insert((row.exchange_id, name.clone())) { wanted.entry(row.exchange_id).or_default().push(name); }
+    }
+    for &exchange_id in exchange_ids {
+        budget::charge(1, 0)?;
+        for (name, id) in db::asset_ids_by_name(c, exchange_id, wanted.get(&exchange_id).map_or(&[], Vec::as_slice))? {
+            budget::charge(1, 0)?;
+            named.entry((exchange_id, name)).and_modify(|found| { if *found != Some(id) { *found = None; } }).or_insert(Some(id));
+        }
+    }
+    Ok((rows, named))
 }
 
 /// Bot::Restatable#split_events: one event per holding and date whose reports agree on a factor, timed at the

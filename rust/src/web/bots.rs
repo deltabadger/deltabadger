@@ -106,7 +106,7 @@ struct IndexView<'a> {
     v: &'a Ctx,
     preferences: &'a str,
     bot_updates: &'a str,
-    /// Some bot has traded, so the account's total is on its way (the broadcast endpoints are not served yet).
+    /// No total yet and some bot has traded, so the account's total is on its way: the page asks for it.
     pnl_pass: bool,
     headline: Option<String>,
     filters: Option<String>,
@@ -275,17 +275,18 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
             tile.pnl=figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["tile"].as_str()).map(str::to_string);
             tiles.push(tile);
         }
+        // BotsController#index: only the tiles still without figures are asked for (@tile_refresh_ids).
+        let cold: Vec<i64> = listed.iter().zip(&tiles).filter(|(_, tile)| tile.pnl.is_none()).map(|(bot, _)| bot.id).collect();
         let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
         let body = IndexView {
-            headline,
             v: ctx, preferences: &preferences, bot_updates: &bot_updates,
             // User#global_pnl_snapshot with nothing computed: waiting as soon as any bot has an accepted order.
-            pnl_pass: bots.iter().any(|bot| bot.has_submitted_orders),
+            pnl_pass: headline.is_none() && bots.iter().any(|bot| bot.has_submitted_orders),
             filters, select_mode: can_merge || can_split, can_merge, can_split, connected: json(&serde_json::json!(connected)), names: json(&Value::Object(names)),
             no_partner: literal("bot.merge.no_partner", "quote"), no_shared_exchange: literal("bot.merge.no_shared_exchange", "quote"),
             other_exchange: literal("bot.merge.other_exchange", "exchange"),
-            refresh: (!listed.is_empty()).then(|| json(&serde_json::json!({ "bot_ids": listed.iter().map(|bot| bot.id).collect::<Vec<_>>() }))),
-            tiles,
+            refresh: (!cold.is_empty()).then(|| json(&serde_json::json!({ "bot_ids": cold }))),
+            tiles, headline,
         }.render()?;
         Ok((shell, Listing::Body(body)))
     }).await;

@@ -115,6 +115,145 @@ fn delivered(name: &str, when: &str, got: &BTreeMap<(String, String), String>, r
     }
 }
 
+/// The bot page's chart frame: (its `src`, the frame itself).
+fn bot_chart(body: &str) -> (Option<String>, Vec<String>) {
+    let doc = scraper::Html::parse_document(body);
+    let frame = doc.select(&scraper::Selector::parse("turbo-frame#bot_chart").unwrap()).next().expect("no bot_chart frame");
+    (frame.value().attr("src").map(str::to_string), common::html::normalize(&frame.html()))
+}
+
+/// A browser on the bot page, then on its chart frame at the `src` the page gave it, against what Rails answered in the
+/// same `state` (pages.rb figures: page_figures.rb#pages). Returns the frame's body.
+async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) -> String {
+    let (page, rails_page) = (browser.get(app, &format!("/bots/{id}")).await, bot_chart(rails["page"].as_str().unwrap()));
+    assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
+    let ours = bot_chart(&page.body);
+    assert_eq!(ours, rails_page, "{name} {state}: the page's chart frame");
+    let chart = browser.get(app, ours.0.as_deref().unwrap()).await;
+    assert_eq!(chart.status, 200, "{name} {state}");
+    assert_eq!(bot_chart(&chart.body).1, bot_chart(rails["chart"].as_str().unwrap()).1, "{name} {state}: the chart frame");
+    chart.body
+}
+
+/// What the dashboard asks for once its streams are connected: the attributes of its headline and of its tiles.
+async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) {
+    let Some(rails) = rails.as_str() else { return }; // one bot: Rails sends its dashboard to the bot's page
+    let asks = |body: &str| -> Vec<Vec<(String, String)>> {
+        let doc = scraper::Html::parse_document(body);
+        ["section.dash-intro", "div.itiles"].iter().map(|css| {
+            let element = doc.select(&scraper::Selector::parse(css).unwrap()).next().unwrap_or_else(|| panic!("{name} {state}: no {css}"));
+            let mut attrs: Vec<(String, String)> = element.value().attrs().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+            attrs.sort();
+            attrs
+        }).collect()
+    };
+    let page = browser.get(app, "/bots").await;
+    assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
+    assert_eq!(asks(&page.body), asks(rails), "{name} {state}: the dashboard's asks");
+}
+
+/// A connection that subscribes again is sent the account's last publication only while nothing the figures read has
+/// changed (`loading::resubscribed`): a ticker disabled, a split's ratio corrected, a ledger row resolved to another
+/// asset, a listing on a venue the bot left corrected, an asset only an order or a bot's settings name changed, a
+/// composition ticker on another venue resized, or an operation flag set or cleared refuse the replay; a sync that
+/// rewrites a row's timestamps (and the reference data the figures never read) and other transient bookkeeping keep it. On a copy of the scenario's install, so that the rest of the scenario reads the one Rails recorded.
+async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<String>, dir: &Path, sc: &Value, user: i64, stream: &str) {
+    use deltabadger::web::{App,Config,figure::loading::{self,Source}};
+    let at = sc["at"].as_str().unwrap();
+    let ccc: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT base_asset_id FROM tickers WHERE ticker='CCC'", [], |r| r.get(0)).unwrap();
+    // A venue and a listing on it, copied from AAA's, for the cases below that read another venue.
+    let venue = |id: i64| format!("INSERT INTO exchanges(id,name,type,created_at,updated_at) VALUES ({id},'Old {id}','Exchanges::Kraken','2020-01-01','2020-01-01');");
+    let listing = |id: i64, exchange: i64, base: &str, asset: i64| format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,updated_at) \
+        SELECT {id},'{base}',{asset},base_decimals,created_at,{exchange},minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,'{base}/USD',updated_at FROM tickers WHERE ticker='AAA';");
+    let asset = |id: i64, symbol: &str| format!("INSERT INTO assets(id,category,created_at,external_id,name,symbol,updated_at) VALUES ({id},'Stock','2020-01-01','{symbol}','{symbol} Inc','{symbol}','2020-01-01');");
+    let aaa: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT base_asset_id FROM tickers WHERE ticker='AAA'", [], |r| r.get(0)).unwrap();
+    let alpaca: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT exchange_id FROM tickers WHERE ticker='AAA'", [], |r| r.get(0)).unwrap();
+    // (what, the state the figures are published in, the edit after, whether the publication is still replayed)
+    let mut cases: Vec<(String, String, String, bool)> = [
+        ("a sync that rewrites timestamps and reference data the figures never read", String::new(),
+         "UPDATE tickers SET updated_at='2030-01-01 00:00:00', ath=1234.5, ath_updated_at='2030-01-01 00:00:00'; UPDATE assets SET updated_at='2030-01-01 00:00:00', market_cap=coalesce(market_cap,0)+1, market_cap_rank=7; \
+          UPDATE account_transactions SET updated_at='2030-01-01 00:00:00'".to_string(), true),
+        ("a held ticker disabled", String::new(), "UPDATE tickers SET available=0 WHERE ticker='AAA'".to_string(), false),
+        ("a held asset recategorised", String::new(), "UPDATE assets SET category='Cryptocurrency' WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='BBB')".to_string(), false),
+        ("a split's ratio corrected in place", String::new(), "UPDATE account_transactions SET raw_data='{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}' WHERE entry_type=15".to_string(), false),
+        ("a ledger row resolved to another asset", String::new(), format!("UPDATE account_transactions SET base_asset_id={ccc} WHERE entry_type=15"), false),
+        // The bot traded AAA on a venue it left, as OLD there; the split reported there names no asset, so its venue's
+        // listing decides which holding it is.
+        ("the asset a left venue lists a split's name under corrected",
+         format!("{}{}UPDATE transactions SET exchange_id=2, base='OLD' WHERE id=(SELECT min(id) FROM transactions WHERE base='AAA'); \
+                  INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
+                  VALUES ({user},2,15,'OLD',NULL,0,'{{\"corporate_action\":\"split\",\"split_ratio\":\"3:1\"}}','2021-01-01 00:00:00','{at}','{at}');", venue(2), listing(100,2,"OLD",ccc)),
+         format!("UPDATE tickers SET base_asset_id={aaa} WHERE id=100"), false),
+        ("other transient bookkeeping", String::new(), "UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount',5)".to_string(), true),
+        // Read by no listing: an asset only an order names, and one only a bot's settings name.
+        ("an asset only an order names renamed",
+         format!("{}UPDATE transactions SET base='ZZZ', base_asset_id=20 WHERE id=(SELECT min(id) FROM transactions WHERE base='BBB');", asset(20,"ZZZ")),
+         "UPDATE assets SET name='Zed Holdings' WHERE id=20".to_string(), false),
+        ("an asset only a bot's settings name removed",
+         format!("{}UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"21\":1.0}}')) WHERE id=(SELECT bot_id FROM bot_index_assets GROUP BY bot_id HAVING count(*)=1);", asset(21,"YYY")),
+         "DELETE FROM assets WHERE id=21".to_string(), false),
+        // A composition member's ticker is read by its id, whichever venue lists it.
+        ("a composition ticker on another venue resized",
+         format!("{}{}UPDATE bot_index_assets SET ticker_id=101 WHERE bot_id=(SELECT bot_id FROM bot_index_assets GROUP BY bot_id HAVING count(*)=1);", venue(3), listing(101,3,"AAA",aaa)),
+         "UPDATE tickers SET minimum_quote_size=7 WHERE id=101".to_string(), false),
+        // A listing of the bots' venue that no bot trades, no order names and no split's name resolves to; delisted, so
+        // that no bot prices it.
+        ("an unrelated listing on the bots' venue resized",
+         format!("{}{}UPDATE tickers SET available=0 WHERE id=102;", asset(30,"UNR"), listing(102,alpaca,"UNR",30)),
+         "UPDATE tickers SET minimum_quote_size=7, minimum_base_size=3 WHERE id=102".to_string(), true),
+    ].into_iter().map(|(what, prep, sql, kept)| (what.to_string(), prep, sql, kept)).collect();
+    // What hides the Sell and Redeploy controls while an operation runs.
+    for flag in ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"] {
+        let set = format!("UPDATE bots SET transient_data=json_set(transient_data,'$.{flag}','2026-01-01T00:00:00Z')");
+        cases.push((format!("{flag} set"), String::new(), set.clone(), false));
+        cases.push((format!("{flag} cleared"), set, format!("UPDATE bots SET transient_data=json_remove(transient_data,'$.{flag}')"), false));
+    }
+    let mut wrong = vec![];
+    // Each edit on a fresh copy, so that one edit's refusal leaves the next its own warm publication.
+    for (what, prep, sql, kept) in cases {
+        let copy = tempfile::tempdir().unwrap();
+        let file = copy.path().join("production.sqlite3");
+        std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
+        let c = rusqlite::Connection::open(&file).unwrap();
+        // A split already in the ledger, for the edits below to correct.
+        c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
+                   SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
+        c.execute_batch(&prep).unwrap();
+        let app = App::new(Config::from_env(env).unwrap(), env, rusqlite::Connection::open(&file).unwrap(), common::web::TestClock::at(at)).unwrap()
+            .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !matches!(loading::prepare(&app, user).await.unwrap(), loading::Snapshot::Ready(..)) { tokio::time::sleep(Duration::from_millis(20)).await; }
+        }).await.expect("the figures never became ready");
+        loading::publish(&app, user).await.unwrap();
+        assert!(!loading::resubscribed(&app, user, stream).await.is_empty(), "a fresh publication is replayed");
+        c.execute_batch(&sql).unwrap();
+        if loading::resubscribed(&app, user, stream).await.is_empty() == kept { wrong.push(format!("{what}: replayed {}", if kept { "nothing" } else { "the old figures" })); }
+    }
+    // The fingerprint reads the account's rows, not its venues' whole listings: 10,000 more listings on the bots' venue,
+    // tradable in the bots' quote, of assets nothing in the account names, add no row to it.
+    let copy = tempfile::tempdir().unwrap();
+    let file = copy.path().join("production.sqlite3");
+    std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
+    let c = rusqlite::Connection::open(&file).unwrap();
+    c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
+               SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
+    let read = |c: &rusqlite::Connection| { let started = std::time::Instant::now(); let (_, rows) = loading::revision(c, user).unwrap(); (rows, started.elapsed()) };
+    let (alone, _) = read(&c);
+    c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<10000) \
+        INSERT INTO assets(id,category,created_at,external_id,name,symbol,updated_at) SELECT 200000+i,'Stock','2020-01-01','U'||i,'U'||i||' Inc','U'||i,'2020-01-01' FROM n; \
+        WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<10000) \
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,created_at,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,updated_at) \
+        SELECT 200000+i,'U'||i,200000+i,t.base_decimals,t.created_at,t.exchange_id,t.minimum_base_size,t.minimum_quote_size,t.price_decimals,t.quote,t.quote_asset_id,t.quote_decimals,'U'||i||'/USD',t.updated_at \
+        FROM n, (SELECT * FROM tickers WHERE ticker='AAA') t;").unwrap();
+    let (crowded, took) = read(&c);
+    eprintln!("revision beside 10,000 unrelated listings: {took:?}, {crowded} rows read ({alone} without them)");
+    if crowded != alone { wrong.push(format!("the fingerprint read {} rows beside 10,000 unrelated listings, {alone} without them", crowded)); }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}
+
 struct Wire { script: Value, calls: RefCell<Vec<String>> }
 impl Transport for Wire {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
@@ -182,12 +321,18 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
             let cookie=session::seal(&app.keys.session,&signed,now.utc());
             let mut browser=common::web::Browser { cookie:Some(cookie.clone()),page:None };
+            // Cold: before any figure is known, the page sends its chart frame for them, and the frame asks.
+            let cold=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap().with_figure_source(Source::Script(held.clone())).unwrap();
+            for id in sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()) { chart_frames(name,"cold",&id,&mut browser,&cold,&expected["cold"]["bots"][&id]).await; }
+            dashboard(name,"cold",&mut browser,&cold,&expected["cold"]["dashboard"]).await;
+            drop(cold);
             // What Rails broadcast for every figure of the account, by (stream, target), and the streams a page subscribes.
             let rails:BTreeMap<(String,String),String>=expected["broadcasts"].as_array().unwrap().iter()
                 .map(|entry|((entry[0].as_str().unwrap().to_string(),target(entry[1].as_str().unwrap())),entry[1].as_str().unwrap().to_string())).collect();
             let wanted:BTreeSet<(String,String)>=rails.keys().cloned().collect();
             let streams:BTreeSet<String>=wanted.iter().map(|(stream,_)|stream.clone()).collect();
             let user_stream=format!("user_{user}:bot_updates");
+            if name == "owner_account" { replays_follow_what_the_figures_read(&env,&dir,&sc,user,&user_stream).await; }
             // Cold to warm: the page's streams are connected before any figure is known, the page asks while the fill is in
             // flight (its first market answer is held back), and the end of the fill replaces every spinner.
             let mut cable=Cable::open(&app,&cookie,&streams).await;
@@ -212,10 +357,19 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
             let want=want.select(&selector).next().unwrap().html();
             assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"warm route {name}");
-            let chart=browser.get(&app,&format!("/bots/{id}/chart")).await;
-            assert_eq!(chart.status,200);
-            assert!(chart.body.contains("data-controller=\"bot--chart\""));
+            // Warm: the page's chart frame asks for nothing, and it arrives drawn.
+            let chart=chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await;
+            assert!(chart.contains("data-controller=\"bot--chart\""));
             }
+            dashboard(name,"warm",&mut browser,&app,&expected["warm"]["dashboard"]).await;
+            // The scheduler records each job's run (an app_configs row) and its syncs touch the reference data, from a
+            // connection of their own, all the time: neither is this account's figures, and the warm pages stay warm.
+            let other=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            other.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES('rust_job.parity','{}',?1,?1)",[sc["at"].as_str().unwrap()]).unwrap();
+            other.execute("UPDATE assets SET updated_at=?1",[sc["at"].as_str().unwrap()]).unwrap();
+            drop(other);
+            for id in sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()) { chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await; }
+            dashboard(name,"warm",&mut browser,&app,&expected["warm"]["dashboard"]).await;
             // Warm: a page that connected after the fill asks, and the answer is published at once.
             let first=sc["bot_ids"][0].as_i64().unwrap();
             for (path,body) in [("/en/broadcasts/metrics_update",json!({"bot_id":first})),("/en/broadcasts/pnl_update",json!({"bot_ids":sc["bot_ids"]})),

@@ -35,6 +35,7 @@ struct Chart<'a> {
 #[derive(Template)]
 #[template(path = "bots/chart.html")]
 struct ChartFrame<'a> {
+    refresh: bool,
     args: String,
     chart: &'a str,
 }
@@ -270,8 +271,10 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     let (view,owner,id,token)=(ctx.clone(),user.clone(),bot.id,csrf.clone());
     let ready = app.db(move|c|Ok(crate::web::figure::loading::render(c,owner.id,&snapshot,view.locale,&token,&view.path(""))?
         .and_then(|v|v["bots"][id.to_string()]["chart"].as_str().map(str::to_string)))).await?;
+    // Bots::ChartsController: a refresh is asked for by a cold chart, or by a page whose own panels found no figures.
+    let refresh = ready.is_none() || ctx.params.query("metrics_missing").is_some_and(|value| !value.trim().is_empty());
     let chart = match ready { Some(ready)=>ready,None=>chart(&ctx,&bot,user.hide_balances)? };
-    let body = ChartFrame { args: json(&serde_json::json!({ "bot_id": bot.id })), chart: &chart }.render()?;
+    let body = ChartFrame { refresh, args: json(&serde_json::json!({ "bot_id": bot.id })), chart: &chart }.render()?;
     let (inner, owner) = (app.clone(), user.clone());
     let shell = match app.db(move |c| Shell::load(c, &inner, &owner)).await { Ok(shell) => shell, Err(error) => return layout::or_refused(&ctx, error) };
     shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })

@@ -1,9 +1,9 @@
-{#- bots/index.html.erb with bots, and bots/_global_pnl.html.erb in its two states without figures:
-    waiting for them (some bot has traded) and nothing to show. -#}
+{#- bots/index.html.erb with bots, and bots/_global_pnl.html.erb: the figures, or in their two states without
+    them, waiting for them (some bot has traded: the page asks) and nothing to show. -#}
 {{ v.stream_from(preferences)|safe }}
 {{ v.stream_from(bot_updates)|safe }}
 
-  <section class="dash-intro{% if pnl_pass %} dash-intro--plotted{% endif %}"{% if pnl_pass %} data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="global_pnl_update" data-broadcast--on-connect-retry-while-value="#global-pnl .dash-intro__loading"{% endif %}>
+  <section class="dash-intro{% if pnl_pass || headline.is_some() %} dash-intro--plotted{% endif %}"{% if pnl_pass %} data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="global_pnl_update" data-broadcast--on-connect-retry-while-value="#global-pnl .dash-intro__loading"{% endif %}>
 {% if let Some(headline) = headline %}
 {{ headline|safe }}
 {% else %}
