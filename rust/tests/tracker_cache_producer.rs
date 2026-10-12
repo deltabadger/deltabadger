@@ -78,3 +78,56 @@ async fn producer_changed_inputs_run_again_on_the_writers_wake(){
     assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),2);
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
+/// 120 coin fees on 120 days, each day's price arriving only with its own fetch: more than one run's `MAX_FETCHES`.
+fn priced_one_day_at_a_time(c:&rusqlite::Connection,owner:i64,venue:i64)->(Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>>,ScriptedTransport){
+    common::seed::fresh_stock_jobs(c,clock().0);
+    let days:Vec<chrono::NaiveDate>=(0..120).map(|i|"2026-05-01".parse::<chrono::NaiveDate>().unwrap()+chrono::Days::new(i)).collect();
+    let row="INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,?3,'BTC',?4,?5,?6,?7,'{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')";
+    c.execute(row,rusqlite::params![owner,venue,0,"1","USD","60000","2026-04-30 00:00:00"]).unwrap();
+    for d in &days {c.execute(row,rusqlite::params![owner,venue,10,"0.0001",None::<&str>,None::<&str>,format!("{d} 12:00:00")]).unwrap();}
+    let price=|ds:&[chrono::NaiveDate]|json!({"status":200,"body":{"prices":ds.iter().map(|d|json!([d.and_hms_opt(0,0,0).unwrap().and_utc().timestamp_millis(),60000.0])).collect::<Vec<_>>()}});
+    let mut answers=vec![price(&[])]; // the first run's prefetch
+    answers.extend(days.iter().map(|d|price(&[*d])));
+    let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":answers}));
+    (Rc::new(Some(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone()))),t)
+}
+fn job_with(owner:i64,api:Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>>)->Box<dyn Job>{let now=clock().0;tracker::jobs::resolve::<Venues,ScriptedTransport>(tracker::jobs::TRACKER_LEDGER,owner,&Venues,api,Arc::new(move||now)).unwrap()}
+struct StopWhenDone { inner:Box<dyn Job>,stop:tokio::sync::watch::Sender<bool>,runs:Arc<std::sync::atomic::AtomicUsize> }
+impl Job for StopWhenDone {
+    fn spec(&self)->jobs::Spec{self.inner.spec()}
+    fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<jobs::Wake>)->jobs::JobFuture<'a>{Box::pin(async move{
+        self.runs.fetch_add(1,std::sync::atomic::Ordering::SeqCst);
+        let outcome=self.inner.run(cx,wakes).await;
+        if outcome==Outcome::Done {self.stop.send(true).unwrap();}
+        outcome
+    })}
+}
+/// A run that stops at its fetch allowance, having stored prices, wakes the next run at once, which fetches the rest:
+/// 50 days, then 51 (its prefetch brings one), then the last 19, and the walk is done with nothing left queued.
+#[tokio::test(flavor="current_thread")]
+async fn a_history_past_one_runs_fetches_fills_in_over_consecutive_runs_and_stops(){
+    let (dir,o,s)=common::install_alpaca();let (api,t)=priced_one_day_at_a_time(&o.primary,s.user_id,s.exchange_id);
+    let (stop,rx)=tokio::sync::watch::channel(false);let runs=Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(StopWhenDone{inner:job_with(s.user_id,api),stop,runs:runs.clone()})],None);
+    let wakers=scheduler.wakers();
+    wakers.wake(tracker::jobs::TRACKER_LEDGER,Some(&s.user_id.to_string()),None);
+    tokio::time::timeout(std::time::Duration::from_secs(30),scheduler.run(rx,&clock())).await.expect("a run that stored prices must wake the next").unwrap();
+    assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),3);
+    assert_eq!(t.requests().len(),121,"each run's prefetch, then 50, 50 and 18 single days");
+    assert_eq!(ledger_wakes(&wakers),0,"the finished walk queues nothing");
+    let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).unwrap(),120);
+    assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
+}
+/// A run that stops at its fetch allowance having stored nothing itself (here another writer stores each price first)
+/// queues no wake: nothing it did moved the walk on, so a re-run could loop.
+#[tokio::test(flavor="current_thread")]
+async fn a_fetch_spent_run_that_stored_nothing_queues_no_wake(){
+    let (_dir,o,s)=common::install_alpaca();let (api,_t)=priced_one_day_at_a_time(&o.primary,s.user_id,s.exchange_id);
+    o.primary.execute_batch("CREATE TRIGGER another_writer BEFORE INSERT ON historical_prices BEGIN INSERT INTO historical_prices(asset,currency,date,price) VALUES(NEW.asset,NEW.currency,NEW.date,NEW.price); END;").unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
+    let outcome=job_with(s.user_id,api).run(Cx{db:db.clone(),clock:&clock(),wakers:wakers.clone()},vec![]).await;
+    assert_eq!(outcome,Outcome::Failed(tracker::jobs::FETCHES_SPENT.into()));
+    assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),50,"the other writer stored them");
+    assert_eq!(ledger_wakes(&wakers),0,"a run that stored nothing must not wake itself");
+}

@@ -282,15 +282,16 @@ pub async fn fetch_range<T: Transport>(api: &DataApi<T>, fetch: &Fetch, have: &H
     Ok(rows)
 }
 
-/// HistoricalPrice.bulk_store: insert-only.
-pub fn store(c: &Connection, rows: &[PriceRow]) -> Result<(), FiguresError> {
+/// HistoricalPrice.bulk_store: insert-only. Returns how many rows it inserted.
+pub fn store(c: &Connection, rows: &[PriceRow]) -> Result<usize, FiguresError> {
     let mut s = c.prepare_cached("INSERT INTO historical_prices (asset, currency, date, price) VALUES (?1, 'USD', ?2, ?3) ON CONFLICT (asset, currency, date) DO NOTHING")?;
-    for (asset, date, price) in rows { s.execute(rusqlite::params![asset, date.to_string(), price])?; }
-    Ok(())
+    let mut stored = 0;
+    for (asset, date, price) in rows { stored += s.execute(rusqlite::params![asset, date.to_string(), price])?; }
+    Ok(stored)
 }
 
 /// Authenticated bar results require Q's capability; public market-data writes use store.
-pub fn store_bars(c:&crate::engine::model::FencedTransaction<'_>,rows:&[PriceRow])->Result<(),FiguresError>{store(c,rows)}
+pub fn store_bars(c:&crate::engine::model::FencedTransaction<'_>,rows:&[PriceRow])->Result<(),FiguresError>{store(c,rows).map(|_|())}
 
 #[cfg(test)]
 mod tests {
