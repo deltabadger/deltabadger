@@ -81,10 +81,21 @@ pub(crate) fn redeploy_offer(c: &Connection, s: &Subject, m: &Metrics, _members:
 }
 
 #[allow(clippy::too_many_arguments)]
-/// Where a form's authenticity token goes: nowhere (a broadcast: Rails' renderer has no session and writes no field),
-/// this token, or an empty value whose byte offset in the output is recorded, for kept figures to be given each
-/// request's own token there and nowhere else (loading::render).
-pub(crate) enum Token<'a> { None, Value(&'a str), Slots(&'a mut Vec<usize>) }
+/// A form's authenticity token: this one, or none (`Value("")`: a broadcast, where Rails' renderer has no session and
+/// writes no field), or, for kept figures, nothing but the byte offset where each form's field goes (`Slots`): a page
+/// writes its own token's field there and nowhere else (`with_token`), and a broadcast takes the fragment as it is.
+pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
+
+fn token_field(csrf: &str) -> String { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" autocomplete=\"off\" />", escape(csrf)) }
+/// Kept metrics with the request's token field written at each recorded offset (`Token::Slots`), and nowhere else:
+/// stored text is never searched. No token (a broadcast): the fragment as it is.
+pub(crate) fn with_token(metrics: &str, offsets: &[usize], csrf: &str) -> String {
+    let mut out = metrics.to_string();
+    if csrf.is_empty() { return out; }
+    let field = token_field(csrf);
+    for &at in offsets.iter().rev() { out.insert_str(at, &field); }
+    out
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, csrf: &mut Token<'_>, prefix: &str, now: At) -> Result<String, FiguresError> {
@@ -188,11 +199,10 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 for (decline, colour, label) in [(false,"success","confirm"),(true,"danger","decline")] {
                     let method = if decline { "<input type=\"hidden\" name=\"_method\" value=\"delete\" autocomplete=\"off\" />" } else { "" };
                     out.push_str(&format!("<form class=\"button_to\" method=\"post\" action=\"{}/bots/{}/redeploy\">{method}<button class=\"rbutton rbutton--{colour}\" type=\"submit\">{}</button>",escape(prefix),s.bot.id,t(locale,&format!("bot.redeploy.{label}"))));
-                    let field = "<input type=\"hidden\" name=\"authenticity_token\" value=\"";
                     match csrf {
-                        Token::None => {}
-                        Token::Value(token) => { out.push_str(field); out.push_str(&escape(token)); out.push_str("\" autocomplete=\"off\" />"); }
-                        Token::Slots(slots) => { out.push_str(field); slots.push(out.len()); out.push_str("\" autocomplete=\"off\" />"); }
+                        Token::Value("") => {}
+                        Token::Value(token) => out.push_str(&token_field(token)),
+                        Token::Slots(slots) => slots.push(out.len()),
                     }
                     out.push_str("</form>\n");
                 }
@@ -209,3 +219,51 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
 #[cfg(test)]
 #[path="../../../tests/support/normalized_redeploy.rs"]
 mod normalized_redeploy_tests;
+
+#[cfg(test)]
+mod token_tests {
+    use super::*;
+    /// A page's form token goes only where the renderer put a form, and a broadcast is the kept fragment as it is: stored
+    /// text that looks like a token field, the old placeholder or a form gets nothing.
+    #[test]
+    fn token_slots_only_at_renderer_positions() {
+        let hostile = "figuresFormTokenPlaceholder7f3a9c\" name=\"authenticity_token\" value=\"\" <input type=\"hidden\" value=\"\" />";
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        let t = "'2026-01-01'";
+        c.execute_batch(&format!("
+            INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
+            INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t});
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t}),(2,'Stock','aaa','AAA','AAA Inc',{t},{t});
+            INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+                VALUES (1,'AAA',2,9,1,0,1,2,'USD',1,2,'AAA',{t},{t});
+            INSERT INTO bots(id,user_id,exchange_id,type,status,label,settings,transient_data,created_at,updated_at) VALUES (1,1,1,'Bots::DcaIndex',1,?1,'{{}}','{{}}',{t},{t});
+            INSERT INTO bot_index_assets(bot_id,asset_id,ticker_id,in_index,created_at,updated_at) VALUES (1,2,1,1,{t},{t});
+            INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at)
+                VALUES (1,1,'AAA',2,'USD',1,1,1,110,110,1,0,2,'o1','LIQUIDATION','2026-03-02 00:00:00',{t});
+        ").replace("?1", &format!("'{}'", hostile.replace('\'', "''")))).unwrap();
+        c.execute("UPDATE assets SET symbol=?1, image_url=?2 WHERE id=2",
+                  [hostile, &format!("https://images.example/{hostile}.png")]).unwrap();
+        let s = Subject { bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Index, exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2] },
+                          orders: db::orders(&c, 1).unwrap(), tickers: vec![], quote: Some("USD".into()) };
+        let mut m = Metrics::empty();
+        let one = Num::Int(1);
+        m.asset_values = vec![(hostile.into(), walk::AssetValue { amount: one.clone(), quote_invested: one.clone(), current_value: one.clone(), current_price: one.clone(), avg_price: one.clone(), pnl_percentage: Num::Int(0), tax_basis: one.clone(), harvestable: false })];
+        m.key_assets = vec![(hostile.into(), Some(2))];
+        m.walked = Some(walk::Walked { shadowed_by: vec![], external_sales: false, restated_at: None, restated_before_external_sales: false, realised_cash: Num::Int(110), asset_lots: vec![], tax_pnl_by_transaction: vec![], loss_lot_by_transaction: vec![] });
+        let now = At::from_sql("2026-03-10 00:00:00").unwrap();
+        let rendered = |token: &mut Token<'_>| render(&c, &s, &m, &[], false, "en", token, "", now).unwrap();
+        let token = "a\"&<>'b";
+        let page = rendered(&mut Token::Value(token));
+        let broadcast = rendered(&mut Token::Value(""));
+        let mut slots = vec![];
+        let kept = rendered(&mut Token::Slots(&mut slots));
+        assert_eq!(slots.len(), 2, "one slot per redeploy form: {kept}");
+        assert!(broadcast.contains("redeploy-prompt__actions") && !broadcast.contains("value=\"\" autocomplete=\"off\""), "a broadcast has no session: Rails writes no token field: {broadcast}");
+        assert!(page.contains("value=\"a&quot;&amp;&lt;&gt;&#39;b\" autocomplete=\"off\" />"), "the token is escaped: {page}");
+        assert_eq!(with_token(&kept, &slots, token), page, "the page: each request's token where the renderer put a form, and nowhere else");
+        assert_eq!(kept, broadcast, "the broadcast: the kept fragment as it is");
+        assert_eq!(with_token(&kept, &slots, ""), broadcast, "no token, no field");
+        assert_eq!(page.matches("name=\"authenticity_token\" value=\"a&quot;").count(), 2);
+    }
+}

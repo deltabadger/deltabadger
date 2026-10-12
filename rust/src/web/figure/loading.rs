@@ -287,10 +287,9 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
 /// (`figure::kept_account`), and nowhere else: stored text is never searched.
 fn with_token(figures:&Value,slots:&super::Slots,csrf:&str)->Value {
     let mut out=figures.clone();
-    let token=crate::web::i18n::escape(csrf);
     for (bot,offsets) in slots {
         if let Some(Value::String(metrics))=out.get_mut("bots").and_then(|bots|bots.get_mut(bot)).and_then(|bot|bot.get_mut("metrics")) {
-            for &at in offsets.iter().rev() { metrics.insert_str(at,&token); }
+            *metrics=super::holdings::with_token(metrics,offsets,csrf);
         }
     }
     out
@@ -309,9 +308,9 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
             if !current || !unchanged && revision(c,user)?.0 != *prepared_revision { return Err(unavailable()); }
             // The figures are a function of this cache, the revision and `now` (the cache's stamp), and of how they are
-            // rendered: one computation serves every page load until a fill, a new stamp or a write. A form token is
-            // per request, so it is rendered as a placeholder and put in on the way out.
-            let key=serde_json::json!([prepared_revision,now.0,locale,prefix,csrf.is_empty()]).to_string();
+            // rendered: one computation serves every page load and publication until a fill, a new stamp or a write. A
+            // form token is per request: kept figures record where each form's field goes, and a page writes its own.
+            let key=serde_json::json!([prepared_revision,now.0,locale,prefix]).to_string();
             let token=|kept:&Value|->Result<Value,crate::figures::FiguresError> {
                 let slots:super::Slots=serde_json::from_value(kept["slots"].clone()).map_err(|_|unavailable())?;
                 Ok(with_token(&kept["figures"],&slots,csrf))
@@ -319,7 +318,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             if let Some(kept)=cache.kept(&key) { return token(&kept); }
             let names=symbols(c,user)?;
             let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
-            let (value,slots)=if csrf.is_empty() { (account(c,user,&reader,*now,locale,"",prefix)?,vec![]) } else { super::kept_account(c,user,&reader,*now,locale,prefix)? };
+            let (value,slots)=super::kept_account(c,user,&reader,*now,locale,prefix)?;
             // Core live calculations may return ledger values after a market failure.
             // Publish only after all reads succeeded against the prepared revision.
             if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0 != *prepared_revision {
@@ -409,6 +408,14 @@ pub async fn deliver(app:&App,streams:Vec<(String,String)>){
 /// machinery, and the fill's end publishes. So a page that stays mounted converges after any reconnect: after a
 /// dropped publication, after its figures expired or were written, after the account was evicted, after a restart.
 /// An account with no figures (no paper Alpaca key, or market data disabled) is sent and asks nothing.
+/// The account's latest publication on `stream` while its figures are fresh (`Service::latest`), asking nothing.
+pub async fn latest(app:&App,user:i64,stream:&str)->Option<Vec<std::sync::Arc<str>>>{
+    let inner=app.clone();
+    let info=app.db(move|c|read_info(c,&inner,user)).await.ok()??;
+    app.figure_service.latest(user,&info.identity,info.revision,app.now().timestamp(),stream)
+}
+/// A page in `locale` under `prefix` found no figures to show.
+pub fn enqueue_page(_app:&App,_user:i64,_locale:&str,_prefix:&str) {}
 pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str>>{
     if matches!(app.figure_source,Source::Disabled){return Vec::new();}
     let inner=app.clone();
@@ -616,16 +623,18 @@ mod tests {
     }
     #[test]
     fn kept_figures_take_each_request_s_own_token_in_each_form_only() {
-        // Two forms; stored text around them that holds a marker-like string, `value="` and the token itself.
-        let metrics="<img src=\"figuresFormTokenPlaceholder7f3a9c\" alt=\"x\"><form><input value=\"\" /></form><td>value=\"\"</td><form><input value=\"\" /></form>";
-        let first=metrics.find("<input value=\"").unwrap()+"<input value=\"".len();
-        let second=metrics.rfind("<input value=\"").unwrap()+"<input value=\"".len();
+        // Two forms; stored text around them that holds a marker-like string, a token field and the token itself.
+        let field="<input type=\"hidden\" name=\"authenticity_token\" value=\"a+b&amp;c&quot;\" autocomplete=\"off\" />";
+        let metrics="<img src=\"figuresFormTokenPlaceholder7f3a9c\" alt=\"x\"><form><button></button></form><td>value=\"\" name=\"authenticity_token\"</td><form><button></button></form>";
+        let first=metrics.find("</form>").unwrap();
+        let second=metrics.rfind("</form>").unwrap();
         let kept=serde_json::json!({"bots":{"1":{"metrics":metrics,"tile":"<div>value=\"\"</div>"},"2":{"metrics":metrics}}});
         let slots=vec![("1".to_string(),vec![first,second])];
         let out=super::with_token(&kept,&slots,"a+b&c\"");
-        assert_eq!(out["bots"]["1"]["metrics"],metrics.replacen("<input value=\"\"","<input value=\"a+b&amp;c&quot;\"",2));
+        assert_eq!(out["bots"]["1"]["metrics"],metrics.replace("</form>",&format!("{field}</form>")));
         assert_eq!(out["bots"]["1"]["tile"],kept["bots"]["1"]["tile"]);
         assert_eq!(out["bots"]["2"],kept["bots"]["2"],"a bot with no slots is as rendered");
+        assert_eq!(super::with_token(&kept,&slots,""),kept,"a broadcast takes the kept fragment as it is");
     }
     #[test]
     fn many_resolved_names_stay_one_compound_term() {
