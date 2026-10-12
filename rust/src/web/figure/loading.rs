@@ -27,6 +27,14 @@ pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Cre
 /// whole-database revision never held figures from one page load to the next. A replay (`Service::latest`) is checked
 /// against this alone, so anything a figure reads belongs here.
 /// Also how many rows it read, for the tests that hold it to the account's own.
+/// The resolved split names' asset ids as one compound-select term. A ` UNION VALUES` per id grows the statement with
+/// every name: SQLite's 500-term limit where it is set, and where it is not, a parser that runs out of stack (5,000 terms
+/// abort the process), on every page that loads figures.
+fn ids_source(ids:impl Iterator<Item=i64>)->String {
+    let ids:Vec<String>=ids.map(|id|id.to_string()).collect();
+    if ids.is_empty(){String::new()}else{format!(" UNION SELECT CAST(value AS INTEGER) FROM json_each('[{}]')",ids.join(","))}
+}
+
 pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     use std::hash::{Hash,Hasher};
     use rusqlite::types::ValueRef;
@@ -44,7 +52,7 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let resolved:std::collections::BTreeMap<_,_>=computed(crate::figures::splits::lookups(c,user,&orders),&mut hash)?.map(|(_,named)|named.into_iter().collect()).unwrap_or_default();
     "names".hash(&mut hash);
     for entry in &resolved { read+=1; entry.hash(&mut hash); }
-    let resolved:String=resolved.values().flatten().map(|id|format!(" UNION VALUES ({id})")).collect();
+    let resolved=ids_source(resolved.values().flatten().copied());
     let bots="SELECT id FROM bots WHERE user_id=?1";
     // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the
     // bot's venue now.
@@ -480,4 +488,16 @@ mod credential_cache_tests {
         assert_eq!(read_info(&c,&app,1).unwrap().unwrap().credentials.key,"b","the next read sees the replacement");
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn many_resolved_names_stay_one_compound_term() {
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        let sql=format!("SELECT count(*) FROM (SELECT 0{})",super::ids_source(1..=2000));
+        let n:i64=c.query_row(&sql,[],|r|r.get(0)).unwrap();
+        assert_eq!(n,2001);
+        assert_eq!(super::ids_source(std::iter::empty()),"");
+    }
 }
