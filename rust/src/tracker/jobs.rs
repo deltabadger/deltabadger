@@ -37,10 +37,9 @@ pub const WALK: budget::Limits = budget::FIGURE;
 /// over several runs (each stores what it fetched); raise it if real histories need more.
 pub const MAX_FETCHES: usize = 50;
 
-/// What is left of one job run's budget.
+/// What is left of one job run's budget. `stored` counts the prices this run itself inserted: a run that could not
+/// publish wakes the next only if it stored one.
 #[derive(Clone, Copy, Debug)]
-/// `stored` counts the prices this run itself inserted: a run stopped at its fetch allowance wakes the next only if it
-/// moved the walk on.
 pub struct Allowance { pub steps: u64, pub fetches: usize, pub stored: usize }
 
 impl Allowance {
@@ -267,6 +266,14 @@ impl<T: Transport> Job for LedgerWalk<T> {
 const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during calculation";
 async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall)->Result<Walked,String> {
     let mut allowance=Allowance::run();
+    let out=cached_passes(cx,api,owner,wall,&mut allowance).await;
+    // A run that could not publish wakes the next only if it stored a price itself: the rest of a long history, or
+    // passes moved by its own price writes, finish then. One that stored nothing made no progress, and waking it would
+    // loop; a writer that moves the inputs wakes this job itself.
+    if out.is_err() && allowance.stored>0 {cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);}
+    out
+}
+async fn cached_passes<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall,allowance:&mut Allowance)->Result<Walked,String> {
     for _ in 0..3 {
         let (before,venue,origin)=cx.db.run(move|c,_|{
             let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
@@ -275,7 +282,7 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner
             let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
             tx.commit().map_err(|e|e.to_string())?;Ok((before,venue,origin))
         }).await?;
-        let result=ledger_run_produced(&cx.db,api,owner,cx.clock,wall.clone(),&mut allowance).await;
+        let result=ledger_run_produced(&cx.db,api,owner,cx.clock,wall.clone(),allowance).await;
         let cache_origin=match &result {Ok(produced)=>produced.origin.clone(),Err(_)=>origin};
         let cached=match &result {Ok(produced)=>Some(produced.value.clone()),Err(_)=>None};
         let clock=wall.clone();
@@ -287,16 +294,9 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner
             super::cache::publish(c,owner,&before,cached.as_ref(),venue,now).map(|published|(published,false))
         }).map_err(message)).await?;
         if published || historical {return result.map(|produced|produced.value);}
-        // A walk that failed cannot publish; another pass or a self-wake would only fail again.
-        if let Err(e)=result {
-            // Stopped at its fetch allowance having stored prices: the next run fetches the rest at once. One that stored
-            // nothing made no progress, and waking it would loop.
-            if e==FETCHES_SPENT && allowance.stored>0 {cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);}
-            return Err(e);
-        }
+        // A walk that failed cannot publish; another pass would only fail again.
+        result?;
     }
-    // No self-wake: a writer that moves the inputs wakes this job itself. Waking here re-ran
-    // a walk that could never publish in a tight loop.
     Err(CACHE_MOVING.into())
 }
 

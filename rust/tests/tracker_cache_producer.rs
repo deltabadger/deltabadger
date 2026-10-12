@@ -42,7 +42,8 @@ async fn a_failed_walk_returns_its_error_and_never_wakes_itself(){
     assert_eq!(outcome,Outcome::Failed("the tracker walk is not ported for balances on a venue other than Alpaca".into()));
     assert_eq!(ledger_wakes(&wakers),0,"a failed walk must not wake another tracker_ledger run");
 }
-/// Inputs that move during every pass end the run as moving, with no wake of its own: the writer that moved them wakes it.
+/// Inputs that another writer moves during every pass end the run as moving. The run stored no price itself, so it
+/// queues no wake: the writer that moved them wakes it.
 #[tokio::test(flavor="current_thread")]
 async fn moving_inputs_end_the_run_without_waking_itself(){
     let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
@@ -130,4 +131,26 @@ async fn a_fetch_spent_run_that_stored_nothing_queues_no_wake(){
     assert_eq!(outcome,Outcome::Failed(tracker::jobs::FETCHES_SPENT.into()));
     assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),50,"the other writer stored them");
     assert_eq!(ledger_wakes(&wakers),0,"a run that stored nothing must not wake itself");
+}
+/// The run's own prefetch writes can move the price inputs under all three passes: fees on days 1 and 4 prefetch days
+/// 1 to 4, answered [1,4], then [2], then [3]. Every walk succeeds but none can publish; the run stored prices, so it
+/// wakes the next, which finds every price stored and publishes.
+#[tokio::test(flavor="current_thread")]
+async fn a_run_moved_only_by_its_own_price_writes_wakes_the_next_and_the_cache_warms(){
+    let (dir,o,s)=common::install_alpaca();common::seed::fresh_stock_jobs(&o.primary,clock().0);
+    let day=|d:&str|d.parse::<chrono::NaiveDate>().unwrap();
+    let row="INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,?3,'BTC',?4,?5,?6,?7,'{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')";
+    o.primary.execute(row,rusqlite::params![s.user_id,s.exchange_id,0,"1","USD","60000","2026-04-30 00:00:00"]).unwrap();
+    for d in ["2026-05-01","2026-05-04"] {o.primary.execute(row,rusqlite::params![s.user_id,s.exchange_id,10,"0.0001",None::<&str>,None::<&str>,format!("{d} 12:00:00")]).unwrap();}
+    let price=|ds:&[&str]|json!({"status":200,"body":{"prices":ds.iter().map(|d|json!([day(d).and_hms_opt(0,0,0).unwrap().and_utc().timestamp_millis(),60000.0])).collect::<Vec<_>>()}});
+    let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":[price(&["2026-05-01","2026-05-04"]),price(&["2026-05-02"]),price(&["2026-05-03"])]}));
+    let api=Rc::new(Some(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone())));
+    let (stop,rx)=tokio::sync::watch::channel(false);let runs=Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(StopWhenDone{inner:job_with(s.user_id,api),stop,runs:runs.clone()})],None);
+    let wakers=scheduler.wakers();
+    wakers.wake(tracker::jobs::TRACKER_LEDGER,Some(&s.user_id.to_string()),None);
+    tokio::time::timeout(std::time::Duration::from_secs(10),scheduler.run(rx,&clock())).await.expect("a run that stored prices must wake the next").unwrap();
+    assert_eq!((runs.load(std::sync::atomic::Ordering::SeqCst),t.requests().len()),(2,3),"three moved passes, then one run that fetches nothing");
+    assert_eq!(ledger_wakes(&wakers),0);
+    let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
