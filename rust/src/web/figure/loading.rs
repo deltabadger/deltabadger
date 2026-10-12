@@ -13,22 +13,47 @@ pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
 pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
 pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
-/// What this account's figures were filled for: the rows Rails' metrics cache is recomputed for (a bot's transactions,
-/// and the bot: its settings, status, venue, restatement) and the account's own rows its figures read. Not a write to
-/// anything else: the scheduler records every job run (app_configs) and its syncs rewrite the reference data, all the
-/// time, and a whole-database revision never held figures for one page load to the next. A figure that needs a ticker
-/// or an asset the cache does not hold is refused at render (`reader.demands()`), whatever this says.
+/// What this account's figures were filled for, as values: the rows Rails' metrics cache is recomputed for (a bot's
+/// transactions, and the bot: its settings, status, venue, restatement), the account's own rows the figures read, and
+/// the reference data they read (the listings of the bots' venues, and the assets those listings, the index, the ledger
+/// and the balances name). Left out: `updated_at`, and what a sync rewrites that no figure reads (a market cap, an ATH).
+/// The scheduler records every job run (app_configs) and its syncs rewrite the reference data all the time, and a
+/// whole-database revision never held figures from one page load to the next. A replay (`Service::latest`) is checked
+/// against this alone, so anything a figure reads belongs here.
 fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
     use std::hash::{Hash,Hasher};
     use rusqlite::types::ValueRef;
     let mut hash=std::hash::DefaultHasher::new();
     let bots="SELECT id FROM bots WHERE user_id=?1";
-    for (table,scope) in [("users","id=?1"),("bots","user_id=?1"),("transactions",&format!("bot_id IN ({bots})") as &str),
-                          ("bot_index_assets",&format!("bot_id IN ({bots})")),("wash_sale_locks","user_id=?1")] {
-        let mut statement=c.prepare(&format!("SELECT * FROM {table} WHERE {scope} ORDER BY id"))?;
-        let kept:Vec<usize>=statement.column_names().iter().enumerate().filter(|(_,name)|!matches!(**name,"updated_at"|"transient_data")).map(|(i,_)|i).collect();
+    let venues="SELECT exchange_id FROM bots WHERE user_id=?1";
+    let assets=format!("SELECT base_asset_id FROM tickers WHERE exchange_id IN ({venues}) UNION SELECT quote_asset_id FROM tickers WHERE exchange_id IN ({venues}) \
+        UNION SELECT asset_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT asset_id FROM account_balances WHERE user_id=?1 \
+        UNION SELECT base_asset_id FROM account_transactions WHERE user_id=?1 UNION SELECT asset_id FROM wash_sale_locks WHERE user_id=?1");
+    // A conversion reads an asset by its symbol alone (db::asset_by_symbol): any asset under one of these symbols, and
+    // the currencies an account is shown in.
+    let assets=format!("SELECT id FROM assets WHERE id IN ({assets}) OR symbol IN (SELECT symbol FROM assets WHERE id IN ({assets})) OR category='Currency'");
+    let unread:&[&str]=&["updated_at","transient_data","ath","ath_updated_at","market_cap","market_cap_rank","circulating_supply"];
+    let sets=[
+        ("SELECT * FROM users WHERE id=?1".to_string(),"users"),
+        ("SELECT * FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"bots"),
+        (format!("SELECT * FROM transactions WHERE bot_id IN ({bots}) ORDER BY id"),"transactions"),
+        (format!("SELECT * FROM bot_index_assets WHERE bot_id IN ({bots}) ORDER BY id"),"bot_index_assets"),
+        ("SELECT * FROM wash_sale_locks WHERE user_id=?1 ORDER BY id".to_string(),"wash_sale_locks"),
+        (format!("SELECT * FROM exchanges WHERE id IN ({venues}) ORDER BY id"),"exchanges"),
+        (format!("SELECT * FROM tickers WHERE exchange_id IN ({venues}) ORDER BY id"),"tickers"),
+        (format!("SELECT * FROM assets WHERE id IN ({assets}) ORDER BY id"),"assets"),
+        // The ledger is read for its split rows (db::split_rows: every field of them) and for the assets its rows name
+        // under each symbol (db::account_classes); a row edited in place into or out of either changes these.
+        (format!("SELECT id,exchange_id,base_currency,base_asset_id,raw_data,transacted_at FROM account_transactions WHERE user_id=?1 AND entry_type={} \
+                  AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data,'$.corporate_action') END='split' ORDER BY id",crate::figures::db::ADJUSTMENT),"splits"),
+        ("SELECT DISTINCT base_currency,base_asset_id FROM account_transactions WHERE user_id=?1 ORDER BY 1,2".to_string(),"ledger classes"),
+        ("SELECT DISTINCT asset_id FROM account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
+    ];
+    for (sql,name) in sets {
+        let mut statement=c.prepare(&sql)?;
+        let kept:Vec<usize>=statement.column_names().iter().enumerate().filter(|(_,column)|!unread.contains(*column)).map(|(i,_)|i).collect();
         let mut rows=statement.query([user])?;
-        table.hash(&mut hash);
+        name.hash(&mut hash);
         while let Some(row)=rows.next()? {
             for &i in &kept {
                 match row.get_ref(i)? {
@@ -40,11 +65,6 @@ fn revision(c:&Connection,user:i64)->Result<u64,rusqlite::Error> {
             }
         }
     }
-    // The ledger's split rows and the balances' assets name the classes of a restated holding (db::split_rows,
-    // db::account_classes); a sync appends rows and reprices balances, which only the first of these is.
-    let ledger:(i64,Option<i64>)=c.query_row("SELECT count(*),max(id) FROM account_transactions WHERE user_id=?1",[user],|r|Ok((r.get(0)?,r.get(1)?)))?;
-    let held:String=c.query_row("SELECT coalesce(group_concat(asset_id),'') FROM (SELECT DISTINCT asset_id FROM account_balances WHERE user_id=?1 ORDER BY asset_id)",[user],|r|r.get(0))?;
-    (ledger,held).hash(&mut hash);
     Ok(hash.finish())
 }
 pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
