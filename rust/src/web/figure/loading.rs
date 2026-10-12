@@ -119,11 +119,10 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
         ("SELECT DISTINCT base_currency,base_asset_id FROM account_transactions WHERE user_id=?1 ORDER BY 1,2".to_string(),"ledger classes"),
         ("SELECT DISTINCT asset_id FROM account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
         // An index reads every tradable listing of its venue in its quote (db::tickers): their coarsest quote precision
-        // rounds its chart (chart::quote_decimals), and which are tradable is what it asks the market for. Per quote on
-        // each index's venue, as an aggregate over the venue's index rather than a hash of thousands of listings: how
-        // many, which (the sum and the highest of their ids), and their coarsest and finest precision. A listing's ticker
-        // renamed in place only changes what is asked for, and a held one's row is in the tickers above.
-        ("SELECT exchange_id,quote_asset_id,count(*),total(id),max(id),min(quote_decimals),max(quote_decimals) FROM tickers \
+        // rounds its chart (chart::quote_decimals), and their tickers are what it asks the market for (`symbols`). Per
+        // quote on each index's venue, one aggregate over the venue's index: their coarsest and finest precision, and
+        // each one's id and ticker in id order. A held one's whole row is in the tickers above.
+        ("SELECT exchange_id,quote_asset_id,min(quote_decimals),max(quote_decimals),group_concat(id||char(30)||ticker,char(31) ORDER BY id) FROM tickers \
           WHERE exchange_id IN (SELECT exchange_id FROM bots WHERE user_id=?1 AND type='Bots::DcaIndex') AND available=1 AND trading_enabled=1 \
           GROUP BY exchange_id,quote_asset_id ORDER BY 1,2".to_string(),"index listings"),
     ];
@@ -603,7 +602,12 @@ mod tests {
         c.execute("UPDATE tickers SET quote_decimals=0 WHERE id=9000",[]).unwrap();
         assert_eq!(measure(&c).0,after,"a listing on a venue the account never used");
         c.execute("UPDATE tickers SET quote_decimals=0 WHERE id=5000",[]).unwrap();
-        assert_ne!(measure(&c).0,after,"a never-held tradable listing in the index's venue and quote");
+        let precision=measure(&c).0;
+        assert_ne!(precision,after,"a never-held tradable listing in the index's venue and quote");
+        // Which listings are tradable is what the index asks the market for (loading::symbols): one renamed in place, of
+        // the same id and precision, changes the request.
+        c.execute("UPDATE tickers SET ticker='RENAMED' WHERE id=5000",[]).unwrap();
+        assert_ne!(measure(&c).0,precision,"a never-held tradable listing in the index's venue and quote renamed");
     }
     #[test]
     fn stored_text_that_looks_like_a_placeholder_gets_no_token() {
