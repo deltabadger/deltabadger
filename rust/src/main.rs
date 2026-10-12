@@ -175,7 +175,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     scheduler.wakers().attach_engine(engine.wake_handle());
     let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;
-        scheduler.with_notifications(web.job_notifications())
+        scheduler.with_notifications(web.job_notifications()).with_ran(deltabadger::web::figure::warm::job_ran(web.clone()))
     } else { scheduler };
     Ok(supervisor::Service { name: "scheduler", run: Box::pin(scheduler.run(engine.stop_handle().subscribe(), clock)) })
 }
@@ -262,8 +262,10 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Ok(s) => s,
             Err(e) => { eprintln!("deltabadger: the background scheduler could not start: {e}"); return EXIT_ENGINE_ERROR; }
         };
+        // The boot's figures go to the queue first, before any page asks.
+        let (booted, order_events, stop) = (app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_order), engine.stop_handle().subscribe());
         let figures = supervisor::Service { name: "figures",
-            run: Box::pin(deltabadger::web::figure::loading::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_order), engine.stop_handle().subscribe())) };
+            run: Box::pin(async move { deltabadger::web::figure::warm::boot(&booted).await; deltabadger::web::figure::loading::follow(booted, order_events, stop).await }) };
         let warnings = supervisor::Service { name: "bot warnings",
             run: Box::pin(deltabadger::web::below_minimum::follow(app.clone(), engine.subscribe_to(deltabadger::engine::events::EngineEvent::is_warning), engine.stop_handle().subscribe())) };
         let services = vec![mail_service(mail, &engine.stop_handle(), engine.subscribe()), scheduler, figures, warnings];

@@ -543,3 +543,78 @@ async fn builder_order_read_parses_after_the_cursor_closes() {
     let (first, last) = (steps(true), steps(false));
     assert!(first * 10 >= last * 9, "parsed while the cursor was open: {first} VM steps with the unreadable row first, {last} with it last");
 }
+
+// ---- Task 7: what wakes the warming: the boot, a sync job's run, the five-minute tick for active accounts ----------
+
+/// Every account that waits for work now, and what for.
+fn queued(app: &App) -> std::collections::BTreeMap<i64, Work> { app.figure_service.take_due(i64::MAX).into_iter().collect() }
+
+#[tokio::test]
+async fn boot_enqueues_every_user_with_bots() {
+    let install = Install::new(2, 0);
+    let c = install.connection();
+    let t = "'2026-01-01'";
+    // 3: no bots. 4: its only bot deleted. 5: a live (not paper) Alpaca key. 6: no Alpaca key.
+    for user in 3..=6 { add_account(&c, &install.app, user); }
+    c.execute("DELETE FROM transactions WHERE bot_id=3", []).unwrap();
+    c.execute("DELETE FROM bots WHERE user_id=3", []).unwrap();
+    c.execute("UPDATE bots SET status=?1 WHERE user_id=4", [deltabadger::enums::BotStatus::Deleted as i64]).unwrap();
+    c.execute("UPDATE api_keys SET passphrase=?1 WHERE user_id=5", [install.app.cipher.encrypt("live")]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE user_id=6", []).unwrap();
+    c.execute(&format!("UPDATE users SET locale='fr',updated_at={t} WHERE id=2"), []).unwrap();
+    deltabadger::web::figure::warm::boot(&install.app).await;
+    let queued = queued(&install.app);
+    assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![1, 2], "the accounts with bots and a paper Alpaca key");
+    assert_eq!(queued[&1], Work { publish: true, locales: own(), not_before: install.now() });
+    assert_eq!(queued[&2].locales, BTreeSet::from([("fr".to_string(), "/fr".to_string())]), "each in its own locale");
+}
+
+#[tokio::test]
+async fn warm_tick_fills_only_users_active_in_30_minutes() {
+    let install = Install::new(2, 0);
+    install.clock.set(common::web::at("2026-03-18T11:31:00Z"));
+    // Account 2 signs in 31 minutes before the tick, account 1 a minute before it.
+    use deltabadger::web::session::{self, SessionData};
+    let page = |user: i64| { let signed = SessionData { user: Some((user, "x".into())), ..SessionData::default() }; common::web::Browser { cookie: Some(session::seal(&install.app.keys.session, &signed, install.clock_now())), page: None } };
+    assert_eq!(page(2).get(&install.app, "/settings/connect").await.status, 200);
+    install.clock.set(common::web::at("2026-03-18T12:01:00Z"));
+    assert_eq!(page(1).get(&install.app, "/settings/connect").await.status, 200);
+    let _stop = install.consume();
+    tokio::time::sleep(Duration::from_millis(100)).await; // the service is running, and knows when its next tick is
+    // The tick: two seconds past the next five-minute cut.
+    install.clock.set(common::web::at("2026-03-18T12:05:02Z"));
+    until(10, "account 1's warm fill", async || fills(&install.app, 1) > 0 && matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))).await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(fills(&install.app, 2), 0, "account 2 was last active 34 minutes ago");
+}
+
+/// A fake job of `name` and `scope`, which only counts its runs.
+struct Ran { name: &'static str, scope: Option<String> }
+impl deltabadger::jobs::Job for Ran {
+    fn spec(&self) -> deltabadger::jobs::Spec { deltabadger::jobs::Spec { name: self.name, scope: self.scope.clone(), schedule: None, jitter: deltabadger::jobs::schedule::Jitter::NONE, retry: deltabadger::jobs::Retry::None, deadline: deltabadger::jobs::DEADLINE } }
+    fn run<'a>(&'a self, _: deltabadger::jobs::Cx<'a>, _: Vec<deltabadger::jobs::Wake>) -> deltabadger::jobs::JobFuture<'a> { Box::pin(async { deltabadger::jobs::Outcome::Done }) }
+}
+
+#[tokio::test]
+async fn a_sync_job_run_enqueues_its_user_once_per_debounce() {
+    let install = Install::new(2, 0);
+    let key: i64 = install.connection().query_row("SELECT id FROM api_keys WHERE user_id=2", [], |r| r.get(0)).unwrap();
+    let jobs: Vec<Box<dyn deltabadger::jobs::Job>> = vec![Box::new(Ran { name: deltabadger::sync::jobs::LEDGER_SYNC, scope: Some(key.to_string()) })];
+    let scheduler = deltabadger::jobs::Scheduler::new(install.connection(), install.app.cipher.clone(), jobs, None)
+        .with_ran(deltabadger::web::figure::warm::job_ran(install.app.clone()));
+    let wakers = scheduler.wakers();
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let due = install.now() + 5;
+    let (ended, ()) = tokio::join!(scheduler.run(stopped, &*install.clock), async {
+        wakers.wake(deltabadger::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), None);
+        until(5, "the first run's work", async || install.app.figure_service.next_due().is_some()).await;
+        install.clock.set(install.clock_now() + chrono::Duration::seconds(3));
+        wakers.wake(deltabadger::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), None);
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        stop.send(true).unwrap();
+    });
+    ended.unwrap();
+    let queued = queued(&install.app);
+    assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![2], "the key's owner, and no one else");
+    assert_eq!(queued[&2].not_before, due, "a later run never pushes the debounce back");
+}

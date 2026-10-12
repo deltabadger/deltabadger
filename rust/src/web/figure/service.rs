@@ -28,7 +28,9 @@ struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTr
     /// Work waiting for the `figures` service (`loading::follow`), one entry per account.
     pending:BTreeMap<i64,Work>,
     /// Work for an account whose fill is running: back to `pending` when that fill ends (`Ticket::store`).
-    parked:BTreeMap<i64,Work> }
+    parked:BTreeMap<i64,Work>,
+    /// When each account was last signed in on a request (Unix seconds).
+    signed_in:BTreeMap<i64,i64> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
@@ -101,6 +103,10 @@ impl Service {
         }
         out
     }
+    /// A signed-in request of this account (Bot::WarmMetricsCachesJob.mark_activity!), per account.
+    pub fn mark_active(&self,user:i64,now:i64) { self.state().signed_in.insert(user,now); }
+    /// The accounts signed in since `since`.
+    pub fn active_since(&self,since:i64)->BTreeSet<i64> { let mut state=self.state(); state.signed_in.retain(|_,at|*at>=since); state.signed_in.keys().copied().collect() }
     /// When the earliest queued work is due.
     pub fn next_due(&self)->Option<i64> { self.state().pending.values().map(|w|w.not_before).min() }
     fn state(&self)->MutexGuard<'_,State> { self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }

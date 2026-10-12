@@ -9,6 +9,7 @@ mod plot;
 mod headline;
 pub mod service;
 pub mod loading;
+pub mod warm;
 use crate::figures::totals;
 
 pub const NO_VALUE: &str = "<span class=\"no-value\">—</span>";

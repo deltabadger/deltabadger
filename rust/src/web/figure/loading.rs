@@ -239,7 +239,7 @@ async fn build<T:Send+'static>(app:&App,work:impl FnOnce(&Connection)->Result<T,
 type Rendered=Vec<((String,String),(Value,super::Slots))>;
 /// The key a publication renders: the account's own locale and its paths (Bot#with_user_locale,
 /// ApplicationController#default_url_options).
-fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::Error> {
+pub(crate) fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::Error> {
     let chosen:Option<String>=c.query_row("SELECT locale FROM users WHERE id=?1",[user],|r|r.get(0)).optional()?.flatten();
     let locale=crate::web::locale::switch(None,chosen.as_deref());
     Ok((locale.to_string(),crate::web::locale::path(locale,"")))
@@ -578,10 +578,13 @@ pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crat
     };
     let publishing=async {
         let mut failures=0u32;
+        let mut tick=super::warm::next_tick(app.now().timestamp());
         loop {
+            if app.now().timestamp()>=tick { super::warm::tick(&app).await; tick=super::warm::next_tick(app.now().timestamp()); }
             // Woken by a mark, by queued work, or by the earliest queued work falling due.
             // ponytail: the clock is looked at once a second while nothing else wakes this; a clock-change signal if that matters.
-            let wait=service.next_due().map_or(QUEUE_POLL,|due|Duration::from_secs(due.saturating_sub(app.now().timestamp()).max(0) as u64).min(QUEUE_POLL));
+            let due=service.next_due().map_or(tick,|due|due.min(tick));
+            let wait=Duration::from_secs(due.saturating_sub(app.now().timestamp()).max(0) as u64).min(QUEUE_POLL);
             if !wait.is_zero() { tokio::select!{ _=service.marked_wait()=>{}, _=tokio::time::sleep(wait)=>{} } }
             for (user,work) in service.take_due(app.now().timestamp()) { consume(&app,user,work).await; }
             if service.marked()==0 && !service.has_owners() { continue; }
