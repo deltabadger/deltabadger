@@ -74,7 +74,7 @@ impl Install {
 
 fn add_account(c: &rusqlite::Connection, app: &App, user: i64) {
     let t = "'2026-01-01'";
-    c.execute(&format!("INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (?1,'u'||?1||'@example.com','x',{t},{t})"), [user]).unwrap();
+    c.execute(&format!("INSERT INTO users(id,email,encrypted_password,setup_completed,admin,confirmed_at,created_at,updated_at) VALUES (?1,'u'||?1||'@example.com','x',1,?1=1,{t},{t},{t})"), [user]).unwrap();
     c.execute(&format!("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at) VALUES (?1,1,0,1,?2,?3,?4,{t},{t})"),
               rusqlite::params![user, app.cipher.encrypt("key"), app.cipher.encrypt("secret"), app.cipher.encrypt("paper")]).unwrap();
     c.execute(&format!("INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) \
@@ -303,4 +303,174 @@ async fn kept_output_lifetime_follows_the_cut_and_lock_deadline() {
         assert!(fills(&install.app, 1) > before, "{until_at}: a fill ran");
         until(10, "the republication", async || published(&install.app, 1).await).await;
     }
+}
+
+// ---- Task 5: a bounded concurrent fetch, CPU work off the runtime's thread, and a timed-out fill's bound ------------
+
+/// An install with one account whose basket holds `members` assets (S1, S2, ...), each bought `buys` times, with `bars`
+/// daily bars each (from `start`, `step` seconds apart), every market answer `delay_ms` away.
+fn members_install(members: usize, buys: usize, bars: usize, start: &str, step: i64, delay_ms: u64) -> Install {
+    let start = common::web::at(start);
+    let mut script = serde_json::Map::new();
+    let mut prices = serde_json::Map::new();
+    for i in 1..=members {
+        let symbol = format!("S{i}");
+        let series: Vec<Value> = (0..bars).map(|b| {
+            let t = (start + chrono::Duration::seconds(step * b as i64)).format("%Y-%m-%dT%H:%M:%SZ").to_string();
+            json!({"t": t, "o": 50 + (b % 7) as i64, "h": 51, "l": 49, "c": 50, "v": 1000})
+        }).collect();
+        // As a venue sends it: text, which the scripted transport hands over as it is.
+        let reply = json!({"delay_ms": delay_ms, "body": json!({"bars": series}).to_string()});
+        script.insert(format!("GET data.alpaca.markets/v2/stocks/{symbol}/bars"), reply.clone());
+        script.insert(format!("GET data.alpaca.markets/v2/stocks/{symbol}/bars?adjustment=split"), reply);
+        prices.insert(symbol, json!({"latestTrade": {"p": 55.0}}));
+    }
+    script.insert("GET data.alpaca.markets/v2/stocks/snapshots".into(), json!({"delay_ms": delay_ms, "body": prices}));
+    let install = Install::with_script(0, Value::Object(script));
+    let c = install.connection();
+    let t = "'2026-01-01'";
+    let mut allocations = serde_json::Map::new();
+    for i in 1..=members {
+        let id = 100 + i as i64;
+        c.execute(&format!("INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (?1,'Stock','s'||?1,'S{i}','S{i} Inc',{t},{t})"), [id]).unwrap();
+        c.execute(&format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at) \
+                            VALUES (?1,'S{i}',?1,9,1,0,1,2,'USD',1,2,'S{i}',{t},{t})"), [id]).unwrap();
+        allocations.insert(id.to_string(), json!(1.0 / members as f64));
+    }
+    c.execute(&format!("INSERT INTO users(id,email,encrypted_password,setup_completed,admin,confirmed_at,created_at,updated_at) VALUES (1,'u1@example.com','x',1,1,{t},{t},{t})"), []).unwrap();
+    c.execute(&format!("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at) VALUES (1,1,0,1,?1,?2,?3,{t},{t})"),
+              rusqlite::params![install.app.cipher.encrypt("key"), install.app.cipher.encrypt("secret"), install.app.cipher.encrypt("paper")]).unwrap();
+    c.execute(&format!("INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES (1,1,1,'Bots::DcaMultiAsset',1,?1,'{{}}',{t},{t})"),
+              [json!({"quote_asset_id": 1, "allocations": allocations}).to_string()]).unwrap();
+    let first = common::web::at("2026-03-02T14:30:00Z");
+    for b in 0..buys {
+        let id = 101 + (b % members) as i64;
+        let at = (first + chrono::Duration::seconds(3600 * b as i64)).format("%Y-%m-%d %H:%M:%S").to_string();
+        c.execute(&format!("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+                            VALUES (1,1,'S'||(?1-100),?1,'USD',1,0.1,0.1,50,5,0,0,2,'o'||?2,'REGULAR',?3,{t})"), rusqlite::params![id, b as i64, at]).unwrap();
+    }
+    install
+}
+
+/// A signed-in browser for account 1.
+fn browser(install: &Install) -> common::web::Browser {
+    use deltabadger::web::session::{self, SessionData};
+    let signed = SessionData { user: Some((1, "x".into())), ..SessionData::default() };
+    common::web::Browser { cookie: Some(session::seal(&install.app.keys.session, &signed, install.clock_now())), page: None }
+}
+
+/// `n` page loads of `path`, one due every `gap`, each one's latency from when it was due: as a request that arrives on
+/// a socket waits for the runtime's thread, whatever holds it.
+async fn latencies(install: &Install, path: &str, n: usize, gap: Duration) -> Vec<Duration> {
+    let mut browser = browser(install);
+    let mut out = vec![];
+    let start = tokio::time::Instant::now();
+    for i in 0..n {
+        let due = start + gap * i as u32;
+        tokio::time::sleep_until(due).await;
+        let page = browser.get(&install.app, path).await;
+        out.push(due.elapsed());
+        assert_eq!(page.status, 200, "{path}: {:?} {}", page.headers, page.body);
+    }
+    out
+}
+fn p95(mut times: Vec<Duration>) -> Duration { times.sort(); times[((times.len() as f64 - 1.0) * 0.95).round() as usize] }
+
+/// A transport that answers every request `delay` later and counts how many are in flight at once.
+struct Counting { delay: Duration, now: std::sync::atomic::AtomicUsize, most: std::sync::atomic::AtomicUsize }
+impl deltabadger::venue::http::Transport for Counting {
+    async fn send(&self, _: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        use std::sync::atomic::Ordering::SeqCst;
+        let now = self.now.fetch_add(1, SeqCst) + 1;
+        self.most.fetch_max(now, SeqCst);
+        tokio::time::sleep(self.delay).await;
+        self.now.fetch_sub(1, SeqCst);
+        Ok(deltabadger::venue::http::HttpResponse { status: 200, body: json!({"bars": bars()}).to_string() })
+    }
+}
+
+#[tokio::test]
+async fn boot_fetch_is_bounded_to_eight_in_flight() {
+    use deltabadger::venue::http::HttpRequest;
+    // The cache's fetch: never more than eight requests at once, and eight while there are that many.
+    let counting = Counting { delay: Duration::from_millis(100), now: Default::default(), most: Default::default() };
+    let demands: Vec<HttpRequest> = (1..=67).map(|i| HttpRequest { method: "GET", base: "https://data.alpaca.markets".into(), path: format!("/v2/stocks/S{i}/bars"),
+        query: vec![("limit", "10000".into()), ("start", "2026-03-02T00:00:00Z".into()), ("timeframe", "1Day".into())], body: None, not_after: None }).collect();
+    let mut cache = deltabadger::figures::page_market::Cache::default();
+    let t = Instant::now();
+    cache.fill_bounded(&counting, demands, common::web::at(AT).timestamp(), &Arc::new(tokio::sync::Semaphore::new(1))).await;
+    assert_eq!(counting.most.load(std::sync::atomic::Ordering::SeqCst), 8, "requests in flight at once");
+    assert!(t.elapsed() < Duration::from_millis(67 * 100 / 2), "67 answers 100 ms away took {:?}", t.elapsed());
+    // An account of 65 holdings after a restart: its first publication within six seconds, at 100 ms an answer.
+    let install = members_install(65, 65, 16, "2026-03-02T00:00:00Z", 86_400, 100);
+    let _stop = install.consume();
+    let t = Instant::now();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(20, "the first publication", async || published(&install.app, 1).await).await;
+    assert!(t.elapsed() <= Duration::from_secs(6), "first publication after {:?}", t.elapsed());
+}
+
+#[tokio::test]
+async fn pages_stay_responsive_during_large_market_responses() {
+    // 32 holdings, each answered with about a megabyte of bars, 100 ms away.
+    let install = members_install(32, 32, 13_000, "2026-03-12T00:00:00Z", 30, 100);
+    let idle = p95(latencies(&install, "/settings/connect", 10, Duration::from_millis(5)).await);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let during = latencies(&install, "/settings/connect", 20, Duration::from_millis(25)).await;
+    assert!(!published(&install.app, 1).await, "the pages were measured while the fill ran");
+    let during = p95(during);
+    assert!(during < Duration::from_millis(50), "p95 {during:?} during the fill ({idle:?} idle)");
+}
+
+#[tokio::test]
+async fn pages_stay_responsive_during_a_cpu_heavy_fill() {
+    // 60 holdings, 3,000 orders, two years of daily bars each: a computation of seconds.
+    let install = members_install(60, 3_000, 730, "2024-03-18T00:00:00Z", 86_400, 0);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let during = latencies(&install, "/settings/connect", 20, Duration::from_millis(25)).await;
+    assert!(!published(&install.app, 1).await, "the pages were measured while the fill ran");
+    let during = p95(during);
+    assert!(during < Duration::from_millis(50), "p95 {during:?} during the fill");
+}
+
+#[tokio::test]
+async fn a_timed_out_fill_keeps_the_compute_bound() {
+    use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+    let install = Install::new(1, 0);
+    install.app.figure_service.set_fill_timeout(Duration::from_secs(1));
+    // Each figures computation on the builder's connection is a worker: the first one blocks for three seconds.
+    let (inside, most, entered) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)), Arc::new(std::sync::Mutex::new(Vec::<Instant>::new())));
+    {
+        let (inside, most, entered) = (inside.clone(), most.clone(), entered.clone());
+        install.app.figure_service.on_builder(move |c| {
+            c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+                if matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "transactions", .. }) {
+                    let first = { let mut entered = entered.lock().unwrap(); entered.push(Instant::now()); entered.len() == 1 };
+                    let now = inside.fetch_add(1, SeqCst) + 1;
+                    most.fetch_max(now, SeqCst);
+                    if first { std::thread::sleep(Duration::from_secs(3)); }
+                    inside.fetch_sub(1, SeqCst);
+                }
+                rusqlite::hooks::Authorization::Allow
+            }));
+        });
+    }
+    let _stop = install.consume();
+    let started = Instant::now();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(5, "the first fill's time-out", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(_))).await;
+    assert!(started.elapsed() < Duration::from_secs(3), "the fill timed out at one second, not when its worker returned");
+    // Its failure has lapsed: the retry starts while the first worker still blocks, and waits for it (with time to).
+    install.app.figure_service.set_fill_timeout(Duration::from_secs(10));
+    install.clock.set(install.clock_now() + chrono::Duration::seconds(61));
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(15, "the retry's publication", async || published(&install.app, 1).await).await;
+    let entered = entered.lock().unwrap().clone();
+    assert!(entered.len() >= 2, "the retry computed");
+    assert!(entered[1].duration_since(entered[0]) >= Duration::from_secs(3), "the retry's worker started only once the first returned");
+    assert_eq!(most.load(SeqCst), 1, "one worker at a time");
 }

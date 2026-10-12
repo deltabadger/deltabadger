@@ -10,7 +10,17 @@ const ACCOUNTS:usize=8;
 /// Fills one waiting account may start before its wait ends in no value: the first, and two overtaken by writes.
 pub const ALLOWANCE:u8=3;
 #[derive(Default,Clone)]
-pub struct Service(Arc<Mutex<State>>,Arc<Notify>);
+pub struct Service(Arc<Mutex<State>>,Arc<Notify>,Arc<Workers>);
+/// What the figures' CPU work runs on: one permit for all of it (a fill's decoding and merging, its computations, the
+/// queue's render-only passes), held by the worker until its closure returns; the builder's own connection, never the
+/// one pages use; how long a fill may run.
+struct Workers { compute:Arc<tokio::sync::Semaphore>, builder:Mutex<Builder>, timeout:Mutex<std::time::Duration> }
+type BuilderHook=Box<dyn FnOnce(&rusqlite::Connection)+Send>;
+#[derive(Default)]
+struct Builder { connection:Option<rusqlite::Connection>, path:Option<String>, hooks:Vec<BuilderHook> }
+impl Default for Workers {
+    fn default()->Self { Workers{ compute:Arc::new(tokio::sync::Semaphore::new(1)), builder:Mutex::default(), timeout:Mutex::new(std::time::Duration::from_secs(90)) } }
+}
 #[derive(Default)]
 struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest>,
     /// Work waiting for the `figures` service (`loading::follow`), one entry per account.
@@ -51,6 +61,39 @@ impl Service {
         let mut state=self.state();
         let due:Vec<i64>=state.pending.iter().filter(|(_,w)|w.not_before<=now).map(|(user,_)|*user).collect();
         due.into_iter().filter_map(|user|state.pending.remove(&user).map(|w|(user,w))).collect()
+    }
+    /// The one permit for the figures' CPU work.
+    pub fn compute(&self)->Arc<tokio::sync::Semaphore> { self.2.compute.clone() }
+    /// How long a fill may run before its waiter stops (a started worker still finishes, holding its permit).
+    pub fn fill_timeout(&self)->std::time::Duration { *self.2.timeout.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
+    pub fn set_fill_timeout(&self,timeout:std::time::Duration) { *self.2.timeout.lock().unwrap_or_else(std::sync::PoisonError::into_inner)=timeout; }
+    /// For tests: run on the builder's connection when it opens (at once if it is open).
+    pub fn on_builder(&self,hook:impl FnOnce(&rusqlite::Connection)+Send+'static) {
+        let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        match &builder.connection { Some(c)=>hook(c), None=>builder.hooks.push(Box::new(hook)) }
+    }
+    /// The database file the builder opens; None until told (`loading::build`).
+    pub fn builder_path(&self)->Option<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path.clone() }
+    pub fn set_builder_path(&self,path:String) { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path=Some(path); }
+    /// `work` on the builder's connection, opened on first use with the install's settings (`store::configure`). Called on
+    /// a blocking thread that holds the compute permit, so the lock is never contended.
+    pub fn with_builder<T>(&self,work:impl FnOnce(&rusqlite::Connection)->Result<T,crate::web::WebError>)->Result<T,crate::web::WebError> {
+        use crate::web::WebError;
+        let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if builder.connection.is_none() {
+            let path=builder.path.clone().ok_or_else(||WebError::Config("figures builder has no database".into()))?;
+            let c=rusqlite::Connection::open(&path)?;
+            crate::store::configure(&c)?;
+            for hook in std::mem::take(&mut builder.hooks) { hook(&c); }
+            builder.connection=Some(c);
+        }
+        let Some(c)=builder.connection.as_ref() else { return Err(WebError::Config("figures builder unavailable".into())) };
+        let out=work(c);
+        if !c.is_autocommit() {
+            c.execute_batch("ROLLBACK").map_err(|_|WebError::Config("figures builder rollback failed".into()))?;
+            if out.is_ok() { return Err(WebError::Config("figures builder left an uncommitted transaction".into())); }
+        }
+        out
     }
     /// When the earliest queued work is due.
     pub fn next_due(&self)->Option<i64> { self.state().pending.values().map(|w|w.not_before).min() }

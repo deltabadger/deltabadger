@@ -17,14 +17,15 @@ const UNAVAILABLE: &str = "Market data unavailable";
 
 // Responses are shared, not copied: every page load clones the account's cache (`Service::begin`).
 #[derive(Clone)]
-struct Entry { until: i64, value: Fetch<Arc<Value>>, origin:Option<crate::engine::model::CredentialVersion> }
+struct Entry { until: i64, value: Fetch<Arc<Value>>, origin:Option<crate::engine::model::CredentialVersion>, size: usize }
 #[derive(Clone)]
-struct Head { until: i64, bars: Arc<Vec<Value>>, origin:Option<crate::engine::model::CredentialVersion> }
+struct Head { until: i64, bars: Arc<Vec<Value>>, origin:Option<crate::engine::model::CredentialVersion>, size: usize }
 /// What was rendered from one cache as it stands, by the caller's key: shared by every clone of it until a fill or a new
 /// stamp changes it (both start an empty one).
 type Rendered = Arc<Mutex<Vec<(String, Arc<Value>)>>>;
 #[derive(Clone, Default)]
-pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered }
+/// `bytes`: what the retained responses take, kept as they are inserted, replaced and removed.
+pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered, bytes: Cell<usize> }
 
 fn key(request: &HttpRequest) -> String {
     format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"))
@@ -47,13 +48,70 @@ fn bar_price(bar: &Value) -> Fetch<Dec> {
     let price = bar.get("o").filter(|p| !p.is_null()).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
     Ok(Dec::to_d(price)?)
 }
-async fn fetch(wire: &impl Transport, request: &HttpRequest) -> Fetch<Value> {
+/// A response's body; decoding it is CPU work (`decode`).
+async fn send(wire: &impl Transport, request: &HttpRequest) -> Fetch<String> {
     match wire.send_limited(request, MAX_BYTES).await {
-        Ok(reply) if (200..300).contains(&reply.status) => crate::venue::http::decode_json(&reply.body)
-            .map_err(|_| Failure::Failed(UNAVAILABLE.into())),
+        Ok(reply) if (200..300).contains(&reply.status) => Ok(reply.body),
         Ok(_) | Err(TransportError::Permanent(_)) => Err(Failure::Failed(UNAVAILABLE.into())),
         Err(_) => Err(Failure::Raised(UNAVAILABLE.into())),
     }
+}
+fn decode(body: &str) -> Fetch<Value> { crate::venue::http::decode_json(body).map_err(|_| Failure::Failed(UNAVAILABLE.into())) }
+/// CPU work of a fill: decoding, the closed bars and their merge, and what they take. Off the runtime's thread, under the
+/// figures' one permit for CPU work (`Service::compute`), which the worker holds until its closure returns: a fill that
+/// stops waiting (its deadline) leaves the worker to finish, and the next CPU work waits for it.
+async fn cpu<T: Send + 'static>(compute: &Arc<tokio::sync::Semaphore>, work: impl FnOnce() -> Fetch<T> + Send + 'static) -> Fetch<T> {
+    let Ok(permit) = compute.clone().acquire_owned().await else { return Err(Failure::Failed(UNAVAILABLE.into())) };
+    tokio::task::spawn_blocking(move || { let _permit = permit; work() }).await.unwrap_or_else(|_| Err(Failure::Failed(UNAVAILABLE.into())))
+}
+fn size(value: &Value) -> usize { value.to_string().len() }
+/// One demand's answer, ready to insert: the entry's value and size, and the candle head it leaves, if any.
+struct Answer { key: String, value: Fetch<Arc<Value>>, size: usize, head: Option<(Arc<Vec<Value>>, usize)> }
+async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<Vec<Value>>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Answer {
+    let key = key(&request);
+    let answered = if request.path.ends_with("/bars") { candles(wire, request, old, now, compute).await } else {
+        match send(wire, &request).await {
+            Ok(body) => cpu(compute, move || decode(&body).map(|value| (size(&value), value, None))).await,
+            Err(failure) => Err(failure),
+        }
+    };
+    match answered {
+        Ok((size, value, head)) => Answer { key, value: Ok(Arc::new(value)), size, head },
+        Err(failure) => Answer { key, value: Err(failure), size: 0, head: None },
+    }
+}
+/// A candle series: the tail since the last stored bar, merged onto it, or the whole series again when the venue rewrote
+/// the overlapping bar (a split).
+async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<Vec<Value>>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<(usize, Value, Option<(Arc<Vec<Value>>, usize)>)> {
+    let mut tail_request = request.clone();
+    if let Some(last) = old.as_ref().and_then(|old| old.last()) {
+        let start = last["t"].as_str().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+        for (name, value) in &mut tail_request.query { if *name == "start" { *value = start.to_string(); } }
+    }
+    let body = send(wire, &tail_request).await?;
+    let merging = request.clone();
+    let merged = cpu(compute, move || {
+        let tail = closed(decode(&body)?, &merging, now)?;
+        let adjusted = merging.query.iter().any(|(k,v)| *k == "adjustment" && v == "split");
+        let old = old.map(|old| old.to_vec()).unwrap_or_default();
+        if old.last().map(|last| rewritten(last, &tail, adjusted)).transpose()?.unwrap_or(false) { return Ok(None); }
+        let last = old.last().and_then(bar_time);
+        Ok(Some(old.into_iter().chain(tail.into_iter().filter(|bar| last.is_none_or(|last| bar_time(bar).is_some_and(|t| t > last)))).collect::<Vec<_>>()))
+    }).await?;
+    let unsorted = match merged {
+        Some(bars) => bars,
+        None => { let body = send(wire, &request).await?; let whole = request.clone(); cpu(compute, move || closed(decode(&body)?, &whole, now)).await? }
+    };
+    cpu(compute, move || {
+        let mut bars = unsorted;
+        // Stable sort preserves the first occurrence, as Ruby's uniq-before-sort does.
+        bars.sort_by_key(bar_time);
+        bars.dedup_by_key(|bar| bar_time(bar));
+        let head_size = bars.iter().map(size).sum::<usize>();
+        let head = (!bars.is_empty()).then(|| (Arc::new(bars.clone()), head_size));
+        let value = Value::Array(bars);
+        Ok((size(&value), value, head))
+    }).await
 }
 fn closed(body: Value, request: &HttpRequest, now: i64) -> Fetch<Vec<Value>> {
     let bars = if request.path.starts_with("/v1beta3/") {
@@ -83,10 +141,13 @@ fn rewritten(old: &Value, tail: &[Value], adjusted: bool) -> Fetch<bool> {
 }
 impl Cache {
     /// Bound the retained wire representation, independently of the decimal budget.
-    pub fn bytes(&self) -> usize {
-        self.entries.borrow().values().map(|e| e.value.as_ref().map_or(0,|v|v.to_string().len())).sum::<usize>()
-            + self.heads.borrow().values().map(|h|h.bars.iter().map(|v|v.to_string().len()).sum::<usize>()).sum::<usize>()
-    }
+    pub fn bytes(&self) -> usize { self.bytes.get() }
+    fn add(&self, size: usize) { self.bytes.set(self.bytes.get().saturating_add(size)); }
+    fn sub(&self, size: usize) { self.bytes.set(self.bytes.get().saturating_sub(size)); }
+    fn remove_entry(&self, key: &str) { if let Some(entry) = self.entries.borrow_mut().remove(key) { self.sub(entry.size); } }
+    fn remove_head(&self, key: &str) { if let Some(head) = self.heads.borrow_mut().remove(key) { self.sub(head.size); } }
+    fn clear_entries(&self) { let gone: usize = self.entries.borrow().values().map(|e| e.size).sum(); self.entries.borrow_mut().clear(); self.sub(gone); }
+    fn clear_heads(&self) { let gone: usize = self.heads.borrow().values().map(|h| h.size).sum(); self.heads.borrow_mut().clear(); self.sub(gone); }
     pub fn producer(&self)->&Option<crate::engine::model::CredentialVersion> { &self.origin }
     pub fn stamp(&self) -> Option<At> { self.stamp }
     pub fn set_stamp(&mut self, at: At) { self.stamp = Some(at); self.rendered = Rendered::default(); }
@@ -102,46 +163,42 @@ impl Cache {
         if rendered.len() >= 8 { rendered.remove(0); }
         rendered.push((key, value));
     }
-    pub async fn fill(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64) {
+    /// Every demand answered, eight requests at a time, with no CPU work on the runtime's thread (`cpu`).
+    pub async fn fill_bounded(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64, compute: &Arc<tokio::sync::Semaphore>) {
+        use futures_util::stream::{self, StreamExt};
         self.rendered = Rendered::default();
         self.origin=wire.producer();
-        for request in demands {
+        let producer = wire.producer();
+        // What each candle demand starts from: its stored head, unless another key's head or an expired one.
+        let jobs: Vec<(HttpRequest, Option<Arc<Vec<Value>>>)> = demands.into_iter().map(|request| {
             let cache_key = key(&request);
-            let is_bars = request.path.ends_with("/bars");
-            let value = if is_bars { self.fill_candles(wire, &request, now).await } else { fetch(wire, &request).await };
-            if self.entries.borrow().len() >= MAX_ENTRIES { self.entries.borrow_mut().retain(|_, entry| entry.until > now); }
+            if self.heads.borrow().get(&cache_key).is_some_and(|h|!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.remove_head(&cache_key); }
+            let old = request.path.ends_with("/bars").then(|| self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.clone())).flatten();
+            (request, old)
+        }).collect();
+        let mut answers = stream::iter(jobs).map(|(request, old)| answer(wire, request, old, now, compute)).buffer_unordered(8);
+        while let Some(answer) = answers.next().await {
+            if let Some((bars, size)) = answer.head {
+                if self.heads.borrow().len() >= MAX_ENTRIES { self.clear_heads(); }
+                self.remove_head(&answer.key);
+                self.heads.borrow_mut().insert(answer.key.clone(), Head { until: now.saturating_add(CANDLE_TTL), bars, origin: producer.clone(), size });
+                self.add(size);
+            }
+            if self.entries.borrow().len() >= MAX_ENTRIES {
+                let expired: Vec<String> = self.entries.borrow().iter().filter(|(_, entry)| entry.until <= now).map(|(k, _)| k.clone()).collect();
+                for key in expired { self.remove_entry(&key); }
+            }
             // This process is a cache, not a second database. Eviction only causes a new read.
-            if self.entries.borrow().len() >= MAX_ENTRIES { self.entries.borrow_mut().clear(); }
-            self.entries.borrow_mut().insert(cache_key, Entry { until: now.saturating_add(PRICE_TTL), value: value.map(Arc::new), origin:wire.producer() });
-            if self.bytes() > 32 * 1024 * 1024 { self.entries.borrow_mut().clear(); self.heads.borrow_mut().clear(); }
+            if self.entries.borrow().len() >= MAX_ENTRIES { self.clear_entries(); }
+            self.remove_entry(&answer.key);
+            self.entries.borrow_mut().insert(answer.key, Entry { until: now.saturating_add(PRICE_TTL), value: answer.value, origin: producer.clone(), size: answer.size });
+            self.add(answer.size);
+            if self.bytes() > 32 * 1024 * 1024 { self.clear_entries(); self.clear_heads(); }
         }
     }
-    async fn fill_candles(&mut self, wire: &impl Transport, request: &HttpRequest, now: i64) -> Fetch<Value> {
-        let cache_key = key(request);
-        if self.heads.borrow().get(&cache_key).is_some_and(|h|!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.heads.borrow_mut().remove(&cache_key); }
-        let old = self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.to_vec()).unwrap_or_default();
-        let mut tail_request = request.clone();
-        if let Some(last) = old.last() {
-            let start = last["t"].as_str().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
-            for (name, value) in &mut tail_request.query { if *name == "start" { *value = start.to_string(); } }
-        }
-        let tail = closed(fetch(wire, &tail_request).await?, request, now)?;
-        let adjusted = request.query.iter().any(|(k,v)| *k == "adjustment" && v == "split");
-        let rebuild = old.last().map(|last| rewritten(last, &tail, adjusted)).transpose()?.unwrap_or(false);
-        let mut bars = if rebuild {
-            closed(fetch(wire, request).await?, request, now)?
-        } else {
-            let last = old.last().and_then(bar_time);
-            old.into_iter().chain(tail.into_iter().filter(|bar| last.is_none_or(|last| bar_time(bar).is_some_and(|t| t > last)))).collect()
-        };
-        // Stable sort preserves the first occurrence, as Ruby's uniq-before-sort does.
-        bars.sort_by_key(bar_time);
-        bars.dedup_by_key(|bar| bar_time(bar));
-        if !bars.is_empty() {
-            if self.heads.borrow().len() >= MAX_ENTRIES { self.heads.borrow_mut().clear(); }
-            self.heads.borrow_mut().insert(cache_key, Head { until: now.saturating_add(CANDLE_TTL), bars: Arc::new(bars.clone()), origin:wire.producer() });
-        }
-        Ok(Value::Array(bars))
+    /// `fill_bounded` under a permit of its own: for a caller with no figures service (a test, a harness).
+    pub async fn fill(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64) {
+        self.fill_bounded(wire, demands, now, &Arc::new(tokio::sync::Semaphore::new(1))).await
     }
 }
 
@@ -161,8 +218,8 @@ impl<'a> Reader<'a> {
         let key = key(&request);
         if let Some(entry)=self.cache.entries.borrow().get(&key){fresh(&entry.origin)?;}
         if let Some(head)=self.cache.heads.borrow().get(&key){fresh(&head.origin)?;}
-        if self.cache.entries.borrow().get(&key).is_some_and(|e|!fresh(&e.origin).unwrap_or(false)){self.cache.entries.borrow_mut().remove(&key);}
-        if self.cache.heads.borrow().get(&key).is_some_and(|h|!fresh(&h.origin).unwrap_or(false)){self.cache.heads.borrow_mut().remove(&key);}
+        if self.cache.entries.borrow().get(&key).is_some_and(|e|!fresh(&e.origin).unwrap_or(false)){let gone=self.cache.entries.borrow_mut().remove(&key);if let Some(e)=gone{self.cache.sub(e.size);}}
+        if self.cache.heads.borrow().get(&key).is_some_and(|h|!fresh(&h.origin).unwrap_or(false)){let gone=self.cache.heads.borrow_mut().remove(&key);if let Some(h)=gone{self.cache.sub(h.size);}}
         if request.path.ends_with("/bars") {
             if let Some(entry) = self.cache.entries.borrow().get(&key).filter(|entry| fresh(&entry.origin).unwrap_or(false) && entry.until > self.now) {
                 return entry.value.clone();
@@ -263,6 +320,34 @@ mod r4_cache_tests {
         // Returning to A cannot resurrect a dropped value.
         c.execute("UPDATE api_keys SET key='ciphertext-A' WHERE id=1",[]).unwrap();
         assert!(Reader::new(&cache,now).with_current(&c).get(req).is_err(),"R4 stale cache cannot resurrect");
+    }
+    /// What the retained responses take, recounted from them, as `bytes` was once computed on every call.
+    fn recount(cache:&Cache)->usize {
+        cache.entries.borrow().values().map(|e| e.value.as_ref().map_or(0,|v|v.to_string().len())).sum::<usize>()
+            + cache.heads.borrow().values().map(|h|h.bars.iter().map(|v|v.to_string().len()).sum::<usize>()).sum::<usize>()
+    }
+    #[tokio::test]
+    async fn bytes_total_matches_a_full_recount(){
+        let c=db();let producer=model::credential_version_by_id(&c,1).unwrap().unwrap();
+        let wire=BoundWire{producer,requests:RefCell::default()};
+        let now=chrono::DateTime::parse_from_rfc3339("2026-01-02T12:00:00Z").unwrap().timestamp();
+        let bars=|symbol:&str|request(&format!("/v2/stocks/{symbol}/bars"),vec![("start","2025-01-01T00:00:00Z".into()),("timeframe","1Day".into())]);
+        let mut cache=Cache::default();
+        // New entries and heads, then the same ones replaced, then a price that fails.
+        cache.fill(&wire,vec![bars("AAA"),bars("BBB")],now).await;
+        assert_eq!(cache.bytes(),recount(&cache));
+        assert!(cache.bytes()>0);
+        cache.fill(&wire,vec![bars("AAA"),request("/v2/stocks/snapshots",vec![("symbols","AAA".into())])],now+61).await;
+        assert_eq!(cache.bytes(),recount(&cache));
+        // Entries dropped by a credential rotation.
+        c.execute("UPDATE api_keys SET key='ciphertext-B' WHERE id=1",[]).unwrap();
+        assert!(Reader::new(&cache,now+61).with_current(&c).get(bars("AAA")).is_err());
+        assert_eq!(cache.bytes(),recount(&cache));
+        // Expired entries swept, past the entry bound.
+        c.execute("UPDATE api_keys SET key='ciphertext-A' WHERE id=1",[]).unwrap();
+        let many:Vec<HttpRequest>=(0..MAX_ENTRIES+3).map(|i|bars(&format!("S{i}"))).collect();
+        cache.fill(&wire,many,now+200).await;
+        assert_eq!(cache.bytes(),recount(&cache));
     }
     #[tokio::test]
     async fn r4_candle_head_rotation_starts_full_b_series(){

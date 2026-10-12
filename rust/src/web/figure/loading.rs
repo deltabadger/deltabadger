@@ -160,17 +160,26 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     let revision=revision(c,user)?.0;
     Ok(Some(Info{identity,revision,mark:mark(c)?,credentials,origin:version}))
 }
-pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion> }
+pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None,compute:None} }
+    /// Each answer is settled (`ReqwestTransport::settle`: checked and scrubbed, a pass over the whole body) off the
+    /// runtime's thread, under the figures' compute permit.
+    pub(crate) fn settled_under(mut self,compute:std::sync::Arc<tokio::sync::Semaphore>)->Self { self.compute=Some(compute);self }
+    async fn settle(&self,reply:HttpResponse)->Result<HttpResponse,TransportError> {
+        let Some(compute)=&self.compute else { return Ok(self.real.settle(reply)) };
+        let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
+        let real=self.real.clone();
+        tokio::task::spawn_blocking(move||{ let _permit=permit; real.settle(reply) }).await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))
+    }
 }
 impl Transport for Wire {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.origin.clone()}
     fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
-            Source::Live=>self.real.send(r).await,
+            Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?).await,
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)=>{
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
@@ -184,12 +193,18 @@ impl Transport for Wire {
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
                 if let Some(ms)=reply["delay_ms"].as_u64(){tokio::time::sleep(Duration::from_millis(ms)).await;}
-                Ok(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:self.redact_diagnostic(&reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string()))})
+                let body=reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string());
+                let status=reply["status"].as_u64().unwrap_or(200) as u16;
+                // Scrubbed as a live answer is, and where: off the runtime's thread when the fill says so.
+                let Some(compute)=&self.compute else { return Ok(HttpResponse{status,body:self.redact_diagnostic(&body)}) };
+                let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
+                let real=self.real.clone();
+                tokio::task::spawn_blocking(move||{ let _permit=permit; HttpResponse{status,body:real.redact_diagnostic(&body)} }).await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))
             }
         }
     }
     async fn send_limited(&self,r:&HttpRequest,limit:usize)->Result<HttpResponse,TransportError>{
-        if matches!(self.source,Source::Live){return self.real.send_limited(r,limit).await;}
+        if matches!(self.source,Source::Live){return self.settle(self.real.send_unsettled(r,limit).await?).await;}
         let reply=self.send(r).await?;
         if reply.body.len()>limit{Err(TransportError::Permanent("Market data unavailable".into()))}else{Ok(reply)}
     }
@@ -206,6 +221,19 @@ pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::Figur
         for ticker in db::tickers(c,&bot)? { names.insert(ticker.ticker); }
     }
     Ok(names.into_iter().collect())
+}
+/// Figures CPU work on the builder's own connection, off the runtime's thread, holding the one compute permit
+/// (`Service::compute`) until it returns, never on the connection pages use (`App::db`). An in-memory database has no
+/// second connection: there the work runs on the page's, still under the permit.
+async fn build<T:Send+'static>(app:&App,work:impl FnOnce(&Connection)->Result<T,WebError>+Send+'static)->Result<T,WebError> {
+    let permit=app.figure_service.compute().acquire_owned().await.map_err(|e|WebError::Task(e.to_string()))?;
+    let path=match app.figure_service.builder_path() {
+        Some(path)=>path,
+        None=>{ let path=app.db(|c|Ok(c.path().unwrap_or_default().to_string())).await?; app.figure_service.set_builder_path(path.clone()); path }
+    };
+    if path.is_empty() { return app.db(move|c|{ let _permit=permit; work(c) }).await; }
+    let service=app.figure_service.clone();
+    tokio::task::spawn_blocking(move||{ let _permit=permit; service.with_builder(work) }).await.map_err(|e|WebError::Task(e.to_string()))?
 }
 /// Figures rendered for kept use, by (locale, path prefix).
 type Rendered=Vec<((String,String),(Value,super::Slots))>;
@@ -279,7 +307,7 @@ pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:
 async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->Result<T,crate::figures::FiguresError>+Clone+Send+'static)->Result<T,Option<&'static str>> {
     for _ in 0..4 {
         let snapshot=cache.clone();let work=work.clone();
-        let pass=app.db(move|c|{
+        let pass=build(app,move|c|{
             if !admit(c,user)? { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
@@ -298,7 +326,7 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
         let Ok(Some((demands,out,reason)))=pass else { return Err(None) };
         if demands.is_empty(){return out.ok_or(reason);}
         if demands.len()>crate::figures::page_market::MAX_ENTRIES{return Err(None);}
-        cache.fill(wire,demands,now.utc().timestamp()).await;
+        cache.fill_bounded(wire,demands,now.utc().timestamp(),&app.figure_service.compute()).await;
     }
     Err(None)
 }
@@ -310,7 +338,7 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(app.db(move|c|Ok(walk_reason(c,user))).await?))};
+    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(build(app,move|c|Ok(walk_reason(c,user))).await?))};
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
@@ -324,21 +352,26 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
 fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,mut cache:Cache,work:Option<Work>) {
     let inner=app.clone();let source=app.figure_source.clone();
     tokio::spawn(async move {
-        let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone());
+        let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
         let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
-        let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now,keys)).await.unwrap_or(Err(None));
+        // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
+        let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),fill(&inner,user,&mut cache,&wire,now,keys)).await;
+        let timed_out=timed.is_err();
+        let result=timed.unwrap_or(Err(None));
         let check=inner.clone();
         let current=inner.db(move|c|read_info(c,&check,user)).await;
         let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
         cache.set_stamp(now);
         let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it.
-            Ok(rendered) if unchanged=>match inner.db(move|c|lock_deadline(c,user,now)).await {
+            Ok(rendered) if unchanged=>match build(&inner,move|c|lock_deadline(c,user,now)).await {
                 Ok(deadline)=>{ for ((locale,prefix),rendered) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered)); } (true,None,deadline) }
                 Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
             },
             Err(Some(reason)) if unchanged=>(false,Some(reason),None),
-            _=>(false,inner.db(move|c|Ok(walk_reason(c,user))).await.unwrap_or(None),None), // allow-swallow: an unread reason shows the plain no value
+            // Stored at once: no CPU work (which would wait for the worker still running) before the failure is known.
+            Err(None) if timed_out=>(false,None,None),
+            _=>(false,build(&inner,move|c|Ok(walk_reason(c,user))).await.unwrap_or(None),None), // allow-swallow: an unread reason shows the plain no value
         };
         ticket.finish_until(cache,ready,reason,inner.now().timestamp(),deadline);
         // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
@@ -499,7 +532,7 @@ async fn consume(app:&App,user:i64,mut work:Work) {
         Load::Ready(cache,_,_)=>{
             let at=cache.stamp().unwrap_or(now);
             let (publish,mut keys,revision)=(work.publish,work.locales,info.revision);
-            let kept=app.db(move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: unkept keys leave the page's loading state, which asks again
+            let kept=build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: unkept keys leave the page's loading state, which asks again
             // Published only once its own key is kept: a publication never computes.
             if kept && publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
         }
