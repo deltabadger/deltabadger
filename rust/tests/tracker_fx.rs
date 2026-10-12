@@ -171,7 +171,7 @@ async fn shared_figure_presentation_states_the_fx_unavailable_reason() {
     // No constructed Ready: both the terminal failure and its cached repeat must render the reason.
     for snapshot in [snapshot,loading::prepare(&app,owner).await.unwrap()] {
         assert!(!matches!(snapshot,Snapshot::Ready(..)));
-        let out=app.db(move|c|loading::render(c,owner,&snapshot,"en","token","")).await.unwrap().unwrap();
+        let out=app.db(move|c|loading::render(c,owner,&snapshot,"en","token","",&deltabadger::engine::FixedClock(chrono::Utc::now()))).await.unwrap().unwrap();
         assert!(out["account"].as_str().unwrap().contains("Currency conversion unavailable"),"{out}");
         for field in ["tile","metrics","chart"] {assert!(out["bots"][bot.to_string()][field].as_str().unwrap().contains("Currency conversion unavailable"));}
     }

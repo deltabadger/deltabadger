@@ -11,9 +11,9 @@ use std::time::Duration;
 #[derive(Clone,Default)]
 pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
-/// Ready: the cache, its stamp, the revision it was prepared against, and where the database stood when that revision was
-/// read (`unchanged_since`), if on the connection that renders it.
-pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>) }
+/// Ready: the cache, its stamp, the revision it was prepared against, where the database stood when that revision was
+/// read (`unchanged_since`), if on the connection that renders it, and until when (Unix seconds) its figures may be shown.
+pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>,i64) }
 pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
 /// Where a connection's view of the database stands: what other connections committed (`PRAGMA data_version`) and what
 /// it wrote itself (total changes). Equal on that connection, nothing was written in between.
@@ -234,6 +234,21 @@ async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,keys:std::col
         Ok(out)
     }).await
 }
+/// The earliest end (Unix seconds) of a wash-sale lock the account's figures show, after `now`: a held asset's row moves
+/// out of the locked table then. Only where the rule applies (holdings::render: enabled, and US, GB or IE, US when blank).
+fn lock_deadline(c:&Connection,user:i64,now:At)->Result<Option<i64>,WebError> {
+    let (enabled,jurisdiction):(Option<bool>,Option<String>)=c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[user],|r|Ok((r.get(0)?,r.get(1)?)))?;
+    let jurisdiction=jurisdiction.as_deref().filter(|j|!j.trim().is_empty()).unwrap_or("US");
+    if enabled!=Some(true) || !["US","GB","IE"].contains(&jurisdiction) { return Ok(None); }
+    let mut statement=c.prepare("SELECT buy_locked_until FROM wash_sale_locks WHERE user_id=?1 AND buy_locked_until IS NOT NULL")?;
+    let mut earliest:Option<At>=None;
+    for until in statement.query_map([user],|r|r.get::<_,String>(0))? {
+        // An unreadable deadline ends the figures at once: the next read refills.
+        let until=At::from_sql(&until?).unwrap_or(now);
+        if until>now { earliest=Some(earliest.map_or(until,|e|e.min(until))); }
+    }
+    Ok(earliest.map(|at|at.utc().timestamp()))
+}
 /// Why a failed account's figures are absent, from its stored fills alone: an executed fill whose value is unknown.
 fn walk_reason(c:&Connection,user:i64)->Option<&'static str> {
     let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
@@ -301,7 +316,7 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
         Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
-        Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark)))},
+        Load::Ready(cache,_,until)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark),until))},
         Load::Start(ticket,cache)=>{ spawn_fill(app,user,info,now,ticket,cache,None); Ok(Snapshot::Cold) }
     }
 })}
@@ -316,13 +331,16 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let current=inner.db(move|c|read_info(c,&check,user)).await;
         let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
         cache.set_stamp(now);
-        let (ready,reason)=match result {
+        let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it.
-            Ok(rendered) if unchanged=>{ for ((locale,prefix),rendered) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered)); } (true,None) }
-            Err(Some(reason)) if unchanged=>(false,Some(reason)),
-            _=>(false,inner.db(move|c|Ok(walk_reason(c,user))).await.unwrap_or(None)), // allow-swallow: an unread reason shows the plain no value
+            Ok(rendered) if unchanged=>match inner.db(move|c|lock_deadline(c,user,now)).await {
+                Ok(deadline)=>{ for ((locale,prefix),rendered) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered)); } (true,None,deadline) }
+                Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
+            },
+            Err(Some(reason)) if unchanged=>(false,Some(reason),None),
+            _=>(false,inner.db(move|c|Ok(walk_reason(c,user))).await.unwrap_or(None),None), // allow-swallow: an unread reason shows the plain no value
         };
-        ticket.finish_with_reason(cache,ready,reason,inner.now().timestamp());
+        ticket.finish_until(cache,ready,reason,inner.now().timestamp(),deadline);
         // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
         // limit turned away. A fill a write overtook is not published: publishing starts the next fill, and each
         // fill a waiting account starts spends one of its own allowance (`service::ALLOWANCE`), so failures and
@@ -350,11 +368,11 @@ fn with_token(figures:&Value,slots:&super::Slots,csrf:&str)->Value {
 }
 /// Converts a terminal computation failure into absence at every dependent presentation target.
 /// `Ok(None)` while the figures are cold; an error only when the fallback cannot read the account's bots.
-pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
+pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str,clock:&dyn crate::engine::Clock)->Result<Option<Value>,WebError>{
     let reason=match snapshot {
         Snapshot::Cold=>return Ok(None),
         Snapshot::Failed(reason)=>*reason,
-        Snapshot::Ready(cache,now,prepared_revision,read)=>{
+        Snapshot::Ready(cache,now,prepared_revision,read,until)=>{
             let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
             // connection (App::db's one): read again only if anything was written since.
@@ -365,7 +383,11 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
                 // per request: kept figures record where each form's field goes, and a page writes its own.
                 let Some(kept)=cache.kept(&kept_key(*prepared_revision,*now,locale,prefix)) else { return Ok(None) };
                 let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
-                return Ok(Some(with_token(&kept["figures"],&slots,csrf)));
+                let shown=with_token(&kept["figures"],&slots,csrf);
+                // Their lifetime is checked as they are shown, not when the page prepared them: past the cut (or a wash-sale
+                // lock's end) the page shows the loading state and the queue fills again.
+                if clock.now().timestamp()>=*until { return Ok(None); }
+                return Ok(Some(shown));
             }
             None
         }
@@ -389,7 +411,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
 /// What a page shows: the kept figures, or None (Rails' loading state) while they are not kept, and then the queue makes
 /// and publishes them in the page's locale and paths.
 pub fn render_page(app:&App,c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
-    let shown=render(c,user,snapshot,locale,csrf,prefix)?;
+    let shown=render(c,user,snapshot,locale,csrf,prefix,&*app.clock)?;
     if shown.is_none() && !matches!(app.figure_source,Source::Disabled) { enqueue_page(app,user,locale,prefix); }
     Ok(shown)
 }
@@ -411,16 +433,19 @@ async fn publish_with(app:App,user:i64)->Result<(),WebError>{
         let serial=app.figure_service.settled(user);
         let ready=matches!(snapshot,Snapshot::Ready(..));
         let inner=app.clone();
-        let (streams,info,unkept)=app.db(move|c|{
+        let (streams,info,unkept,expired)=app.db(move|c|{
             let key=own_key(c,user)?;
-            let (streams,unkept)=match render(c,user,&snapshot,&key.0,"",&key.1)? {
+            let expired=matches!(&snapshot,Snapshot::Ready(..,until) if inner.now().timestamp()>=*until);
+            let (streams,unkept)=match render(c,user,&snapshot,&key.0,"",&key.1,&*inner.clock)? {
                 // A failure here fails the publication: nothing is recorded or delivered, and the caller's retry keeps the demand.
                 Some(rendered)=>(super::streams(c,user,&rendered).map_err(|e|WebError::Task(format!("figure streams: {e:?}")))?,None),
-                None=>(vec![],ready.then_some(key)),
+                None=>(vec![],(ready&&!expired).then_some(key)),
             };
             let info=if ready { read_info(c,&inner,user)? } else { None };
-            Ok((streams,info,unkept))
+            Ok((streams,info,unkept,expired))
         }).await?;
+        // Expired while it was being rendered: tried once more, which fills anew.
+        if expired { continue; }
         // Ready, and nothing kept in the account's own key: the queue renders it from this cache and publishes.
         if let Some(key)=unkept { app.figure_service.enqueue(user,Work{publish:true,locales:[key].into(),not_before:app.now().timestamp()}); return Ok(()); }
         if ready {
@@ -471,7 +496,7 @@ async fn consume(app:&App,user:i64,mut work:Work) {
     };
     let Some(now)=At::from_utc(app.now()) else{return};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
-        Load::Ready(cache,_)=>{
+        Load::Ready(cache,_,_)=>{
             let at=cache.stamp().unwrap_or(now);
             let (publish,mut keys,revision)=(work.publish,work.locales,info.revision);
             let kept=app.db(move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: unkept keys leave the page's loading state, which asks again

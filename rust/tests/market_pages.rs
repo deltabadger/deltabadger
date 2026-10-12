@@ -105,7 +105,7 @@ fn page_loads_coalesce_and_late_results_cannot_replace_rotated_credentials() {
     let Load::Start(second, _) = service.begin(1,&test_origin("key-b"),2,100) else { panic!("new credentials start once the old fill ends") };
     second.finish(Cache::default(),true,100);
     other.finish(Cache::default(),true,100);
-    assert!(matches!(service.begin(1,&test_origin("key-b"),2,299),Load::Ready(_,100)));
+    assert!(matches!(service.begin(1,&test_origin("key-b"),2,299),Load::Ready(_,100,_)));
     assert!(matches!(service.begin(1,&test_origin("key-b"),2,300),Load::Start(_, _)));
     // Dropping a cancelled fill becomes a terminal state with bounded retry, not an eternal spinner.
     assert!(matches!(service.begin(1,&test_origin("key-b"),2,300),Load::Failed(_)));

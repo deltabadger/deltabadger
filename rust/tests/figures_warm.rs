@@ -101,7 +101,8 @@ async fn published(app: &App, user: i64) -> bool { loading::latest(app, user, &f
 /// What a page in `locale` under `prefix` would show now, and the figure arithmetic it took (budget steps).
 async fn page_figures(app: &App, user: i64, locale: &'static str, prefix: &'static str) -> (Option<Value>, u64) {
     let snapshot = loading::prepare(app, user).await.unwrap();
-    app.db(move |c| { let (out, used) = budget::scope(budget::FIGURE, || loading::render(c, user, &snapshot, locale, "token", prefix)); Ok((out?, used.steps)) }).await.unwrap()
+    let clock = app.clock.clone();
+    app.db(move |c| { let (out, used) = budget::scope(budget::FIGURE, || loading::render(c, user, &snapshot, locale, "token", prefix, &*clock)); Ok((out?, used.steps)) }).await.unwrap()
 }
 
 /// How many fills this account began (the serial of its last).
@@ -202,26 +203,27 @@ async fn render_runs_no_figure_computation() {
     install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
     until(10, "the figures", async || published(&install.app, 1).await).await;
     let ready = loading::prepare(&install.app, 1).await.unwrap();
-    let Snapshot::Ready(cache, at, revision, mark) = ready.clone() else { panic!("not ready") };
+    let Snapshot::Ready(cache, at, revision, mark, until_at) = ready.clone() else { panic!("not ready") };
     let mut unkept = cache.clone();
     unkept.set_stamp(at);
     // (case, snapshot, locale, prefix, whether the page's connection has seen no write since `prepare`)
     let mut cases = vec![
         ("ready, kept", ready.clone(), "en", "", true),
-        ("ready, nothing kept", Snapshot::Ready(unkept, at, revision, mark), "en", "", true),
+        ("ready, nothing kept", Snapshot::Ready(unkept, at, revision, mark, until_at), "en", "", true),
         ("ready, another locale", ready.clone(), "de", "/de", true),
         ("failed", Snapshot::Failed(None), "en", "", true),
         // Written since `prepare`: the fingerprint is read again, and only it.
-        ("stale", Snapshot::Ready(cache.clone(), at, revision.wrapping_add(1), None), "en", "", false),
+        ("stale", Snapshot::Ready(cache.clone(), at, revision.wrapping_add(1), None, until_at), "en", "", false),
     ];
     install.clock.set(install.clock_now() + chrono::Duration::minutes(5));
     cases.push(("expired", loading::prepare(&install.app, 1).await.unwrap(), "en", "", true));
     for (case, snapshot, locale, prefix, unchanged) in cases {
         let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let counted = reads.clone();
+        let clock = install.app.clock.clone();
         let (shown, steps) = install.app.db(move |c| {
             figure_reads(c, counted);
-            let (out, used) = budget::scope(budget::FIGURE, || loading::render(c, 1, &snapshot, locale, "token", prefix));
+            let (out, used) = budget::scope(budget::FIGURE, || loading::render(c, 1, &snapshot, locale, "token", prefix, &*clock));
             c.authorizer(None::<fn(rusqlite::hooks::AuthContext<'_>) -> rusqlite::hooks::Authorization>);
             Ok((out?, used.steps))
         }).await.unwrap();
@@ -230,5 +232,75 @@ async fn render_runs_no_figure_computation() {
         assert_eq!(steps, fingerprint, "{case}: a page computed figures");
         if unchanged { assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0, "{case}: a page read what only a computation reads"); }
         if case.starts_with("ready, n") || case == "ready, another locale" || case == "expired" { assert!(shown.is_none(), "{case}: Rails' loading state"); }
+    }
+}
+
+// ---- Task 4: kept figures expire where they are consumed --------------------------------------------------------------
+
+/// Ready figures made at `made`, then the snapshot a page prepared at `prepared` rendered at `rendered`.
+async fn shown_after(install: &Install, made: &str, prepared: &str, rendered: &str) -> Option<Value> {
+    install.clock.set(common::web::at(made));
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the figures", async || published(&install.app, 1).await).await;
+    install.clock.set(common::web::at(prepared));
+    let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+    assert!(matches!(snapshot, loading::Snapshot::Ready(..)), "ready at {prepared}");
+    install.clock.set(common::web::at(rendered));
+    let app = install.app.clone();
+    install.app.db(move |c| loading::render(c, 1, &snapshot, "en", "token", "", &*app.clock)).await.unwrap()
+}
+
+#[tokio::test]
+async fn prepare_then_render_after_the_deadline_is_cold() {
+    let at_cut = Install::new(1, 0);
+    assert!(shown_after(&at_cut, "2026-03-18T12:04:59Z", "2026-03-18T12:04:59Z", "2026-03-18T12:04:59.999Z").await.is_some(), "before the cut");
+    let at_cut = Install::new(1, 0);
+    assert!(shown_after(&at_cut, "2026-03-18T12:04:59Z", "2026-03-18T12:04:59Z", "2026-03-18T12:05:00Z").await.is_none(), "the five-minute cut");
+    let at_midnight = Install::new(1, 0);
+    assert!(shown_after(&at_midnight, "2026-03-18T23:59:59Z", "2026-03-18T23:59:59Z", "2026-03-19T00:00:00Z").await.is_none(), "midnight, when the day counts change");
+    let locked = Install::new(1, 0);
+    let c = locked.connection();
+    c.execute("UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='US' WHERE id=1", []).unwrap();
+    c.execute("INSERT INTO wash_sale_locks(user_id,asset_id,buy_locked_until,source,created_at,updated_at) VALUES (1,2,'2026-03-18 12:02:00','ledger','2026-01-01','2026-01-01')", []).unwrap();
+    assert!(shown_after(&locked, "2026-03-18T12:01:59Z", "2026-03-18T12:01:59Z", "2026-03-18T12:02:00Z").await.is_none(), "a wash-sale lock ends");
+}
+
+/// Kept figures are served while `t_r` < `until` (the next cut, or a lock's end before it), with the figures of the fill
+/// (`t_c`). From `until` on a page shows the loading state and the queue fills again: the publication carries the new
+/// `t_c`, never the old one past its lifetime.
+#[tokio::test]
+async fn kept_output_lifetime_follows_the_cut_and_lock_deadline() {
+    use deltabadger::web::figure::loading::Snapshot;
+    for (lock, until_at) in [(None, "2026-03-18T12:05:00Z"), (Some("2026-03-18 12:03:00"), "2026-03-18T12:03:00Z")] {
+        let install = Install::new(1, 0);
+        if let Some(lock) = lock {
+            let c = install.connection();
+            c.execute("UPDATE users SET wash_sale_enabled=1, wash_sale_jurisdiction='GB' WHERE id=1", []).unwrap();
+            c.execute("INSERT INTO wash_sale_locks(user_id,asset_id,buy_locked_until,source,created_at,updated_at) VALUES (1,2,?1,'ledger','2026-01-01','2026-01-01')", [lock]).unwrap();
+        }
+        let _stop = install.consume();
+        install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+        until(10, "the figures", async || published(&install.app, 1).await).await;
+        let t_c = common::web::at(AT);
+        let until_at = common::web::at(until_at);
+        for t_r in [t_c + chrono::Duration::seconds(30), until_at - chrono::Duration::milliseconds(1)] {
+            install.clock.set(t_r);
+            let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+            let Snapshot::Ready(_, at, ..) = &snapshot else { panic!("{t_r}: kept figures are served") };
+            assert_eq!(at.utc(), t_c, "{t_r}: the figures of the fill, read later");
+            assert!(page_figures(&install.app, 1, "en", "").await.0.is_some(), "{t_r}");
+        }
+        install.clock.set(until_at);
+        let before = fills(&install.app, 1);
+        let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+        let app = install.app.clone();
+        let shown = install.app.db(move |c| loading::render_page(&app, c, 1, &snapshot, "en", "token", "")).await.unwrap();
+        assert!(shown.is_none(), "{until_at}: Rails' loading state, never the old figures");
+        until(10, "the next fill's figures", async || {
+            matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(_, at, ..) if at.utc() == until_at)
+        }).await;
+        assert!(fills(&install.app, 1) > before, "{until_at}: a fill ran");
+        until(10, "the republication", async || published(&install.app, 1).await).await;
     }
 }

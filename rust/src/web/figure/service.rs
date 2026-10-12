@@ -23,7 +23,8 @@ type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
 struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,reason:Option<&'static str>,cache:Cache }
 /// `Busy`: both fills are taken by other accounts. `Failed` also when a fill is needed and the waiting account has no
 /// allowance left.
-pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64), Start(Ticket,Cache) }
+/// `Ready`: the cache, when its fill began, and until when its figures may be shown (`Entry::until`).
+pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64,i64), Start(Ticket,Cache) }
 pub struct Ticket { service:Service,user:i64,serial:u64,finished:bool }
 /// Figures work for one account: publish them, and the (locale, path prefix) keys to render. Due from `not_before`.
 #[derive(Clone,Debug,Default,PartialEq,Eq)]
@@ -62,7 +63,7 @@ impl Service {
         }
         if state.active_users.contains(&user){return Load::Cold;}
         if let Some(entry)=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()&&e.revision==revision) {
-            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started) } else { Load::Failed(entry.reason) }; }
+            if entry.until>now { return if entry.ready { Load::Ready(entry.cache.clone(),entry.started,entry.until) } else { Load::Failed(entry.reason) }; }
         }
         if state.wanted.get(&user)==Some(&0) { return Load::Failed(state.entries.get(&user).and_then(|e|e.reason)); }
         // Waiting for capacity spends nothing.
@@ -149,13 +150,16 @@ impl Service {
 impl Ticket {
     /// `now`: when the fill ended. A failure is kept for a minute from then, however long the fill ran.
     pub fn finish(self,cache:Cache,ready:bool,now:i64) { self.finish_with_reason(cache,ready,None,now); }
-    pub fn finish_with_reason(mut self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64) { self.store(cache,ready,reason,Some(now));self.finished=true; }
-    fn store(&self,cache:Cache,ready:bool,reason:Option<&'static str>,ended:Option<i64>) {
+    pub fn finish_with_reason(self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64) { self.finish_until(cache,ready,reason,now,None); }
+    /// `deadline`: when ready figures stop being true before the next five-minute cut (a wash-sale lock's end).
+    pub fn finish_until(mut self,cache:Cache,ready:bool,reason:Option<&'static str>,now:i64,deadline:Option<i64>) { self.store(cache,ready,reason,Some(now),deadline);self.finished=true; }
+    fn store(&self,cache:Cache,ready:bool,reason:Option<&'static str>,ended:Option<i64>,deadline:Option<i64>) {
         let mut state=self.service.state();
         state.active=state.active.saturating_sub(1);state.active_users.remove(&self.user);
         if let Some(entry)=state.entries.get_mut(&self.user).filter(|e|e.serial==self.serial) {
             entry.loading=false;entry.ready=ready;entry.reason=if ready{None}else{reason};entry.cache=cache;
-            entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
+            // Ready figures last until the next five-minute cut (UTC midnight is one), or a lock's end before it.
+            entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)).min(deadline.unwrap_or(i64::MAX)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
         }
         // What arrived while this fill ran is due now.
         if let Some(mut work)=state.parked.remove(&self.user) { work.not_before=i64::MIN; put(&mut state.pending,self.user,work); }
@@ -163,7 +167,7 @@ impl Ticket {
         self.service.1.notify_one();
     }
 }
-impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None); } } }
+impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None,None); } } }
 
 #[cfg(test)]
 mod r4_service_tests {

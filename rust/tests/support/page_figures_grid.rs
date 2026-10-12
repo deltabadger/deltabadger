@@ -322,7 +322,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 match loading::prepare(&app,user).await.unwrap() { Snapshot::Cold=>tokio::time::sleep(std::time::Duration::from_millis(20)).await, other=>break other }
             }}).await.unwrap();
             assert!(matches!(failed,Snapshot::Failed(Some("executed fill value unavailable"))),"{name}: the fill keeps its reason");
-            let rendered=loading::render(&c,user,&failed,"en","token","").unwrap().unwrap();
+            let rendered=loading::render(&c,user,&failed,"en","token","",&*app.clock).unwrap().unwrap();
             let absent="<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
             assert_eq!(rendered,serde_json::json!({"bots":{"1":{
                 "tile":format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"),
@@ -416,11 +416,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
             assert_eq!(common::web::Browser::default().get(&app,"/bots/1").await.status,302);
             if name == "owner_account" {
                 let prepared=loading::prepare(&app,user).await.unwrap();
-                let loading::Snapshot::Ready(mut refused,at,revision,_)=prepared.clone() else { panic!("not warm") };
+                let loading::Snapshot::Ready(mut refused,at,revision,_,until)=prepared.clone() else { panic!("not warm") };
                 // A missing cache entry must never expose the core's successful ledger fallback.
-                let pending=loading::Snapshot::Ready(Cache::default(),at,revision,None);
-                let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","")).await.unwrap().unwrap();
-                let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed(None),"en","token","")).await.unwrap().unwrap();
+                let pending=loading::Snapshot::Ready(Cache::default(),at,revision,None,until);
+                let pending=app.db(move|c| loading::render(c,user,&pending,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
+                let failed=app.db(move|c| loading::render(c,user,&loading::Snapshot::Failed(None),"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                 assert_eq!(pending,failed,"pending demands published a ledger figure or account total");
                 // Cache a refused price demand and require the same honest unavailable result.
                 let names=app.db(move|c| Ok(loading::symbols(c,user).unwrap())).await.unwrap();
@@ -436,8 +436,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 assert!(reader.prices(&venue,&[]).is_err());
                 assert!(reader.failed());
                 assert!(reader.demands().is_empty());
-                let refused=loading::Snapshot::Ready(refused,at,revision,None);
-                let refused=app.db(move|c| loading::render(c,user,&refused,"en","token","")).await.unwrap().unwrap();
+                let refused=loading::Snapshot::Ready(refused,at,revision,None,until);
+                let refused=app.db(move|c| loading::render(c,user,&refused,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                 assert_eq!(refused,failed,"failed demand published a ledger figure or account total");
                 // Keep successful prices, but replace every candle response with a failure or unreadable bar.
                 for body in [serde_json::json!({"status":503,"body":{}}),
@@ -462,8 +462,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     let _ = deltabadger::web::figure::account(&c,user,&reader,at,"en","token","");
                     assert!(reader.demands().is_empty(), "publication must fail on cached candles, not pending reads");
                     assert!(reader.failed(), "cached candle failure escaped publication guard");
-                    let snapshot = loading::Snapshot::Ready(cache,at,revision,None);
-                    let rendered = app.db(move|c| loading::render(c,user,&snapshot,"en","token","")).await.unwrap().unwrap();
+                    let snapshot = loading::Snapshot::Ready(cache,at,revision,None,until);
+                    let rendered = app.db(move|c| loading::render(c,user,&snapshot,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                     assert_eq!(rendered,failed,"failed candles published a chart or account sparkline");
                 }
                 // Index tickers use the venue's entire symbol union. Synchronization inserts
@@ -477,7 +477,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     else { rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().execute(insert,[]).unwrap(); }
                     let changed=app.db(move|c| {
                         assert!(loading::symbols(c,user).unwrap().iter().any(|s|s=="USD_TEST"));
-                        loading::render(c,user,&prepared,"en","token","")
+                        loading::render(c,user,&prepared,"en","token","",&deltabadger::engine::FixedClock(at.utc()))
                     }).await.unwrap().unwrap();
                     assert_eq!(changed,failed,"new ticker published a ledger figure or account total (written by the page's connection: {own})");
                     app.db(|c| { c.execute("DELETE FROM tickers WHERE ticker='USD_TEST'",[])?; Ok(()) }).await.unwrap();
@@ -494,10 +494,10 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     match loading::prepare(&app,user).await.unwrap() { ready@loading::Snapshot::Ready(..)=>break ready, _=>tokio::time::sleep(Duration::from_millis(20)).await }
                 } }).await.expect("the figures never became ready again") };
                 let prepared=warm(app.clone()).await;
-                let loading::Snapshot::Ready(cache,at,_,_)=prepared.clone() else { panic!("not warm") };
+                let loading::Snapshot::Ready(cache,at,..)=prepared.clone() else { panic!("not warm") };
                 for token in ["first-token","second-token"] {
                     let snapshot=prepared.clone();
-                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"")).await.unwrap().unwrap();
+                    let kept=app.db(move|c| loading::render(c,user,&snapshot,"en",token,"",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                     let reader=Reader::new(&cache,at.utc().timestamp()).with_current(&c).with_symbols(loading::symbols(&c,user).unwrap());
                     assert_eq!(kept,deltabadger::web::figure::account(&c,user,&reader,at,"en",token,"").unwrap(),"kept figures under {token}");
                     assert!(kept.to_string().contains(marker) && !kept.to_string().contains(&format!("images.example/{token}")),"the stored image URL is shown as stored");
@@ -681,7 +681,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 app.db(|c| { c.execute_batch("ALTER TABLE bots RENAME TO bots_away")?; Ok(()) }).await.unwrap();
                 // Check the fallback's own boundary: the later stream lookup can also fail and mask a swallowed read.
                 app.db(move |c| {
-                    assert!(loading::render(c,user,&loading::Snapshot::Failed(None),"en","","").is_err(),
+                    assert!(loading::render(c,user,&loading::Snapshot::Failed(None),"en","","",&deltabadger::engine::FixedClock(chrono::Utc::now())).is_err(),
                         "a fallback whose bots cannot be read must fail before constructing a partial page");
                     Ok(())
                 }).await.unwrap();
@@ -1061,7 +1061,8 @@ async fn chronology_matches_rails_fresh_bytes() {
         let t_c = common::web::at(step["t_c"].as_str().unwrap());
         if let Snapshot::Ready(_, at, ..) = &snapshot { assert_eq!(at.utc(), t_c, "{name}: the figures shown were computed at t_c, whenever they are read"); }
         let shown = snapshot.clone();
-        let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "")).await.unwrap().expect("figures");
+        let read_at = deltabadger::engine::FixedClock(common::web::at(step["t_r"].as_str().unwrap()));
+        let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "", &read_at)).await.unwrap().expect("figures");
         let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
         if matches!(snapshot, Snapshot::Failed(_)) {
             // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
