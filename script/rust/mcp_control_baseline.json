@@ -57,7 +57,7 @@
     "lines.push(format!(\"- {} | {type_name} | {pair} | {} | {name} | {} {}/{}\",label.unwrap_or_default(),exchange.unwrap_or_else(||\"N/A\".into()),str_value(&s[\"quote_amount\"]),quote.unwrap_or_default(),s.get(\"interval\").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||\"N/A\".into())));": 1,
     "let quote=quote.unwrap_or_default();": 1,
     "lines.push(format!(\"- [{date}] {} {} {} {} | {}\",side.and_then(|s|usize::try_from(s).ok()).and_then(|s|[\"BUY\",\"SELL\"].get(s).copied()).unwrap_or(\"\"),amount.map(|v|format!(\"{v} {}\",base.unwrap_or_default())).unwrap_or_else(||\"N/A\".into()),price.map(|v|format!(\"@ {v} {quote}\")).unwrap_or_default(),cost.map(|v|format!(\"({v} {quote})\")).unwrap_or_default(),[\"submitted\",\"failed\",\"skipped\"].get(status).copied().unwrap_or(\"\")));": 1,
-    "lines.push(format!(\"- {} | {type_name} | {pair} | {} | {name} | {} {}/{}\",label,exchange.unwrap_or_else(||\"N/A\".into()),str_value(&s[\"quote_amount\"]),quote.unwrap_or_default(),s.get(\"interval\").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||\"N/A\".into())));": 1
+    "lines.push(format!(\"- {} (ID {id}) | {type_name} | {pair} | {} | {name} | {} {}/{}\",label,exchange.unwrap_or_else(||\"N/A\".into()),str_value(&s[\"quote_amount\"]),quote.unwrap_or_default(),s.get(\"interval\").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||\"N/A\".into())));": 1
   },
   "rust/src/web/mcp/control.rs": {},
   "rust/src/web/mcp/reads.rs": {

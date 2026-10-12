@@ -304,7 +304,7 @@ fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebEr
 fn details(c:&Connection,user:i64,id:i64,now:At)->Result<(String,bool),WebError>{
     let Some(b)=bot(c,user,id)?else{return Ok(("Bot not found.".into(),true))};
     let status=tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?;
-    let mut lines=vec![format!("Bot: {}",b.label),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange)];
+    let mut lines=vec![format!("Bot: {} (ID {})",b.label,b.id),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange)];
     if let Some(pair)=&b.pair{lines.push(format!("Pair: {pair}"));}
     let members=members(c,&b.kind,&b.settings)?;
     if !members.is_empty(){
@@ -430,7 +430,7 @@ fn summary(c:&Connection,user:i64,cache:&Cache,now:At,ready:bool)->Result<String
     }else{lines.push("Global P/L: Not available (needs market data)".into());}
     lines.extend([String::new(),"--- Per-Bot Summary ---".into()]);
     for b in bots{
-        let name=format!("- {} ({}) | {} | ",b.label,b.pair.as_deref().unwrap_or("N/A"),tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?);
+        let name=format!("- {} (ID {}) ({}) | {} | ",b.label,b.id,b.pair.as_deref().unwrap_or("N/A"),tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?);
         lines.push(match metrics(c,&b,now){Ok((_,m))=>if let Some(p)=&m.pnl{format!("{name}P/L: {} | Invested: {} {}",pct(p)?,num(&m.total_quote_amount_invested)?,b.quote)}else{format!("{name}No metrics yet")},Err(WebError::Config(why)) if why=="executed fill value unavailable"=>format!("{name}Metrics unavailable: executed fill value unavailable"),Err(_)=>format!("{name}Metrics unavailable")});
     }
     Ok(lines.join("\n"))

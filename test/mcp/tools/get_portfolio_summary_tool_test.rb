@@ -42,4 +42,14 @@ class GetPortfolioSummaryToolTest < ActiveSupport::TestCase
     assert_match(/Not available/, text)
     assert_match(/No metrics yet/, text)
   end
+
+  test 'names each bot with its id' do
+    bot = create(:dca_single_asset, user: @user, status: :stopped, label: 'ND100')
+    User.any_instance.stubs(:global_pnl).returns(nil)
+    Bots::DcaSingleAsset.any_instance.stubs(:metrics).returns(nil)
+
+    text = GetPortfolioSummaryTool.call.contents.first.text
+
+    assert_includes text, "- ND100 (ID #{bot.id}) (BTC/USD) | stopped | "
+  end
 end

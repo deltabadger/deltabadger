@@ -18,7 +18,7 @@ class GetBotDetailsTool < ApplicationMCPTool
 
   def present(data)
     lines = []
-    lines << "Bot: #{data[:label]}"
+    lines << "Bot: #{data[:label]} (ID #{data[:id]})"
     lines << "Type: #{data[:type].to_s.demodulize.titleize}"
     lines << "Status: #{data[:status]}"
     lines << "Exchange: #{data[:exchange] || 'N/A'}"

@@ -2,7 +2,7 @@
 
 class ListBotsTool < ApplicationMCPTool
   tool_name 'list_bots'
-  description 'List all DCA bots with their status, type, trading pair, and exchange'
+  description 'List all DCA bots with their ID, status, type, trading pair, and exchange'
   read_only
 
   property :status, type: 'string', description: 'Filter by status: scheduled, executing, waiting, retrying, stopped, created (optional)'
@@ -27,7 +27,8 @@ class ListBotsTool < ApplicationMCPTool
       interval = row[:interval] || 'N/A'
       type_label = row[:type].to_s.demodulize.titleize
 
-      "- #{row[:label]} | #{type_label} | #{pair} | #{exchange} | #{row[:status]} | #{row[:quote_amount]} #{row[:quote_asset]}/#{interval}"
+      "- #{row[:label]} (ID #{row[:id]}) | #{type_label} | #{pair} | #{exchange} | #{row[:status]} | " \
+        "#{row[:quote_amount]} #{row[:quote_asset]}/#{interval}"
     end
 
     "Bots (#{data[:count]}):\n#{lines.join("\n")}"

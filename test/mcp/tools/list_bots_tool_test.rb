@@ -62,4 +62,13 @@ class ListBotsToolTest < ActiveSupport::TestCase
     assert_match(%r{BTC\+ETH/USD}, text)
     assert_match(/Dca Multi Asset/, text)
   end
+
+  # Every write tool takes a bot by id, so a listed bot must carry its id.
+  test 'lists each bot with its id' do
+    bot = create(:dca_single_asset, user: @user, status: :scheduled, started_at: Time.current, label: 'ND100')
+
+    text = ListBotsTool.call.contents.first.text
+
+    assert_includes text, "- ND100 (ID #{bot.id}) | Dca Single Asset | BTC/USD | Binance | scheduled | "
+  end
 end

@@ -23,9 +23,12 @@ class Bots::StartsController < ApplicationController
   # question itself as the answer. 422 keeps the modal up, and the stream reaches the bots index
   # too, which has the layout's modal frame and no start template of its own.
   def update
-    return render turbo_stream: wash_sale_prompt_stream(@bot), status: :unprocessable_entity if wash_sale_prompt_due?(@bot)
+    if wash_sale_prompt_due?(@bot)
+      flash.now[:alert] = t('engine.wash_sale_question_owed', label: @bot.label)
+      return render turbo_stream: [wash_sale_prompt_stream(@bot), turbo_stream_prepend_flash], status: :unprocessable_entity
+    end
 
-    fresh = start_fresh
+    fresh = BotApi::Bots::Start.start_fresh(params[:start_fresh])
     return refuse(t('engine.invalid_start_fresh')) if fresh.nil?
     return if @bot.start(start_fresh: fresh)
 
@@ -33,14 +36,6 @@ class Bots::StartsController < ApplicationController
   end
 
   private
-
-  # No flag starts fresh, as the plain Start button does; a flag that is neither true nor false is
-  # nil, and refused rather than guessed.
-  def start_fresh
-    params[:start_fresh].nil? || Utilities::String.to_boolean(params[:start_fresh])
-  rescue ArgumentError
-    nil
-  end
 
   def refuse(message)
     flash.now[:alert] = message

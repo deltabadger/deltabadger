@@ -114,9 +114,25 @@ module McpControl
       McpParity.ready + [tool('update_bot_settings', { quote_amount: '12' }), tool('update_bot_settings', { label: 2 }),
                          tool('update_bot_settings', { allocations: { 'BTC' => 70, 'ETH' => 30 } })]
     s['start_fresh'] = McpParity.ready + [tool('start_bot', {}, [set_status(0)])]
-    s['start_continue_empty'] = McpParity.ready + [tool('start_bot', {}, [set_status(2)])]
-    s['start_continue_within'] = McpParity.ready + [tool('start_bot', {}, [set_status(2), "UPDATE bots SET started_at='2026-09-10 12:00:00', transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:01Z') WHERE id=1", # rubocop:disable Layout/LineLength -- Literal transcript data keeps request values visible together.
-                                                                           "INSERT INTO transactions (bot_id,exchange_id,base_asset_id,quote_asset_id,status,external_status,side,transaction_type,quote_amount,quote_amount_exec,amount,amount_exec,price,created_at,updated_at) VALUES (1,1,16,1,0,2,0,'REGULAR',20,20,0.001,0.001,20000,'2026-09-10 12:00:00','2026-09-10 12:00:00')"])] # rubocop:disable Layout/LineLength -- Literal transcript data keeps request values visible together.
+    # start_fresh is the web restart dialog's choice: absent or true skips, false continues.
+    s['start_fresh_stopped'] = McpParity.ready + [tool('start_bot', {}, [set_status(2)])]
+    s['start_fresh_true_stopped'] = McpParity.ready + [tool('start_bot', { start_fresh: true }, [set_status(2)])]
+    s['start_continue_created'] = McpParity.ready + [tool('start_bot', { start_fresh: false }, [set_status(0)])]
+    [nil, 'false', 0].each_with_index do |flag, i|
+      s["start_fresh_schema_#{i}"] = McpParity.ready + [tool('start_bot', { start_fresh: flag }, [set_status(2)])]
+    end
+    # Every start of a bot that can sell waits for the wash-sale answer (BotApi::Bots::Start.wash_sale_question_owed?).
+    undecided = "UPDATE users SET wash_sale_enabled=NULL WHERE email='owner@example.com'"
+    { buy_only: [],
+      selling: ["UPDATE bots SET settings=json_set(settings,'$.direction','selling') WHERE id=1"],
+      rebalance: ["UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'),'$.rebalance_threshold',0.05) WHERE id=1"],
+      armed: ["UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'),'$.indicator_limit_action','start_selling') WHERE id=1"],
+      held: ["INSERT OR IGNORE INTO transactions (id,bot_id,exchange_id,base_asset_id,quote_asset_id,status,external_status,side,transaction_type,quote_amount,quote_amount_exec,amount,amount_exec,price,created_at,updated_at) VALUES (1,1,1,16,1,0,2,0,'REGULAR',20,20,0.001,0.001,20000,'2026-09-10 12:00:00','2026-09-10 12:00:00')"] }.each do |name, sql| # rubocop:disable Layout/LineLength -- Literal transcript data.
+      s["start_wash_question_#{name}"] = McpParity.ready + [tool('start_bot', {}, [set_status(2), undecided] + sql)]
+    end
+    s['start_continue_empty'] = McpParity.ready + [tool('start_bot', { start_fresh: false }, [set_status(2)])]
+    s['start_continue_within'] = McpParity.ready + [tool('start_bot', { start_fresh: false }, [set_status(2), "UPDATE bots SET started_at='2026-09-10 12:00:00', transient_data=json_set(transient_data,'$.last_action_job_at','2026-09-10T12:00:01Z') WHERE id=1", # rubocop:disable Layout/LineLength -- Literal transcript data keeps request values visible together.
+                                                                                               "INSERT INTO transactions (bot_id,exchange_id,base_asset_id,quote_asset_id,status,external_status,side,transaction_type,quote_amount,quote_amount_exec,amount,amount_exec,price,created_at,updated_at) VALUES (1,1,16,1,0,2,0,'REGULAR',20,20,0.001,0.001,20000,'2026-09-10 12:00:00','2026-09-10 12:00:00')"])] # rubocop:disable Layout/LineLength -- Literal transcript data keeps request values visible together.
     negative_zero = tool('update_bot_settings', { bot_id: 2, allocation_flattening: 0.0 })
     negative_zero['body'] = negative_zero['body'].sub('"allocation_flattening":0.0', '"allocation_flattening":-0.0')
     raise 'negative-zero wire lost its sign' unless negative_zero['body'].include?('"allocation_flattening":-0.0')

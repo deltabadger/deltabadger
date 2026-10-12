@@ -100,4 +100,21 @@ class BotApi::Bots::LifecycleTest < ActiveSupport::TestCase
       assert bot.reload.stopped?
     end
   end
+
+  # The web Start reads start_fresh the same way: absent starts fresh, true/false/1/0 choose, and
+  # anything else is refused with the modal's own message rather than guessed.
+  test 'start reads start_fresh as the web start does' do
+    bot = create(:dca_single_asset, :stopped, user: @user)
+    result = BotApi::Bots::Start.call(user: @user, bot_id: bot.id, start_fresh: 'maybe')
+    assert_equal 'invalid_start_fresh', result.error_code
+    assert_equal I18n.t('engine.invalid_start_fresh'), result.error_message
+    assert bot.reload.stopped?
+
+    Bots::DcaSingleAsset.any_instance.stubs(:cancel_scheduled_action_jobs)
+    Bot::ActionJob.stubs(:perform_later)
+    bot.update_columns(started_at: 3.days.ago)
+    started = bot.reload.started_at
+    assert BotApi::Bots::Start.call(user: @user, bot_id: bot.id, start_fresh: 'false').success?
+    assert_equal started, bot.reload.started_at
+  end
 end
