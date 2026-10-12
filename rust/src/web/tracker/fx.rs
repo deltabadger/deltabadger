@@ -65,7 +65,7 @@ pub async fn prepare(app:&App,owner:i64)->Result<Prepared,WebError>{
     } else {DataApi::live(config).exchange_rates().await};
     let rates=match result {
         Ok(rates)=>rates,
-        Err(ApiError::Failed{..})=>Value::Null,
+        Err(ApiError::Failed{..}|ApiError::Refused(_))=>Value::Null,
         Err(ApiError::Transient(_))=>Value::Null,
     };
     let currency=requested.clone();

@@ -24,17 +24,20 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
-    'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) }
+    'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) },
+    # Honeymaker reports e.message alone (Honeymaker::Client#with_rescue), and returns it: nothing raises.
+    'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) }
   }.freeze
 
   def self.reply(env)
     host = env.url.host.to_s
     script = if host.end_with?('alpaca.markets') then alpaca
+             elsif host.start_with?('api.binance.') then binance
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -63,7 +66,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = "#{error.class}: #{error.message}" # what Client.network_failure reports
+        actual = kind.start_with?('binance_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -221,13 +224,47 @@ module SyncParity
                                  created_at: Time.current, updated_at: Time.current }.merge(attrs))
   end
 
-  def balance(ctx, symbol, free:, usd_price: nil, usd_value: nil, priced_at: nil, exchange: ctx[:alpaca], user: ctx[:user])
+  def balance(ctx, symbol, free:, usd_price: nil, usd_value: nil, priced_at: nil, exchange: ctx[:binance] || ctx[:alpaca], user: ctx[:user])
     at = Time.utc(2026, 9, 10, 2, 30, 0)
     AccountBalance.insert!({ user_id: user.id, exchange_id: exchange.id, asset_id: ctx[:assets].fetch(symbol).id, free:, locked: 0,
                              usd_price:, usd_value:, priced_at: priced_at || (usd_price && at), synced_at: at, created_at: at, updated_at: at })
   end
 
   def ledger(at, *pages) = { 'kind' => 'ledger', 'at' => at, 'alpaca' => { ACTIVITIES => pages.map { |p| p.is_a?(Array) ? ok(p) : p } } }
+
+  # A Binance or Binance.US install beside the Alpaca one: the venue, its assets and tickers, and a reading key that
+  # becomes the scenario's key. EUR is cash (category Fiat) priced through the market API's exchange rates.
+  def binance(ctx, us: false)
+    venue = (us ? Exchanges::BinanceUs : Exchanges::Binance).create!(name: us ? 'Binance.US' : 'Binance', maker_fee: '0.1', taker_fee: '0.1')
+    assets = ctx[:assets]
+    assets['USDT'] ||= Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
+    assets['EUR'] ||= Asset.create!(external_id: 'eur', symbol: 'EUR', name: 'Euro', category: 'Fiat')
+    %w[BTC ETH USDT EUR].each { |s| ExchangeAsset.create!(exchange: venue, asset: assets[s], available: true) }
+    coin = { base_decimals: 8, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.00001', minimum_quote_size: '5' }
+    [%w[BTC USDT], %w[ETH USDT], %w[BTC EUR], %w[ETH BTC]].each do |base, quote|
+      Ticker.create!(exchange: venue, ticker: "#{base}#{quote}", base:, quote:, base_asset: assets[base], quote_asset: assets[quote], **coin)
+    end
+    key = ApiKey.new(user: ctx[:user], exchange: venue, **KEY.symbolize_keys, status: :correct, key_type: :read_only)
+    key.save!(validate: false)
+    ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
+                                              [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
+    ctx[:key] = key
+    ctx[:binance] = venue
+  end
+
+  BINANCE_ACCOUNT = 'GET /api/v3/account'.freeze
+  EXCHANGE_RATES = 'GET /api/v1/exchange_rates'.freeze
+
+  def binance_account(*balances, **extra)
+    ok({ 'makerCommission' => 10, 'canTrade' => true, 'accountType' => 'SPOT',
+         'balances' => balances.map { |asset, free, locked| { 'asset' => asset, 'free' => free, 'locked' => locked || '0.00000000' } },
+         'permissions' => ['SPOT'], 'uid' => 354_937_868 }.merge(extra.transform_keys(&:to_s)))
+  end
+
+  def binance_balances(at, account:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'binance' => { BINANCE_ACCOUNT => [account] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
 
   def balances(at, account:, positions: ok([]), snapshots: nil, prices: nil)
     alpaca = { ACCOUNT => [account], POSITIONS => [positions], SNAPSHOTS => snapshots && [snapshots] }.compact
@@ -276,10 +313,11 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| k.exchange.is_a?(Exchanges::Alpaca) }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| k.exchange.is_a?(Exchanges::Alpaca) || k.exchange.is_a?(Exchanges::Binance) }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
+        ScriptedSync.binance = step.fetch('binance', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

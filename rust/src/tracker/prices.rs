@@ -266,7 +266,7 @@ pub async fn fetch_range<T: Transport>(api: &DataApi<T>, fetch: &Fetch, have: &H
     let body = match api.get("/api/v1/historical_prices", &[("coin_id", &fetch.coin), ("currency", "usd"), ("from", &from), ("to", &to)], false).await {
         Ok(body) => body,
         Err(ApiError::Transient(m)) => return Err(m),
-        Err(ApiError::Failed { .. }) => return Ok(vec![]),
+        Err(ApiError::Failed { .. } | ApiError::Refused(_)) => return Ok(vec![]),
     };
     let Some(prices) = body["prices"].as_array() else { return Ok(vec![]) };
     let mut seen = have.clone();

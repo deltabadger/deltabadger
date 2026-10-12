@@ -423,6 +423,12 @@ fn a_market_price_is_read_as_rails_reads_it() {
     use deltabadger::sync::balances;
     for c in list(&vectors()["price_to_f"]) {
         let found = balances::parse_prices(&json!({ "data": { "coin": { "usd": c[0] } } }), &["coin".to_string(), "absent".to_string()]);
+        // A string that is no plain decimal (" 2 ", "1e3"): Ruby's String#to_f guesses; the engine refuses (a listed divergence).
+        if c[0].as_str().is_some_and(|s| s.trim() != s || s.contains(['e', 'E'])) {
+            assert_eq!(found.unwrap_err().message(), "unreadable price for coin: not a plain decimal number", "{c}");
+            continue;
+        }
+        let found = found.unwrap();
         assert_eq!(json!(found.get("coin").map(|f| bits(*f))), c[1], "{c}");
         assert!(!found.contains_key("absent"));
     }

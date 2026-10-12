@@ -5,6 +5,7 @@
 pub mod fake;
 pub mod alpaca;
 pub mod http;
+pub mod binance;
 
 use crate::crypto::Credentials;
 use crate::engine::model::Ticker;
