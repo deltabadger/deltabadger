@@ -984,3 +984,89 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
 fn db_time(text: &str) -> chrono::DateTime<chrono::Utc> {
     At::from_sql(text).unwrap().utc()
 }
+
+/// Rails over time (script/rust/page_figures.rb `chronology`), on the owner's account: warm, a reread with no write, an
+/// order filled, a reread, the cut, and the provider failing at the next cut. At each step what this build shows (its
+/// kept figures, or the ones its fill published) equals Rails' figures computed fresh at the moment the shown figures
+/// were computed (`t_c`, the chart's last label), never relabelled to the moment of the read (`t_r`). Rails' own
+/// cached read (`actual`) differs from fresh only inside W1 (`Bot::UpdateMetricsJob` refreshes the prices and keeps the
+/// chart it cached until the cut) and agrees again at the cut.
+#[tokio::test]
+async fn chronology_matches_rails_fresh_bytes() {
+    use deltabadger::web::{App, Config, figure::loading::{self, Source, Snapshot}};
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let out = std::process::Command::new(root.join("bin/rails")).current_dir(root)
+        .args(["runner", "script/rust/pages.rb", "chronology", scratch.path().to_str().unwrap()])
+        .env("SECRET_KEY_BASE", common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let dir = scratch.path().join("owner_account");
+    let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
+    let chronology: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("chronology.json")).unwrap()).unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let file = work.path().join("production.sqlite3");
+    std::fs::copy(dir.join("initial.sqlite3"), &file).unwrap();
+    let user = sc["user_id"].as_i64().unwrap();
+    let env = common::web::env(common::web::SECRET);
+    let steps = chronology["steps"].as_array().unwrap();
+    let clock = common::web::TestClock::at(steps[0]["t_r"].as_str().unwrap());
+    let open = |script: &Value| App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), clock.clone()).unwrap().with_figure_source(Source::Script(script.clone())).unwrap();
+    let mut app = open(&sc["script"]);
+    let w1: Vec<&str> = chronology["w1"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    let parts = |figures: &Value| -> BTreeMap<String, Vec<String>> {
+        let mut out = BTreeMap::new();
+        for (id, bot) in figures["bots"].as_object().unwrap() {
+            for part in ["tile", "metrics", "chart"] { out.insert(format!("{id} {part}"), common::html::normalize(bot[part].as_str().unwrap())); }
+        }
+        out.insert("account".into(), common::html::normalize(figures["account"].as_str().unwrap()));
+        out
+    };
+    for step in steps {
+        let name = step["name"].as_str().unwrap();
+        // The provider's answers change from this step on: a process with the new market, and nothing kept from the old one.
+        if let Some(script) = step.get("script") { app = open(script); }
+        clock.set(common::web::at(step["t_r"].as_str().unwrap()));
+        let writer = rusqlite::Connection::open(&file).unwrap();
+        for write in step["writes"].as_array().into_iter().flatten() {
+            let (table, row) = (write[0].as_str().unwrap(), write[1].as_object().unwrap());
+            let columns: Vec<&String> = row.keys().collect();
+            let sql = format!("INSERT INTO {table}({}) VALUES ({})", columns.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(","), vec!["?"; columns.len()].join(","));
+            let values: Vec<rusqlite::types::Value> = row.values().map(|v| match v {
+                Value::Null => rusqlite::types::Value::Null,
+                Value::Number(n) if n.is_i64() => rusqlite::types::Value::Integer(n.as_i64().unwrap()),
+                Value::Number(n) => rusqlite::types::Value::Real(n.as_f64().unwrap()),
+                Value::String(s) => rusqlite::types::Value::Text(s.clone()),
+                other => rusqlite::types::Value::Text(other.to_string()),
+            }).collect();
+            writer.execute(&sql, rusqlite::params_from_iter(values)).unwrap();
+        }
+        drop(writer);
+        let reread = name.starts_with("reread");
+        let mut snapshot = loading::prepare(&app, user).await.unwrap();
+        if reread { assert!(matches!(snapshot, Snapshot::Ready(..)), "{name}: a reread with no write is served what was kept, with no fill"); }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while matches!(snapshot, Snapshot::Cold) {
+            assert!(std::time::Instant::now() < deadline, "{name}: the fill never ended");
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            snapshot = loading::prepare(&app, user).await.unwrap();
+        }
+        let t_c = common::web::at(step["t_c"].as_str().unwrap());
+        if let Snapshot::Ready(_, at, ..) = &snapshot { assert_eq!(at.utc(), t_c, "{name}: the figures shown were computed at t_c, whenever they are read"); }
+        let shown = snapshot.clone();
+        let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "")).await.unwrap().expect("figures");
+        let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
+        if matches!(snapshot, Snapshot::Failed(_)) {
+            // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
+            // page shows this build's unavailable state (Rails shows its stale figures there, a difference older than kept
+            // figures, held by the grid's refused-price case).
+            assert_eq!(name, "provider_failure", "{name}: the fill failed");
+            assert!(ours.values().all(|lines| lines.iter().any(|line| line.contains("\"—\""))), "{name}: {ours:?}");
+        } else {
+            for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against Rails computed fresh at t_c"); }
+            assert_eq!(ours.len(), fresh.len(), "{name}");
+        }
+        let differing: Vec<&String> = fresh.keys().filter(|key| actual[*key] != fresh[*key]).collect();
+        if w1.contains(&name) { assert!(!differing.is_empty() && differing.iter().all(|key| key.ends_with(" chart") || *key == "account"), "{name}: W1 is the chart Rails kept: {differing:?}"); }
+        else { assert!(differing.is_empty(), "{name}: Rails' cached read and its fresh computation differ outside W1: {differing:?}"); }
+    }
+}

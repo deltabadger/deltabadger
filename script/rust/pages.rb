@@ -757,9 +757,9 @@ require_relative 'pages_settings'
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
   command, root = ARGV
-  if command == 'figures' && root
+  if %w[figures chronology].include?(command) && root
     require_relative 'page_figures'
-    PageFigures.run(root)
+    command == 'figures' ? PageFigures.run(root) : PageFigures.chronology(root)
     exit
   end
   raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
