@@ -11,8 +11,14 @@ use std::time::Duration;
 #[derive(Clone,Default)]
 pub enum Source { #[default] Live, Disabled, Script(Value) }
 #[derive(Clone)]
-pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64) }
-pub(crate) struct Info { identity:String,revision:u64,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
+/// Ready: the cache, its stamp, the revision it was prepared against, and where the database stood when that revision was
+/// read (`unchanged_since`), if on the connection that renders it.
+pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>) }
+pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
+/// Where a connection's view of the database stands: what other connections committed (`PRAGMA data_version`) and what
+/// it wrote itself (total changes). Equal on that connection, nothing was written in between.
+pub type Mark=(i64,u64);
+fn mark(c:&Connection)->Result<Mark,rusqlite::Error> { Ok((c.query_row("PRAGMA data_version",[],|r|r.get(0))?,c.total_changes())) }
 /// What this account's figures were filled for, as values: the rows Rails' metrics cache is recomputed for (a bot's
 /// transactions, and the bot: its settings, status, venue, restatement, and the operation flags that hide its Sell and
 /// Redeploy controls), the account's own rows the figures read, and the reference data they read: the account's
@@ -46,10 +52,13 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
         match result { Ok(v)=>Ok(Some(v)), Err(FiguresError::Sqlite(e))=>Err(e), Err(other)=>{format!("{other:?}").hash(hash);Ok(None)} }
     }
     // What each split row's name stands for on the venue it was reported on, as the walk of each bot's orders resolves
-    // it. A name resolves alike for every bot that traded on its venue: one lookup over all their orders.
-    let mut orders=vec![];
-    for (id,_) in computed(db::account_bots(c,user),&mut hash)?.unwrap_or_default() { orders.extend(computed(db::orders(c,id),&mut hash)?.unwrap_or_default()); }
-    let resolved:std::collections::BTreeMap<_,_>=computed(crate::figures::splits::lookups(c,user,&orders),&mut hash)?.map(|(_,named)|named.into_iter().collect()).unwrap_or_default();
+    // it. A name resolves alike for every bot that traded on its venue: one lookup over the venues of all their
+    // submitted orders that name a base (splits::eligibility), read from those columns alone. Parsing the orders whole
+    // here cost more than the rest of the fingerprint; an order that fails to parse is in the rows hashed below.
+    let eligible=format!("SELECT DISTINCT exchange_id FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE user_id=?1 AND status!={}) \
+        AND status={} AND (trim(base)<>'' OR base_asset_id IS NOT NULL) ORDER BY exchange_id",crate::enums::BotStatus::Deleted as i64,crate::enums::TxStatus::Submitted as i64);
+    let venues_traded=c.prepare(&eligible)?.query_map([user],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+    let resolved:std::collections::BTreeMap<_,_>=computed(crate::figures::splits::lookups(c,user,&venues_traded),&mut hash)?.map(|(_,named)|named.into_iter().collect()).unwrap_or_default();
     "names".hash(&mut hash);
     for entry in &resolved { read+=1; entry.hash(&mut hash); }
     let resolved=ids_source(resolved.values().flatten().copied());
@@ -72,18 +81,23 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let spelled=format!("SELECT base FROM transactions WHERE bot_id IN ({bots}) AND base_asset_id IS NULL");
     let mut tickers=format!("SELECT ticker_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base_asset_id IN ({traded})");
     if c.query_row(&format!("SELECT EXISTS({spelled})"),[user],|r|r.get(0))? { tickers+=&format!(" UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base IN ({spelled})"); }
-    // Read once, as literals: each query below that names them would otherwise read them again.
-    let tickers=c.prepare(&tickers)?.query_map([user],|r|r.get::<_,Option<i64>>(0))?.filter_map(Result::transpose)
-        .map(|id|id.map(|id|id.to_string())).collect::<Result<Vec<_>,_>>()?.join(",");
-    let tickers=if tickers.is_empty(){"NULL".to_string()}else{tickers};
-    let assets=format!("SELECT base_asset_id FROM tickers WHERE id IN ({tickers}) UNION SELECT quote_asset_id FROM tickers WHERE id IN ({tickers}) \
+    // Ids read once, as literals: each query below that names them would otherwise read them again (the account's
+    // ledger, three times over for the assets).
+    let literal=|sql:&str|->Result<String,rusqlite::Error> {
+        let ids=c.prepare(sql)?.query_map([user],|r|r.get::<_,Option<i64>>(0))?.filter_map(Result::transpose)
+            .map(|id|id.map(|id|id.to_string())).collect::<Result<Vec<_>,_>>()?.join(",");
+        Ok(if ids.is_empty(){"NULL".to_string()}else{ids})
+    };
+    let tickers=literal(&tickers)?;
+    let assets=literal(&format!("SELECT base_asset_id FROM tickers WHERE id IN ({tickers}) UNION SELECT quote_asset_id FROM tickers WHERE id IN ({tickers}) \
         UNION {traded} UNION SELECT quote_asset_id FROM transactions WHERE bot_id IN ({bots}) \
         UNION SELECT asset_id FROM account_balances WHERE user_id=?1 \
-        UNION SELECT base_asset_id FROM account_transactions WHERE user_id=?1 UNION SELECT asset_id FROM wash_sale_locks WHERE user_id=?1");
-    // A conversion reads an asset by its symbol alone (db::asset_by_symbol): any asset under one of these symbols, and
-    // the currencies an account is shown in.
-    let assets=format!("SELECT id FROM assets WHERE id IN ({assets}) UNION SELECT id FROM assets WHERE symbol IN (SELECT symbol FROM assets WHERE id IN ({assets})) \
-        UNION SELECT id FROM assets WHERE category='Currency'");
+        UNION SELECT base_asset_id FROM account_transactions WHERE user_id=?1 UNION SELECT asset_id FROM wash_sale_locks WHERE user_id=?1"))?;
+    // A conversion reads an asset by its symbol alone, upper-cased (totals::exchange_rate, db::asset_by_symbol): any
+    // asset under one of these symbols as stored or upper-cased, under USD (what the figures convert into), and under the
+    // currency the account is shown in. By the symbol index: assets has no index on its category.
+    let assets=format!("SELECT id FROM assets WHERE id IN ({assets}) UNION SELECT id FROM assets WHERE symbol IN (SELECT symbol FROM assets WHERE id IN ({assets}) \
+        UNION SELECT upper(symbol) FROM assets WHERE id IN ({assets}) UNION SELECT 'USD' UNION SELECT upper(display_currency) FROM users WHERE id=?1)");
     let unread:&[&str]=&["updated_at","transient_data","ath","ath_updated_at","market_cap","market_cap_rank","circulating_supply"];
     let sets=[
         ("SELECT * FROM users WHERE id=?1".to_string(),"users"),
@@ -137,7 +151,7 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
     let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
     let revision=revision(c,user)?.0;
-    Ok(Some(Info{identity,revision,credentials,origin:version}))
+    Ok(Some(Info{identity,revision,mark:mark(c)?,credentials,origin:version}))
 }
 pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion> }
 impl Wire {
@@ -235,7 +249,7 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
         Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
-        Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision))},
+        Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark)))},
         Load::Start(ticket,mut cache)=>{
             let inner=app.clone();let source=app.figure_source.clone();
             tokio::spawn(async move {
@@ -262,25 +276,47 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         }
     }
 })}
+/// Stands in for the request's form token in kept figures: letters and digits only, so escaping leaves it as it is.
+const TOKEN_PLACEHOLDER:&str="figuresFormTokenPlaceholder7f3a9c";
+/// Kept figures with the request's form token in place of the placeholder.
+fn with_token(value:&Value,csrf:&str)->Value {
+    match value {
+        Value::String(s) if s.contains(TOKEN_PLACEHOLDER)=>Value::String(s.replace(TOKEN_PLACEHOLDER,&crate::web::i18n::escape(csrf))),
+        Value::Array(items)=>Value::Array(items.iter().map(|v|with_token(v,csrf)).collect()),
+        Value::Object(map)=>Value::Object(map.iter().map(|(k,v)|(k.clone(),with_token(v,csrf))).collect()),
+        other=>other.clone(),
+    }
+}
 /// Converts a terminal computation failure into absence at every dependent presentation target.
 /// `Ok(None)` while the figures are cold; an error only when the fallback cannot read the account's bots.
 pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
     if matches!(snapshot,Snapshot::Cold){return Ok(None);}
     let mut fx_unavailable=matches!(snapshot,Snapshot::Failed(Some("Currency conversion unavailable")));
-    if let Snapshot::Ready(cache,now,prepared_revision)=snapshot {
+    if let Snapshot::Ready(cache,now,prepared_revision,read)=snapshot {
         let computed=budget::within(||{
             let unavailable=||crate::figures::FiguresError::NotComputed("Market data unavailable".into());
             let current=cache.producer().as_ref().map(|origin|crate::engine::model::credential_is_current(c,origin)).transpose().map_err(|_|unavailable())?.unwrap_or(false);
-            if !current || revision(c,user)?.0 != *prepared_revision { return Err(unavailable()); }
+            // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
+            // connection (App::db's one): read again only if anything was written since.
+            let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
+            if !current || !unchanged && revision(c,user)?.0 != *prepared_revision { return Err(unavailable()); }
+            // The figures are a function of this cache, the revision and `now` (the cache's stamp), and of how they are
+            // rendered: one computation serves every page load until a fill, a new stamp or a write. A form token is
+            // per request, so it is rendered as a placeholder and put in on the way out.
+            let key=serde_json::json!([prepared_revision,now.0,locale,prefix,csrf.is_empty()]).to_string();
+            let token=if csrf.is_empty(){""}else{TOKEN_PLACEHOLDER};
+            if let Some(kept)=cache.kept(&key) { return Ok(with_token(&kept,csrf)); }
             let names=symbols(c,user)?;
             let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(names);
-            let value=account(c,user,&reader,*now,locale,csrf,prefix)?;
+            let value=account(c,user,&reader,*now,locale,token,prefix)?;
             // Core live calculations may return ledger values after a market failure.
             // Publish only after all reads succeeded against the prepared revision.
             if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0 != *prepared_revision {
                 return Err(unavailable());
             }
-            Ok(value)
+            let out=with_token(&value,csrf);
+            cache.keep(key,std::sync::Arc::new(value));
+            Ok(out)
         });
         match computed {
             Ok(value)=>return Ok(Some(value)),
@@ -492,6 +528,70 @@ mod credential_cache_tests {
 
 #[cfg(test)]
 mod tests {
+    /// The fingerprint runs on every page that shows figures. At the sizes of a real install (40,000 assets, four venues'
+    /// listings, two years of orders, a ledger with splits), the assets and the listings of venues the account never
+    /// traded on add no work to it: no scan of either table, by a category or anything else. Counted in SQLite VM
+    /// steps, which do not depend on the machine.
+    #[test]
+    fn the_fingerprint_reads_no_whole_table_at_real_sizes() {
+        use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        let t="'2024-01-01'";
+        c.execute_batch(&format!("
+            INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
+            INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t}),(2,'Exchanges::Kraken','Kraken',{t},{t}),
+                (3,'Exchanges::Binance','Binance',{t},{t}),(4,'Exchanges::Coinbase','Coinbase',{t},{t});
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t});
+            -- The bots' venue at its real size: 7,967 stock listings in USD.
+            WITH RECURSIVE n(i) AS (SELECT 2 UNION ALL SELECT i+1 FROM n WHERE i<7968)
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) SELECT i,'Stock','s'||i,'S'||i,'S'||i||' Inc',{t},{t} FROM n;
+            INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+                SELECT id,symbol,id,9,1,0,1,2,'USD',1,2,symbol,{t},{t} FROM assets WHERE id>1;
+            -- A basket of five and an index of 65, weekly and daily over two years: 1,991 orders.
+            INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+                (1,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"allocations\":{{\"2\":0.2,\"3\":0.2,\"4\":0.2,\"5\":0.2,\"6\":0.2}}}}','{{}}',{t},{t}),
+                (2,1,1,'Bots::DcaIndex',1,'{{\"quote_asset_id\":1,\"num_coins\":65}}','{{}}',{t},{t});
+            WITH RECURSIVE n(i) AS (SELECT 10 UNION ALL SELECT i+1 FROM n WHERE i<74)
+            INSERT INTO bot_index_assets(bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT 2,i,i,1,{t},{t} FROM n;
+            WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<1991)
+            INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,created_at,updated_at)
+                SELECT CASE WHEN i%3=0 THEN 1 ELSE 2 END,1,'S'||(10+i%65),10+i%65,'USD',1,0.1,0.1,100,10,0,0,2,'o'||i,datetime('2024-01-01','+'||(i/3)||' days'),{t} FROM n;
+            -- A ledger of 5,792 rows: a row per order, splits on the bots' venue, deposits.
+            INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,quote_amount,quote_currency,raw_data,transacted_at,created_at,updated_at)
+                SELECT 1,1,0,base,base_asset_id,amount,-10,'USD','{{}}',created_at,{t},{t} FROM transactions;
+            INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) VALUES
+                (1,1,15,'S10',10,0,'{{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}}','2024-06-01',{t},{t}),
+                (1,1,15,'S11',NULL,0,'{{\"corporate_action\":\"split\",\"split_ratio\":\"3:1\"}}','2024-09-01',{t},{t});
+            WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3799)
+            INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at)
+                SELECT 1,1,4,'USD',1,100,'{{}}',datetime('2024-01-01','+'||(i%700)||' days'),{t},{t} FROM n;
+            INSERT INTO account_balances(user_id,exchange_id,asset_id,free,synced_at,created_at,updated_at) SELECT DISTINCT 1,1,base_asset_id,1,{t},{t},{t} FROM transactions;
+        ")).unwrap();
+        assert_eq!(c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get::<_,i64>(0)).unwrap(),5792);
+        let steps=Arc::new(AtomicU64::new(0));
+        let counter=steps.clone();
+        c.progress_handler(100,Some(move||{counter.fetch_add(100,Ordering::Relaxed);false}));
+        let measure=|c:&rusqlite::Connection|{ steps.store(0,Ordering::Relaxed); let (revision,_)=super::revision(c,1).unwrap(); (revision,steps.load(Ordering::Relaxed)) };
+        let (before,alone)=measure(&c);
+        // The rest of the install: 39,818 assets in all (150 of them currencies), and the other venues' listings.
+        c.execute_batch(&format!("
+            WITH RECURSIVE n(i) AS (SELECT 7969 UNION ALL SELECT i+1 FROM n WHERE i<39818)
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at)
+                SELECT i,CASE WHEN i>39668 THEN 'Currency' ELSE 'Cryptocurrency' END,'c'||i,'C'||i,'C'||i,{t},{t} FROM n;
+            INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+                SELECT id,symbol,id,9,CASE WHEN id<11145 THEN 2 WHEN id<12846 THEN 3 ELSE 4 END,0,1,2,'USD',1,2,symbol||'/USD',{t},{t} FROM assets WHERE id BETWEEN 7969 AND 14535;
+        ")).unwrap();
+        let (after,crowded)=measure(&c);
+        assert_eq!(before,after,"nothing the figures read changed");
+        assert!(crowded<=alone+alone/50,"the fingerprint took {crowded} VM steps beside the rest of the install, {alone} without it");
+    }
+    #[test]
+    fn kept_figures_take_each_request_s_own_token() {
+        let kept=serde_json::json!({"bots":{"1":{"metrics":format!("<input value=\"{0}\"><input value=\"{0}\">",super::TOKEN_PLACEHOLDER),"tile":"<div>"}}});
+        assert_eq!(super::with_token(&kept,"a+b&c")["bots"]["1"]["metrics"],"<input value=\"a+b&amp;c\"><input value=\"a+b&amp;c\">");
+        assert_eq!(super::with_token(&kept,"x")["bots"]["1"]["tile"],"<div>");
+    }
     #[test]
     fn many_resolved_names_stay_one_compound_term() {
         let c=rusqlite::Connection::open_in_memory().unwrap();

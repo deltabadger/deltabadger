@@ -243,7 +243,7 @@ impl Draft {
             }
         }
         let ids: Vec<i64> = self.candidate.allocations().iter().map(|(id, _)| *id).chain(self.candidate.memberships.iter().map(|m| m.asset.id)).collect();
-        self.candidate.tickers = Ticker::all(c, "t.exchange_id = ?1 AND t.quote_asset_id IS ?2 AND t.available = 1 AND t.trading_enabled = 1", &[&self.candidate.exchange.id, &quote])?
+        self.candidate.tickers = Ticker::all(c, "t.exchange_id = ?1 AND +t.quote_asset_id IS ?2 AND t.available = 1 AND t.trading_enabled = 1", &[&self.candidate.exchange.id, &quote])?
             .into_iter().filter(|t| self.candidate.kind == Kind::Index || ids.contains(&t.base_asset_id)).collect();
         Ok(())
     }
@@ -467,7 +467,7 @@ impl Draft {
             }
             let ids: Vec<i64> = self.candidate.allocations().iter().map(|(id, _)| *id).collect();
             let quote = self.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
-            let allowed: Vec<i64> = Ticker::all(c, "t.exchange_id = ?1 AND t.quote_asset_id IS ?2", &[&self.candidate.exchange.id, &quote])?.into_iter().filter(|t| ids.contains(&t.base_asset_id)).map(|t| t.id).collect();
+            let allowed: Vec<i64> = Ticker::all(c, "t.exchange_id = ?1 AND +t.quote_asset_id IS ?2", &[&self.candidate.exchange.id, &quote])?.into_iter().filter(|t| ids.contains(&t.base_asset_id)).map(|t| t.id).collect();
             if !allowed.is_empty() {
                 for prefix in trigger_prefixes() {
                     if self.read(&format!("{prefix}ed")) != json!(true) { continue; }

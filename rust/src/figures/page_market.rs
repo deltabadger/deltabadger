@@ -8,18 +8,23 @@ use crate::venue::http::{HttpRequest, Transport, TransportError};
 use serde_json::Value;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 pub const PRICE_TTL: i64 = 60;
 pub const MAX_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_ENTRIES: usize = 512;
 const UNAVAILABLE: &str = "Market data unavailable";
 
+// Responses are shared, not copied: every page load clones the account's cache (`Service::begin`).
 #[derive(Clone)]
-struct Entry { until: i64, value: Fetch<Value>, origin:Option<crate::engine::model::CredentialVersion> }
+struct Entry { until: i64, value: Fetch<Arc<Value>>, origin:Option<crate::engine::model::CredentialVersion> }
 #[derive(Clone)]
-struct Head { until: i64, bars: Vec<Value>, origin:Option<crate::engine::model::CredentialVersion> }
+struct Head { until: i64, bars: Arc<Vec<Value>>, origin:Option<crate::engine::model::CredentialVersion> }
+/// What was rendered from one cache as it stands, by the caller's key: shared by every clone of it until a fill or a new
+/// stamp changes it (both start an empty one).
+type Rendered = Arc<Mutex<Vec<(String, Arc<Value>)>>>;
 #[derive(Clone, Default)]
-pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion> }
+pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered }
 
 fn key(request: &HttpRequest) -> String {
     format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"))
@@ -84,8 +89,21 @@ impl Cache {
     }
     pub fn producer(&self)->&Option<crate::engine::model::CredentialVersion> { &self.origin }
     pub fn stamp(&self) -> Option<At> { self.stamp }
-    pub fn set_stamp(&mut self, at: At) { self.stamp = Some(at); }
+    pub fn set_stamp(&mut self, at: At) { self.stamp = Some(at); self.rendered = Rendered::default(); }
+    /// What `keep` kept under `key` for this cache.
+    pub fn kept(&self, key: &str) -> Option<Arc<Value>> {
+        self.rendered.lock().unwrap_or_else(std::sync::PoisonError::into_inner).iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+    }
+    /// Keeps what was rendered from this cache under `key`, for every clone of it. A handful of keys (a locale and a
+    /// path prefix each, with or without a form token) per cache; past that the oldest goes.
+    pub fn keep(&self, key: String, value: Arc<Value>) {
+        let mut rendered = self.rendered.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        rendered.retain(|(k, _)| *k != key);
+        if rendered.len() >= 8 { rendered.remove(0); }
+        rendered.push((key, value));
+    }
     pub async fn fill(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64) {
+        self.rendered = Rendered::default();
         self.origin=wire.producer();
         for request in demands {
             let cache_key = key(&request);
@@ -94,14 +112,14 @@ impl Cache {
             if self.entries.borrow().len() >= MAX_ENTRIES { self.entries.borrow_mut().retain(|_, entry| entry.until > now); }
             // This process is a cache, not a second database. Eviction only causes a new read.
             if self.entries.borrow().len() >= MAX_ENTRIES { self.entries.borrow_mut().clear(); }
-            self.entries.borrow_mut().insert(cache_key, Entry { until: now.saturating_add(PRICE_TTL), value, origin:wire.producer() });
+            self.entries.borrow_mut().insert(cache_key, Entry { until: now.saturating_add(PRICE_TTL), value: value.map(Arc::new), origin:wire.producer() });
             if self.bytes() > 32 * 1024 * 1024 { self.entries.borrow_mut().clear(); self.heads.borrow_mut().clear(); }
         }
     }
     async fn fill_candles(&mut self, wire: &impl Transport, request: &HttpRequest, now: i64) -> Fetch<Value> {
         let cache_key = key(request);
         if self.heads.borrow().get(&cache_key).is_some_and(|h|!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.heads.borrow_mut().remove(&cache_key); }
-        let old = self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.clone()).unwrap_or_default();
+        let old = self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.to_vec()).unwrap_or_default();
         let mut tail_request = request.clone();
         if let Some(last) = old.last() {
             let start = last["t"].as_str().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
@@ -121,7 +139,7 @@ impl Cache {
         bars.dedup_by_key(|bar| bar_time(bar));
         if !bars.is_empty() {
             if self.heads.borrow().len() >= MAX_ENTRIES { self.heads.borrow_mut().clear(); }
-            self.heads.borrow_mut().insert(cache_key, Head { until: now.saturating_add(CANDLE_TTL), bars: bars.clone(), origin:wire.producer() });
+            self.heads.borrow_mut().insert(cache_key, Head { until: now.saturating_add(CANDLE_TTL), bars: Arc::new(bars.clone()), origin:wire.producer() });
         }
         Ok(Value::Array(bars))
     }
@@ -134,7 +152,7 @@ impl<'a> Reader<'a> {
     pub fn failed(&self) -> bool { self.failed.get() }
     pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
     pub fn demands(&self) -> Vec<HttpRequest> { self.demands.borrow().values().cloned().collect() }
-    fn get(&self, request: HttpRequest) -> Fetch<Value> {
+    fn get(&self, request: HttpRequest) -> Fetch<Arc<Value>> {
         let fresh=|origin:&Option<crate::engine::model::CredentialVersion>|->Result<bool,Failure> {
             let Some(c)=self.current else { return Ok(true) }; // The unbound numerical harness reads no stored credentials.
             if !crate::engine::model::current_for(origin.as_ref(),self.cache.origin.as_ref()).is_fresh(){return Ok(false)}
@@ -150,7 +168,7 @@ impl<'a> Reader<'a> {
                 return entry.value.clone();
             }
             if let Some(head) = self.cache.heads.borrow().get(&key).filter(|head| fresh(&head.origin).unwrap_or(false) && head.until > self.now && head.bars.last().and_then(bar_time).is_some_and(|t| self.now < t.saturating_add(2 * seconds(&request)))) {
-                return Ok(Value::Array(head.bars.clone()));
+                return Ok(Arc::new(Value::Array(head.bars.to_vec())));
             }
         } else if let Some(entry) = self.cache.entries.borrow().get(&key).filter(|entry| fresh(&entry.origin).unwrap_or(false) && entry.until > self.now) { return entry.value.clone(); }
         self.demands.borrow_mut().insert(key, request);
@@ -172,7 +190,7 @@ impl MarketData for Reader<'_> {
             match self.get(request(path, vec![("symbols", names.join(","))])) {
                 Err(error) => failed = Some(error),
                 Ok(body) => {
-                    let entries = if crypto { &body["trades"] } else { &body };
+                    let entries = if crypto { &body["trades"] } else { &*body };
                     let Some(entries) = entries.as_object() else { failed = Some(Failure::Failed(UNAVAILABLE.into())); continue; };
                     for (code, item) in entries {
                         let price = if crypto { &item["p"] } else { &item["latestTrade"]["p"] };
