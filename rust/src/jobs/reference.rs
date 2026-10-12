@@ -330,43 +330,73 @@ fn legacy_tickers(c: &Connection, alpaca: i64) -> Result<Vec<(i64, String)>, Str
     rows
 }
 
-/// `to_s` of a JSON scalar.
-fn ruby_s(v: &Value) -> Option<String> {
-    match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) }
+/// The backfill's rows, as Ruby walks `Array(result.data && result.data['data'])`: what Ruby would raise on is an error here,
+/// before anything is written; a String row or identifier is indexed as a substring and never matches, so it is skipped.
+fn backfill_rows(body: &Value) -> Result<Vec<&serde_json::Map<String, Value>>, String> {
+    let malformed = |what: &str, v: &Value| Err(format!("stock backfill: malformed payload ({what} is {v}); nothing rewritten"));
+    let data = match body { Value::Object(m) => m.get("data").unwrap_or(&Value::Null), Value::Null | Value::String(_) => &Value::Null, v => return malformed("the body", v) };
+    let rows: &[Value] = match data { Value::Null | Value::String(_) => &[], Value::Array(a) => a, v => return malformed("data", v) };
+    let mut out = vec![];
+    for row in rows {
+        let row = match row { Value::Object(m) => m, Value::String(_) => continue, v => return malformed("a row", v) };
+        let ids: &[Value] = match row.get("identifiers").unwrap_or(&Value::Null) {
+            Value::Null | Value::String(_) => &[],
+            Value::Object(m) if m.is_empty() => &[],
+            Value::Array(a) => a,
+            v => return malformed("identifiers", v),
+        };
+        for i in ids { if !matches!(i, Value::Object(_) | Value::String(_)) { return malformed("an identifier", i); } }
+        out.push(row);
+    }
+    Ok(out)
 }
 
 /// MarketData.backfill_canonical_stock_external_ids! (:733-823) on a fetched payload: each legacy alpaca_<uuid> stock row
 /// whose symbol maps to exactly one canonical external_id takes it, keeping its id (so every bot, ticker and ledger row
 /// referring to it follows). A symbol is excluded when it resolves to more than one canonical, or its canonical carries
 /// more than one alpaca identifier; a row is left alone when its canonical already exists. The flag is set unless the
-/// payload carries no alpaca identifier at all.
-fn backfill(c: &Connection, cipher: &crate::crypto::Cipher, rows: &[Value], now: DateTime<Utc>) -> Result<Vec<i64>, String> {
-    use std::collections::{BTreeSet, HashMap};
-    let mut canonicals: HashMap<String, BTreeSet<Option<String>>> = HashMap::new();
-    let mut alpaca_ids: HashMap<Option<String>, usize> = HashMap::new();
-    for row in rows {
-        let ext = ruby_s(&row["external_id"]);
-        for i in row["identifiers"].as_array().into_iter().flatten() {
+/// payload carries no alpaca identifier at all. Every rewrite is planned, and checked, before the first is written.
+fn backfill(c: &Connection, cipher: &crate::crypto::Cipher, body: &Value, now: DateTime<Utc>) -> Result<Vec<i64>, String> {
+    use std::collections::{BTreeSet, HashMap, HashSet};
+    // Keyed by the raw JSON value, as Ruby's Set and Hash key `false`, `5` and "5" apart.
+    let mut canonicals: HashMap<String, BTreeSet<String>> = HashMap::new();
+    let mut alpaca_ids: HashMap<String, usize> = HashMap::new();
+    let mut raw: HashMap<String, &Value> = HashMap::new();
+    for row in backfill_rows(body)? {
+        let ext = row.get("external_id").unwrap_or(&Value::Null);
+        let key = ext.to_string();
+        for i in row.get("identifiers").and_then(Value::as_array).into_iter().flatten() {
             if i["scheme"].as_str() != Some("alpaca") { continue; }
-            let symbol = ruby_s(&i["value"]).unwrap_or_default().replacen("us_equity:", "", 1); // String#sub
-            canonicals.entry(symbol).or_default().insert(ext.clone());
-            *alpaca_ids.entry(ext.clone()).or_default() += 1;
+            let value = match &i["value"] { Value::Null => String::new(), Value::String(s) => s.clone(), v => v.to_string() }; // to_s
+            canonicals.entry(value.replacen("us_equity:", "", 1)).or_default().insert(key.clone()); // String#sub
+            *alpaca_ids.entry(key.clone()).or_default() += 1;
+            raw.insert(key.clone(), ext);
         }
     }
     if canonicals.is_empty() { return Ok(vec![]); } // no alpaca identifiers: the flag stays unset for a retry
-    let to_canonical: HashMap<&String, &String> = canonicals.iter().filter_map(|(symbol, set)| {
+    let to_canonical: HashMap<&String, &Value> = canonicals.iter().filter_map(|(symbol, set)| {
         let only = set.iter().next().filter(|_| set.len() == 1)?;
-        (alpaca_ids[only] == 1).then_some(())?;
-        Some((symbol, only.as_ref()?)) // a nil canonical: the row is unmatched
+        (alpaca_ids[only] == 1).then(|| (symbol, raw[only]))
     }).collect();
     let mut s = c.prepare(&format!("SELECT id, symbol FROM assets WHERE {LEGACY_STOCK} ORDER BY id")).map_err(|e| e.to_string())?;
     let legacy: Vec<(i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?
         .collect::<Result<_, _>>().map_err(|e| e.to_string())?;
-    let mut rewritten = vec![];
+    let mut claimed = HashSet::new();
+    let mut plan = vec![];
     for (id, symbol) in legacy {
         let Some(&canonical) = symbol.as_ref().and_then(|s| to_canonical.get(s)) else { continue };
-        let exists: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE external_id = ?1)", [canonical], |r| r.get(0)).map_err(|e| e.to_string())?;
-        if exists { continue; }
+        // The string column's cast (import::string, as the stock upsert writes it): `false` is "f". nil is unmatched.
+        let canonical = match canonical {
+            Value::Null => continue,
+            Value::Array(_) | Value::Object(_) => return Err(format!("stock backfill: canonical external_id {canonical} is not a string; nothing rewritten")),
+            v => import::string(v).unwrap_or_default(),
+        };
+        let exists: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE external_id = ?1)", [&canonical], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if exists || !claimed.insert(canonical.clone()) { continue; }
+        plan.push((id, canonical));
+    }
+    let mut rewritten = vec![];
+    for (id, canonical) in plan {
         // update_columns: updated_at stays.
         c.execute("UPDATE assets SET external_id = ?1 WHERE id = ?2", rusqlite::params![canonical, id]).map_err(|e| e.to_string())?;
         rewritten.push(id);
@@ -399,7 +429,7 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
             Err(e) if e.rate_limited() || matches!(e, ApiError::Transient(_)) => return api_failure(e),
             Err(_) => {}
             Ok(body) => if let Err(m) = cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "stock backfill", |c| {
-                backfill(c, cipher, &take_list(body), now).map(|ids| ((), import::Touched::Assets(ids)))
+                backfill(c, cipher, &body, now).map(|ids| ((), import::Touched::Assets(ids)))
             })).await { return Outcome::Failed(m); },
         }
         // The sync is gated on the flag (sync_stocks_from_deltabadger_job.rb:62-64); Rails returns quietly.

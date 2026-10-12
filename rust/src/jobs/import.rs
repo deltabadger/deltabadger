@@ -105,7 +105,16 @@ pub fn in_transaction<X>(c: &Connection, cipher: &Cipher, phase: &'static str, f
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate).map_err(sql)?;
         let (x, touched) = f(&tx)?;
         if touched.relevant(&tx)? {
-            crate::engine::eligibility::guard(&tx, cipher, None)
+            // `before`: a second connection reads the committed state (WAL: Rails' journal mode), which this write transaction
+            // started from. ponytail: it binds the cipher only, so an index bot's provider reasons there read the process
+            // environment, where a mismatch errs toward refusing a harmless write.
+            let before = || {
+                let r = Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+                r.busy_timeout(std::time::Duration::from_millis(5_000))?;
+                crate::engine::provider::bind_cipher(&r, cipher)?;
+                crate::engine::eligibility::install_findings(&r)
+            };
+            crate::engine::eligibility::guard_reference_write(&tx, cipher, before)
                 .map_err(|refusal| format!("rolled back ({phase}): this write would stop a running bot: {}", refusal.reason()))?;
         }
         tx.commit().map_err(sql)?;
@@ -142,7 +151,7 @@ fn int(v: Option<i64>) -> Sql { v.map_or(Sql::Null, Sql::Integer) }
 
 /// ActiveModel::Type::String#cast. ponytail: a JSON float prints as Rust prints it ("1.5"), not as Float#to_s ("1.0e+20");
 /// data-api sends strings for every string column.
-fn string(v: &Value) -> Option<String> {
+pub fn string(v: &Value) -> Option<String> {
     match v {
         Value::Null => None,
         Value::String(s) => Some(s.clone()),

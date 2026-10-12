@@ -289,11 +289,18 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
     Ok(())
 }
 
-pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
+pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c, &mut std::collections::BTreeSet::new()) }
+
+/// check_install, also collecting each finding on its own: every reason of a working bot as "bot {id}: {reason}", every
+/// other problem line whole.
+fn install(c: &Connection, items: &mut std::collections::BTreeSet<String>) -> Result<Report, EngineError> {
     let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![], notes: vec![] };
     let mut splits = SplitRows::new();
     let rules: i64 = c.query_row(&format!("SELECT count(*) FROM rules WHERE status IN ({})", model::working_list()), [], |r| r.get(0))?;
-    if rules > 0 { report.problems.push(format!("{rules} active rule(s): rules run only in the full app")); }
+    if rules > 0 {
+        report.problems.push(format!("{rules} active rule(s): rules run only in the full app"));
+        items.extend(report.problems.last().cloned());
+    }
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
     // and Rails keeps accounting for them, so their pending work refuses the install like any other bot's.
     let mut s = c.prepare("SELECT id FROM bots ORDER BY id")?;
@@ -301,7 +308,7 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
     for id in ids {
         let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons_with(c, &b, &mut splits).map(|r| (b, r))) {
             Ok(x) => x,
-            Err(e) => { report.unreadable.push((id, format!("{e:?}"))); continue; }
+            Err(e) => { report.unreadable.push((id, format!("{e:?}"))); items.insert(format!("bot {id}: unreadable")); continue; }
         };
         let working = BOT_WORKING.contains(&bot.status);
         if reasons.is_empty() {
@@ -310,6 +317,7 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
         }
         if working {
             report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), reasons.join(", ")));
+            items.extend(reasons.iter().map(|r| format!("bot {id}: {r}")));
             continue;
         }
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)", [id], |r| r.get(0))?;
@@ -317,6 +325,7 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
+            items.extend(report.problems.last().cloned());
         }
     }
     Ok(report)
@@ -408,13 +417,49 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
     };
     super::provider::bind_cipher(tx,cipher).map_err(failed)?;
     check_install(tx).map_err(failed)?.refusal()?;
-    let stranded = placement::stranded(tx).map_err(failed)?;
-    if !stranded.is_empty() {
-        return Err(Refusal::Reconciling(stranded.iter().map(|id| {
-            format!("bot {id}: an order is still being reconciled; its composition, asset, exchange and quote cannot change until it settles")
-        }).collect()));
-    }
+    reconciling(tx).map_err(failed)??;
     crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)
+}
+
+/// check_install's findings one at a time: each reason of each working bot, every other problem line whole.
+pub fn install_findings(c: &Connection) -> Result<std::collections::BTreeSet<String>, EngineError> {
+    let mut items = std::collections::BTreeSet::new();
+    install(c, &mut items)?;
+    Ok(items)
+}
+
+/// `guard` for a reference-data write (jobs::import::in_transaction). What check_install refuses is judged by what the
+/// write adds: a finding the install already had (`before`: install_findings on the state the write started from) does not
+/// block it, so one bot already outside the slice cannot freeze every other bot's reference data, while a write that gives
+/// any bot a new reason is refused. An unresolved order and preflight's own refusals (venue, key) refuse as in `guard`.
+pub fn guard_reference_write(tx: &Connection, cipher: &Cipher, before: impl FnOnce() -> Result<std::collections::BTreeSet<String>, EngineError>) -> Result<(), Refusal> {
+    let failed = |e: EngineError| {
+        crate::engine::log(&format!("guard failed for a background job's write: {e:?}"));
+        Refusal::Failed(e)
+    };
+    super::provider::bind_cipher(tx, cipher).map_err(failed)?;
+    let mut after = std::collections::BTreeSet::new();
+    let report = install(tx, &mut after).map_err(failed)?;
+    let whole: Vec<String> = report.problems.iter().cloned()
+        .chain(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})"))).collect();
+    if !whole.is_empty() && after.difference(&before().map_err(failed)?).next().is_some() { report.refusal()?; }
+    reconciling(tx).map_err(failed)??;
+    // preflight repeats check_install's lines, judged above; what is left is its own.
+    match crate::venue::alpaca::preflight(tx, cipher) {
+        Err(lines) => {
+            let own: Vec<String> = lines.into_iter().filter(|l| !whole.contains(l)).collect();
+            if own.is_empty() { Ok(()) } else { Err(Refusal::Untradable(own)) }
+        }
+        Ok(_) => Ok(()),
+    }
+}
+
+fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
+    let stranded = placement::stranded(tx)?;
+    if stranded.is_empty() { return Ok(Ok(())); }
+    Ok(Err(Refusal::Reconciling(stranded.iter().map(|id| {
+        format!("bot {id}: an order is still being reconciled; its composition, asset, exchange and quote cannot change until it settles")
+    }).collect())))
 }
 
 /// Bots::DcaIndex within what Plan 2d ports: Alpaca, USD, a data-api category index this install holds (MarketData.get_top_coins

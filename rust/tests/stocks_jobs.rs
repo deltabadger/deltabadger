@@ -46,3 +46,29 @@ fn stock_freshness_uses_completed_stock_jobs_and_scoped_ledger_success() {
     o.primary.execute("UPDATE exchange_assets SET updated_at = '2026-09-01 14:00:00'", []).unwrap();
     assert_eq!(staleness::stale(&o.primary, &bot, now()).unwrap().unwrap().source, "Alpaca stock tickers", "partial row stamps do not freshen the tick");
 }
+
+/// A reference write is refused only for what it adds: another running bot already outside the slice (a legacy asset with
+/// no instrument_type) does not block a harmless write to an eligible bot's asset, and a write that gives a running bot a
+/// new reason is still rolled back.
+#[test]
+fn a_reference_write_is_refused_for_what_it_adds_not_for_what_the_install_already_had() {
+    use deltabadger::jobs::import::{in_transaction, Touched};
+    let (_d, o, s) = common::install_alpaca();
+    let (good, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    let (legacy, _) = seed::add_alpaca_stock(&o.primary, &s, "GONE");
+    o.primary.execute("UPDATE assets SET external_id = 'alpaca_9f', instrument_type = NULL WHERE id = ?1", [legacy]).unwrap();
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(good, 1.0)]));
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(legacy, 1.0)]));
+    assert!(deltabadger::engine::eligibility::check_install(&o.primary).unwrap().refusal().is_err(), "the install starts outside the slice");
+    let write = |sql: &'static str, id: i64| in_transaction(&o.primary, &seed::cipher(), "test", move |tx| {
+        tx.execute(sql, [id]).map_err(|e| e.to_string())?;
+        Ok(((), Touched::Assets(vec![id])))
+    });
+    write("UPDATE assets SET name = 'Apple' WHERE id = ?1", good).expect("a harmless write is not blocked by another bot's old problem");
+    let refused = write("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", good);
+    assert!(refused.is_err_and(|e| e.contains("would stop a running bot")), "a new reason for a running bot is refused");
+    let instrument: String = o.primary.query_row("SELECT instrument_type FROM assets WHERE id = ?1", [good], |r| r.get(0)).unwrap();
+    assert_eq!(instrument, "stock");
+    let refused = write("UPDATE assets SET category = 'Cryptocurrency', instrument_type = 'stock' WHERE id = ?1", legacy);
+    assert!(refused.is_err(), "a changed reason on the already-refused bot is new too");
+}
