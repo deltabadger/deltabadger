@@ -64,7 +64,7 @@ A tool is usable only when both of these are true:
 | **Create bot** | Create and start a [DCA](10-dollar-cost-averaging.md) bot: one asset, or a basket of up to 100 with weights (or market-cap weighting), plus exchange, quote currency, amount, interval (hour, day, week or month), optional label and start time |
 | **Create index bot** | Create and start an [index bot](13-direct-indexing.md): an index from **List indices**, how many assets to hold, and how far to flatten market-cap weights towards equal |
 | **Create signal bot** | Create and start a signal bot: one pair, no schedule. Orders placed with **Market buy** / **Market sell** and its bot id are recorded on the bot's page |
-| **Start bot** | Start a stopped or newly created bot. Restarting asks what the web restart dialog asks: skip what was missed and start a new schedule, or continue the original one |
+| **Start bot** | Start a stopped or newly created bot. By default it resets the schedule and can place an order at once (unless a future starting time applies); asked to continue, it keeps the schedule but can invest what was missed while stopped. A bot that can sell waits until the wash-sale question is answered |
 | **Stop bot** | Stop a running bot |
 | **Update bots** | Change settings on a stopped bot: amount and label on any bot, the index knobs on an index bot, the weights on a basket bot. Membership is not editable |
 | **Archive bot** | Stop a bot and take it off the dashboard, keeping its history (see [Managing bots](15-managing-bots.md)) |

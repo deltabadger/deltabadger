@@ -38,6 +38,8 @@ en:
     # This and invalid_start_fresh are English only; other locales fall back.
     already_running: "This bot is already running."
     invalid_start_fresh: "Choose whether to start fresh or continue."
+    # Every start refuses a bot that can sell until the wash-sale question is answered (the web shows the question too).
+    wash_sale_question_owed: "Bot '%{label}' can sell, so answer the wash-sale question first, on the bot's page or in Settings."
     # Shared with Rails: Bot#trading_key_ready refuses a start with it.
     api_key_not_ready: "A valid trading API key is required to start this bot."
     invalid_parameter: "This setting has an invalid value."

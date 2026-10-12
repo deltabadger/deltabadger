@@ -11,7 +11,7 @@ module WashSalePromptable
   private
 
   def wash_sale_prompt_due?(bot)
-    user_signed_in? && !current_user.wash_sale_decided? && bot.sell_capable?
+    user_signed_in? && current_user.wash_sale_question_owed_for?(bot)
   end
 
   # What protection cannot cover while a multi-asset bot sells: it stops Deltabadger buying an asset

@@ -25,6 +25,9 @@ module BotApi
       def call
         bot = @user.bots.not_deleted.find_by(id: @bot_id.to_i)
         return Result.failure(:not_found, 'bot_not_found', 'Bot not found.') unless bot
+        if @user.wash_sale_question_owed_for?(bot)
+          return Result.failure(:validation_failed, 'wash_sale_question_owed', I18n.t('engine.wash_sale_question_owed', label: bot.label))
+        end
         return Result.failure(:validation_failed, 'invalid_start_fresh', I18n.t('engine.invalid_start_fresh')) if @start_fresh.nil?
 
         if bot.working?
@@ -33,7 +36,7 @@ module BotApi
                                 data: { id: bot.id, label: bot.label, status: bot.status.to_s })
         end
 
-        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
+        # Straight to Bot#start, as the web start does: no carry captured here that the web would not capture.
         if bot.start(start_fresh: @start_fresh)
           Result.success({ id: bot.id, label: bot.label, status: bot.status.to_s })
         else

@@ -3,8 +3,9 @@
 require 'test_helper'
 
 # MCP and REST start are the web Start's twins: the same start_fresh choice, read the same way and
-# handed to the same Bot#start. One bot per path, identical before the start, must come out
-# identical after it — status, started_at, the stored start_at and the tick it armed.
+# handed to the same Bot#start, behind the same refusals. One bot per path, identical before the
+# start, must come out identical after it — every column start writes, the carry it captured, the
+# tick it armed and the activity row it logged.
 class Bots::StartParityTest < ActionDispatch::IntegrationTest
   TURBO_STREAM_ACCEPT = 'text/vnd.turbo-stream.html, text/html'
   SUNDAY = Time.utc(2026, 5, 24, 12, 34, 0)
@@ -12,7 +13,6 @@ class Bots::StartParityTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true, setup_completed: true) # onboarding gate
     @user = create(:user)
-    @user.update!(wash_sale_enabled: false)
     @user.set_mcp_tool_enabled('start_bot', true)
     @user.set_rest_tool_enabled('start_bot', true)
     sign_in @user
@@ -42,7 +42,8 @@ class Bots::StartParityTest < ActionDispatch::IntegrationTest
         outcomes = start_paths.to_h { |path| [path, start_via(path, start_time_bot, fresh)] }
         assert_equal 1, outcomes.values.uniq.size, outcomes.inspect
 
-        status, started_at, start_at, ticks = outcomes[:web]
+        state = outcomes[:web]
+        status, started_at, start_at, ticks = state.values_at(:status, :started_at, :start_at, :ticks)
         assert_equal 'scheduled', status
         if fresh
           monday = Time.utc(2026, 5, 25, 9, 0, 0)
@@ -58,7 +59,44 @@ class Bots::StartParityTest < ActionDispatch::IntegrationTest
     travel_to SUNDAY do
       outcomes = start_paths.to_h { |path| [path, start_via(path, start_time_bot, nil)] }
       assert_equal 1, outcomes.values.uniq.size, outcomes.inspect
-      assert_equal Time.utc(2026, 5, 25, 9), outcomes[:web][1]
+      assert_equal Time.utc(2026, 5, 25, 9), outcomes[:web][:started_at]
+    end
+  end
+
+  test 'continue carries what was missed, and every path captures the same carry' do
+    travel_to SUNDAY do
+      outcomes = start_paths.to_h { |path| [path, start_via(path, plain_bot, false)] }
+      assert_equal 1, outcomes.values.uniq.size, outcomes.inspect
+      assert_operator outcomes[:web][:missed_quote_amount], :>, 0, 'a bot stopped for three days owes its missed intervals'
+    end
+  end
+
+  # The web asks the wash-sale question before a bot that can sell may start; MCP and REST refuse
+  # at the same point with the same words, and none of the three writes or arms anything.
+  test 'a bot that can sell is refused on every path while the wash-sale question is unanswered' do
+    travel_to SUNDAY do
+      message = I18n.t('engine.wash_sale_question_owed', label: 'Seller')
+      start_paths.each do |path|
+        bot = plain_bot
+        bot.update_columns(label: 'Seller', settings: bot.settings.merge('direction' => 'selling'))
+        before = state(bot.reload)
+
+        case path
+        when :web
+          patch bot_start_path(bot_id: bot.id, start_fresh: true), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+          assert_response :unprocessable_entity
+          assert_match 'wash_sale[enabled]', response.body, 'the web refusal is the question itself'
+          assert_includes CGI.unescapeHTML(response.body), message
+        when :mcp
+          stub_mcp_client(@user)
+          assert_equal message, StartBotTool.new(bot_id: bot.id, start_fresh: true).execute.contents.first.text
+        when :rest
+          post "/api/v1/bots/#{bot.id}/start", params: { start_fresh: true }, headers: { 'Authorization' => "Bearer #{@token.token}" }, as: :json
+          assert_response :unprocessable_entity
+          assert_equal %w[wash_sale_question_owed] + [message], JSON.parse(response.body)['error'].values_at('code', 'message')
+        end
+        assert_equal before, state(bot.reload), "#{path} refused without a write"
+      end
     end
   end
 
@@ -98,8 +136,15 @@ class Bots::StartParityTest < ActionDispatch::IntegrationTest
       post "/api/v1/bots/#{bot.id}/start", params: flag, headers: { 'Authorization' => "Bearer #{@token.token}" }, as: :json
       assert_response :ok
     end
-    bot.reload
-    [bot.status, bot.started_at, bot.settings['start_at'], ticks(bot)]
+    state(bot.reload)
+  end
+
+  # Everything Bot#start writes or arms, ids aside.
+  def state(bot)
+    { status: bot.status, started_at: bot.started_at, start_at: bot.settings['start_at'], ticks: ticks(bot),
+      settings: bot.settings, transient_data: bot.transient_data, settings_changed_at: bot.settings_changed_at,
+      stop_message_key: bot.stop_message_key, missed_quote_amount: bot.missed_quote_amount,
+      activity: BotActivityLog.where(bot:).order(:id).map { |log| [log.event, log.level, log.details] } }
   end
 
   # Seconds from now to each Bot::ActionJob armed for this bot.
