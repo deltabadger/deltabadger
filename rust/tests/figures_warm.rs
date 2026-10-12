@@ -34,7 +34,6 @@ fn script(delay_ms: u64) -> Value {
 }
 
 /// An install with `users` accounts, each with a paper Alpaca key and a basket of AAA bought once.
-#[allow(dead_code)]
 struct Install { _dir: tempfile::TempDir, file: PathBuf, clock: Arc<common::web::TestClock>, app: App }
 impl Install {
     fn new(users: i64, delay_ms: u64) -> Install { Install::with_script(users, script(delay_ms)) }
@@ -58,7 +57,6 @@ impl Install {
         for user in 1..=users { add_account(&c, &app, user); }
         Install { _dir: dir, file, clock, app }
     }
-    #[allow(dead_code)]
     fn connection(&self) -> rusqlite::Connection { rusqlite::Connection::open(&self.file).unwrap() }
     /// The `figures` service of `serve`, with no engine: what consumes the queue.
     fn consume(&self) -> tokio::sync::watch::Sender<bool> {
@@ -473,4 +471,75 @@ async fn a_timed_out_fill_keeps_the_compute_bound() {
     assert!(entered.len() >= 2, "the retry computed");
     assert!(entered[1].duration_since(entered[0]) >= Duration::from_secs(3), "the retry's worker started only once the first returned");
     assert_eq!(most.load(SeqCst), 1, "one worker at a time");
+}
+
+// ---- Task 6: the builder under WAL, and the read lock of its order reads -----------------------------------------------
+
+#[tokio::test]
+async fn wal_slow_builder_statement_blocks_neither_writer_nor_web() {
+    let install = Install::new(1, 0);
+    // A builder statement slowed by a function of its own: a millisecond a row, two seconds in all.
+    install.app.figure_service.on_builder(|c| {
+        c.create_scalar_function("slowly", 1, rusqlite::functions::FunctionFlags::SQLITE_UTF8, |ctx| { std::thread::sleep(Duration::from_millis(1)); ctx.get::<i64>(0) }).unwrap();
+    });
+    install.app.figure_service.set_builder_path(install.file.to_str().unwrap().to_string());
+    let service = install.app.figure_service.clone();
+    let slow = tokio::task::spawn_blocking(move || service.with_builder(|c| Ok(c.query_row("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<2000) SELECT sum(slowly(i)) FROM n, transactions", [], |r| r.get::<_, i64>(0))?)));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // A writer commits while it runs ...
+    let file = install.file.clone();
+    let commit = tokio::task::spawn_blocking(move || {
+        let writer = rusqlite::Connection::open(&file).unwrap();
+        let t = Instant::now();
+        writer.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES ('wal-check','{}','2026-01-01','2026-01-01')", []).unwrap();
+        t.elapsed()
+    }).await.unwrap();
+    // ... and pages are served.
+    let pages = p95(latencies(&install, "/settings/connect", 20, Duration::from_millis(25)).await);
+    assert!(!slow.is_finished(), "the slow statement ran throughout");
+    assert_eq!(slow.await.unwrap().unwrap(), 2000 * 2001 / 2);
+    assert!(commit < Duration::from_millis(50), "a commit took {commit:?} beside the builder's statement");
+    assert!(pages < Duration::from_millis(50), "pages p95 {pages:?} beside the builder's statement");
+}
+
+#[tokio::test]
+async fn non_wal_logs_once() {
+    let install = Install::new(1, 0);
+    // The same install in a rollback journal, which no other connection holds open.
+    let rollback = install.file.with_file_name("rollback.sqlite3");
+    install.connection().execute("VACUUM INTO ?1", [rollback.to_str().unwrap()]).unwrap();
+    assert_eq!(rusqlite::Connection::open(&rollback).unwrap().query_row("PRAGMA journal_mode=DELETE", [], |r| r.get::<_, String>(0)).unwrap(), "delete");
+    install.app.figure_service.set_builder_path(rollback.to_str().unwrap().to_string());
+    for _ in 0..3 {
+        let service = install.app.figure_service.clone();
+        tokio::task::spawn_blocking(move || service.with_builder(|c| Ok(c.query_row("SELECT 1", [], |r| r.get::<_, i64>(0))?))).await.unwrap().unwrap();
+    }
+    assert_eq!(install.app.figure_service.logged(), vec!["figures: database not in WAL; page latency during background work is not guaranteed".to_string()]);
+    let wal = Install::new(1, 0);
+    wal.app.figure_service.set_builder_path(wal.file.to_str().unwrap().to_string());
+    let service = wal.app.figure_service.clone();
+    tokio::task::spawn_blocking(move || service.with_builder(|c| Ok(c.query_row("SELECT 1", [], |r| r.get::<_, i64>(0))?))).await.unwrap().unwrap();
+    assert!(wal.app.figure_service.logged().is_empty(), "WAL: nothing to say");
+}
+
+#[tokio::test]
+async fn builder_order_read_parses_after_the_cursor_closes() {
+    // The VM steps of reading a bot's orders when the unreadable row is the first, and when it is the last: the cursor
+    // runs to its end before any row is parsed, so its read lock lasts only for the copy, either way.
+    let steps = |unreadable_first: bool| -> u64 {
+        let install = Install::new(1, 0);
+        let c = install.connection();
+        c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3000) \
+            INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+            SELECT 1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'n'||i,'REGULAR',datetime('2026-03-03','+'||i||' minutes'),'2026-01-01' FROM n").unwrap();
+        let at = if unreadable_first { "2026-03-01 00:00:00" } else { "2026-03-20 00:00:00" };
+        c.execute("INSERT INTO transactions(bot_id,exchange_id,base,quote,amount,side,status,external_status,external_id,created_at,updated_at) VALUES (1,1,'AAA','USD',1,0,9,2,'bad',?1,'2026-01-01')", [at]).unwrap();
+        let counted = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let counter = counted.clone();
+        c.progress_handler(1, Some(move || { counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed); false }));
+        assert!(deltabadger::figures::db::orders(&c, 1).is_err(), "the unreadable row refuses the history");
+        counted.load(std::sync::atomic::Ordering::Relaxed)
+    };
+    let (first, last) = (steps(true), steps(false));
+    assert!(first * 10 >= last * 9, "parsed while the cursor was open: {first} VM steps with the unreadable row first, {last} with it last");
 }

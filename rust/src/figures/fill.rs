@@ -101,24 +101,35 @@ pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresE
     let mut statement = c.prepare(
         "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type, status \
          FROM transactions WHERE bot_id = ?1 ORDER BY created_at ASC, id ASC")?;
+    // The rows are copied first and parsed once the cursor is done, so the statement's read lock lasts only for the copy.
+    let mut copied: Vec<Vec<rusqlite::types::Value>> = vec![];
     let mut rows = statement.query(params![bot_id])?;
-    let mut out = vec![];
     while let Some(r) = rows.next()? {
         budget::charge(1, 0)?;
+        copied.push((0..13).map(|i| r.get::<_, rusqlite::types::Value>(i)).collect::<Result<_, _>>()?);
+    }
+    drop(rows);
+    drop(statement);
+    fn get<T: rusqlite::types::FromSql>(row: &[rusqlite::types::Value], i: usize) -> Result<T, FiguresError> {
+        T::column_result((&row[i]).into()).map_err(|e| FiguresError::Sqlite(rusqlite::Error::FromSqlConversionFailure(i, row[i].data_type(), Box::new(e))))
+    }
+    let decimal = |row: &[rusqlite::types::Value], i: usize| -> Result<Option<super::dec::Dec>, FiguresError> { Ok(super::dec::Dec::from_sql((&row[i]).into())?) };
+    let mut out = vec![];
+    for r in &copied {
         // Every row's status is read before any is filtered: one outside Transaction.statuses (submitted, failed,
         // skipped) proves neither a fill nor a rejection, so nothing is computed from this history.
-        match r.get::<_, Option<i64>>(12)? {
+        match get::<Option<i64>>(r, 12)? {
             Some(s) if s == TxStatus::Submitted as i64 => {}
             Some(1 | 2) => continue,
             _ => return Err(FiguresError::NotComputed("unreadable transaction status".into())),
         }
-        let (side, status): (Option<i64>, Option<i64>) = (r.get(9)?, r.get(10)?);
+        let (side, status): (Option<i64>, Option<i64>) = (get(r, 9)?, get(r, 10)?);
         out.push(Order {
-            id: r.get(0)?, at: super::db::instant(&r.get::<_, String>(1)?)?, exchange_id: r.get(2)?,
-            raw: Raw::new(super::db::decimal(r, 3)?, super::db::decimal(r, 4)?, super::db::decimal(r, 5)?, super::db::decimal(r, 6)?),
-            base: r.get(7)?, asset_id: r.get(8)?, sell: side == Some(TxSide::Sell as i64), buy: side == Some(TxSide::Buy as i64),
+            id: get(r, 0)?, at: super::db::instant(&get::<String>(r, 1)?)?, exchange_id: get(r, 2)?,
+            raw: Raw::new(decimal(r, 3)?, decimal(r, 4)?, decimal(r, 5)?, decimal(r, 6)?),
+            base: get(r, 7)?, asset_id: get(r, 8)?, sell: side == Some(TxSide::Sell as i64), buy: side == Some(TxSide::Buy as i64),
             closed: status == Some(TxExternalStatus::Closed as i64),
-            kind: r.get::<_, Option<String>>(11)?.unwrap_or_default(), // NULL kind has no special accounting role; DB errors propagate.
+            kind: get::<Option<String>>(r, 11)?.unwrap_or_default(), // NULL kind has no special accounting role; DB errors propagate.
         });
     }
     Ok(out)

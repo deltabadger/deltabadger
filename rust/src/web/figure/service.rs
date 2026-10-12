@@ -17,7 +17,9 @@ pub struct Service(Arc<Mutex<State>>,Arc<Notify>,Arc<Workers>);
 struct Workers { compute:Arc<tokio::sync::Semaphore>, builder:Mutex<Builder>, timeout:Mutex<std::time::Duration> }
 type BuilderHook=Box<dyn FnOnce(&rusqlite::Connection)+Send>;
 #[derive(Default)]
-struct Builder { connection:Option<rusqlite::Connection>, path:Option<String>, hooks:Vec<BuilderHook> }
+struct Builder { connection:Option<rusqlite::Connection>, path:Option<String>, hooks:Vec<BuilderHook>, logged:Vec<String> }
+/// Readers never block a writer or each other only in WAL, which Rails sets and this build leaves alone (`store::configure`).
+const NOT_WAL:&str="figures: database not in WAL; page latency during background work is not guaranteed";
 impl Default for Workers {
     fn default()->Self { Workers{ compute:Arc::new(tokio::sync::Semaphore::new(1)), builder:Mutex::default(), timeout:Mutex::new(std::time::Duration::from_secs(90)) } }
 }
@@ -72,6 +74,8 @@ impl Service {
         let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match &builder.connection { Some(c)=>hook(c), None=>builder.hooks.push(Box::new(hook)) }
     }
+    /// What the builder logged when it opened.
+    pub fn logged(&self)->Vec<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).logged.clone() }
     /// The database file the builder opens; None until told (`loading::build`).
     pub fn builder_path(&self)->Option<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path.clone() }
     pub fn set_builder_path(&self,path:String) { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path=Some(path); }
@@ -84,6 +88,8 @@ impl Service {
             let path=builder.path.clone().ok_or_else(||WebError::Config("figures builder has no database".into()))?;
             let c=rusqlite::Connection::open(&path)?;
             crate::store::configure(&c)?;
+            // Page latency during a fill holds only in WAL: said once, when the builder opens.
+            if !c.query_row("PRAGMA journal_mode",[],|r|r.get::<_,String>(0))?.eq_ignore_ascii_case("wal") { crate::engine::log(NOT_WAL); builder.logged.push(NOT_WAL.into()); }
             for hook in std::mem::take(&mut builder.hooks) { hook(&c); }
             builder.connection=Some(c);
         }
