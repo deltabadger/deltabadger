@@ -289,17 +289,19 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
     Ok(())
 }
 
-pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c, &mut std::collections::BTreeSet::new()) }
+pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c, None) }
 
-/// check_install, also collecting each finding on its own: every reason of a working bot as "bot {id}: {reason}", every
-/// other problem line whole.
-fn install(c: &Connection, items: &mut std::collections::BTreeSet<String>) -> Result<Report, EngineError> {
+/// check_install, also collecting each finding on its own when `items` is given, each with its identity: every reason of a
+/// working bot as "bot {id}: {reason}", a read error with its error, every other problem line whole, and for every bot it
+/// refuses, each member's own findings ("bot {id} asset {asset}: …", member_findings), so that one member already refused
+/// cannot mask the same damage to another.
+fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<String>>) -> Result<Report, EngineError> {
     let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![], notes: vec![] };
     let mut splits = SplitRows::new();
     let rules: i64 = c.query_row(&format!("SELECT count(*) FROM rules WHERE status IN ({})", model::working_list()), [], |r| r.get(0))?;
     if rules > 0 {
         report.problems.push(format!("{rules} active rule(s): rules run only in the full app"));
-        items.extend(report.problems.last().cloned());
+        if let Some(i) = items.as_deref_mut() { i.extend(report.problems.last().cloned()); }
     }
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
     // and Rails keeps accounting for them, so their pending work refuses the install like any other bot's.
@@ -308,7 +310,11 @@ fn install(c: &Connection, items: &mut std::collections::BTreeSet<String>) -> Re
     for id in ids {
         let (bot, reasons) = match model::load_bot(c, id).and_then(|b| bot_reasons_with(c, &b, &mut splits).map(|r| (b, r))) {
             Ok(x) => x,
-            Err(e) => { report.unreadable.push((id, format!("{e:?}"))); items.insert(format!("bot {id}: unreadable")); continue; }
+            Err(e) => {
+                if let Some(i) = items.as_deref_mut() { i.insert(format!("bot {id}: unreadable ({e:?})")); member_findings(c, id, i)?; }
+                report.unreadable.push((id, format!("{e:?}")));
+                continue;
+            }
         };
         let working = BOT_WORKING.contains(&bot.status);
         if reasons.is_empty() {
@@ -317,7 +323,7 @@ fn install(c: &Connection, items: &mut std::collections::BTreeSet<String>) -> Re
         }
         if working {
             report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), reasons.join(", ")));
-            items.extend(reasons.iter().map(|r| format!("bot {id}: {r}")));
+            if let Some(i) = items.as_deref_mut() { i.extend(reasons.iter().map(|r| format!("bot {id}: {r}"))); member_findings(c, id, i)?; }
             continue;
         }
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)", [id], |r| r.get(0))?;
@@ -325,7 +331,7 @@ fn install(c: &Connection, items: &mut std::collections::BTreeSet<String>) -> Re
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
-            items.extend(report.problems.last().cloned());
+            if let Some(i) = items.as_deref_mut() { i.extend(report.problems.last().cloned()); member_findings(c, id, i)?; }
         }
     }
     Ok(report)
@@ -421,10 +427,42 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
     crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)
 }
 
+/// Each member's own findings for a bot check_install refuses, named by member: its member_reasons (or their read error), or,
+/// for a bot row that cannot be loaded, the member's reference rows themselves, so any change to them is new. Members are
+/// what Touched::relevant reads: the allocations' keys and bot_index_assets.
+fn member_findings(c: &Connection, id: i64, items: &mut std::collections::BTreeSet<String>) -> Result<(), EngineError> {
+    let mut s = c.prepare("SELECT CAST(a.key AS INTEGER) FROM bots b, json_each(b.settings, '$.allocations') a WHERE b.id = ?1 \
+                           UNION SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 ORDER BY 1")?;
+    let members = s.query_map([id], |r| r.get::<_, Option<i64>>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let loaded = model::load_bot(c, id);
+    for m in members.into_iter().flatten() {
+        match &loaded {
+            Ok(bot) => {
+                let alpaca = model::exchange_type(c, bot).ok().as_deref() == Some("Exchanges::Alpaca");
+                let mut r = vec![];
+                match member_reasons(c, bot, alpaca, &[m], &mut r) {
+                    Ok(()) => items.extend(r.into_iter().map(|reason| format!("bot {id} asset {m}: {reason}"))),
+                    Err(e) => { items.insert(format!("bot {id} asset {m}: unreadable ({e:?})")); }
+                }
+            }
+            Err(_) => {
+                let mut s = c.prepare("SELECT coalesce(a.category, '') || '|' || coalesce(a.instrument_type, '') || '|' || coalesce(a.external_id, '') || '|' || \
+                    coalesce((SELECT group_concat(t.id || ':' || t.ticker || ':' || t.base || ':' || t.quote || ':' || coalesce(t.base_decimals, '') || ':' || \
+                    coalesce(t.quote_decimals, '') || ':' || coalesce(t.price_decimals, '') || ':' || coalesce(t.available, '') || ':' || t.quote_asset_id, ';') \
+                    FROM tickers t WHERE t.base_asset_id = a.id AND t.exchange_id = (SELECT exchange_id FROM bots WHERE id = ?2)), '') \
+                    FROM assets a WHERE a.id = ?1")?;
+                let rows: Option<String> = s.query_row(params![m, id], |r| r.get(0)).optional()?;
+                items.insert(format!("bot {id} asset {m}: rows {}", rows.unwrap_or_else(|| "missing".into())));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// check_install's findings one at a time: each reason of each working bot, every other problem line whole.
 pub fn install_findings(c: &Connection) -> Result<std::collections::BTreeSet<String>, EngineError> {
     let mut items = std::collections::BTreeSet::new();
-    install(c, &mut items)?;
+    install(c, Some(&mut items))?;
     Ok(items)
 }
 
@@ -439,7 +477,7 @@ pub fn guard_reference_write(tx: &Connection, cipher: &Cipher, before: impl FnOn
     };
     super::provider::bind_cipher(tx, cipher).map_err(failed)?;
     let mut after = std::collections::BTreeSet::new();
-    let report = install(tx, &mut after).map_err(failed)?;
+    let report = install(tx, Some(&mut after)).map_err(failed)?;
     let whole: Vec<String> = report.problems.iter().cloned()
         .chain(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})"))).collect();
     if !whole.is_empty() && after.difference(&before().map_err(failed)?).next().is_some() { report.refusal()?; }

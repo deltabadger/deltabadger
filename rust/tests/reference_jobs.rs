@@ -376,6 +376,27 @@ async fn the_stock_jobs_switch_stops_it_and_a_legacy_row_without_a_backfill_stop
     assert_eq!(one::<String>(&reopen(&d), "SELECT external_id FROM assets WHERE symbol = 'IBIT'"), "alpaca_0b5c");
 }
 
+/// A floating-point canonical id is refused before any write: its spelling would not be Rails' Float#to_s, so the
+/// existing-canonical check could miss ("1e+20" against "1.0e+20").
+#[tokio::test(flavor = "current_thread")]
+async fn a_float_canonical_id_is_refused_before_any_write() {
+    let (d, c) = db();
+    asset(&c, "1.0e+20", "BIG", "Stock");
+    asset(&c, "alpaca_0b5d", "AAPL", "Stock");
+    let before: Vec<(i64, String)> = { let mut s = c.prepare("SELECT id, external_id FROM assets ORDER BY id").unwrap();
+        s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect() };
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/assets", 200, json!({ "data": [{ "external_id": 1e20, "symbol": "AAPL", "type": "stock",
+        "identifiers": [{ "scheme": "alpaca", "value": "us_equity:AAPL" }] }] }));
+    let out = run(reference::STOCKS, scripted(&t), c, "2026-10-02T10:05:00Z").await;
+    assert!(matches!(&out, Outcome::Failed(m) if m.contains("not an integer")), "{out:?}");
+    let c = reopen(&d);
+    let after: Vec<(i64, String)> = { let mut s = c.prepare("SELECT id, external_id FROM assets ORDER BY id").unwrap();
+        s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect() };
+    assert_eq!(after, before, "no asset changes");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM app_configs"), 0, "no flag");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rate_limits_and_network_failures_retry_and_other_failures_do_not() {
     let t = ScriptedTransport::default();

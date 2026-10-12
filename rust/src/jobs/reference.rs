@@ -339,6 +339,10 @@ fn backfill_rows(body: &Value) -> Result<Vec<&serde_json::Map<String, Value>>, S
     let mut out = vec![];
     for row in rows {
         let row = match row { Value::Object(m) => m, Value::String(_) => continue, v => return malformed("a row", v) };
+        // Float#to_s ("1.0e+20") is not serde's spelling ("1e+20"): a float id would miss the existing-canonical check.
+        if let Some(Value::Number(n)) = row.get("external_id") {
+            if !(n.is_i64() || n.is_u64()) { return Err(format!("stock backfill: external_id {n} is not an integer or a string; nothing rewritten")); }
+        }
         let ids: &[Value] = match row.get("identifiers").unwrap_or(&Value::Null) {
             Value::Null | Value::String(_) => &[],
             Value::Object(m) if m.is_empty() => &[],
