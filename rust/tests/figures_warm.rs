@@ -640,11 +640,43 @@ async fn a_render_only_pass_overtaken_by_a_write_keeps_its_work() {
             rusqlite::hooks::Authorization::Allow
         }));
     });
+    let before = fills(&install.app, 1);
     let pages = install.app.clone();
     loading::enqueue_page(&pages, 1, "fr", "/fr");
     until(10, "the write during the French pass", async || !armed.load(SeqCst)).await;
-    until(10, "the French figures after the write", async || matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0))).await;
-    until(10, "their publication", async || published(&install.app, 1).await).await;
+    // Nothing but the queue asks: the work it queued again finds the new revision, starts one fill that carries it, and
+    // that fill ends in the publication.
+    until(10, "the publication after the write", async || published(&install.app, 1).await).await;
+    assert_eq!(fills(&install.app, 1), before + 1, "the retry is one full fill");
+    assert!(matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0)), "the French figures, kept by that fill");
+}
+
+#[tokio::test]
+async fn repeated_overtakes_never_lose_the_request() {
+    use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+    let install = Install::new(1, 0);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the English figures", async || published(&install.app, 1).await).await;
+    // Eight writes, one as each computation on the builder begins (it reads the account's settings first): the French
+    // pass, then every pass of every fill its retries start, is overtaken until they stop.
+    let writes = Arc::new(AtomicUsize::new(8));
+    let (left, file) = (writes.clone(), install.file.clone());
+    install.app.figure_service.on_builder(move |c| {
+        c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+            if matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "users", column_name: "hide_balances" }) {
+                if let Ok(n) = left.fetch_update(SeqCst, SeqCst, |n| n.checked_sub(1)) {
+                    rusqlite::Connection::open(&file).unwrap().execute("UPDATE bots SET label=?1 WHERE id=1", [format!("renamed {n}")]).unwrap();
+                }
+            }
+            rusqlite::hooks::Authorization::Allow
+        }));
+    });
+    let pages = install.app.clone();
+    loading::enqueue_page(&pages, 1, "fr", "/fr");
+    until(20, "every write", async || writes.load(SeqCst) == 0).await;
+    until(20, "the publication after the last write", async || published(&install.app, 1).await).await;
+    assert!(matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0)), "the French figures, after eight overtakes");
 }
 
 #[tokio::test]
@@ -665,22 +697,123 @@ async fn an_account_without_a_paper_key_reads_a_precomputed_reason() {
     let first = loading::prepare(&install.app, 1).await.unwrap();
     shown(first).await;
     until(10, "the reason, read by the queue", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(Some(_)))).await;
-    // A view reads no order's value on the page's connection: the walk that parses them is the queue's.
-    let walked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let counter = walked.clone();
-    install.app.db(move |c| {
+    // A view runs no order walk on the page's connection (the fingerprint, which hashes whole rows, is no walk).
+    let walks = order_walks(&install.app).await;
+    let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+    let page = shown(snapshot).await.expect("the account's no-value figures");
+    assert_eq!(walks.finish(&install.app).await, 0, "a page view walked the orders");
+    assert_eq!(page, json!({"bots": {"1": {"tile": format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"), "metrics": format!("<div id=\"metrics\">{absent}</div>"),
+        "chart": format!("<div id=\"chart\">{absent}</div>")}}, "account": format!("<div id=\"global-pnl\">{absent}</div>")}));
+}
+
+/// Statements on the page's connection that read the orders' values the way a walk does (`db::orders`: price and amounts,
+/// not the whole row the fingerprint hashes), counted from when it is installed until `finish`.
+struct Walks(Arc<std::sync::Mutex<(bool, bool, usize)>>);
+async fn order_walks(app: &App) -> Walks {
+    let seen = Arc::new(std::sync::Mutex::new((false, false, 0)));
+    let statement = seen.clone();
+    app.db(move |c| {
         c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
-            if let rusqlite::hooks::AuthAction::Read { table_name: "transactions", column_name } = context.action {
-                if ["price", "amount_exec", "quote_amount_exec"].contains(&column_name) { counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+            let mut s = statement.lock().unwrap();
+            match context.action {
+                rusqlite::hooks::AuthAction::Select => { if s.0 && !s.1 { s.2 += 1; } s.0 = false; s.1 = false; }
+                rusqlite::hooks::AuthAction::Read { table_name: "transactions", column_name: "price" } => s.0 = true,
+                rusqlite::hooks::AuthAction::Read { table_name: "transactions", column_name: "external_id" } => s.1 = true,
+                _ => {}
             }
             rusqlite::hooks::Authorization::Allow
         }));
         Ok(())
     }).await.unwrap();
-    let snapshot = loading::prepare(&install.app, 1).await.unwrap();
-    let page = shown(snapshot).await.expect("the account's no-value figures");
-    install.app.db(|c| { c.authorizer(None::<fn(rusqlite::hooks::AuthContext<'_>) -> rusqlite::hooks::Authorization>); Ok(()) }).await.unwrap();
-    assert_eq!(walked.load(std::sync::atomic::Ordering::SeqCst), 0, "a page view read the orders' values");
-    assert_eq!(page, json!({"bots": {"1": {"tile": format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"), "metrics": format!("<div id=\"metrics\">{absent}</div>"),
-        "chart": format!("<div id=\"chart\">{absent}</div>")}}, "account": format!("<div id=\"global-pnl\">{absent}</div>")}));
+    Walks(seen)
+}
+impl Walks {
+    async fn finish(self, app: &App) -> usize {
+        app.db(|c| { c.authorizer(None::<fn(rusqlite::hooks::AuthContext<'_>) -> rusqlite::hooks::Authorization>); Ok(()) }).await.unwrap();
+        let s = self.0.lock().unwrap();
+        s.2 + usize::from(s.0 && !s.1)
+    }
+}
+
+/// An account with no paper key whose one executed fill has no value, beside a long history.
+fn unkeyed_install() -> Install {
+    let install = Install::new(1, 0);
+    let c = install.connection();
+    c.execute("UPDATE api_keys SET passphrase=?1 WHERE user_id=1", [install.app.cipher.encrypt("live")]).unwrap();
+    c.execute_batch("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+        VALUES (1,1,'AAA',2,'USD',1,1,1,0,0,2,'unpriced','REGULAR','2026-03-10 00:00:00','2026-03-10 00:00:00');").unwrap();
+    install
+}
+
+#[tokio::test]
+async fn a_fill_repaired_in_the_same_second_changes_the_no_key_reason() {
+    let install = unkeyed_install();
+    let _stop = install.consume();
+    let first = loading::prepare(&install.app, 1).await.unwrap();
+    let app = install.app.clone();
+    install.app.db(move |c| loading::render_page(&app, c, 1, &first, "en", "", "")).await.unwrap();
+    until(10, "the unpriced reason", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(Some("executed fill value unavailable")))).await;
+    // The venue's price arrives; the row keeps its timestamp, to the second.
+    install.connection().execute("UPDATE transactions SET price=100, quote_amount_exec=100 WHERE external_id='unpriced'", []).unwrap();
+    let stale = loading::prepare(&install.app, 1).await.unwrap();
+    assert!(!matches!(stale, loading::Snapshot::Failed(Some(_))), "the old reason, after the fill was repaired");
+    let app = install.app.clone();
+    install.app.db(move |c| loading::render_page(&app, c, 1, &stale, "en", "", "")).await.unwrap();
+    until(10, "the repaired account's reason", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(None))).await;
+}
+
+/// The account's figures streams on a `/cable` connection of its own, as a page subscribes to them.
+async fn cable(install: &Install, stream: &str) -> (tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, tokio::task::JoinHandle<()>) {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message};
+    use deltabadger::web::session::{self, SessionData};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let served = install.app.clone();
+    let server = tokio::spawn(async move { let _ = deltabadger::web::server::serve_on(listener, served, Default::default()).await; });
+    let cookie = session::seal(&install.app.keys.session, &SessionData { user: Some((1, "x".into())), ..SessionData::default() }, install.clock_now());
+    let mut request = format!("ws://{address}/cable").into_client_request().unwrap();
+    request.headers_mut().insert("origin", format!("http://{address}").parse().unwrap());
+    request.headers_mut().insert("sec-websocket-protocol", "actioncable-v1-json".parse().unwrap());
+    request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={cookie}").parse().unwrap());
+    let mut socket = tokio::time::timeout(Duration::from_secs(5), tokio_tungstenite::connect_async(request)).await.unwrap().unwrap().0;
+    let identifier = json!({"channel": "Turbo::StreamsChannel", "signed_stream_name": deltabadger::web::cable::signed_stream_name(&install.app.keys.streams, stream)}).to_string();
+    socket.send(Message::Text(json!({"command": "subscribe", "identifier": identifier}).to_string().into())).await.unwrap();
+    loop {
+        let message = socket.next().await.unwrap().unwrap();
+        if serde_json::from_str::<Value>(message.to_text().unwrap()).unwrap()["type"] == "confirm_subscription" { break; }
+    }
+    (socket, server)
+}
+
+#[tokio::test]
+async fn a_no_key_publication_overtaken_by_the_cut_is_still_delivered() {
+    use futures_util::StreamExt;
+    use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+    let install = unkeyed_install();
+    let (mut socket, server) = cable(&install, "user_1:bot_updates").await;
+    // The queue's reading of the reason runs across the five-minute cut: what it read has expired by the time its
+    // publication renders.
+    let armed = Arc::new(AtomicBool::new(true));
+    let (trigger, clock) = (armed.clone(), install.clock.clone());
+    install.app.figure_service.on_builder(move |c| {
+        c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+            if matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "transactions", .. }) && trigger.swap(false, SeqCst) {
+                clock.set(common::web::at("2026-03-18T12:05:00Z"));
+            }
+            rusqlite::hooks::Authorization::Allow
+        }));
+    });
+    let _stop = install.consume();
+    let pages = install.app.clone();
+    loading::enqueue_page(&pages, 1, "en", "");
+    let delivered = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let message = socket.next().await.unwrap().unwrap();
+            if message.to_text().unwrap().contains("Figures unavailable: executed fill value unavailable") { break; }
+        }
+    }).await;
+    server.abort();
+    assert!(!armed.load(SeqCst), "the reading crossed the cut");
+    assert!(delivered.is_ok(), "the page never received its publication");
 }
