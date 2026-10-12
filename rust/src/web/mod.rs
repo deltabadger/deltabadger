@@ -615,6 +615,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/add_api_key/new",only(get(settings::keys::bot_form)))
         .route("/tracker/add_api_key",only(post(settings::keys::save)))
         .route("/tracker/add_api_key/new",only(get(settings::keys::form)))
+        .route("/tracker/pick_exchange",only(post(settings::keys::pick_save)))
+        .route("/tracker/pick_exchange/new",only(get(settings::keys::pick_form)))
         .route("/confirmation", only(get(settings::confirmation::show).post(settings::confirmation::create)))
         .route("/confirmation/new", only(get(settings::confirmation::new)))
         .route("/settings", only(get(settings::root)))

@@ -1800,6 +1800,8 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let mut h=Harness::new(server.uri()).await;
     for job in [sync_jobs::LEDGER_SYNC,sync_jobs::BALANCE_SYNC] {state::record_success(&h.c,job,Some(&h.seed.api_key_id.to_string()),h.app.now()).unwrap();}
     let factory=LocalAlpaca(server.uri());
+    // D5b: the saved key must be the venue's reading key, as a restart would register it; a working trading key reads instead.
+    h.c.execute("UPDATE api_keys SET status=2 WHERE user_id=?1",[h.seed.user_id]).unwrap();
     let registered=sync_jobs::register(&h.c,&factory,std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
@@ -2544,8 +2546,10 @@ async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
     for venue in ["Binance","BinanceUs","Bingx","Bitget","Bitmart","Bitrue","Bitvavo","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Kraken","Kucoin","Mexc"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
-        assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,501);
-        let modern=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret")],Csrf::Header).await;assert_eq!(modern.status,501);assert_eq!(h.snapshot(),before);
+        // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
+        let refused=if venue=="Bitmart"{302}else{501};
+        assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,refused);
+        let modern=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret")],Csrf::Header).await;assert_eq!(modern.status,refused);assert_eq!(h.snapshot(),before);
         let key=format!("0x{}","a".repeat(40));let secret="b".repeat(64);
         let legacy=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]",&key),("api_key[secret]",&secret)],Csrf::Header).await;
         assert_eq!(legacy.status,501,"{venue} must visibly refuse instead of accepting a pending key with no validator");assert_eq!(h.snapshot(),before);
@@ -3587,3 +3591,186 @@ async fn sign_in_email_nbsp_is_refused_as_rails_records() { sign_in_email_matche
 async fn sign_in_email_em_space_is_refused_as_rails_records() { sign_in_email_matches_recorded_strip("em_space").await; }
 #[tokio::test(flavor = "current_thread")]
 async fn sign_in_email_nul_is_stripped_as_rails_records() { sign_in_email_matches_recorded_strip("nul").await; }
+
+// D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
+fn d5b_venues(c:&rusqlite::Connection){
+    for (class,name,available) in [("Kraken","Kraken",1),("Bitmart","BitMart",1),("Gemini","Gemini",0),("Binance","Binance",1)]{
+        c.execute("INSERT INTO exchanges(type,name,maker_fee,taker_fee,available,created_at,updated_at)VALUES(?1,?2,'0','0',?3,'2026-01-01','2026-01-01')",(format!("Exchanges::{class}"),name,available)).unwrap();
+    }
+}
+fn d5b_exchange(c:&rusqlite::Connection,class:&str)->String{c.query_row("SELECT id FROM exchanges WHERE type=?1",[format!("Exchanges::{class}")],|r|r.get::<_,i64>(0)).unwrap().to_string()}
+fn d5b_connect(h:&Harness)->Option<i64>{
+    let cookie=h.browser.cookie.as_deref().unwrap();
+    deltabadger::web::session::open(&h.app.keys.session,cookie,h.app.now()).unwrap().tracker_connect
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_id(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
+    let before=h.snapshot();
+    let page=h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+    assert_eq!(page.status,200,"{}",page.body);
+    assert!(page.body.contains("id=\"exchange-picker\""),"the grid partial");
+    assert!(page.body.contains("action=\"/tracker/pick_exchange\""));
+    let buttons:Vec<&str>=page.body.split("name=\"exchange_id\" type=\"submit\" value=\"").skip(1).map(|s|s.split('"').next().unwrap()).collect();
+    let (kraken,bitmart,gemini,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Binance"));
+    assert_eq!(buttons,[binance.as_str(),kraken.as_str(),"1",bitmart.as_str()],"stable venues first, then by name; available only, retired included");
+    assert!(!buttons.contains(&gemini.as_str()));
+    assert!(!page.body.contains("disabled"),"the tracker's picker disables nothing");
+    let localized=h.browser.send(&h.app,"GET","/de/tracker/pick_exchange/new",None,Csrf::None,&[("turbo-frame","modal")]).await;
+    assert_eq!(localized.status,200);assert!(localized.body.contains("action=\"/de/tracker/pick_exchange\""));
+    h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+    let chosen=h.browser.send(&h.app,"POST","/tracker/pick_exchange",Some(&[("exchange_id",gemini.as_str())]),Csrf::Both,&[("origin","http://localhost:3000")]).await;
+    assert_eq!((chosen.status,chosen.header("location")),(302,Some("/tracker/add_api_key/new")),"any exchange row, available or not");
+    assert_eq!(d5b_connect(&h),Some(gemini.parse().unwrap()));
+    h.browser.send(&h.app,"GET","/de/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+    let chosen=h.browser.send(&h.app,"POST","/de/tracker/pick_exchange",Some(&[("exchange_id","1")]),Csrf::Both,&[("origin","http://localhost:3000")]).await;
+    assert_eq!((chosen.status,chosen.header("location")),(302,Some("/de/tracker/add_api_key/new")));
+    assert_eq!(d5b_connect(&h),Some(1));
+    let form=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?key_type=read_only",None,Csrf::None,&[]).await;
+    assert_eq!(form.status,200,"the session's exchange reaches the form");assert!(form.body.contains("api_key[key]"));
+    for missing in [vec![("exchange_id","999")],vec![]] {
+        h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+        let answer=h.browser.send(&h.app,"POST","/tracker/pick_exchange",Some(&missing),Csrf::Both,&[("origin","http://localhost:3000")]).await;
+        assert_eq!(answer.status,404,"Exchange.find raises RecordNotFound: {missing:?}");assert_eq!(d5b_connect(&h),Some(1));
+    }
+    let forged=h.browser.send(&h.app,"POST","/tracker/pick_exchange",Some(&[("exchange_id",kraken.as_str())]),Csrf::None,&[("origin","http://localhost:3000")]).await;
+    assert_eq!(forged.status,302);assert_ne!(forged.header("location"),Some("/tracker/add_api_key/new"));assert_eq!(d5b_connect(&h),Some(1),"no CSRF token, no session change");
+    assert_eq!(h.snapshot(),before,"picking writes no row");
+    let signed_out=Browser::default().send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+    assert_eq!((signed_out.status,signed_out.header("location")),(302,Some("/login")));
+    assert!(server.received_requests().await.unwrap().is_empty(),"picking never calls a venue");
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
+    let (kraken,bitmart)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"));
+    let before=h.snapshot();
+    let form=h.browser.send(&h.app,"GET",&format!("/tracker/add_api_key/new?exchange_id={bitmart}&key_type=read_only"),None,Csrf::None,&[]).await;
+    assert_eq!((form.status,form.header("location")),(302,Some("/tracker")),"RetiredExchangeGuard");
+    let save=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&bitmart),("key_type","read_only"),("api_key[key]","retired-key"),("api_key[secret]","retired-secret")],Csrf::Header).await;
+    assert_eq!((save.status,save.header("location")),(302,Some("/tracker")),"the guard runs before the credential flow");
+    let refused=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&bitmart),("key_type","read_only")],Csrf::Header).await;
+    assert_eq!(refused.status,302,"the guard runs before params.require(:api_key)");
+    let tracker=h.browser.send(&h.app,"GET","/tracker",None,Csrf::None,&[]).await;
+    assert!(tracker.body.contains(&deltabadger::web::i18n::text("en","errors.exchange_retired",&[])),"the flash reaches the tracker page");
+    for (method,path,form) in [("GET",format!("/tracker/add_api_key/new?exchange_id={kraken}"),vec![]),("POST","/tracker/add_api_key".to_string(),vec![("exchange_id",kraken.as_str()),("key_type","read_only"),("api_key[key]","kraken-key"),("api_key[secret]","kraken-secret")])]{
+        let answer=if method=="GET"{h.browser.send(&h.app,method,&path,None,Csrf::None,&[]).await}else{h.submit(method,&path,&form,Csrf::Header).await};
+        assert_eq!(answer.status,501,"{method} {path}");assert!(!answer.body.contains("kraken-secret"));
+    }
+    assert_eq!(h.snapshot(),before);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_the_session_exchange_never_reaches_another_users_key(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    h.c.execute("INSERT INTO users(name,email,encrypted_password,created_at,updated_at)VALUES('Other','other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
+    let other=h.c.last_insert_rowid();
+    for kind in [0,2]{h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,1,?2,?3,?4,?5,1,'2026-01-01','2026-01-01')",(other,kind,h.app.cipher.encrypt("other-key"),h.app.cipher.encrypt("other-secret"),h.app.cipher.encrypt("paper"))).unwrap();}
+    let theirs=|c:&rusqlite::Connection|c.prepare("SELECT * FROM api_keys WHERE user_id=?1 ORDER BY id").unwrap().query_map([other],|r|Ok((0..r.as_ref().column_count()).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
+    let before=theirs(&h.c);
+    for kind in ["read_only","trading"]{
+        h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+        assert_eq!(h.browser.send(&h.app,"POST","/tracker/pick_exchange",Some(&[("exchange_id","1")]),Csrf::Both,&[("origin","http://localhost:3000")]).await.status,302);
+        let form=h.browser.send(&h.app,"GET",&format!("/tracker/add_api_key/new?key_type={kind}"),None,Csrf::None,&[]).await;
+        assert_eq!(form.status,200);assert!(!form.body.contains("other-key")&&!form.body.contains("other-secret"));
+        let saved=h.submit("POST","/tracker/add_api_key",&[("key_type",kind),("api_key[key]","mine"),("api_key[secret]","mine-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+        assert_eq!(saved.status,200,"{kind}: {}",saved.body);assert_eq!(d5b_connect(&h),None,"a saved key ends the connect flow");
+    }
+    assert_eq!(theirs(&h.c),before,"exchange_id is a catalogue id: the slot is always the signed-in user's");
+    assert_eq!(h.c.query_row("SELECT COUNT(*) FROM api_keys WHERE user_id=?1",[h.seed.user_id],|r|r.get::<_,i64>(0)).unwrap(),2);
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_tracker_replacement_restarts_only_the_replaced_credentials_ledger_progress(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;h.link();
+    let progress=|h:&Harness|{
+        h.c.execute("UPDATE api_keys SET last_synced_at='2026-09-09 00:00:00' WHERE id=?1",[h.seed.api_key_id]).unwrap();
+        for key in ["rust_sync.ledger:1","rust_sync.ledger_splits:1","rust_sync.ledger:999"]{h.c.execute("INSERT OR REPLACE INTO app_configs(key,value,created_at,updated_at)VALUES(?1,'retained-state','2026-01-01','2026-01-01')",[key]).unwrap();}
+    };
+    let state=|h:&Harness|(h.c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,Option<String>>(0)).unwrap(),h.c.query_row("SELECT group_concat(key) FROM (SELECT key FROM app_configs WHERE key LIKE 'rust_sync.%' ORDER BY key)",[],|r|r.get::<_,Option<String>>(0)).unwrap());
+    progress(&h);
+    let unchanged=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(unchanged.status,200);
+    assert_eq!(state(&h),(Some("2026-09-09 00:00:00".into()),Some("rust_sync.ledger:1,rust_sync.ledger:999,rust_sync.ledger_splits:1".into())),"the same credential keeps its progress");
+    let links=h.snapshot()["account_transactions"].clone();
+    let replaced=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(replaced.status,200);
+    assert_eq!(state(&h),(None,Some("rust_sync.ledger:999".into())),"#497: another account syncs its own full history");
+    assert_eq!(h.snapshot()["account_transactions"],links,"history stays linked to the key");
+    assert_eq!(h.c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND key_type=0",[h.seed.user_id],|r|r.get::<_,i64>(0)).unwrap(),h.seed.api_key_id,"replaced in place");
+}
+fn d5b_scheduler(h:&Harness,url:&str)->deltabadger::jobs::Scheduler{
+    use deltabadger::jobs;
+    let api=std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>);
+    let mut registered=deltabadger::sync::jobs::register(&h.c,&LocalAlpaca(url.into()),std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
+    registered.extend(deltabadger::tracker::jobs::register(&h.c,&LocalAlpaca(url.into()),api.clone(),deltabadger::tracker::jobs::system_wall()).unwrap());
+    jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None)
+        .with_resolver(jobs::resolve::all(LocalAlpaca(url.into()),api,deltabadger::tracker::jobs::system_wall()))
+}
+fn d5b_slots(s:&mut deltabadger::jobs::Scheduler,h:&Harness)->std::collections::BTreeSet<(String,Option<String>)>{s.slots(h.app.now()).unwrap().into_iter().collect()}
+/// The running scheduler's slots after `request`, beside the slots a fresh start on the same database registers.
+async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,i64,i64){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    match setup {
+        "fresh"=>{h.c.execute("DELETE FROM api_keys",[]).unwrap();}
+        "incorrect"=>{h.c.execute("UPDATE api_keys SET status=2",[]).unwrap();}
+        _=>{}
+    }
+    let mut running=d5b_scheduler(&h,&server.uri());
+    let env=web::env(web::SECRET);
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app.attach_jobs(running.wakers()).unwrap();
+    let started=d5b_slots(&mut running,&h);
+    let (kind,status)=match request {
+        "read_only"|"trading"=>{let r=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type",request),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;assert_eq!(r.status,200,"{}",r.body);(request,0)}
+        _=>{let r=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[]).await;assert_eq!(r.status,200);("trading",1)}
+    };
+    let id=h.c.query_row("SELECT id FROM api_keys WHERE key_type=?1",[if kind=="trading"{0}else{2}],|r|r.get::<_,i64>(0)).unwrap();
+    assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).unwrap(),1,"{status}: the key is correct now");
+    let after=d5b_slots(&mut running,&h);
+    let fresh=d5b_slots(&mut d5b_scheduler(&h,&server.uri()),&h);
+    (started,after,fresh,id,h.seed.user_id)
+}
+fn d5b_slot(name:&str,scope:i64)->(String,Option<String>){(name.into(),Some(scope.to_string()))}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_a_first_key_registers_every_slot_a_restart_would_including_the_users_tracker_jobs(){
+    use deltabadger::{sync::jobs::{LEDGER_SYNC,BALANCE_SYNC},tracker::jobs::{TRACKER_LEDGER,PORTFOLIO_BACKFILL}};
+    let (started,after,fresh,id,user)=d5b_slots_after("fresh","read_only").await;
+    assert!(!started.contains(&d5b_slot(TRACKER_LEDGER,user)),"no reading key at startup");
+    for slot in [d5b_slot(LEDGER_SYNC,id),d5b_slot(BALANCE_SYNC,id),d5b_slot(TRACKER_LEDGER,user),d5b_slot(PORTFOLIO_BACKFILL,user)]{assert!(after.contains(&slot),"missing {slot:?}");}
+    assert_eq!(after,fresh,"the running scheduler holds exactly what a restart registers");
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_a_tracker_key_beside_a_working_trading_key_registers_nothing_a_restart_would_not(){
+    let (started,after,fresh,_,_)=d5b_slots_after("existing","read_only").await;
+    assert_eq!(after,fresh,"the trading key stays the venue's reading key");assert_eq!(after,started);
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_replacing_the_trading_key_in_place_keeps_the_registered_slots(){
+    let (started,after,fresh,_,_)=d5b_slots_after("existing","trading").await;
+    assert_eq!(after,fresh);assert_eq!(after,started);
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_the_passive_revalidation_on_get_wakes_no_job(){
+    let (started,after,_,_,_)=d5b_slots_after("incorrect","get").await;
+    assert_eq!(after,started,"a GET never enqueues: Rails' new action runs no job");
+}
+#[test]
+fn d5b_tracker_connect_oracle_sources_stay_pinned(){
+    use sha2::{Digest,Sha256};
+    let pins:std::collections::BTreeMap<String,String>=serde_json::from_str(include_str!("fixtures/tracker_connect_sources.json")).unwrap();
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path,hash) in pins {assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(&path)).unwrap())),hash,"{path}: record the D5b page grid (settings_pick_*, settings_key_*) again");}
+    for path in std::fs::read_dir(root.join("app/views/svg/exchanges")).unwrap().map(|e|e.unwrap().file_name().into_string().unwrap()).filter(|n|n.starts_with('_')) {
+        let rendered=root.join("rust/templates/svg/exchanges").join(path.replace(".html.erb",".html"));
+        assert_eq!(std::fs::read(&rendered).unwrap(),std::fs::read(root.join("app/views/svg/exchanges").join(&path)).unwrap(),"{path}: run script/rust/render_static_partials.rb");
+    }
+}

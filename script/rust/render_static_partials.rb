@@ -22,6 +22,12 @@ PARTIALS = {
     name = File.basename(path, '.html.erb').delete_prefix('_')
     ["svg/#{name}", "svg/_#{name.tr('-', '_')}.html"]
   end
+).merge(
+  # One wordmark per exchange class, for the exchange pickers' tiles.
+  Dir[Rails.root.join('app/views/svg/exchanges/_*.html.erb')].sort.to_h do |path|
+    name = File.basename(path, '.html.erb').delete_prefix('_')
+    ["svg/exchanges/#{name}", "svg/exchanges/_#{name}.html"]
+  end
 ).freeze
 
 PARTIALS.each do |partial, file|

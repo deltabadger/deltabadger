@@ -33,7 +33,9 @@ async fn index_requires_authentication_and_deferred_links_refuse_without_writes(
     let before=snapshot(&opened.primary);let mut browser=Browser::default();
     let answer=browser.get(&app,"/de/tracker").await;
     assert_eq!(answer.status,302);assert_eq!(answer.header("location"),Some("/de/login"));
-    for path in ["/tracker/pick_exchange/new","/tracker/connect_market_data","/tracker/import/new","/tracker/export","/tracker/download_tax_report"] {
+    let answer=browser.get(&app,"/tracker/pick_exchange/new").await;
+    assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"D5b serves the picker to signed-in users");
+    for path in ["/tracker/connect_market_data","/tracker/import/new","/tracker/export","/tracker/download_tax_report"] {
         let answer=browser.get(&app,path).await;assert_eq!(answer.status,501,"{path}");
         assert!(answer.body.contains(path));
     }
