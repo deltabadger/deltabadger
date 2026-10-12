@@ -469,6 +469,9 @@ impl Scheduler {
     /// write lock at most RECORD_BUSY, then gives up (logged; the in-memory schedule still drives the next run).
     async fn record(&self, name: &'static str, scope: Option<String>, at: DateTime<Utc>, what: Record, stop: &mut watch::Receiver<bool>, version:Option<crate::engine::model::CredentialVersion>) -> Result<bool,String> {
         let retry_scope=scope.clone();
+        // A bot whose tick waited for this key's ledger (engine::tick::unclaim) is due again: the engine re-sizes it now,
+        // not at its next stale recheck. Only after the success is committed, so the tick finds the ledger fresh.
+        let wakes_engine = name == crate::sync::jobs::LEDGER_SYNC && matches!(what, Record::Success);
         let write = move |c: &Connection| {
             let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate).map_err(|_|"cannot begin scheduler state write".to_string())?;
             if version.is_none() && matches!(name,crate::sync::jobs::LEDGER_SYNC|crate::sync::jobs::BALANCE_SYNC|crate::sync::jobs::API_KEY_VALIDATOR) && matches!(what,Record::Success|Record::Run) {
@@ -501,7 +504,7 @@ impl Scheduler {
                 if let Err(e) = written {
                     if e==crate::engine::model::CREDENTIALS_CHANGED{self.wakers.wake(name,retry_scope.as_deref(),None);}
                     else{return Err(format!("[jobs] {name}: the state write failed: {e}"));}
-                }
+                } else if wakes_engine { self.wakers.wake_engine(); }
                 Ok(true)
             }
             _ = stop.wait_for(|stopped| *stopped) => {

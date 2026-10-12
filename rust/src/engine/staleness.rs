@@ -264,6 +264,9 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     Ok(sources)
 }
 
+/// The source name of the account-ledger refusal: run.rs releases a retrying bot's stale wait on it once the ledger is fresh.
+pub const LEDGER_SOURCE: &str = "Alpaca account ledger";
+
 pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     // Timestamp, incomplete marker, producer stamp and current ciphertext share one read snapshot.
     // Placement already calls this inside its intent transaction; other callers get the same consistency.
@@ -285,7 +288,7 @@ pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Opt
     };
     if produced_by_current && state.incomplete_since.is_none() && state.last_success_at.is_some_and(|at| at <= now && (now-at).num_seconds() <= bound_secs(24)) { return Ok(None); }
     let provenance = if produced_by_current { "" } else { "credential provenance missing or changed; " };
-    Ok(Some(Stale { source: "Alpaca account ledger", message: format!("reference data stale: Alpaca account ledger; ledger_sync:{}: {provenance}{}; a complete ledger refresh is required before this bot can trade", key.map_or_else(|| "missing".into(), |k| k.to_string()), state.describe_venue()) }))
+    Ok(Some(Stale { source: LEDGER_SOURCE, message: format!("reference data stale: Alpaca account ledger; ledger_sync:{}: {provenance}{}; a complete ledger refresh is required before this bot can trade", key.map_or_else(|| "missing".into(), |k| k.to_string()), state.describe_venue()) }))
 }
 
 pub fn verdict(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Verdict, EngineError> {

@@ -1678,3 +1678,31 @@ async fn a_fiat_rate_outlives_the_run_that_asked_for_it() {
     let paths: Vec<String> = requests.iter().map(|r| r.url.path().to_string()).collect();
     assert_eq!(asked("/api/v1/exchange_rates"), 1, "the second run used the first run's rate: {paths:?}");
 }
+
+/// A tick refused because this key's ledger needed a refresh hands its checkpoint back and stays due (engine::tick::unclaim).
+/// The scheduler wakes the engine once a ledger sync's success is recorded, so that bot is sized again at once from the
+/// refreshed ledger. A failed sync wakes nothing: the bot stays refused until a sync completes.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_recorded_ledger_success_wakes_the_engine_and_a_failure_does_not() {
+    for (reply, wakes) in [(ok(json!([])), true), (json!({ "status": 401, "body": { "code": 40_110_000, "message": "unauthorized." } }), false)] {
+        let (dir, _db, s) = install();
+        let clock = tokio_clock("2026-09-19T13:30:00Z");
+        ran_at(dir.path(), s.api_key_id, "2026-09-19T02:00:05Z", "2026-09-19T02:30:05Z");
+        let job = LedgerSync::new(Scripted(ScriptedTransport::from_script(&json!({ ACTIVITIES: [reply] }))), s.api_key_id);
+        let mut engine = deltabadger::engine::events::EngineEvents::default();
+        let rx = engine.subscribe();
+        let sched = deltabadger::jobs::Scheduler::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher(), vec![Box::new(job)], Some(rx))
+            .with_resolver(deltabadger::jobs::resolve::all(Scripted(ScriptedTransport::from_script(&json!({}))), Rc::new(None::<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>), deltabadger::tracker::jobs::system_wall()));
+        let wake = Arc::new(tokio::sync::Notify::new());
+        sched.wakers().attach_engine(wake.clone());
+        let (stop, stopped) = tokio::sync::watch::channel(false);
+        let (ended, ()) = tokio::join!(sched.run(stopped, &clock), async {
+            engine.send(EngineEvent::OrderRecorded { bot_id: 1, transaction_id: 1 });
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            stop.send(true).unwrap();
+        });
+        ended.unwrap();
+        let woken = tokio::time::timeout(std::time::Duration::ZERO, wake.notified()).await.is_ok();
+        assert_eq!(woken, wakes, "{:?}", record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id));
+    }
+}
