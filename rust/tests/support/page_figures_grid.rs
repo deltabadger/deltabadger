@@ -115,6 +115,43 @@ fn delivered(name: &str, when: &str, got: &BTreeMap<(String, String), String>, r
     }
 }
 
+/// The bot page's chart frame: (its `src`, the frame itself).
+fn bot_chart(body: &str) -> (Option<String>, Vec<String>) {
+    let doc = scraper::Html::parse_document(body);
+    let frame = doc.select(&scraper::Selector::parse("turbo-frame#bot_chart").unwrap()).next().expect("no bot_chart frame");
+    (frame.value().attr("src").map(str::to_string), common::html::normalize(&frame.html()))
+}
+
+/// A browser on the bot page, then on its chart frame at the `src` the page gave it, against what Rails answered in the
+/// same `state` (pages.rb figures: page_figures.rb#pages). Returns the frame's body.
+async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) -> String {
+    let (page, rails_page) = (browser.get(app, &format!("/bots/{id}")).await, bot_chart(rails["page"].as_str().unwrap()));
+    assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
+    let ours = bot_chart(&page.body);
+    assert_eq!(ours, rails_page, "{name} {state}: the page's chart frame");
+    let chart = browser.get(app, ours.0.as_deref().unwrap()).await;
+    assert_eq!(chart.status, 200, "{name} {state}");
+    assert_eq!(bot_chart(&chart.body).1, bot_chart(rails["chart"].as_str().unwrap()).1, "{name} {state}: the chart frame");
+    chart.body
+}
+
+/// What the dashboard asks for once its streams are connected: the attributes of its headline and of its tiles.
+async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) {
+    let Some(rails) = rails.as_str() else { return }; // one bot: Rails sends its dashboard to the bot's page
+    let asks = |body: &str| -> Vec<Vec<(String, String)>> {
+        let doc = scraper::Html::parse_document(body);
+        ["section.dash-intro", "div.itiles"].iter().map(|css| {
+            let element = doc.select(&scraper::Selector::parse(css).unwrap()).next().unwrap_or_else(|| panic!("{name} {state}: no {css}"));
+            let mut attrs: Vec<(String, String)> = element.value().attrs().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+            attrs.sort();
+            attrs
+        }).collect()
+    };
+    let page = browser.get(app, "/bots").await;
+    assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
+    assert_eq!(asks(&page.body), asks(rails), "{name} {state}: the dashboard's asks");
+}
+
 struct Wire { script: Value, calls: RefCell<Vec<String>> }
 impl Transport for Wire {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
@@ -182,6 +219,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
             let cookie=session::seal(&app.keys.session,&signed,now.utc());
             let mut browser=common::web::Browser { cookie:Some(cookie.clone()),page:None };
+            // Cold: before any figure is known, the page sends its chart frame for them, and the frame asks.
+            let cold=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap().with_figure_source(Source::Script(held.clone())).unwrap();
+            for id in sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()) { chart_frames(name,"cold",&id,&mut browser,&cold,&expected["cold"]["bots"][&id]).await; }
+            dashboard(name,"cold",&mut browser,&cold,&expected["cold"]["dashboard"]).await;
+            drop(cold);
             // What Rails broadcast for every figure of the account, by (stream, target), and the streams a page subscribes.
             let rails:BTreeMap<(String,String),String>=expected["broadcasts"].as_array().unwrap().iter()
                 .map(|entry|((entry[0].as_str().unwrap().to_string(),target(entry[1].as_str().unwrap())),entry[1].as_str().unwrap().to_string())).collect();
@@ -212,10 +254,19 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
             let want=want.select(&selector).next().unwrap().html();
             assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"warm route {name}");
-            let chart=browser.get(&app,&format!("/bots/{id}/chart")).await;
-            assert_eq!(chart.status,200);
-            assert!(chart.body.contains("data-controller=\"bot--chart\""));
+            // Warm: the page's chart frame asks for nothing, and it arrives drawn.
+            let chart=chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await;
+            assert!(chart.contains("data-controller=\"bot--chart\""));
             }
+            dashboard(name,"warm",&mut browser,&app,&expected["warm"]["dashboard"]).await;
+            // The scheduler records each job's run (an app_configs row) and its syncs touch the reference data, from a
+            // connection of their own, all the time: neither is this account's figures, and the warm pages stay warm.
+            let other=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+            other.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES('rust_job.parity','{}',?1,?1)",[sc["at"].as_str().unwrap()]).unwrap();
+            other.execute("UPDATE assets SET updated_at=?1",[sc["at"].as_str().unwrap()]).unwrap();
+            drop(other);
+            for id in sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()) { chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await; }
+            dashboard(name,"warm",&mut browser,&app,&expected["warm"]["dashboard"]).await;
             // Warm: a page that connected after the fill asks, and the answer is published at once.
             let first=sc["bot_ids"][0].as_i64().unwrap();
             for (path,body) in [("/en/broadcasts/metrics_update",json!({"bot_id":first})),("/en/broadcasts/pnl_update",json!({"bot_ids":sc["bot_ids"]})),

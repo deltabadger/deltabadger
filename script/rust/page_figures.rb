@@ -10,6 +10,40 @@ module PageFigures
 
   NAMES = %w[no_orders basket_buys row_readings smart_slices index_rotation liquidations tax_lots old_rows sold_out crypto_basket split
              split_fresh split_unsized price_untraded].freeze
+  # The scenarios whose bot pages Rust serves from its own routes (page_figures_grid.rs).
+  FRAMED = %w[basket_buys hidden owner_account].freeze
+
+  # The dashboard, then each bot page and its chart frame, through Rails' own controllers, as a browser loads them: the
+  # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
+  def pages(user, bots)
+    Warden.test_mode!
+    ActiveRecord.validate_migration_timestamps = false # the pending-migration check runs at the scenario's (earlier) time
+    session = ActionDispatch::Integration::Session.new(Rails.application)
+    session.host! 'localhost:3000'
+    heard = PageFigures.broadcasts
+    PageFigures.broadcasts = nil # a page load broadcasts nothing; whatever it might is not the figures' own
+    # On a thread of its own, as a server's request would be: the app's executor leaves the runner's own state alone.
+    Thread.new do
+      { 'dashboard' => (page(session, user, '/bots') if bots.size > 1), # a lone bot's dashboard is its page
+        'bots' => bots.to_h do |bot|
+          body = page(session, user, "/bots/#{bot.id}")
+          src = Nokogiri::HTML(body).at_css('turbo-frame#bot_chart')['src']
+          [bot.id, { 'page' => body, 'chart' => page(session, user, src, 'Turbo-Frame' => 'bot_chart') }]
+        end }
+    end.value
+  ensure
+    PageFigures.broadcasts = heard
+    Warden.test_reset!
+  end
+
+  def page(session, user, path, headers = {})
+    Warden.on_next_request { |proxy| proxy.set_user(user, scope: :user) }
+    session.get(path, headers:)
+    raise "#{path}: #{session.response.status}" unless session.response.status == 200
+
+    session.response.body
+  end
+
   def run(root)
     Rails.logger.level = :warn
     Rails.cache = ActiveSupport::Cache::MemoryStore.new
@@ -81,6 +115,7 @@ module PageFigures
       before_offset = bots.first.reload.redeploy_declined_offset
       out = {}
       Figures.travel_to(Figures.time(sc['at']), with_usec: true) do
+        out['cold'] = pages(user, bots) if FRAMED.include?(sc['name'])
         out['bots'] = bots.to_h do |bot|
           data = bot.metrics_with_current_prices
           marked = bot.metrics_with_current_prices_and_candles
@@ -104,6 +139,7 @@ module PageFigures
                                                         global_pnl: user.global_pnl(use_cache: false), history: snapshot[:result], loading: false,
                                                         hide_balances: user.hide_balances?, denomination: user.denomination
                                                       })
+        out['warm'] = pages(user, bots) if FRAMED.include?(sc['name'])
       end
       raise 'unscripted market' unless ScriptedMarket.gaps.empty?
 
