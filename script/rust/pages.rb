@@ -214,6 +214,13 @@ module Pages
   # The owner's three bots as the wizard leaves them.
   def acted(at, transient = {}) = { 'transient' => { 'last_action_job_at' => at }.merge(transient) }
 
+  # A daily stock bot whose 21:00 UTC checkpoint found the market closed: its last tick ran at `acted`, the closed path
+  # logged market_closed at `parked_at` and enqueued its job for `next_open` (the venue clock's, as Rails parses it).
+  def parked(acted_at, parked_at, next_open)
+    running('single', '2026-09-08T21:00:00Z', acted(acted_at, 'waiting_for_market_open' => true)
+      .merge('job' => next_open, 'logs' => [['market_closed', { 'next_market_open_at' => Time.iso8601(next_open).as_json }, parked_at]]))
+  end
+
   def three = [{ 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }, { 'kind' => 'single' }, { 'kind' => 'index' }]
 
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
@@ -441,11 +448,14 @@ module Pages
       # The chart's frame looks its bot up with `find`, which raises for a bot that is not the user's.
       'missing_chart_of_another_users_bot' => two_users.merge('steps' => signed_in(get('/bots/1/chart', chart), get('/bots/3/chart', chart))),
       'missing_chart_of_no_bot' => with_bots(three, signed_in(get('/bots/99/chart'))),
-      # Three times that are in no row. Rails holds each in its job table; this build's countdown has
+      # A stock bot parked on a closed market (Bot::ActionJob's closed path): its job waits for the clock's next_open, which
+      # the market_closed activity records. Before Thursday's open, and on the Saturday before Monday's.
+      'bot_page_market_closed' => with_bots([parked('2026-09-09T13:30:00.800Z', '2026-09-09T21:00:00.400Z', '2026-09-10T09:30:00-04:00'),
+                                             { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots'))),
+      'bot_page_market_closed_weekend' => with_bots([parked('2026-09-11T13:30:00.800Z', '2026-09-11T21:00:00.400Z', '2026-09-14T09:30:00-04:00'),
+                                                     { 'kind' => 'basket' }], signed_in(get('/bots/1').merge('advance' => 2 * 86_400), get('/bots'))),
+      # Two times that are in no row. Rails holds each in its job table; this build's countdown has
       # the next checkpoint or nothing (rust/tests/pages.rs, `countdown_`).
-      'countdown_market_closed' => with_bots([running('single', '2026-09-08T13:30:00Z', 'transient' => { 'waiting_for_market_open' => true },
-                                                                                        'job' => '2026-09-10T13:30:00Z'), { 'kind' => 'basket' }],
-                                             signed_in(get('/bots/1'), get('/bots'))),
       'countdown_retry_in_progress' => with_bots([running('single', '2026-09-08T13:30:00Z', { 'columns' => { 'status' => 5 }, 'job' => '2026-09-10T12:00:48Z' }
                                                                                                     .merge(acted('2026-09-10T12:00:18.000Z'))),
                                                   { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots'))),
