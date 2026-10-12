@@ -420,6 +420,11 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         on_schedule()? // a retrying bot too: its in-memory wait was computed under the old schedule
     } else if bot.status == crate::enums::BotStatus::Retrying {
         e.retry_at.get(&id).is_none_or(|t| t.value <= now_us) // no in-memory state (a restart): due at once
+            // A wait set only because this bot's account ledger was refreshing (tick::unclaim, or the tick-start check) ends
+            // as soon as that ledger is fresh: the scheduler wakes the engine when a ledger sync's success is recorded.
+            // Any other retry backoff never records a ledger Stale, so it keeps its time.
+            || (e.stale_logged.get(&id) == Some(&super::staleness::LEDGER_SOURCE)
+                && super::staleness::ledger_stale(&e.primary, &bot, clock.now())?.is_none())
     } else {
         on_schedule()?
     };

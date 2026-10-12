@@ -430,3 +430,48 @@ async fn a_failed_ledger_refresh_places_nothing_names_the_refusal_and_keeps_the_
     assert_eq!(last_action(&o, b), None, "the checkpoint is not consumed");
     assert!(orders_of(&o, b).is_empty());
 }
+
+struct RacingFactory(SyncStartsAt);
+impl deltabadger::venue::VenueFactory for RacingFactory {
+    type V = AlpacaVenue<SyncStartsAt>;
+    fn for_bot(&self, _t: &str, _c: Option<Credentials>) -> Self::V { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(Some("paper"))) }
+}
+
+/// A bot already retrying (a transient failure earlier in this checkpoint) meets the ledger refresh another bot's order
+/// started. Its stale wait (run::STALE_RECHECK_US) must end when the key's ledger sync succeeds, not five minutes later,
+/// which near the close would push the buy to the next session. An unrelated retry backoff (a transient failure) is left alone.
+#[tokio::test(flavor = "current_thread")]
+async fn a_retrying_bot_waiting_for_a_ledger_refresh_places_as_soon_as_the_refresh_succeeds() {
+    let dir = common::rails_install();
+    let paths = store::Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
+    let o = store::open(&paths).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    let (msft, _) = seed::add_alpaca_stock(&o.primary, &s, "MSFT");
+    let retrying = || BotSpec { status: 5, ..weekly() };
+    // B ticks first in a pass (lower id); its price read fails once, so it retries 3 s later (retry_wait(1)).
+    let b = seed::insert_bot(&o.primary, &s, &retrying().weights(&[(msft, 1.0)]));
+    let a = seed::insert_bot(&o.primary, &s, &retrying().weights(&[(aapl, 1.0)]));
+    // Both tried once already in this checkpoint (a transient failure left them retrying).
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-01T14:00:00.500Z')", []).unwrap();
+    let t1 = at("2026-09-01T14:01:00Z");
+    seed::fresh_stock_jobs(&o.primary, t1);
+    let t = script(json!({ "GET /v2/stocks/MSFT/quotes/latest": [{ "network": "pre_send", "message": "connection reset" }, { "status": 200, "body": { "quote": { "ap": 400.0, "bp": 399.9 } } }],
+                           "POST /v2/orders": [accepted("OTX-A"), accepted("OTX-B")] }));
+    // A's own price read is the moment the sync (woken by another order on the key) starts.
+    let racing = SyncStartsAt { inner: t.clone(), db: paths.primary.clone(), key: s.api_key_id, now: t1, on: ("GET", "/v2/stocks/AAPL/quotes/latest"), armed: std::rc::Rc::new(std::cell::Cell::new(true)) };
+    let mut e = Engine::new(o.primary, RacingFactory(racing), seed::cipher(), lock);
+
+    run::step(&mut e, &FixedClock(t1)).await.unwrap(); // B fails transiently; A is sized, the sync starts, A is refused
+    assert!(t.posted_orders().is_empty());
+    assert_eq!(model::load_bot(&e.primary, b).unwrap().status, deltabadger::enums::BotStatus::Retrying);
+    assert_eq!(model::load_bot(&e.primary, a).unwrap().status, deltabadger::enums::BotStatus::Retrying);
+
+    seed::fresh_stock_jobs(&e.primary, t1 + Duration::seconds(1)); // the sync's success is recorded; the engine is woken
+    run::step(&mut e, &FixedClock(t1 + Duration::seconds(2))).await.unwrap();
+    let symbols: Vec<_> = t.posted_orders().iter().map(|o| o["symbol"].as_str().unwrap().to_string()).collect();
+    assert_eq!(symbols, vec!["AAPL".to_string()], "A places at once; B keeps its backoff");
+    run::step(&mut e, &FixedClock(t1 + Duration::seconds(4))).await.unwrap();
+    assert_eq!(t.posted_orders().len(), 2, "B places at its own retry time");
+}
