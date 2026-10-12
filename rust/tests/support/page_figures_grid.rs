@@ -152,6 +152,47 @@ async fn dashboard(name: &str, state: &str, browser: &mut common::web::Browser, 
     assert_eq!(asks(&page.body), asks(rails), "{name} {state}: the dashboard's asks");
 }
 
+/// A connection that subscribes again is sent the account's last publication only while nothing the figures read has
+/// changed (`loading::resubscribed`): a ticker disabled, a split's ratio corrected or a ledger row resolved to another
+/// asset refuse the replay; a sync that rewrites a row's timestamps (and the reference data the figures never read)
+/// keeps it. On a copy of the scenario's install, so that the rest of the scenario reads the one Rails recorded.
+async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<String>, dir: &Path, sc: &Value, user: i64, stream: &str) {
+    use deltabadger::web::{App,Config,figure::loading::{self,Source}};
+    let at = sc["at"].as_str().unwrap();
+    let ccc: i64 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+        .query_row("SELECT base_asset_id FROM tickers WHERE ticker='CCC'", [], |r| r.get(0)).unwrap();
+    let cases: [(&str, &str, bool); 5] = [
+        ("a sync that rewrites timestamps and reference data the figures never read",
+         "UPDATE tickers SET updated_at='2030-01-01 00:00:00', ath=1234.5, ath_updated_at='2030-01-01 00:00:00'; UPDATE assets SET updated_at='2030-01-01 00:00:00', market_cap=coalesce(market_cap,0)+1, market_cap_rank=7; \
+          UPDATE account_transactions SET updated_at='2030-01-01 00:00:00'", true),
+        ("a held ticker disabled", "UPDATE tickers SET available=0 WHERE ticker='AAA'", false),
+        ("a held asset recategorised", "UPDATE assets SET category='Cryptocurrency' WHERE id=(SELECT base_asset_id FROM tickers WHERE ticker='BBB')", false),
+        ("a split's ratio corrected in place", "UPDATE account_transactions SET raw_data='{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}' WHERE entry_type=15", false),
+        ("a ledger row resolved to another asset", &format!("UPDATE account_transactions SET base_asset_id={ccc} WHERE entry_type=15"), false),
+    ];
+    let mut wrong = vec![];
+    // Each edit on a fresh copy, so that one edit's refusal leaves the next its own warm publication.
+    for (what, sql, kept) in cases {
+        let copy = tempfile::tempdir().unwrap();
+        let file = copy.path().join("production.sqlite3");
+        std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
+        let c = rusqlite::Connection::open(&file).unwrap();
+        // A split already in the ledger, for the edits below to correct.
+        c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
+                   SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
+        let app = App::new(Config::from_env(env).unwrap(), env, rusqlite::Connection::open(&file).unwrap(), common::web::TestClock::at(at)).unwrap()
+            .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !matches!(loading::prepare(&app, user).await.unwrap(), loading::Snapshot::Ready(..)) { tokio::time::sleep(Duration::from_millis(20)).await; }
+        }).await.expect("the figures never became ready");
+        loading::publish(&app, user).await.unwrap();
+        assert!(!loading::resubscribed(&app, user, stream).await.is_empty(), "a fresh publication is replayed");
+        c.execute_batch(sql).unwrap();
+        if loading::resubscribed(&app, user, stream).await.is_empty() == kept { wrong.push(format!("{what}: replayed {}", if kept { "nothing" } else { "the old figures" })); }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}
+
 struct Wire { script: Value, calls: RefCell<Vec<String>> }
 impl Transport for Wire {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
@@ -230,6 +271,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let wanted:BTreeSet<(String,String)>=rails.keys().cloned().collect();
             let streams:BTreeSet<String>=wanted.iter().map(|(stream,_)|stream.clone()).collect();
             let user_stream=format!("user_{user}:bot_updates");
+            if name == "owner_account" { replays_follow_what_the_figures_read(&env,&dir,&sc,user,&user_stream).await; }
             // Cold to warm: the page's streams are connected before any figure is known, the page asks while the fill is in
             // flight (its first market answer is held back), and the end of the fill replaces every spinner.
             let mut cable=Cable::open(&app,&cookie,&streams).await;
