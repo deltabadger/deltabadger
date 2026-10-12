@@ -12,7 +12,11 @@ pub const ALLOWANCE:u8=3;
 #[derive(Default,Clone)]
 pub struct Service(Arc<Mutex<State>>,Arc<Notify>);
 #[derive(Default)]
-struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest> }
+struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest>,
+    /// Work waiting for the `figures` service (`loading::follow`), one entry per account.
+    pending:BTreeMap<i64,Work>,
+    /// Work for an account whose fill is running: back to `pending` when that fill ends (`Ticket::store`).
+    parked:BTreeMap<i64,Work> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
@@ -21,7 +25,34 @@ struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loa
 /// allowance left.
 pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64), Start(Ticket,Cache) }
 pub struct Ticket { service:Service,user:i64,serial:u64,finished:bool }
+/// Figures work for one account: publish them, and the (locale, path prefix) keys to render. Due from `not_before`.
+#[derive(Clone,Debug,Default,PartialEq,Eq)]
+pub struct Work { pub publish:bool, pub locales:BTreeSet<(String,String)>, pub not_before:i64 }
+impl Work {
+    /// One entry per account: what either asks for, due at the earlier time. A later enqueue never pushes it back.
+    fn merge(&mut self,other:Work) { self.publish|=other.publish; self.locales.extend(other.locales); self.not_before=self.not_before.min(other.not_before); }
+}
+fn put(queue:&mut BTreeMap<i64,Work>,user:i64,work:Work) {
+    match queue.entry(user) { std::collections::btree_map::Entry::Occupied(mut entry)=>entry.get_mut().merge(work), std::collections::btree_map::Entry::Vacant(entry)=>{entry.insert(work);} }
+}
 impl Service {
+    /// Queues figures work for this account, merged with what it already waits for. While the account's fill runs the
+    /// work is parked, and that fill's end queues it again: nothing asked for after a fill captured its work is lost.
+    pub fn enqueue(&self,user:i64,work:Work) {
+        let mut state=self.state();
+        let parked=state.active_users.contains(&user);
+        put(if parked { &mut state.parked } else { &mut state.pending },user,work);
+        drop(state);
+        self.1.notify_one();
+    }
+    /// The queued work due at `now`, taken off the queue.
+    pub fn take_due(&self,now:i64)->Vec<(i64,Work)> {
+        let mut state=self.state();
+        let due:Vec<i64>=state.pending.iter().filter(|(_,w)|w.not_before<=now).map(|(user,_)|*user).collect();
+        due.into_iter().filter_map(|user|state.pending.remove(&user).map(|w|(user,w))).collect()
+    }
+    /// When the earliest queued work is due.
+    pub fn next_due(&self)->Option<i64> { self.state().pending.values().map(|w|w.not_before).min() }
     fn state(&self)->MutexGuard<'_,State> { self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
     pub fn begin(&self,user:i64,identity:&str,revision:u64,now:i64)->Load {
         let mut state=self.state();
@@ -75,6 +106,7 @@ impl Service {
     pub fn mark_owner(&self,user:i64) { if self.state().owners.insert(user) { self.1.notify_one(); } }
     /// The accounts marked since the last call.
     pub fn take_owners(&self)->BTreeSet<i64> { std::mem::take(&mut self.state().owners) }
+    pub fn has_owners(&self)->bool { !self.state().owners.is_empty() }
     /// The serial of the figures kept for this account (0: none), taken as a publication begins (`record`).
     pub fn settled(&self,user:i64)->u64 { self.state().entries.get(&user).map_or(0,|e|e.serial) }
     /// Whether these are the figures kept for this account and still fresh: ready, of this `serial` with no fill begun
@@ -125,6 +157,10 @@ impl Ticket {
             entry.loading=false;entry.ready=ready;entry.reason=if ready{None}else{reason};entry.cache=cache;
             entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
         }
+        // What arrived while this fill ran is due now.
+        if let Some(mut work)=state.parked.remove(&self.user) { work.not_before=i64::MIN; put(&mut state.pending,self.user,work); }
+        drop(state);
+        self.service.1.notify_one();
     }
 }
 impl Drop for Ticket { fn drop(&mut self) { if !self.finished { self.store(Cache::default(),false,None,None); } } }

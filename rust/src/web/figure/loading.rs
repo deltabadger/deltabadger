@@ -1,5 +1,5 @@
 //! Network work never owns the database lock. Only raw JSON and request descriptions cross threads.
-use super::{account,service::Load};
+use super::{account,service::{Load,Work}};
 use crate::figures::{at::At,budget,db,page_market::{Cache,Reader}};
 use crate::venue::http::{self,HttpRequest,HttpResponse,ReqwestTransport,Transport,TransportError};
 use crate::web::{App,WebError};
@@ -257,32 +257,39 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
         Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
         Load::Ready(cache,_)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark)))},
-        Load::Start(ticket,mut cache)=>{
-            let inner=app.clone();let source=app.figure_source.clone();
-            tokio::spawn(async move {
-                let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone());
-                let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(Err(None));
-                let check=inner.clone();
-                let current=inner.db(move|c|read_info(c,&check,user)).await;
-                let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
-                cache.set_stamp(now);
-                let reason=if unchanged{result.as_ref().err().copied().flatten()}else{None};
-                ticket.finish_with_reason(cache,result.is_ok()&&unchanged,reason,inner.now().timestamp());
-                // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
-                // limit turned away. A fill a write overtook is not published: publishing starts the next fill, and each
-                // fill a waiting account starts spends one of its own allowance (`service::ALLOWANCE`), so failures and
-                // writes end in a publication, not a loop. Waiting behind another account spends nothing.
-                // ponytail: every waiting account per fill end; one queue of accounts if installs grow past a handful.
-                // A publication that fails here (a transient database error) is handed to the `figures` service, which tries
-                // it again with its backoff (`follow`).
-                for waiting in inner.figure_service.waiting_idle() {
-                    if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
-                }
-            });
-            Ok(Snapshot::Cold)
-        }
+        Load::Start(ticket,cache)=>{ spawn_fill(app,user,info,now,ticket,cache,None); Ok(Snapshot::Cold) }
     }
 })}
+/// A fill of this account's market cache, on a task of its own. `work`: what the queue asked of it (`follow`).
+fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,mut cache:Cache,work:Option<Work>) {
+    let inner=app.clone();let source=app.figure_source.clone();
+    tokio::spawn(async move {
+        let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone());
+        let result=tokio::time::timeout(Duration::from_secs(90),fill(&inner,user,&mut cache,&wire,now)).await.unwrap_or(Err(None));
+        let check=inner.clone();
+        let current=inner.db(move|c|read_info(c,&check,user)).await;
+        let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
+        cache.set_stamp(now);
+        let reason=if unchanged{result.as_ref().err().copied().flatten()}else{None};
+        ticket.finish_with_reason(cache,result.is_ok()&&unchanged,reason,inner.now().timestamp());
+        // Whoever waits and has no fill running hears the end of this one: this account, or one the two-fill
+        // limit turned away. A fill a write overtook is not published: publishing starts the next fill, and each
+        // fill a waiting account starts spends one of its own allowance (`service::ALLOWANCE`), so failures and
+        // writes end in a publication, not a loop. Waiting behind another account spends nothing.
+        // ponytail: every waiting account per fill end; one queue of accounts if installs grow past a handful.
+        // A publication that fails here (a transient database error) is handed to the `figures` service, which tries
+        // it again with its backoff (`follow`).
+        let mut publish:std::collections::BTreeSet<i64>=inner.figure_service.waiting_idle().into_iter().collect();
+        if let Some(work)=work {
+            if work.publish { publish.insert(user); }
+            // The captured keys are rendered from this cache by the queue (`consume`), with no fill.
+            if !work.locales.is_empty() { inner.figure_service.enqueue(user,Work{publish:false,locales:work.locales,not_before:i64::MIN}); }
+        }
+        for waiting in publish {
+            if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
+        }
+    });
+}
 /// Kept figures with the request's form token written where the renderer left each form's empty token
 /// (`figure::kept_account`), and nowhere else: stored text is never searched.
 fn with_token(figures:&Value,slots:&super::Slots,csrf:&str)->Value {
@@ -414,8 +421,36 @@ pub async fn latest(app:&App,user:i64,stream:&str)->Option<Vec<std::sync::Arc<st
     let info=app.db(move|c|read_info(c,&inner,user)).await.ok()??;
     app.figure_service.latest(user,&info.identity,info.revision,app.now().timestamp(),stream)
 }
-/// A page in `locale` under `prefix` found no figures to show.
-pub fn enqueue_page(_app:&App,_user:i64,_locale:&str,_prefix:&str) {}
+/// A page in `locale` under `prefix` found no figures to show: they are made and published by the queue.
+pub fn enqueue_page(app:&App,user:i64,locale:&str,prefix:&str) {
+    app.figure_service.enqueue(user,Work{publish:true,locales:[(locale.to_string(),prefix.to_string())].into(),not_before:app.now().timestamp()});
+}
+/// One account's queued work (`follow`). A ready entry renders the keys it lacks from its own cache, with no market
+/// request; otherwise a fill starts and carries the work, or the work waits for the fill that runs (`Service::enqueue`
+/// parks it) or for capacity.
+async fn consume(app:&App,user:i64,mut work:Work) {
+    if matches!(app.figure_source,Source::Disabled){return;}
+    let inner=app.clone();
+    let info=match app.db(move|c|read_info(c,&inner,user)).await {
+        Ok(Some(info))=>info,
+        Ok(None)=>return, // no figures for this account
+        Err(_)=>{ work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; }
+    };
+    let Some(now)=At::from_utc(app.now()) else{return};
+    match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
+        Load::Ready(cache,_)=>{
+            let at=cache.stamp().unwrap_or(now);
+            let snapshot=Snapshot::Ready(cache,at,info.revision,Some(info.mark));
+            let locales:Vec<(String,String)>=work.locales.iter().cloned().collect();
+            let _=app.db(move|c|{ for (locale,prefix) in &locales { render(c,user,&snapshot,locale,"",prefix)?; } Ok(()) }).await; // allow-swallow: a key not rendered here is rendered by the page's own next ask
+            if work.publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
+        }
+        Load::Start(ticket,cache)=>spawn_fill(app,user,info,now,ticket,cache,Some(work)),
+        Load::Cold=>app.figure_service.enqueue(user,work),
+        Load::Busy=>{ work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); }
+        Load::Failed(_)=>if work.publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); },
+    }
+}
 pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str>>{
     if matches!(app.figure_source,Source::Disabled){return Vec::new();}
     let inner=app.clone();
@@ -430,6 +465,8 @@ pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str
 
 /// How long the `figures` service gathers marks before it publishes: a basket's legs and a sweep's fills come together.
 const COALESCE:Duration=Duration::from_millis(500);
+/// The longest the `figures` service sleeps before it looks at the queue's clock again.
+const QUEUE_POLL:Duration=Duration::from_secs(1);
 /// A publication that failed (a transient database error) is tried again after `BACKOFF`, doubling, at most `RETRIES`
 /// times in a row: about eight seconds in all.
 const BACKOFF:Duration=Duration::from_millis(250);
@@ -451,7 +488,12 @@ pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crat
     let publishing=async {
         let mut failures=0u32;
         loop {
-            service.marked_wait().await;
+            // Woken by a mark, by queued work, or by the earliest queued work falling due.
+            // ponytail: the clock is looked at once a second while nothing else wakes this; a clock-change signal if that matters.
+            let wait=service.next_due().map_or(QUEUE_POLL,|due|Duration::from_secs(due.saturating_sub(app.now().timestamp()).max(0) as u64).min(QUEUE_POLL));
+            if !wait.is_zero() { tokio::select!{ _=service.marked_wait()=>{}, _=tokio::time::sleep(wait)=>{} } }
+            for (user,work) in service.take_due(app.now().timestamp()) { consume(&app,user,work).await; }
+            if service.marked()==0 && !service.has_owners() { continue; }
             tokio::time::sleep(COALESCE).await;
             let bots=service.take_marked();
             let mut owners=service.take_owners();
