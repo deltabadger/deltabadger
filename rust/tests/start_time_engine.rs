@@ -288,6 +288,15 @@ fn a_running_bot_with_the_rule_on_and_no_start_at_runs_from_started_at() {
         let r = eligibility::check_install(&o.primary).unwrap();
         assert!(r.eligible.contains(&id), "null start_at: {:?} {:?} {:?}", r.eligible, r.problems, r.unreadable);
     }
+    // A continue with no start_at is an ordinary continue on started_at's grid; with a start_at it stays refused.
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_continue_start', json('{\"requested_at\":\"2026-10-12T08:00:00Z\",\"was_stopped\":true}')) WHERE id = ?1", [id]).unwrap();
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.start_time_enabled', json('true')) WHERE id = ?1", [id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.eligible.contains(&id), "continue, no start_at: {:?}", r.problems);
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.start_at', '2026-10-05T19:57:47Z') WHERE id = ?1", [id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(!r.eligible.contains(&id), "continue with a start_at stays refused");
+    o.primary.execute("UPDATE bots SET settings = json_remove(settings, '$.start_at'), transient_data = json_remove(transient_data, '$.rust_continue_start') WHERE id = ?1", [id]).unwrap();
     // No anchor at all: refused.
     o.primary.execute("UPDATE bots SET started_at = NULL WHERE id = ?1", [id]).unwrap();
     let r = eligibility::check_install(&o.primary).unwrap();

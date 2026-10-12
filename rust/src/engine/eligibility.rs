@@ -126,9 +126,6 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
 /// on start_at: it can buy at once and count every interval up to a start_at that was moved later; a start_at edited on a
 /// running bot moves the grid the same way. Read by truthiness, like the flags: anything Rails might treat as on.
 fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, EngineError> {
-    if bot.transient.get("rust_continue_start").is_some() {
-        return Ok(Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into()));
-    }
     // An unreadable start_at refuses the bot as unreadable, here at its point of use, never at load. A blank one is absent,
     // as Rails' `presence` reads it.
     let start_at = match bot.settings.get("start_at").and_then(Value::as_str).filter(|s| !s.trim().is_empty()) {
@@ -139,7 +136,12 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
     // No start_at: Rails' repeat_anchor_at falls back to started_at, so the rule moves nothing, and the next clean run turns
     // it off with the flag alone (disable_starting_time!'s nil-anchor branch, amount::disable_starting_time). A missing
     // started_at is refused on its own ("never ticks").
+    // A continue with no start_at is an ordinary continue: Lifecycle#start(start_fresh: false) leaves started_at alone, and
+    // the grid it continues on is started_at's.
     if start_at.is_none() { return Ok(None); }
+    if bot.transient.get("rust_continue_start").is_some() {
+        return Ok(Some("start_time_enabled with a continue (Rails ignores the starting time on a continue and may buy at once)".into()));
+    }
     let Some(at) = start_at.filter(|at| Some(*at) == started) else {
         return Ok(Some("start_time_enabled with a start_at that is not the bot's started_at (only a fresh start's starting time is supported)".into()));
     };
