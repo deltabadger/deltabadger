@@ -276,21 +276,25 @@ impl Transport for Wire {
         Ok(HttpResponse { status: reply["status"].as_u64().unwrap_or(200) as u16, body: reply["body"].as_str().map(str::to_string).unwrap_or_else(|| reply["body"].to_string()) })
     }
 }
-#[tokio::test]
-async fn figures_fragments_match_the_rails_page_partials() {
+/// `script/rust/pages.rb <command> <scratch>`, as pages.rs runs Rails: the test environment, booted against scratch
+/// databases only. Development would check the checkout's own databases for pending migrations on every page and answer
+/// 500 where they are missing (CI).
+fn record(scratch: &tempfile::TempDir, command: &str) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    // As pages.rs runs Rails: the test environment, booted against scratch databases only. Development would check the
-    // checkout's own databases for pending migrations on every page and answer 500 where they are missing (CI).
     let boot = tempfile::tempdir().unwrap();
     let mut cmd = std::process::Command::new(root.join("bin/rails"));
-    cmd.current_dir(root).args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()]).env_remove("DATABASE_URL")
+    cmd.current_dir(root).args(["runner", "script/rust/pages.rb", command, scratch.path().to_str().unwrap()]).env_remove("DATABASE_URL")
         .env("RAILS_ENV", "test").env("SECRET_KEY_BASE",common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true");
     for db in ["primary", "queue", "cache", "cable"] {
         cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", boot.path().display()));
     }
     let out = cmd.output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+}
+#[tokio::test]
+async fn figures_fragments_match_the_rails_page_partials() {
+    let scratch = tempfile::tempdir().unwrap();
+    record(&scratch, "figures");
     for entry in std::fs::read_dir(scratch.path()).unwrap() {
         let dir = entry.unwrap().path();
         let name = dir.file_name().unwrap().to_str().unwrap();
@@ -1002,12 +1006,8 @@ fn db_time(text: &str) -> chrono::DateTime<chrono::Utc> {
 #[tokio::test]
 async fn chronology_matches_rails_fresh_bytes() {
     use deltabadger::web::{App, Config, figure::loading::{self, Source, Snapshot}};
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
-    let out = std::process::Command::new(root.join("bin/rails")).current_dir(root)
-        .args(["runner", "script/rust/pages.rb", "chronology", scratch.path().to_str().unwrap()])
-        .env("SECRET_KEY_BASE", common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    record(&scratch, "chronology");
     let dir = scratch.path().join("owner_account");
     let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
     let chronology: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("chronology.json")).unwrap()).unwrap();
@@ -1085,12 +1085,8 @@ async fn chronology_matches_rails_fresh_bytes() {
 #[tokio::test]
 async fn cold_pages_match_rails_loading_state() {
     use deltabadger::web::{App, Config, session::{self, SessionData}, figure::loading::{self, Source}};
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
-    let out = std::process::Command::new(root.join("bin/rails")).current_dir(root)
-        .args(["runner", "script/rust/pages.rb", "figures", scratch.path().to_str().unwrap()])
-        .env("SECRET_KEY_BASE", common::web::SECRET).env("APP_ROOT_URL", "http://localhost:3000").env("SKIP_TEST_DATABASE", "true").output().unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    record(&scratch, "figures");
     let element = |body: &str, css: &str| -> Option<Vec<String>> {
         let doc = scraper::Html::parse_document(body);
         doc.select(&scraper::Selector::parse(css).unwrap()).next().map(|e| common::html::normalize(&e.html()))
