@@ -618,3 +618,69 @@ async fn a_sync_job_run_enqueues_its_user_once_per_debounce() {
     assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![2], "the key's owner, and no one else");
     assert_eq!(queued[&2].not_before, due, "a later run never pushes the debounce back");
 }
+
+// ---- Review: queued work survives a failed render-only pass; a page reads a precomputed reason ---------------------
+
+#[tokio::test]
+async fn a_render_only_pass_overtaken_by_a_write_keeps_its_work() {
+    use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+    let install = Install::new(1, 0);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the English figures", async || published(&install.app, 1).await).await;
+    // Armed now: the builder's next read of the orders (the French render-only pass) first sees a bot's settings change
+    // committed by another connection, after `consume` read the fingerprint and before `keep` checks it.
+    let armed = Arc::new(AtomicBool::new(true));
+    let (trigger, file) = (armed.clone(), install.file.clone());
+    install.app.figure_service.on_builder(move |c| {
+        c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+            if matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "transactions", .. }) && trigger.swap(false, SeqCst) {
+                rusqlite::Connection::open(&file).unwrap().execute("UPDATE bots SET label='renamed' WHERE id=1", []).unwrap();
+            }
+            rusqlite::hooks::Authorization::Allow
+        }));
+    });
+    let pages = install.app.clone();
+    loading::enqueue_page(&pages, 1, "fr", "/fr");
+    until(10, "the write during the French pass", async || !armed.load(SeqCst)).await;
+    until(10, "the French figures after the write", async || matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0))).await;
+    until(10, "their publication", async || published(&install.app, 1).await).await;
+}
+
+#[tokio::test]
+async fn an_account_without_a_paper_key_reads_a_precomputed_reason() {
+    let install = Install::new(1, 0);
+    let c = install.connection();
+    c.execute("UPDATE api_keys SET passphrase=?1 WHERE user_id=1", [install.app.cipher.encrypt("live")]).unwrap();
+    // A long history, one fill of it executed with no value: the reason Rails' row_readings case shows.
+    c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3000) \
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+        SELECT 1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'n'||i,'REGULAR',datetime('2026-03-03','+'||i||' minutes'),'2026-01-01' FROM n; \
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+        VALUES (1,1,'AAA',2,'USD',1,1,1,0,0,2,'unpriced','REGULAR','2026-03-10 00:00:00','2026-01-01');").unwrap();
+    let _stop = install.consume();
+    let absent = "<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
+    let shown = |snapshot: loading::Snapshot| { let app = install.app.clone(); async move { app.clone().db(move |c| loading::render_page(&app, c, 1, &snapshot, "en", "token", "")).await.unwrap() } };
+    // The first view may show the loading state while the queue reads the reason; every view after it reads it.
+    let first = loading::prepare(&install.app, 1).await.unwrap();
+    shown(first).await;
+    until(10, "the reason, read by the queue", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(Some(_)))).await;
+    // A view reads no order's value on the page's connection: the walk that parses them is the queue's.
+    let walked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counter = walked.clone();
+    install.app.db(move |c| {
+        c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+            if let rusqlite::hooks::AuthAction::Read { table_name: "transactions", column_name } = context.action {
+                if ["price", "amount_exec", "quote_amount_exec"].contains(&column_name) { counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst); }
+            }
+            rusqlite::hooks::Authorization::Allow
+        }));
+        Ok(())
+    }).await.unwrap();
+    let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+    let page = shown(snapshot).await.expect("the account's no-value figures");
+    install.app.db(|c| { c.authorizer(None::<fn(rusqlite::hooks::AuthContext<'_>) -> rusqlite::hooks::Authorization>); Ok(()) }).await.unwrap();
+    assert_eq!(walked.load(std::sync::atomic::Ordering::SeqCst), 0, "a page view read the orders' values");
+    assert_eq!(page, json!({"bots": {"1": {"tile": format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"), "metrics": format!("<div id=\"metrics\">{absent}</div>"),
+        "chart": format!("<div id=\"chart\">{absent}</div>")}}, "account": format!("<div id=\"global-pnl\">{absent}</div>")}));
+}

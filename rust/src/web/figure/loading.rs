@@ -273,6 +273,14 @@ fn lock_deadline(c:&Connection,user:i64,now:At)->Result<Option<i64>,WebError> {
     }
     Ok(earliest.map(|at|at.utc().timestamp()))
 }
+/// What the absence reason of an account with no paper key depends on, read without the orders' values: its bots and their
+/// statuses, and how many orders they have, the last one and the last change to any (Rails touches `updated_at`).
+fn unkeyed_stamp(c:&Connection,user:i64)->Result<String,rusqlite::Error> {
+    let deleted=crate::enums::BotStatus::Deleted as i64;
+    let bots:Option<String>=c.query_row("SELECT group_concat(id||':'||status) FROM (SELECT id,status FROM bots WHERE user_id=?1 ORDER BY id)",[user],|r|r.get(0))?;
+    let (count,last,changed):(i64,Option<i64>,Option<String>)=c.query_row("SELECT count(*),max(id),max(updated_at) FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE user_id=?1 AND status!=?2)",[user,deleted],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+    Ok(serde_json::json!([bots,count,last,changed]).to_string())
+}
 /// Why a failed account's figures are absent, from its stored fills alone: an executed fill whose value is unknown.
 fn walk_reason(c:&Connection,user:i64)->Option<&'static str> {
     let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
@@ -334,9 +342,12 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    // No paper Alpaca key, so no fill: why its figures are absent is read from its stored fills, as it always was (no
-    // figures CPU work waits for it, nor it for theirs).
-    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{return Ok(Snapshot::Failed(app.db(move|c|Ok(walk_reason(c,user))).await?))};
+    // No paper Alpaca key, so no fill: why its figures are absent was read by the queue (`consume`) against the stamp of
+    // its orders; until it is, the page shows the loading state and asks for it.
+    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{
+        let stamp=app.db(move|c|Ok(unkeyed_stamp(c,user)?)).await?;
+        return Ok(app.figure_service.unkeyed(user,&stamp,app.now().timestamp()).map_or(Snapshot::Cold,Snapshot::Failed));
+    };
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
@@ -522,17 +533,29 @@ async fn consume(app:&App,user:i64,mut work:Work) {
     let inner=app.clone();
     let info=match app.db(move|c|read_info(c,&inner,user)).await {
         Ok(Some(info))=>info,
-        Ok(None)=>return, // no figures for this account
+        // No paper key, so no figures: why, from the stored fills, for the page to read (`begin`), and published if asked.
+        Ok(None)=>{
+            let now=app.now().timestamp();
+            let read=build(app,move|c|Ok((unkeyed_stamp(c,user)?,walk_reason(c,user)))).await;
+            if let Ok((stamp,reason))=read {
+                app.figure_service.set_unkeyed(user,stamp,now.saturating_add(300-now.rem_euclid(300)),reason);
+                if work.publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
+            }
+            return;
+        }
         Err(_)=>{ work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; }
     };
     let Some(now)=At::from_utc(app.now()) else{return};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
         Load::Ready(cache,_,_)=>{
             let at=cache.stamp().unwrap_or(now);
-            let (publish,mut keys,revision)=(work.publish,work.locales,info.revision);
-            let kept=build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: unkept keys leave the page's loading state, which asks again
+            let (publish,mut keys,revision)=(work.publish,work.locales.clone(),info.revision);
+            let kept=build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: an unkept pass is retried below
+            // A write overtook the pass (or it could not read): the work is queued again, and its retry fills anew.
+            if !kept { app.figure_service.retry_keep(user,work,now.utc().timestamp()); return; }
+            app.figure_service.kept(user);
             // Published only once its own key is kept: a publication never computes.
-            if kept && publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
+            if publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
         }
         Load::Start(ticket,cache)=>spawn_fill(app,user,info,now,ticket,cache,Some(work)),
         Load::Cold=>app.figure_service.enqueue(user,work),
