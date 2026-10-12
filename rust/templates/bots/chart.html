@@ -1,6 +1,8 @@
-{#- bots/charts/show.html.erb: the chart's own frame. With no figures computed it always asks for
-    them once the page's streams are connected. -#}
+{#- bots/charts/show.html.erb: the chart's own frame. A cold chart, or a page that found its own figures
+    missing (`metrics_missing`), asks for them once the page's streams are connected. -#}
 <turbo-frame id="bot_chart">
+{%- if refresh %}
   <div data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="metrics_update" data-broadcast--on-connect-method-args-value="{{ args }}"></div>
+{%- endif %}
   {{ chart|safe }}
 </turbo-frame>

@@ -31,7 +31,7 @@
       {{ status_button|safe }}
     </div>
 
-    <turbo-frame id="bot_chart" src="{{ path }}/chart?metrics_missing=1">
+    <turbo-frame id="bot_chart" src="{{ path }}/chart{% if metrics.is_none() %}?metrics_missing=1{% endif %}">
       {{ chart|safe }}
 </turbo-frame>
     <div id="{{ columns_id }}" class="columns{% if working %} bot-locked{% endif %}">
