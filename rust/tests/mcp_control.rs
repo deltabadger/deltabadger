@@ -124,15 +124,15 @@ async fn control_transcripts() {
         let (mut got,want)=(comparable(got),comparable(want));
         // Plan 3c divergence 9: the engine is held for the HTTP snapshot. Assert
         // the exact request, then compare every other primary column and JSON key.
+        let name=dir.file_name().unwrap().to_string_lossy();
         let mut requests=0;
         for (row,rails) in got["rows"]["bots"].as_array_mut().unwrap().iter_mut().zip(want["rows"]["bots"].as_array().unwrap()) {
             if let Some(request)=row["transient_data"].as_object_mut().unwrap().shift_remove("rust_continue_start") {
                 requests+=1;
-                assert_eq!(request,json!({"requested_at":AT,"was_stopped":rails["status"]==1}));
+                assert_eq!(request,json!({"requested_at":AT,"was_stopped":name!="start_continue_created"}));
                 assert_eq!(rails["status"],1);
             }
         }
-        let name=dir.file_name().unwrap().to_string_lossy();
         if name.ends_with("schedule_bounds") {
             let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
             assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains(if name.starts_with("settings_") {"settings updated:"} else {"started successfully."}));
@@ -196,7 +196,7 @@ async fn control_transcripts() {
                 std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
             }
         }
-        let continuation=["start_bot_status_2","start_bot_fractional_id","start_continue_empty","start_continue_within"].contains(&name.as_ref());
+        let continuation=["start_continue_created","start_continue_empty","start_continue_within"].contains(&name.as_ref());
         assert_eq!(requests,usize::from(continuation),"{name}");
         if got!=want {
             failures.push(dir.file_name().unwrap().to_string_lossy().to_string());

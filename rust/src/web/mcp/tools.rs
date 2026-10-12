@@ -53,7 +53,7 @@ fn bots(c: &Connection,user:i64,args:&Value) -> Result<String,WebError> {
         let label=match label.filter(|l|!l.trim().is_empty()){Some(l)=>l,None=>super::reads::generated_label(c,user,id,&kind,&s,"en")?};
         let pair=if multi || (base.is_some() && quote.is_some()) {format!("{}/{}",base.unwrap_or_default(),quote.clone().unwrap_or_default())} else {"N/A".into()};
         let type_name=type_name(&kind);
-        lines.push(format!("- {} | {type_name} | {pair} | {} | {name} | {} {}/{}",label,exchange.unwrap_or_else(||"N/A".into()),str_value(&s["quote_amount"]),quote.unwrap_or_default(),s.get("interval").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||"N/A".into())));
+        lines.push(format!("- {} (ID {id}) | {type_name} | {pair} | {} | {name} | {} {}/{}",label,exchange.unwrap_or_else(||"N/A".into()),str_value(&s["quote_amount"]),quote.unwrap_or_default(),s.get("interval").filter(|v|!v.is_null()).map(str_value).unwrap_or_else(||"N/A".into())));
     }
     Ok(if lines.is_empty(){"No bots found.".into()}else{format!("Bots ({}):\n{}",lines.len(),lines.join("\n"))})
 }

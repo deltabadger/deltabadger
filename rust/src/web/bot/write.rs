@@ -332,8 +332,8 @@ fn lifecycle_inner<T>(
     let mut writer_refused = false;
     if action == Action::Start {
         // Bots::StartsController reads the flag before Bot#start looks at the row, so a junk flag
-        // on a working bot is refused as junk. MCP has no flag: a created bot starts fresh.
-        let flag=if submitted.mcp() {Ok(status==0)} else {submitted.start_fresh()};
+        // on a working bot is refused as junk. MCP passes the same flag (BotApi::Bots::Start.start_fresh).
+        let flag=submitted.start_fresh();
         match flag {
             Err(_)=>view.add(ctx.locale,"engine.invalid_start_fresh"),
             // Execute the final SQL gate even for a working row; it must touch zero rows.
