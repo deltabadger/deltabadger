@@ -157,7 +157,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     match begin_checked(c, bot, plan, clock, None, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
-        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged => Err(EngineError::Data("unfenced placement skipped".into())),
+        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) => Err(EngineError::Data("unfenced placement skipped".into())),
     }
 }
 
@@ -177,7 +177,9 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 /// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
 /// leg is reported as skipped, never placed. Fenced: a stop, or a stop and a restart, took the run from the tick that
 /// sized the order (Automation::Statusable::FENCED); that tick writes nothing more to the bot.
-pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>) }
+/// LedgerStale: the account ledger stopped being fresh after the order was sized (a sync started or failed meanwhile);
+/// nothing was written or sent, and the tick returns its checkpoint (tick.rs) instead of ending as a success.
+pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>) }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, clock: &dyn Clock) -> Result<Begun, EngineError> {
@@ -216,7 +218,12 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
             else if &composition_snapshot(&tx, &current)? != composition { Some("its member rows or index settings changed") }
             else if current.restatement_generation != reconciled.generation { Some("its split rows changed") }
-            else if super::staleness::ledger_stale(&tx, &current, clock.now())?.is_some() { Some("its account ledger needs a complete refresh") }
+            else if let Some(stale) = super::staleness::ledger_stale(&tx, &current, clock.now())? {
+                // Usually another bot's order on the same key woke the ledger sync after this one was sized. Nothing is
+                // sent on that ledger; the tick hands its checkpoint back and sizes again once the sync completes.
+                super::log(&format!("[engine] bot {}: {} order not placed: its account ledger needs a complete refresh after it was sized; the tick waits for the refresh and sizes again", bot.id, plan.ticker.ticker));
+                return Ok(Begun::LedgerStale(Box::new(stale)));
+            }
             else if ticker_changed || tickers.iter().any(|t| !t.available || !t.trading_enabled) { Some("its ticker data changed or is unavailable") }
             else if !super::eligibility::bot_reasons(&tx, &current)?.is_empty() { Some("its members or provider are no longer eligible") }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }

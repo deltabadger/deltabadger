@@ -350,13 +350,16 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
 
     let now = clock.now();
     let next_tick = bot.tick_generation().checked_add(1).ok_or_else(||EngineError::Data("tick generation overflow".into()))?;
-    model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+    // What the claim replaces, so a tick that must wait for a ledger refresh can hand the checkpoint back (unclaim).
+    let claimed_over = model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+        let prior = model::load_bot(tx, bot_id)?;
         if bot.transient.get("waiting_for_market_open").is_some_and(|v| !v.is_null() && *v != Value::Bool(false)) {
             model::merge_transient_compact(tx, bot_id, &[("waiting_for_market_open", Value::Null)])?;
         }
         let writes = vec![("last_action_job_at", json!(iso8601_ms(now))), ("tick_generation", json!(next_tick))];
         placement::remove_wait(tx, Some(bot_id))?;
-        model::update_transient(tx, bot_id, &writes, now)
+        model::update_transient(tx, bot_id, &writes, now)?;
+        Ok(Claimed { status: prior.status, last_action_job_at: prior.transient.get("last_action_job_at").cloned(), defer: prior.transient.get("rust_defer_until").cloned() })
     })?;
     bot.transient["last_action_job_at"] = json!(iso8601_ms(now));
     bot.transient["tick_generation"] = json!(next_tick);
@@ -370,6 +373,7 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     };
     let outcome = match executed {
         Ok(Ran { fenced: true, .. }) => { *attempts = Attempts::default(); TickOutcome::Skipped }
+        Ok(Ran { ledger_stale: Some(stale), .. }) => unclaim(c, bot, claimed_over, *stale, clock.now(), &cx.credential_version)?,
         Ok(Ran { placed, .. }) => {
             *attempts = Attempts::default();
             // clear_failure_state!, then back to scheduled unless stopped meanwhile.
@@ -397,7 +401,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
     if splits::untrusted(c, bot, clock.now())? {
         let now = clock.now();
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({}), now))?;
-        return Ok(Ok(Ran { placed: false, fenced: false }));
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
     }
 
     if let Err(f) = polling::sweep(c, venue, bot, clock.now()).await {
@@ -416,12 +420,12 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":reason}), clock.now())
         })?;
         super::log(&format!("[engine] bot {bot_id}: split reconciliation required: {reason}; refresh the ledger and correct its split records before restarting; no trade is required"));
-        return Ok(Ok(Ran { placed: false, fenced: false }));
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
     }
     if splits::snapshot(c, bot)? != reconciled {
         let now = clock.now();
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":"split generation or held assets changed during reconciliation"}), now))?;
-        return Ok(Ok(Ran { placed: false, fenced: false }));
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
     }
     model::run_write(c, bot, |tx| { tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_split_hold') WHERE id=?1 AND json_extract(transient_data,'$.rust_split_hold') IS NOT NULL", [bot_id])?; Ok(()) })?;
     // Statusable#transition_working!: every status write of the tick moves only a still-working bot, so a stop that
@@ -461,6 +465,10 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
                 Err(e @ (EngineError::CredentialsChanged | EngineError::RunFenced)) => return Err(e),
                 other => other,
             };
+            // A tick that waits for a ledger refresh sizes every leg again, so its below-minimum legs are reported then.
+            if legs.ledger_stale.is_some() && !legs.fenced {
+                return Ok(Ok(Ran { placed: legs.placed, fenced: false, ledger_stale: legs.ledger_stale }));
+            }
             if !legs.skipped.is_empty() {
                 model::run_credential_write(c, bot, &cx.credential_version, |tx| record_skipped(tx, bot, &legs.skipped, legs.placed, clock.now()))?;
             }
@@ -507,15 +515,42 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
         // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
-    Ok(Ok(Ran { placed, fenced }))
+    Ok(Ok(Ran { placed, fenced, ledger_stale: None }))
 }
 
-/// What a tick's execute_action did. A fenced tick skips Fundable and all completion writes.
-struct Ran { placed: bool, fenced: bool }
+/// What a tick's execute_action did. A fenced tick skips Fundable and all completion writes. `ledger_stale`: a leg was
+/// refused because the account ledger stopped being fresh after it was sized; the tick hands its checkpoint back (unclaim).
+struct Ran { placed: bool, fenced: bool, ledger_stale: Option<Box<staleness::Stale>> }
 
 /// What a basket buy did before it returned, for the skipped-leg report that runs on every way out.
 #[derive(Default)]
-struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan> }
+struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledger_stale: Option<Box<staleness::Stale>> }
+
+/// The values a tick's claim replaced.
+struct Claimed { status: BotStatus, last_action_job_at: Option<Value>, defer: Option<Value> }
+
+/// A leg was refused because the account ledger needs a complete refresh after the basket was sized: typically another bot's
+/// order on the same key woke `ledger_sync` while this tick was running (sync::jobs::LedgerSync::wants). Rails has no such
+/// fence and would have bought, so this tick must not consume the checkpoint: last_action_job_at and the wait go back to what
+/// the claim found, the bot goes back to the status it had, and the outcome is `Stale`, as when the tick-start check
+/// refuses. The bot stays due. The scheduler wakes the engine when a ledger sync records a success (jobs::Scheduler::record),
+/// and the next tick re-sizes from the refreshed ledger; what this tick placed counts as spent in pending_quote_amount, so
+/// nothing is bought twice. While the sync is still running, or if it failed, the tick-start check refuses (Stale) and
+/// rechecks every run::STALE_RECHECK_US, until a sync completes.
+fn unclaim(c: &Connection, bot: &mut model::Bot, claimed: Claimed, stale: staleness::Stale, now: DateTime<Utc>, version: &Option<model::CredentialVersion>) -> Result<TickOutcome, EngineError> {
+    let back = model::run_credential_write(c, bot, version, |tx| {
+        for (key, value) in [("last_action_job_at", &claimed.last_action_job_at), ("rust_defer_until", &claimed.defer)] {
+            let path = format!("$.{key}");
+            match value {
+                Some(v) => tx.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3", params![path, v.to_string(), bot.id])?,
+                None => tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, ?1) WHERE id = ?2", params![path, bot.id])?,
+            };
+        }
+        model::transition_working(tx, bot.id, claimed.status, now)
+    })?;
+    match &claimed.last_action_job_at { Some(v) => bot.transient["last_action_job_at"] = v.clone(), None => { bot.transient.as_object_mut().map(|t| t.remove("last_action_job_at")); } }
+    Ok(if back { TickOutcome::Stale { source: stale.source, message: stale.message } } else { TickOutcome::Skipped })
+}
 
 /// Bot::Composition::OrderSetter#set_orders(side: :buy) over get_orders_data: holdings, every member's price before any
 /// order (Step 1), the split, then the legs in member order. Each leg is settled (row written, intent cleared) before the next
@@ -583,6 +618,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
                     placement::Begun::Fenced => { legs.fenced = true; break; }
                     placement::Begun::CredentialsChanged => return Ok(Err(Fail::CredentialsChanged)),
                     placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); continue; }
+                    placement::Begun::LedgerStale(stale) => { legs.ledger_stale = Some(stale); break; }
                 };
                 match placement::send_recorded(c, venue, bot, &intent, clock).await? {
                     Sent::Accepted(_) => { legs.placed = true; }
