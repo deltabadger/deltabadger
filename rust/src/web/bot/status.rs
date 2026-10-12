@@ -12,7 +12,7 @@ use askama::Template;
 use bigdecimal::num_bigint::{BigInt, Sign};
 use bigdecimal::ToPrimitive;
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 /// Exchange#humanize_error for a venue without a Honeymaker classifier (Alpaca): the sentence of
 /// the bucket the message falls in (Exchange::KIND_ERROR_KEYS), else the message as it came.
@@ -213,14 +213,25 @@ pub fn job_time_us(checkpoint_us: i64) -> i64 {
 
 /// When the bot acts next: Rails' `next_action_job_at`, the time its scheduled job waits for. After
 /// every tick that is the next interval checkpoint, and the engine's schedule gives the same
-/// instant. Two times are in no row and so are not known here: a closed market's opening, and a
-/// retry the engine has in hand (listed divergences in rust/tests/pages.rs).
+/// instant. A bot parked on a closed market waits for the venue clock's next_open: the engine holds
+/// it until then (engine::clock::gate, tick::park), as Rails enqueues its job then, and the park
+/// records that instant in its market_closed activity, which is read here. One time is in no row and
+/// so is not known here: a retry the engine has in hand (a listed divergence in rust/tests/pages.rs).
 ///
 /// Rails has no time either while a tick is due or in hand: its job is then ready, claimed or
 /// blocked, no longer scheduled (Automation::Schedulable#next_action_job_at). There is no job table
 /// here, so "due" is read from the row: the checkpoint has come and the bot has not acted on it.
-pub fn next_action_at(bot: &Bot, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>,WebError> {
-    if bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false)) { return Ok(None); }
+pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>,WebError> {
+    if bot.transient.get("waiting_for_market_open").is_some_and(|flag| !flag.is_null() && flag != &serde_json::Value::Bool(false)) {
+        // The flag is cleared by the first tick that finds the market open, so the latest park is the one it stands for.
+        let details: Option<String> = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'market_closed' ORDER BY id DESC LIMIT 1",
+                                                  [bot.id], |r| r.get(0)).optional()?;
+        let Some(details) = details else { return Ok(None) };
+        let details: serde_json::Value = serde_json::from_str(&details).map_err(|e| super::data(format!("market_closed details: {e}")))?;
+        let open = crate::codec::optional_time(details.get("next_market_open_at")).map_err(|e| super::data(format!("{e:?}")))?;
+        // Once it has come, Rails' job is due (ready or claimed): no longer scheduled.
+        return Ok(open.filter(|open| *open > now));
+    }
     let Some(checkpoints) = bot.checkpoints(now)? else {return Ok(None)};
     let due = match bot.last_action_job_at()? {
         // Bot::ActionJob writes `last_action_job_at` as it starts a tick: an older one means the last checkpoint's tick has not
@@ -264,7 +275,7 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
         BotStatus::Waiting => (text, dots) = (Some(t("bot.status.waiting")), true),
         BotStatus::Scheduled | BotStatus::Retrying => {
             let scheduled = bot.status == BotStatus::Scheduled;
-            let end = next_action_at(bot, ctx.now)?;
+            let end = next_action_at(c, bot, ctx.now)?;
             // `last_action_job_at || last_interval_checkpoint_at`: the second is not on the microsecond grid, and Rails measures from where it is.
             let start = bot.last_action_job_at()?.map(|at| Instant::from_micros(at.timestamp_micros())).or(bot.unrounded(ctx.now)?.map(|(_, last)| Instant::of(&last)));
             let failure = bot.last_order.as_ref().filter(|order| order.failed).and_then(|order| humanized_error(bot, &order.error_messages, ctx.locale));

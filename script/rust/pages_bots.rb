@@ -247,6 +247,7 @@ module Pages
 
   def logs(record, name)
     rows = case name
+           when Array then name
            when 'history'
              [['started', {}, '2026-09-01T09:00:00Z'], ['market_closed', { 'next_market_open_at' => '2026-09-08T13:30:00Z' }, '2026-09-07T13:30:00Z'],
               ['execution_failed', { 'error' => 'insufficient buying power', 'kind' => 'insufficient_funds' }, '2026-09-09T13:30:09Z'],
