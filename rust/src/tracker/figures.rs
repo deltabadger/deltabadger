@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 /// An `account_balances` row with something in it (`nonzero`), as the model reads it.
 #[derive(Clone, Debug)]
-pub struct Balance { pub category: Option<String>, pub symbol: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
+pub struct Balance { pub category: Option<String>, pub symbol: String, pub exchange: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
 
 /// A decimal column of `scale` with a precision, as ActiveRecord casts what SQLite returns: a REAL is
 /// `BigDecimal(float.round(scale), 16)` then the scale (sync::balances::cast_float's rule), anything else to_d and the
@@ -36,13 +36,14 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
 /// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.
 pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<Balance>, FiguresError> {
     let mut s = c.prepare(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+         JOIN exchanges e ON e.id = b.exchange_id \
          WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 ORDER BY b.id")?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
         out.push(Balance {
-            category: r.get(7)?, symbol: r.get(0)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
+            category: r.get(7)?, symbol: r.get(0)?, exchange: r.get(8)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
             usd_price: scaled(r.get_ref(3)?, 8)?, usd_value: scaled(r.get_ref(4)?, 8)?, priced_at: instant(r.get(5)?)?, synced_at: instant(r.get(6)?)?,
         });
     }
@@ -126,11 +127,47 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
 /// One holding: what the venue holds of a symbol (and what arrived since its sync), what it is worth, and its cost
 /// against the history (none for cash).
 #[derive(Clone, Debug)]
-pub struct Holding { pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool }
+pub struct Holding { pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool, pub unrealised: Option<Dec>, pub note: Option<Note> }
 
-/// Tracker::Figures::Result as the snapshot reads it.
+impl Holding {
+    /// `Holding#percent`: the gain on its cost, none without one.
+    pub fn percent(&self) -> Result<Option<Dec>, FiguresError> {
+        let Some(cost) = self.cost.as_ref().filter(|c| c.is_positive()) else { return Ok(None) };
+        Ok(Some((&(&self.value.div(cost)? - &Dec::one())? * &Dec::from_i64(100))?))
+    }
+}
+
+/// `Figures::Note`: an assumption, for the page to say. `exchange` is the venue's name when one venue holds the asset.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Note { pub kind: &'static str, pub symbol: String, pub exchange: Option<String>, pub history: Option<Dec>, pub held: Option<Dec>, pub amount: Dec }
+
+/// The notes a computation wrote, in the order it wrote them (`@notes`).
+#[derive(Default)]
+struct Notes(Vec<Note>);
+
+impl Notes {
+    /// `note`: below a dollar an assumption is applied in silence (`NOTE_FLOOR`), unless it is always stated.
+    #[allow(clippy::too_many_arguments)] // Rails' `note(kind, symbol, exchange, history, held, amount_usd, always:)`
+    fn note(&mut self, kind: &'static str, symbol: &str, exchange: Option<&str>, history: Option<&Dec>, held: Option<&Dec>, amount: Dec, always: bool) -> Option<Note> {
+        let floor = if amount.is_negative() { amount.neg() } else { amount.clone() } >= Dec::one();
+        if !(always || floor) { return None; }
+        let note = Note { kind, symbol: symbol.into(), exchange: exchange.map(Into::into), history: history.cloned(), held: held.cloned(), amount };
+        self.0.push(note.clone());
+        Some(note)
+    }
+    /// `provenance_note`: units nobody could price, or a basis that is a day's market price, not a fill.
+    fn provenance(&mut self, symbol: &str, position: &super::walk::Position, held: &Dec, price: Option<&Dec>, exchange: Option<&str>) -> Result<Option<Note>, FiguresError> {
+        if position.unpriced.is_positive() {
+            let amount = (&position.unpriced * price.unwrap_or(&Dec::zero()))?;
+            return Ok(self.note("unpriced_held", symbol, exchange, Some(&position.unpriced), Some(held), amount, true));
+        }
+        Ok(if position.estimated { self.note("estimated", symbol, exchange, Some(&position.quantity), Some(held), position.cost.clone(), true) } else { None })
+    }
+}
+
+/// Tracker::Figures::Result.
 #[derive(Clone, Debug)]
-pub struct Figures { pub value: Dec, pub invested: Dec, pub holdings: Vec<Holding> }
+pub struct Figures { pub value: Dec, pub invested: Dec, pub fees: Dec, pub realised: Dec, pub unrealised: Dec, pub total: Dec, pub holdings: Vec<Holding>, pub notes: Vec<Note> }
 
 impl Figures {
     /// `Result#without_cash`: the cash taken off both sides, (value, invested).
@@ -141,11 +178,22 @@ impl Figures {
     }
 }
 
-/// `rate(currency)`: a dollar and a stablecoin are one dollar; other cash at today's ECB rate, at par when there is none
-/// (Rails notes it; the note is the page's).
-fn rate(currency: &str, fx: &FxTable, today: NaiveDate) -> Result<Dec, FiguresError> {
+/// `rate(currency)`: a dollar and a stablecoin are one dollar; other cash at today's ECB rate, at par when there is none,
+/// which is noted each time it is asked.
+fn rate(currency: &str, fx: &FxTable, today: NaiveDate, notes: &mut Notes) -> Result<Dec, FiguresError> {
     if currency == "USD" || stable(currency) { return Ok(Dec::one()); }
-    Ok(fx.rate(currency, "USD", today)?.unwrap_or_else(Dec::one))
+    Ok(match fx.rate(currency, "USD", today)? {
+        Some(rate) => rate,
+        None => { notes.note("at_par", currency, None, None, None, Dec::zero(), true); Dec::one() }
+    })
+}
+
+/// `venue_of`: the venue a coin's history was booked on, when it is one venue.
+fn venue_of(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<String>, FiguresError> {
+    let mut s = c.prepare("SELECT e.name FROM exchanges e WHERE e.id IN (SELECT exchange_id FROM account_transactions WHERE user_id = ?1 AND base_currency = ?2)")?;
+    let names: Vec<String> = s.query_map(rusqlite::params![user_id, symbol], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    crate::figures::budget::charge(names.len() as u64, 0)?;
+    Ok(if names.len() == 1 { names.into_iter().next() } else { None })
 }
 
 /// A (key, value) list by its key; each entry a step.
@@ -205,6 +253,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
             if let Some(symbol) = r.get::<_, Option<String>>(0)? { if unlisted.contains(symbol.as_str()) { known.insert(symbol); } }
         }
     }
+    let mut notes = Notes::default();
     let mut holdings = vec![];
     for symbol in symbols {
         crate::figures::budget::charge(1, 0)?;
@@ -215,6 +264,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         held = (&units + &held)?;
         if !held.is_positive() { continue; }
         if rows.is_empty() && !known.contains(&symbol) { continue; }
+        let exchange = rows.first().map(|r| r.exchange.as_str()).filter(|name| rows.iter().all(|r| r.exchange == *name));
         let mut prices = Dec::zero();
         let mut values = Dec::zero();
         for r in rows {
@@ -223,59 +273,101 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         }
         let price = if prices.is_positive() { Some(values.div(&units)?) } else { None };
         if cash(&symbol) {
-            let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol, fx, today)? })? };
-            holdings.push(Holding { symbol, quantity: held, value, cost: None, cash: true });
+            let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol, fx, today, &mut notes)? })? };
+            holdings.push(Holding { symbol, quantity: held, value, cost: None, cash: true, unrealised: None, note: None });
             continue;
         }
         let position = position_of.get(symbol.as_str()).copied();
+        let since_sync = rows.is_empty();
         let history = position.map_or_else(Dec::zero, |p| p.quantity.clone());
         let avg = position.map_or_else(Dec::zero, |p| p.avg_cost.clone());
         let delta = (&held - &history)?;
-        let cost = if delta.is_negative() {
-            moved = (&moved - &(&avg * &delta.neg())?)?;
-            (&avg * &held)?
+        // `resolve`: the holding's cost against the history, and the assumption that closed the gap, if any.
+        let (cost, note) = if delta.is_negative() {
+            // The extra left at cost.
+            let left = (&avg * &delta.neg())?;
+            moved = (&moved - &left)?;
+            let note = match notes.note("left", &symbol, exchange, Some(&history), Some(&held), left, false) {
+                Some(note) => Some(note),
+                None => match position { Some(p) => notes.provenance(&symbol, p, &held, price.as_ref(), exchange)?, None => None },
+            };
+            ((&avg * &held)?, note)
         } else if delta.is_positive() {
+            // The extra arrived: at the venue's price, at cost while it has none.
             let unit = price.clone().unwrap_or(avg);
             let arrived = (&delta * &unit)?;
             moved = (&moved + &arrived)?;
-            (position.map_or(&zero, |p| &p.cost) + &arrived)?
+            let kind = if since_sync { "since_sync" } else { "arrived" };
+            let note = match notes.note(kind, &symbol, exchange, Some(&history), Some(&held), arrived.clone(), since_sync) {
+                Some(note) => Some(note),
+                None => match position { Some(p) => notes.provenance(&symbol, p, &held, price.as_ref(), exchange)?, None => None },
+            };
+            ((position.map_or(&zero, |p| &p.cost) + &arrived)?, note)
         } else {
-            position.map_or_else(Dec::zero, |p| p.cost.clone())
+            let note = match position { Some(p) => notes.provenance(&symbol, p, &held, price.as_ref(), exchange)?, None => None };
+            (position.map_or_else(Dec::zero, |p| p.cost.clone()), note)
         };
+        // A coin the venue has not reported yet is held at cost until it does, and says so whatever else was assumed.
+        let note = match note { None if since_sync => notes.note("since_sync", &symbol, exchange, Some(&history), Some(&held), cost.clone(), true), note => note };
         let value = match &price { Some(p) => (&held * p)?, None => cost.clone() };
-        holdings.push(Holding { symbol, quantity: held, value, cost: Some(cost), cash: false });
+        holdings.push(Holding { symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note });
     }
-    // Coins the history holds that no venue reports: left at cost.
-    let held_symbols: HashSet<&str> = holdings.iter().map(|h| h.symbol.as_str()).collect();
+    // `sort_by { -value }`.
+    holdings.sort_by(|a, b| b.value.cmp(&a.value));
+    // `resolve_departed`: coins the history holds that no venue reports, left at cost.
+    let held_symbols: HashSet<String> = holdings.iter().map(|h| h.symbol.clone()).collect();
     for p in &ledger.positions {
         crate::figures::budget::charge(1, 0)?;
         if held_symbols.contains(p.symbol.as_str()) || cash(&p.symbol) || !p.quantity.is_positive() { continue; }
         moved = (&moved - &p.cost)?;
+        notes.note("left", &p.symbol, venue_of(c, user_id, &p.symbol)?.as_deref(), Some(&p.quantity), Some(&Dec::zero()), p.cost.clone(), false);
     }
-    // Cash against the basis the ledger carried it at.
-    let mut venue_cash: HashMap<&str, Dec> = HashMap::new();
+    // `resolve_cash`: cash against the basis the ledger carried it at; its worth beyond the basis is unrealised.
+    let mut venue_cash: HashMap<&str, (Dec, Dec)> = HashMap::new();
     let mut currencies: Vec<&str> = ledger.cash.iter().map(|(c, _)| c.as_str()).collect();
-    let mut known: HashSet<&str> = currencies.iter().copied().collect();
+    let mut listed: HashSet<&str> = currencies.iter().copied().collect();
     for h in holdings.iter().filter(|h| h.cash) {
         crate::figures::budget::charge(1, 0)?;
-        let q = venue_cash.entry(h.symbol.as_str()).or_insert_with(Dec::zero);
+        let (q, w) = venue_cash.entry(h.symbol.as_str()).or_insert_with(|| (Dec::zero(), Dec::zero()));
         *q = (&*q + &h.quantity)?;
-        if known.insert(h.symbol.as_str()) { currencies.push(h.symbol.as_str()); }
+        *w = (&*w + &h.value)?;
+        if listed.insert(h.symbol.as_str()) { currencies.push(h.symbol.as_str()); }
     }
     let (cash_of, basis_of) = (indexed(&ledger.cash)?, indexed(&ledger.cash_basis)?);
+    let mut cash_unrealised = Dec::zero();
     for currency in currencies {
         crate::figures::budget::charge(1, 0)?;
         let history = cash_of.get(currency).map_or_else(Dec::zero, |d| (*d).clone());
-        let held = venue_cash.get(currency).cloned().unwrap_or_else(Dec::zero);
-        let basis = basis_of.get(currency).map_or_else(Dec::zero, |d| (*d).clone());
+        let (held, worth) = venue_cash.get(currency).cloned().unwrap_or_else(|| (Dec::zero(), Dec::zero()));
+        let mut basis = basis_of.get(currency).map_or_else(Dec::zero, |d| (*d).clone());
         let gap = (&history - &held)?;
         if gap.is_positive() {
-            moved = (&moved - &(&basis * &gap)?.div(&history)?)?;
+            let left = (&basis * &gap)?.div(&history)?;
+            moved = (&moved - &left)?;
+            basis = (&basis - &left)?;
+            notes.note("cash_out", currency, None, Some(&history), Some(&held), left, false);
         } else if gap.is_negative() {
-            moved = (&moved + &(&gap.neg() * &rate(currency, fx, today)?)?)?;
+            let arrived = (&gap.neg() * &rate(currency, fx, today, &mut notes)?)?;
+            moved = (&moved + &arrived)?;
+            basis = (&basis + &arrived)?;
+            notes.note("cash_in", currency, None, Some(&history), Some(&held), arrived, false);
         }
+        cash_unrealised = (&cash_unrealised + &(&worth - &basis)?)?;
     }
     let mut value = Dec::zero();
     for h in &holdings { value = (&value + &h.value)?; }
-    Ok(Figures { value, invested: (&ledger.total_invested + &moved)?, holdings })
+    let invested = (&ledger.total_invested + &moved)?;
+    let mut unrealised = Dec::zero();
+    for u in holdings.iter().filter_map(|h| h.unrealised.as_ref()) { unrealised = (&unrealised + u)?; }
+    let unrealised = (&unrealised + &cash_unrealised)?;
+    // `unpriced_note`.
+    if ledger.unpriced_proceeds.is_positive() { notes.note("unpriced", "", None, None, None, ledger.unpriced_proceeds.clone(), false); }
+    // `backstop`: the two halves must agree to a cent, or a thousandth of the value.
+    let drift = (&(&value - &invested)? - &(&ledger.realised + &unrealised)?)?;
+    let magnitude = |d: &Dec| if d.is_negative() { d.neg() } else { d.clone() };
+    let tolerance = std::cmp::max(Dec::strict("0.01")?, (&magnitude(&value) * &Dec::strict("0.001")?)?);
+    if magnitude(&drift) > tolerance { notes.note("figures_disagree", "", None, None, None, drift, true); }
+    let mut notes = notes.0;
+    notes.sort_by(|a, b| (a.symbol.as_str(), a.kind).cmp(&(b.symbol.as_str(), b.kind)));
+    Ok(Figures { total: (&value - &invested)?, value, invested, fees: ledger.fees.clone(), realised: ledger.realised.clone(), unrealised, holdings, notes })
 }

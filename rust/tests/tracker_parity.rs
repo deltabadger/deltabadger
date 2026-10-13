@@ -66,7 +66,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 62, "the tracker grid");
+    assert_eq!(dirs.len(), 65, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -94,6 +94,31 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
 
     // What the grid must have exercised, read from Rails' own output.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    // The page's figures (Plan tracker holdings S0b): every one stated somewhere in the grid, not only zeros.
+    let summaries: Vec<Value> = dirs.iter().flat_map(|d| {
+        let ledger = read(&d.join("rails.json"))["ledger"].clone();
+        std::iter::once(ledger["whole"].clone()).chain(ledger["venues"].as_object().map(|v| v.values().cloned().collect::<Vec<_>>()).unwrap_or_default())
+    }).filter(|s| !s.is_null()).collect();
+    let nonzero = |field: &str| summaries.iter().filter(|s| s[field].as_str().is_some_and(|v| v != "0.0")).count();
+    for field in ["received", "realised", "fees", "cash_usd", "unpriced_proceeds"] { assert!(nonzero(field) > 0, "no scenario states {field}"); }
+    assert!(summaries.iter().any(|s| s["realised"].as_str().is_some_and(|v| v.starts_with('-'))), "a realised loss");
+    assert!(rails_of("return_of_capital_past_basis")["ledger"]["whole"]["realised"].as_str().is_some_and(|v| v != "0.0"), "return of capital past the basis is realised");
+    assert!(summaries.iter().any(|s| s["openings"].as_array().is_some_and(|o| !o.is_empty())), "an opening");
+    let trips: Vec<&Value> = summaries.iter().flat_map(|s| s["round_trips"].as_array().into_iter().flatten()).collect();
+    assert!(trips.iter().any(|t| t["incomplete"] == true) && trips.iter().any(|t| t["incomplete"] == false), "complete and incomplete round trips");
+    assert!(trips.iter().any(|t| t["opened_at"].is_string()), "a round trip's opening date");
+    assert!(summaries.iter().flat_map(|s| s["positions"].as_array().into_iter().flatten()).all(|p| p["opened_at"].is_string()), "every position's date");
+    // Tracker::Figures::Result: every field stated, every note kind written, on a holding and in the list.
+    let figures: Vec<Value> = dirs.iter().flat_map(|d| read(&d.join("rails.json"))["ledger"]["figures"].as_object().map(|f| f.values().cloned().collect::<Vec<_>>()).unwrap_or_default()).collect();
+    for field in ["fees", "realised", "unrealised", "total"] { assert!(figures.iter().any(|f| f[field].as_str().is_some_and(|v| v != "0.0")), "no scenario states figures {field}"); }
+    let holdings: Vec<&Value> = figures.iter().flat_map(|f| f["holdings"].as_array().into_iter().flatten()).collect();
+    assert!(holdings.iter().any(|h| h["percent"].is_string()) && holdings.iter().any(|h| h["unrealised"].is_string()), "a holding's gain");
+    let kinds: std::collections::HashSet<&str> = figures.iter().flat_map(|f| f["notes"].as_array().into_iter().flatten()).filter_map(|n| n["kind"].as_str()).collect();
+    for kind in ["left", "arrived", "since_sync", "unpriced_held", "estimated", "cash_out", "cash_in", "unpriced", "figures_disagree", "at_par"] { assert!(kinds.contains(kind), "no scenario writes a {kind} note"); }
+    assert!(holdings.iter().any(|h| h["note"].is_object()), "a holding's own note");
+    assert!(rails_of("departed_coin_names_its_venue")["ledger"]["figures"]["whole"]["notes"].as_array().unwrap().iter()
+        .any(|n| n["kind"] == "left" && n["held"] == "0.0" && n["exchange"].is_string()), "a departed coin's note names its venue");
+    assert!(figures.iter().flat_map(|f| f["notes"].as_array().into_iter().flatten()).any(|n| n["exchange"].is_string()), "a note naming its venue");
     let snapshots = |out: &Value| out["tables"]["portfolio_snapshots"].as_array().unwrap().clone();
     let today = |out: &Value| snapshots(out).into_iter().find(|r| r["date"] == "2026-10-01").unwrap();
     assert_eq!(snapshots(&rails_of("empty")), Vec::<Value>::new());

@@ -27,18 +27,32 @@ impl Connect for Scripted {
     fn connect(&self, _: &Credentials) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(None)) }
 }
 
+/// An instant as Ruby's `iso8601(6)` states a UTC time.
+fn time(at: crate::figures::at::At) -> String { at.utc().format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string() }
+
 pub fn summary_json(s: &Summary) -> Value {
     let mut positions = s.positions.clone();
     positions.sort_by(|a, b| a.symbol.cmp(&b.symbol));
     json!({
         "positions": positions.iter().map(|p| json!({ "symbol": p.symbol, "quantity": p.quantity.to_s_f(), "cost": p.cost.to_s_f(), "avg_cost": p.avg_cost.to_s_f(),
-                                                     "estimated": p.estimated, "unpriced": p.unpriced.to_s_f() })).collect::<Vec<_>>(),
+                                                     "opened_at": p.opened_at.map(time), "estimated": p.estimated, "unpriced": p.unpriced.to_s_f() })).collect::<Vec<_>>(),
+        "round_trips": s.round_trips.iter().map(|t| json!({ "symbol": t.symbol, "opened_at": t.opened_at.map(time), "closed_at": time(t.closed_at),
+            "quantity": t.quantity.to_s_f(), "invested": t.invested.to_s_f(), "proceeds": t.proceeds.to_s_f(), "fees": t.fees.to_s_f(),
+            "realised": t.realised.to_s_f(), "incomplete": t.incomplete })).collect::<Vec<_>>(),
         "total_invested": s.total_invested.to_s_f(),
+        "received": s.received.to_s_f(), "realised": s.realised.to_s_f(), "fees": s.fees.to_s_f(), "cash_usd": s.cash_usd.to_s_f(),
+        "unpriced_proceeds": s.unpriced_proceeds.to_s_f(),
+        "openings": s.openings.iter().map(|(c, a)| json!([c, a.to_s_f()])).collect::<Vec<_>>(),
         "cash": s.cash.iter().map(|(c, a)| json!([c, a.to_s_f()])).collect::<Vec<_>>(),
         "cash_basis": s.cash_basis.iter().map(|(c, a)| json!([c, a.to_s_f()])).collect::<Vec<_>>(),
         "incomplete": s.incomplete,
         "loss_sales": s.loss_sales.iter().map(|(sym, on)| json!([sym, on.to_string()])).collect::<Vec<_>>(),
     })
+}
+
+fn note_json(n: &figures::Note) -> Value {
+    json!({ "kind": n.kind, "symbol": n.symbol, "exchange": n.exchange, "history": n.history.as_ref().map(Dec::to_s_f),
+            "held": n.held.as_ref().map(Dec::to_s_f), "amount": n.amount.to_s_f() })
 }
 
 fn figures_json(f: &figures::Figures) -> Result<Value, FiguresError> {
@@ -47,8 +61,11 @@ fn figures_json(f: &figures::Figures) -> Result<Value, FiguresError> {
     holdings.sort_by(|a, b| a.symbol.cmp(&b.symbol));
     Ok(json!({
         "value": f.value.to_s_f(), "invested": f.invested.to_s_f(), "held_value": held_value.to_s_f(), "held_cost": held_cost.to_s_f(),
-        "holdings": holdings.iter().map(|h| json!({ "symbol": h.symbol, "quantity": h.quantity.to_s_f(), "value": h.value.to_s_f(),
-                                                   "cost": h.cost.as_ref().map(Dec::to_s_f) })).collect::<Vec<_>>(),
+        "fees": f.fees.to_s_f(), "realised": f.realised.to_s_f(), "unrealised": f.unrealised.to_s_f(), "total": f.total.to_s_f(),
+        "holdings": holdings.iter().map(|h| Ok(json!({ "symbol": h.symbol, "quantity": h.quantity.to_s_f(), "value": h.value.to_s_f(),
+                                                   "cost": h.cost.as_ref().map(Dec::to_s_f), "unrealised": h.unrealised.as_ref().map(Dec::to_s_f),
+                                                   "percent": h.percent()?.as_ref().map(Dec::to_s_f), "note": h.note.as_ref().map(note_json) }))).collect::<Result<Vec<_>, FiguresError>>()?,
+        "notes": f.notes.iter().map(note_json).collect::<Vec<_>>(),
     }))
 }
 
