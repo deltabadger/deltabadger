@@ -17,11 +17,18 @@ use serde_json::Value;
 #[template(path = "settings/api.html")]
 struct Api<'a> {
     v: &'a Ctx,
-    csrf: &'a str,
-    root: String,
     connected: String,
     tools: String,
     mcp_widget: String,
+    rest_widget: String,
+}
+#[derive(Template)]
+#[template(path = "settings/rest.html")]
+struct Rest<'a> {
+    v: &'a Ctx,
+    csrf: &'a str,
+    root: &'a str,
+    token: &'a str,
 }
 #[derive(Template)]
 #[template(path = "settings/tool_permissions.html")]
@@ -63,24 +70,68 @@ impl Tools<'_> {
         }
     }
 }
-fn ensure_personal(c: &Connection, user: i64, now: &str) -> Result<(), WebError> {
+/// User#personal_api_application, created when missing (create_personal_api_app_safely!). Doorkeeper generates a uid,
+/// and no secret for an application that is not confidential (the column is nullable).
+fn personal_app(c: &Connection, user: i64, now: &str) -> Result<i64, WebError> {
     let id:Option<i64>=c.query_row("SELECT id FROM oauth_applications WHERE personal_owner_id=?1 AND personal_access_token=1",[user],|r|r.get(0)).optional()?;
-    let id = match id {
+    Ok(match id {
         Some(id) => id,
         None => {
-            c.execute("INSERT INTO oauth_applications(name,uid,secret,redirect_uri,scopes,confidential,personal_access_token,personal_owner_id,created_at,updated_at)VALUES('Personal API token',?1,?2,'https://localhost/personal-access-token','api',0,1,?3,?4,?4)",(oauth::new_token(),oauth::new_token(),user,now))?;
+            c.execute("INSERT INTO oauth_applications(name,uid,secret,redirect_uri,scopes,confidential,personal_access_token,personal_owner_id,created_at,updated_at)VALUES('Personal API token',?1,NULL,'https://localhost/personal-access-token','api',0,1,?2,?3,?3)",(oauth::new_token(),user,now))?;
             c.last_insert_rowid()
         }
-    };
+    })
+}
+/// User#mint_personal_token!, scoped to api, with no expiry. The token is Doorkeeper's own: its create callback replaces
+/// the `SecureRandom.hex(32)` the model passes with a fresh `SecureRandom.urlsafe_base64(32)`.
+fn mint(c: &Connection, app: i64, user: i64, now: &str) -> Result<String, WebError> {
+    let token = oauth::new_token();
+    c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,expires_in,created_at)VALUES(?1,?2,?3,'api',NULL,?4)",(app,user,&token,now))?;
+    Ok(token)
+}
+fn ensure_personal(c: &Connection, user: i64, now: &str) -> Result<(), WebError> {
+    let id = personal_app(c, user, now)?;
     let active:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM oauth_access_tokens WHERE application_id=?1 AND resource_owner_id=?2 AND revoked_at IS NULL AND (expires_in IS NULL OR datetime(created_at,'+'||expires_in||' seconds')>datetime(?3)))",(id,user,now),|r|r.get(0))?;
     if !active {
-        let token = rand::random::<[u8; 32]>()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect::<String>();
-        c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,expires_in,created_at)VALUES(?1,?2,?3,'api',NULL,?4)",(id,user,token,now))?;
+        mint(c, id, user, now)?;
     }
     Ok(())
+}
+fn root(app: &App) -> String {
+    app.config
+        .own_origin
+        .clone()
+        .unwrap_or_else(|| "http://localhost:3000".into())
+}
+/// POST /settings/regenerate_api_token (User#regenerate_personal_api_token!): every live personal token is revoked and
+/// a new one minted; the answer is the one response that shows it.
+pub async fn regenerate(app: App, ctx: Ctx) -> Result<Response, WebError> {
+    use axum::{http::header, response::IntoResponse};
+    let Some(user) = ctx.user().cloned() else {
+        return Ok(auth::unauthenticated(&ctx));
+    };
+    let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
+    let widget = app
+        .db(move |c| {
+            let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+            let now = format_time(inner.now());
+            let id = personal_app(&tx, user.id, &now)?;
+            tx.execute(
+                "UPDATE oauth_access_tokens SET revoked_at=?1 WHERE application_id=?2 AND resource_owner_id=?3 AND revoked_at IS NULL",
+                (&now, id, user.id),
+            )?;
+            let token = mint(&tx, id, user.id, &now)?;
+            let root = root(&inner);
+            let widget = Rest { v: &v, csrf: &csrf, root: &root, token: &token }.render()?;
+            tx.commit()?;
+            Ok(widget)
+        })
+        .await?;
+    Ok((
+        [(header::CONTENT_TYPE, crate::web::turbo::CONTENT_TYPE)],
+        crate::web::turbo::stream("replace", "rest_settings", widget.trim_end()),
+    )
+        .into_response())
 }
 pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
@@ -118,11 +169,7 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let user = ctx
         .user()
         .ok_or_else(|| WebError::Config("missing API owner".into()))?;
-    let root = app
-        .config
-        .own_origin
-        .clone()
-        .unwrap_or_else(|| "http://localhost:3000".into());
+    let root = root(&app);
     shell::application(
         &ctx,
         &csrf,
@@ -132,7 +179,6 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
             status: StatusCode::OK,
             body: Api {
                 v: &ctx,
-                csrf: &csrf,
                 tools: Tools {
                     v: &ctx,
                     csrf: &csrf,
@@ -147,7 +193,13 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
                     root: root.clone(),
                 }
                 .render()?,
-                root,
+                rest_widget: Rest {
+                    v: &ctx,
+                    csrf: &csrf,
+                    root: &root,
+                    token: "[redacted]",
+                }
+                .render()?,
                 connected,
             }
             .render()?,
@@ -251,11 +303,7 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 )?;
             }
             let body = if dry_run {
-                let root = inner
-                    .config
-                    .own_origin
-                    .clone()
-                    .unwrap_or_else(|| "http://localhost:3000".into());
+                let root = root(&inner);
                 turbo::stream(
                     "replace",
                     "mcp_settings",

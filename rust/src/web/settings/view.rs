@@ -162,6 +162,47 @@ struct EmailNotifications<'a> {
     host: Option<String>,
     port: Option<String>,
     configured_label: String,
+    /// `@show_smtp_form`: Custom SMTP was chosen without credentials, so its form opens.
+    show_form: bool,
+}
+/// settings/widgets/_registration.
+pub(super) fn registration(ctx: &Ctx, csrf: &str, registration_open: bool) -> Result<String, WebError> {
+    Ok(Registration { v: ctx, csrf, registration_open }.render()?)
+}
+/// settings/widgets/_advanced_bots.
+pub(super) fn advanced(ctx: &Ctx, csrf: &str, advanced: bool) -> Result<String, WebError> {
+    Ok(Advanced { v: ctx, csrf, advanced }.render()?)
+}
+/// settings/widgets/_email_notifications, as AppConfig and the environment hold it now.
+pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form: bool) -> Result<String, WebError> {
+    let read = |key: &str| crate::web::auth::app_config(c, &app.cipher, key);
+    let provider = read("smtp_provider")?;
+    let env_available = app.settings_smtp.address.as_deref().is_some_and(|s| !crate::ruby::blank(s));
+    let host = read("smtp_host")?;
+    let port = read("smtp_port")?;
+    let custom = !env_available && provider.as_deref() == Some("custom_smtp");
+    let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::ruby::blank(&s))
+        && read("smtp_password")?.is_some_and(|s| !crate::ruby::blank(&s));
+    let configured_label = i18n::t(
+        ctx.locale,
+        "settings.email_notifications.smtp_configured_html",
+        &[("host", Arg::Text(host.as_deref().filter(|s| !crate::ruby::blank(s)).unwrap_or("smtp.gmail.com")))],
+    );
+    Ok(EmailNotifications {
+        v: ctx,
+        csrf,
+        mail_configured: env_available || provider.as_deref().is_some_and(|s| !crate::ruby::blank(s)),
+        env_available,
+        env_name: app.settings_smtp_provider_name.clone(),
+        custom,
+        env_configured: env_available || provider.as_deref() == Some("env_smtp"),
+        has_credentials,
+        host,
+        port,
+        configured_label,
+        show_form,
+    }
+    .render()?)
 }
 #[derive(Template)]
 #[template(path = "settings/wash.html")]
@@ -310,44 +351,7 @@ pub async fn account(
                 [owner.id],
                 |r| r.get(0),
             )?;
-            let provider = read("smtp_provider")?;
-            let env_available = inner
-                .settings_smtp
-                .address
-                .as_deref()
-                .is_some_and(|s| !crate::ruby::blank(s));
-            let host = read("smtp_host")?;
-            let port = read("smtp_port")?;
-            let custom = !env_available && provider.as_deref() == Some("custom_smtp");
-            let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::ruby::blank(&s))
-                && read("smtp_password")?.is_some_and(|s| !crate::ruby::blank(&s));
-            let configured_label = i18n::t(
-                v.locale,
-                "settings.email_notifications.smtp_configured_html",
-                &[(
-                    "host",
-                    Arg::Text(
-                        host.as_deref()
-                            .filter(|s| !crate::ruby::blank(s))
-                            .unwrap_or("smtp.gmail.com"),
-                    ),
-                )],
-            );
-            let email_widget = EmailNotifications {
-                v: &v,
-                csrf: &token,
-                mail_configured: env_available
-                    || provider.as_deref().is_some_and(|s| !crate::ruby::blank(s)),
-                env_available,
-                env_name: inner.settings_smtp_provider_name.clone(),
-                custom,
-                env_configured: env_available || provider.as_deref() == Some("env_smtp"),
-                has_credentials,
-                host,
-                port,
-                configured_label,
-            }
-            .render()?;
+            let email_widget = self::email(c, &inner, &v, &token, false)?;
             Ok((
                 name.unwrap_or_default(),
                 email.unwrap_or_default(),
@@ -408,18 +412,8 @@ pub async fn account(
         messages: draft.messages,
         pending_email,
         pending_label,
-        excluded_registration_settings: Registration {
-            v: ctx,
-            csrf: &csrf,
-            registration_open,
-        }
-        .render()?,
-        excluded_advanced_bots: Advanced {
-            v: ctx,
-            csrf: &csrf,
-            advanced,
-        }
-        .render()?,
+        excluded_registration_settings: registration(ctx, &csrf, registration_open)?,
+        excluded_advanced_bots: self::advanced(ctx, &csrf, advanced)?,
         excluded_email_notifications: email_widget,
         wash_widget,
     }
