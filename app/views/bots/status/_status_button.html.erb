@@ -1,9 +1,17 @@
-<%= tag.div id: dom_id(bot, :status_button) do %>
+<%# The tile wears small rbuttons, the bot page full-size ones: two targets, so a broadcast (which
+    cannot know which page it lands on) sends both and each finds its own. %>
+<% tile = local_assigns[:tile] %>
+<% size = tile ? "rbutton rbutton--small" : "rbutton" %>
+<% cannot_start = bot.invalid?(:start) || !bot.api_key.correct? %>
+<%# A Start that cannot start: the tile's stays a --start (white glyph) on grey, the bot page's
+    drops it for a white button with a grey glyph. %>
+<% start_class = "#{size} #{cannot_start ? (tile ? 'rbutton--start rbutton--disabled' : 'rbutton--disabled') : 'rbutton--start'}" %>
+<%= tag.div id: dom_id(bot, tile ? :tile_status_button : :status_button) do %>
   <% if bot.archived? %>
     <%# The Start button's slot, reading Reactivate: one click puts the bot back where archiving
         found it, and only then can it be started again. %>
     <%= button_to t('button.reactivate'), bot_archive_path(bot), method: :delete,
-                  class: "sbutton sbutton--success", data: { turbo_frame: "_top" } %>
+                  class: "#{size} rbutton--success", data: { turbo_frame: "_top" } %>
   <% else %>
     <%# Fix C: a disabled start button (button_to never submits) is otherwise a silent freeze. When the
         block is a temporarily-unavailable ticker, surface the reason right next to the button. %>
@@ -13,7 +21,7 @@
       </p>
     <% end %>
     <% if !bot.stopped? && !bot.created? %>
-      <%= button_to bot_stop_path(bot), method: :patch, class: "sbutton sbutton--sky sbutton--outline", data: { hw_animate_out: "animate-button-to-start-shape", turbo_frame: "_top" }, aria: { label: t('button.stop') } do %>
+      <%= button_to bot_stop_path(bot), method: :patch, class: tile ? "#{size} rbutton--stop" : size, data: { hw_animate_out: "animate-button-to-start-shape", turbo_frame: "_top" }, aria: { label: t('button.stop') } do %>
         <div class="animicon animicon--stop">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
@@ -21,14 +29,14 @@
       <% end %>
     <% else %>
       <% if bot.restarting? %>
-        <%= button_to edit_bot_start_path(bot), method: :get, class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: bot.invalid?(:start) || !bot.api_key.correct?, aria: { label: t('button.start') } do %>
+        <%= button_to edit_bot_start_path(bot), method: :get, class: start_class, data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: cannot_start, aria: { label: t('button.start') } do %>
           <div class="animicon animicon--start">
             <div class="animicon__a"></div>
             <div class="animicon__b"></div>
           </div>
         <% end %>
       <% else %>
-        <%= button_to bot_start_path(bot, start_fresh: true), method: :patch, class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "_top" }, disabled: bot.invalid?(:start) || !bot.api_key.correct?, aria: { label: t('button.start') } do %>
+        <%= button_to bot_start_path(bot, start_fresh: true), method: :patch, class: start_class, data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "_top" }, disabled: cannot_start, aria: { label: t('button.start') } do %>
           <div class="animicon animicon--start">
             <div class="animicon__a"></div>
             <div class="animicon__b"></div>

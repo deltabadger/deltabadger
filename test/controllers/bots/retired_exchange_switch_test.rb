@@ -22,7 +22,7 @@ class RetiredExchangeSwitchTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     # The venue logo partial is keyed off name_id and must survive the removal.
-    assert_match 'exchange--bitmart', response.body
+    assert_select '#exchange_select > .dropdown-wrapper > svg', 1
   end
 
   test 'the retired venue offers no way to connect or reconnect a key' do

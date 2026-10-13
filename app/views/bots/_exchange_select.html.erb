@@ -1,4 +1,4 @@
-<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "sbutton sbutton--exchange-group", data: { controller: "form--submit" } do |f| %>
+<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "bot-control__exchange", data: { controller: "form--submit" } do |f| %>
   <%# Not-working, not stopped: a bot that has never been started is `created`, and that is exactly
       where a user lands after the wizard or after a key is rejected. Gating on stopped? left them
       unable to move off the venue they could not connect to. %>
@@ -18,11 +18,13 @@
               t('bot.exchange_menu.no_alternative', assets: bot.assets.pluck(:symbol).to_sentence)
             end %>
   <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
-    <div class="sbutton sbutton--exchange sbutton--exchange--<%= bot.exchange.name_id %> <%= 'sinput--disabled' unless switchable %>">
-      <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
-      <span class="hide-on-mobile"><%= bot.exchange&.name || t('bot.pick_exchange') %></span>
-    </div>
+    <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
     <div class="dropdown dropdown--exchanges">
+      <%# The meter shows only the logo; the name is one click away. %>
+      <div class="dropdown__item dropdown__item--current">
+        <%= render "svg/exchange-#{bot.exchange.name_id}" %>
+        <%= bot.exchange.name.capitalize %>
+      </div>
       <% if can_reconnect %>
         <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
           <%= t('button.reconnect') %>
@@ -47,6 +49,6 @@
   <% if bot.exchange&.retired? %>
     <span class="text-warning"><%= t('bot.status.exchange_retired') %></span>
   <% elsif bot.exchange.present? && !bot.api_key.correct? %>
-    <%= link_to t('button.connect'), new_bot_add_api_key_path(bot), class: "sbutton sbutton--success", data: { turbo_frame: "modal" } %>
+    <%= link_to t('button.connect'), new_bot_add_api_key_path(bot), class: "rbutton rbutton--small rbutton--success bot-control__connect", data: { turbo_frame: "modal" } %>
   <% end %>
 <% end %>

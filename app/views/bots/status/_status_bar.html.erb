@@ -32,18 +32,10 @@
       <span class="bot-control__status__text__three-dots" data-three-dots-target="dots" data-controller="three-dots"></span>
     </div>
   <% elsif bot.scheduled? && bot.signal? %>
-    <div class="bot-control__status__text text-success" data-marquee-target="text">
+    <div class="bot-control__status__text" data-marquee-target="text">
       <%= t('bot.status.listening') %><span class="bot-control__status__text__three-dots" data-three-dots-target="dots" data-controller="three-dots"></span>
     </div>
   <% elsif bot.scheduled? || bot.retrying? %>
-    <% if bot.scheduled? %>
-      <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
-        controller: "progress-bar",
-        progress_bar_start_time_value: bot.progress_start_time&.iso8601,
-        progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
-      } %>
-    <% end %>
-
     <%= tag.div class: "bot-control__status__text #{bot.retrying? ? '' : 'text-success'}", data: {
       controller: "countdown",
       countdown_end_time_value: bot.next_action_job_at&.iso8601,

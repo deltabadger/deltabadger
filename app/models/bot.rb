@@ -284,15 +284,23 @@ class Bot < ApplicationRecord
       partial: 'bots/status/status_bar',
       locals: { bot: self }
     )
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :progress_bar),
+      partial: 'bots/status/progress_bar',
+      locals: { bot: self }
+    )
   end
 
   def broadcast_status_button_update
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: dom_id(self, :status_button),
-      partial: 'bots/status/status_button',
-      locals: { bot: self }
-    )
+    { status_button: false, tile_status_button: true }.each do |target, tile|
+      broadcast_replace_to(
+        ["user_#{user_id}", :bot_updates],
+        target: dom_id(self, target),
+        partial: 'bots/status/status_button',
+        locals: { bot: self, tile: tile }
+      )
+    end
   end
 
   def broadcast_columns_lock_update

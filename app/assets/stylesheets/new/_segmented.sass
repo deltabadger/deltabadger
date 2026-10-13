@@ -52,10 +52,35 @@
             fill: var(--link)
     // Sized to sit inside a table row without setting the row's height.
     &--small
-        height: 2.75rem
-        border-radius: 0.75rem
+        height: 3rem
+        border-radius: 1rem
         padding: 0 1rem
         font-size: 1.5rem
+    // The bot's Start and Stop: the glyph is the label. Stop steps back to grey while the bot runs.
+    // The animicon glyph takes the label colour, so a plain rbutton draws it in link blue.
+    .animicon
+        &__a, &__b
+            background: currentColor
+    &--start, &--stop
+        padding: 0 1.75rem
+        cursor: pointer
+        box-shadow: none
+    &--start
+        color: #fff
+        background: var(--grass)
+    &--stop
+        background: var(--silver)
+        .animicon
+            &__a,&__b
+                background: var(--stone)
+    // A Start that cannot start: the glyph greys out, and the small one loses its green.
+    &--disabled
+        cursor: default
+        &:not(.rbutton--small)
+            .animicon__a, .animicon__b
+                color: var(--steel)
+        &.rbutton--small
+            background: var(--silver)
 .segmented
     position: relative
     display: grid

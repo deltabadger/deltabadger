@@ -1,5 +1,5 @@
 <%= turbo_stream.replace 'settings', partial: "#{@bot.model_name.collection}/settings", locals: { bot: @bot } %>
-<%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>
+<%= status_button_streams(@bot) %>
 <%# The metrics panel carries the Redeploy prompt, which a basket offers only while buying. %>
 <% if @bot.respond_to?(:redeploy_offer) %>
   <%= turbo_stream.replace 'metrics', partial: @bot.metrics_partial,
