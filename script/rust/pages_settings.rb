@@ -375,6 +375,7 @@ module Pages
     grid['settings_key_delete_modal'] = settings_case(get('/settings/confirm_destroy_api_key/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
     tracker_connect_scenarios(grid)
+    preference_scenarios(grid)
     { 'nbsp' => "\u00a0", 'em_space' => "\u2003", 'nul' => "\0" }.each do |name, padding|
       accepted = name == 'nul'
       grid["settings_sign_in_email_#{name}"] = {
@@ -384,6 +385,105 @@ module Pages
       }
     end
     grid
+  end
+
+  # The menu's preferences, the tracker's cash switch and the account page's switches, each followed by the pages that
+  # read what was written. A step's 'broadcasts' lists the streams whose cable payloads it records.
+  def self.preference_scenarios(grid)
+    from = ->(path) { TURBO.merge('Referer' => "http://localhost:3000#{path}") }
+    request_id = { 'X-Turbo-Request-Id' => '6b0f2f5e-3c39-4a51-9d55-0d5bfa0c1c7e' }
+    pref = ->(action, form, status, opts = {}) { settings_write(action, { '_method' => 'patch' }.merge(form), status, opts) }
+    currency = ->(code, status, opts = {}) { pref.call('update_display_currency', { 'user[display_currency]' => code }, status, opts) }
+    hide = ->(form, opts = {}) { pref.call('update_hide_balances', form, 303, { 'broadcasts' => ['user_1:preferences'] }.merge(opts)) }
+    # Stopped bots with history: a settings step records with ActiveJob's test adapter, so Rails' job table holds no
+    # checkpoint for a running bot to count down to. A bots page in another currency than USD needs a rate from the
+    # network, so after a currency change the account page is what is read back (the first-sync grid reads the rest).
+    stopped_history = [stopped('basket', 'orders' => 'history', 'logs' => 'history'), stopped('single', 'orders' => 'one_fill'), { 'kind' => 'index' }]
+
+    grid['settings_pref_currency_from_bots'] =
+      with_bots(stopped_history, signed_in(get('/bots'), currency.call('EUR', 303, 'headers' => from.call('/bots')), get('/settings/account')))
+    grid['settings_pref_currency_de'] =
+      settings_case(currency.call('EUR', 303, 'path' => '/de/settings/update_display_currency', 'headers' => from.call('/de/settings/account')),
+                    get('/de/settings/account'))
+    grid['settings_pref_currency_lowercase'] = settings_case(currency.call('gbp', 303))
+    grid['settings_pref_currency_blank'] = settings_case(currency.call('', 303), user: owner('display_currency' => 'EUR'))
+    grid['settings_pref_currency_same'] = settings_case(currency.call('USD', 303))
+    grid['settings_pref_currency_invalid'] = settings_case(currency.call('XYZ', 422))
+    grid['settings_pref_currency_invalid_de'] =
+      settings_case(currency.call('XYZ', 422, 'path' => '/de/settings/update_display_currency'))
+    grid['settings_pref_currency_no_referer'] = settings_case(currency.call('CHF', 303, 'headers' => TURBO.except('Referer')))
+    grid['settings_pref_currency_foreign_referer'] = settings_case(currency.call('CHF', 303, 'headers' => TURBO.merge('Referer' => 'http://evil.example/bots')))
+    grid['settings_pref_currency_csrf'] = settings_case(currency.call('EUR', 302, 'csrf' => 'none'))
+
+    grid['settings_pref_hide_on'] =
+      with_bots(stopped_history, signed_in(get('/bots'), hide.call({ 'hide_balances' => '1' }, 'headers' => from.call('/bots').merge(request_id)),
+                                  get('/bots'), get('/bots/1'), get('/bots/1.turbo_stream', FEED), get('/tracker')))
+    grid['settings_pref_hide_off'] =
+      with_bots(stopped_history, signed_in(get('/bots/1'), hide.call({ 'hide_balances' => '0' }, 'headers' => from.call('/bots/1').merge(request_id)),
+                                  get('/bots/1'), get('/bots')), 'user' => owner('hide_balances' => true))
+    grid['settings_pref_hide_unchanged'] = settings_case(hide.call({ 'hide_balances' => '1' }), user: owner('hide_balances' => true))
+    grid['settings_pref_hide_missing'] = settings_case(hide.call({}, 'headers' => TURBO.except('Referer')), user: owner('hide_balances' => true))
+    grid['settings_pref_hide_csrf'] = settings_case(hide.call({ 'hide_balances' => '1' }, 'csrf' => 'none', 'expect' => 302))
+
+    cash = ->(value, opts = {}) { pref.call('update_show_cash', { 'show_cash' => value }, 303, opts) }
+    grid['settings_pref_cash_on'] =
+      with_bots(three, signed_in(get('/tracker'), cash.call('1', 'headers' => from.call('/tracker')), get('/tracker'), get('/bots')),
+                'user' => owner('hide_balances' => true))
+    grid['settings_pref_cash_off'] =
+      with_bots(three, signed_in(get('/tracker'), cash.call('0', 'headers' => from.call('/tracker')), get('/tracker')),
+                'user' => owner('hide_balances' => true, 'tracker_settings' => { 'show_cash' => true }))
+    grid['settings_pref_cash_other_keys'] =
+      settings_case(cash.call('1', 'headers' => TURBO.except('Referer')),
+                    user: owner('tracker_settings' => { 'export_type' => 'a<b>&c', 'show_cash' => false, 'ratio' => 1.5 }))
+    grid['settings_pref_cash_null'] = settings_case(cash.call('1'), user: owner('tracker_settings' => nil))
+    grid['settings_pref_cash_unchanged'] = settings_case(cash.call('1'), user: owner('tracker_settings' => { 'show_cash' => true }))
+
+    grid['settings_pref_advanced_on'] = settings_case(pref.call('update_advanced_bots', { 'enabled' => '1' }, 200))
+    grid['settings_pref_advanced_off'] =
+      settings_case(pref.call('update_advanced_bots', { 'enabled' => '0' }, 200), user: owner('advanced_bots_enabled' => true))
+    grid['settings_pref_advanced_de'] =
+      settings_case(pref.call('update_advanced_bots', { 'enabled' => '1' }, 200, 'path' => '/de/settings/update_advanced_bots'))
+
+    grid['settings_pref_registration_on'] = settings_case(pref.call('update_registration', { 'registration_open' => '1' }, 200))
+    grid['settings_pref_registration_off'] =
+      settings_case(pref.call('update_registration', { 'registration_open' => '0' }, 200)).merge('app_configs' => { 'registration_open' => 'true' })
+    grid['settings_pref_registration_de'] =
+      settings_case(pref.call('update_registration', { 'registration_open' => '1' }, 200, 'path' => '/de/settings/update_registration'))
+    grid['settings_pref_registration_nonadmin'] =
+      settings_case(pref.call('update_registration', { 'registration_open' => '1' }, 403), user: owner('admin' => false))
+
+    custom = { 'smtp_username' => 'placeholder-user', 'smtp_password' => 'placeholder-password', 'smtp_host' => 'mail.example.com',
+               'smtp_port' => '2525' }
+    email = ->(form, status = 200, opts = {}) { pref.call('update_email_notifications', form, status, opts) }
+    grid['settings_pref_email_custom'] = settings_case(email.call({ 'smtp_provider' => 'custom_smtp' }.merge(custom)))
+    grid['settings_pref_email_custom_de'] =
+      settings_case(email.call({ 'smtp_provider' => 'custom_smtp' }.merge(custom), 200, 'path' => '/de/settings/update_email_notifications'))
+    grid['settings_pref_email_custom_no_host'] =
+      settings_case(email.call({ 'smtp_provider' => 'custom_smtp', 'smtp_username' => 'placeholder-user', 'smtp_password' => 'placeholder-password' }))
+    grid['settings_pref_email_custom_missing'] =
+      settings_case(email.call({ 'smtp_provider' => 'custom_smtp', 'smtp_username' => 'placeholder-user', 'smtp_password' => ' ' }))
+    grid['settings_pref_email_custom_missing_configured'] =
+      settings_case(email.call({ 'smtp_provider' => 'custom_smtp' })).merge('app_configs' => { 'smtp_provider' => 'env_smtp' })
+    grid['settings_pref_email_redacted'] =
+      settings_case(email.call({ 'smtp_provider' => 'custom_smtp', 'smtp_username' => '[redacted]', 'smtp_password' => '[redacted]',
+                                 'smtp_host' => 'mail.example.com', 'smtp_port' => '2525' }))
+      .merge('app_configs' => custom)
+    grid['settings_pref_email_disable'] =
+      settings_case(email.call({ 'smtp_provider' => '' })).merge('app_configs' => { 'smtp_provider' => 'custom_smtp' }.merge(custom))
+    grid['settings_pref_email_disable_unset'] = settings_case(email.call({}))
+    grid['settings_pref_email_env'] = settings_case(email.call({ 'smtp_provider' => 'env_smtp' }))
+    grid['settings_pref_email_unknown'] = settings_case(email.call({ 'smtp_provider' => 'other' }))
+    grid['settings_pref_email_nonadmin'] =
+      settings_case(email.call({ 'smtp_provider' => 'env_smtp' }, 403), user: owner('admin' => false))
+
+    # The personal REST token: rust/tests/pages.rs compares its random values as placeholders, once each side's revealed
+    # token is that side's one live token.
+    regenerate = lambda do |path = '/settings/regenerate_api_token'|
+      post(path, {}, 'csrf' => 'header', 'headers' => TURBO.merge('Turbo-Frame' => 'rest_settings'), 'expect' => 200, 'settings_snapshot' => true)
+    end
+    grid['settings_pref_regenerate'] = settings_case(get('/settings/api'), regenerate.call)
+    grid['settings_pref_regenerate_first'] = settings_case(regenerate.call)
+    grid['settings_pref_regenerate_de'] = settings_case(get('/de/settings/api'), regenerate.call('/de/settings/regenerate_api_token'))
   end
 
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
