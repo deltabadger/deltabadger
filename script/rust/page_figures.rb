@@ -66,6 +66,27 @@ module PageFigures
     owner
   end
 
+  # The account's figures in the currency it is shown in (Denomination), from figures.rb's three-bot account on the
+  # hosted provider: a USD basket, a USDT basket, an empty one, a deleted and an archived one.
+  def display_currency(list)
+    account = Figures.scenarios.find { |s| s['name'] == 'account_deltabadger' } or raise 'missing account_deltabadger'
+    rates = "#{Figures::HOSTED}/exchange_rates"
+    prices = "#{Figures::HOSTED}/prices?coin_ids=tether&vs_currencies=usd"
+    script = account['script'].deep_dup
+    { 'gbp' => 47_481.4, 'chf' => 51_210.3 }.each { |code, value| script[rates]['body']['data'][code] = { 'name' => 'x', 'unit' => 'x', 'value' => value, 'type' => 'fiat' } }
+    down = script.merge(rates => Figures::SERVER_ERROR, prices => Figures::SERVER_ERROR)
+    variants = {
+      'fx_eur' => {}, 'fx_gbp' => { 'display_currency' => 'GBP' }, 'fx_chf' => { 'display_currency' => 'CHF' },
+      'fx_usdt_usd' => { 'display_currency' => 'USD' }, 'fx_hidden_eur' => { 'hide_balances' => true },
+      'fx_de' => { 'locale' => 'de' }, 'fx_rates_down' => { 'script' => down }
+    }
+    out = variants.map { |name, change| account.deep_dup.merge('script' => script).merge(change).merge('name' => name) }
+    # Dollars only, shown in euros, with no rate to be had: Denomination.for's fallback.
+    usd = list.find { |s| s['name'] == 'basket_buys' }.deep_dup
+    out << usd.merge('name' => 'fx_display_down', 'provider' => 'deltabadger', 'display_currency' => 'EUR', 'script' => usd['script'].merge(rates => Figures::SERVER_ERROR))
+    out
+  end
+
   # Each bot's tile, metrics panel and chart as Rails renders them from what its caches hold (computed where they hold nothing).
   def bot_fragments(user, bots)
     bots.to_h do |bot|
@@ -201,6 +222,7 @@ module PageFigures
     specials['bots'].first['orders'] += [Figures.sell('AAA', rebalanced, '53', '0.1', type: 'REBALANCE'),
                                          Figures.buy('DDD', rebalanced + 1, '90.1', '0.058823529', type: 'REBALANCE')]
     list << specials
+    list.concat(display_currency(list))
     list.each do |sc|
       dir = File.join(root, sc['name'])
       FileUtils.mkdir_p(dir)
@@ -214,6 +236,7 @@ module PageFigures
       end
       bots.first.update_columns(redeploy_declined_offset: 100) if sc['name'] == 'stranded_offset'
       bots.first.bot_index_assets.delete_all if sc['name'] == 'no_composition'
+      user.update_columns(locale: sc['locale']) if sc['locale']
       Rails.cache.clear
       ScriptedMarket.http = sc['script']
       ScriptedMarket.requests = []

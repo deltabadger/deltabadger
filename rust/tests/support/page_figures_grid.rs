@@ -295,11 +295,13 @@ fn record(scratch: &tempfile::TempDir, command: &str) {
 async fn figures_fragments_match_the_rails_page_partials() {
     let scratch = tempfile::tempdir().unwrap();
     record(&scratch, "figures");
+    let mut currencies = 0;
     for entry in std::fs::read_dir(scratch.path()).unwrap() {
         let dir = entry.unwrap().path();
         let name = dir.file_name().unwrap().to_str().unwrap();
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
         let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+        if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
         let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
         let now = At::from_utc(chrono::DateTime::parse_from_rfc3339(sc["at"].as_str().unwrap()).unwrap().to_utc()).unwrap();
         let wire = Wire { script: sc["script"].clone(), calls: RefCell::default() };
@@ -920,6 +922,58 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
             }
         }
+    }
+    assert_eq!(currencies, 8, "the display-currency scenarios (page_figures.rb#display_currency)");
+}
+
+/// The account's figures in the currency it is shown in, as the server keeps and publishes them: filled through the
+/// figures service, with every conversion fetched from the scripted provider by the fill (none by the page), against
+/// what Rails rendered and broadcast for the same install. Rails converts the tiles and the headline; the bot pages'
+/// panels stay in each bot's quote currency, so they are compared as they are.
+async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) {
+    use deltabadger::web::{App, Config, figure::loading::{self, Snapshot, Source}};
+    let env = common::web::env(common::web::SECRET);
+    let at = sc["at"].as_str().unwrap();
+    let app = App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(), common::web::TestClock::at(at)).unwrap()
+        .with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+    let user = sc["user_id"].as_i64().unwrap();
+    let snapshot = tokio::time::timeout(Duration::from_secs(20), async { loop {
+        match loading::prepare(&app, user).await.unwrap() { Snapshot::Ready(..) => break loading::prepare(&app, user).await.unwrap(), Snapshot::Failed(why) => panic!("{name}: the fill failed: {why:?}"), _ => tokio::time::sleep(Duration::from_millis(20)).await }
+    }}).await.unwrap_or_else(|_| panic!("{name}: the figures never became ready"));
+    let (locale, prefix) = if name == "fx_de" { ("de", "/de") } else { ("en", "") };
+    let clock = app.clock.clone();
+    let actual = app.db(move |c| loading::render(c, user, &snapshot, locale, "token", prefix, &*clock)).await.unwrap().unwrap_or_else(|| panic!("{name}: nothing kept for the account's own key"));
+    // The panels Rails renders in the user's locale only where a broadcast does; the fragments are in English.
+    let parts: &[&str] = if name == "fx_de" { &["tile"] } else { &["tile", "metrics", "chart"] };
+    let ours = actual["bots"].as_object().unwrap();
+    assert!(!ours.is_empty(), "{name}: no bots");
+    for (id, figures) in ours {
+        for part in parts {
+            let rails = expected["bots"][id][*part].as_str().unwrap_or_else(|| panic!("{name}: Rails has no {part} for bot {id}"));
+            assert_eq!(common::html::normalize(figures[*part].as_str().unwrap()), common::html::normalize(rails), "{name} bot {id} {part}");
+        }
+    }
+    assert_eq!(common::html::normalize(actual["account"].as_str().unwrap()), common::html::normalize(expected["account"].as_str().unwrap()), "{name} account");
+    let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    // The cable bytes of every tile and of the headline: what Rails' broadcast_pnl_update and broadcast_global_pnl_update sent.
+    for (stream, payload) in deltabadger::web::figure::streams(&c, user, &actual).unwrap() {
+        let target = target(&payload);
+        if !(target == "global-pnl" || target.starts_with("pnl_bots_")) { continue; }
+        let wanted = expected["broadcasts"].as_array().unwrap().iter().find(|entry| entry[0] == stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\""))))
+            .unwrap_or_else(|| panic!("{name}: no Rails broadcast to {stream} {target}"));
+        assert_eq!(common::html::normalize(&payload), common::html::normalize(wanted[1].as_str().unwrap()), "{name} broadcast {stream} {target}");
+    }
+    let headline = actual["account"].as_str().unwrap();
+    let tiles: String = ours.values().map(|bot| bot["tile"].as_str().unwrap()).collect();
+    match name {
+        "fx_chf" => assert!(headline.contains("<small>Fr.</small>") && headline.contains("data-pnl-spark-suffixed-value=\"true\""), "{name}: {headline}"),
+        "fx_de" => assert!(headline.contains("data-pnl-spark-delimiter-value=\",\""), "{name}: {headline}"),
+        // The USD, USDT and archived baskets have traded; the empty one has no amount.
+        "fx_usdt_usd" => assert_eq!(tiles.matches("pnl-amount").count(), 3, "{name}: every traded bot carries its amount: {tiles}"),
+        "fx_hidden_eur" => assert!(!tiles.contains("pnl-amount") && !headline.contains("pnl-amount") && !headline.contains("profit-value"), "{name}"),
+        "fx_rates_down" => assert!(!actual.to_string().contains("Currency conversion unavailable"), "{name}: amounts are absent, never the page"),
+        "fx_display_down" => assert!(headline.contains("data-pnl-spark-rate-value=\"1.0\"") && headline.contains("<small>$</small>"), "{name}: {headline}"),
+        _ => {}
     }
 }
 

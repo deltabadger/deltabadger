@@ -25,7 +25,9 @@ struct Head { until: i64, bars: Arc<Vec<Value>>, origin:Option<crate::engine::mo
 type Rendered = Arc<Mutex<Vec<(String, Arc<Value>)>>>;
 #[derive(Clone, Default)]
 /// `bytes`: what the retained responses take, kept as they are inserted, replaced and removed.
-pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered, bytes: Cell<usize> }
+pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered, bytes: Cell<usize>,
+    /// The install's held conversions, which kept figures are checked against as they are shown (`fx_current`).
+    fx: Option<Arc<FxStore>> }
 
 fn key(request: &HttpRequest) -> String {
     format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"))
@@ -150,6 +152,12 @@ impl Cache {
     fn clear_heads(&self) { let gone: usize = self.heads.borrow().values().map(|h| h.size).sum(); self.heads.borrow_mut().clear(); self.sub(gone); }
     pub fn producer(&self)->&Option<crate::engine::model::CredentialVersion> { &self.origin }
     pub fn stamp(&self) -> Option<At> { self.stamp }
+    pub fn with_fx(mut self, fx: Arc<FxStore>) -> Self { self.fx = Some(fx); self }
+    /// Whether the conversions kept figures read (`deps`) still hold at `now` for the provider configured now. Figures that
+    /// read none hold without a store.
+    pub fn fx_current(&self, deps: &FxDeps, identity: &str, now: i64) -> bool {
+        deps.pairs.is_empty() || self.fx.as_ref().is_some_and(|fx| fx.current(deps, identity, now))
+    }
     pub fn set_stamp(&mut self, at: At) { self.stamp = Some(at); self.rendered = Rendered::default(); }
     /// What `keep` kept under `key` for this cache.
     pub fn kept(&self, key: &str) -> Option<Arc<Value>> {
@@ -202,9 +210,16 @@ impl Cache {
     }
 }
 
-pub struct Reader<'a> { cache: &'a Cache, now: i64, demands: RefCell<BTreeMap<String, HttpRequest>>, symbols: Option<Vec<String>>, failed: Cell<bool>, current:Option<&'a rusqlite::Connection> }
+pub struct Reader<'a> { cache: &'a Cache, now: i64, demands: RefCell<BTreeMap<String, HttpRequest>>, symbols: Option<Vec<String>>, failed: Cell<bool>, current:Option<&'a rusqlite::Connection>,
+    fx: Option<FxSnapshot>, fx_demands: RefCell<std::collections::BTreeSet<(String, String)>>, fx_used: RefCell<BTreeMap<String, u64>> }
 impl<'a> Reader<'a> {
-    pub fn new(cache: &'a Cache, now: i64) -> Self { Self { cache, now, demands: RefCell::default(), symbols: None, failed: Cell::new(false), current:None } }
+    pub fn new(cache: &'a Cache, now: i64) -> Self { Self { cache, now, demands: RefCell::default(), symbols: None, failed: Cell::new(false), current:None, fx: None, fx_demands: RefCell::default(), fx_used: RefCell::default() } }
+    /// Conversions answered from the held ones (`MarketData::held_rate`); one not held is a demand (`fx_demands`).
+    pub fn with_fx(mut self, fx: FxSnapshot) -> Self { self.fx = Some(fx); self }
+    /// The conversions this reader was asked for and does not hold: (from, to).
+    pub fn fx_demands(&self) -> Vec<(String, String)> { self.fx_demands.borrow().iter().cloned().collect() }
+    /// The held conversions it answered with.
+    pub fn fx_deps(&self) -> FxDeps { FxDeps { identity: self.fx.as_ref().map(|fx| fx.identity.clone()).unwrap_or_default(), pairs: self.fx_used.borrow().clone() } }
     pub fn with_current(mut self,c:&'a rusqlite::Connection)->Self { self.current=Some(c);self }
     pub fn failed(&self) -> bool { self.failed.get() }
     pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
@@ -285,8 +300,93 @@ impl MarketData for Reader<'_> {
         if result.is_err() { self.failed.set(true); }
         result
     }
+    // Raw provider answers never reach a page pass: every conversion is a held one (`held_rate`), fetched by the fill.
     fn exchange_rates(&self) -> Fetch<Vec<(String, Member<Num>)>> { Err(Failure::Failed("Currency conversion unavailable".into())) }
     fn coin_price(&self, _: &str, _: &str) -> Fetch<Quoted> { Err(Failure::Failed("Currency conversion unavailable".into())) }
+    fn held_rate(&self, from: &str, to: &str) -> Option<Fetch<Quoted>> {
+        let fx = self.fx.as_ref()?;
+        let key = (from.to_string(), to.to_string());
+        match fx.held.get(&key) {
+            Some(held) => {
+                self.fx_used.borrow_mut().insert(pair_name(from, to), held.generation);
+                Some(held.value.clone().and_then(|rate| rate.quoted()))
+            }
+            None => {
+                // Not held, or no longer: the fill asks the provider, and this pass is not kept.
+                self.fx_demands.borrow_mut().insert(key);
+                self.failed.set(true);
+                Some(Err(Failure::Failed(UNAVAILABLE.into())))
+            }
+        }
+    }
+}
+
+/// A conversion's answer as held: no decimal crosses a thread (`service`), so a rate is kept as the value it was made from.
+#[derive(Clone, Debug, PartialEq)]
+pub enum HeldRate { Float(f64), Decimal(String) }
+impl HeldRate {
+    pub fn of(quoted: &Quoted) -> Fetch<HeldRate> {
+        match quoted {
+            Quoted::Num(Num::Float(f)) => Ok(HeldRate::Float(*f)),
+            Quoted::Num(n) => Ok(HeldRate::Decimal(n.to_d()?.to_s_f())),
+            Quoted::Text(text) => Ok(HeldRate::Decimal(Dec::strict(text)?.to_s_f())),
+        }
+    }
+    fn quoted(&self) -> Fetch<Quoted> {
+        Ok(match self { HeldRate::Float(f) => Quoted::Num(Num::Float(*f)), HeldRate::Decimal(text) => Quoted::Num(Num::Dec(Dec::strict(text)?)) })
+    }
+}
+/// One held conversion: its answer, until when (Unix seconds), and which answer it is (`generation`, never reused).
+#[derive(Clone, Debug)]
+pub struct Held { pub value: Fetch<HeldRate>, pub until: i64, pub generation: u64 }
+fn pair_name(from: &str, to: &str) -> String { format!("{from}->{to}") }
+/// Utilities::Currency's Rails.cache entries (`exchange_rate_FROM_to_TO`), per market-data provider (`identity`: its
+/// fingerprint, or "none"): every conversion the pages and the tracker made, success or failure, until it expires.
+/// In-process: it starts empty when the server starts.
+#[derive(Default)]
+pub struct FxStore { held: Mutex<BTreeMap<(String, String, String), Held>>, generation: std::sync::atomic::AtomicU64 }
+/// What one pass may read of the store: the unexpired conversions of one provider, as they stood when it began.
+#[derive(Clone, Default)]
+pub struct FxSnapshot { identity: String, held: BTreeMap<(String, String), Held> }
+/// The conversions a rendering read: the provider, and each pair's generation. It holds while each is still the one held
+/// and unexpired, for the provider now configured.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FxDeps { pub identity: String, pub pairs: BTreeMap<String, u64> }
+impl FxDeps {
+    pub fn to_json(&self) -> Value { serde_json::json!({"identity": self.identity, "pairs": self.pairs}) }
+    /// None: not a record this build wrote, which holds nothing.
+    pub fn from_json(v: &Value) -> Option<FxDeps> {
+        let pairs = v["pairs"].as_object()?.iter().map(|(k, g)| g.as_u64().map(|g| (k.clone(), g))).collect::<Option<_>>()?;
+        Some(FxDeps { identity: v["identity"].as_str()?.to_string(), pairs })
+    }
+}
+impl FxStore {
+    const CAPACITY: usize = 256;
+    fn lock(&self) -> std::sync::MutexGuard<'_, BTreeMap<(String, String, String), Held>> { self.held.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
+    pub fn get(&self, identity: &str, from: &str, to: &str, now: i64) -> Option<Held> {
+        self.lock().get(&(identity.to_string(), from.to_string(), to.to_string())).filter(|held| held.until > now).cloned()
+    }
+    pub fn put(&self, identity: &str, from: &str, to: &str, value: Fetch<HeldRate>, until: i64, now: i64) {
+        let generation = self.generation.fetch_add(1, std::sync::atomic::Ordering::SeqCst).wrapping_add(1);
+        let mut held = self.lock();
+        if held.len() >= Self::CAPACITY { held.retain(|_, h| h.until > now); }
+        if held.len() >= Self::CAPACITY { held.clear(); }
+        held.insert((identity.to_string(), from.to_string(), to.to_string()), Held { value, until, generation });
+    }
+    pub fn snapshot(&self, identity: &str, now: i64) -> FxSnapshot {
+        let held = self.lock().iter().filter(|((id, _, _), h)| id == identity && h.until > now).map(|((_, from, to), h)| ((from.clone(), to.clone()), h.clone())).collect();
+        FxSnapshot { identity: identity.to_string(), held }
+    }
+    /// Whether what a rendering read still holds at `now` for the provider configured now (`identity`).
+    pub fn current(&self, deps: &FxDeps, identity: &str, now: i64) -> bool {
+        if deps.pairs.is_empty() { return true; }
+        if deps.identity != identity { return false; }
+        let held = self.lock();
+        deps.pairs.iter().all(|(name, generation)| {
+            let Some((from, to)) = name.split_once("->") else { return false };
+            held.get(&(identity.to_string(), from.to_string(), to.to_string())).is_some_and(|h| h.generation == *generation && h.until > now)
+        })
+    }
 }
 
 #[cfg(test)]

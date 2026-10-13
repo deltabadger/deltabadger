@@ -153,7 +153,7 @@ async fn no_provider_refuses_conversion_without_contacting_the_network() {
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn shared_figure_presentation_states_the_fx_unavailable_reason() {
+async fn a_conversion_that_cannot_be_had_is_never_the_figures_reason() {
     use common::seed::{self,BotSpec,TxSpec};
     use deltabadger::web::figure::loading::{self,Snapshot,Source};
     let(dir,opened,seed)=common::install();let c=opened.primary;
@@ -168,12 +168,13 @@ async fn shared_figure_presentation_states_the_fx_unavailable_reason() {
     let snapshot=tokio::time::timeout(std::time::Duration::from_secs(5),async {
         loop { let s=loading::prepare(&app,owner).await.unwrap();if !matches!(s,Snapshot::Cold){break s;}tokio::task::yield_now().await; }
     }).await.unwrap();
-    // No constructed Ready: both the terminal failure and its cached repeat must render the reason.
+    // As in Rails, a missing rate costs only the amounts that needed it (a Failure, nil): the figures here fail for the
+    // unscripted market alone, and neither the failure nor its cached repeat names the conversion.
     for snapshot in [snapshot,loading::prepare(&app,owner).await.unwrap()] {
         assert!(!matches!(snapshot,Snapshot::Ready(..)));
         let out=app.db(move|c|loading::render(c,owner,&snapshot,"en","token","",&deltabadger::engine::FixedClock(chrono::Utc::now()))).await.unwrap().unwrap();
-        assert!(out["account"].as_str().unwrap().contains("Currency conversion unavailable"),"{out}");
-        for field in ["tile","metrics","chart"] {assert!(out["bots"][bot.to_string()][field].as_str().unwrap().contains("Currency conversion unavailable"));}
+        assert!(!out.to_string().contains("Currency conversion unavailable"),"{out}");
+        for field in ["tile","metrics","chart"] {assert!(out["bots"][bot.to_string()][field].as_str().unwrap().contains("no-value"));}
     }
     assert_eq!(rows(&c),before);
 }
