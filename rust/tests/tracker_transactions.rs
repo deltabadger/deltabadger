@@ -207,6 +207,9 @@ async fn round1_historical_user_without_startup_key_runs_real_rebuild() {
     let (dir,c,owner,app,mut b)=install();
     c.execute("UPDATE api_keys SET status=2",[]).unwrap();
     c.execute("DELETE FROM bots",[]).unwrap();
+    // The live factory loads the ECB's rates when they are stale, from the network: keep them current, so the run
+    // reaches no public host.
+    c.execute("INSERT INTO fx_rates(currency,date,rate) VALUES('USD','2026-09-09',1.17)",[]).unwrap();
     let id=row(&c,owner,8,"USD","1","2024-04-01 00:00:00");
     let api:std::rc::Rc<Option<jobs::data_api::DataApi<ScriptedTransport>>>=std::rc::Rc::new(None);
     let clock=TestClock::at("2026-09-10T12:00:30.123456Z");

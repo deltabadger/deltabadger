@@ -109,7 +109,7 @@ module TrackerParity
       key = plain_key(user, alpaca)
       # The ECB table is current, so Tax::EcbFxRates.ensure_loaded! fetches nothing unless a scenario makes it stale.
       FxRate.create!(currency: 'USD', date: Date.new(2026, 9, 30), rate: '1.17')
-      ctx = { user:, alpaca:, assets:, key:, keys: { alpaca.id => key }, venues: {} }
+      ctx = { user:, alpaca:, assets:, key:, venues: {} }
       scenario[:setup]&.call(ctx)
       ctx
     end
@@ -127,9 +127,7 @@ module TrackerParity
 
   # A venue made on demand, with a key of its own.
   def venue(ctx, klass, name)
-    ctx[:venues][klass] ||= klass.create!(name:, maker_fee: '0.1', taker_fee: '0.1').tap do |exchange|
-      ctx[:keys][exchange.id] = plain_key(ctx[:user], exchange)
-    end
+    ctx[:venues][klass] ||= klass.create!(name:, maker_fee: '0.1', taker_fee: '0.1').tap { |exchange| plain_key(ctx[:user], exchange) }
   end
 
   def binance(ctx) = venue(ctx, Exchanges::Binance, 'Binance')
@@ -153,8 +151,10 @@ module TrackerParity
     FxRate.insert_all(days.map { |date| { currency:, date:, rate: } }) if days.any?
   end
 
+  # The row's key is the venue's one key, read back by its venue (only its id is written).
   def row(ctx, type, base, amount, at, exchange: ctx[:alpaca], **attrs)
-    AccountTransaction.insert!({ user_id: ctx[:user].id, exchange_id: exchange.id, api_key_id: ctx[:keys].fetch(exchange.id).id, entry_type: ENTRY.fetch(type.to_s),
+    key_id = ApiKey.where(user_id: ctx[:user].id, exchange_id: exchange.id).order(:id).pick(:id)
+    AccountTransaction.insert!({ user_id: ctx[:user].id, exchange_id: exchange.id, api_key_id: key_id, entry_type: ENTRY.fetch(type.to_s),
                                  base_currency: base, base_amount: amount, transacted_at: Time.iso8601(at), raw_data: {}, manual_values: {},
                                  tx_id: attrs.delete(:tx_id) || "#{type}-#{base}-#{at}", created_at: Time.current, updated_at: Time.current }.merge(attrs))
     AccountTransaction.order(:id).last
