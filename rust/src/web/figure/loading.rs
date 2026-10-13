@@ -571,7 +571,11 @@ async fn consume(app:&App,user:i64,mut work:Work) {
                 // that no write overtook.
                 Ok(Kept::Overtaken)=>{ work.not_before=now.utc().timestamp(); app.figure_service.enqueue(user,work); }
                 // Nothing moved, so a retry would compute the same: said once, and left to the next fill (a write, the cut).
-                Ok(Kept::Failed(why))=>app.figure_service.note(&format!("figures: account {user}: keys not rendered from its ready figures: {why}")),
+                // A publication it owed waits for that fill, whose end publishes for every waiting account.
+                Ok(Kept::Failed(why))=>{
+                    app.figure_service.note(&format!("figures: account {user}: keys not rendered from its ready figures: {why}"));
+                    if publish { app.figure_service.want(user); }
+                },
                 // The builder could not run: tried again a second on.
                 Err(_)=>{ work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); }
             }
