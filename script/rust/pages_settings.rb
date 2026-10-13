@@ -486,6 +486,9 @@ module Pages
     grid['settings_pref_invalid_stored_currency'] = on_invalid.call(currency.call('EUR', 422))
     grid['settings_pref_invalid_stored_currency_unchanged'] = on_invalid.call(currency.call('USD', 422))
     grid['settings_pref_invalid_stored_currency_both'] = on_invalid.call(currency.call('XYZ', 422))
+    grid['settings_pref_invalid_stored_currency_absent'] =
+      on_invalid.call(pref.call('update_display_currency', { 'user[ignored]' => '1' }, 422))
+    grid['settings_pref_currency_absent'] = settings_case(pref.call('update_display_currency', { 'user[ignored]' => '1' }, 303))
     grid['settings_pref_invalid_stored_hide'] = on_invalid.call(hide.call({ 'hide_balances' => '1' }, raised))
     grid['settings_pref_invalid_stored_hide_unchanged'] = on_invalid.call(hide.call({ 'hide_balances' => '0' }, raised))
     grid['settings_pref_invalid_stored_cash'] = on_invalid.call(cash.call('1', raised))
