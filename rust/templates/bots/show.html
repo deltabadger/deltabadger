@@ -38,7 +38,7 @@
         {{ inline|safe }}
 </turbo-frame>
 {%- else %}
-      <turbo-frame id="bot_chart" src="{{ path }}/chart{% if metrics.is_none() %}?metrics_missing=1{% endif %}">
+      <turbo-frame id="bot_chart" src="{{ path }}/chart{% if !cached %}?metrics_missing=1{% endif %}">
         {{ chart|safe }}
 </turbo-frame>
 {%- endif %}

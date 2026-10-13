@@ -61,6 +61,8 @@ struct Show<'a> {
     chart: String,
     /// The chart drawn with the page (bots/show.html.erb): its figures are ready, and the panels' are too.
     inline_chart: Option<String>,
+    /// Figures Rails would have found cached (BotsController#show's `!@metrics_loading`).
+    cached: bool,
     columns_id: String,
     working: bool,
     settings: String,
@@ -223,8 +225,10 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let hide_money = user.hide_balances;
         let figures = crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
         let metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
-        // BotsController#show: a ready chart only beside ready panels, exactly when its frame would ask for no refresh.
-        let inline_chart = metrics.as_ref().and(figures.as_ref()).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
+        // BotsController#show: @metrics_loading is "Rails cached no figures"; a ready chart is drawn only beside cached ones,
+        // exactly when its frame would ask for no refresh.
+        let cached = metrics.is_some() && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["cached"].as_bool() == Some(true));
+        let inline_chart = figures.as_ref().filter(|_|cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
         // BotHelper#order_filter_tabs: [value, available?], and the tab the log opens on.
@@ -248,7 +252,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(),
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
             menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
-            progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, columns_id: bot.dom_id("columns"), working: bot.working(),
+            progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, cached, columns_id: bot.dom_id("columns"), working: bot.working(),
             settings: settings::column(c, &forms)?, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
             bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !bot.has_orders && !activities,

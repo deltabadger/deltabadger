@@ -11,7 +11,7 @@ module PageFigures
   NAMES = %w[no_orders basket_buys row_readings smart_slices index_rotation liquidations tax_lots old_rows sold_out crypto_basket split
              split_fresh split_unsized price_untraded].freeze
   # The scenarios whose bot pages Rust serves from its own routes (page_figures_grid.rs).
-  FRAMED = %w[basket_buys hidden owner_account].freeze
+  FRAMED = %w[no_orders basket_buys hidden owner_account].freeze
 
   # The dashboard, then each bot page and its chart frame, through Rails' own controllers, as a browser loads them: the
   # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
