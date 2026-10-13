@@ -4,7 +4,7 @@ use crate::enums::BotStatus;
 use crate::web::{bots, flash, format, i18n::{self, Arg}, layout::Ctx, shell, turbo, WebError};
 use askama::Template;
 use axum::{http::StatusCode, response::{IntoResponse, Response}};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 pub(super) fn response(body: String, invalid: bool) -> Response {
     (if invalid { StatusCode::UNPROCESSABLE_ENTITY } else { StatusCode::OK }, [(axum::http::header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response()
@@ -44,7 +44,7 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
         + "\n" + &bar_streams(bot,&state)
         + "\n" + &button_streams(bot,&state)
         + "\n" + &alert(&draft.errors)? + "\n";
-    Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![] })
+    Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
 }
 
 pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Action, view: &LifecycleView) -> Result<Prepared<Response>, WebError> {
@@ -56,7 +56,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
                 return settings_response(c,ctx,&current);
             }
         }
-        return Ok(Prepared { response: response(alert(&view.errors)?,true), broadcasts: vec![] });
+        return Ok(Prepared { response: response(alert(&view.errors)?,true), broadcasts: vec![], after_scheduling: None });
     }
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     let csrf = ctx.csrf_token();
@@ -108,14 +108,15 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
             })();
             match rendered {
                 Ok(Some(body)) => body,
-                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
-                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default() }),
+                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default(), after_scheduling: None }),
+                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default(), after_scheduling: None }),
                 Err(e) => return Err(e),
             }
         }
     };
     if !stop_notice.is_empty() { body.push('\n'); body.push_str(&stop_notice); }
-    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? } })
+    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? },
+        after_scheduling: if action == Action::Start { awaits_scheduling(c,ctx,view)? } else { None } })
 }
 fn broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -> Result<Vec<(String,String)>, WebError> {
     let Some(draft) = &view.draft else { return Ok(vec![]) };
@@ -127,17 +128,55 @@ fn broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -
     let state = status::broadcast(c,ctx,bot,configured)?;
     let stream = format!("user_{}:bot_updates",user.id);
     let mut output = vec![];
-    let deferred = action == Action::Start && (bot.started_at.is_some_and(|at|at>ctx.now)
-        || bot.transient.contains_key("rust_continue_start") && within(c,&draft.original,ctx)?);
-    // Bot#broadcast_status_bar_update (skipped while the start is deferred), then #broadcast_status_button_update: one message per target.
-    if !deferred {
-        output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))));
-        output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("progress_bar"),state.progress.trim_end())));
-    }
+    // A start that waits for its job skips Bot#broadcast_status_bar_update; Bot::BroadcastAfterScheduledActionJob sends it
+    // once the job is enqueued. A delayed first start is scheduled by this write, so its bars follow at once; a Continue
+    // waits for the engine (`awaits_scheduling`).
+    let delayed = action == Action::Start && bot.started_at.is_some_and(|at|at>ctx.now);
+    let deferred = delayed || awaits_scheduling(c,ctx,view)?.is_some();
+    if !deferred { output.extend(bar_broadcasts(&stream,bot,&state)); }
+    // Bot#broadcast_status_button_update: one message per target.
     output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("status_button"),&state.button)));
     output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("tile_status_button"),&state.tile_button)));
-    output.push((stream,if bot.working() { turbo::add_class(&bot.dom_id("columns"),"bot-locked") } else { turbo::remove_class(&bot.dom_id("columns"),"bot-locked") }));
+    output.push((stream.clone(),if bot.working() { turbo::add_class(&bot.dom_id("columns"),"bot-locked") } else { turbo::remove_class(&bot.dom_id("columns"),"bot-locked") }));
+    if delayed { output.extend(bar_broadcasts(&stream,bot,&state)); }
     Ok(output)
+}
+/// Bot#broadcast_status_bar_update: the status bar, then the progress bar, one message each.
+fn bar_broadcasts(stream: &str, bot: &Bot, state: &status::Status) -> [(String,String); 2] {
+    [(stream.to_string(),turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))),
+     (stream.to_string(),turbo::stream("replace",&bot.dom_id("progress_bar"),state.progress.trim_end()))]
+}
+/// A Continue within the interval: the engine decides when the bot next acts (engine::run::continue_start), so its bars
+/// wait for that decision.
+fn awaits_scheduling(c: &Connection, ctx: &Ctx, view: &LifecycleView) -> Result<Option<i64>, WebError> {
+    let Some(draft) = &view.draft else { return Ok(None) };
+    let bot = &draft.candidate;
+    if draft.original.status == bot.status || !bot.transient.contains_key("rust_continue_start") || !within(c,&draft.original,ctx)? { return Ok(None) }
+    Ok(Some(bot.id))
+}
+/// Bot::BroadcastAfterScheduledActionJob for a Continue: waits up to five seconds (Rails' 50 × 0.1 s) for the engine to take
+/// the request, then broadcasts the bot's status and progress bars as they are then, whatever it found.
+pub(super) fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
+    tokio::spawn(async move {
+        for _ in 0..50 {
+            let pending = ctx.app.db(move |c| Ok(c.query_row("SELECT json_type(transient_data, '$.rust_continue_start') IS NOT NULL FROM bots WHERE id = ?1",
+                                                                [id], |r| r.get::<_, bool>(0)).optional()?)).await;
+            if !matches!(pending, Ok(Some(true))) { break; }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        let app = ctx.app.clone();
+        let rendered = app.db(move |c| {
+            let mut ctx = ctx;
+            ctx.now = ctx.app.clock.now();
+            let user = ctx.user().ok_or_else(||WebError::Config("broadcast has no owner".into()))?;
+            // A bot deleted meanwhile: Rails' job cannot load it, and broadcasts nothing.
+            let Some(bot) = Bot::find(c,user.id,id,super::For::Page,ctx.locale)? else { return Ok(None) };
+            let (_,configured) = bots::market_data(c,&ctx.app)?;
+            let state = status::broadcast(c,&ctx,&bot,configured)?;
+            Ok(Some(bar_broadcasts(&format!("user_{}:bot_updates",user.id),&bot,&state)))
+        }).await;
+        if let Ok(Some(messages)) = rendered { for (stream,html) in messages { app.hub.broadcast(&stream,&html); } }
+    });
 }
 fn within(c: &Connection, bot: &Bot, ctx: &Ctx) -> Result<bool,WebError> {
     if !bot.restarting() { return Ok(false) }

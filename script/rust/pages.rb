@@ -276,6 +276,15 @@ module Pages
      stopped('single', 'settings' => { 'allocations' => { '3' => 1.0 } }, 'delist' => 'IBIT')]
   end
 
+  # A starting date that has passed, on bots that are not stopped: archived (1), and running since that date as a delayed
+  # start leaves them, a basket (2) and a single asset (3).
+  def expired_start
+    expired = { 'start_time_enabled' => true, 'start_time_mode' => 'date', 'start_at' => '2026-09-09T10:00:00Z' }
+    [{ 'kind' => 'basket', 'settings' => expired, 'columns' => { 'status' => 7 } },
+     running('basket', '2026-09-09T10:00:00Z', { 'settings' => expired }.merge(acted('2026-09-10T10:00:00.800Z'))),
+     running('single', '2026-09-09T10:00:00Z', { 'settings' => expired }.merge(acted('2026-09-10T10:00:00.800Z')))]
+  end
+
   # Bots whose tick is due: the checkpoint has come, and Rails' job is no longer scheduled but ready,
   # or blocked behind another job of the venue. Neither side has a time to count down to. The first
   # is at its checkpoint to the microsecond; the fifth was started this second and has not acted yet.
@@ -395,6 +404,10 @@ module Pages
       'bot_page_single_bot' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))], signed_in(get('/bots/1'), get('/de/bots/1'))),
       'bot_page_archived' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
                                        signed_in(get('/bots/2'))),
+      # The Start/Stop partial runs the :start validation whatever the status, so a starting date that has passed is
+      # an error under its field on an archived bot's page and a running bot's page alike.
+      'bot_page_expired_start' => with_bots(expired_start,
+                                            signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/de/bots/2'), get('/bots'))),
       'bot_page_start_blocked' => with_bots(blocked, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/de/bots/5'),
                                                                get('/bots/6'), get('/bots/7'), get('/bots/8'), get('/bots/9'), get('/bots/10'), get('/bots/11'))),
       'bot_page_key_incorrect' => with_bots(three, signed_in(get('/bots/1'), get('/bots/3')), 'api_keys' => { 'alpaca' => 'incorrect', 'ibkr' => 'correct' }),

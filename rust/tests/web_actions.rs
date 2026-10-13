@@ -519,7 +519,7 @@ mod action_write {
         fn write(&self, fields: Value) -> Result<Outcome<Value>> {
             Ok(write::settings(&self.c, &self.ctx, self.seed.user_id, self.id, &Self::params(fields)?, |_, ctx, draft| {
                 assert_eq!(ctx.now, harness::at(NOW));
-                Ok(Prepared { response: json!({"settings":draft.candidate.settings,"errors":draft.errors.iter().map(|e| &e.message).collect::<Vec<_>>()}), broadcasts: vec![] })
+                Ok(Prepared { response: json!({"settings":draft.candidate.settings,"errors":draft.errors.iter().map(|e| &e.message).collect::<Vec<_>>()}), broadcasts: vec![], after_scheduling: None })
             }).map_err(|e| format!("{e:?}"))?)
         }
         fn stored(&self) -> Result<Value> {
@@ -681,7 +681,7 @@ mod action_write {
         let f=Fixture::new()?;
         let submitted=Fixture::params(json!({"quote_amount":"7"}))?;
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.limit_order_pcnt_distance',0.07) WHERE id=?1",[f.id])?;
-        write::settings(&f.c,&f.ctx,f.seed.user_id,f.id,&submitted,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e| format!("{e:?}"))?;
+        write::settings(&f.c,&f.ctx,f.seed.user_id,f.id,&submitted,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })).map_err(|e| format!("{e:?}"))?;
         assert_eq!(f.stored()?["settings"]["limit_order_pcnt_distance"],json!(0.07)); Ok(())
     }
     #[test]
@@ -752,7 +752,7 @@ mod action_write {
         let job=tokio::spawn(async move { app.db(move |c| write::settings(c,&ctx,owner,id,&params,|_,_,_| {
             let _=entered_tx.send(());
             release_rx.recv_timeout(std::time::Duration::from_secs(10)).map_err(|e| WebError::Task(e.to_string()))?;
-            Ok(Prepared {response:(),broadcasts:vec![]})
+            Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })
         })).await });
         tokio::time::timeout(std::time::Duration::from_secs(10),entered_rx).await??;
         job.abort(); let _=job.await;
@@ -847,7 +847,7 @@ mod action_write {
             let before=f.snapshot()?;
             let result=write::settings(&f.c,&f.ctx,f.seed.user_id,f.id,&Fixture::params(fields)?,|_,_,_| {
                 if kind=="renderer" {return Err(WebError::Config("renderer failed".into()));}
-                Ok(Prepared {response:(),broadcasts:vec![(stream.clone(),"committed".into())]})
+                Ok(Prepared {response:(),broadcasts:vec![(stream.clone(),"committed".into())],after_scheduling:None})
             });
             if kind=="success" { assert!(matches!(result,Ok(Outcome::Committed(_)))); }
             else { assert!(!matches!(result,Ok(Outcome::Committed(_)))); assert_eq!(f.snapshot()?,before); }
@@ -902,7 +902,7 @@ mod action_write {
             let root=bot.original.param_key();
             let p=Params {json:Some(json!({root:{"quote_amount":"37.25"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
             let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
-            let out=write::settings(&f.c,&f.ctx,1,id,&params,|_,_,draft|Ok(Prepared {response:draft.candidate.settings.clone(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?;
+            let out=write::settings(&f.c,&f.ctx,1,id,&params,|_,_,draft|Ok(Prepared {response:draft.candidate.settings.clone(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?;
             let Outcome::Committed(settings)=out else {return Err(format!("stock shape {id} did not commit").into())};
             assert_eq!(settings.get("quote_amount"),Some(&json!(37.25)));
         }
@@ -910,7 +910,7 @@ mod action_write {
         let before=f.snapshot()?.into_iter().filter(|r|r.starts_with("bot_index_assets:")).collect::<Vec<_>>();
         let p=Params {json:Some(json!({"bots_dca_index":{"num_coins":"5","num_coins_rendered":"10","num_coins_ceiling":"5"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
         let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
-        let outcome=write::settings(&f.c,&f.ctx,1,2,&params,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?;
+        let outcome=write::settings(&f.c,&f.ctx,1,2,&params,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?;
         assert!(matches!(outcome,Outcome::Committed(_)));
         assert_eq!(f.snapshot()?.into_iter().filter(|r|r.starts_with("bot_index_assets:")).collect::<Vec<_>>(),before);
         Ok(())
@@ -922,7 +922,7 @@ mod action_write {
             let params = ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
             Ok(write::lifecycle(&self.c, &self.ctx, self.seed.user_id, self.id, action, &params, |_, ctx, view| {
                 assert_eq!(ctx.now, harness::at(NOW));
-                Ok(Prepared { response: json!({"errors":view.errors.iter().map(|e| &e.message).collect::<Vec<_>>(),"minimal":view.draft.is_none()}), broadcasts: vec![] })
+                Ok(Prepared { response: json!({"errors":view.errors.iter().map(|e| &e.message).collect::<Vec<_>>(),"minimal":view.draft.is_none()}), broadcasts: vec![], after_scheduling: None })
             }).map_err(|e|format!("{e:?}"))?)
         }
         fn status(&self) -> Result<i64> { Ok(self.c.query_row("SELECT status FROM bots WHERE id=?1",[self.id],|r|r.get(0))?) }
@@ -1112,14 +1112,14 @@ mod action_write {
         let mut ctx=f.ctx.clone(); ctx.app=harness::app(f._dir.path(),"engine-test-secret",clock.clone());
         let before=f.snapshot()?;
         let result=write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,view| {
-            Ok(Prepared {response:json!(view.errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()),broadcasts:vec![]})
+            Ok(Prepared {response:json!(view.errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()),broadcasts:vec![], after_scheduling: None })
         }).map_err(|e|format!("{e:?}"))?;
         let Outcome::GuardRefused(errors)=result else { return Err("an hour-early start must be refused".into()) };
         assert!(errors.to_string().contains("daylight-saving"),"{errors}");
         assert_eq!(f.snapshot()?,before);
         // The spring change makes it an hour late (10:30 local): not the chosen time either, refused without a write.
         clock.set(harness::at("2026-03-28T09:00:00Z"));
-        assert!(matches!(write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![]})).map_err(|e|format!("{e:?}"))?,Outcome::GuardRefused(_)));
+        assert!(matches!(write::lifecycle(&f.c,&ctx,f.seed.user_id,f.id,write::Action::Start,&Fixture::params(json!({}))?,|_,_,_| Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?,Outcome::GuardRefused(_)));
         assert_eq!(f.snapshot()?,before);
         Ok(())
     }

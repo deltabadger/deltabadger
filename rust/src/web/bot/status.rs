@@ -285,8 +285,7 @@ pub struct Status {
     /// The bot page's Start/Stop and the tile's: two targets, so a broadcast replaces both.
     pub button: String,
     pub tile_button: String,
-    /// What the start validation found, when the button asked for it (a bot that is created or
-    /// stopped): the forms below print its messages under their fields.
+    /// What the start validation found: the forms below print its messages under their fields.
     pub check: Option<start::Check>,
 }
 
@@ -337,20 +336,19 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
     }
     let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, text, dots, countdown }.render()?;
     let progress = Progress { id: bot.dom_id("progress_bar"), fill }.render()?;
-    let mut check = None;
+    // _status_button.html.erb runs `bot.invalid?(:start)` whatever the status, and the errors it leaves are printed
+    // under their fields by the settings rendered after it.
+    let check = start::check(c, bot, ctx.now, market_data_configured, ctx.locale)?;
+    let disabled = check.invalid || !bot.api_key_correct();
     let button = match bot.status {
         BotStatus::Archived => Button::Reactivate,
-        BotStatus::Stopped | BotStatus::Created => {
-            let found = start::check(c, bot, ctx.now, market_data_configured, ctx.locale)?;
-            let disabled = found.invalid || !bot.api_key_correct();
-            check = Some(found);
-            if bot.restarting() { Button::Restart(disabled) } else { Button::Start(disabled) }
-        }
+        BotStatus::Stopped | BotStatus::Created if bot.restarting() => Button::Restart(disabled),
+        BotStatus::Stopped | BotStatus::Created => Button::Start(disabled),
         _ => Button::Stop,
     };
     let tile_button = ButtonView::render_for(ctx, csrf, bot, &button, true)?;
     let button = ButtonView::render_for(ctx, csrf, bot, &button, false)?;
-    Ok(Status { bar, progress, button, tile_button, check })
+    Ok(Status { bar, progress, button, tile_button, check: Some(check) })
 }
 
 /// ActionCable rendering has no browser session. Turbo uses the receiving page's CSRF header.

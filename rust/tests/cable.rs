@@ -636,6 +636,18 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     }
     app.hub.broadcast("user_1:bot_updates","continue-marker");
     assert_eq!(next_event(&mut owner).await["message"],"continue-marker");
+    // The engine takes the request (engine::run::continue_start): then the bars follow, as
+    // Bot::BroadcastAfterScheduledActionJob sends them once Rails' job is enqueued.
+    app.db(move |c| { c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_continue_start') WHERE id=?1",[bot])?; Ok(()) })
+        .await.map_err(|e|format!("{e:?}"))?;
+    for target in ["status_bar", "progress_bar"] {
+        let event = tokio::time::timeout(std::time::Duration::from_secs(10), next_event(&mut owner)).await.map_err(|_|format!("no {target} after the engine scheduled the continue"))?;
+        let body = event["message"].as_str().ok_or("scheduled broadcast")?;
+        assert!(body.contains(&format!("target=\"{target}_bots_dca_multi_asset_{bot}\"")),"{body}");
+        assert!(!body.contains("authenticity_token"));
+    }
+    app.hub.broadcast("user_1:bot_updates","scheduled-marker");
+    assert_eq!(next_event(&mut owner).await["message"],"scheduled-marker");
     owner.close(None).await?;
     other.close(None).await?;
     Ok(())

@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 pub const NAMES: [&str;6]=["stop_bot","archive_bot","unarchive_bot","delete_bot","update_bot_settings","start_bot"];
-fn prepared(response: Value) -> Prepared<Value> {Prepared{response,broadcasts:vec![]}}
+fn prepared(response: Value) -> Prepared<Value> {Prepared{response,broadcasts:vec![],after_scheduling:None}}
 fn guard_text(ctx:&Ctx,reason:&str)->Value {
     tool_text(&crate::web::i18n::text(ctx.locale,"engine.write_refused", &[("reason",crate::web::i18n::Arg::Text(reason))]),true)
 }
