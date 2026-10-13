@@ -105,15 +105,21 @@ pub fn record_ledger(c:&model::FencedTransaction<'_>,id:i64,version:&CredentialV
     app_config::set_plain(c,&state::key("ledger_origin",Some(&id.to_string())),&version.cache_stamp().to_string(),now).map_err(EngineError::Data)
 }
 
-pub fn fence_read<'a>(tx:&'a rusqlite::Transaction<'_>,origin:&ReadOrigin)->Result<model::FencedTransaction<'a>,EngineError>{
+/// Whether the balances a read captured are still the ones current keys produced (always, for a read of no balances).
+pub fn balances_current(tx:&Connection,origin:&ReadOrigin)->Result<bool,EngineError>{
     if origin.balance_inputs {
         let current_balances=origin.with_balance_producers(tx)?;
-        if current_balances.balance_producers.len()!=origin.balance_producers.len(){return Err(EngineError::CredentialsChanged)}
+        if current_balances.balance_producers.len()!=origin.balance_producers.len(){return Ok(false)}
         for (producer,current) in origin.balance_producers.iter().zip(&current_balances.balance_producers){
             let fresh=producer.current_for(current.origin()).is_fresh() && model::produced_is_current(tx,current)?;
-            if !fresh{return Err(EngineError::CredentialsChanged)}
+            if !fresh{return Ok(false)}
         }
     }
+    Ok(true)
+}
+
+pub fn fence_read<'a>(tx:&'a rusqlite::Transaction<'_>,origin:&ReadOrigin)->Result<model::FencedTransaction<'a>,EngineError>{
+    if !balances_current(tx,origin)? {return Err(EngineError::CredentialsChanged)}
     let fenced=model::fence_versions(tx,&origin.versions)?;
     if !read_is_current(tx,origin)?{crate::engine::log(model::CREDENTIALS_CHANGED);return Err(EngineError::CredentialsChanged)}
     Ok(fenced)

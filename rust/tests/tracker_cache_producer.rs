@@ -183,12 +183,16 @@ async fn the_ecb_is_loaded_with_no_data_api_configured(){
 // only a key that exists without a current import, over rows, refuses.
 fn binance(c:&rusqlite::Connection)->i64{c.execute("INSERT INTO exchanges(type,name,maker_fee,taker_fee,created_at,updated_at) VALUES('Exchanges::Binance','Binance','0.1','0.1','2026-09-01 00:00:00','2026-09-01 00:00:00')",[]).unwrap();c.last_insert_rowid()}
 fn key(c:&rusqlite::Connection,owner:i64,venue:i64,status:i64)->i64{let cipher=common::seed::cipher();c.execute("INSERT INTO api_keys(user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,0,'2026-09-01 00:00:00','2026-09-01 00:00:00')",rusqlite::params![owner,venue,cipher.encrypt("k"),cipher.encrypt("s"),status]).unwrap();c.last_insert_rowid()}
+fn another_user(c:&rusqlite::Connection,like:i64)->i64{c.execute_batch(&format!("CREATE TEMP TABLE u AS SELECT * FROM users WHERE id={like}; UPDATE u SET id=NULL,email='other@example.test'; INSERT INTO users SELECT * FROM u; DROP TABLE u;")).unwrap();c.last_insert_rowid()}
+fn raw(c:&rusqlite::Connection,owner:i64)->Option<String>{deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap()}
 fn row(c:&rusqlite::Connection,owner:i64,venue:i64){c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,'USD',50,'2026-09-02 00:00:00','{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00')",[owner,venue]).unwrap();}
 fn delete_key(c:&rusqlite::Connection,id:i64){c.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id]).unwrap();c.execute("DELETE FROM api_keys WHERE id=?1",[id]).unwrap();}
 async fn state(db:&Db,owner:i64)->State{db.run(move|c,_|Ok(cache::read(c,owner,None,clock().0).unwrap())).await.unwrap()}
 #[tokio::test(flavor="current_thread")]
 async fn a_pending_key_with_no_rows_does_not_hold_the_cache_back(){
     let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);key(&o.primary,s.user_id,b,0);seed(&o.primary,s.user_id,s.exchange_id);
+    // Another account's rows on that venue are not this account's history.
+    let other=another_user(&o.primary,s.user_id);row(&o.primary,other,b);
     let db=Db::new(o.primary,common::seed::cipher());
     assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
     assert!(matches!(state(&db,s.user_id).await,State::Warm(_)),"a pending key on a venue with no rows has nothing to be current about");
@@ -196,9 +200,32 @@ async fn a_pending_key_with_no_rows_does_not_hold_the_cache_back(){
 #[tokio::test(flavor="current_thread")]
 async fn a_key_without_a_current_import_over_rows_holds_the_cache_back(){
     let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);key(&o.primary,s.user_id,b,2);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);
-    let db=Db::new(o.primary,common::seed::cipher());
-    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
-    assert!(matches!(state(&db,s.user_id).await,State::Cold));
+    let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;
+    assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    // The publication itself was refused: nothing was written (a reader's own check is not what keeps it cold).
+    assert_eq!(db.run(move|c,_|Ok(raw(c,owner))).await.unwrap(),None);
+}
+/// The refusal states its reason.
+#[test]
+fn a_refused_publication_is_logged(){
+    let out=std::process::Command::new(std::env::current_exe().unwrap()).args(["--exact","a_key_without_a_current_import_over_rows_holds_the_cache_back","--nocapture"]).output().unwrap();
+    assert!(out.status.success());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("not published: a venue with history has a key but no current import"),"{}",String::from_utf8_lossy(&out.stdout));
+}
+/// A key that synced balances, then was deleted: its balances stay (Rails keeps them too), but no current key produced
+/// them. Today's snapshot, which reads them, is skipped; the ledger cache, which does not, publishes on a fresh pass.
+#[tokio::test(flavor="current_thread")]
+async fn a_deleted_key_with_synced_balances_leaves_the_ledger_publishable(){
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);let gone=key(&o.primary,s.user_id,b,1);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);
+    let version=deltabadger::engine::model::credential_version_by_id(&o.primary,gone).unwrap().unwrap();
+    deltabadger::engine::model::credential_write(&o.primary,&Some(version.clone()),|fenced|deltabadger::sync::cache::record(fenced,s.user_id,b,&version,true,clock().0)).unwrap();
+    o.primary.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at) VALUES(?1,?2,?3,1,0,60000,60000,'2026-09-20 01:00:00','2026-09-20 01:00:00','2026-09-20 01:00:00','2026-09-20 01:00:00')",rusqlite::params![s.user_id,b,s.btc]).unwrap();
+    delete_key(&o.primary,gone);
+    let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;
+    assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,owner).await,State::Warm(_)));
+    assert!(db.run(move|c,_|Ok(raw(c,owner))).await.unwrap().is_some());
+    assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM portfolio_snapshots WHERE date='2026-09-20'",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),0,"today's snapshot reads balances no current key produced");
 }
 #[tokio::test(flavor="current_thread")]
 async fn the_last_key_deleted_leaves_its_rows_as_current_history(){

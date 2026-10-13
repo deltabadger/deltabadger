@@ -210,7 +210,11 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Optio
 /// when it is written, and the ledger cache published beside them when its version still holds. Nothing is written
 /// when the rows or the balances moved after the last pass read them. Returns the walk and whether the cache published.
 pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
-    ledger_run_published(db, api, ecb, user_id, clock, wall, allowance).await.map(|(walked, _)| walked)
+    // Today's snapshot refused (R4/R5) is the run's error, whatever became of the page cache beside it.
+    match ledger_run_published(db, api, ecb, user_id, clock, wall, allowance).await? {
+        (walked, _, true) => Ok(walked),
+        (_, _, false) => Err(crate::engine::model::CREDENTIALS_CHANGED.into()),
+    }
 }
 
 /// What became of the page cache in a ledger run's write unit.
@@ -223,7 +227,8 @@ pub enum Published {
     NotCurrent,
 }
 
-async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<(Walked, Published), String> {
+/// The walk, what became of the page cache, and whether today's snapshot was written.
+async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<(Walked, Published, bool), String> {
     let (walked, inputs, began) = compute(db, api, ecb, user_id, clock, allowance).await?;
     let today = began.date_naive();
     let walked = std::sync::Arc::new(walked);
@@ -231,21 +236,32 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, e
     let published = metered(db, allowance, move |c, _| {
         // Everything read and computed first, so the write lock is held for the writes alone.
         let read = c.unchecked_transaction()?;
-        let origin = inputs.origin.with_balance_producers(&read).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
+        let snapshot_origin = inputs.origin.with_balance_producers(&read).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
         let rows = super::snapshot::today_rows(&read, user_id, &w, &inputs.fx, today)?;
         let locks = super::wash::targets(&read, user_id, &w.whole.loss_sales)?;
         read.commit()?;
+        // The write unit is fenced on the keys the walk read: a key replaced or deleted under the pass refuses it all.
+        // The balances are today's snapshot's input alone, not the ledger's: balances no current key produced (a
+        // deleted key's, a legacy row's, a sync that landed during the pass) skip the snapshot and its locks, and
+        // the ledger cache still publishes.
+        let origin = inputs.origin.clone();
         written_for(c, &origin, &*wall, |c, now| {
             if backfill::history_version(c, user_id)? != inputs.history { return Err(FiguresError::NotComputed(MOVED.into())); }
-            super::snapshot::write(c, user_id, &rows, now.date_naive())?;
-            // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
-            super::wash::confirm_all(c, user_id, &locks, began)?;
-            if super::cache::version(c, user_id)? != inputs.cache { return Ok(Published::Moved); }
-            Ok(if super::cache::publish(c, user_id, &inputs.cache, Some(&w), now)? { Published::Yes } else { Published::NotCurrent })
+            let snapshot = crate::sync::cache::balances_current(c, &snapshot_origin).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
+            if snapshot {
+                super::snapshot::write(c, user_id, &rows, now.date_naive())?;
+                // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
+                super::wash::confirm_all(c, user_id, &locks, began)?;
+            } else {
+                crate::engine::log(&format!("[tracker] today's snapshot for user {user_id} not written: balances not produced by a current key"));
+            }
+            if super::cache::version(c, user_id)? != inputs.cache { return Ok((Published::Moved, snapshot)); }
+            Ok((if super::cache::publish(c, user_id, &inputs.cache, Some(&w), now)? { Published::Yes } else { Published::NotCurrent }, snapshot))
         })
     }).await?;
+    let (published, snapshot) = published;
     let walked = std::sync::Arc::try_unwrap(walked).unwrap_or_else(|a| (*a).clone());
-    Ok((walked, published))
+    Ok((walked, published, snapshot))
 }
 
 /// PortfolioSnapshot::BackfillJob#perform. Returns whether a history was written (none before the first transaction's
@@ -373,9 +389,14 @@ pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed durin
 async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:Option<&fx::Source>,owner:i64,wall:Wall)->Result<Walked,String> {
     let mut allowance=Allowance::run();
     let out=match ledger_run_published(&cx.db,api,ecb,owner,cx.clock,wall.clone(),&mut allowance).await {
-        Ok((_,Published::Moved))=>Err(CACHE_MOVING.to_string()),
-        Ok((walked,Published::NotCurrent))=>{crate::engine::log(&format!("[tracker] ledger cache for user {owner} not published: a venue with history has a key but no current import"));Ok(walked)}
-        Ok((walked,Published::Yes))=>Ok(walked),
+        Ok((_,Published::Moved,_))=>Err(CACHE_MOVING.to_string()),
+        Ok((walked,Published::NotCurrent,snapshot))=>{
+            crate::engine::log(&format!("[tracker] ledger cache for user {owner} not published: a venue with history has a key but no current import"));
+            // Neither the snapshot nor the cache: the run achieved nothing, as a stale balance run always reported.
+            if snapshot {Ok(walked)} else {Err(crate::engine::model::CREDENTIALS_CHANGED.to_string())}
+        }
+        // The cache is current; a snapshot skipped for balances no current key produced is logged, not a failure.
+        Ok((walked,Published::Yes,_))=>Ok(walked),
         Err(e)=>Err(e),
     };
     match &out {
