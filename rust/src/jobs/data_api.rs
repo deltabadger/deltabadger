@@ -66,7 +66,6 @@ impl ApiTransport {
 }
 
 impl Transport for ApiTransport {
-    fn live_market_data(&self)->bool{true}
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         self.send_limited(r, MAX_REFERENCE_BODY).await
     }
@@ -106,8 +105,6 @@ impl<T: Transport> DataApi<T> {
     /// MarketDataSettings.deltabadger_public_url (market_data_settings.rb:60-70): logo paths are served to browsers, so the
     /// docker alias `data-api` becomes the public host.
     pub fn configuration(&self) -> &Config { &self.config }
-    /// Whether this client is the engine's live one (`Transport::live_market_data`).
-    pub fn is_live(&self) -> bool { self.normal.live_market_data() }
 
     pub fn public_url(&self) -> String {
         match reqwest::Url::parse(&self.config.url) {

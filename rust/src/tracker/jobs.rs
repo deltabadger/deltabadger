@@ -48,6 +48,8 @@ impl Allowance {
 
 /// Why nothing was written: the ledger moved after the last pass read it.
 pub const MOVED: &str = "the ledger moved while the tracker walked; the next run states it";
+/// Why the backfill wrote nothing: the ledger moved after its walk read it.
+pub const SWEEP_MOVED: &str = "the ledger moved while the tracker swept; the next run sweeps it";
 
 pub fn message(e: FiguresError) -> String {
     match e {
@@ -184,11 +186,6 @@ pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi
     Ok((out.map_err(message)?, inputs))
 }
 
-/// The ECB source a job built on `api` reaches: the network for the engine's live data-api client, none otherwise.
-pub fn ecb_for<T: Transport>(api: Option<&DataApi<T>>) -> Option<fx::Source> {
-    api.filter(|a| a.is_live()).map(|_| fx::Source::Live(fx::Plain::default()))
-}
-
 /// `Tracker::Ledger.compute!`: passes of `Ledger.scopes`, each loading the ECB rates (a PriceService is built per walk)
 /// and its inputs afresh, until the ledger's version (rows and price generation) held still over one, at most three.
 pub async fn compute<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, allowance: &mut Allowance)
@@ -284,8 +281,13 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let (terms, inputs) = pass(db, api, inputs, today, &mut allowance, |i, ps| walk::terms(&i.rows, &i.deposits, ps)).await?;
     let (plan, version) = (std::sync::Arc::new(plan), std::sync::Arc::new(version));
     metered(db, &mut allowance, move |c, cipher| {
-        let swept = backfill::sweep(c, &plan, &inputs.all, &terms, first, last)?;
-        written_for(c, &inputs.origin, &|| now, |fenced, _| backfill::store(fenced, cipher, user_id, &swept, last, &version, now))?;
+        written_for(c, &inputs.origin, &|| now, |fenced, _| {
+            // The rows swept are the rows the write sees, and they are inside the domain this sweep carries.
+            if backfill::history_version(fenced, user_id)? != inputs.history { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
+            super::rows::alpaca_sweep_domain(fenced, user_id, &inputs.all).map_err(|why| FiguresError::NotComputed(format!("the tracker backfill is not ported for {why}")))?;
+            let swept = backfill::sweep(fenced, &plan, &inputs.all, &terms, first, last)?;
+            backfill::store(fenced, cipher, user_id, &swept, last, &version, now)
+        })?;
         Ok(true)
     }).await
 }
@@ -340,7 +342,7 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
 }
 
 /// `tracker_ledger`, scoped by the user.
-pub struct LedgerWalk<T: Transport> { api: Rc<Option<DataApi<T>>>, user_id: i64, wall: Wall }
+pub struct LedgerWalk<T: Transport> { api: Rc<Option<DataApi<T>>>, ecb: Option<fx::Source>, user_id: i64, wall: Wall }
 
 impl<T: Transport> Job for LedgerWalk<T> {
     fn spec(&self) -> Spec {
@@ -348,7 +350,7 @@ impl<T: Transport> Job for LedgerWalk<T> {
     }
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
-            match cached_ledger_run(&cx, (*self.api).as_ref(), self.user_id, self.wall.clone()).await {
+            match cached_ledger_run(&cx, (*self.api).as_ref(), self.ecb.as_ref(), self.user_id, self.wall.clone()).await {
                 Ok(_) => { cx.db.notifications.ledger_done(self.user_id); Outcome::Done }
                 Err(e) => Outcome::Failed(e),
             }
@@ -363,10 +365,9 @@ pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed durin
 /// page states the calculation failed). A run that fails, or whose cache moved, wakes the next only if it stored a price
 /// itself (passes moved by its own price writes finish then); one that stored nothing made no progress, and a writer
 /// that moves the inputs wakes this job itself.
-async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall)->Result<Walked,String> {
+async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:Option<&fx::Source>,owner:i64,wall:Wall)->Result<Walked,String> {
     let mut allowance=Allowance::run();
-    let ecb=ecb_for(api);
-    let out=match ledger_run_published(&cx.db,api,ecb.as_ref(),owner,cx.clock,wall.clone(),&mut allowance).await {
+    let out=match ledger_run_published(&cx.db,api,ecb,owner,cx.clock,wall.clone(),&mut allowance).await {
         Ok((_,Published::Moved))=>Err(CACHE_MOVING.to_string()),
         Ok((walked,_))=>Ok(walked),
         Err(e)=>Err(e),
@@ -409,9 +410,8 @@ impl<C: Connect, T: Transport> Job for Backfill<C, T> {
                 Ok(true) => {}
                 Err(e) => return Outcome::Failed(e),
             }
-            let api = (*self.api).as_ref();
-            let ecb = ecb_for(api);
-            match backfill_run(&cx.db, &self.venues, api, ecb.as_ref(), self.user_id, cx.clock).await {
+            let ecb = self.venues.ecb();
+            match backfill_run(&cx.db, &self.venues, (*self.api).as_ref(), ecb.as_ref(), self.user_id, cx.clock).await {
                 // The prices that just arrived are the ones the ledger was missing: it walks again.
                 Ok(true) => { cx.wakers.wake(TRACKER_LEDGER, Some(&self.user_id.to_string()), None); Outcome::Done }
                 Ok(false) => Outcome::Done,
@@ -424,7 +424,7 @@ impl<C: Connect, T: Transport> Job for Backfill<C, T> {
 /// Construct a consumer for a user discovered after startup (including historical-only users).
 pub fn resolve<C: Connect + Clone + 'static,T: Transport + 'static>(name:&str,user_id:i64,venues:&C,api:Rc<Option<DataApi<T>>>,wall:Wall)->Option<Box<dyn Job>>{
     match name{
-        TRACKER_LEDGER=>Some(Box::new(LedgerWalk{api,user_id,wall})),
+        TRACKER_LEDGER=>Some(Box::new(LedgerWalk{api,ecb:venues.ecb(),user_id,wall})),
         PORTFOLIO_BACKFILL=>Some(Box::new(Backfill{venues:venues.clone(),api,user_id})),
         _=>None,
     }
@@ -441,7 +441,7 @@ pub fn register<C: Connect + Clone + 'static, T: Transport + 'static>(c: &Connec
         if seen.insert(user) { users.push(user); }
     }
     let mut jobs: Vec<Box<dyn Job>> = vec![];
-    for user_id in &users { jobs.push(Box::new(LedgerWalk { api: api.clone(), user_id: *user_id, wall: wall.clone() })); }
+    for user_id in &users { jobs.push(Box::new(LedgerWalk { api: api.clone(), ecb: venues.ecb(), user_id: *user_id, wall: wall.clone() })); }
     for user_id in &users { jobs.push(Box::new(Backfill { venues: venues.clone(), api: api.clone(), user_id: *user_id })); }
     Ok(jobs)
 }

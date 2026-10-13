@@ -68,9 +68,6 @@ fn over_limit(limit: usize) -> TransportError { TransportError::MaybeSent(format
 pub trait Transport {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
     fn redact_diagnostic(&self,text:&str)->String{text.to_string()}
-    /// Whether this transport reaches the market-data service over the network (the engine's own), so a job built on it
-    /// may reach other public hosts Rails reaches beside it (the ECB's rates).
-    fn live_market_data(&self)->bool{false}
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
     /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
     /// that has the whole answer in hand (the scripted one, a test wrapper) is checked after the fact.

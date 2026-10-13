@@ -153,3 +153,28 @@ async fn a_run_moved_only_by_its_own_price_writes_wakes_the_next_and_the_cache_w
     assert_eq!(ledger_wakes(&wakers),0);
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
+
+/// Venues whose ECB is a script: the tracker loads rates from it whatever the market-data provider is.
+#[derive(Clone)]
+struct EcbVenues(ScriptedTransport);
+impl Connect for EcbVenues {
+    type T=ScriptedTransport;
+    fn connect(&self,_:&deltabadger::crypto::Credentials)->AlpacaVenue<Self::T>{AlpacaVenue::new(ScriptedTransport::from_script(&json!({})),Urls::for_passphrase(Some("paper")))}
+    fn ecb(&self)->Option<deltabadger::tracker::fx::Source>{Some(deltabadger::tracker::fx::Source::Scripted(self.0.clone()))}
+}
+/// No data-api configured (the install's provider is CoinGecko): Rails' Tax::EcbFxRates still loads the ECB's rates
+/// when they are stale, and so does the ledger job, from the source its venues give it.
+#[tokio::test(flavor="current_thread")]
+async fn the_ecb_is_loaded_with_no_data_api_configured(){
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
+    o.primary.execute_batch("DELETE FROM fx_rates; INSERT INTO fx_rates(currency,date,rate) VALUES('USD','2026-09-01',1.1);").unwrap();
+    let body="KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-18,1.17\n";
+    let ecb=ScriptedTransport::from_script(&json!({format!("GET {}",deltabadger::tracker::fx::ecb_path()):[{"status":200,"body":body}]}));
+    let now=clock().0;
+    let job=tracker::jobs::resolve::<EcbVenues,ScriptedTransport>(tracker::jobs::TRACKER_LEDGER,s.user_id,&EcbVenues(ecb.clone()),Rc::new(None),Arc::new(move||now)).unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());
+    assert_eq!(job.run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert_eq!(ecb.requests().len(),1);
+    let newest:String=db.run(|c,_|c.query_row("SELECT max(date) FROM fx_rates WHERE currency='USD'",[],|r|r.get(0)).map_err(|e|e.to_string())).await.unwrap();
+    assert_eq!(newest,"2026-09-18");
+}

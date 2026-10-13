@@ -84,10 +84,8 @@ impl Transport for Plain {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, MAX_BODY).await }
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         let resp = self.client.get(r.url()).send().await.map_err(|e| TransportError::NotSent(e.to_string()))?;
-        let status = resp.status().as_u16();
-        let bytes = resp.bytes().await.map_err(|e| TransportError::MaybeSent(e.to_string()))?;
-        if bytes.len() > limit { return Err(TransportError::Permanent(format!("an answer over {limit} bytes"))); }
-        Ok(HttpResponse { status, body: String::from_utf8_lossy(&bytes).into_owned() })
+        // Read chunk by chunk, never past `limit`.
+        crate::venue::http::read_limited(resp, limit).await
     }
 }
 
@@ -229,6 +227,30 @@ mod tests {
         assert_eq!(last_expected(day("2026-10-13")), day("2026-10-12")); // Tuesday
         assert_eq!(last_expected(day("2026-10-12")), day("2026-10-09")); // Monday
         assert_eq!(last_expected(day("2026-10-11")), day("2026-10-09")); // Sunday
+    }
+
+    /// A chunked answer is read chunk by chunk and refused once it passes the limit, never buffered whole first.
+    #[tokio::test(flavor = "current_thread")]
+    async fn an_oversized_chunked_answer_is_refused_while_it_is_read() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0u8; 4096];
+            let _ = socket.read(&mut request).await;
+            socket.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n").await.unwrap();
+            let chunk = vec![b'x'; 1024];
+            for _ in 0..64 {
+                if socket.write_all(format!("{:x}\r\n", chunk.len()).as_bytes()).await.is_err() { return; }
+                if socket.write_all(&chunk).await.is_err() || socket.write_all(b"\r\n").await.is_err() { return; }
+            }
+            let _ = socket.write_all(b"0\r\n\r\n").await;
+        });
+        let req = HttpRequest { method: "GET", base: format!("http://{addr}"), path: "/big".into(), query: vec![], body: None, not_after: None };
+        let out = Plain::default().send_limited(&req, 8 * 1024).await;
+        assert!(matches!(out, Err(TransportError::MaybeSent(ref m)) if m.contains("over 8192 bytes")), "{out:?}");
+        server.abort();
     }
 
     #[test]

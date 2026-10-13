@@ -319,3 +319,28 @@ async fn no_connection_is_held_while_fetching() {
     run_ledger(dir.path(), user, &api).await.unwrap();
     assert!(!wrote.borrow().is_empty() && wrote.borrow().iter().all(Result::is_ok), "{:?}", wrote.borrow());
 }
+
+/// A row of another venue that lands while the backfill's fetch is out reaches the rows the sweep would write from: the
+/// write sees it and refuses, and neither table nor either history stamp moves.
+#[tokio::test(flavor = "current_thread")]
+async fn a_venue_row_landing_during_the_backfills_fetch_writes_no_history() {
+    use deltabadger::tracker::jobs::backfill_run;
+    let (dir, user, _, api) = hooked_install(|path, n| if n == 0 {
+        Connection::open(path.join("production.sqlite3")).unwrap().execute_batch("
+            INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', '2026-09-01 00:00:00', '2026-09-01 00:00:00');
+            INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, created_at, updated_at)
+              SELECT user_id, last_insert_rowid(), 4, 'USDT', 100, 'b-1', '2026-09-03 00:00:00', '{}', '{}', '2026-09-20 02:58:00', '2026-09-20 02:58:00' FROM account_transactions LIMIT 1;").unwrap();
+    });
+    let state = |dir: &Path| {
+        let c = Connection::open(dir.join("production.sqlite3")).unwrap();
+        let count = |sql: &str| c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+        (count("SELECT count(*) FROM portfolio_snapshots"), count("SELECT count(*) FROM portfolio_venue_snapshots"),
+         count("SELECT count(*) FROM app_configs WHERE key LIKE 'snapshot_history_version_%' OR key LIKE 'snapshot_price_generation_%'"))
+    };
+    let before = state(dir.path());
+    let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher());
+    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    let out = backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), Some(&api), None, user, &deltabadger::engine::FixedClock(at)).await;
+    assert!(out.as_ref().is_err_and(|e| e.starts_with("the tracker backfill is not ported for ")), "{out:?}");
+    assert_eq!(state(dir.path()), before, "no history row and no stamp written");
+}
