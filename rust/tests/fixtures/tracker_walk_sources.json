@@ -1,0 +1,19 @@
+{
+  "app/models/tracker/ledger.rb": "82ee03e708359b06aa46919f096f94715a26a3c69072632bea3d64ec55793fc4",
+  "app/models/tracker/cash_book.rb": "503bea1409664c84887e4a866a7752fdc3a8c6f93fdac7bf85e3236d901c1c9d",
+  "app/models/tracker/unfunded_cash.rb": "29908ac85d48cb06ea12a96c485c913503b268eff95bb23ed43c117b04ac3f8a",
+  "app/models/tracker/figures.rb": "bfae57d2a68f14c67b4718d850f176730c1ff50f133fff58f1efff7cb20f4f28",
+  "app/models/tax/price_service.rb": "cd8c9df5bd9945a7b26990cdba21c8b8a93786a219638f3f54cff37a24c1fbf1",
+  "app/models/tax/asset_identity.rb": "55f27565fd4202330d9ce9b089b3e8c6bd8ac1e0abaeae7cc8b07d801b64497f",
+  "app/models/tax/ecb_fx_rates.rb": "86859e879e22b0acd180d1fad29b5ef11ff1ba8768a4e889063bfb95328da141",
+  "app/models/tax/methods/fifo.rb": "0eaaab43c43312e2c3fd335e301bd76d07e96f7c4e4e69a578042b818825df5e",
+  "app/models/tax/methods/acquisition_fee.rb": "297b34726a574b2b7f0ef008998377e16f5becbdabfd8684d0960fc5cae4e968",
+  "app/models/tax/methods/return_of_capital.rb": "c65096951e43050cd2d6dd6fb6d11229b578635d285bd4348c702a11797f0ee6",
+  "app/models/portfolio_snapshot.rb": "b13f74f516f4f787ab22e469ed20803f681edbd049139a2a38db81f2ff249ac0",
+  "app/jobs/tracker/ledger_job.rb": "f0b8c9bc56fab031a0f475bab4220120dc87a68b3148cf073f9a56ede5b053c9",
+  "app/jobs/portfolio_snapshot/backfill_job.rb": "3a455b2af85e35a26c2c749646188c28fa3c7c45fa2251a042d0bf6030a00dd7",
+  "app/models/historical_price.rb": "ccc44037596cc79971be880f2c4d86d13e3d7a5871e9d488b9e82a4615c76da1",
+  "app/models/fx_rate.rb": "cffdc9eee8123ed95c3fcc41b9cfdf44250f9ae529628465a7aa2557ccddb18b",
+  "script/rust/tracker.rb": "45017f4ba55d44256a2643a05dfaa8ff280533d52331b15dad311159a21f0226",
+  "script/rust/tracker_on_copy.rb": "a21523c9a4094ea9552ba731a0a31632c8a7ab60b0f4616a7083ada4ad7ff96e"
+}

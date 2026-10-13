@@ -1730,7 +1730,7 @@ async fn q_tracker_bar_result_must_not_cache_after_credential_replacement() {
     let file=h._dir.path().join("production.sqlite3");
     let factory=RotatingFactory{file:file.clone(),cipher:h.app.cipher.clone(),key:h.seed.api_key_id,url:server.uri()};
     let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(file).unwrap(),h.app.cipher.clone());
-    let result=backfill_run(&db,&factory,None::<&deltabadger::jobs::data_api::DataApi<ReqwestTransport>>,h.seed.user_id,&FixedClock(h.app.now())).await;
+    let result=backfill_run(&db,&factory,None::<&deltabadger::jobs::data_api::DataApi<ReqwestTransport>>,None,h.seed.user_id,&FixedClock(h.app.now())).await;
     server.verify().await;
     assert_eq!(h.c.query_row("SELECT count(*) FROM historical_prices WHERE asset='stock:AAA'",[],|r|r.get::<_,i64>(0)).unwrap(),0,"Q stale credential-derived bars must not enter the price cache");
     assert!(result.is_err());
@@ -3233,22 +3233,22 @@ async fn r4_snapshot_cannot_relabel_retained_a_balances_as_b(){
     let venue=|credentials:&deltabadger::crypto::Credentials|AlpacaVenue::new(ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()),Urls{trading:server.uri(),data:server.uri()});
     balances::sync(&db,&venue(&a),&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
     let wall=jobs::system_wall();
-    jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await.unwrap();
+    jobs::ledger_run::<ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await.unwrap();
     let before=h.snapshot();
     h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
     let retained=h.snapshot();
-    let stale=jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await;
+    let stale=jobs::ledger_run::<ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await;
     assert!(stale.is_err(),"R4 retained A balances cannot receive B snapshot provenance");
     assert_eq!(h.snapshot(),retained,"R4 stale snapshot calculation must not commit any rows");
     assert_ne!(before,retained);
     let b=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
     balances::sync(&db,&venue(&b),&NoPrices,h.seed.api_key_id,&b,&FixedClock(at)).await.unwrap().unwrap();
-    jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await.unwrap();
+    jobs::ledger_run::<ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),wall.clone(),&mut jobs::Allowance::run()).await.unwrap();
     assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1",[h.seed.user_id],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R4 fresh B balance control publishes B's value");
     let origin_key=deltabadger::jobs::state::key("balance_origin",Some(&format!("{}:{}",h.seed.user_id,h.seed.exchange_id)));
     h.c.execute("DELETE FROM app_configs WHERE key=?1",[origin_key]).unwrap();
     let missing=h.snapshot();
-    assert!(jobs::ledger_run::<ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),wall,&mut jobs::Allowance::run()).await.is_err(),"R4 missing balance producer is stale");
+    assert!(jobs::ledger_run::<ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),wall,&mut jobs::Allowance::run()).await.is_err(),"R4 missing balance producer is stale");
     assert_eq!(h.snapshot(),missing);
     server.verify().await;
 }
@@ -3286,7 +3286,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     let a=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();
     let av=LocalAlpaca(server.uri()).connect(&a);
     balances::sync(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
-    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,h.seed.user_id,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
+    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
     let mut positions=vec![];
     for n in 0..101 {let symbol=format!("R5{n}");let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,&symbol);h.c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1"}));}
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
@@ -3297,14 +3297,14 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     let gaps=std::cell::RefCell::new(vec![]);let owner=h.seed.user_id;let h_ref=&h;let db_ref=&db;let gaps_ref=&gaps;
     let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
         let before=h_ref.snapshot();
-        let result=jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(db_ref,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await;
+        let result=jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(db_ref,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await;
         assert!(result.is_err(),"R5 incomplete balance set must refuse snapshot at origin/batch gap {gap}");
         assert_eq!(h_ref.snapshot(),before,"R5 partial rows must not acquire a snapshot producer stamp");
         gaps_ref.borrow_mut().push(gap);
     })};
     balances::sync_with_steps(&db,&bv,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at),&step).await.unwrap().unwrap();
     assert_eq!(*gaps.borrow(),vec![0,1,2],"cover origin-only and both partial batch gaps");
-    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
+    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
     assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
 }
 

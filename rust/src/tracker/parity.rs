@@ -27,7 +27,7 @@ impl Connect for Scripted {
     fn connect(&self, _: &Credentials) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(self.0.clone(), Urls::for_passphrase(None)) }
 }
 
-fn summary_json(s: &Summary) -> Value {
+pub fn summary_json(s: &Summary) -> Value {
     let mut positions = s.positions.clone();
     positions.sort_by(|a, b| a.symbol.cmp(&b.symbol));
     json!({
@@ -53,27 +53,27 @@ fn figures_json(f: &figures::Figures) -> Result<Value, FiguresError> {
 }
 
 /// The scopes the walk stated and the figures each of today's rows was made from, as Rails' harness dumps them.
-fn report(c: &Connection, user_id: i64, walked: &Walked) -> Result<Value, FiguresError> {
-    let alpaca: Option<i64> = { use rusqlite::OptionalExtension; c.query_row("SELECT id FROM exchanges WHERE type = ?1", [super::VENUE_TYPE], |r| r.get(0)).optional()? };
+fn report(c: &Connection, user_id: i64, walked: &Walked, today: chrono::NaiveDate) -> Result<Value, FiguresError> {
     let mut venues = Map::new();
-    if let (Some(v), Some(id)) = (&walked.venue, alpaca) { venues.insert(id.to_string(), summary_json(v)); }
+    let mut listed = walked.venues.clone();
+    listed.sort_by_key(|(id, _)| *id);
+    for (id, v) in &listed { venues.insert(id.to_string(), summary_json(v)); }
+    let fx = super::fx::FxTable::load(c)?;
     let mut figs = Map::new();
     let empty = Summary::empty();
     let mut scopes: Vec<(Option<i64>, &Summary)> = vec![(None, &walked.whole)];
-    for id in super::snapshot::venues(c, user_id)? {
-        scopes.push((Some(id), match (&walked.venue, alpaca) { (Some(v), Some(a)) if a == id => v, _ => &empty }));
-    }
+    for id in super::snapshot::venues(c, user_id)? { scopes.push((Some(id), walked.venue(id).unwrap_or(&empty))); }
     for (scope, ledger) in scopes {
         let balances = figures::balances(c, user_id, scope)?;
         let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2))", rusqlite::params![user_id, scope], |r| r.get(0))?;
         if balances.is_empty() && !rows { continue; }
-        let f = figures::compute(c, user_id, ledger, &balances, &figures::pending(c, user_id, scope)?)?;
+        let f = figures::compute_on(c, user_id, ledger, &balances, &figures::pending(c, user_id, scope)?, &fx, today)?;
         figs.insert(scope.map_or("whole".into(), |id| id.to_string()), figures_json(&f)?);
     }
     Ok(json!({ "whole": summary_json(&walked.whole), "venues": venues, "figures": figs }))
 }
 
-fn raw(v: ValueRef<'_>) -> Value {
+pub fn raw(v: ValueRef<'_>) -> Value {
     match v {
         ValueRef::Null => Value::Null,
         ValueRef::Integer(i) => json!(i),
@@ -106,7 +106,7 @@ pub fn tables(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Value, St
     Ok(Value::Object(out))
 }
 
-fn logged(t: &ScriptedTransport) -> Vec<Value> {
+pub fn logged(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().iter().map(|r| {
         let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
         query.sort();
@@ -125,15 +125,34 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     let db = Db::new(opened.primary, (*cipher).clone());
     let market = ScriptedTransport::from_script(&scenario["market"]);
     let alpaca = ScriptedTransport::from_script(&scenario["alpaca"]);
+    if scenario["balances_synced_by_rust"] == true {
+        // The balances as a Rust balance sync leaves them: produced, complete, by the reading key of their venue.
+        db.run(move |c, _| {
+            let mut s = c.prepare("SELECT id, exchange_id FROM api_keys WHERE user_id = ?1 AND status = 1 AND key_type != 1 ORDER BY id").map_err(|e| e.to_string())?;
+            let keys: Vec<(i64, i64)> = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
+            drop(s);
+            for (id, exchange) in keys {
+                let Some(version) = crate::engine::model::credential_version_by_id(c, id).map_err(|e| format!("{e:?}"))? else { continue };
+                let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
+                let fenced = crate::engine::model::fence_versions(&tx, std::slice::from_ref(&version)).map_err(|e| format!("{e:?}"))?;
+                crate::sync::cache::record(&fenced, user_id, exchange, &version, true, at).map_err(|e| format!("{e:?}"))?;
+                drop(fenced);
+                tx.commit().map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        }).await?;
+    }
+    let ecb_script = ScriptedTransport::from_script(&scenario["ecb"]);
+    let ecb = super::fx::Source::Scripted(ecb_script.clone());
     let api = DataApi::new(Config { url: "http://data-api:3000".into(), token: "parity-token".into() }, market.clone(), market.clone());
     let clock = FixedClock(at);
-    let (ledger, ledger_error) = match super::jobs::ledger_run(&db, Some(&api), user_id, &clock, std::sync::Arc::new(move || at), &mut super::jobs::Allowance::run()).await {
+    let (ledger, ledger_error) = match super::jobs::ledger_run(&db, Some(&api), Some(&ecb), user_id, &clock, std::sync::Arc::new(move || at), &mut super::jobs::Allowance::run()).await {
         // The figures read the balances, which the job's writes leave as they were.
-        Ok(walked) => (db.run(move |c, _| report(c, user_id, &walked).map_err(super::jobs::message)).await?, Value::Null),
+        Ok(walked) => (db.run(move |c, _| report(c, user_id, &walked, at.date_naive()).map_err(super::jobs::message)).await?, Value::Null),
         Err(e) => (Value::Null, json!(e)),
     };
-    let backfill_error = match super::jobs::backfill_run(&db, &Scripted(alpaca.clone()), Some(&api), user_id, &clock).await { Ok(_) => Value::Null, Err(e) => json!(e) };
+    let backfill_error = match super::jobs::backfill_run(&db, &Scripted(alpaca.clone()), Some(&api), Some(&ecb), user_id, &clock).await { Ok(_) => Value::Null, Err(e) => json!(e) };
     let tables = db.run(move |c, cipher| tables(c, cipher, user_id)).await?;
     Ok(json!({ "ledger": ledger, "ledger_error": ledger_error, "backfill_error": backfill_error, "tables": tables,
-               "requests": { "market": logged(&market), "alpaca": logged(&alpaca) } }))
+               "requests": { "market": logged(&market), "alpaca": logged(&alpaca), "ecb": logged(&ecb_script) } }))
 }

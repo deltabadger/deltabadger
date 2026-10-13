@@ -43,3 +43,12 @@ fn completion_scheduler_is_connected_to_the_served_apps_hub() {
     let scheduler = include_str!("../src/jobs/mod.rs");
     assert!(scheduler.contains("self.db = self.db.with_notifications(notifications)"));
 }
+
+/// The Rails files the tracker walk mirrors (Plan D2b-2a) and the recorders of its grid: a change to any of them wants
+/// the grid recorded again, and the walk read against it.
+#[test]
+fn tracker_walk_oracle_sources_stay_pinned() {
+    let pins:std::collections::BTreeMap<String,String>=serde_json::from_str(include_str!("fixtures/tracker_walk_sources.json")).unwrap();
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for(path,hash)in pins {assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(&path)).unwrap())),hash,"{path}: record the tracker grid again");}
+}

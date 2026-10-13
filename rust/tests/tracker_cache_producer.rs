@@ -15,18 +15,19 @@ async fn producer_publishes_warm_and_failed_states_and_propagates_write_errors()
     let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
     let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
-    db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Warm(_)));c.execute_batch("UPDATE account_transactions SET fee_currency='USD',fee_amount=1,updated_at='2026-09-20 00:00:00';").unwrap();Ok(())}).await.unwrap();
+    db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Warm(_)));c.execute_batch("UPDATE account_transactions SET raw_data='not json',updated_at='2026-09-20 00:00:00';").unwrap();Ok(())}).await.unwrap();
     assert!(matches!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(_)));
-    db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Failed(cache::UNAVAILABLE)));c.execute_batch("UPDATE account_transactions SET fee_amount=NULL,fee_currency=NULL,updated_at='2026-09-21 00:00:00'; CREATE TRIGGER refuse_cache BEFORE UPDATE ON app_configs WHEN NEW.key LIKE 'rust_tracker_ledger.%' BEGIN SELECT RAISE(ABORT,'cache write refused'); END;").unwrap();Ok(())}).await.unwrap();
+    db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Failed(cache::UNAVAILABLE)));c.execute_batch("UPDATE account_transactions SET raw_data='{}',updated_at='2026-09-21 00:00:00'; CREATE TRIGGER refuse_cache BEFORE UPDATE ON app_configs WHEN NEW.key LIKE 'rust_tracker_ledger.%' BEGIN SELECT RAISE(ABORT,'cache write refused'); END;").unwrap();Ok(())}).await.unwrap();
     assert!(matches!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(_)),"cache write failure must not claim success");
 }
 #[tokio::test(flavor="current_thread")]
-async fn producer_retries_three_changed_passes_and_never_publishes_them(){
+async fn a_write_that_moves_the_ledger_leaves_the_cache_unpublished(){
     let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
     o.primary.execute_batch("CREATE TABLE passes(n INTEGER); INSERT INTO passes VALUES(0); CREATE TRIGGER change_on_insert AFTER INSERT ON portfolio_snapshots BEGIN UPDATE passes SET n=n+1; UPDATE account_transactions SET updated_at=datetime(updated_at,'+1 second'); END; CREATE TRIGGER change_on_update AFTER UPDATE ON portfolio_snapshots BEGIN UPDATE passes SET n=n+1; UPDATE account_transactions SET updated_at=datetime(updated_at,'+1 second'); END;").unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;
     assert!(matches!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(_)),"moving inputs must not look successful");
-    db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Cold));assert_eq!(c.query_row("SELECT n FROM passes",[],|r|r.get::<_,i64>(0)).unwrap(),3);Ok(())}).await.unwrap();
+    // One pass read a still ledger; the write unit's own snapshot moved it, so the cache stays cold.
+    db.run(move|c,_|{assert!(matches!(cache::read(c,owner,None,clock().0).unwrap(),State::Cold));assert_eq!(c.query_row("SELECT n FROM passes",[],|r|r.get::<_,i64>(0)).unwrap(),1);Ok(())}).await.unwrap();
 }
 fn ledger_wakes(wakers:&jobs::Wakers)->usize{wakers.pending().iter().filter(|(job,_)|job==tracker::jobs::TRACKER_LEDGER).count()}
 /// A walk that fails can never publish: the run ends with the walk's own error and wakes nothing (it used to wake
@@ -34,12 +35,10 @@ fn ledger_wakes(wakers:&jobs::Wakers)->usize{wakers.pending().iter().filter(|(jo
 #[tokio::test(flavor="current_thread")]
 async fn a_failed_walk_returns_its_error_and_never_wakes_itself(){
     let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
-    o.primary.execute_batch(&format!("INSERT INTO exchanges(type,name,maker_fee,taker_fee,created_at,updated_at) VALUES('Exchanges::Binance','Binance','0.1','0.1','2026-09-01 00:00:00','2026-09-01 00:00:00');
-        INSERT INTO api_keys(user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES({u},last_insert_rowid(),'k','s',1,0,'2026-09-01 00:00:00','2026-09-01 00:00:00');
-        INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at) SELECT {u},exchange_id,(SELECT min(id) FROM assets),1,0,'2026-09-01 00:00:00','2026-09-01 00:00:00','2026-09-01 00:00:00' FROM api_keys WHERE key='k';",u=s.user_id)).unwrap();
+    o.primary.execute_batch("UPDATE account_transactions SET raw_data='not json'").unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
     let outcome=job(s.user_id).run(Cx{db,clock:&clock(),wakers:wakers.clone()},vec![]).await;
-    assert_eq!(outcome,Outcome::Failed("the tracker walk is not ported for balances on a venue other than Alpaca".into()));
+    assert_eq!(outcome,Outcome::Failed("a JSON column Rails did not write".into()));
     assert_eq!(ledger_wakes(&wakers),0,"a failed walk must not wake another tracker_ledger run");
 }
 /// Inputs that another writer moves during every pass end the run as moving. The run stored no price itself, so it
@@ -76,10 +75,11 @@ async fn producer_changed_inputs_run_again_on_the_writers_wake(){
     let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(WriterWakes{inner:job(s.user_id),stop,runs:runs.clone()})],None);
     scheduler.wakers().wake(tracker::jobs::TRACKER_LEDGER,Some(&s.user_id.to_string()),None);
     tokio::time::timeout(std::time::Duration::from_secs(3),scheduler.run(rx,&clock())).await.expect("the writer's wake must be delivered").unwrap();
-    assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),2);
+    // Each run's own snapshot moves the ledger while the trigger lasts (three runs); the fourth publishes.
+    assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),4);
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
-/// 120 coin fees on 120 days, each day's price arriving only with its own fetch: more than one run's `MAX_FETCHES`.
+/// 120 coin fees on 120 days, each day's price arriving only with its own fetch.
 fn priced_one_day_at_a_time(c:&rusqlite::Connection,owner:i64,venue:i64)->(Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>>,ScriptedTransport){
     common::seed::fresh_stock_jobs(c,clock().0);
     let days:Vec<chrono::NaiveDate>=(0..120).map(|i|"2026-05-01".parse::<chrono::NaiveDate>().unwrap()+chrono::Days::new(i)).collect();
@@ -103,33 +103,32 @@ impl Job for StopWhenDone {
         outcome
     })}
 }
-/// A run that stops at its fetch allowance, having stored prices, wakes the next run at once, which fetches the rest:
-/// 50 days, then 51 (its prefetch brings one), then the last 19, and the walk is done with nothing left queued.
+/// One run fetches every price its walk asks for, inline, as Rails does (no allowance of fetches): the prefetch, then
+/// each day's window; the stored prices move the generation, so compute! walks again, asks nothing, and publishes.
 #[tokio::test(flavor="current_thread")]
-async fn a_history_past_one_runs_fetches_fills_in_over_consecutive_runs_and_stops(){
+async fn a_history_priced_one_day_at_a_time_is_priced_in_one_run(){
     let (dir,o,s)=common::install_alpaca();let (api,t)=priced_one_day_at_a_time(&o.primary,s.user_id,s.exchange_id);
     let (stop,rx)=tokio::sync::watch::channel(false);let runs=Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let scheduler=jobs::Scheduler::new(o.primary,common::seed::cipher(),vec![Box::new(StopWhenDone{inner:job_with(s.user_id,api),stop,runs:runs.clone()})],None);
     let wakers=scheduler.wakers();
     wakers.wake(tracker::jobs::TRACKER_LEDGER,Some(&s.user_id.to_string()),None);
     tokio::time::timeout(std::time::Duration::from_secs(30),scheduler.run(rx,&clock())).await.expect("a run that stored prices must wake the next").unwrap();
-    assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),3);
-    assert_eq!(t.requests().len(),121,"each run's prefetch, then 50, 50 and 18 single days");
+    assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst),1);
+    assert_eq!(t.requests().len(),121,"the prefetch, then the 120 days");
     assert_eq!(ledger_wakes(&wakers),0,"the finished walk queues nothing");
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).unwrap(),120);
     assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
-/// A run that stops at its fetch allowance having stored nothing itself (here another writer stores each price first)
-/// queues no wake: nothing it did moved the walk on, so a re-run could loop.
+/// A run whose prices another writer stored first (it stored none itself) still walks to the end and queues no wake.
 #[tokio::test(flavor="current_thread")]
-async fn a_fetch_spent_run_that_stored_nothing_queues_no_wake(){
+async fn a_run_whose_prices_another_writer_stored_queues_no_wake(){
     let (_dir,o,s)=common::install_alpaca();let (api,_t)=priced_one_day_at_a_time(&o.primary,s.user_id,s.exchange_id);
     o.primary.execute_batch("CREATE TRIGGER another_writer BEFORE INSERT ON historical_prices BEGIN INSERT INTO historical_prices(asset,currency,date,price) VALUES(NEW.asset,NEW.currency,NEW.date,NEW.price); END;").unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
     let outcome=job_with(s.user_id,api).run(Cx{db:db.clone(),clock:&clock(),wakers:wakers.clone()},vec![]).await;
-    assert_eq!(outcome,Outcome::Failed(tracker::jobs::FETCHES_SPENT.into()));
-    assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),50,"the other writer stored them");
+    assert_eq!(outcome,Outcome::Done);
+    assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),120,"the other writer stored them");
     assert_eq!(ledger_wakes(&wakers),0,"a run that stored nothing must not wake itself");
 }
 /// The run's own prefetch writes can move the price inputs under all three passes: fees on days 1 and 4 prefetch days
@@ -153,4 +152,29 @@ async fn a_run_moved_only_by_its_own_price_writes_wakes_the_next_and_the_cache_w
     assert_eq!((runs.load(std::sync::atomic::Ordering::SeqCst),t.requests().len()),(2,3),"three moved passes, then one run that fetches nothing");
     assert_eq!(ledger_wakes(&wakers),0);
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
+}
+
+/// Venues whose ECB is a script: the tracker loads rates from it whatever the market-data provider is.
+#[derive(Clone)]
+struct EcbVenues(ScriptedTransport);
+impl Connect for EcbVenues {
+    type T=ScriptedTransport;
+    fn connect(&self,_:&deltabadger::crypto::Credentials)->AlpacaVenue<Self::T>{AlpacaVenue::new(ScriptedTransport::from_script(&json!({})),Urls::for_passphrase(Some("paper")))}
+    fn ecb(&self)->Option<deltabadger::tracker::fx::Source>{Some(deltabadger::tracker::fx::Source::Scripted(self.0.clone()))}
+}
+/// No data-api configured (the install's provider is CoinGecko): Rails' Tax::EcbFxRates still loads the ECB's rates
+/// when they are stale, and so does the ledger job, from the source its venues give it.
+#[tokio::test(flavor="current_thread")]
+async fn the_ecb_is_loaded_with_no_data_api_configured(){
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
+    o.primary.execute_batch("DELETE FROM fx_rates; INSERT INTO fx_rates(currency,date,rate) VALUES('USD','2026-09-01',1.1);").unwrap();
+    let body="KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\nEXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-18,1.17\n";
+    let ecb=ScriptedTransport::from_script(&json!({format!("GET {}",deltabadger::tracker::fx::ecb_path()):[{"status":200,"body":body}]}));
+    let now=clock().0;
+    let job=tracker::jobs::resolve::<EcbVenues,ScriptedTransport>(tracker::jobs::TRACKER_LEDGER,s.user_id,&EcbVenues(ecb.clone()),Rc::new(None),Arc::new(move||now)).unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());
+    assert_eq!(job.run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert_eq!(ecb.requests().len(),1);
+    let newest:String=db.run(|c,_|c.query_row("SELECT max(date) FROM fx_rates WHERE currency='USD'",[],|r|r.get(0)).map_err(|e|e.to_string())).await.unwrap();
+    assert_eq!(newest,"2026-09-18");
 }

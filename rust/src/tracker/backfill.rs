@@ -157,7 +157,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         crate::figures::budget::charge(1, 0)?;
         if !i.stock {
             for (from, to, coin) in coins_of(&reference, &venue, i, last) {
-                plan.fetches.push(Close::Range(Fetch { coin, symbol: i.symbol.clone(), from, to, asked: None }));
+                plan.fetches.push(Close::Range(Fetch::usd(coin, i.symbol.clone(), from, to)));
             }
             continue;
         }
@@ -364,8 +364,9 @@ mod tests {
     }
 
     fn bought(symbol: &str) -> Stored {
-        Stored { id: 1, exchange_id: 1, kind: Kind::Buy, base: symbol.into(), amount: Dec::one(), quote: Some("USD".into()), quote_amount: Some(Dec::one()), tx_id: None,
-                 group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None }
+        Stored { id: 1, exchange_id: 1, venue: "alpaca".into(), kind: Kind::Buy, base: symbol.into(), amount: Dec::one(), quote: Some("USD".into()), quote_amount: Some(Dec::one()),
+                 fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None,
+                 to_venue: None, to_exchange_id: None }
     }
 
     /// PortfolioSnapshot::BackfillJob#identity_of under a name Alpaca can list twice (its BTC security beside BTC/USD):

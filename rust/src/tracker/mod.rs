@@ -8,13 +8,15 @@
 //! - `wash`: Tracker::LedgerJob#arm_wash_sale_locks;
 //! - `jobs`: the scheduler's jobs that run them; `parity`: the Rust half of the parity harness.
 //!
-//! Ported for the rows the Alpaca ledger sync writes, in US dollars (stablecoins at face). A history with anything
-//! else is refused (`FiguresError::NotComputed`, the reason in words): rows or balances of another venue, swap legs, a
-//! fee carried on a row, cash in another currency, a linked transfer of anything but dollars, a trade leg with no cash
-//! quote of its own; and so is a walk that needs a price it cannot get (CoinGecko's, one two fetches did not bring, or one no coin can be named for).
-//! Rails computes those (Plan D4b, or at a zero basis); this build states no figure rather than a wrong one.
+//! - `fx`: Tax::EcbFxRates, the ECB's rates and their loading.
+//!
+//! The walk takes every venue's rows as Rails does: swaps, fees carried on rows, other cash at the ECB's rates, transfers
+//! between venues, the funding a venue that does not lend cash never reported. A price nobody has is a zero and the
+//! figure is marked incomplete, as Rails marks it. Refused, with the reason: a walk that needs a price from CoinGecko
+//! (this build fetches from data-api only), and a backfill outside D4a's sweep (one Alpaca account in dollars).
 pub mod backfill;
 pub mod figures;
+pub mod fx;
 pub mod jobs;
 pub mod parity;
 pub mod prices;

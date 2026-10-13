@@ -2,10 +2,12 @@
 //! read it. The venue's balance is the truth about what is held; where the history disagrees, the extra left at cost
 //! or arrived at the balance's price, and money in moves with it. The notes Rails writes beside each assumption are
 //! the page's (Plan D5); the figures they shape are here.
+use super::fx::FxTable;
 use super::rows::{borrowed, Kind};
 use super::walk::{cash_moves, quantity_moves, Summary};
 use super::{cash, stable};
 use crate::figures::{at::At, dec::Dec, FiguresError};
+use chrono::NaiveDate;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 
@@ -62,16 +64,31 @@ fn watermarks(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<
 }
 
 /// `Figures.moved_since(pending_scope, watermarks)`: what the ledger has moved since each venue's balances were taken,
-/// by symbol, the cash it spent or returned included. A venue with no watermark is not brought forward. (A linked
-/// transfer here is dollars, which move no quantity.)
+/// by symbol, the cash it spent or returned included. A venue with no watermark is not brought forward. A transfer is
+/// linked here only when its partner moved since too (`quantity_row`).
 pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<(String, Dec)>, FiguresError> {
     let marks = watermarks(c, user_id, exchange_id)?;
     let mut moved: Vec<(String, Dec)> = vec![];
     let mut index: HashMap<String, usize> = HashMap::new();
     let Some(since) = marks.values().copied().min() else { return Ok(moved) };
+    // `linked_transaction || inverse_link`: the row it names, else the row that names it.
+    let mut links: HashMap<i64, i64> = HashMap::new();
+    let mut inverse: HashMap<i64, i64> = HashMap::new();
+    {
+        let mut s = c.prepare("SELECT id, linked_transaction_id FROM account_transactions WHERE user_id = ?1 AND linked_transaction_id IS NOT NULL ORDER BY id")?;
+        let mut q = s.query([user_id])?;
+        while let Some(r) = q.next()? {
+            crate::figures::budget::charge(1, 0)?;
+            let (id, to): (i64, i64) = (r.get(0)?, r.get(1)?);
+            links.insert(id, to);
+            inverse.entry(to).or_insert(id);
+        }
+    }
+    type Pending = (i64, Kind, String, Dec, Option<String>, Option<Dec>, Option<String>, Option<Dec>);
+    let mut rows: Vec<Pending> = vec![];
     let mut s = c.prepare(
-        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at FROM account_transactions \
-         WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
+        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, id, fee_currency, fee_amount \
+         FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
         crate::figures::budget::charge(1, 0)?;
@@ -92,8 +109,16 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         let base: String = r.get(2)?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         let (quote, quote_amount): (Option<String>, Option<Dec>) = (r.get(4)?, Dec::from_sql(r.get_ref(5)?)?);
-        for (symbol, a) in quantity_moves(kind, &base, &amount, false, None)? { if !cash(&symbol) { add(symbol, a)?; } }
-        for (currency, a) in cash_moves(kind, &base, &amount, quote.as_deref(), quote_amount.as_ref())? { add(currency, a)?; }
+        rows.push((r.get(8)?, kind, base, amount, quote, quote_amount, r.get(9)?, Dec::from_sql(r.get_ref(10)?)?));
+    }
+    let ids: HashSet<i64> = rows.iter().map(|r| r.0).collect();
+    let amounts: HashMap<i64, Dec> = rows.iter().map(|r| (r.0, r.3.clone())).collect();
+    for (id, kind, base, amount, quote, quote_amount, fee_currency, fee_amount) in &rows {
+        let partner = links.get(id).or_else(|| inverse.get(id)).copied();
+        let linked = partner.is_some_and(|p| ids.contains(&p));
+        let fee = match (linked, kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((amount - p)?), _ => None };
+        for (symbol, a) in quantity_moves(*kind, base, amount, fee_currency.as_deref(), fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol, a)?; } }
+        for (currency, a) in cash_moves(*kind, base, amount, quote.as_deref(), quote_amount.as_ref(), fee_currency.as_deref(), fee_amount.as_ref())? { add(currency, a)?; }
     }
     Ok(moved)
 }
@@ -116,9 +141,11 @@ impl Figures {
     }
 }
 
-/// `rate(currency)`: a dollar and a stablecoin are one dollar; no other cash reaches this build.
-fn rate(currency: &str) -> Result<Dec, FiguresError> {
-    if currency == "USD" || stable(currency) { Ok(Dec::one()) } else { Err(super::refused("cash other than US dollars")) }
+/// `rate(currency)`: a dollar and a stablecoin are one dollar; other cash at today's ECB rate, at par when there is none
+/// (Rails notes it; the note is the page's).
+fn rate(currency: &str, fx: &FxTable, today: NaiveDate) -> Result<Dec, FiguresError> {
+    if currency == "USD" || stable(currency) { return Ok(Dec::one()); }
+    Ok(fx.rate(currency, "USD", today)?.unwrap_or_else(Dec::one))
 }
 
 /// A (key, value) list by its key; each entry a step.
@@ -130,6 +157,11 @@ fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> 
 /// `Figures.for(user, ledger:, balances:, pending:)`. Every symbol's balances, pending move and position are found
 /// through an index, each lookup a step.
 pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
+    compute_on(c, user_id, ledger, balances, pending, &FxTable::load(c)?, chrono::Utc::now().date_naive())
+}
+
+/// `compute` with the ECB table read and today's date.
+pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)], fx: &FxTable, today: NaiveDate) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
     let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
     // Fiat and Currency are both cash, and a tokenized share tracks its company's share: one class each.
@@ -191,7 +223,7 @@ pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balan
         }
         let price = if prices.is_positive() { Some(values.div(&units)?) } else { None };
         if cash(&symbol) {
-            let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol)? })? };
+            let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol, fx, today)? })? };
             holdings.push(Holding { symbol, quantity: held, value, cost: None, cash: true });
             continue;
         }
@@ -240,7 +272,7 @@ pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balan
         if gap.is_positive() {
             moved = (&moved - &(&basis * &gap)?.div(&history)?)?;
         } else if gap.is_negative() {
-            moved = (&moved + &(&gap.neg() * &rate(currency)?)?)?;
+            moved = (&moved + &(&gap.neg() * &rate(currency, fx, today)?)?)?;
         }
     }
     let mut value = Dec::zero();
