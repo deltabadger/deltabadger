@@ -48,8 +48,9 @@ pub struct ReadOrigin { user:i64, exchange:Option<i64>, versions:Vec<CredentialV
 pub struct ReadValue<T> { pub value:T, pub origin:ReadOrigin }
 impl ReadOrigin {
     pub fn producer_stamps(&self)->Value {Value::Array(self.versions.iter().map(CredentialVersion::cache_stamp).collect())}
+    /// A venue whose key was deleted keeps its rows as final history (ApiKey `dependent: :nullify`): current, as
+    /// Rails shows it. A venue with a key but no healthy reading slot is current only while it has no rows.
     pub fn ledger_is_current(&self,c:&Connection)->Result<bool,EngineError>{
-        if self.versions.is_empty(){return Ok(true)}
         let mut stmt=c.prepare("SELECT DISTINCT exchange_id FROM api_keys WHERE user_id=?1 AND key_type!=1 AND (?2 IS NULL OR exchange_id=?2) ORDER BY exchange_id")?;
         let scopes=stmt.query_map(rusqlite::params![self.user,self.exchange],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
         for exchange in scopes {
@@ -57,7 +58,11 @@ impl ReadOrigin {
             // Keep the complete captured set for rotation fencing, but do not demand a watermark
             // from an unused invalid slot which did not produce this venue's import.
             let id:Option<i64>=c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND status=1 AND key_type!=1 ORDER BY CASE WHEN key_type=0 THEN 0 ELSE 1 END,id LIMIT 1",[self.user,exchange],|r|r.get(0)).optional()?;
-            let Some(version)=self.versions.iter().find(|version|Some(version.id)==id) else {return Ok(false)};
+            let Some(id)=id else {
+                let rows:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=?2)",[self.user,exchange],|r|r.get(0))?;
+                if rows {return Ok(false)} else {continue}
+            };
+            let Some(version)=self.versions.iter().find(|version|version.id==id) else {return Ok(false)};
             if !ledger_produced_by(c,version.id,version)? || state::read(c,"ledger_sync",Some(&version.id.to_string())).map_err(EngineError::Data)?.incomplete_since.is_some() {return Ok(false)}
         }
         Ok(true)
@@ -100,15 +105,21 @@ pub fn record_ledger(c:&model::FencedTransaction<'_>,id:i64,version:&CredentialV
     app_config::set_plain(c,&state::key("ledger_origin",Some(&id.to_string())),&version.cache_stamp().to_string(),now).map_err(EngineError::Data)
 }
 
-pub fn fence_read<'a>(tx:&'a rusqlite::Transaction<'_>,origin:&ReadOrigin)->Result<model::FencedTransaction<'a>,EngineError>{
+/// Whether the balances a read captured are still the ones current keys produced (always, for a read of no balances).
+pub fn balances_current(tx:&Connection,origin:&ReadOrigin)->Result<bool,EngineError>{
     if origin.balance_inputs {
         let current_balances=origin.with_balance_producers(tx)?;
-        if current_balances.balance_producers.len()!=origin.balance_producers.len(){return Err(EngineError::CredentialsChanged)}
+        if current_balances.balance_producers.len()!=origin.balance_producers.len(){return Ok(false)}
         for (producer,current) in origin.balance_producers.iter().zip(&current_balances.balance_producers){
             let fresh=producer.current_for(current.origin()).is_fresh() && model::produced_is_current(tx,current)?;
-            if !fresh{return Err(EngineError::CredentialsChanged)}
+            if !fresh{return Ok(false)}
         }
     }
+    Ok(true)
+}
+
+pub fn fence_read<'a>(tx:&'a rusqlite::Transaction<'_>,origin:&ReadOrigin)->Result<model::FencedTransaction<'a>,EngineError>{
+    if !balances_current(tx,origin)? {return Err(EngineError::CredentialsChanged)}
     let fenced=model::fence_versions(tx,&origin.versions)?;
     if !read_is_current(tx,origin)?{crate::engine::log(model::CREDENTIALS_CHANGED);return Err(EngineError::CredentialsChanged)}
     Ok(fenced)
