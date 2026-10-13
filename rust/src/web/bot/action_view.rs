@@ -13,6 +13,15 @@ fn alert(errors: &[FieldError]) -> Result<String, WebError> {
     let messages = if errors.is_empty() { vec![] } else { vec![flash::Message { style: "danger", text: crate::ruby::to_sentence(&errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()) }] };
     Ok(turbo::prepend_flash(flash::render(&messages)?.trim_end()))
 }
+/// The status bar and the progress bar, each replaced on its own target.
+fn bar_streams(bot: &Bot, state: &status::Status) -> String {
+    turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))
+        + "\n" + &turbo::stream("replace",&bot.dom_id("progress_bar"),state.progress.trim_end())
+}
+/// BotHelper#status_button_streams: the bot page's Start/Stop and the tile's, back to back (`safe_join`).
+fn button_streams(bot: &Bot, state: &status::Status) -> String {
+    turbo::stream("replace",&bot.dom_id("status_button"),&state.button) + &turbo::stream("replace",&bot.dom_id("tile_status_button"),&state.tile_button)
+}
 fn fragments(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<(String, String, status::Status), WebError> {
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     let csrf = ctx.csrf_token();
@@ -32,8 +41,8 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
     let body = turbo::stream("update",&bot.dom_id("label"),&i18n::escape(&bot.label))
         + "\n" + &turbo::stream("replace","settings",&format!("\n{forms}\n"))
         + "\n" + &turbo::stream("replace","exchange_select",exchange.trim_end())
-        + "\n" + &turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))
-        + "\n" + &turbo::stream("replace",&bot.dom_id("status_button"),&state.button)
+        + "\n" + &bar_streams(bot,&state)
+        + "\n" + &button_streams(bot,&state)
         + "\n" + &alert(&draft.errors)? + "\n";
     Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![] })
 }
@@ -73,8 +82,8 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
                 let count:i64 = c.query_row("SELECT COUNT(*) FROM bots WHERE user_id=?1 AND status NOT IN (3,7)",[user.id],|r|r.get(0))?;
                 let size = shell::bot_count_font_size(count);
                 let count = format!("<svg id=\"bot-count\" class=\"icon-24 icon-24--count\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n  <text class=\"fill--icon\" x=\"12\" y=\"{}\" text-anchor=\"middle\" font-size=\"{size}\">{count}</text>\n</svg>\n",shell::bot_count_baseline(size));
-                turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))
-                    + "\n" + &turbo::stream("replace",&bot.dom_id("status_button"),&state.button)
+                bar_streams(bot,&state)
+                    + "\n" + &button_streams(bot,&state)
                     + "\n" + &turbo::stream("replace",&bot.dom_id("menu"),&page::menu(ctx,&csrf,bot,configured)?)
                     + "\n" + &turbo::stream("replace","bot-count",&count)
             } else { turbo::refresh().into() }
@@ -91,7 +100,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
                         let Some(other) = Bot::find(c,user.id,id,super::For::Page,ctx.locale)? else { return Ok(None) };
                         if other.unrendered().is_some() { return Ok(None); }
                         let state = status::render(c,ctx,&csrf,&other,configured)?;
-                        body += "\n"; body += &turbo::stream("replace",&other.dom_id("status_button"),&state.button);
+                        body += "\n"; body += &button_streams(&other,&state);
                     }
                 }
                 Ok(Some(body))
@@ -120,8 +129,13 @@ fn broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -
     let mut output = vec![];
     let deferred = action == Action::Start && (bot.started_at.is_some_and(|at|at>ctx.now)
         || bot.transient.contains_key("rust_continue_start") && within(c,&draft.original,ctx)?);
-    if !deferred { output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end())))); }
+    // Bot#broadcast_status_bar_update (skipped while the start is deferred), then #broadcast_status_button_update: one message per target.
+    if !deferred {
+        output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))));
+        output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("progress_bar"),state.progress.trim_end())));
+    }
     output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("status_button"),&state.button)));
+    output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("tile_status_button"),&state.tile_button)));
     output.push((stream,if bot.working() { turbo::add_class(&bot.dom_id("columns"),"bot-locked") } else { turbo::remove_class(&bot.dom_id("columns"),"bot-locked") }));
     Ok(output)
 }

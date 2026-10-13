@@ -1312,7 +1312,7 @@ async fn action_http_fragments_locales_formats_and_hostile_drafts() -> Result<()
         let headers=[("accept","text/vnd.turbo-stream.html")];
         let rejected=browser.send(&app,"PATCH",&path,Some(&[("bots_dca_multi_asset[quote_amount]","0"),("bots_dca_multi_asset[label]","<script>alert(1)</script>")]),Csrf::Header,&headers).await;
         assert_eq!(rejected.status,422,"{}",rejected.body);
-        assert_eq!(rejected.body.matches("<turbo-stream ").count(),6);
+        assert_eq!(rejected.body.matches("<turbo-stream ").count(),8);
         assert!(rejected.body.contains("value=\"0\"") && rejected.body.contains("is-invalid"));
         assert!(!rejected.body.contains("<script>alert(1)</script>"));
         assert!(rejected.body.contains("&lt;script&gt;"));
@@ -1326,7 +1326,7 @@ async fn action_http_fragments_locales_formats_and_hostile_drafts() -> Result<()
         assert_eq!(bad.status,406);
         let accepted=browser.send(&app,"POST",&format!("{path}.turbo_stream"),Some(&[("_method","patch"),("bots_dca_multi_asset[label]","Renamed")]),Csrf::Header,&[("accept","text/html")]).await;
         assert_eq!(accepted.status,200,"{}",accepted.body);
-        assert_eq!(accepted.body.matches("<turbo-stream ").count(),6);
+        assert_eq!(accepted.body.matches("<turbo-stream ").count(),8);
         for suffix in ["/edit","/delete/edit","/archive/edit","/start/edit"] {
             let modal=browser.send(&app,"GET",&format!("{path}{suffix}"),None,Csrf::None,&[("turbo-frame","modal")]).await;
             assert_eq!(modal.status,200,"{}",modal.body);

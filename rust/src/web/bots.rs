@@ -97,6 +97,7 @@ struct Tile {
     pnl: Option<String>,
     label: String,
     bar: String,
+    progress: String,
     button: String,
 }
 
@@ -191,7 +192,7 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
         quote_id: quote_id.map(|id| id.to_string()).unwrap_or_default(), quote_symbol: bot.quote_symbol().unwrap_or("").to_string(),
         open_orders: mergeable && bot.has_waiting_orders, chips, href: ctx.path(&format!("/bots/{}", bot.id)), title,
         exchange_svg: bot::exchange_svg(&bot.exchange.name_id()), pnl_id: bot.dom_id("pnl"), pnl: None, label: bot.label.clone(),
-        bar: status.bar, button: status.button,
+        bar: status.bar, progress: status.progress, button: status.tile_button,
     })
 }
 

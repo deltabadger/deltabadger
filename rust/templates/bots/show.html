@@ -26,8 +26,11 @@
   </div>
   <div class="flex-column gap-1">
     <div class="bot-control">
-      {{ exchange_select|safe }}
-      {{ status_bar|safe }}
+      <div class="bot-control__meter">
+        {{ progress_bar|safe }}
+        {{ exchange_select|safe }}
+        {{ status_bar|safe }}
+      </div>
       {{ status_button|safe }}
     </div>
 

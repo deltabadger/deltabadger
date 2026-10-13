@@ -789,13 +789,13 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if !body.contains(path) { return Err("scope refusal does not name the request".into()) }
                 } else if safety {
                     if n=="stop_invalid" && !body.contains("refresh") { return Err("unrenderable safety write must refresh".into()) }
-                    if n=="archive_invalid" && stream_targets(b)!=vec!["status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","menu_bots_dca_multi_asset_1","bot-count"] { return Err("safety Archive fragments differ".into()) }
-                    if n=="stop_archived" && stream_targets(b)!=vec!["settings","exchange_select","status_button_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_2"] { return Err("archived Stop fragments differ".into()) }
+                    if n=="archive_invalid" && stream_targets(b)!=vec!["status_bar_bots_dca_multi_asset_1","progress_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","tile_status_button_bots_dca_multi_asset_1","menu_bots_dca_multi_asset_1","bot-count"] { return Err("safety Archive fragments differ".into()) }
+                    if n=="stop_archived" && stream_targets(b)!=vec!["settings","exchange_select","status_button_bots_dca_multi_asset_1","tile_status_button_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_2","tile_status_button_bots_dca_multi_asset_2"] { return Err("archived Stop fragments differ".into()) }
                 } else {
                     // A refused start on a working bot re-renders its panel, whichever refusal it is.
                     let six=working_start || n=="start_junk_working" || working_settings || empty;
                     let targets=stream_targets(b);
-                    let wanted=if six { vec!["label_bots_dca_multi_asset_1","settings","exchange_select","status_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","flash"] } else {vec!["flash"]};
+                    let wanted=if six { vec!["label_bots_dca_multi_asset_1","settings","exchange_select","status_bar_bots_dca_multi_asset_1","progress_bar_bots_dca_multi_asset_1","status_button_bots_dca_multi_asset_1","tile_status_button_bots_dca_multi_asset_1","flash"] } else {vec!["flash"]};
                     if targets!=wanted { return Err(format!("{n}: stream targets {targets:?}, expected {wanted:?}")) }
                     let key=if working_start {"engine.already_running"} else if flag {"engine.invalid_start_fresh"} else {"engine.write_refused"};
                     if start_guard || working_start || working_settings || flag {

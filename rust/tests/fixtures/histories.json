@@ -8,7 +8,7 @@
     "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
     "app/models/bot/merge.rb": "32eaa5437e8c3159968ebfb397092104b464702dbfaeebbc69972fc98708ea7c",
     "app/models/bot/restatable.rb": "9394822350e563d1e660264622ecb742392f3d7c83eae7f00e81804124cb1fd6",
-    "app/models/bot.rb": "f237621521c8b57241d4659631f5e4443ee3f900587db8b13ff0e99f12482b28",
+    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
     "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
     "app/models/transaction.rb": "31eee108cf8fe803956b92f0511dfac5bed5ebe2627a5ecf0c0916139cd393e1",

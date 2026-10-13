@@ -1,5 +1,5 @@
-//! The status bar and the status button of a bot: bots/status/_status_bar.html.erb and
-//! _status_button.html.erb, on a tile and on the bot page alike.
+//! The status bar, progress bar and status button of a bot: bots/status/_status_bar.html.erb,
+//! _progress_bar.html.erb and _status_button.html.erb, on a tile and on the bot page alike.
 use super::{start, Bot, Kind};
 use crate::engine::schedule::Unrounded;
 use crate::engine::venue_rules;
@@ -169,11 +169,24 @@ pub fn progress_width(now: DateTime<Utc>, start: Option<&Instant>, end: Option<D
 }
 
 struct Countdown {
-    /// The progress bar's width; only a scheduled bot has the bar.
-    width: Option<String>,
-    start: Option<String>,
+    /// A scheduled bot, not a retrying one: its countdown reads in green.
+    scheduled: bool,
     end: Option<String>,
     prefix: Option<String>,
+}
+
+/// The progress bar's fill: only a scheduled bot has one.
+struct Fill {
+    width: String,
+    start: Option<String>,
+    end: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "bots/status/_progress_bar.html")]
+struct Progress {
+    id: String,
+    fill: Option<Fill>,
 }
 
 #[derive(Template)]
@@ -203,7 +216,25 @@ struct ButtonView<'a> {
     id: String,
     /// `bot_path(bot)`, which every action of the button extends.
     path: String,
-    button: Button,
+    button: &'a Button,
+    /// The button's classes: small rbuttons on a tile, full-size ones on the bot page.
+    class: String,
+}
+
+impl ButtonView<'_> {
+    fn render_for(v: &Ctx, csrf: &str, bot: &Bot, button: &Button, tile: bool) -> Result<String, WebError> {
+        let size = if tile { "rbutton rbutton--small" } else { "rbutton" };
+        let class = match button {
+            Button::Reactivate => format!("{size} rbutton--success"),
+            Button::Stop if tile => format!("{size} rbutton--stop"),
+            Button::Stop => size.to_string(),
+            Button::Restart(false) | Button::Start(false) => format!("{size} rbutton--start"),
+            Button::Restart(true) | Button::Start(true) if tile => format!("{size} rbutton--start rbutton--disabled"),
+            Button::Restart(true) | Button::Start(true) => format!("{size} rbutton--disabled"),
+        };
+        let id = bot.dom_id(if tile { "tile_status_button" } else { "status_button" });
+        Ok(ButtonView { v, csrf, id, path: v.path(&format!("/bots/{}", bot.id)), button, class }.render()?)
+    }
 }
 
 /// `Instant::held_micros` of a time on the microsecond grid.
@@ -250,7 +281,10 @@ pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<O
 
 pub struct Status {
     pub bar: String,
+    pub progress: String,
+    /// The bot page's Start/Stop and the tile's: two targets, so a broadcast replaces both.
     pub button: String,
+    pub tile_button: String,
     /// What the start validation found, when the button asked for it (a bot that is created or
     /// stopped): the forms below print its messages under their fields.
     pub check: Option<start::Check>,
@@ -258,6 +292,18 @@ pub struct Status {
 
 pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured: bool) -> Result<Status, WebError> {
     let t = |key: &str| i18n::text(ctx.locale, key, &[]);
+    // When the bot acts next and since when it has waited: Rails' `next_action_job_at` and `progress_start_time`.
+    let timing = || -> Result<(Option<Instant>, Option<DateTime<Utc>>), WebError> {
+        // `last_action_job_at || last_interval_checkpoint_at`: the second is not on the microsecond grid, and Rails measures from where it is.
+        let start = bot.last_action_job_at()?.map(|at| Instant::from_micros(at.timestamp_micros())).or(bot.unrounded(ctx.now)?.map(|(_, last)| Instant::of(&last)));
+        Ok((start, next_action_at(c, bot, ctx.now)?))
+    };
+    // _progress_bar.html.erb asks only whether the bot is scheduled, whatever the status bar says.
+    let scheduled_timing = if bot.status == BotStatus::Scheduled { Some(timing()?) } else { None };
+    let fill = scheduled_timing.as_ref().map(|(start, end)| Fill {
+        width: progress_width(ctx.now, start.as_ref(), *end),
+        start: start.as_ref().and_then(|start| DateTime::from_timestamp_micros(start.floor_micros())).map(iso8601), end: end.map(iso8601),
+    });
     let (mut text, mut dots, mut countdown) = (None, false, None);
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
@@ -275,9 +321,7 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
         BotStatus::Waiting => (text, dots) = (Some(t("bot.status.waiting")), true),
         BotStatus::Scheduled | BotStatus::Retrying => {
             let scheduled = bot.status == BotStatus::Scheduled;
-            let end = next_action_at(c, bot, ctx.now)?;
-            // `last_action_job_at || last_interval_checkpoint_at`: the second is not on the microsecond grid, and Rails measures from where it is.
-            let start = bot.last_action_job_at()?.map(|at| Instant::from_micros(at.timestamp_micros())).or(bot.unrounded(ctx.now)?.map(|(_, last)| Instant::of(&last)));
+            let end = match &scheduled_timing { Some((_, end)) => *end, None => timing()?.1 };
             let failure = bot.last_order.as_ref().filter(|order| order.failed).and_then(|order| humanized_error(bot, &order.error_messages, ctx.locale));
             let prefix = if !scheduled {
                 Some(match failure {
@@ -287,14 +331,12 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
             } else {
                 bot.transient.get("waiting_for_market_open").filter(|flag| !flag.is_null() && **flag != serde_json::Value::Bool(false)).map(|_| t("bot.status.market_closed"))
             };
-            countdown = Some(Countdown {
-                width: scheduled.then(|| progress_width(ctx.now, start.as_ref(), end)),
-                start: start.as_ref().and_then(|start| DateTime::from_timestamp_micros(start.floor_micros())).map(iso8601), end: end.map(iso8601), prefix,
-            });
+            countdown = Some(Countdown { scheduled, end: end.map(iso8601), prefix });
         }
         BotStatus::Created | BotStatus::Deleted => {}
     }
     let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, text, dots, countdown }.render()?;
+    let progress = Progress { id: bot.dom_id("progress_bar"), fill }.render()?;
     let mut check = None;
     let button = match bot.status {
         BotStatus::Archived => Button::Reactivate,
@@ -306,13 +348,16 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
         }
         _ => Button::Stop,
     };
-    let button = ButtonView { v: ctx, csrf, id: bot.dom_id("status_button"), path: ctx.path(&format!("/bots/{}", bot.id)), button }.render()?;
-    Ok(Status { bar, button, check })
+    let tile_button = ButtonView::render_for(ctx, csrf, bot, &button, true)?;
+    let button = ButtonView::render_for(ctx, csrf, bot, &button, false)?;
+    Ok(Status { bar, progress, button, tile_button, check })
 }
 
 /// ActionCable rendering has no browser session. Turbo uses the receiving page's CSRF header.
 pub(super) fn broadcast(c: &Connection, ctx: &Ctx, bot: &Bot, configured: bool) -> Result<Status, WebError> {
     let mut state = render(c, ctx, "", bot, configured)?;
-    state.button = state.button.replace("<input type=\"hidden\" name=\"authenticity_token\" value=\"\" />", "");
+    for button in [&mut state.button, &mut state.tile_button] {
+        *button = button.replace("<input type=\"hidden\" name=\"authenticity_token\" value=\"\" />", "");
+    }
     Ok(state)
 }

@@ -1,10 +1,11 @@
-<form id="exchange_select" class="sbutton sbutton--exchange-group" data-controller="form--submit" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+<form id="exchange_select" class="bot-control__exchange" data-controller="form--submit" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
   <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
-    <div class="sbutton sbutton--exchange sbutton--exchange--{{ exchange_name_id }} {% if !switchable %}sinput--disabled{% endif %}">
-      {{ exchange_svg|safe }}
-      <span class="hide-on-mobile">{{ exchange_name }}</span>
-    </div>
+    {{ exchange_svg|safe }}
     <div class="dropdown dropdown--exchanges">
+      <div class="dropdown__item dropdown__item--current">
+        {{ exchange_svg|safe }}
+        {{ exchange_name }}
+      </div>
 {% if can_reconnect %}
         <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/add_api_key/new">
           {{ v.t("button.reconnect")|safe }}
@@ -24,6 +25,6 @@
   </div>
 
 {% if needs_key %}
-    <a class="sbutton sbutton--success" data-turbo-frame="modal" href="{{ path }}/add_api_key/new">{{ v.t("button.connect")|safe }}</a>
+    <a class="rbutton rbutton--small rbutton--success bot-control__connect" data-turbo-frame="modal" href="{{ path }}/add_api_key/new">{{ v.t("button.connect")|safe }}</a>
 {% endif %}
 </form>
