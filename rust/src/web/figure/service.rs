@@ -32,11 +32,9 @@ struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTr
     parked:BTreeMap<i64,Work>,
     /// When each account was last signed in on a request (Unix seconds).
     signed_in:BTreeMap<i64,i64>,
-    /// Render-only passes failed in a row, per account: retried up to `ALLOWANCE` times (`retry_keep`).
-    retried:BTreeMap<i64,u8>,
     /// An account with no paper Alpaca key: why its figures are absent, read by the queue from its stored fills, for the
-    /// stamp of its orders it was read against (`loading::unkeyed_stamp`), until the next cut.
-    unkeyed:BTreeMap<i64,(String,i64,Option<&'static str>)> }
+    /// revision (`loading::revision`) it was read against, until the next cut.
+    unkeyed:BTreeMap<i64,(u64,i64,Option<&'static str>)> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
@@ -113,25 +111,13 @@ impl Service {
     pub fn mark_active(&self,user:i64,now:i64) { self.state().signed_in.insert(user,now); }
     /// The accounts signed in since `since`.
     pub fn active_since(&self,since:i64)->BTreeSet<i64> { let mut state=self.state(); state.signed_in.retain(|_,at|*at>=since); state.signed_in.keys().copied().collect() }
-    /// A render-only pass of this work failed (a write overtook it): queued again at once, at most `ALLOWANCE` times in a
-    /// row. The retry finds the new revision and fills; false once the allowance is spent.
-    pub fn retry_keep(&self,user:i64,mut work:Work,now:i64)->bool {
-        let mut state=self.state();
-        let tries=state.retried.entry(user).or_insert(0);
-        *tries+=1;
-        if *tries>ALLOWANCE { state.retried.remove(&user); return false; }
-        work.not_before=now;
-        drop(state);
-        self.enqueue(user,work);
-        true
+    /// The reason read for an account with no paper key, if read against this `revision` and still before its cut.
+    pub fn unkeyed(&self,user:i64,revision:u64,now:i64)->Option<Option<&'static str>> {
+        self.state().unkeyed.get(&user).filter(|(at,until,_)|*at==revision&&*until>now).map(|(_,_,reason)|*reason)
     }
-    /// A render-only pass of this account succeeded.
-    pub fn kept(&self,user:i64) { self.state().retried.remove(&user); }
-    /// The reason read for an account with no paper key, if read against `stamp` and still before its cut.
-    pub fn unkeyed(&self,user:i64,stamp:&str,now:i64)->Option<Option<&'static str>> {
-        self.state().unkeyed.get(&user).filter(|(at,until,_)|at==stamp&&*until>now).map(|(_,_,reason)|*reason)
-    }
-    pub fn set_unkeyed(&self,user:i64,stamp:String,until:i64,reason:Option<&'static str>) { self.state().unkeyed.insert(user,(stamp,until,reason)); }
+    pub fn set_unkeyed(&self,user:i64,revision:u64,until:i64,reason:Option<&'static str>) { self.state().unkeyed.insert(user,(revision,until,reason)); }
+    /// Whether a fill of this account is running.
+    pub fn filling(&self,user:i64)->bool { self.state().active_users.contains(&user) }
     /// When the earliest queued work is due.
     pub fn next_due(&self)->Option<i64> { self.state().pending.values().map(|w|w.not_before).min() }
     fn state(&self)->MutexGuard<'_,State> { self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }

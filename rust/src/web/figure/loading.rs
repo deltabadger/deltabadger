@@ -273,14 +273,6 @@ fn lock_deadline(c:&Connection,user:i64,now:At)->Result<Option<i64>,WebError> {
     }
     Ok(earliest.map(|at|at.utc().timestamp()))
 }
-/// What the absence reason of an account with no paper key depends on, read without the orders' values: its bots and their
-/// statuses, and how many orders they have, the last one and the last change to any (Rails touches `updated_at`).
-fn unkeyed_stamp(c:&Connection,user:i64)->Result<String,rusqlite::Error> {
-    let deleted=crate::enums::BotStatus::Deleted as i64;
-    let bots:Option<String>=c.query_row("SELECT group_concat(id||':'||status) FROM (SELECT id,status FROM bots WHERE user_id=?1 ORDER BY id)",[user],|r|r.get(0))?;
-    let (count,last,changed):(i64,Option<i64>,Option<String>)=c.query_row("SELECT count(*),max(id),max(updated_at) FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE user_id=?1 AND status!=?2)",[user,deleted],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
-    Ok(serde_json::json!([bots,count,last,changed]).to_string())
-}
 /// Why a failed account's figures are absent, from its stored fills alone: an executed fill whose value is unknown.
 fn walk_reason(c:&Connection,user:i64)->Option<&'static str> {
     let fills=budget::within(||->Result<(),crate::figures::FiguresError>{
@@ -342,11 +334,11 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    // No paper Alpaca key, so no fill: why its figures are absent was read by the queue (`consume`) against the stamp of
-    // its orders; until it is, the page shows the loading state and asks for it.
+    // No paper Alpaca key, so no fill: why its figures are absent was read by the queue (`consume`) against the same
+    // fingerprint the figures are held to; until it is, the page shows the loading state and asks for it.
     let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{
-        let stamp=app.db(move|c|Ok(unkeyed_stamp(c,user)?)).await?;
-        return Ok(app.figure_service.unkeyed(user,&stamp,app.now().timestamp()).map_or(Snapshot::Cold,Snapshot::Failed));
+        let revision=app.db(move|c|Ok(revision(c,user)?.0)).await?;
+        return Ok(app.figure_service.unkeyed(user,revision,app.now().timestamp()).map_or(Snapshot::Cold,Snapshot::Failed));
     };
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
@@ -391,7 +383,12 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         // A publication that fails here (a transient database error) is handed to the `figures` service, which tries
         // it again with its backoff (`follow`).
         let mut publish:std::collections::BTreeSet<i64>=inner.figure_service.waiting_idle().into_iter().collect();
-        if work.is_some_and(|work|work.publish) { publish.insert(user); }
+        match work {
+            // A write overtook this fill: its work goes back on the queue, which starts the next fill with it.
+            Some(work) if !unchanged=>inner.figure_service.enqueue(user,Work{not_before:inner.now().timestamp(),..work}),
+            Some(work) if work.publish=>{ publish.insert(user); }
+            _=>{}
+        }
         for waiting in publish {
             if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
         }
@@ -463,15 +460,17 @@ pub fn render_page(app:&App,c:&Connection,user:i64,snapshot:&Snapshot,locale:&st
 /// session). Rails broadcasts what was asked for; one publication carries every target, each payload Rails' own.
 /// While a fill is in flight nothing is published: the user is noted as waiting, and the fill's end publishes.
 pub async fn publish(app:&App,user:i64)->Result<(),WebError>{
-    publish_with(app.clone(),user).await
+    publish_with(app.clone(),user).await.map(|_|())
 }
-async fn publish_with(app:App,user:i64)->Result<(),WebError>{
+/// `true` once a publication went out; `false` when the account was left waiting (a fill runs, or the figures were
+/// overtaken), for the end of a fill, or the caller, to publish.
+async fn publish_with(app:App,user:i64)->Result<bool,WebError>{
     // Ready figures are held against the account as it is once rendered, just before delivery: a publication whose
     // figures expired, were written or were refilled meanwhile delivers nothing, and is tried once more, which finds them
     // ready anew or starts a fill whose end publishes.
     for _ in 0..2 {
         let snapshot=begin(&app,user).await?;
-        if matches!(snapshot,Snapshot::Cold){app.figure_service.want(user);return Ok(());}
+        if matches!(snapshot,Snapshot::Cold){app.figure_service.want(user);return Ok(false);}
         let serial=app.figure_service.settled(user);
         let ready=matches!(snapshot,Snapshot::Ready(..));
         let inner=app.clone();
@@ -489,18 +488,18 @@ async fn publish_with(app:App,user:i64)->Result<(),WebError>{
         // Expired while it was being rendered: tried once more, which fills anew.
         if expired { continue; }
         // Ready, and nothing kept in the account's own key: the queue renders it from this cache and publishes.
-        if let Some(key)=unkept { app.figure_service.enqueue(user,Work{publish:true,locales:[key].into(),not_before:app.now().timestamp()}); return Ok(()); }
+        if let Some(key)=unkept { app.figure_service.enqueue(user,Work{publish:true,locales:[key].into(),not_before:app.now().timestamp()}); return Ok(false); }
         if ready {
             let fresh=info.is_some_and(|info|app.figure_service.record(user,serial,&info.identity,info.revision,app.now().timestamp(),&streams));
             if !fresh { continue; }
         }
         app.figure_service.served(user);
         deliver(&app,streams).await;
-        return Ok(());
+        return Ok(true);
     }
     // Overtaken twice: the account waits, and the end of the next fill publishes.
     app.figure_service.want(user);
-    Ok(())
+    Ok(false)
 }
 
 /// Puts payloads on the hub. Each connection's mailbox keeps the latest payload of every target (`cable::Mailbox`), so
@@ -536,11 +535,12 @@ async fn consume(app:&App,user:i64,mut work:Work) {
         // No paper key, so no figures: why, from the stored fills, for the page to read (`begin`), and published if asked.
         Ok(None)=>{
             let now=app.now().timestamp();
-            let read=build(app,move|c|Ok((unkeyed_stamp(c,user)?,walk_reason(c,user)))).await;
-            if let Ok((stamp,reason))=read {
-                app.figure_service.set_unkeyed(user,stamp,now.saturating_add(300-now.rem_euclid(300)),reason);
-                if work.publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
-            }
+            let read=build(app,move|c|Ok((revision(c,user)?.0,walk_reason(c,user)))).await;
+            let Ok((revision,reason))=read else { app.figure_service.enqueue(user,work); return; };
+            app.figure_service.set_unkeyed(user,revision,now.saturating_add(300-now.rem_euclid(300)),reason);
+            // A write after the fingerprint was read, or the cut while the reason was read: the page would find it cold,
+            // and no fill ends to publish for this account. The work is queued again and reads it anew.
+            match publish_with(app.clone(),user).await { Ok(false) if work.publish=>app.figure_service.enqueue(user,work), Err(_) if work.publish=>app.figure_service.mark_owner(user), _=>{} }
             return;
         }
         Err(_)=>{ work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; }
@@ -551,9 +551,10 @@ async fn consume(app:&App,user:i64,mut work:Work) {
             let at=cache.stamp().unwrap_or(now);
             let (publish,mut keys,revision)=(work.publish,work.locales.clone(),info.revision);
             let kept=build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: an unkept pass is retried below
-            // A write overtook the pass (or it could not read): the work is queued again, and its retry fills anew.
-            if !kept { app.figure_service.retry_keep(user,work,now.utc().timestamp()); return; }
-            app.figure_service.kept(user);
+            // A write overtook the pass (or it could not read): the work is queued again. Its retry finds the new revision
+            // and starts a fill that carries it, and a fill a write overtakes queues it again too (`spawn_fill`): the work
+            // ends in a fill that no write overtook.
+            if !kept { work.not_before=now.utc().timestamp(); app.figure_service.enqueue(user,work); return; }
             // Published only once its own key is kept: a publication never computes.
             if publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
         }
