@@ -9,7 +9,9 @@ use serde_json::Value;
 use std::time::Duration;
 
 #[derive(Clone,Default)]
-pub enum Source { #[default] Live, Disabled, Script(Value) }
+pub enum Source { #[default] Live, Disabled, Script(Value),
+    /// `Script`, recording the key of every request it answers, in order (for tests that count requests).
+    Counted(Value,std::sync::Arc<std::sync::Mutex<Vec<String>>>) }
 #[derive(Clone)]
 /// Ready: the cache, its stamp, the revision it was prepared against, where the database stood when that revision was
 /// read (`unchanged_since`), if on the connection that renders it, and until when (Unix seconds) its figures may be shown.
@@ -183,7 +185,7 @@ impl Transport for Wire {
         match &self.source {
             Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?,true).await,
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
-            Source::Script(script)=>{
+            Source::Script(script)|Source::Counted(script,_)=>{
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
                 let host=r.base.split_once("://").map_or(r.base.as_str(),|(_,h)|h);
                 let data=host=="data.alpaca.markets";
@@ -191,6 +193,7 @@ impl Transport for Wire {
                 if !data{picked.sort();}
                 let suffix=if picked.is_empty(){String::new()}else{format!("?{}",picked.iter().map(|(k,v)|format!("{k}={v}")).collect::<Vec<_>>().join("&"))};
                 let key=format!("{} {host}{}{suffix}",r.method,r.path);
+                if let Source::Counted(_,log)=&self.source { log.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(key.clone()); }
                 let reply=script.get(&key).ok_or_else(||TransportError::Permanent("Unscripted market request".into()))?;
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
@@ -509,7 +512,7 @@ async fn publish_with(app:App,user:i64)->Result<bool,WebError>{
         let serial=app.figure_service.settled(user);
         let ready=matches!(snapshot,Snapshot::Ready(..));
         let inner=app.clone();
-        let (streams,info,unkept,expired,fx)=app.db(move|c|{
+        let (streams,info,unkept,expired,fx,provider)=app.db(move|c|{
             let key=own_key(c,user)?;
             let expired=matches!(&snapshot,Snapshot::Ready(..,until) if inner.now().timestamp()>=*until);
             // The conversions the figures published read: a replay holds only while they do (`resubscribed`).
@@ -520,14 +523,19 @@ async fn publish_with(app:App,user:i64)->Result<bool,WebError>{
                 None=>(vec![],(ready&&!expired).then_some(key)),
             };
             let info=if ready { read_info(c,&inner,user)? } else { None };
-            Ok((streams,info,unkept,expired,fx))
+            // The provider the conversions are checked against as the publication is accepted.
+            let provider=if fx.pairs.is_empty() { String::new() } else { crate::web::tracker::fx::provider(c).map(|(identity,_)|identity).unwrap_or_default() };
+            Ok((streams,info,unkept,expired,fx,provider))
         }).await?;
         // Expired while it was being rendered: tried once more, which fills anew.
         if expired { continue; }
         // Ready, and nothing kept in the account's own key: the queue renders it from this cache and publishes.
         if let Some(key)=unkept { app.figure_service.enqueue(user,Work{publish:true,locales:[key].into(),not_before:app.now().timestamp()}); return Ok(false); }
         if ready {
-            let fresh=info.is_some_and(|info|app.figure_service.record_with(user,serial,&info.identity,info.revision,app.now().timestamp(),&streams,fx));
+            // A conversion refreshed or expired since the render refuses the publication, as a write does.
+            let store=app.fx_cache.store.clone();let clock=app.clock.clone();
+            let holds=move|fx:&FxDeps|fx.pairs.is_empty() || store.current(fx,&provider,clock.now().timestamp());
+            let fresh=info.is_some_and(|info|app.figure_service.record_with(user,serial,&info.identity,info.revision,app.now().timestamp(),&streams,fx,holds));
             if !fresh { continue; }
         }
         app.figure_service.served(user);

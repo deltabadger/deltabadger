@@ -202,7 +202,22 @@ module PageFigures
     FileUtils.rm_rf(template) if template
   end
 
+  # Denomination#format at the edges of its sign: number_to_currency writes a loss in the negative layout only when it is at
+  # least half of the last digit shown. (currency, USD -> it rate, USD amount, precision) -> what Rails writes.
+  def boundaries(root)
+    rates = { 'USD' => '1', 'EUR' => '0.859375', 'CHF' => '0.8001609375000001', 'PLN' => '3.6876796875' }
+    amounts = %w[-0.5 -0.4999 -0.49 -0.005 -0.0049 -0.004 -0.5000001 -1.5 -2.5 -0.0 0.004 0.5 -581.8181818 -0.58181818]
+    cases = rates.flat_map do |currency, rate|
+      amounts.product([0, 2]).map do |usd, precision|
+        [currency, rate, usd, precision, Denomination.new(currency, BigDecimal(rate)).format(BigDecimal(usd), precision:).to_s]
+      end
+    end
+    FileUtils.mkdir_p(File.join(root, 'boundaries'))
+    File.write(File.join(root, 'boundaries', 'rails.json'), JSON.pretty_generate(cases))
+  end
+
   def run(root)
+    boundaries(root)
     harness
     template = Dir.mktmpdir('page-figures')
     assets = Figures.world(template)

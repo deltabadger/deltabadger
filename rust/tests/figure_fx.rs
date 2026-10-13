@@ -35,10 +35,23 @@ fn script(rates: bool, tether: Value) -> Value {
     })
 }
 
-struct Install { _dir: tempfile::TempDir, file: PathBuf, clock: Arc<common::web::TestClock>, app: App }
+/// A test clock that counts its readings and, once `armed` with a reading's number, holds that reading until told: a
+/// test can then change what a publication checks after it rendered and before it is accepted.
+type Armed = Option<(usize, std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>;
+struct Gate { clock: Arc<common::web::TestClock>, reads: std::sync::atomic::AtomicUsize, armed: std::sync::Mutex<Armed> }
+impl deltabadger::engine::Clock for Gate {
+    fn now(&self) -> chrono::DateTime<chrono::Utc> {
+        let n = self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let held = { let mut armed = self.armed.lock().unwrap(); if armed.as_ref().is_some_and(|(at, ..)| *at == n) { armed.take() } else { None } };
+        if let Some((_, read, go)) = held { let _ = read.send(()); let _ = go.recv(); }
+        deltabadger::engine::Clock::now(&*self.clock)
+    }
+}
+struct Install { _dir: tempfile::TempDir, file: PathBuf, clock: Arc<common::web::TestClock>, gate: Arc<Gate>, app: App }
 /// One account with a paper Alpaca key, on the hosted provider, shown in `currency`: a basket of AAA bought for dollars
 /// and one of BTC bought for tether.
-fn install(currency: &str, script: Value) -> Install {
+fn install(currency: &str, script: Value) -> Install { install_with(currency, Source::Script(script)) }
+fn install_with(currency: &str, source: Source) -> Install {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("production.sqlite3");
     let c = rusqlite::Connection::open(&file).unwrap();
@@ -61,12 +74,13 @@ fn install(currency: &str, script: Value) -> Install {
             (2,1,'BTC',4,'USDT',3,1,1,100,100,0,0,2,'o2','REGULAR','2026-03-02 14:30:00',{t});
     ")).unwrap();
     let clock = common::web::TestClock::at(AT);
+    let gate = Arc::new(Gate { clock: clock.clone(), reads: Default::default(), armed: Default::default() });
     let env = common::web::env(common::web::SECRET);
-    let app = App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), clock.clone()).unwrap()
-        .with_figure_source(Source::Script(script)).unwrap();
+    let app = App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), gate.clone()).unwrap()
+        .with_figure_source(source).unwrap();
     c.execute(&format!("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at) VALUES (1,1,0,1,?1,?2,?3,{t},{t})"),
               rusqlite::params![app.cipher.encrypt("key"), app.cipher.encrypt("secret"), app.cipher.encrypt("paper")]).unwrap();
-    Install { _dir: dir, file, clock, app }
+    Install { _dir: dir, file, clock, gate, app }
 }
 impl Install {
     /// The `figures` service of `serve`, with no engine.
@@ -119,11 +133,26 @@ async fn tether_and_euro_figures_are_converted_by_the_fill() {
 
 #[tokio::test]
 async fn a_page_never_fetches_a_conversion() {
-    let install = install("EUR", script(true, json!(0.9993)));
-    // No figures service: the page shows the loading state, queues the work, and nothing is fetched.
-    for _ in 0..3 { assert!(install.page().await.is_none()); }
+    // Every answer is held back five seconds: the fill a page starts is still waiting on the network while the page reads.
+    let mut held = script(true, json!(0.9993));
+    for (_, reply) in held.as_object_mut().unwrap().iter_mut() { reply["delay_ms"] = json!(5000); }
+    let log = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let install = install_with("EUR", Source::Counted(held, log.clone()));
+    let started = Instant::now();
+    for _ in 0..3 { assert!(install.page().await.is_none(), "a page showed figures before any answer"); }
+    assert!(started.elapsed() < Duration::from_secs(2), "a page waited on the network: {:?}", started.elapsed());
     let now = common::web::at(AT).timestamp();
-    for (from, to) in [("USD", "EUR"), ("USDT", "USD")] { assert!(install.app.fx_cache.store.get(&install.identity(), from, to, now).is_none(), "{from}->{to} fetched without the queue"); }
+    for (from, to) in [("USD", "EUR"), ("USDT", "USD")] { assert!(install.app.fx_cache.store.get(&install.identity(), from, to, now).is_none(), "{from}->{to} answered while held back"); }
+    // The one fill the pages started asks the provider once for each conversion, however many pages asked.
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while install.app.fx_cache.store.get(&install.identity(), "USDT", "USD", now).is_none() {
+        assert!(Instant::now() < deadline, "the fill never held the conversions");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let asked = log.lock().unwrap().clone();
+    let count = |key: &str| asked.iter().filter(|k| k.as_str() == key).count();
+    assert_eq!(count("GET data-api:3000/api/v1/exchange_rates"), 1, "{asked:?}");
+    assert_eq!(count("GET data-api:3000/api/v1/prices?coin_ids=tether&vs_currencies=usd"), 1, "{asked:?}");
 }
 
 #[tokio::test]
@@ -198,4 +227,36 @@ async fn divergence_a_string_coin_price_still_shows_the_total() {
     let shown = install.shown("ready").await;
     assert!(headline(&shown).contains("pnl-amount"), "{}", headline(&shown));
     assert!(tile(&shown, 2).contains("<small>$</small>19.99"), "{}", tile(&shown, 2));
+}
+
+#[tokio::test]
+async fn a_rate_refreshed_between_render_and_acceptance_refuses_the_publication() {
+    let install = install("EUR", script(true, json!(0.9993)));
+    let stop = install.consume();
+    install.shown("ready").await;
+    stop.send(true).unwrap(); // nothing else reads the clock from here on
+    tokio::task::yield_now().await;
+    let stream = "user_1:bot_updates";
+    // A publication as it runs unhindered: how many readings of the clock it takes; the last is its acceptance check.
+    let before = install.gate.reads.load(std::sync::atomic::Ordering::SeqCst);
+    loading::publish(&install.app, 1).await.unwrap();
+    let taken = install.gate.reads.load(std::sync::atomic::Ordering::SeqCst) - before;
+    assert!(loading::latest(&install.app, 1, stream).await.is_some_and(|kept| !kept.is_empty()), "the control publication was accepted");
+    // The same publication again, held at that reading: it has rendered and checked the figures; the display rate is
+    // refreshed now, and the publication must not be accepted.
+    let (read, arrived) = std::sync::mpsc::channel();
+    let (resume, go) = std::sync::mpsc::channel();
+    let at = install.gate.reads.load(std::sync::atomic::Ordering::SeqCst) + taken;
+    *install.gate.armed.lock().unwrap() = Some((at, read, go));
+    let (store, identity) = (install.app.fx_cache.store.clone(), install.identity());
+    let refresher = std::thread::spawn(move || {
+        arrived.recv().unwrap();
+        let now = common::web::at(AT).timestamp();
+        store.put(&identity, "USD", "EUR", Ok(HeldRate::Float(0.5)), now + 3600, now);
+        resume.send(()).unwrap();
+    });
+    loading::publish(&install.app, 1).await.unwrap();
+    refresher.join().unwrap();
+    assert!(install.gate.armed.lock().unwrap().is_none(), "the publication never reached its acceptance");
+    assert!(loading::latest(&install.app, 1, stream).await.is_none(), "a publication in the old rate was accepted");
 }

@@ -190,14 +190,15 @@ impl Service {
     /// publication a full mailbox dropped). `false` otherwise: it must not be delivered, and the account's latest is
     /// forgotten. A publication past the mailbox's bounds is kept as incomplete, which `latest` never sends.
     pub fn record(&self,user:i64,serial:u64,identity:&str,revision:u64,now:i64,streams:&[(String,String)])->bool {
-        self.record_with(user,serial,identity,revision,now,streams,FxDeps::default())
+        self.record_with(user,serial,identity,revision,now,streams,FxDeps::default(),|_|true)
     }
-    /// `record`, for figures that read held conversions (`fx`): a replay checks them (`latest_with`).
+    /// `record`, for figures that read held conversions (`fx`): accepted only if `holds` says those conversions still hold
+    /// as it is accepted, and a replay checks them again (`latest_with`).
     #[allow(clippy::too_many_arguments)]
-    pub fn record_with(&self,user:i64,serial:u64,identity:&str,revision:u64,now:i64,streams:&[(String,String)],fx:FxDeps)->bool {
+    pub fn record_with(&self,user:i64,serial:u64,identity:&str,revision:u64,now:i64,streams:&[(String,String)],fx:FxDeps,holds:impl FnOnce(&FxDeps)->bool)->bool {
         use crate::web::cable::{MAILBOX_BYTES,MAILBOX_ENTRIES};
         let mut state=self.state();
-        if !Self::fresh(&state,user,serial,identity,revision,now) { state.latest.remove(&user); return false; }
+        if !Self::fresh(&state,user,serial,identity,revision,now) || !holds(&fx) { state.latest.remove(&user); return false; }
         let (mut kept,mut bytes)=(Vec::new(),0);
         for (stream,html) in streams {
             if kept.len()>=MAILBOX_ENTRIES || bytes+html.len()>MAILBOX_BYTES { break; }

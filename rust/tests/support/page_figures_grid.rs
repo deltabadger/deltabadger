@@ -299,6 +299,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
     for entry in std::fs::read_dir(scratch.path()).unwrap() {
         let dir = entry.unwrap().path();
         let name = dir.file_name().unwrap().to_str().unwrap();
+        if name == "boundaries" { boundaries(&dir); currencies += 100; continue; }
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
         let expected: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
@@ -923,7 +924,18 @@ async fn figures_fragments_match_the_rails_page_partials() {
             }
         }
     }
-    assert_eq!(currencies, 8, "the display-currency scenarios (page_figures.rb#display_currency)");
+    assert_eq!(currencies, 108, "the display-currency scenarios and the sign boundaries (page_figures.rb)");
+}
+
+/// Denomination#format at the edges of its sign, as Rails wrote each (page_figures.rb#boundaries).
+fn boundaries(dir: &Path) {
+    let cases: Vec<(String, String, String, usize, String)> = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+    assert!(cases.len() > 100);
+    let wrong: Vec<String> = cases.iter().filter_map(|(currency, rate, usd, digits, rails)| {
+        let ours = deltabadger::web::figure::denominated(currency, rate, usd, *digits).unwrap();
+        (&ours != rails).then(|| format!("{currency} {usd} at {digits}: Rails {rails}, ours {ours}"))
+    }).collect();
+    assert!(wrong.is_empty(), "{wrong:#?}");
 }
 
 /// The account's figures in the currency it is shown in, as the server keeps and publishes them: filled through the

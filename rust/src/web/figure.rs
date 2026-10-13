@@ -54,16 +54,23 @@ fn without_fx<T>(result: Result<Option<T>, FiguresError>) -> Result<Option<T>, F
     match result { Err(FiguresError::NotComputed(reason)) if reason == FX_UNAVAILABLE => Ok(None), other => other }
 }
 /// Denomination#format: a USD figure in the account's currency (`usd.to_d * rate`), the unit in <small> before the figure
-/// or after it, as number_to_currency lays it out (the negative layout unless it rounds away at no decimals).
+/// or after it, as number_to_currency lays it out: the negative layout only for a loss of at least half the last digit
+/// shown (NumberToCurrencyConverter: `abs * 10**precision >= 0.5`), so a loss that rounds to nothing is written as one.
 fn shown(d: &totals::Denomination, usd: &Num, digits: usize) -> Result<String, FiguresError> {
-    let amount = Num::Dec((&usd.to_d()? * &d.rate)?);
-    let negative = amount.is_negative();
-    let magnitude = if negative { Num::Int(0).sub(&amount)? } else { amount };
-    let negative = negative && (digits != 0 || magnitude.to_f() > 0.5);
-    let text = precision(&magnitude, digits, true)?;
+    let amount = (&usd.to_d()? * &d.rate)?;
+    // A negative zero is written as zero (`abs`).
+    let magnitude = if amount.is_negative() { (&crate::figures::dec::Dec::from_i64(0) - &amount)? } else if amount.is_zero() { crate::figures::dec::Dec::from_i64(0) } else { amount.clone() };
+    let scale = crate::figures::dec::Dec::from_i64(10_i64.pow(digits as u32));
+    let negative = amount.is_negative() && (&magnitude * &scale)? >= crate::figures::dec::Dec::strict("0.5")?;
+    let text = precision(&Num::Dec(magnitude), digits, true)?;
     let unit = format!("<small>{}</small>", crate::web::i18n::escape(unit(&d.currency)));
     let laid = if suffixed(&d.currency) { format!("{text} {unit}") } else { format!("{unit}{text}") };
     Ok(if negative { format!("-{laid}") } else { laid })
+}
+/// `Denomination.new(currency, rate).format(usd, precision:)`, for the parity grid's boundary vectors.
+#[doc(hidden)]
+pub fn denominated(currency: &str, rate: &str, usd: &str, digits: usize) -> Result<String, FiguresError> {
+    budget::within(|| shown(&totals::Denomination { currency: currency.into(), rate: crate::figures::dec::Dec::strict(rate)? }, &Num::Dec(crate::figures::dec::Dec::strict(usd)?), digits))
 }
 fn tile(s: &Subject, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
     let kind = if s.bot.kind == db::Kind::Basket { "dca_multi_asset" } else { "dca_index" };
