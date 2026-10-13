@@ -90,30 +90,34 @@ async fn display_currency(app: App, ctx: Ctx, headers: HeaderMap, user: User) ->
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("user[")) {
         return Ok(StatusCode::BAD_REQUEST.into_response());
     }
-    if let Some(value) = ctx.params.form("user[display_currency]") {
-        let code = if crate::ruby::blank(value) { "USD".to_string() } else { value.to_uppercase() };
-        let inner = app.clone();
-        // The candidate is written inside the save, so its inclusion is judged where the model judges it.
-        let errors = app
-            .db(move |c| {
-                save(c, user.id, |tx| {
+    // Without the field, permit leaves an empty hash, and `update({})` still validates the user.
+    let code = ctx
+        .params
+        .form("user[display_currency]")
+        .map(|value| if crate::ruby::blank(value) { "USD".to_string() } else { value.to_uppercase() });
+    let inner = app.clone();
+    // The candidate is written inside the save, so its inclusion is judged where the model judges it.
+    let errors = app
+        .db(move |c| {
+            save(c, user.id, |tx| {
+                if let Some(code) = &code {
                     tx.execute(
                         "UPDATE users SET display_currency=?1,updated_at=?2 WHERE id=?3 AND display_currency IS NOT ?1",
-                        (&code, format_time(inner.now()), user.id),
+                        (code, format_time(inner.now()), user.id),
                     )?;
-                    Ok(())
-                })
+                }
+                Ok(())
             })
-            .await?;
-        if !errors.is_empty() {
-            // render_preference_error: `errors.messages.values.flatten.to_sentence`.
-            let messages: Vec<String> = errors.iter().map(|key| ctx.t(key)).collect();
-            let text = crate::web::bot::draft::sentence(&messages.iter().map(String::as_str).collect::<Vec<_>>(), ctx.locale);
-            let markup = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?;
-            let mut response = stream(turbo::prepend_flash(markup.trim_end()));
-            *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
-            return Ok(response);
-        }
+        })
+        .await?;
+    if !errors.is_empty() {
+        // render_preference_error: `errors.messages.values.flatten.to_sentence`.
+        let messages: Vec<String> = errors.iter().map(|key| ctx.t(key)).collect();
+        let text = crate::web::bot::draft::sentence(&messages.iter().map(String::as_str).collect::<Vec<_>>(), ctx.locale);
+        let markup = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?;
+        let mut response = stream(turbo::prepend_flash(markup.trim_end()));
+        *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
+        return Ok(response);
     }
     flash::set(&ctx.session, flash::NOTICE, ctx.t("settings.language_and_timezone.currency_updated"));
     Ok(back(&app, &ctx, &headers, "/bots"))
