@@ -25,12 +25,14 @@ end
 Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real connection to #{address}:#{port}") })
 
 module ScriptedTracker
-  mattr_accessor :alpaca, :market, :requests
+  mattr_accessor :alpaca, :market, :ecb, :requests
+  ECB_HOSTS = %w[data-api.ecb.europa.eu api.statistiken.bundesbank.de].freeze
 
   def self.reply(env)
     host = env.url.host.to_s
     kind, script = if host.end_with?('alpaca.markets') then ['alpaca', alpaca]
                    elsif host == 'data-api' then ['market', market]
+                   elsif ECB_HOSTS.include?(host) then ['ecb', ecb]
                    end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     raise Harness::Unscripted, "unscripted HTTP call #{key} to #{host}" if script.nil?
@@ -104,30 +106,69 @@ module TrackerParity
       %w[BTC ETH USDC].each do |s|
         Ticker.create!(exchange: alpaca, ticker: "#{s}/USD", base: s, quote: 'USD', base_asset: assets[s], quote_asset: assets['USD'], **stock)
       end
-      key = ApiKey.new(user:, exchange: alpaca, **KEY.symbolize_keys, status: :correct, key_type: :trading, balances_synced_at: SYNCED,
-                       last_synced_at: SYNCED)
-      key.save!(validate: false)
-      # Stored plain (read as itself under support_unencrypted_data), so the Rust half reads the key without Rails' secret.
-      ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
-                                                [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
-      # The ECB table is current, so Tax::EcbFxRates.ensure_loaded! fetches nothing (the harness has no ECB script).
+      key = plain_key(user, alpaca)
+      # The ECB table is current, so Tax::EcbFxRates.ensure_loaded! fetches nothing unless a scenario makes it stale.
       FxRate.create!(currency: 'USD', date: Date.new(2026, 9, 30), rate: '1.17')
-      ctx = { user:, alpaca:, assets:, key: }
+      ctx = { user:, alpaca:, assets:, key:, keys: { alpaca.id => key }, venues: {} }
       scenario[:setup]&.call(ctx)
       ctx
     end
   end
 
-  def row(ctx, type, base, amount, at, **attrs)
-    AccountTransaction.insert!({ user_id: ctx[:user].id, exchange_id: ctx[:alpaca].id, api_key_id: ctx[:key].id, entry_type: ENTRY.fetch(type.to_s),
+  def plain_key(user, exchange)
+    key = ApiKey.new(user:, exchange:, **KEY.symbolize_keys, status: :correct, key_type: :trading, balances_synced_at: SYNCED,
+                     last_synced_at: SYNCED)
+    key.save!(validate: false)
+    # Stored plain (read as itself under support_unencrypted_data), so the Rust half reads the key without Rails' secret.
+    ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
+                                              [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
+    key
+  end
+
+  # A venue made on demand, with a key of its own.
+  def venue(ctx, klass, name)
+    ctx[:venues][klass] ||= klass.create!(name:, maker_fee: '0.1', taker_fee: '0.1').tap do |exchange|
+      ctx[:keys][exchange.id] = plain_key(ctx[:user], exchange)
+    end
+  end
+
+  def binance(ctx) = venue(ctx, Exchanges::Binance, 'Binance')
+  def binance_us(ctx) = venue(ctx, Exchanges::BinanceUs, 'Binance.US')
+  def kraken(ctx) = venue(ctx, Exchanges::Kraken, 'Kraken')
+
+  def asset(ctx, symbol, external_id, category = 'Cryptocurrency')
+    ctx[:assets][symbol] ||= Asset.create!(external_id:, symbol:, name: symbol, category:)
+  end
+
+  # A spot ticker on a venue (wash-sale locks resolve symbols through tickers).
+  def ticker(ctx, exchange, base, quote)
+    [base, quote].each { |s| ExchangeAsset.find_or_create_by!(exchange:, asset: ctx[:assets].fetch(s)) { |ea| ea.available = true } }
+    Ticker.create!(exchange:, ticker: "#{base}#{quote}", base:, quote:, base_asset: ctx[:assets].fetch(base), quote_asset: ctx[:assets].fetch(quote),
+                   base_decimals: 8, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1')
+  end
+
+  # ECB reference rows (1 EUR = rate units of currency) on the weekdays from..to.
+  def rates(currency, from, to, rate)
+    days = (Date.parse(from)..Date.parse(to)).reject { |d| d.saturday? || d.sunday? }
+    FxRate.insert_all(days.map { |date| { currency:, date:, rate: } }) if days.any?
+  end
+
+  def row(ctx, type, base, amount, at, exchange: ctx[:alpaca], **attrs)
+    AccountTransaction.insert!({ user_id: ctx[:user].id, exchange_id: exchange.id, api_key_id: ctx[:keys].fetch(exchange.id).id, entry_type: ENTRY.fetch(type.to_s),
                                  base_currency: base, base_amount: amount, transacted_at: Time.iso8601(at), raw_data: {}, manual_values: {},
                                  tx_id: attrs.delete(:tx_id) || "#{type}-#{base}-#{at}", created_at: Time.current, updated_at: Time.current }.merge(attrs))
     AccountTransaction.order(:id).last
   end
 
-  def buy(ctx, symbol, qty, price, at) = row(ctx, :buy, symbol, qty, at, quote_currency: 'USD', quote_amount: (qty.to_d * price.to_d).to_s('F'))
-  def sell(ctx, symbol, qty, price, at) = row(ctx, :sell, symbol, qty, at, quote_currency: 'USD', quote_amount: (qty.to_d * price.to_d).to_s('F'))
-  def deposit(ctx, amount, at) = row(ctx, :deposit, 'USD', amount, at)
+  def buy(ctx, symbol, qty, price, at, quote: 'USD', **attrs)
+    row(ctx, :buy, symbol, qty, at, quote_currency: quote, quote_amount: (qty.to_d * price.to_d).to_s('F'), **attrs)
+  end
+
+  def sell(ctx, symbol, qty, price, at, quote: 'USD', **attrs)
+    row(ctx, :sell, symbol, qty, at, quote_currency: quote, quote_amount: (qty.to_d * price.to_d).to_s('F'), **attrs)
+  end
+
+  def deposit(ctx, amount, at, currency: 'USD', **attrs) = row(ctx, :deposit, currency, amount, at, **attrs)
 
   def balance(ctx, symbol, free, usd_price: nil, usd_value: :auto, priced_at: SYNCED, synced_at: SYNCED, exchange: ctx[:alpaca])
     usd_value = usd_price && (free.to_d * usd_price.to_d).round(8) if usd_value == :auto
@@ -212,7 +253,7 @@ module TrackerParity
           balance(c, 'USD', '1000', usd_price: '1')
           balance(c, 'KLAC', '100', usd_price: '11.875')
         } },
-      { name: 'coin_fee_unpriced', market: { HISTORY => [history([])] },
+      { name: 'coin_fee_unpriced', rust_balances: true, market: { HISTORY => [history([])] },
         setup: lambda { |c|
           deposit(c, '1000', '2026-09-01T14:00:00Z')
           buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z')
@@ -319,14 +360,14 @@ module TrackerParity
           balance(c, 'USD', '1005', usd_price: '1')
           balance(c, 'AAPL', '10', usd_price: '101')
         } },
-      { name: 'refused_non_cash_quote', alpaca: aapl_bars, market: { HISTORY => [history([['2026-09-02', 201]])] },
+      { name: 'unquoted_trade_leg', rust_balances: true, alpaca: aapl_bars, market: { HISTORY => [history([['2026-09-02', 201]])] },
         setup: lambda { |c|
           deposit(c, '1000', '2026-09-01T14:00:00Z')
           row(c, :buy, 'AAPL', '2', '2026-09-02T14:30:00Z', quote_amount: '400')
           balance(c, 'USD', '600', usd_price: '1')
           balance(c, 'AAPL', '2', usd_price: '210')
         } },
-      { name: 'refused_other_venue_balance', alpaca: aapl_bars,
+      { name: 'other_venue_balance', rust_balances: true, alpaca: aapl_bars,
         setup: lambda { |c|
           deposit(c, '1000', '2026-09-01T14:00:00Z')
           buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z')
@@ -334,8 +375,8 @@ module TrackerParity
           balance(c, 'AAPL', '2', usd_price: '210')
           balance(c, 'BTC', '0.01', usd_price: '61000', exchange: Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1'))
         } },
-      # A coin no catalogue names: Rails values it at zero without a request (a partial day).
-      { name: 'refused_unnamed_coin', alpaca: aapl_bars,
+      # A coin no catalogue names: valued at zero without a request (a partial day).
+      { name: 'unnamed_coin', rust_balances: true, alpaca: aapl_bars,
         setup: lambda { |c|
           deposit(c, '1000', '2026-09-01T14:00:00Z')
           buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z')
@@ -343,14 +384,406 @@ module TrackerParity
           balance(c, 'USD', '600', usd_price: '1')
           balance(c, 'AAPL', '2', usd_price: '210')
         } },
-      { name: 'refused_swap_legs', market: { HISTORY => [history([])] },
+      { name: 'cash_swap_legs', rust_balances: true, market: { HISTORY => [history([])] },
         setup: lambda { |c|
           deposit(c, '1000', '2026-09-01T14:00:00Z')
           row(c, :swap_out, 'USD', '100', '2026-09-02T14:30:00Z', group_id: 'sw-1')
           row(c, :swap_in, 'USDC', '100', '2026-09-02T14:30:00Z', group_id: 'sw-1')
           balance(c, 'USD', '900', usd_price: '1')
         } }
+    ] + venue_scenarios
+  end
+
+  COINS = { 'USDT' => 'tether', 'BNB' => 'binancecoin', 'SHIB' => 'shiba-inu', 'DOGE' => 'dogecoin', 'LUNA' => 'terra-luna-2',
+            'NXS' => 'nexus', 'SOL' => 'solana', 'EUR' => 'eur', 'GBP' => 'gbp' }.freeze
+  ECB = "GET /service/data/EXR/D.#{Tax::EcbFxRates::CURRENCIES.join('+')}.EUR.SP00.A".freeze
+
+  def coins(ctx, *symbols)
+    symbols.each { |s| asset(ctx, s, COINS.fetch(s), %w[EUR GBP].include?(s) ? 'Fiat' : 'Cryptocurrency') }
+  end
+
+  # data-api answers are taken in call order, whatever coin asks (the key is the path). A USDT row is priced too
+  # (prefetch only skips fiat), so a scenario with one asks for `tether` first.
+  # The same price every day of September from `from`.
+  def flat(price, from: '2026-09-01') = history((Date.parse(from)..Date.new(2026, 9, 30)).map { |d| [d.to_s, price] })
+
+  def weekdays(from, to) = (Date.parse(from)..Date.parse(to)).reject { |d| d.saturday? || d.sunday? }.map(&:to_s)
+
+  # SDMX csvdata as the ECB serves it: { currency => [[day, rate], ...] }.
+  def ecb_csv(series)
+    "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\n" +
+      series.flat_map { |cur, days| days.map { |day, rate| "EXR.D.#{cur}.EUR.SP00.A,D,#{cur},EUR,SP00,A,#{day},#{rate}\n" } }.join
+  end
+
+  # Bundesbank's download: a BOM, a metadata preamble, "." for a day with no value.
+  def bundesbank_csv(cur, days)
+    "﻿\"\",BBEX3.D.#{cur}.EUR.BB.AC.000,BBEX3.D.#{cur}.EUR.BB.AC.000_FLAGS\nunit,#{cur},\nunit multiplier,one,\n" \
+      "last update,2026-10-01 10:00:00,\n" + days.map { |day, rate| rate == '.' ? "#{day},.,No value available\n" : "#{day},#{rate},\n" }.join
+  end
+
+  def bundesbank_path(cur) = "GET /rest/download/BBEX3/D.#{cur}.EUR.BB.AC.000"
+
+  # USDT in, BNB bought, BTC bought with its fee in BNB.
+  def bnb_fee_rows(c, ex)
+    coins(c, 'USDT', 'BNB')
+    deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: ex)
+    buy(c, 'BNB', '1', '300', '2026-09-02T10:00:00Z', quote: 'USDT', exchange: ex)
+    buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: ex, fee_currency: 'BNB', fee_amount: '0.001')
+    balance(c, 'USDT', '100', usd_price: '1', exchange: ex)
+    balance(c, 'BNB', '0.999', usd_price: '310', exchange: ex)
+    balance(c, 'BTC', '0.01', usd_price: '61000', exchange: ex)
+  end
+
+  # Alpaca: dollars and AAPL; Binance: USDT and BTC.
+  def two_venue_rows(c)
+    b = binance(c)
+    coins(c, 'USDT')
+    deposit(c, '1000', '2026-09-01T14:00:00Z')
+    buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z')
+    deposit(c, '500', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+    buy(c, 'BTC', '0.005', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+    b
+  end
+
+  # EUR in on the 25th, BTC bought for EUR on the 26th: the ECB table must be loaded first.
+  def stale_ecb_rows(c)
+    FxRate.delete_all
+    rates('USD', '2026-09-01', '2026-09-20', '1.16')
+    b = binance(c)
+    coins(c, 'EUR')
+    deposit(c, '200', '2026-09-25T10:00:00Z', currency: 'EUR', exchange: b)
+    buy(c, 'BTC', '0.002', '60000', '2026-09-26T10:00:00Z', quote: 'EUR', exchange: b)
+    balance(c, 'EUR', '80', usd_price: '1.17', exchange: b)
+    balance(c, 'BTC', '0.002', usd_price: '61000', exchange: b)
+    b
+  end
+
+  # A Kraken EUR→BTC trade booked as two unquoted legs, the fee on the EUR leg.
+  def kraken_buy_rows(c, k, on, group)
+    row(c, :sell, 'EUR', '100', on, exchange: k, group_id: group, tx_id: "#{group}-EUR", fee_currency: 'EUR', fee_amount: '0.26')
+    row(c, :buy, 'BTC', '0.0016', on, exchange: k, group_id: group, tx_id: "#{group}-BTC")
+  end
+
+  def kraken_sell_rows(c, k, on, group)
+    row(c, :sell, 'BTC', '0.001', on, exchange: k, group_id: group, tx_id: "#{group}-BTC")
+    row(c, :buy, 'EUR', '70', on, exchange: k, group_id: group, tx_id: "#{group}-EUR", fee_currency: 'EUR', fee_amount: '0.18')
+  end
+
+  def kraken_scenarios
+    usd_sept = -> { rates('USD', '2026-09-01', '2026-09-30', '1.17') }
+    usd_gap = -> { rates('USD', '2026-09-01', '2026-09-05', '1.17') } # nothing from the 6th to the 29th; the 30th is built
+    buy_case = lambda do |c, trade_day, rated|
+      rated.call
+      k = kraken(c)
+      coins(c, 'EUR')
+      deposit(c, '200', '2026-09-01T10:00:00Z', currency: 'EUR', exchange: k)
+      kraken_buy_rows(c, k, trade_day, 'K1')
+      balance(c, 'EUR', '99.74', usd_price: '1.17', exchange: k)
+      balance(c, 'BTC', '0.0016', usd_price: '61000', exchange: k)
+    end
+    sell_case = lambda do |c, trade_day, rated|
+      rated.call
+      k = kraken(c)
+      coins(c, 'EUR')
+      deposit(c, '200', '2026-09-01T10:00:00Z', currency: 'EUR', exchange: k)
+      kraken_buy_rows(c, k, '2026-09-03T10:00:00Z', 'K0')
+      kraken_sell_rows(c, k, trade_day, 'K2')
+      balance(c, 'EUR', '169.56', usd_price: '1.17', exchange: k)
+      balance(c, 'BTC', '0.0006', usd_price: '61000', exchange: k)
+    end
+    cross = { HISTORY => [flat(51_000), flat(60_000)] }
+    [
+      { name: 'kraken_style_fiat_leg_fee_buy', market: { HISTORY => [flat(60_000)] }, setup: ->(c) { buy_case.call(c, '2026-09-03T10:00:00Z', usd_sept) } },
+      { name: 'kraken_style_fiat_leg_fee_sell', market: { HISTORY => [flat(60_000)] }, setup: ->(c) { sell_case.call(c, '2026-09-15T10:00:00Z', usd_sept) } },
+      { name: 'kraken_style_fiat_leg_fee_buy_no_rate', market: cross, setup: ->(c) { buy_case.call(c, '2026-09-15T10:00:00Z', usd_gap) } },
+      { name: 'kraken_style_fiat_leg_fee_sell_no_rate', market: cross, setup: ->(c) { sell_case.call(c, '2026-09-15T10:00:00Z', usd_gap) } }
     ]
+  end
+
+  def wash_scenarios
+    empty = { HISTORY => [history([])] }
+    opening_sale = lambda do |c|
+      c[:user].update_columns(wash_sale_enabled: true)
+      b = binance(c)
+      coins(c, 'USDT')
+      sell(c, 'ETH', '1', '2000', '2026-09-10T00:00:00Z', quote: 'USDT', exchange: b)
+      buy(c, 'ETH', '1', '2100', '2026-09-11T10:00:00Z', quote: 'USDT', exchange: b)
+      balance(c, 'USDT', '0', usd_price: '1', exchange: b)
+      balance(c, 'ETH', '1', usd_price: '2150', exchange: b)
+    end
+    [
+      { name: 'wash_priced_buy_unpriced_sale', market: empty,
+        setup: lambda { |c|
+          c[:user].update_columns(wash_sale_enabled: true)
+          b = binance(c)
+          coins(c, 'USDT', 'SOL')
+          ticker(c, b, 'SOL', 'USDT')
+          deposit(c, '1500', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'SOL', '10', '150', '2026-09-05T10:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :sell, 'SOL', '5', '2026-09-20T10:00:00Z', exchange: b)
+          balance(c, 'SOL', '5', usd_price: '140', exchange: b)
+        } },
+      { name: 'wash_global_missing_located_priced', setup: opening_sale,
+        market: { HISTORY => [history([]), history(september('2026-09-01', 2490).map { |d, p| [d, d <= '2026-09-10' ? 2500 : p] })] } },
+      { name: 'wash_global_missing_located_empty', market: empty, setup: opening_sale },
+      { name: 'wash_mixed_priced_unpriced_lots_loss', market: empty,
+        setup: lambda { |c|
+          c[:user].update_columns(wash_sale_enabled: true)
+          b = binance(c)
+          coins(c, 'USDT', 'SOL')
+          ticker(c, b, 'SOL', 'USDT')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          row(c, :airdrop, 'SOL', '5', '2026-09-02T10:00:00Z', exchange: b)
+          buy(c, 'SOL', '5', '200', '2026-09-05T10:00:00Z', quote: 'USDT', exchange: b)
+          sell(c, 'SOL', '10', '60', '2026-09-20T10:00:00Z', quote: 'USDT', exchange: b)
+          balance(c, 'USDT', '600', usd_price: '1', exchange: b)
+        } },
+      { name: 'wash_fee_only_missing', market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          c[:user].update_columns(wash_sale_enabled: true)
+          b = binance(c)
+          coins(c, 'USDT')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          sell(c, 'BTC', '0.01', '50000', '2026-09-20T10:00:00Z', quote: 'USDT', exchange: b, fee_currency: 'XYZ', fee_amount: '0.01')
+          balance(c, 'USDT', '900', usd_price: '1', exchange: b)
+        } }
+    ]
+  end
+
+  def ecb_scenarios
+    series = { 'USD' => weekdays('2026-09-21', '2026-09-30').each_with_index.map { |d, i| [d, format('%.4f', 1.17 + (i / 1000.0))] },
+               'GBP' => weekdays('2026-09-21', '2026-09-30').map { |d| [d, '0.8712'] } }
+    nothing = Tax::EcbFxRates::CURRENCIES.to_h { |cur| [bundesbank_path(cur), [{ 'status' => 500, 'body' => 'Internal Server Error' }]] }
+    fallback = Tax::EcbFxRates::CURRENCIES.to_h do |cur|
+      days = series.key?(cur) ? series[cur].each_with_index.map { |(d, r), i| [d, i == 2 ? '.' : r] } : []
+      [bundesbank_path(cur), [ok(bundesbank_csv(cur, days))]]
+    end
+    [
+      { name: 'ecb_stale_table_loads', market: { HISTORY => [flat(60_000)] }, ecb: { ECB => [ok(ecb_csv(series))] },
+        setup: ->(c) { stale_ecb_rows(c) } },
+      { name: 'ecb_falls_back_to_bundesbank', market: { HISTORY => [flat(60_000)] },
+        ecb: { ECB => [{ 'status' => 500, 'body' => 'Internal Server Error' }] }.merge(fallback),
+        setup: ->(c) { stale_ecb_rows(c) } },
+      # The first walk's ECB load fails (Bundesbank has nothing either); its ETH fetch moves the price generation, so
+      # compute! walks again and the second load succeeds.
+      { name: 'ecb_fails_then_loads', market: { HISTORY => [flat(2500), flat(51_000), flat(60_000), flat(51_000), flat(60_000), flat(2500)] },
+        ecb: { ECB => [{ 'status' => 500, 'body' => 'Internal Server Error' }, ok(ecb_csv(series))] }.merge(nothing),
+        setup: lambda { |c|
+          b = stale_ecb_rows(c)
+          row(c, :airdrop, 'ETH', '0.01', '2026-09-27T10:00:00Z', exchange: b)
+          balance(c, 'ETH', '0.01', usd_price: '2500', exchange: b)
+        } },
+      # No rate within a week of the 15th: the deposit is crossed through BTC in EUR and in USD.
+      { name: 'fx_missing_btc_cross', market: { HISTORY => [flat(51_000), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'EUR')
+          deposit(c, '100', '2026-09-15T10:00:00Z', currency: 'EUR', exchange: b)
+          balance(c, 'EUR', '100', usd_price: '1.17', exchange: b)
+        } },
+      { name: 'standalone_fiat_fee_missing_fx', market: { HISTORY => [history([])] },
+        setup: lambda { |c|
+          rates('USD', '2026-09-01', '2026-09-05', '1.17')
+          rates('USD', '2026-10-01', '2026-10-01', '1.17')
+          b = binance(c)
+          coins(c, 'EUR')
+          deposit(c, '100', '2026-09-02T10:00:00Z', currency: 'EUR', exchange: b)
+          row(c, :fee, 'EUR', '1', '2026-09-15T10:00:00Z', exchange: b)
+          balance(c, 'EUR', '99', usd_price: '1.17', exchange: b)
+        } }
+    ]
+  end
+
+  # Every venue walked: Binance-shaped histories, a second venue beside Alpaca, Kraken's two-leg trades, the ECB load.
+  # The Rust half stamps these balances as synced by Rust, so today's rows are compared.
+  def venue_scenarios
+    list = [
+      { name: 'binance_usdt_buy_bnb_fee', market: { HISTORY => [flat(1), flat(310), flat(60_000)] }, setup: ->(c) { bnb_fee_rows(c, binance(c)) } },
+      { name: 'binance_coin_pair_swap', market: { HISTORY => [flat(1), flat(2500), flat(60_000), flat(2500), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          deposit(c, '2500', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'ETH', '1', '2000', '2026-09-02T10:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :swap_out, 'ETH', '1', '2026-09-05T10:00:00Z', exchange: b, group_id: 'swap_ETHBTC-1-1', tx_id: 'ETHBTC-1-1-out')
+          row(c, :swap_in, 'BTC', '0.05', '2026-09-05T10:00:00Z', exchange: b, group_id: 'swap_ETHBTC-1-1', tx_id: 'ETHBTC-1-1-in',
+                                                                  fee_currency: 'BTC', fee_amount: '0.00005')
+          balance(c, 'USDT', '500', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.04995', usd_price: '61000', exchange: b)
+        } },
+      { name: 'binance_convert_and_dust', market: { HISTORY => [flat(1), flat(0.00001), flat(0.1), flat(310), flat(0.00001), flat(0.1), flat(2500), flat(310)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT', 'SHIB', 'DOGE', 'BNB')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          row(c, :airdrop, 'SHIB', '1000', '2026-09-02T10:00:00Z', exchange: b)
+          row(c, :airdrop, 'DOGE', '10', '2026-09-02T11:00:00Z', exchange: b)
+          row(c, :swap_out, 'USDT', '100', '2026-09-05T10:00:00Z', exchange: b, group_id: 'convert_1', tx_id: 'convert_1-out')
+          row(c, :swap_in, 'ETH', '0.04', '2026-09-05T10:00:00Z', exchange: b, group_id: 'convert_1', tx_id: 'convert_1-in')
+          row(c, :swap_out, 'SHIB', '1000', '2026-09-10T10:00:00Z', exchange: b, group_id: 'dust_1', tx_id: 'dust_1-SHIB')
+          row(c, :swap_out, 'DOGE', '10', '2026-09-10T10:00:00Z', exchange: b, group_id: 'dust_1', tx_id: 'dust_1-DOGE')
+          row(c, :swap_in, 'BNB', '0.01', '2026-09-10T10:00:00Z', exchange: b, group_id: 'dust_1', tx_id: 'dust_1-BNB',
+                                                                  fee_currency: 'BNB', fee_amount: '0.0002')
+          balance(c, 'USDT', '900', usd_price: '1', exchange: b)
+          balance(c, 'ETH', '0.04', usd_price: '2500', exchange: b)
+          balance(c, 'BNB', '0.0098', usd_price: '310', exchange: b)
+        } },
+      { name: 'binance_eur_deposit_and_buy', market: { HISTORY => [flat(60_000)] },
+        setup: lambda { |c|
+          rates('USD', '2026-09-01', '2026-09-30', '1.17')
+          b = binance(c)
+          coins(c, 'EUR')
+          deposit(c, '500', '2026-09-01T10:00:00Z', currency: 'EUR', exchange: b)
+          buy(c, 'BTC', '0.005', '60000', '2026-09-03T10:00:00Z', quote: 'EUR', exchange: b)
+          balance(c, 'EUR', '200', usd_price: '1.17', exchange: b)
+          balance(c, 'BTC', '0.005', usd_price: '61000', exchange: b)
+        } },
+      { name: 'binance_gbp_cash_left', market: { HISTORY => [flat(2500)] },
+        setup: lambda { |c|
+          rates('USD', '2026-09-01', '2026-09-30', '1.17')
+          rates('GBP', '2026-09-01', '2026-09-30', '0.87')
+          b = binance(c)
+          coins(c, 'GBP')
+          deposit(c, '100', '2026-09-01T10:00:00Z', currency: 'GBP', exchange: b)
+          buy(c, 'ETH', '0.02', '2500', '2026-09-03T10:00:00Z', quote: 'GBP', exchange: b)
+          balance(c, 'GBP', '40', usd_price: '1.345', exchange: b)
+          balance(c, 'ETH', '0.02', usd_price: '2500', exchange: b)
+        } },
+      { name: 'binance_unfunded_buys', market: { HISTORY => [flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          buy(c, 'BTC', '0.005', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          balance(c, 'BTC', '0.005', usd_price: '61000', exchange: b)
+        } },
+      { name: 'binance_orphan_credit_airdrop_income', market: { HISTORY => [flat(310), flat(0.5), flat(310), flat(0.5)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'BNB', 'LUNA')
+          row(c, :swap_in, 'BNB', '0.01', '2026-09-05T10:00:00Z', exchange: b, group_id: 'dust_9', tx_id: 'dust_9-BNB')
+          row(c, :airdrop, 'LUNA', '5', '2026-09-06T10:00:00Z', exchange: b)
+          row(c, :other_income, 'BNB', '0.001', '2026-09-07T10:00:00Z', exchange: b)
+          balance(c, 'BNB', '0.011', usd_price: '310', exchange: b)
+          balance(c, 'LUNA', '5', usd_price: '0.5', exchange: b)
+        } },
+      { name: 'binance_unpriced_coin', market: { HISTORY => [flat(1), *[history([])] * 4, flat(60_000), history([])] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT', 'NXS')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :airdrop, 'NXS', '3', '2026-09-05T10:00:00Z', exchange: b)
+          row(c, :airdrop, 'XYZ', '5', '2026-09-06T10:00:00Z', exchange: b)
+          balance(c, 'USDT', '400', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.01', usd_price: '61000', exchange: b)
+          balance(c, 'NXS', '3', exchange: b)
+        } },
+      { name: 'binance_lost_asset_recovery', market: { HISTORY => [flat(1), flat(0.5)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT', 'LUNA')
+          deposit(c, '100', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'LUNA', '10', '0.5', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :lost, 'LUNA', '10', '2026-09-20T10:00:00Z', exchange: b)
+          balance(c, 'USDT', '95', usd_price: '1', exchange: b)
+        } },
+      { name: 'binance_unlinked_withdrawal_with_fee', market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :withdrawal, 'BTC', '0.005', '2026-09-10T10:00:00Z', exchange: b, fee_currency: 'BTC', fee_amount: '0.0001')
+          balance(c, 'USDT', '400', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.0049', usd_price: '61000', exchange: b)
+        } },
+      { name: 'binance_overdrawn_opening', market: { HISTORY => [flat(2500)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          sell(c, 'ETH', '0.5', '2000', '2026-09-05T10:00:00Z', quote: 'USDT', exchange: b)
+          buy(c, 'ETH', '0.2', '2100', '2026-09-10T10:00:00Z', quote: 'USDT', exchange: b)
+          balance(c, 'USDT', '580', usd_price: '1', exchange: b)
+          balance(c, 'ETH', '0.2', usd_price: '2500', exchange: b)
+        } },
+      { name: 'binance_to_alpaca_linked_transfer', market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BTC', '0.01', '60000', '2026-09-02T10:00:00Z', quote: 'USDT', exchange: b)
+          arrived = deposit(c, '0.0099', '2026-09-10T13:00:00Z', currency: 'BTC')
+          row(c, :withdrawal, 'BTC', '0.01', '2026-09-10T12:00:00Z', exchange: b, linked_transaction_id: arrived.id)
+          sell(c, 'BTC', '0.005', '61000', '2026-09-10T12:00:00Z')
+          balance(c, 'USDT', '400', usd_price: '1', exchange: b)
+          balance(c, 'USD', '305', usd_price: '1')
+          balance(c, 'BTC', '0.0049', usd_price: '61000')
+        } },
+      { name: 'binance_us_rows', market: { HISTORY => [flat(1), flat(310), flat(60_000)] }, setup: ->(c) { bnb_fee_rows(c, binance_us(c)) } },
+      { name: 'binance_borrowed_rows_set_aside', market: { HISTORY => [flat(1), flat(310), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          bnb_fee_rows(c, b)
+          row(c, :other_income, 'USDT', '50', '2026-09-12T10:00:00Z', exchange: b, tx_id: 'usdt-futures-1')
+          row(c, :fee, 'BTC', '0.0001', '2026-09-13T10:00:00Z', exchange: b, tx_id: 'margin-interest-1-BTC')
+        } },
+      { name: 'two_venues_snapshot_rows', alpaca: { 'GET /v2/stocks/AAPL/bars' => [bars('AAPL', september('2026-09-02', 200))] },
+        market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          b = two_venue_rows(c)
+          balance(c, 'USD', '600', usd_price: '1')
+          balance(c, 'AAPL', '2', usd_price: '228.37')
+          balance(c, 'USDT', '200', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.005', usd_price: '61000', exchange: b)
+        } },
+      { name: 'asymmetric_venue_discrepancies', alpaca: { 'GET /v2/stocks/AAPL/bars' => [bars('AAPL', september('2026-09-02', 200))] },
+        market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          b = two_venue_rows(c)
+          balance(c, 'USD', '650', usd_price: '1')
+          balance(c, 'AAPL', '1', usd_price: '228.37')
+          balance(c, 'USDT', '200', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.007', usd_price: '61000', exchange: b)
+        } },
+      { name: 'repeated_same_day_missing', market: { HISTORY => [history([])] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'NXS')
+          3.times { |i| row(c, :airdrop, 'NXS', '1', "2026-09-10T0#{i + 1}:00:00Z", exchange: b, tx_id: "nxs-drop-#{i + 1}") }
+          row(c, :fee, 'NXS', '0.1', '2026-09-10T05:00:00Z', exchange: b, tx_id: 'nxs-fee-1')
+          balance(c, 'NXS', '2.9', exchange: b)
+        } },
+      { name: 'same_coin_sale_fee', market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          deposit(c, '1500', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BTC', '0.02', '60000', '2026-09-03T10:00:00Z', quote: 'USDT', exchange: b)
+          sell(c, 'BTC', '0.01', '70000', '2026-09-20T10:00:00Z', quote: 'USDT', exchange: b, fee_currency: 'BTC', fee_amount: '0.00001')
+          balance(c, 'USDT', '1000', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.00999', usd_price: '61000', exchange: b)
+        } },
+      # Fees FIFO never applies (Engine#settle_fee): a third coin paid on a withdrawal, and a coin's own fee on the out-leg
+      # of a coin-for-coin swap, charged on top.
+      { name: 'fees_fifo_never_applied', market: { HISTORY => [flat(1), flat(2500), flat(310), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT', 'BNB')
+          deposit(c, '2500', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BNB', '1', '300', '2026-09-02T10:00:00Z', quote: 'USDT', exchange: b)
+          buy(c, 'ETH', '1', '2000', '2026-09-02T11:00:00Z', quote: 'USDT', exchange: b)
+          row(c, :withdrawal, 'ETH', '0.1', '2026-09-05T10:00:00Z', exchange: b, fee_currency: 'BNB', fee_amount: '0.001')
+          row(c, :swap_out, 'ETH', '0.5', '2026-09-08T10:00:00Z', exchange: b, group_id: 'swap_ETHBTC-2-2', tx_id: 'ETHBTC-2-2-out',
+                                                                 fee_currency: 'ETH', fee_amount: '0.005')
+          row(c, :swap_in, 'BTC', '0.025', '2026-09-08T10:00:00Z', exchange: b, group_id: 'swap_ETHBTC-2-2', tx_id: 'ETHBTC-2-2-in')
+          balance(c, 'USDT', '200', usd_price: '1', exchange: b)
+          balance(c, 'BNB', '0.999', usd_price: '310', exchange: b)
+          balance(c, 'ETH', '0.395', usd_price: '2500', exchange: b)
+          balance(c, 'BTC', '0.025', usd_price: '61000', exchange: b)
+        } }
+    ] + ecb_scenarios + wash_scenarios + kraken_scenarios
+    list.map { |sc| sc.merge(rust_balances: true) }
   end
 
   def grid(root)
@@ -360,8 +793,9 @@ module TrackerParity
       FileUtils.mkdir_p(dir)
       ctx = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate('parity_scratch' => true, 'user_id' => ctx[:user].id, 'at' => AT,
-                                      'market' => sc[:market] || {}, 'alpaca' => sc[:alpaca] || {}))
+                 JSON.pretty_generate({ 'parity_scratch' => true, 'user_id' => ctx[:user].id, 'at' => AT,
+                                        'market' => sc[:market] || {}, 'alpaca' => sc[:alpaca] || {}, 'ecb' => sc[:ecb] || {} }
+                                        .merge(sc[:rust_balances] ? { 'balances_synced_by_rust' => true } : {})))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -417,7 +851,8 @@ module TrackerParity
   def record(root)
     ActiveJob::Base.queue_adapter = :test # the backfill's follow-up LedgerJob and the page broadcasts are not run
     Rails.cache = ActiveSupport::Cache::MemoryStore.new
-    Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedTracker::Adapter)
+    # Tax::EcbFxRates builds a bare Faraday.new, on the default adapter.
+    [:net_http_persistent, :net_http, Faraday.default_adapter].uniq.each { |name| Faraday::Adapter.lookup_middleware(name).prepend(ScriptedTracker::Adapter) }
     Turbo::StreamsChannel.singleton_class.prepend(Module.new do
       %i[broadcast_remove_to broadcast_update_to broadcast_append_to broadcast_replace_to broadcast_refresh_to].each { |m| define_method(m) { |*, **| nil } }
     end)
@@ -428,7 +863,8 @@ module TrackerParity
       Rails.cache.clear
       ScriptedTracker.alpaca = sc['alpaca'].transform_values(&:dup)
       ScriptedTracker.market = sc['market'].transform_values(&:dup)
-      ScriptedTracker.requests = { 'market' => [], 'alpaca' => [] }
+      ScriptedTracker.ecb = sc.fetch('ecb', {}).transform_values(&:dup)
+      ScriptedTracker.requests = { 'market' => [], 'alpaca' => [], 'ecb' => [] }
       user = User.find(sc['user_id'])
       ledger = ledger_error = backfill_error = nil
       travel_to(Time.iso8601(sc['at'])) do

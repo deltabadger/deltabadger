@@ -50,11 +50,12 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
         total_invested:decimal(&v["total_invested"] )?,cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
 }
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
-pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,venue:i64,now:DateTime<Utc>)->Result<bool,FiguresError> {
+pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
     if &version(c,owner)? != before { return Ok(false); }
     let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
-    let payload=json!({"schema":1,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venue":walked.and_then(|w|w.venue.as_ref()).map(|s|json!([venue,encode(s)]))}).to_string();
+    // Schema 2: every venue's scope (schema 1 held one venue's and reads cold).
+    let payload=json!({"schema":2,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
     if payload.len()>MAX_PAYLOAD {return Err(FiguresError::NotComputed("ledger cache exceeds its size limit".into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     Ok(true)
@@ -66,7 +67,7 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
     let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(State::Cold)};
     if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(State::Cold)}
     let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(State::Cold)};
-    if v["schema"].as_u64()!=Some(1) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
+    if v["schema"].as_u64()!=Some(2) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
     let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(State::Cold)};
     if now>=expires {return Ok(State::Cold)}
     let current=version(c,owner)?;
@@ -74,25 +75,23 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
     if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(State::Cold)}
     let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(State::Cold)}
-    if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venue")) {return Ok(State::Cold)}
-    if v["whole"].is_null() && v["venue"].is_null() {return Ok(State::Failed(UNAVAILABLE))}
-    type Scopes=(Summary,Option<(i64,Summary)>);
+    if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venues")) {return Ok(State::Cold)}
+    if v["whole"].is_null() && v["venues"].is_null() {return Ok(State::Failed(UNAVAILABLE))}
+    type Scopes=(Summary,Vec<(i64,Summary)>);
     let decoded=(||->Result<Scopes,FiguresError>{
         let whole=decode(&v["whole"])?;
-        let venue=if v["venue"].is_null() {
-            if encode(&whole)!=encode(&Summary::empty()) {return Err(malformed())}
-            None
-        } else {
-            let pair=array(&v["venue"])?;
+        let mut venues=vec![];
+        for pair in array(&v["venues"])? {
+            let pair=array(pair)?;
             if pair.len()!=2 {return Err(malformed())}
-            Some((pair[0].as_i64().ok_or_else(malformed)?,decode(&pair[1])?))
-        };
-        Ok((whole,venue))
+            venues.push((pair[0].as_i64().ok_or_else(malformed)?,decode(&pair[1])?));
+        }
+        Ok((whole,venues))
     })();
     match decoded {
-        Ok((whole,venue))=>Ok(State::Warm(Box::new(match exchange {
+        Ok((whole,venues))=>Ok(State::Warm(Box::new(match exchange {
             None=>whole,
-            Some(id)=>match venue {Some((venue,summary)) if venue==id=>summary,_=>Summary::empty()},
+            Some(id)=>venues.into_iter().find(|(venue,_)|*venue==id).map_or_else(Summary::empty,|(_,summary)|summary),
         }))),
         Err(_)=>Ok(State::Cold),
     }
@@ -103,7 +102,7 @@ mod tests {
     use super::*;
     fn publish(c:&Connection,owner:i64,before:&Version,walked:Option<&Walked>,venue:i64,now:DateTime<Utc>)->Result<bool,FiguresError>{
         let tx=c.unchecked_transaction()?;let fenced=crate::engine::model::fence_versions(&tx,&[]).map_err(|_|malformed())?;
-        let out=super::publish(&fenced,owner,before,walked,venue,now)?;tx.commit()?;Ok(out)
+        let _=venue;let out=super::publish(&fenced,owner,before,walked,now)?;tx.commit()?;Ok(out)
     }
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
@@ -114,7 +113,7 @@ mod tests {
         let mut whole=Summary::empty(); whole.total_invested=Dec::strict("123.4567890123456789").unwrap();
         whole.positions.push(Position{symbol:"AAPL".into(),quantity:Dec::strict("2.5").unwrap(),cost:Dec::strict("123.4567890123456789").unwrap(),avg_cost:Dec::strict("49.38271560493827156").unwrap(),estimated:true,unpriced:Dec::zero()});
         whole.cash=vec![("USD".into(),Dec::strict("-0.0").unwrap())];whole.cash_basis=vec![("USD".into(),Dec::strict("1.01").unwrap())];whole.incomplete=true;whole.loss_sales=vec![("AAPL".into(),now().date_naive())];
-        Walked{venue:Some(whole.clone()),whole,terms:vec![]}
+        Walked{venues:vec![(7,whole.clone())],whole,terms:vec![]}
     }
     fn warm(c:&Connection,exchange:Option<i64>)->Summary {
         let State::Warm(s)=read(c,1,exchange,now()).unwrap() else { panic!("expected warm cache") };*s
@@ -144,7 +143,7 @@ mod tests {
     #[test]
     fn cache_malformed_scope_never_becomes_a_numeric_empty_summary() {
         let c=db();let v=version(&c,1).unwrap();
-        for (field,value) in [("venue",serde_json::Value::Null),("venue",serde_json::json!("bad")),("venue",serde_json::json!([])),("venue",serde_json::json!(["7",{}])),("venue",serde_json::json!([7,{}])),("whole",serde_json::json!({}))] {
+        for (field,value) in [("venues",serde_json::Value::Null),("venues",serde_json::json!("bad")),("venues",serde_json::json!([[]])),("venues",serde_json::json!([["7",{}]])),("venues",serde_json::json!([[7,{}]])),("whole",serde_json::json!({}))] {
             publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
             let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();raw[field]=value;
             app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
@@ -175,16 +174,20 @@ mod tests {
 
     #[test]
     fn cache_real_split_walk_roundtrips_long_computed_decimals() {
-        use crate::{figures::at::At,tracker::{rows::Kind,walk::{self,Row}}};
-        let row=|kind,amount:&str,value:&str|Row{kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),fiat_value:Dec::strict(value).unwrap(),at:At::from_utc(now()).unwrap(),price_missing:false,linked:false,transfer_fee:None,per_share:None,opening:false};
-        let mut rows=vec![row(Kind::Buy,"9","100")];
-        for _ in 0..3 {rows.push(row(Kind::Adjustment,"2","0"));}
-        let w=walk::walk(&rows,0,now().date_naive()).unwrap();
+        use crate::{figures::at::At,tracker::{fx::FxTable,prices::{NoFetch,PriceService,Reference},rows::{Kind,Stored},walk}};
+        let row=|id,kind,amount:&str,value:&str|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None};
+        let mut rows=vec![row(1,Kind::Buy,"9","100")];
+        for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0"));}
+        let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;
+        let mut ps=PriceService::new(&r,&fx,now().date_naive(),&mut none);
+        let ids=std::collections::HashMap::from([("alpaca".to_string(),7)]);
+        let w=walk::scopes(&rows,&Default::default(),&mut ps,&ids,At::from_utc(now()).unwrap()).unwrap();
         let longest=[&w.whole.positions[0].quantity,&w.whole.positions[0].cost,&w.whole.positions[0].avg_cost].into_iter().map(|d|d.to_s_f().len()).max().unwrap();
         assert!(longest==287,"three split adjustments must exercise the 287-character regression, got {longest}: {:?}",encode(&w.whole));
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&w),7,now()).unwrap();
         c.pragma_update(None,"query_only",true).unwrap();let before=c.total_changes();
-        for (scope,expected) in [(None,&w.whole),(Some(7),w.venue.as_ref().unwrap())] {
+        for (scope,expected) in [(None,&w.whole),(Some(7),w.venue(7).unwrap())] {
             let State::Warm(s)=read(&c,1,scope,now()).unwrap() else {panic!("real split walk must round-trip as Warm")};
             assert_eq!(encode(&s).to_string().as_bytes(),encode(expected).to_string().as_bytes());
         }

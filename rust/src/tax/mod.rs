@@ -1,5 +1,5 @@
 //! Tax reports (roadmap stage F). This build: the crypto report for the United States (Tax::GenerateReportJob#crypto_csv
-//! with country 'US'), from the rows the tracker walk accepts (`tracker::rows::load`: Alpaca, quoted trades, dollars),
+//! with country 'US'), for one Alpaca account of quoted trades in dollars (`tracker::rows::alpaca_sweep_domain`),
 //! in US dollars, so no FX is involved. Its CSV is Rails' byte for byte, and so is its refusal of tokenized securities.
 //!
 //! Where Rails states a figure that cannot be defended, this build states none (FiguresError::NotComputed, the reason
@@ -10,7 +10,7 @@
 //! Sales are split into one row per holding term, the term read on the calendar in the user's time zone, the tax year
 //! is the user's, and an Alpaca CFEE is folded into that day's fills (Tax::Report#holding_rule, #attribute_trade_fees).
 use crate::figures::{at::At, budget, dec::Dec, FiguresError};
-use crate::tracker::prices::{self, alias_coin, catalogue_coin, Halt, PriceBook, Reference, Venue};
+use crate::tracker::prices::{self, alias_coin, catalogue_coin, PriceService, Reference, Unfetched, Venue};
 use crate::tracker::rows::{self, Kind, Stored};
 use crate::tracker::{fiat, walk};
 use crate::web::i18n::{text, Arg};
@@ -38,14 +38,17 @@ pub fn crypto_report(c: &Connection, user_id: i64, country: &str, year: i32, tod
 }
 
 fn report(c: &Connection, user_id: i64, year: i32, today: NaiveDate) -> Result<Outcome, FiguresError> {
-    // rows::load sets the futures and margin wallets aside; the report reads every row, so it states nothing instead.
+    // The walk sets the futures and margin wallets aside; the report reads every row, so it states nothing instead.
     let borrowed: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (tx_id LIKE '%futures%' \
                                       OR tx_id LIKE '%margin-interest%' OR tx_id LIKE '%liquidation-%'))", [user_id], |r| r.get(0))?;
     if borrowed { return Err(no_figure("rows of a futures or margin wallet")); }
     let venue = Venue::alpaca(c)?;
     let scope = CryptoScope::new(c, user_id)?;
+    // The rows of the walk Plan D4a ported (one Alpaca account in dollars); anything else is refused, as it was.
+    let all = rows::load_all(c, user_id)?;
+    rows::alpaca_sweep_domain(c, user_id, &all).map_err(|why| crate::tracker::refused(&why))?;
     let mut rows = vec![];
-    for r in rows::load(c, user_id)? { if scope.crypto(c, &r.base)? { rows.push(r); } }
+    for r in rows::walk_rows(&all)? { if scope.crypto(c, &r.base)? { rows.push(r); } }
 
     let zone: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [user_id], |r| r.get(0))?;
     // Tax::Report#rows_until: the end of the year in the user's zone, or in UTC where that is later.
@@ -117,7 +120,7 @@ fn tokenized_symbols<'a>(c: &Connection, venue: &Venue, rows: impl Iterator<Item
             listed.query_row(rusqlite::params![venue.id, r.base, canonical(&r.base)], |x| Ok((x.get(0)?, x.get(1)?))).optional()?;
         let found = match venue_asset {
             Some((symbol, Some(t))) if t == "tokenized" => symbol,
-            _ => match alias_coin(&r.base, venue, Some(r.date()))
+            _ => match alias_coin(&r.base, Some(venue), Some(r.date()))
                 .or_else(|| catalogue_coin(&reference, &r.base, venue))
                 .or_else(|| catalogue_coin(&reference, &canonical(&r.base), venue)) {
                 Some(coin) => wrapper.query_row([coin], |x| x.get::<_, Option<String>>(0)).optional()?.flatten(),
@@ -162,14 +165,16 @@ fn enrich(c: &Connection, venue: &Venue, scoped: &[Stored], today: NaiveDate) ->
     // Only the prices the rows use: Rails' range prefetch adds days no row reads, and a day a row reads but the table
     // lacks halts the walk below.
     let reference = Reference::load(c, venue, &prices::symbols(scoped))?;
-    let fetched = HashMap::new();
-    let mut book = PriceBook { r: &reference, venue: venue.clone(), today, fetched: &fetched, warnings: 0 };
-    let rows = match walk::enrich(scoped, &mut book) {
-        Ok(rows) => rows,
-        Err(Halt::Fetch(f)) => return Err(no_figure(&format!("no price of {} on {}", f.symbol, f.asked.unwrap_or(f.from)))),
-        Err(Halt::Fail(FiguresError::NotComputed(m))) => return Err(no_figure(&m)),
-        Err(Halt::Fail(e)) => return Err(e),
-    };
+    let fx = crate::tracker::fx::FxTable::load(c)?;
+    let mut none = Unfetched;
+    let mut ps = PriceService::new(&reference, &fx, today, &mut none);
+    let deposits: HashMap<i64, Dec> = scoped.iter().map(|r| (r.id, r.amount.clone())).collect();
+    let rows = walk::enrich_with(scoped, &deposits, &mut ps, false)?;
+    // A price the table lacks: the first one Rails would have valued at zero ("BTC/USD 2026-09-10").
+    if let Some(w) = ps.warnings.first() {
+        let (asset, day) = w.split_once(' ').map_or((w.as_str(), ""), |(a, d)| (a.split('/').next().unwrap_or(a), d));
+        return Err(no_figure(&format!("no price of {asset} on {day}")));
+    }
     Ok(rows.into_iter().zip(scoped).map(|(row, s)| Entry { id: s.id, row, tx_id: s.tx_id.clone(), stated: s.stated.is_some() && !s.quoted() }).collect())
 }
 

@@ -1,21 +1,23 @@
-//! The tracker's jobs under the scheduler (`crate::jobs`), per user with a reading Alpaca key:
+//! The tracker's jobs under the scheduler (`crate::jobs`), per user with a reading key of a venue this build syncs:
 //! - `tracker_ledger` (Tracker::LedgerJob): the walk, today's snapshot rows (PortfolioSnapshot.record!) and the
 //!   wash-sale locks. On demand only: the ledger and balance syncs wake it after every run, as Rails' sync jobs end
 //!   in a LedgerJob or a record!, and so does the backfill.
 //! - `portfolio_backfill` (PortfolioSnapshot::BackfillJob): every earlier day. Rails asks for it from the tracker
-//!   page, which this build does not serve yet; here it runs at 03:00 UTC, after the nightly syncs, when the page's
-//!   own test says a sweep is wanted.
+//!   page; here it runs at 03:00 UTC, after the nightly syncs, when the page's own test says a sweep is wanted.
 //!
-//! The walk reads the database only. A price Rails would fetch first stops it: the run fetches the range from
-//! data-api, stores it, and walks again (`with_walk`). One job run, every pass and every load of it, spends from one
-//! `Allowance`: `WALK`'s steps and `MAX_FETCHES` fetches. A run that spends it stops with the reason; the prices it
-//! stored stay, and the next run goes on from them.
+//! A pass is Rails' `walk(user)`: its inputs are read once (`Inputs`, one read transaction), then the walk runs on a
+//! blocking thread holding no connection, and a price Rails would fetch is fetched at that lookup, inline: the walk hands
+//! the request to the job's runtime thread, which fetches, stores and answers (`pass`). Nothing a pass reads can move
+//! under it. `tracker_ledger` repeats the pass while the ledger's version moved, as `Tracker::Ledger.compute!` does (up
+//! to three passes), and writes nothing when the rows or balances moved after the last one.
 use super::backfill::{self, Plan};
-use super::prices::{self, Fetch, Halt, PriceBook, Venue};
+use super::fx::{self, FxTable};
+use super::prices::{self, Fetch, Fetcher, PriceService, Reference, Venue};
+use super::rows::Stored;
 use super::walk::{self, Walked};
 use crate::crypto::Cipher;
 use crate::engine::Clock;
-use crate::figures::{budget, FiguresError};
+use crate::figures::{budget, dec::Dec, FiguresError};
 use crate::jobs::data_api::DataApi;
 use crate::jobs::schedule::{Jitter, Schedule};
 use crate::jobs::{Cx, Db, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
@@ -23,56 +25,35 @@ use crate::sync::jobs::Connect;
 use crate::venue::http::Transport;
 use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 pub const TRACKER_LEDGER: &str = "tracker_ledger";
 pub const PORTFOLIO_BACKFILL: &str = "portfolio_backfill";
 
-/// What one job run may cost, all its passes together: the figures' own limits (`budget::FIGURE`). Measured on a
-/// debug build: 5,000 rows of buys, sales and dividends take 2.3 million steps and hold 10,665 limbs
-/// (`walk::tests::a_long_history_…`). Steps add up over the run; held limbs are a peak, freed between passes.
+/// What one job run may cost, all its passes together: the figures' own limits (`budget::FIGURE`). Steps add up over
+/// the run; held limbs are a peak, freed between passes.
 pub const WALK: budget::Limits = budget::FIGURE;
-/// How many single-day fetches one job run may halt for. ponytail: a history missing more days than this fills in
-/// over several runs (each stores what it fetched); raise it if real histories need more.
-pub const MAX_FETCHES: usize = 50;
+/// Tracker::Ledger::COMPUTE_PASSES.
+pub const COMPUTE_PASSES: usize = 3;
 
-/// What is left of one job run's budget. `stored` counts the prices this run itself inserted: a run that could not
-/// publish wakes the next only if it stored one.
+/// What is left of one job run's budget, and how many prices it stored itself (a run that could not publish wakes
+/// the next only if it stored one).
 #[derive(Clone, Copy, Debug)]
-pub struct Allowance { pub steps: u64, pub fetches: usize, pub stored: usize }
+pub struct Allowance { pub steps: u64, pub stored: usize }
 
 impl Allowance {
-    pub fn run() -> Allowance { Allowance { steps: WALK.steps, fetches: MAX_FETCHES, stored: 0 } }
+    pub fn run() -> Allowance { Allowance { steps: WALK.steps, stored: 0 } }
 }
 
-/// Why a run stopped at its fetch allowance.
-pub const FETCHES_SPENT: &str = "the tracker walk needs more prices than one run fetches; the next run fetches the rest";
+/// Why nothing was written: the ledger moved after the last pass read it.
+pub const MOVED: &str = "the ledger moved while the tracker walked; the next run states it";
 
 pub fn message(e: FiguresError) -> String {
     match e {
         FiguresError::Sqlite(e) => format!("database: {e}"),
         FiguresError::Data(m) | FiguresError::NotComputed(m) | FiguresError::Raised(m) => m,
     }
-}
-
-/// Fetches one range unless the table covers it, and stores what came back (one write unit). With no data-api
-/// configured, the install's provider is CoinGecko, which this build does not fetch from: a range that needs a request
-/// refuses the walk.
-async fn fetch<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: Fetch) -> Result<usize, String> {
-    let (asset, from, to) = (f.symbol.clone(), f.from, f.to);
-    let have = db.run(move |c, _| prices::stored_days(c, &asset, from, to).map_err(message)).await?;
-    let Some(api) = api else {
-        return if prices::covered(&f, &have) { Ok(0) } else { Err(message(super::refused("historical prices from CoinGecko"))) };
-    };
-    let rows = prices::fetch_range(api, &f, &have).await?;
-    if rows.is_empty() { return Ok(0); }
-    db.run(move |c, _| {
-        c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
-        let stored = prices::store(c, &rows).map_err(message)?;
-        c.execute_batch("COMMIT").map_err(|e| e.to_string())?;
-        Ok(stored)
-    }).await
 }
 
 /// `work` on the blocking pool, in a budget scope of what the run has left; what it took is spent.
@@ -90,33 +71,6 @@ pub type Wall = std::sync::Arc<dyn Fn() -> DateTime<Utc> + Send + Sync>;
 
 pub fn system_wall() -> Wall { std::sync::Arc::new(Utc::now) }
 
-/// What a pass hands its result to: the connection, the rows walked, the walk, and the job clock's reading as the
-/// pass began.
-type Then<'a, R> = &'a dyn Fn(&Connection, &Cipher, &[super::rows::Stored], &Walked, DateTime<Utc>, &crate::sync::cache::ReadOrigin) -> Result<R, FiguresError>;
-
-/// One pass of a walk: the rows loaded, priced and walked, then `then` on the result. A price that must be fetched
-/// first ends the pass with that fetch.
-fn pass<R>(c: &Connection, cipher: &Cipher, user_id: i64, fetched: &HashMap<(String, NaiveDate), u32>, now: DateTime<Utc>,
-           then: Then<R>) -> Result<Result<R, Fetch>, FiguresError> {
-    let tx=c.unchecked_transaction()?;
-    let reader=&*tx;
-    let origin=crate::sync::cache::capture_read(reader,user_id,None).map_err(|_|FiguresError::Data("snapshot provenance unavailable".into()))?;
-    let today = now.date_naive();
-    let rows = super::rows::load(reader, user_id)?;
-    let venue = Venue::alpaca(reader)?;
-    let reference = prices::Reference::load(reader, &venue, &prices::symbols(&rows))?;
-    let mut book = PriceBook { r: &reference, venue, today, fetched, warnings: 0 };
-    let prepared = match walk::prepare(&rows, &mut book) {
-        Ok(p) => p,
-        Err(Halt::Fetch(f)) => return Ok(Err(f)),
-        Err(Halt::Fail(e)) => return Err(e),
-    };
-    let walked = walk::walk(&prepared, book.warnings, today)?;
-    tx.commit()?;
-    let produced=origin.derive((rows,walked));
-    Ok(Ok(then(c,cipher,&produced.value.0,&produced.value.1,now,&produced.origin)?))
-}
-
 /// One write unit (`BEGIN IMMEDIATE` … `COMMIT`, rolled back on an error), dated by the wall clock read once the
 /// write lock is held, after every load and walk before it, as Rails' `Date.current` is read when the row is built.
 pub fn written<R>(c: &Connection, wall: &dyn Fn() -> DateTime<Utc>, write: impl FnOnce(&Connection, DateTime<Utc>) -> Result<R, FiguresError>) -> Result<R, FiguresError> {
@@ -127,80 +81,222 @@ pub fn written<R>(c: &Connection, wall: &dyn Fn() -> DateTime<Utc>, write: impl 
     }
 }
 
-/// The walk of one user's ledger as Rails' `walk(user)` makes it, then `then` on its result: the prices Rails
-/// prefetches fetched first, then each price a pass halts for, while the run's allowance lasts.
-pub async fn with_walk<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, user_id: i64, clock: &dyn Clock, allowance: &mut Allowance,
-    then: impl Fn(&Connection, &Cipher, &[super::rows::Stored], &Walked, DateTime<Utc>, &crate::sync::cache::ReadOrigin) -> Result<R, FiguresError> + Send + Sync + 'static) -> Result<R, String> {
-    let wanted = metered(db, allowance, move |c, _| {
-        let rows = super::rows::load(c, user_id)?;
-        let venue = Venue::alpaca(c)?;
-        prices::prefetch(&prices::Reference::load(c, &venue, &prices::symbols(&rows))?, &rows, &venue)
-    }).await?;
-    for f in wanted { allowance.stored += fetch(db, api, f).await?; }
-    let then = std::sync::Arc::new(then);
-    let mut fetched: HashMap<(String, NaiveDate), u32> = HashMap::new();
-    loop {
-        let (seen, then, now) = (fetched.clone(), then.clone(), clock.now());
-        match metered(db, allowance, move |c, cipher| pass(c, cipher, user_id, &seen, now, &*then)).await? {
-            Ok(done) => return Ok(done),
-            Err(f) => {
-                if allowance.fetches == 0 { return Err(FETCHES_SPENT.into()); }
-                allowance.fetches -= 1;
-                if let Some(day) = f.asked { *fetched.entry((f.symbol.clone(), day)).or_insert(0) += 1; }
-                allowance.stored += fetch(db, api, f).await?;
-            }
+/// Everything one pass reads, read in one transaction.
+pub struct Inputs {
+    /// Every row (`load_all`), and the walk's (`walk_rows`).
+    pub all: Vec<Stored>,
+    pub rows: Vec<Stored>,
+    /// Every row's base amount, for a linked withdrawal's fee.
+    pub deposits: HashMap<i64, Dec>,
+    pub reference: Reference,
+    pub fx: FxTable,
+    /// `Exchange.all.to_h { [name_id, id] }`.
+    pub ids: HashMap<String, i64>,
+    /// `PortfolioSnapshot.history_version` (the rows' count and newest update) and the price generation, as read.
+    pub history: String,
+    pub generation: i64,
+    /// The ledger cache's version as the pass began.
+    pub cache: super::cache::Version,
+    pub origin: crate::sync::cache::ReadOrigin,
+}
+
+/// `Inputs` for the user, in one read transaction.
+pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError> {
+    let tx = c.unchecked_transaction()?;
+    let origin = crate::sync::cache::capture_read(&tx, user_id, None).map_err(|_| FiguresError::Data("snapshot provenance unavailable".into()))?;
+    let cache = super::cache::version(&tx, user_id)?;
+    let history = backfill::history_version(&tx, user_id)?;
+    let generation = backfill::generation(&tx)?;
+    let all = super::rows::load_all(&tx, user_id)?;
+    let rows = super::rows::walk_rows(&all)?;
+    let deposits = all.iter().map(|r| (r.id, r.amount.clone())).collect();
+    let reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
+    let fx = FxTable::load(&tx)?;
+    let mut ids = HashMap::new();
+    {
+        let mut s = tx.prepare("SELECT id, type FROM exchanges ORDER BY id")?;
+        let mut q = s.query([])?;
+        while let Some(r) = q.next()? {
+            let (id, kind): (i64, Option<String>) = (r.get(0)?, r.get(1)?);
+            if let Some(kind) = kind { ids.insert(super::rows::name_id(&kind), id); }
         }
+    }
+    tx.commit()?;
+    Ok(Inputs { all, rows, deposits, reference, fx, ids, history, generation, cache, origin })
+}
+
+type Answer = Result<Vec<(NaiveDate, Dec)>, String>;
+type Request = (Fetch, HashSet<NaiveDate>, std::sync::mpsc::SyncSender<Answer>);
+
+/// The walk thread's end of the fetch channel: it hands a request over and blocks for the answer.
+struct Channel(tokio::sync::mpsc::Sender<Request>);
+impl Fetcher for Channel {
+    fn range(&mut self, f: &Fetch, have: &HashSet<NaiveDate>) -> Answer {
+        let (reply, answer) = std::sync::mpsc::sync_channel(1);
+        self.0.blocking_send((f.clone(), have.clone(), reply)).map_err(|_| "the tracker walk lost its fetcher".to_string())?;
+        answer.recv().map_err(|_| "the tracker walk lost its fetcher".to_string())?
     }
 }
 
-/// Tracker::LedgerJob#perform: the walk, today's snapshot rows from it, and the wash-sale locks, the two writes in one
-/// unit, dated when they are written. Returns the walk. The run spends from `allowance` (`Allowance::run()` for a job).
-pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&DataApi<T>>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
-    ledger_run_produced(db,api,user_id,clock,wall,allowance).await.map(|produced|produced.value)
+/// One fetch of a pass: the request, and what came back stored in its own write unit. With no data-api configured
+/// the install's provider is CoinGecko, which this build does not fetch from.
+async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: &Fetch, have: &HashSet<NaiveDate>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
+    let Some(api) = api else { return Err(message(super::refused("historical prices from CoinGecko"))) };
+    let rows = prices::fetch_range(api, f, have).await?;
+    if rows.is_empty() { return Ok((vec![], 0)); }
+    let mut parsed = vec![];
+    for (_, day, price) in &rows { parsed.push((*day, Dec::strict(price).map_err(|e| format!("{e:?}"))?)); }
+    let currency = f.currency.clone();
+    let stored = db.run(move |c, _| {
+        c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+        let stored = prices::store_in(c, &currency, &rows).map_err(message);
+        let end = if stored.is_ok() { "COMMIT" } else { "ROLLBACK" };
+        c.execute_batch(end).map_err(|e| e.to_string())?;
+        stored
+    }).await?;
+    Ok((parsed, stored))
 }
-async fn ledger_run_produced<T: Transport>(db:&Db,api:Option<&DataApi<T>>,user_id:i64,clock:&dyn Clock,wall:Wall,allowance:&mut Allowance)->Result<crate::sync::cache::ReadValue<Walked>,String>{
-    with_walk(db, api, user_id, clock, allowance, move |c, _, _, walked, began, origin| {
+
+/// One pass over `inputs`: `work` runs on a blocking thread with a price service over them, in a budget scope of what
+/// the run has left; each fetch it asks for is made here, between the walk's steps, and stored before the walk goes on.
+pub async fn pass<T: Transport, R: Send + 'static>(db: &Db, api: Option<&DataApi<T>>, inputs: Inputs, today: NaiveDate, allowance: &mut Allowance,
+    work: impl FnOnce(&Inputs, &mut PriceService) -> Result<R, FiguresError> + Send + 'static) -> Result<(R, Inputs), String> {
+    let limits = budget::Limits { steps: allowance.steps, held: WALK.held };
+    let (requests, mut asked) = tokio::sync::mpsc::channel::<Request>(1);
+    let walking = tokio::task::spawn_blocking(move || {
+        let mut fetcher = Channel(requests);
+        let (out, used) = budget::scope(limits, || {
+            let mut ps = PriceService::new(&inputs.reference, &inputs.fx, today, &mut fetcher);
+            work(&inputs, &mut ps)
+        });
+        drop(fetcher);
+        (out, used, inputs)
+    });
+    while let Some((f, have, reply)) = asked.recv().await {
+        let answer = match fetch_and_store(db, api, &f, &have).await {
+            Ok((rows, stored)) => { allowance.stored += stored; Ok(rows) }
+            Err(e) => Err(e),
+        };
+        let _ = reply.send(answer);
+    }
+    let (out, used, inputs) = walking.await.map_err(|e| format!("the tracker walk stopped: {e}"))?;
+    allowance.steps = allowance.steps.saturating_sub(used.steps);
+    Ok((out.map_err(message)?, inputs))
+}
+
+/// The ECB source a job built on `api` reaches: the network for the engine's live data-api client, none otherwise.
+pub fn ecb_for<T: Transport>(api: Option<&DataApi<T>>) -> Option<fx::Source> {
+    api.filter(|a| a.is_live()).map(|_| fx::Source::Live(fx::Plain::default()))
+}
+
+/// `Tracker::Ledger.compute!`: passes of `Ledger.scopes`, each loading the ECB rates (a PriceService is built per walk)
+/// and its inputs afresh, until the ledger's version (rows and price generation) held still over one, at most three.
+pub async fn compute<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, allowance: &mut Allowance)
+    -> Result<(Walked, Inputs, DateTime<Utc>), String> {
+    let mut last = None;
+    for _ in 0..COMPUTE_PASSES {
+        let began = clock.now();
+        let today = began.date_naive();
+        fx::ensure_loaded(db, ecb, today).await;
+        let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
+        let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
+        let (walked, inputs) = pass(db, api, inputs, today, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await?;
+        let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
+        let still = history == inputs.history && generation == inputs.generation;
+        last = Some((walked, inputs, began));
+        if still { break; }
+    }
+    last.ok_or_else(|| "no pass ran".to_string())
+}
+
+/// Tracker::LedgerJob#perform: the passes, then today's snapshot rows and the wash-sale locks in one write unit dated
+/// when it is written, and the ledger cache published beside them when its version still holds. Nothing is written
+/// when the rows or the balances moved after the last pass read them. Returns the walk and whether the cache published.
+pub async fn ledger_run<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<Walked, String> {
+    ledger_run_published(db, api, ecb, user_id, clock, wall, allowance).await.map(|(walked, _)| walked)
+}
+
+/// What became of the page cache in a ledger run's write unit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Published {
+    Yes,
+    /// The ledger or the prices moved after the pass began: the cache stays as it was.
+    Moved,
+    /// No healthy reading slot, or a venue's ledger import is not current: no current page cache can be stated.
+    NotCurrent,
+}
+
+async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock, wall: Wall, allowance: &mut Allowance) -> Result<(Walked, Published), String> {
+    let (walked, inputs, began) = compute(db, api, ecb, user_id, clock, allowance).await?;
+    let today = began.date_naive();
+    let walked = std::sync::Arc::new(walked);
+    let w = walked.clone();
+    let published = metered(db, allowance, move |c, _| {
         // Everything read and computed first, so the write lock is held for the writes alone.
-        let read=c.unchecked_transaction()?;
-        let snapshot_origin=origin.with_balance_producers(&read).map_err(|_|FiguresError::Data("snapshot balance provenance unavailable".into()))?;
-        let rows = super::snapshot::today_rows(&read, user_id, walked)?;
-        let locks = super::wash::targets(&read, user_id, &walked.whole.loss_sales)?;
+        let read = c.unchecked_transaction()?;
+        let origin = inputs.origin.with_balance_producers(&read).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
+        let rows = super::snapshot::today_rows(&read, user_id, &w, &inputs.fx, today)?;
+        let locks = super::wash::targets(&read, user_id, &w.whole.loss_sales)?;
         read.commit()?;
-        let produced=snapshot_origin.derive((rows,locks));
-        written_for(c, &produced.origin, &*wall, |c, now| {
-            super::snapshot::write(c, user_id, &produced.value.0, now.date_naive())?;
+        written_for(c, &origin, &*wall, |c, now| {
+            if backfill::history_version(c, user_id)? != inputs.history { return Err(FiguresError::NotComputed(MOVED.into())); }
+            super::snapshot::write(c, user_id, &rows, now.date_naive())?;
             // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
-            super::wash::confirm_all(c, user_id, &produced.value.1, began)?;
-            Ok(produced.origin.clone().derive(walked.clone()))
+            super::wash::confirm_all(c, user_id, &locks, began)?;
+            // A historical-only rebuild (no healthy reading slot) cannot publish a current page cache.
+            let historical: bool = c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [user_id], |r| r.get(0))?;
+            if historical { return Ok(Published::NotCurrent); }
+            if super::cache::version(c, user_id)? != inputs.cache { return Ok(Published::Moved); }
+            Ok(if super::cache::publish(c, user_id, &inputs.cache, Some(&w), now)? { Published::Yes } else { Published::NotCurrent })
         })
-    }).await
+    }).await?;
+    let walked = std::sync::Arc::try_unwrap(walked).unwrap_or_else(|a| (*a).clone());
+    Ok((walked, published))
 }
 
 /// PortfolioSnapshot::BackfillJob#perform. Returns whether a history was written (none before the first transaction's
-/// day has ended).
-pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&DataApi<T>>, user_id: i64, clock: &dyn Clock) -> Result<bool, String> {
+/// day has ended). This build sweeps D4a's domain, one Alpaca account in dollars; any other history is refused before
+/// anything is written, its stamps included.
+pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock) -> Result<bool, String> {
     let now = clock.now();
     let today = now.date_naive();
     let last = today.pred_opt().unwrap_or(today);
     let mut allowance = Allowance::run();
+    fx::ensure_loaded(db, ecb, today).await;
     // Read before the rows are, so a row landing mid-sweep leaves the history stale.
     let begun = metered(db, &mut allowance, move |c, cipher| {
         let version = backfill::history_version(c, user_id)?;
-        let rows = super::rows::load(c, user_id)?;
-        let first = rows.iter().map(|r| r.date()).min();
+        let all = super::rows::load_all(c, user_id)?;
+        super::rows::alpaca_sweep_domain(c, user_id, &all).map_err(|why| FiguresError::NotComputed(format!("the tracker backfill is not ported for {why}")))?;
+        let first = all.iter().map(|r| r.date()).min();
         match first {
-            Some(first) if first <= last => Ok(Some((version, first, backfill::plan(c, user_id, &rows, first, last)?))),
+            Some(first) if first <= last => Ok(Some((version, first, backfill::plan(c, user_id, &all, first, last)?))),
             _ => { crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?; Ok(None) }
         }
     }).await?;
     let Some((version, first, plan)) = begun else { return Ok(false) };
+    // The price service `fetch_missing` builds.
+    if !plan.instruments.is_empty() { fx::ensure_loaded(db, ecb, today).await; }
     fetch_closes(db, venues, api, &plan).await?;
+    // `Tracker::Ledger.money_in`: one walk, its terms alone.
+    fx::ensure_loaded(db, ecb, today).await;
+    let inputs = metered(db, &mut allowance, move |c, _| load_inputs(c, user_id)).await?;
+    let (terms, inputs) = pass(db, api, inputs, today, &mut allowance, |i, ps| walk::terms(&i.rows, &i.deposits, ps)).await?;
     let (plan, version) = (std::sync::Arc::new(plan), std::sync::Arc::new(version));
-    with_walk(db, api, user_id, clock, &mut allowance, move |c, cipher, rows, walked, _, origin| {
-        let swept = backfill::sweep(c, &plan, rows, &walked.terms, first, last)?;
-        written_for(c,origin,&||now,|fenced,_|backfill::store(fenced,cipher,user_id,&swept,last,&version,now))?;
+    metered(db, &mut allowance, move |c, cipher| {
+        let swept = backfill::sweep(c, &plan, &inputs.all, &terms, first, last)?;
+        written_for(c, &inputs.origin, &|| now, |fenced, _| backfill::store(fenced, cipher, user_id, &swept, last, &version, now))?;
         Ok(true)
     }).await
+}
+
+/// Fetches one range unless the table covers it, and stores what came back (`fetch_price_range` for the backfill's
+/// instruments).
+async fn fetch<T: Transport>(db: &Db, api: Option<&DataApi<T>>, f: Fetch) -> Result<usize, String> {
+    let (asset, currency, from, to) = (f.symbol.clone(), f.currency.clone(), f.from, f.to);
+    let have = db.run(move |c, _| prices::stored_days(c, &asset, &currency, from, to).map_err(message)).await?;
+    if prices::covered(&f, &have) { return Ok(0); }
+    fetch_and_store(db, api, &f, &have).await.map(|(_, stored)| stored)
 }
 
 /// `fetch_missing` for every instrument: each coin's ranges from data-api, each stock's closes from the broker.
@@ -260,44 +356,41 @@ impl<T: Transport> Job for LedgerWalk<T> {
     }
 }
 
-/// Publish only a walk whose transaction/price version still matches inside the cache write.
-/// The three passes share the existing walk budget. A changing account is retried by its
-/// scheduler wake; no GET starts a calculation. Snapshot and lock behavior stays in ledger_run.
-const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during calculation";
+/// Why a run's page cache did not publish: the ledger or the prices moved under it.
+pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed during calculation";
+
+/// The ledger job's run: a walk that fails publishes its failure to the page cache (Rails' cache holds no entry; the
+/// page states the calculation failed). A run that fails, or whose cache moved, wakes the next only if it stored a price
+/// itself (passes moved by its own price writes finish then); one that stored nothing made no progress, and a writer
+/// that moves the inputs wakes this job itself.
 async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall)->Result<Walked,String> {
     let mut allowance=Allowance::run();
-    let out=cached_passes(cx,api,owner,wall,&mut allowance).await;
-    // A run that could not publish wakes the next only if it stored a price itself: the rest of a long history, or
-    // passes moved by its own price writes, finish then. One that stored nothing made no progress, and waking it would
-    // loop; a writer that moves the inputs wakes this job itself.
+    let ecb=ecb_for(api);
+    let out=match ledger_run_published(&cx.db,api,ecb.as_ref(),owner,cx.clock,wall.clone(),&mut allowance).await {
+        Ok((_,Published::Moved))=>Err(CACHE_MOVING.to_string()),
+        Ok((walked,_))=>Ok(walked),
+        Err(e)=>Err(e),
+    };
+    match &out {
+        Ok(_)=>{}
+        Err(e) if e==MOVED || e==CACHE_MOVING => {}
+        Err(_)=>{
+            let clock=wall.clone();
+            cx.db.run(move|c,_|{
+                let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
+                let before=super::cache::version(&tx,owner).map_err(message)?;
+                let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
+                tx.commit().map_err(|e|e.to_string())?;
+                written_for(c,&origin,&*clock,|c,now|{
+                    let historical:bool=c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)",[owner],|r|r.get(0))?;
+                    if historical {return Ok(false)}
+                    super::cache::publish(c,owner,&before,None,now)
+                }).map_err(message)
+            }).await?;
+        }
+    }
     if out.is_err() && allowance.stored>0 {cx.wakers.wake(TRACKER_LEDGER,Some(&owner.to_string()),None);}
     out
-}
-async fn cached_passes<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,owner:i64,wall:Wall,allowance:&mut Allowance)->Result<Walked,String> {
-    for _ in 0..3 {
-        let (before,venue,origin)=cx.db.run(move|c,_|{
-            let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
-            let before=super::cache::version(&tx,owner).map_err(message)?;
-            let venue=Venue::alpaca(&tx).map_err(message)?.id;
-            let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
-            tx.commit().map_err(|e|e.to_string())?;Ok((before,venue,origin))
-        }).await?;
-        let result=ledger_run_produced(&cx.db,api,owner,cx.clock,wall.clone(),allowance).await;
-        let cache_origin=match &result {Ok(produced)=>produced.origin.clone(),Err(_)=>origin};
-        let cached=match &result {Ok(produced)=>Some(produced.value.clone()),Err(_)=>None};
-        let clock=wall.clone();
-        let (published,historical)=cx.db.run(move|c,_|written_for(c,&cache_origin,&*clock,|c,now|{
-            // A historical-only rebuild still completes its existing writes. With no healthy
-            // reading slot it cannot publish a current page cache, so that cache stays cold.
-            let historical:bool=c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)",[owner],|r|r.get(0))?;
-            if historical {return Ok((false,super::cache::version(c,owner)?==before))}
-            super::cache::publish(c,owner,&before,cached.as_ref(),venue,now).map(|published|(published,false))
-        }).map_err(message)).await?;
-        if published || historical {return result.map(|produced|produced.value);}
-        // A walk that failed cannot publish; another pass would only fail again.
-        result?;
-    }
-    Err(CACHE_MOVING.into())
 }
 
 /// `portfolio_backfill`, scoped by the user.
@@ -316,7 +409,9 @@ impl<C: Connect, T: Transport> Job for Backfill<C, T> {
                 Ok(true) => {}
                 Err(e) => return Outcome::Failed(e),
             }
-            match backfill_run(&cx.db, &self.venues, (*self.api).as_ref(), self.user_id, cx.clock).await {
+            let api = (*self.api).as_ref();
+            let ecb = ecb_for(api);
+            match backfill_run(&cx.db, &self.venues, api, ecb.as_ref(), self.user_id, cx.clock).await {
                 // The prices that just arrived are the ones the ledger was missing: it walks again.
                 Ok(true) => { cx.wakers.wake(TRACKER_LEDGER, Some(&self.user_id.to_string()), None); Outcome::Done }
                 Ok(false) => Outcome::Done,
@@ -335,13 +430,13 @@ pub fn resolve<C: Connect + Clone + 'static,T: Transport + 'static>(name:&str,us
     }
 }
 
-/// The tracker's jobs, per user with a reading Alpaca key, every walk before every backfill; today's rows dated by
-/// `wall` (`system_wall()` in the binary).
+/// The tracker's jobs, per user with a reading key of a venue this build syncs (Alpaca, Binance, Binance.US), every walk
+/// before every backfill; today's rows dated by `wall` (`system_wall()` in the binary).
 pub fn register<C: Connect + Clone + 'static, T: Transport + 'static>(c: &Connection, venues: &C, api: Rc<Option<DataApi<T>>>, wall: Wall) -> Result<Vec<Box<dyn Job>>, String> {
     let (mut users, mut seen): (Vec<i64>, std::collections::HashSet<i64>) = (vec![], std::collections::HashSet::new());
     let mut s = c.prepare("SELECT id, user_id FROM api_keys").map_err(|e| e.to_string())?;
     let owners: HashMap<i64, i64> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
-    for key in crate::sync::reading_keys(c).map_err(|e| e.0)? {
+    for key in crate::sync::balance_reading_keys(c).map_err(|e| e.0)? {
         let Some(&user) = owners.get(&key) else { continue };
         if seen.insert(user) { users.push(user); }
     }
@@ -365,6 +460,7 @@ pub fn written_for<R>(c:&Connection,origin:&crate::sync::cache::ReadOrigin,wall:
     let out=write(&fenced,wall())?;tx.commit()?;Ok(out)
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -386,21 +482,22 @@ mod tests {
     }
 
     /// An Alpaca install listing AAPL and BTC, with `rows`: (entry type, symbol, amount, its price in USD, time).
-    fn install(rows: &[(i64, &str, &str, Option<&str>, &str)]) -> Db { install_on(Connection::open_in_memory().unwrap(), rows) }
-
-    fn install_on(c: Connection, rows: &[(i64, &str, &str, Option<&str>, &str)]) -> Db {
+    fn install(rows: &[(i64, &str, &str, Option<&str>, &str)]) -> Db {
+        let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT); INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca');
             CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT, symbol TEXT, market_cap_rank INTEGER);
             INSERT INTO assets VALUES (1, 'AAPL.US', 'Stock', 'AAPL', NULL), (2, 'bitcoin', 'Cryptocurrency', 'BTC', 1);
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'AAPL', 1), (2, 1, 'BTC', 2);
-            CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
+            CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
+            CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
+            CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC, UNIQUE (currency, date));
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
             CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_asset_id INTEGER, base_amount NUMERIC,
                 quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT, transacted_at TEXT, raw_data TEXT,
-                manual_values TEXT, linked_transaction_id INTEGER);").unwrap();
+                manual_values TEXT, linked_transaction_id INTEGER, updated_at TEXT);").unwrap();
         for (kind, base, amount, usd, when) in rows {
-            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values) \
-                       VALUES (1, 1, ?1, ?2, ?3, CASE WHEN ?4 IS NULL THEN NULL ELSE 'USD' END, ?4, ?5, '{}', '{}')", rusqlite::params![kind, base, amount, usd, when]).unwrap();
+            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values, updated_at) \
+                       VALUES (1, 1, ?1, ?2, ?3, CASE WHEN ?4 IS NULL THEN NULL ELSE 'USD' END, ?4, ?5, '{}', '{}', ?5)", rusqlite::params![kind, base, amount, usd, when]).unwrap();
         }
         Db::new(c, Cipher::new(&EncryptionKeys::resolve(&|_| None, "tracker-jobs").unwrap()))
     }
@@ -408,59 +505,45 @@ mod tests {
     /// A sale before any purchase: the walk opens AAPL a second before it, at 9 September's price.
     const SOLD_FIRST: [(i64, &str, &str, Option<&str>, &str); 2] = [(1, "AAPL", "1", Some("200"), "2026-09-10 00:00:00"), (0, "AAPL", "3", Some("585"), "2026-09-11 14:30:00")];
 
-    /// The review's trigger: the opening's first fetch comes back empty and the second prices it above the sale, so the
-    /// sale is a loss and arms its lock, as Rails' second lookup does. Two empty fetches refuse the walk, never a zero
-    /// basis.
+    /// One pass: Rails' lookups, in order. The account-wide walk's opening asks first and finds nothing (a zero and a
+    /// warning: no loss judged); the located walk's opening asks again and gets the price, which serves the rest of the
+    /// pass. Neither result replaces the other: within the pass the global sale has no verdict.
     #[tokio::test(flavor = "current_thread")]
-    async fn a_failed_price_is_fetched_again_and_never_walked_at_zero() {
+    async fn a_global_miss_stays_a_miss_in_its_pass_after_a_located_fetch_succeeds() {
         let (api, t) = data_api(vec![prices(&[]), prices(&[(day("2026-09-09"), 250.0)])]);
         let db = install(&SOLD_FIRST);
-        let losses = with_walk(&db, Some(&api), 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run(), |_, _, _, w, _, _| Ok(w.whole.loss_sales.clone())).await;
-        assert_eq!(losses.unwrap(), [("AAPL".to_string(), day("2026-09-10"))]);
+        let mut allowance = Allowance::run();
+        let inputs = metered(&db, &mut allowance, |c, _| load_inputs(c, 1)).await.unwrap();
+        let now = crate::figures::at::At::from_utc(at("2026-10-01T03:00:00Z")).unwrap();
+        let (walked, _) = pass(&db, Some(&api), inputs, day("2026-10-01"), &mut allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await.unwrap();
+        assert!(walked.whole.loss_sales.is_empty(), "the global opening had no price");
+        // An opening's lookup takes its warning back, and the located walk is fully priced: the figures are complete.
+        assert!(!walked.whole.incomplete);
+        assert_eq!(walked.venue(1).unwrap().positions[0].cost.to_s_f(), "585.0", "the located opening was priced, and sold first");
         assert_eq!(t.requests().len(), 2);
-        let (api, t) = data_api(vec![prices(&[])]);
-        let out = with_walk(&install(&SOLD_FIRST), Some(&api), 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await;
-        assert!(out.as_ref().is_err_and(|e| e.starts_with("no price of AAPL on 2026-09-09 after 2 fetches")), "{out:?}");
-        assert_eq!(t.requests().len(), 2);
+        let stored: i64 = db.run(|c, _| c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get(0)).map_err(|e| e.to_string())).await.unwrap();
+        assert_eq!(stored, 1, "the fetch's price stored before the walk went on");
     }
 
-    const BOUGHT: [(i64, &str, &str, Option<&str>, &str); 2] = [(4, "USD", "1000", None, "2026-09-01 14:00:00"), (0, "AAPL", "2", Some("400"), "2026-09-02 14:30:00")];
-
-    /// The day a row is recorded on is the wall clock's once the write lock is held: a pass that begins at 23:59:59.99
-    /// and whose loading and walking cross midnight records the new day, and so does a write that waits past
-    /// midnight for the lock.
+    /// compute!: the price that pass stored moved the generation, so it walks again, and the second pass reads it from
+    /// the table for both walks: the sale at $200 of a lot opened at $250 is a loss.
     #[tokio::test(flavor = "current_thread")]
-    async fn a_walk_that_crosses_midnight_records_the_day_of_the_write() {
-        let late = at("2026-09-30T23:59:59.990Z");
-        let wall = move |from: std::time::Instant| -> Wall { std::sync::Arc::new(move || late + chrono::Duration::from_std(from.elapsed()).unwrap()) };
-        // 20,000 purchases: the pass loads, prices and walks them before it writes.
-        let db = install(&BOUGHT);
-        db.run(|c, _| c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 20000)
-            INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values)
-            SELECT 1, 1, 0, 'AAPL', 0.001, 'USD', 0.2, '2026-09-03 14:30:00', '{}', '{}' FROM n").map_err(|e| e.to_string())).await.unwrap();
-        let clock = wall(std::time::Instant::now());
-        let dated = with_walk(&db, None::<&DataApi<ScriptedTransport>>, 1, &FixedClock(late), &mut Allowance::run(),
-                              move |c, _, _, _, began, _| written(c, &*clock, |_, now| Ok((began.date_naive(), now.date_naive())))).await;
-        assert_eq!(dated, Ok((day("2026-09-30"), day("2026-10-01"))), "the pass began before midnight; its work crossed it");
-        // Another writer holds the lock for 50 ms past the pass.
-        let file = tempfile::NamedTempFile::new().unwrap();
-        let c = Connection::open(file.path()).unwrap();
-        c.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
-        let db = install_on(c, &BOUGHT);
-        let (held, release) = (std::sync::mpsc::channel(), file.path().to_path_buf());
-        let writer = std::thread::spawn(move || {
-            let other = Connection::open(release).unwrap();
-            other.execute_batch("BEGIN IMMEDIATE").unwrap();
-            held.0.send(()).unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            other.execute_batch("COMMIT").unwrap();
-        });
-        held.1.recv().unwrap();
-        let clock = wall(std::time::Instant::now());
-        let dated = with_walk(&db, None::<&DataApi<ScriptedTransport>>, 1, &FixedClock(late), &mut Allowance::run(),
-                              move |c, _, _, _, _, _| written(c, &*clock, |_, now| Ok(now.date_naive()))).await;
-        assert_eq!(dated, Ok(day("2026-10-01")), "waiting for the lock");
-        writer.join().unwrap();
+    async fn a_pass_that_stored_a_price_is_walked_again_as_compute_does() {
+        let (api, t) = data_api(vec![prices(&[]), prices(&[(day("2026-09-09"), 250.0)])]);
+        let db = install(&SOLD_FIRST);
+        let (walked, _, _) = compute(&db, Some(&api), None, 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run()).await.unwrap();
+        assert_eq!(walked.whole.loss_sales, [("AAPL".to_string(), day("2026-09-10"))]);
+        assert_eq!(t.requests().len(), 2, "the second pass asked nothing");
+    }
+
+    /// A price nobody has is a zero and a warning, never a refusal: the walk states its figures, incomplete.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_price_nobody_has_is_a_zero_and_the_figures_are_incomplete() {
+        let (api, t) = data_api(vec![prices(&[])]);
+        let db = install(&SOLD_FIRST);
+        let (walked, _, _) = compute(&db, Some(&api), None, 1, &FixedClock(at("2026-10-01T03:00:00Z")), &mut Allowance::run()).await.unwrap();
+        assert!(walked.whole.incomplete && walked.whole.loss_sales.is_empty());
+        assert_eq!(t.requests().len(), 2, "one pass: nothing stored, nothing moved");
     }
 
     /// With no data-api configured the provider is CoinGecko, which this build does not fetch from: a walk that needs a
@@ -468,38 +551,25 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn an_unported_price_provider_refuses_the_walk_that_needs_it() {
         let clock = FixedClock(at("2026-10-01T03:00:00Z"));
-        let out = with_walk(&install(&SOLD_FIRST), None::<&DataApi<ScriptedTransport>>, 1, &clock, &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await;
+        let out = compute(&install(&SOLD_FIRST), None::<&DataApi<ScriptedTransport>>, None, 1, &clock, &mut Allowance::run()).await.map(|_| ());
         assert_eq!(out, Err("the tracker walk is not ported for historical prices from CoinGecko".to_string()));
         let bought = [(4, "USD", "1000", None, "2026-09-01 14:00:00"), (0, "AAPL", "2", Some("400"), "2026-09-02 14:30:00")];
-        assert_eq!(with_walk(&install(&bought), None::<&DataApi<ScriptedTransport>>, 1, &clock, &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await, Ok(()));
+        assert!(compute(&install(&bought), None::<&DataApi<ScriptedTransport>>, None, 1, &clock, &mut Allowance::run()).await.is_ok());
     }
 
-    /// 120 coin fees on 120 days, each day's price arriving only with its own fetch: a run spends at most `MAX_FETCHES`
-    /// fetches and stops with the reason, keeping what it stored, and the next runs finish the walk.
+    /// The day a row is recorded on is the wall clock's once the write lock is held: a pass that begins at 23:59:59.99
+    /// and whose loading and walking cross midnight records the new day.
     #[tokio::test(flavor = "current_thread")]
-    async fn a_run_spends_a_bounded_allowance_and_the_next_run_goes_on() {
-        let days: Vec<NaiveDate> = (0..120).map(|i| day("2026-05-01") + chrono::Days::new(i)).collect();
-        let mut rows = vec![(0, "BTC".to_string(), "1".to_string(), Some("60000"), "2026-04-30 00:00:00".to_string())];
-        rows.extend(days.iter().map(|d| (10, "BTC".to_string(), "0.0001".to_string(), None, format!("{d} 12:00:00"))));
-        let rows: Vec<(i64, &str, &str, Option<&str>, &str)> = rows.iter().map(|(k, b, a, u, w)| (*k, b.as_str(), a.as_str(), *u, w.as_str())).collect();
-        let db = install(&rows);
-        let mut answers = vec![prices(&[])]; // the prefetch's range
-        answers.extend(days.iter().map(|d| prices(&[(*d, 60000.0)])));
-        let (api, t) = data_api(answers);
-        let clock = FixedClock(at("2026-10-01T03:00:00Z"));
-        let mut first = Allowance::run();
-        let out = with_walk(&db, Some(&api), 1, &clock, &mut first, |_, _, _, _, _, _| Ok(())).await;
-        assert_eq!(out, Err(FETCHES_SPENT.to_string()));
-        assert_eq!((t.requests().len(), first.fetches), (1 + MAX_FETCHES, 0));
-        assert!(first.steps > WALK.steps - WALK.steps / 100, "{} steps spent", WALK.steps - first.steps);
-        let stored: i64 = db.run(|c, _| c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get(0)).map_err(|e| e.to_string())).await.unwrap();
-        assert_eq!(stored, MAX_FETCHES as i64);
-        let mut runs = 1;
-        loop {
-            runs += 1;
-            if with_walk(&db, Some(&api), 1, &clock, &mut Allowance::run(), |_, _, _, _, _, _| Ok(())).await.is_ok() { break; }
-            assert!(runs < 3, "a run that fetched nothing new");
-        }
-        assert_eq!(runs, 3, "120 days: 50, then 51, then the last 19");
+    async fn a_walk_that_crosses_midnight_records_the_day_of_the_write() {
+        let late = at("2026-09-30T23:59:59.990Z");
+        let from = std::time::Instant::now();
+        let wall = move || late + chrono::Duration::from_std(from.elapsed()).unwrap();
+        let db = install(&[(4, "USD", "1000", None, "2026-09-01 14:00:00"), (0, "AAPL", "2", Some("400"), "2026-09-02 14:30:00")]);
+        db.run(|c, _| c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 20000)
+            INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values, updated_at)
+            SELECT 1, 1, 0, 'AAPL', 0.001, 'USD', 0.2, '2026-09-03 14:30:00', '{}', '{}', '2026-09-03 14:30:00' FROM n").map_err(|e| e.to_string())).await.unwrap();
+        let (_, _, began) = compute(&db, None::<&DataApi<ScriptedTransport>>, None, 1, &FixedClock(late), &mut Allowance::run()).await.unwrap();
+        let dated = db.run(move |c, _| written(c, &wall, |_, now| Ok((began.date_naive(), now.date_naive()))).map_err(message)).await;
+        assert_eq!(dated, Ok((day("2026-09-30"), day("2026-10-01"))), "the pass began before midnight; its work crossed it");
     }
 }

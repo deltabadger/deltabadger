@@ -185,11 +185,11 @@ async fn many_held_symbols_record_in_linear_work_or_are_refused_before_the_write
     let w = walls.clone();
     let wall: deltabadger::tracker::jobs::Wall = std::sync::Arc::new(move || { w.fetch_add(1, Ordering::SeqCst); at });
     let api = None::<&DataApi<ScriptedTransport>>;
-    let out = ledger_run(&db, api, user, &clock, wall.clone(), &mut Allowance { steps: 1_000_000, fetches: 0, stored: 0 }).await;
+    let out = ledger_run(&db, api, None, user, &clock, wall.clone(), &mut Allowance { steps: 1_000_000, stored: 0 }).await;
     assert_eq!(out.err().as_deref(), Some(deltabadger::figures::OVER_BUDGET));
     assert_eq!(walls.load(Ordering::SeqCst), 0, "refused before the write lock");
     let mut run = Allowance::run();
-    let walked = ledger_run(&db, api, user, &clock, wall, &mut run).await.unwrap();
+    let walked = ledger_run(&db, api, None, user, &clock, wall, &mut run).await.unwrap();
     assert_eq!(walked.whole.positions.len(), 100_001, "AAPL and the 100,000");
     assert!(WALK.steps - run.steps < WALK.steps / 10, "{} steps", WALK.steps - run.steps);
     assert_eq!(walls.load(Ordering::SeqCst), 1, "the wall clock read once, under the lock");
@@ -227,7 +227,7 @@ async fn many_loss_symbols_arm_their_locks_in_one_read_of_the_tickers() {
     let db = deltabadger::jobs::Db::new(counted, seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
     let mut run = Allowance::run();
-    let walked = ledger_run(&db, None::<&DataApi<ScriptedTransport>>, user, &deltabadger::engine::FixedClock(at), std::sync::Arc::new(move || at), &mut run).await.unwrap();
+    let walked = ledger_run(&db, None::<&DataApi<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at), std::sync::Arc::new(move || at), &mut run).await.unwrap();
     assert_eq!(walked.whole.loss_sales.len(), 3000);
     let locks: i64 = c.query_row("SELECT count(*) FROM wash_sale_locks WHERE source = 'ledger'", [], |r| r.get(0)).unwrap();
     assert_eq!(locks, 3000);
@@ -237,3 +237,85 @@ async fn many_loss_symbols_arm_their_locks_in_one_read_of_the_tickers() {
 }
 /// Measured: about 1.6 million VM steps for this run. A ticker query per symbol would read 69 million rows.
 const VM_BOUND: u64 = 10_000_000;
+
+/// data-api's transport, calling `hook` as each request comes in, before it is answered: the moment a fetch is out.
+#[derive(Clone)]
+struct Hooked { inner: ScriptedTransport, hook: Rc<dyn Fn(usize)>, seen: Rc<std::cell::Cell<usize>> }
+impl deltabadger::venue::http::Transport for Hooked {
+    async fn send(&self, r: &deltabadger::venue::http::HttpRequest) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        let n = self.seen.get();
+        self.seen.set(n + 1);
+        (self.hook)(n);
+        self.inner.send(r).await
+    }
+}
+
+/// The install of `install()` with an airdrop of a coin data-api never prices (each pass asks for it twice: the
+/// prefetch's range, then the day's window), and a data-api that calls `hook` with each request's number.
+fn hooked_install(hook: impl Fn(&Path, usize) + 'static) -> (tempfile::TempDir, i64, Hooked, DataApi<Hooked>) {
+    let (dir, user, key) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch(&format!("INSERT OR IGNORE INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('bitcoin', 'BTC', 'Bitcoin', 'Cryptocurrency', '2026-01-01', '2026-01-01');
+        INSERT INTO account_transactions (user_id, exchange_id, api_key_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, created_at, updated_at)
+          SELECT {user}, exchange_id, id, 8, 'BTC', 0.001, 'a-1', '2026-09-05 00:00:00', '{{}}', '{{}}', '2026-09-06 02:00:00', '2026-09-06 02:00:00' FROM api_keys WHERE id = {key};")).unwrap();
+    let inner = ScriptedTransport::from_script(&json!({ "GET /api/v1/historical_prices": [ok(json!({ "prices": [] }))] }));
+    let path = dir.path().to_path_buf();
+    let hooked = Hooked { inner, hook: Rc::new(move |n| hook(&path, n)), seen: Rc::new(std::cell::Cell::new(0)) };
+    let api = DataApi::new(deltabadger::jobs::data_api::Config { url: "http://data-api:3000".into(), token: "t".into() }, hooked.clone(), hooked.clone());
+    (dir, user, hooked, api)
+}
+
+fn edit_deposit(dir: &Path, amount: &str, stamp: &str) {
+    Connection::open(dir.join("production.sqlite3")).unwrap()
+        .execute("UPDATE account_transactions SET base_amount = ?1, updated_at = ?2 WHERE tx_id = 'd-1'", [amount, stamp]).unwrap();
+}
+
+async fn run_ledger(dir: &Path, user: i64, api: &DataApi<Hooked>) -> Result<deltabadger::tracker::walk::Walked, String> {
+    use deltabadger::tracker::jobs::{ledger_run, Allowance};
+    let db = deltabadger::jobs::Db::new(Connection::open(dir.join("production.sqlite3")).unwrap(), seed::cipher());
+    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    ledger_run(&db, Some(api), None, user, &deltabadger::engine::FixedClock(at), std::sync::Arc::new(move || at), &mut Allowance::run()).await
+}
+
+/// A row edited while a fetch is out never reaches the pass that was walking: every lookup of that pass used the rows
+/// it loaded. The ledger moved, so the pass is walked again over the edited rows, as Rails' compute! walks again, and
+/// the walk states that pass's $1,500 in, not a mix of the two ledgers.
+#[tokio::test(flavor = "current_thread")]
+async fn a_row_edited_during_a_fetch_writes_nothing_from_mixed_inputs() {
+    let (dir, user, hooked, api) = hooked_install(|path, n| if n == 0 { edit_deposit(path, "1500", "2026-09-20 02:59:00") });
+    let walked = run_ledger(dir.path(), user, &api).await.unwrap();
+    assert_eq!(walked.whole.total_invested.to_s_f(), "1500.0");
+    assert_eq!(hooked.inner.requests().len(), 4, "two passes, each its prefetch and the day's window");
+    // Today's row, from that pass (no balances are held here, so its figures say everything left).
+    let rows = snapshots(dir.path());
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].starts_with("2026-09-20 "), "{rows:?}");
+}
+
+/// A ledger edited during every fetch of every pass: after the third pass the rows still moved, and nothing is written,
+/// not a snapshot, not a lock, not the page cache; the run says why. (Rails writes its third pass; this build writes
+/// nothing from a ledger that is no longer the one it walked.)
+#[tokio::test(flavor = "current_thread")]
+async fn rows_moving_every_pass_write_nothing() {
+    let (dir, user, hooked, api) = hooked_install(|path, n| edit_deposit(path, &format!("{}", 1100 + n), &format!("2026-09-20 02:{:02}:00", 10 + n)));
+    let out = run_ledger(dir.path(), user, &api).await;
+    assert_eq!(out.err().as_deref(), Some(deltabadger::tracker::jobs::MOVED));
+    assert_eq!(hooked.inner.requests().len(), 6, "three passes");
+    assert!(snapshots(dir.path()).is_empty());
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let cache: i64 = c.query_row("SELECT count(*) FROM app_configs WHERE key = ?1", [deltabadger::tracker::cache::key(user)], |r| r.get(0)).unwrap();
+    assert_eq!(cache, 0);
+}
+
+/// While a fetch is out, the walk holds no transaction: another connection takes the write lock at once and commits.
+#[tokio::test(flavor = "current_thread")]
+async fn no_connection_is_held_while_fetching() {
+    let wrote = Rc::new(std::cell::RefCell::new(vec![]));
+    let w = wrote.clone();
+    let (dir, user, _, api) = hooked_install(move |path, _| {
+        let other = Connection::open(path.join("production.sqlite3")).unwrap();
+        w.borrow_mut().push(other.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS side_write (n INTEGER); COMMIT;").map_err(|e| e.to_string()));
+    });
+    run_ledger(dir.path(), user, &api).await.unwrap();
+    assert!(!wrote.borrow().is_empty() && wrote.borrow().iter().all(Result::is_ok), "{:?}", wrote.borrow());
+}

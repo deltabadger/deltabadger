@@ -36,6 +36,11 @@
       "builds": "direct-entry Handle"
     },
     {
+      "file": "tracker/parity.rs",
+      "function": "run",
+      "builds": "the parity fixture's balance-origin stamps, as a Rust balance sync records them"
+    },
+    {
       "file": "sync/cache.rs",
       "function": "capture_read",
       "builds": "ReadOrigin snapshot handle"
@@ -172,14 +177,15 @@
       "let version=result.origin().clone()"
     ],
     "tracker/jobs.rs": [
-      "let produced=origin.derive((rows,walked))",
+      "let origin = crate::sync::cache::capture_read(&tx, user_id, None)",
       "fence_read(&tx,origin)",
-      "origin.with_balance_producers(&read)",
-      "written_for(c, &produced.origin",
-      "written_for(c,&cache_origin,&*clock,|c,now|{",
-      "let cache_origin=match &result {Ok(produced)=>produced.origin.clone()",
-      "ledger_run_produced",
-      "super::cache::publish(c,owner,&before,cached.as_ref(),venue,now)"
+      "inputs.origin.with_balance_producers(&read)",
+      "written_for(c, &origin, &*wall, |c, now| {",
+      "if backfill::history_version(c, user_id)? != inputs.history { return Err(FiguresError::NotComputed(MOVED.into())); }",
+      "written_for(c, &inputs.origin, &|| now,",
+      "written_for(c,&origin,&*clock,|c,now|{",
+      "super::cache::publish(c, user_id, &inputs.cache, Some(&w), now)",
+      "super::cache::publish(c,owner,&before,None,now)"
     ],
     "tracker/snapshot.rs": [
       "record_origin(c,user_id,None,date)?",

@@ -29,10 +29,15 @@ pub fn partial(c: &Connection, user_id: i64, balances: &[Balance]) -> Result<boo
 
 /// `today_row`: none when the scope has neither a balance nor a row.
 pub fn today_row(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger: &Summary) -> Result<Option<Day>, FiguresError> {
+    today_row_on(c, user_id, exchange_id, ledger, &super::fx::FxTable::load(c)?, chrono::Utc::now().date_naive())
+}
+
+/// `today_row` with the ECB table read and today's date (Figures values other cash at today's rate).
+pub fn today_row_on(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger: &Summary, fx: &super::fx::FxTable, today: NaiveDate) -> Result<Option<Day>, FiguresError> {
     if c.is_autocommit(){
         let tx=c.unchecked_transaction()?;
         let origin=crate::sync::cache::capture_read(&tx,user_id,exchange_id).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?;
-        let mut day=today_row(&tx,user_id,exchange_id,ledger)?;tx.commit()?;
+        let mut day=today_row_on(&tx,user_id,exchange_id,ledger,fx,today)?;tx.commit()?;
         if !crate::sync::cache::read_is_current(c,&origin).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?{if let Some(day)=&mut day{day.partial=true;}}
         return Ok(day)
     }
@@ -41,7 +46,7 @@ pub fn today_row(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger:
     let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2))", rusqlite::params![user_id, exchange_id], |r| r.get(0))?;
     if balances.is_empty() && !rows { return Ok(None); }
     let pending = figures::pending(c, user_id, exchange_id)?;
-    let f = figures::compute(c, user_id, ledger, &balances, &pending)?;
+    let f = figures::compute_on(c, user_id, ledger, &balances, &pending, fx, today)?;
     let (held_value, held_cost) = f.without_cash()?;
     Ok(Some(Day { value: f.value, invested: f.invested, held_value: Some(held_value), held_cost: Some(held_cost),
                   partial: crate::sync::cache::stale(c, user_id, exchange_id).map_err(|_| FiguresError::Data("balance cache provenance unavailable".into()))? || partial(c, user_id, &balances)? || ledger.incomplete }))
@@ -89,23 +94,17 @@ pub fn upsert_venue(c: &crate::engine::model::FencedTransaction<'_>, user_id: i6
     Ok(())
 }
 
-/// The venue every walked row is on: its id.
-fn walked_venue(c: &Connection) -> Result<Option<i64>, FiguresError> {
-    use rusqlite::OptionalExtension;
-    Ok(c.query_row("SELECT id FROM exchanges WHERE type = ?1 ORDER BY id LIMIT 1", [super::VENUE_TYPE], |r| r.get(0)).optional()?)
-}
-
 /// `PortfolioSnapshot.record!(user, scopes:)`'s rows, from the scopes just walked: the whole account's (no venue) and
 /// each venue's, not yet dated. A venue the walk has no rows of reads as an empty ledger, as Rails reads one. Computed
 /// before the write unit, so the write lock is held for the writes alone.
-pub fn today_rows(c: &Connection, user_id: i64, walked: &Walked) -> Result<Vec<(Option<i64>, Day)>, FiguresError> {
+/// Each of them is reconciled with its own balances: the whole account's row is not the sum of the venues'.
+pub fn today_rows(c: &Connection, user_id: i64, walked: &Walked, fx: &super::fx::FxTable, today: NaiveDate) -> Result<Vec<(Option<i64>, Day)>, FiguresError> {
     let mut rows = vec![];
-    if let Some(day) = today_row(c, user_id, None, &walked.whole)? { rows.push((None, day)); }
-    let alpaca = walked_venue(c)?;
+    if let Some(day) = today_row_on(c, user_id, None, &walked.whole, fx, today)? { rows.push((None, day)); }
     let empty = Summary::empty();
     for exchange_id in venues(c, user_id)? {
-        let ledger = match (&walked.venue, alpaca) { (Some(v), Some(a)) if a == exchange_id => v, _ => &empty };
-        if let Some(day) = today_row(c, user_id, Some(exchange_id), ledger)? { rows.push((Some(exchange_id), day)); }
+        let ledger = walked.venue(exchange_id).unwrap_or(&empty);
+        if let Some(day) = today_row_on(c, user_id, Some(exchange_id), ledger, fx, today)? { rows.push((Some(exchange_id), day)); }
     }
     Ok(rows)
 }
