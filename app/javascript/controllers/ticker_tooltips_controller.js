@@ -49,6 +49,8 @@ export default class extends Controller {
     this.#loadCard(symbol, pill.dataset.tickerAssetId).then((html) => {
       // Bail if the cursor already moved on to a different pill while fetching.
       if (!html || this.current !== pill) return;
+      // A revisit morphs <body> (quiet_revisit.js) and takes this node with it, as markup the server never sent.
+      if (!this.tooltip.isConnected) document.body.appendChild(this.tooltip);
       this.tooltip.innerHTML = html;
       this.#appendNote(pill);
       this.#show(pill);

@@ -26,8 +26,9 @@ module PageFigures
       { 'dashboard' => (page(session, user, '/bots') if bots.size > 1), # a lone bot's dashboard is its page
         'bots' => bots.to_h do |bot|
           body = page(session, user, "/bots/#{bot.id}")
+          # A page whose chart is ready draws it inline: there is no frame to load.
           src = Nokogiri::HTML(body).at_css('turbo-frame#bot_chart')['src']
-          [bot.id, { 'page' => body, 'chart' => page(session, user, src, 'Turbo-Frame' => 'bot_chart') }]
+          [bot.id, { 'page' => body, 'chart' => (page(session, user, src, 'Turbo-Frame' => 'bot_chart') if src) }]
         end }
     end.value
   ensure

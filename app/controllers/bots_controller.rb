@@ -103,11 +103,14 @@ class BotsController < ApplicationController
       # Build index preview from bot's current state
       @index_preview = @bot.current_index_preview if @bot.dca_index?
 
-      # The chart's cache is read by its own frame (Bots::ChartsController). This one is the source
-      # for the panels; the chart's cache is derived from it and expires with it.
+      # This one is the source for the panels; the chart's cache is derived from it and expires with it.
       prices_data = @bot.metrics_with_current_prices_from_cache
       @metrics_loading = prices_data.nil?
       @metrics = prices_data || @bot.metrics
+      # A chart whose figures are ready is drawn with the page, so a revisit has no frame to wait for.
+      # Exactly when its own frame would ask for no refresh (Bots::ChartsController); otherwise the frame
+      # loads it, and asks.
+      @chart_metrics = @bot.metrics_with_current_prices_and_candles_from_cache unless @metrics_loading
 
       # Force html: a stray turbo_stream Accept (see above) would otherwise resolve to
       # show.turbo_stream.erb, which expects the pagination frame's @feed_items/@next_cursor.

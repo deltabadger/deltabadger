@@ -33,10 +33,15 @@
       </div>
       {{ status_button|safe }}
     </div>
-
-    <turbo-frame id="bot_chart" src="{{ path }}/chart{% if metrics.is_none() %}?metrics_missing=1{% endif %}">
-      {{ chart|safe }}
+{% if let Some(inline) = inline_chart %}
+      <turbo-frame id="bot_chart">
+        {{ inline|safe }}
 </turbo-frame>
+{%- else %}
+      <turbo-frame id="bot_chart" src="{{ path }}/chart{% if metrics.is_none() %}?metrics_missing=1{% endif %}">
+        {{ chart|safe }}
+</turbo-frame>
+{%- endif %}
     <div id="{{ columns_id }}" class="columns{% if working %} bot-locked{% endif %}">
       <div class="column gap-1">
           {{ settings|safe }}

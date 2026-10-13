@@ -1,5 +1,6 @@
 import "@hotwired/turbo-rails";
 import "./controllers";
+import "./quiet_revisit";
 import "./tauri";
 
 // Progressive web app support. All three layouts include this bundle, so the one

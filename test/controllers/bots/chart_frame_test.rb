@@ -37,10 +37,9 @@ class Bots::ChartFrameTest < ActionDispatch::IntegrationTest
     src
   end
 
-  test 'the page leaves the chart to a lazy frame and never reads its cache' do
-    seed_chart
+  # A ready chart is drawn with the page (ShowChartTest); a cold one is the frame's to load.
+  test 'the page leaves a cold chart to a lazy frame' do
     seed_prices
-    Bots::DcaIndex.any_instance.expects(:metrics_with_current_prices_and_candles_from_cache).never
 
     get bot_path(id: @bot.id)
 
