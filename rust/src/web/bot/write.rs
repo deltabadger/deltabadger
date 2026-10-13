@@ -20,6 +20,9 @@ pub enum Outcome<T> {
 pub struct Prepared<T> {
     pub response: T,
     pub broadcasts: Vec<(String, String)>,
+    /// A Continue left for the engine to schedule (`rust_continue_start`): this bot's status and progress bars are
+    /// broadcast once it has, as Bot::BroadcastAfterScheduledActionJob does after Rails enqueues the bot's job.
+    pub after_scheduling: Option<i64>,
 }
 
 /// Read inside the lifecycle transaction: a cleared intent may already be a submitted order.
@@ -203,6 +206,7 @@ fn settings_inner<T>(
     // follow commit; the HTTP awaiter may already have gone away.
     ctx.app.wake_engine();
     for (stream, html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream, &html); }
+    if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     Ok(Outcome::Committed(prepared.response))
 }
 
@@ -552,5 +556,6 @@ fn lifecycle_inner<T>(
     tx.commit()?;
     ctx.app.wake_engine();
     for (stream,html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream,&html); }
+    if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     Ok(Outcome::Committed(prepared.response))
 }

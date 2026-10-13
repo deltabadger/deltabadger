@@ -7,11 +7,7 @@
     </div>
 {% endif %}
 {% if let Some(countdown) = countdown %}
-{% if let Some(width) = countdown.width %}
-      <div class="bot-control__status__bar" style="min-width:0.5rem; width: {{ width }}%" data-controller="progress-bar"{% if let Some(start) = countdown.start %} data-progress-bar-start-time-value="{{ start }}"{% endif %}{% if let Some(end) = countdown.end %} data-progress-bar-end-time-value="{{ end }}"{% endif %}></div>
-{% endif %}
-
-    <div class="bot-control__status__text {% if countdown.width.is_some() %}text-success{% endif %}" data-controller="countdown"{% if let Some(end) = countdown.end %} data-countdown-end-time-value="{{ end }}"{% endif %} data-countdown-hide-if-zero-value="true" data-countdown-days-label-value="{{ v.t("utils.days_short")|safe }}" data-countdown-hours-label-value="{{ v.t("utils.hours_short")|safe }}" data-countdown-minutes-label-value="{{ v.t("utils.minutes_short")|safe }}" data-countdown-seconds-label-value="{{ v.t("utils.seconds_short")|safe }}" data-marquee-target="text">
+    <div class="bot-control__status__text {% if countdown.scheduled %}text-success{% endif %}" data-controller="countdown"{% if let Some(end) = countdown.end %} data-countdown-end-time-value="{{ end }}"{% endif %} data-countdown-hide-if-zero-value="true" data-countdown-days-label-value="{{ v.t("utils.days_short")|safe }}" data-countdown-hours-label-value="{{ v.t("utils.hours_short")|safe }}" data-countdown-minutes-label-value="{{ v.t("utils.minutes_short")|safe }}" data-countdown-seconds-label-value="{{ v.t("utils.seconds_short")|safe }}" data-marquee-target="text">
 {% if let Some(prefix) = countdown.prefix %}
         {{ prefix }}
 {% endif %}

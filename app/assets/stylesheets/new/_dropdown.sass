@@ -91,6 +91,9 @@
                 height: 2.5rem
                 min-width: 2.5rem
                 fill: var(--concrete)
+        // The current venue's logo in the text's colour, as a select marks its chosen option.
+        .dropdown__item--current svg
+            fill: currentColor
     &--ticker
         width: 40rem
     &__search
@@ -157,12 +160,21 @@
             cursor: default !important
             &:hover
                 background: none !important
+        // The venue the trigger's logo stands for, written like the list under it. Not a choice.
+        &--current
+            padding-bottom: 1.5rem
+            cursor: default !important
+            &:hover
+                background: none !important
         // Why the menu has nothing to offer. Not a choice, so it takes none of the choosing
         // affordances — no hand, no hover.
         &--note
-            color: var(--stone)
+            color: var(--concrete)
             white-space: normal
             cursor: default !important
+            margin-bottom: 0.5rem
+            font-size: 1.5rem
+            line-height: 2rem
             &:hover
                 background: none !important
 

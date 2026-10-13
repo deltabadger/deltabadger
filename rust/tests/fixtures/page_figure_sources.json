@@ -5,7 +5,7 @@
   "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
   "app/models/bot/composition/redeployable.rb": "071908cf91e79b799b07c174c1e1eadd44a68f46ba193e8c2424ad5e009ef578",
   "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
-  "app/helpers/bot_helper.rb": "07c18a1356ba75618d7290e207716d08fb3dd2007a3d1c00642055dc87e55b01",
+  "app/helpers/bot_helper.rb": "300be82274ed74aee31a41a2570500b66d0312e54c2deb373b444b193222db34",
   "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",
   "app/views/bots/composition/_assets_table.html.erb": "a1e65803c32f640a9b88cbbed11238de3941f095368424b0f15745e0a220e0e4",
   "app/views/bots/composition/_locked_table.html.erb": "912c722a2c595e315bfaf98635eeab7adb7d8977521a200ecfca0af924a37065",

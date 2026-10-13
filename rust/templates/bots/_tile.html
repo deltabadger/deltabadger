@@ -25,7 +25,6 @@
                 <span hidden>{{ two }}</span>
               </span>
 {% endmatch %}
-            {{ tile.exchange_svg|safe }}
         </div>
       </div>
 {% if let Some(pnl) = tile.pnl %}
@@ -41,7 +40,11 @@
       {{ tile.label }}
     </div>
 </a>  <div class="bot-control">
-    {{ tile.bar|safe }}
-    {{ tile.button|safe }}
+    <div class="bot-control__row">
+        {{ tile.exchange_svg|safe }}
+      {{ tile.bar|safe }}
+      {{ tile.button|safe }}
+    </div>
+    {{ tile.progress|safe }}
   </div>
 </div>

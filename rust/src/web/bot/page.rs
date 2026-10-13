@@ -55,6 +55,7 @@ struct Show<'a> {
     other_bots: Vec<(String, String)>,
     menu: String,
     exchange_select: String,
+    progress_bar: String,
     status_bar: String,
     status_button: String,
     chart: String,
@@ -243,7 +244,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(),
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
             menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
-            status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, columns_id: bot.dom_id("columns"), working: bot.working(),
+            progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, columns_id: bot.dom_id("columns"), working: bot.working(),
             settings: settings::column(c, &forms)?, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
             bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !bot.has_orders && !activities,
@@ -287,10 +288,9 @@ struct ExchangeSelect<'a> {
     csrf: &'a str,
     path: String,
     param_key: &'static str,
-    exchange_name_id: String,
     exchange_svg: &'static str,
-    exchange_name: &'a str,
-    switchable: bool,
+    /// `bot.exchange.name.capitalize`, in the menu's first item.
+    exchange_name: String,
     can_reconnect: bool,
     exchange_note: Option<String>,
     other_exchanges: Vec<OtherExchange>,
@@ -313,8 +313,8 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
             None
         };
     Ok(ExchangeSelect { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), param_key: bot.param_key(),
-        exchange_name_id: bot.exchange.name_id(), exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: &bot.exchange.name,
-        switchable, can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges,
+        exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: capitalize(&bot.exchange.name),
+        can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges,
         needs_key: !bot.exchange.retired() && !bot.api_key_correct() }.render()?)
 }
 

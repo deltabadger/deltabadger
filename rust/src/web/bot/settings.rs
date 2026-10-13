@@ -45,6 +45,12 @@ fn disabled(on: bool) -> &'static str {
     if on { " disabled=\"disabled\"" } else { "" }
 }
 
+/// `disabled` on a field with an error: config/initializers/inline_form_errors.rb has Nokogiri write the tag again, and it
+/// writes a boolean attribute bare. A working bot's fields are disabled, and the start validation runs for it too.
+fn disabled_field(on: bool, invalid: bool) -> &'static str {
+    match (on, invalid) { (true, true) => " disabled", (on, _) => disabled(on) }
+}
+
 impl Forms<'_> {
     fn rejected(&self, field: &str) -> Option<String> {
         self.check?.rejected.get(field).map(rejected_value)
@@ -100,7 +106,7 @@ impl Forms<'_> {
         let options: Vec<String> = options.iter().map(|(label, value)| {
             format!("<option{} value=\"{}\">{}</option>", if value == selected { " selected" } else { "" }, escape(value), escape(label))
         }).collect();
-        format!("<select {SUBMIT_ON_CHANGE} name=\"{key}[{name}]\" id=\"{key}_{name}\" class=\" is-invalid\">{}</select>{}", options.join("\n"), error_line(message))
+        format!("<select {SUBMIT_ON_CHANGE}{} name=\"{key}[{name}]\" id=\"{key}_{name}\" class=\" is-invalid\">{}</select>{}", disabled_field(self.locked(), true), options.join("\n"), error_line(message))
     }
 
     /// The pill a select sits in: the chosen option's words, and the select over them.
@@ -115,7 +121,7 @@ impl Forms<'_> {
         let value = rejected.as_deref().or(value).map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
         let error = self.field_error(name);
         let class = if error.is_some() { " is-invalid" } else { "" };
-        let mut out = format!("<input {value}{extra}class=\"sinput numeric-input{class}\" step=\"{step}\" size=\"2\" {AUTOWIDTH} {NARROW}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />", disabled(locked));
+        let mut out = format!("<input {value}{extra}class=\"sinput numeric-input{class}\" step=\"{step}\" size=\"2\" {AUTOWIDTH} {NARROW}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />", disabled_field(locked, error.is_some()));
         if let Some(error) = error { out.push_str(&error_line(&error)); }
         out
     }
@@ -158,7 +164,7 @@ impl Forms<'_> {
         } else {
             // The number field carries the floor and its message.
             format!("<input {shown}min=\"{}\" class=\"sinput numeric-input{}\" step=\"any\" size=\"2\" {AUTOWIDTH}{message} {NARROW}{} type=\"number\" name=\"{key}[smart_interval_quote_amount]\" id=\"{key}_smart_interval_quote_amount\" />",
-                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled(self.locked()))
+                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some()))
         };
         if let Some(error) = error { field.push_str(&error_line(error)); }
         let sentence = self.t("bot.settings.smart_intervals.sentence_html", &[("amount_html", Arg::Html(&format!("<div>              {field}\n</div>"))), ("quote", Arg::Text(self.quote()))]);
@@ -214,13 +220,13 @@ impl Forms<'_> {
             let value = stored.unwrap_or_else(|| format!("{}T{default_time}", format::datetime_local(self.ctx.now, zone).split('T').next().unwrap_or("")));
             let error = self.check.and_then(|check| check.start_at);
             format!("<input value=\"{}\" class=\"sinput sinput--datetime{}\" {SUBMIT_ON_CHANGE}{} type=\"datetime-local\" name=\"{key}[start_at]\" id=\"{key}_start_at\" />{}", escape(&value),
-                    if error.is_some() { " is-invalid" } else { "" }, disabled(self.locked()),
+                    if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some()),
                     error.map(|kind| error_line(&i18n::text(self.ctx.locale, &format!("activerecord.errors.models.bot.attributes.start_at.{kind}"), &[]))).unwrap_or_default())
         } else {
             let value = bot.text("start_time_of_day").filter(|time| !time.trim().is_empty()).map_or_else(|| if mode == "hour" { "00:00".to_string() } else { default_time.clone() }, str::to_string);
             let error = self.check.is_some_and(|check| check.start_time_of_day);
             format!("<input value=\"{}\" class=\"sinput{}\" {SUBMIT_ON_CHANGE}{} type=\"time\" name=\"{key}[start_time_of_day]\" id=\"{key}_start_time_of_day\" />{}", escape(&value),
-                    if error { " is-invalid" } else { "" }, disabled(self.locked()),
+                    if error { " is-invalid" } else { "" }, disabled_field(self.locked(), error),
                     if error { error_line(&i18n::text(self.ctx.locale, "activerecord.errors.models.bot.attributes.start_time_of_day.invalid", &[])) } else { String::new() })
         };
         let active = bot.start_time_enabled();
@@ -534,7 +540,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
         format!("<input value=\"{}\" class=\"numeric-input\" step=\"any\" size=\"2\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[quote_amount]\" id=\"{key}_quote_amount\" />", escape(&amount), disabled(bot.working()), key = bot.param_key())
     };
     if let Some(error) = forms.field_error("quote_amount") {
-        amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"");
+        amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"").replace(" disabled=\"disabled\"", " disabled");
         amount_field.push_str(&error_line(&error));
     }
     let interval_value = bot.setting("interval").map(rejected_value).unwrap_or_default();

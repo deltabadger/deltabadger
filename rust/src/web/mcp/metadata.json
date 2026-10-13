@@ -1139,7 +1139,7 @@
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
     "app/models/transaction.rb": "31eee108cf8fe803956b92f0511dfac5bed5ebe2627a5ecf0c0916139cd393e1",
-    "app/models/bot.rb": "f237621521c8b57241d4659631f5e4443ee3f900587db8b13ff0e99f12482b28",
+    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
     "app/models/bots/dca_single_asset.rb": "cc544a798755cbbcf2fc65015c44a42fc4cfc8a789ad6a36ab7416f624259566",
     "app/models/bots/dca_multi_asset.rb": "eaf340245c57013eccf63e6bbe74a14794459e21a73e20920f1825f6a0ba6671",
     "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",

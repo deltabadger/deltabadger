@@ -601,7 +601,7 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     let headers = [("accept","text/vnd.turbo-stream.html")];
     let start = browser.send(&app,"PATCH",&format!("/bots/{bot}/start?start_fresh=true"),None,Csrf::Header,&headers).await;
     assert_eq!(start.status,200,"{}",start.body);
-    for target in ["status_bar", "status_button", "columns"] {
+    for target in ["status_bar", "progress_bar", "status_button", "tile_status_button", "columns"] {
         let event = next_event(&mut owner).await;
         let body = event["message"].as_str().ok_or("missing broadcast body")?;
         assert!(body.contains(&format!("{target}_bots_dca_multi_asset_{bot}")),"{body}");
@@ -616,7 +616,7 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     assert_eq!(next_event(&mut owner).await["message"],"action-test-marker");
     let stopped=browser.send(&app,"PATCH",&format!("/bots/{bot}/stop"),None,Csrf::Header,&headers).await;
     assert_eq!(stopped.status,200);
-    for target in ["status_bar", "status_button", "columns"] {
+    for target in ["status_bar", "progress_bar", "status_button", "tile_status_button", "columns"] {
         let event=next_event(&mut owner).await;
         let body=event["message"].as_str().ok_or("stopped broadcast")?;
         assert!(body.contains(&format!("{target}_bots_dca_multi_asset_{bot}")));
@@ -630,12 +630,24 @@ async fn action_committed_fragments_are_private_and_failures_and_noops_are_silen
     let continued=browser.send(&app,"PATCH",&format!("/bots/{bot}/start?start_fresh=false"),None,Csrf::Header,&headers).await;
     assert_eq!(continued.status,200,"{}",continued.body);
     // Continue defers its status bar until the engine consumes the scheduling request.
-    for target in ["status_button", "columns"] {
+    for target in ["status_button", "tile_status_button", "columns"] {
         let event=next_event(&mut owner).await;
         assert!(event["message"].as_str().ok_or("continue broadcast")?.contains(&format!("{target}_bots_dca_multi_asset_{bot}")));
     }
     app.hub.broadcast("user_1:bot_updates","continue-marker");
     assert_eq!(next_event(&mut owner).await["message"],"continue-marker");
+    // The engine takes the request (engine::run::continue_start): then the bars follow, as
+    // Bot::BroadcastAfterScheduledActionJob sends them once Rails' job is enqueued.
+    app.db(move |c| { c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_continue_start') WHERE id=?1",[bot])?; Ok(()) })
+        .await.map_err(|e|format!("{e:?}"))?;
+    for target in ["status_bar", "progress_bar"] {
+        let event = tokio::time::timeout(std::time::Duration::from_secs(10), next_event(&mut owner)).await.map_err(|_|format!("no {target} after the engine scheduled the continue"))?;
+        let body = event["message"].as_str().ok_or("scheduled broadcast")?;
+        assert!(body.contains(&format!("target=\"{target}_bots_dca_multi_asset_{bot}\"")),"{body}");
+        assert!(!body.contains("authenticity_token"));
+    }
+    app.hub.broadcast("user_1:bot_updates","scheduled-marker");
+    assert_eq!(next_event(&mut owner).await["message"],"scheduled-marker");
     owner.close(None).await?;
     other.close(None).await?;
     Ok(())

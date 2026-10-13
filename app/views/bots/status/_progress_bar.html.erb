@@ -1,0 +1,11 @@
+<%# Its own target, apart from the status text: the tile lays it under the text-and-button row, the bot
+    page inside the status pill. Replaced wherever the status bar is. %>
+<%= tag.div id: dom_id(bot, :progress_bar), class: "bot-control__progress" do %>
+  <% if bot.scheduled? && !bot.signal? %>
+    <%= tag.div class: "bot-control__progress__fill", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
+      controller: "progress-bar",
+      progress_bar_start_time_value: bot.progress_start_time&.iso8601,
+      progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
+    } %>
+  <% end %>
+<% end %>

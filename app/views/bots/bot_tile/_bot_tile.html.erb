@@ -45,9 +45,6 @@
           <% elsif bot.signal? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
             <span><%= bot.base_asset.symbol %></span>
           <% end %>
-          <% if bot.exchange.present? %>
-            <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
-          <% end %>
         </div>
       </div>
       <% if bot.dca_single_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal? %>
@@ -60,7 +57,13 @@
     </div>
   <% end %>
   <div class="bot-control">
-    <%= render "bots/status/status_bar", bot: bot %>
-    <%= render "bots/status/status_button", bot: bot %>
+    <div class="bot-control__row">
+      <% if bot.exchange.present? %>
+        <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
+      <% end %>
+      <%= render "bots/status/status_bar", bot: bot %>
+      <%= render "bots/status/status_button", bot: bot, tile: true %>
+    </div>
+    <%= render "bots/status/progress_bar", bot: bot %>
   </div>
 </div>

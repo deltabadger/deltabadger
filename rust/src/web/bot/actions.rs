@@ -20,7 +20,7 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>) -> 
                     None => Some(crate::web::mcp::reads::generated_label(c,user.id,id,class.as_deref().unwrap_or_default(),&serde_json::from_str(&settings).unwrap_or(serde_json::Value::Null),ctx.locale)?),
                 };
                 let prepared = action_view::lifecycle_response(c,ctx,id,action,state)?;
-                Ok(write::Prepared { response: (prepared.response,label), broadcasts: prepared.broadcasts })
+                Ok(write::Prepared { response: (prepared.response,label), broadcasts: prepared.broadcasts, after_scheduling: prepared.after_scheduling })
             })
         } else {
             write::settings(c,&view,user.id,id,&params,|c,ctx,draft| {
@@ -28,7 +28,7 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>) -> 
                 if draft.errors.iter().any(|error|error.field == "settings" && error.message == "missing or invalid bot parameter root") {
                     *prepared.response.status_mut() = StatusCode::BAD_REQUEST;
                 }
-                Ok(write::Prepared { response: (prepared.response,None), broadcasts: prepared.broadcasts })
+                Ok(write::Prepared { response: (prepared.response,None), broadcasts: prepared.broadcasts, after_scheduling: prepared.after_scheduling })
             })
         }
     }).await;

@@ -2,10 +2,14 @@
 
 .bot-control
     display: flex
-    gap: 0.5rem
-    margin-top: 1rem
+    gap: 1rem
+    margin-top: 2rem
     .flex-row
         gap: 0.5rem
+    .rbutton:not(.rbutton--small)
+        min-width: 9rem
+        &.rbutton--start
+            box-shadow: var(--shadow-strong)
     &__status
         overflow: hidden
         line-height: 4rem
@@ -29,26 +33,73 @@
             width: 100%
             overflow: hidden
             padding: 0 2rem
+            font-size: 1.5rem
             &__three-dots
                 width: 3rem
                 display: inline-block
-        &__bar
-            position: absolute
-            top: 0
-            left: 0
-            bottom: 0
-            height: 100%
-            opacity: 0.3
-            border-radius: 2rem
-            transition: width 0.5s linear // match "progress-bar" controller update interval
         &.active
-            .bot-control__status__bar
-                background: var(--grass)
-                font-weight: 600
             color: var(--grass)
+    // The bot page's pill: the progress fills it from behind the status text. The pill's look sits
+    // on this wrapper, because the progress is replaced apart from the text and so cannot be inside it.
+    // Not overflow: hidden — the exchange menu opens out of it; the progress clips itself.
+    &__meter
+        position: relative
+        display: flex
+        align-items: center
+        flex: 2
+        width: 0
+        min-width: 0
+        border-radius: 1rem
+        background: var(--washed)
+        box-shadow: var(--shadow-widget)
+        color: var(--label-select-inactive)
+        &:has(.bot-control__status.active)
+            color: var(--grass)
+        // No working key: Connect takes the status text's place, next to the logo.
+        &:has(.bot-control__connect) .bot-control__status
+            display: none
+        .bot-control__status
+            width: 0
+            background: none
+            box-shadow: none
+            &__text
+                padding-left: 1rem
+    // The exchange select is replaced on its own, so it is a form; display: contents lays its logo
+    // and Connect out as the meter's own items. Positioned, to paint over the progress.
+    &__exchange
+        display: contents
+        > .dropdown-wrapper
+            display: flex
+            align-items: center
+            align-self: stretch
+            padding-left: 1.5rem
+            > svg
+                width: 2.5rem
+                height: 2.5rem
+                fill: currentColor
+        > :not(.dropdown-wrapper)
+            position: relative
+            order: 1
+            flex: none
+            margin-right: 0.5rem
+        > .bot-control__connect
+            order: 0
+            margin: 0 0 0 1rem
+    &__progress
+        position: absolute
+        inset: 0
+        border-radius: inherit
+        overflow: hidden
+        opacity: 0.3
+        &__fill
+            height: 100%
+            border-radius: 1rem
+            background: var(--grass)
+            transition: width 0.5s linear // match "progress-bar" controller update interval
 
-.bot-control__status__text 
-    font-size: 1.5rem
+// The bot page's Start/Stop, full size: as wide as the old pill button was.
+.bot-control > [id$="_status_button"] .rbutton
+    min-width: 10rem
 
 turbo-cable-stream-source
     display: none !important
