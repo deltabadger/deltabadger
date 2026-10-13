@@ -650,12 +650,13 @@ async fn a_render_only_pass_overtaken_by_a_write_keeps_its_work() {
     until(10, "the English figures", async || published(&install.app, 1).await).await;
     // Armed now: the builder's next read of the orders (the French render-only pass) first sees a bot's settings change
     // committed by another connection, after `consume` read the fingerprint and before `keep` checks it.
-    let armed = Arc::new(AtomicBool::new(true));
-    let (trigger, file) = (armed.clone(), install.file.clone());
+    let (armed, written) = (Arc::new(AtomicBool::new(true)), Arc::new(AtomicBool::new(false)));
+    let (trigger, done, file) = (armed.clone(), written.clone(), install.file.clone());
     install.app.figure_service.on_builder(move |c| {
         c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
             if matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "transactions", .. }) && trigger.swap(false, SeqCst) {
                 rusqlite::Connection::open(&file).unwrap().execute("UPDATE bots SET label='renamed' WHERE id=1", []).unwrap();
+                done.store(true, SeqCst);
             }
             rusqlite::hooks::Authorization::Allow
         }));
@@ -663,7 +664,7 @@ async fn a_render_only_pass_overtaken_by_a_write_keeps_its_work() {
     let before = fills(&install.app, 1);
     let pages = install.app.clone();
     loading::enqueue_page(&pages, 1, "fr", "/fr");
-    until(10, "the write during the French pass", async || !armed.load(SeqCst)).await;
+    until(10, "the write during the French pass, committed", async || written.load(SeqCst)).await;
     // Nothing but the queue asks: the work it queued again finds the new revision, starts one fill that carries it, and
     // that fill ends in the publication.
     until(10, "the publication after the write", async || published(&install.app, 1).await).await;
@@ -680,13 +681,14 @@ async fn repeated_overtakes_never_lose_the_request() {
     until(10, "the English figures", async || published(&install.app, 1).await).await;
     // Eight writes, one as each computation on the builder begins (it reads the account's settings first): the French
     // pass, then every pass of every fill its retries start, is overtaken until they stop.
-    let writes = Arc::new(AtomicUsize::new(8));
-    let (left, file) = (writes.clone(), install.file.clone());
+    let (writes, committed) = (Arc::new(AtomicUsize::new(8)), Arc::new(AtomicUsize::new(0)));
+    let (left, done, file) = (writes.clone(), committed.clone(), install.file.clone());
     install.app.figure_service.on_builder(move |c| {
         c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
             if matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "users", column_name: "hide_balances" }) {
                 if let Ok(n) = left.fetch_update(SeqCst, SeqCst, |n| n.checked_sub(1)) {
                     rusqlite::Connection::open(&file).unwrap().execute("UPDATE bots SET label=?1 WHERE id=1", [format!("renamed {n}")]).unwrap();
+                    done.fetch_add(1, SeqCst);
                 }
             }
             rusqlite::hooks::Authorization::Allow
@@ -694,7 +696,7 @@ async fn repeated_overtakes_never_lose_the_request() {
     });
     let pages = install.app.clone();
     loading::enqueue_page(&pages, 1, "fr", "/fr");
-    until(20, "every write", async || writes.load(SeqCst) == 0).await;
+    until(20, "every write, committed", async || committed.load(SeqCst) == 8).await;
     until(20, "the publication after the last write", async || published(&install.app, 1).await).await;
     assert!(matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0)), "the French figures, after eight overtakes");
 }
