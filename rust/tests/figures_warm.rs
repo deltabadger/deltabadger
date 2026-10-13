@@ -871,3 +871,30 @@ async fn a_failing_render_only_pass_with_no_write_is_not_retried_in_a_loop() {
     assert_eq!(failures.len(), 1, "the failure is said once: {failures:?}");
     assert_eq!(fills(&install.app, 1), 1, "no fill: nothing was written");
 }
+
+#[tokio::test]
+async fn a_failed_render_only_pass_keeps_its_publication_for_the_next_fill() {
+    use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+    let install = Install::new(1, 0);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the English figures", async || published(&install.app, 1).await).await;
+    // The page's French pass fails against the unchanged revision (every computation on the builder fails while armed).
+    let armed = Arc::new(AtomicBool::new(true));
+    let failing = armed.clone();
+    install.app.figure_service.on_builder(move |c| {
+        c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+            if failing.load(SeqCst) && matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "users", column_name: "hide_balances" }) {
+                return rusqlite::hooks::Authorization::Deny;
+            }
+            rusqlite::hooks::Authorization::Allow
+        }));
+    });
+    loading::enqueue_page(&install.app, 1, "fr", "/fr");
+    until(10, "the failed French pass", async || install.app.figure_service.logged().iter().any(|line| line.contains("not rendered"))).await;
+    armed.store(false, SeqCst);
+    // A write, then a warm that asks no publication (as the tick and the scheduler do): its fill ends in the page's.
+    install.connection().execute("UPDATE bots SET label='renamed' WHERE id=1", []).unwrap();
+    install.app.figure_service.enqueue(1, Work { publish: false, locales: Default::default(), not_before: install.now() });
+    until(10, "the publication the failed pass owed", async || published(&install.app, 1).await).await;
+}
