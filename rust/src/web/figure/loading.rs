@@ -281,18 +281,30 @@ fn walk_reason(c:&Connection,user:i64)->Option<&'static str> {
     });
     matches!(fills,Err(crate::figures::FiguresError::NotComputed(ref why)) if why=="executed fill value unavailable").then_some("executed fill value unavailable")
 }
-/// The render-only pass: keys this ready cache has not kept are rendered from it, with no market request, and kept.
-fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collections::BTreeSet<(String,String)>)->Result<(),crate::figures::FiguresError> {
+/// What a render-only pass came to.
+enum Kept { Done, Overtaken, Failed(String) }
+/// The render-only pass: keys this ready cache has not kept are rendered from it, with no market request, each under a
+/// figure's budget of its own, and kept if no write overtook the pass. `Overtaken`: the revision moved, and a retry fills
+/// anew. `Failed`: a key could not be computed against the unchanged revision, which a retry would only repeat.
+fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collections::BTreeSet<(String,String)>)->Kept {
     let missing:Vec<&(String,String)>=keys.iter().filter(|(locale,prefix)|cache.kept(&kept_key(prepared,at,locale,prefix)).is_none()).collect();
-    if missing.is_empty() { return Ok(()); }
-    budget::within(||{
-        let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(symbols(c,user)?);
-        let mut out=vec![];
-        for (locale,prefix) in missing { out.push((kept_key(prepared,at,locale,prefix),super::kept_account(c,user,&reader,at,locale,prefix)?)); }
-        if reader.failed() || !reader.demands().is_empty() || revision(c,user)?.0!=prepared { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
-        for (key,rendered) in out { cache.keep(key,kept_value(rendered)); }
-        Ok(())
-    })
+    if missing.is_empty() { return Kept::Done; }
+    let names=match symbols(c,user) { Ok(names)=>names, Err(e)=>return Kept::Failed(format!("{e:?}")) };
+    let (mut out,mut failed)=(vec![],vec![]);
+    for (locale,prefix) in missing {
+        let (rendered,_)=budget::scope(budget::FIGURE,||{
+            let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(names.clone());
+            let rendered=super::kept_account(c,user,&reader,at,locale,prefix)?;
+            if reader.failed() || !reader.demands().is_empty() { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
+            Ok(rendered)
+        });
+        match rendered { Ok(rendered)=>out.push((kept_key(prepared,at,locale,prefix),rendered)), Err(e)=>failed.push(format!("{locale}: {e:?}")) }
+    }
+    match revision(c,user) {
+        Ok((now,_)) if now!=prepared=>Kept::Overtaken,
+        Ok(_)=>{ for (key,rendered) in out { cache.keep(key,kept_value(rendered)); } if failed.is_empty() { Kept::Done } else { Kept::Failed(failed.join("; ")) } }
+        Err(e)=>Kept::Failed(format!("{e:?}")),
+    }
 }
 /// The MCP caller needs only readiness; the page caller retains a safe reason from computation.
 pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->bool+Clone+Send+'static)->bool {
@@ -536,7 +548,8 @@ async fn consume(app:&App,user:i64,mut work:Work) {
         Ok(None)=>{
             let now=app.now().timestamp();
             let read=build(app,move|c|Ok((revision(c,user)?.0,walk_reason(c,user)))).await;
-            let Ok((revision,reason))=read else { app.figure_service.enqueue(user,work); return; };
+            // The builder could not read: tried again a second on, as a failed account read is.
+            let Ok((revision,reason))=read else { work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; };
             app.figure_service.set_unkeyed(user,revision,now.saturating_add(300-now.rem_euclid(300)),reason);
             // A write after the fingerprint was read, or the cut while the reason was read: the page would find it cold,
             // and no fill ends to publish for this account. The work is queued again and reads it anew.
@@ -550,13 +563,18 @@ async fn consume(app:&App,user:i64,mut work:Work) {
         Load::Ready(cache,_,_)=>{
             let at=cache.stamp().unwrap_or(now);
             let (publish,mut keys,revision)=(work.publish,work.locales.clone(),info.revision);
-            let kept=build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys).is_ok()) }).await.unwrap_or(false); // allow-swallow: an unkept pass is retried below
-            // A write overtook the pass (or it could not read): the work is queued again. Its retry finds the new revision
-            // and starts a fill that carries it, and a fill a write overtakes queues it again too (`spawn_fill`): the work
-            // ends in a fill that no write overtook.
-            if !kept { work.not_before=now.utc().timestamp(); app.figure_service.enqueue(user,work); return; }
-            // Published only once its own key is kept: a publication never computes.
-            if publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); }
+            match build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys)) }).await {
+                // Published only once its own key is kept: a publication never computes.
+                Ok(Kept::Done)=>if publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); },
+                // A write overtook the pass: the work is queued again. Its retry finds the new revision and starts a fill
+                // that carries it, and a fill a write overtakes queues it again too (`spawn_fill`): the work ends in a fill
+                // that no write overtook.
+                Ok(Kept::Overtaken)=>{ work.not_before=now.utc().timestamp(); app.figure_service.enqueue(user,work); }
+                // Nothing moved, so a retry would compute the same: said once, and left to the next fill (a write, the cut).
+                Ok(Kept::Failed(why))=>app.figure_service.note(&format!("figures: account {user}: keys not rendered from its ready figures: {why}")),
+                // The builder could not run: tried again a second on.
+                Err(_)=>{ work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); }
+            }
         }
         Load::Start(ticket,cache)=>spawn_fill(app,user,info,now,ticket,cache,Some(work)),
         Load::Cold=>app.figure_service.enqueue(user,work),
