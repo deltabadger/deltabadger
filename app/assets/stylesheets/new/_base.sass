@@ -221,7 +221,7 @@ ol, ul
         left: 0
         right: 0
         top: var(--dash-height)
-        border-bottom: 0.1rem solid var(--steel)
+        border-bottom: 0.125rem solid var(--steel)
     // The wait, drawn as the zero line itself: same place, same weight, with a light running
     // along it. Above the rule (which is a later sibling in paint order) because it stands in
     // for it rather than beside it.
@@ -231,8 +231,8 @@ ol, ul
         left: 0
         right: 0
         top: var(--dash-height)
-        height: 0.1rem
-        background: linear-gradient(90deg, var(--steel) 40%, var(--ink) 50%, var(--steel) 60%)
+        height: 0.125rem
+        background: linear-gradient(90deg, var(--steel) 40%, var(--link) 50%, var(--steel) 60%)
         background-size: 300% 100%
         animation: dash-axis-sweep 1.6s linear infinite
         @media (prefers-reduced-motion: reduce)
