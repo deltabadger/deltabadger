@@ -14,6 +14,6 @@
   "app/jobs/portfolio_snapshot/backfill_job.rb": "3a455b2af85e35a26c2c749646188c28fa3c7c45fa2251a042d0bf6030a00dd7",
   "app/models/historical_price.rb": "ccc44037596cc79971be880f2c4d86d13e3d7a5871e9d488b9e82a4615c76da1",
   "app/models/fx_rate.rb": "cffdc9eee8123ed95c3fcc41b9cfdf44250f9ae529628465a7aa2557ccddb18b",
-  "script/rust/tracker.rb": "45017f4ba55d44256a2643a05dfaa8ff280533d52331b15dad311159a21f0226",
-  "script/rust/tracker_on_copy.rb": "a21523c9a4094ea9552ba731a0a31632c8a7ab60b0f4616a7083ada4ad7ff96e"
+  "script/rust/tracker.rb": "9a7fdf8a01a5313d06c8dc5e6f1eb17fac84e9f1c63b24b40fd359919161221e",
+  "script/rust/tracker_on_copy.rb": "142392f82480e9a5f76d2c25024ee800170ae0cbf2ec73f944c90593449e58f5"
 }

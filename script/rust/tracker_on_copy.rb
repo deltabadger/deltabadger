@@ -1,7 +1,9 @@
 # The Rails half of the tracker check on a copy of an instance (rust/tests/tracker_on_copy.rs is the Rust half):
 # Tracker::LedgerJob on a scratch copy at a frozen time, with data-api and the ECB scripted (every price answer empty,
 # the ECB and the Bundesbank unavailable), then the scopes, today's snapshot rows and the requests, as JSON.
-#   bin/rails runner script/rust/tracker_on_copy.rb <copy dir> <user id> <ISO time> <out.json>
+#   bin/rails runner script/rust/tracker_on_copy.rb <copy dir> <user id> <ISO time> <out.json> [backfill]
+# With `backfill`, PortfolioSnapshot::BackfillJob runs after the ledger job, and every day of both tables is reported,
+# beside the days the copy held before.
 # Run from a clean export with RAILS_ENV=test, every *_DATABASE_URL pointing at scratch files, TZ=UTC. The copy is
 # written to (today's rows, the cache); its `market_data_provider` setting is removed first, on both halves, so the
 # provider is the scripted data-api and no encrypted setting is read. No key is decrypted.
@@ -45,7 +47,7 @@ end
 
 Net::HTTP.prepend(Module.new { def connect = raise(CopyHarness::Unscripted, "real connection to #{address}:#{port}") })
 
-dir, user_id, at, out = ARGV
+dir, user_id, at, out, mode = ARGV
 raise ArgumentError, 'usage: <copy dir> <user id> <ISO time> <out.json>' unless out
 
 [:net_http_persistent, :net_http, Faraday.default_adapter].uniq.each do |name|
@@ -75,20 +77,25 @@ def raw(value) = value.is_a?(Float) ? { 'f' => [value].pack('G').unpack1('H*') }
 
 user = User.find(user_id)
 time = Time.iso8601(at)
+dump = lambda do |where|
+  { 'portfolio_snapshots' => 'date', 'portfolio_venue_snapshots' => 'exchange_id, date' }.to_h do |table, order|
+    rows = ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} WHERE #{where} ORDER BY #{order}").to_a
+    [table, rows.map { |r| r.except('id', 'created_at', 'updated_at').transform_values { |v| raw(v) } }]
+  end
+end
+before = dump.call('1 = 1') if mode == 'backfill'
 error = nil
 scopes = nil
 extend ActiveSupport::Testing::TimeHelpers
 travel_to(time) do
   Tracker::LedgerJob.perform_now(user.id)
   scopes = Rails.cache.read(Tracker::Ledger.send(:cache_key, user))
+  PortfolioSnapshot::BackfillJob.perform_now(user.id) if mode == 'backfill'
 rescue StandardError => e
   error = "#{e.class}: #{e.message}"
 end
 today = time.utc.to_date.to_s
-tables = { 'portfolio_snapshots' => 'date', 'portfolio_venue_snapshots' => 'exchange_id, date' }.to_h do |table, order|
-  rows = ActiveRecord::Base.connection.select_all("SELECT * FROM #{table} WHERE date = '#{today}' ORDER BY #{order}").to_a
-  [table, rows.map { |r| r.except('id', 'created_at', 'updated_at').transform_values { |v| raw(v) } }]
-end
-report = { 'error' => error, 'tables' => tables, 'requests' => CopyHarness.requests,
+tables = dump.call(mode == 'backfill' ? '1 = 1' : "date = '#{today}'")
+report = { 'error' => error, 'tables' => tables, 'before' => before, 'requests' => CopyHarness.requests,
            'whole' => scopes && summary(scopes[nil]), 'venues' => scopes && scopes.except(nil).sort.to_h { |id, s| [id.to_s, summary(s)] } }
 File.write(out, JSON.pretty_generate(report))

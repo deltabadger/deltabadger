@@ -146,11 +146,11 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     let ecb = super::fx::Source::Scripted(ecb_script.clone());
     let api = DataApi::new(Config { url: "http://data-api:3000".into(), token: "parity-token".into() }, market.clone(), market.clone());
     let clock = FixedClock(at);
-    let (ledger, ledger_error) = match super::jobs::ledger_run(&db, Some(&api), Some(&ecb), user_id, &clock, std::sync::Arc::new(move || at), &mut super::jobs::Allowance::run()).await {
+    let (ledger, ledger_error) = if scenario["backfill_only"] == true { (Value::Null, Value::Null) } else { match super::jobs::ledger_run(&db, Some(&api), Some(&ecb), user_id, &clock, std::sync::Arc::new(move || at), &mut super::jobs::Allowance::run()).await {
         // The figures read the balances, which the job's writes leave as they were.
         Ok(walked) => (db.run(move |c, _| report(c, user_id, &walked, at.date_naive()).map_err(super::jobs::message)).await?, Value::Null),
         Err(e) => (Value::Null, json!(e)),
-    };
+    } };
     let backfill_error = match super::jobs::backfill_run(&db, &Scripted(alpaca.clone()), Some(&api), Some(&ecb), user_id, &clock).await { Ok(_) => Value::Null, Err(e) => json!(e) };
     let tables = db.run(move |c, cipher| tables(c, cipher, user_id)).await?;
     Ok(json!({ "ledger": ledger, "ledger_error": ledger_error, "backfill_error": backfill_error, "tables": tables,

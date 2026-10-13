@@ -13,7 +13,7 @@
 //! The walk takes every venue's rows as Rails does: swaps, fees carried on rows, other cash at the ECB's rates, transfers
 //! between venues, the funding a venue that does not lend cash never reported. A price nobody has is a zero and the
 //! figure is marked incomplete, as Rails marks it. Refused, with the reason: a walk that needs a price from CoinGecko
-//! (this build fetches from data-api only), and a backfill outside D4a's sweep (one Alpaca account in dollars).
+//! (this build fetches from data-api only), and a stock's closes from a venue other than Alpaca.
 pub mod backfill;
 pub mod figures;
 pub mod fx;

@@ -1,8 +1,8 @@
 //! The Rust half of the tracker check on a copy of an instance (script/rust/tracker_on_copy.rb is the Rails half):
 //! `tracker_ledger`'s run on a scratch copy at a frozen time, with data-api and the ECB scripted exactly as the Rails half
 //! scripts them (every price answer empty, the ECB and the Bundesbank unavailable), then the scopes, today's snapshot
-//! rows and the requests, as JSON; then the backfill's run, which must refuse (Plan D2b-2a) and leave every earlier day
-//! and both history stamps exactly as they were.
+//! rows and the requests, as JSON. With `TRACKER_COPY_MODE=backfill`, the backfill's run follows, as the Rails half's
+//! does, and every day of both tables is reported beside the days the copy held before.
 //!
 //! Ignored unless asked for: `TRACKER_COPY=<dir> TRACKER_COPY_USER=<id> TRACKER_COPY_AT=<ISO time> cargo test --test
 //! tracker_on_copy -- --ignored`. It writes `<dir>/rust.json`. The copy is written to; no key is decrypted.
@@ -31,18 +31,9 @@ fn rows(c: &Connection, table: &str, filter: &str, order: &str) -> Vec<Value> {
     out
 }
 
-fn history(c: &Connection, user: i64, today: &str) -> Value {
-    let stamps: Vec<(String, Option<String>)> = c.prepare("SELECT key, value FROM app_configs WHERE key IN (?1, ?2) ORDER BY key").unwrap()
-        .query_map([format!("snapshot_history_version_{user}"), format!("snapshot_price_generation_{user}")], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
-        .collect::<Result<_, _>>().unwrap();
-    json!({ "whole": rows(c, "portfolio_snapshots", &format!("user_id = {user} AND date < '{today}'"), "date"),
-            "venues": rows(c, "portfolio_venue_snapshots", &format!("user_id = {user} AND date < '{today}'"), "exchange_id, date"),
-            "stamps": stamps })
-}
-
 #[tokio::test(flavor = "current_thread")]
 #[ignore]
-async fn the_ledger_job_on_a_copy_states_rails_figures_and_the_backfill_leaves_history_alone() {
+async fn the_tracker_jobs_on_a_copy() {
     let dir = PathBuf::from(env("TRACKER_COPY"));
     let user: i64 = env("TRACKER_COPY_USER").parse().unwrap();
     let at: chrono::DateTime<chrono::Utc> = env("TRACKER_COPY_AT").parse().unwrap();
@@ -50,7 +41,10 @@ async fn the_ledger_job_on_a_copy_states_rails_figures_and_the_backfill_leaves_h
     let path = dir.join("production.sqlite3");
     let c = Connection::open(&path).unwrap();
     c.execute("DELETE FROM app_configs WHERE key = 'market_data_provider'", []).unwrap();
-    let before = history(&c, user, &today);
+    let backfill_mode = std::env::var("TRACKER_COPY_MODE").ok().as_deref() == Some("backfill");
+    let all_rows = |c: &Connection| json!({ "portfolio_snapshots": rows(c, "portfolio_snapshots", "1 = 1", "date"),
+                                            "portfolio_venue_snapshots": rows(c, "portfolio_venue_snapshots", "1 = 1", "exchange_id, date") });
+    let before = if backfill_mode { all_rows(&c) } else { Value::Null };
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "tracker-on-copy").unwrap());
     let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), cipher);
     let market = ScriptedTransport::from_script(&json!({ "GET /api/v1/historical_prices": [{ "status": 200, "body": { "prices": [] } }] }));
@@ -70,13 +64,17 @@ async fn the_ledger_job_on_a_copy_states_rails_figures_and_the_backfill_leaves_h
         }
         Err(e) => (json!(e), Value::Null, Value::Null),
     };
+    let mut error = error;
+    if backfill_mode && error == Value::Null {
+        let backfill = jobs::backfill_run(&db, &deltabadger::venue::alpaca::LiveFactory::new(), Some(&api), Some(&ecb), user, &clock).await;
+        println!("backfill: {backfill:?}");
+        if let Err(e) = backfill { error = json!(e); }
+    }
     let c = Connection::open(&path).unwrap();
-    let tables = json!({ "portfolio_snapshots": rows(&c, "portfolio_snapshots", &format!("date = '{today}'"), "date"),
-                         "portfolio_venue_snapshots": rows(&c, "portfolio_venue_snapshots", &format!("date = '{today}'"), "exchange_id, date") });
-    let report = json!({ "error": error, "tables": tables, "requests": { "market": parity::logged(&market), "ecb": parity::logged(&ecb_t) }, "whole": whole, "venues": venues });
+    let tables = if backfill_mode { all_rows(&c) } else {
+        json!({ "portfolio_snapshots": rows(&c, "portfolio_snapshots", &format!("date = '{today}'"), "date"),
+                "portfolio_venue_snapshots": rows(&c, "portfolio_venue_snapshots", &format!("date = '{today}'"), "exchange_id, date") })
+    };
+    let report = json!({ "error": error, "tables": tables, "before": before, "requests": { "market": parity::logged(&market), "ecb": parity::logged(&ecb_t) }, "whole": whole, "venues": venues });
     std::fs::write(dir.join("rust.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
-    let backfill = jobs::backfill_run(&db, &deltabadger::venue::alpaca::LiveFactory::new(), Some(&api), Some(&ecb), user, &clock).await;
-    println!("backfill: {backfill:?}");
-    assert!(backfill.as_ref().is_err_and(|e| e.starts_with("the tracker backfill is not ported for ")), "{backfill:?}");
-    assert_eq!(history(&c, user, &today), before, "the refused backfill changed an earlier day or a stamp");
 }
