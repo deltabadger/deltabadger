@@ -291,7 +291,8 @@ fn normalize(weights: &mut Map<String, Value>) -> Result<(), WebError> {
     Ok(())
 }
 
-fn sentence(messages: &[&str], locale: &str) -> String {
+/// `Array#to_sentence` in the locale's connectors.
+pub(crate) fn sentence(messages: &[&str], locale: &str) -> String {
     let connector = |key: &str, fallback: &str| {
         let value = i18n::text(locale, key, &[]);
         if value.starts_with("Translation missing:") { fallback.to_owned() } else { value }

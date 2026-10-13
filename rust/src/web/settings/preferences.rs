@@ -29,9 +29,6 @@ pub const ACTIONS: [&str; 6] = [
     "update_email_notifications",
 ];
 
-/// User::DISPLAY_CURRENCIES.
-const CURRENCIES: [&str; 5] = ["USD", "EUR", "GBP", "CHF", "PLN"];
-
 /// SettingsController::REDACTED: a stored secret as the page shows it; submitted back, it keeps what is stored.
 const REDACTED: &str = "[redacted]";
 
@@ -45,13 +42,27 @@ fn back(app: &App, ctx: &Ctx, headers: &HeaderMap, fallback: &str) -> Response {
     layout::redirect(StatusCode::SEE_OTHER, &destination)
 }
 
-/// A user's boolean column set to `on`, written only when it changes (an unchanged attribute is not saved).
-fn switch(c: &Connection, app: &App, user: i64, column: &str, on: bool) -> Result<(), WebError> {
-    c.execute(
-        &format!("UPDATE users SET {column}=?1,updated_at=?2 WHERE id=?3 AND {column} IS NOT ?1"),
-        (on, format_time(app.now()), user),
-    )?;
-    Ok(())
+/// A save of the user's row as ActiveRecord runs it: `write` changes the candidate (and writes nothing when the value is
+/// unchanged), then User#valid? runs on it even when nothing changed. An invalid user is rolled back, and its messages
+/// (i18n keys, in the model's order) returned.
+fn save(c: &Connection, owner: i64, write: impl FnOnce(&Connection) -> Result<(), WebError>) -> Result<Vec<&'static str>, WebError> {
+    let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+    write(&tx)?;
+    let errors = crate::web::user::save_errors(&tx, owner)?;
+    if errors.is_empty() { tx.commit()?; } else { tx.rollback()?; }
+    Ok(errors)
+}
+
+/// `update!` of a column: written only when it changes; an invalid user raises ActiveRecord::RecordInvalid.
+fn update_bang(c: &Connection, app: &App, user: i64, column: &str, value: &dyn rusqlite::ToSql) -> Result<(), WebError> {
+    let errors = save(c, user, |tx| {
+        tx.execute(
+            &format!("UPDATE users SET {column}=?1,updated_at=?2 WHERE id=?3 AND {column} IS NOT ?1"),
+            (value, format_time(app.now()), user),
+        )?;
+        Ok(())
+    })?;
+    if errors.is_empty() { Ok(()) } else { Err(WebError::RecordInvalid) }
 }
 
 pub async fn write(app: App, ctx: Ctx, headers: HeaderMap) -> Result<Response, WebError> {
@@ -81,22 +92,28 @@ async fn display_currency(app: App, ctx: Ctx, headers: HeaderMap, user: User) ->
     }
     if let Some(value) = ctx.params.form("user[display_currency]") {
         let code = if crate::ruby::blank(value) { "USD".to_string() } else { value.to_uppercase() };
-        if !CURRENCIES.contains(&code.as_str()) {
-            // render_preference_error.
-            let markup = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, ctx.t("errors.messages.inclusion"))]))?;
+        let inner = app.clone();
+        // The candidate is written inside the save, so its inclusion is judged where the model judges it.
+        let errors = app
+            .db(move |c| {
+                save(c, user.id, |tx| {
+                    tx.execute(
+                        "UPDATE users SET display_currency=?1,updated_at=?2 WHERE id=?3 AND display_currency IS NOT ?1",
+                        (&code, format_time(inner.now()), user.id),
+                    )?;
+                    Ok(())
+                })
+            })
+            .await?;
+        if !errors.is_empty() {
+            // render_preference_error: `errors.messages.values.flatten.to_sentence`.
+            let messages: Vec<String> = errors.iter().map(|key| ctx.t(key)).collect();
+            let text = crate::web::bot::draft::sentence(&messages.iter().map(String::as_str).collect::<Vec<_>>(), ctx.locale);
+            let markup = flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?;
             let mut response = stream(turbo::prepend_flash(markup.trim_end()));
             *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
             return Ok(response);
         }
-        let inner = app.clone();
-        app.db(move |c| {
-            c.execute(
-                "UPDATE users SET display_currency=?1,updated_at=?2 WHERE id=?3 AND display_currency IS NOT ?1",
-                (&code, format_time(inner.now()), user.id),
-            )?;
-            Ok(())
-        })
-        .await?;
     }
     flash::set(&ctx.session, flash::NOTICE, ctx.t("settings.language_and_timezone.currency_updated"));
     Ok(back(&app, &ctx, &headers, "/bots"))
@@ -107,7 +124,7 @@ async fn display_currency(app: App, ctx: Ctx, headers: HeaderMap, user: User) ->
 async fn hide_balances(app: App, ctx: Ctx, headers: HeaderMap, user: User) -> Result<Response, WebError> {
     let on = ctx.params.form("hide_balances") == Some("1");
     let inner = app.clone();
-    app.db(move |c| switch(c, &inner, user.id, "hide_balances", on)).await?;
+    app.db(move |c| update_bang(c, &inner, user.id, "hide_balances", &on)).await?;
     // turbo_stream_refresh_tag(request_id: Turbo.current_request_id): the X-Turbo-Request-Id header, when present.
     let request_id = headers
         .get("x-turbo-request-id")
@@ -126,8 +143,7 @@ async fn show_cash(app: App, ctx: Ctx, headers: HeaderMap, user: User) -> Result
     let on = if ctx.params.form("show_cash") == Some("1") { "true" } else { "false" };
     let inner = app.clone();
     app.db(move |c| {
-        let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
-        let stored: Option<String> = tx.query_row("SELECT tracker_settings FROM users WHERE id=?1", [user.id], |r| r.get(0))?;
+        let stored: Option<String> = c.query_row("SELECT tracker_settings FROM users WHERE id=?1", [user.id], |r| r.get(0))?;
         let parsed = match stored.as_deref() {
             None => wire::Node::Object(vec![]),
             Some(text) => wire::read(text, &mut wire::Budget(usize::MAX), None)
@@ -140,17 +156,18 @@ async fn show_cash(app: App, ctx: Ctx, headers: HeaderMap, user: User) -> Result
             _ => return Err(WebError::Config("users.tracker_settings is not an object".into())),
         };
         let value = wire::Node::Scalar(on.into());
-        match members.iter_mut().find(|(key, _)| key == "show_cash") {
-            Some((_, old)) if *old == value => return Ok(()),
-            Some((_, old)) => *old = value,
-            None => members.push(("show_cash".into(), value)),
-        }
-        tx.execute(
-            "UPDATE users SET tracker_settings=?1,updated_at=?2 WHERE id=?3",
-            (wire::Node::Object(members).stored(), format_time(inner.now()), user.id),
-        )?;
-        tx.commit()?;
-        Ok(())
+        let changed = match members.iter_mut().find(|(key, _)| key == "show_cash") {
+            Some((_, old)) if *old == value => false,
+            Some((_, old)) => { *old = value; true }
+            None => { members.push(("show_cash".into(), value)); true }
+        };
+        let stored = wire::Node::Object(members).stored();
+        let errors = save(c, user.id, |tx| {
+            if changed { tx.execute("UPDATE users SET tracker_settings=?1,updated_at=?2 WHERE id=?3", (&stored, format_time(inner.now()), user.id))?; }
+            Ok(())
+        })?;
+        // update!: an invalid user raises.
+        if errors.is_empty() { Ok(()) } else { Err(WebError::RecordInvalid) }
     })
     .await?;
     Ok(back(&app, &ctx, &headers, "/tracker"))
@@ -161,7 +178,7 @@ async fn advanced_bots(app: App, ctx: Ctx, user: User) -> Result<Response, WebEr
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let widget = app
         .db(move |c| {
-            switch(c, &inner, user.id, "advanced_bots_enabled", on)?;
+            update_bang(c, &inner, user.id, "advanced_bots_enabled", &on)?;
             view::advanced(&v, &csrf, on)
         })
         .await?;
