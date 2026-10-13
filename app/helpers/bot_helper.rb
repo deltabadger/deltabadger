@@ -1,10 +1,10 @@
 module BotHelper
   # The bot page's Start/Stop and the tile's are separate targets (see the partial): replace both.
   def status_button_streams(bot)
-    safe_join([
+    safe_join [
       turbo_stream.replace(dom_id(bot, :status_button), partial: 'bots/status/status_button', locals: { bot: bot }),
       turbo_stream.replace(dom_id(bot, :tile_status_button), partial: 'bots/status/status_button', locals: { bot: bot, tile: true })
-    ])
+    ]
   end
 
   def bot_intervals_select_options
