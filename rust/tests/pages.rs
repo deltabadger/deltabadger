@@ -502,6 +502,20 @@ fn unknown_origin_ring(name: &str, rails: &Value, rust: &Value) -> Option<Result
     })())
 }
 
+/// ActiveRecord::RecordInvalid raised by a settings write (`update!` on a user the model rejects): Rails' test
+/// environment answers 422 with its debugging page, production with public/422.html, which is this crate's answer,
+/// made below the controllers. Rails' recorded rows and broadcasts are kept and compared as they are.
+fn as_record_invalid(answer: &mut Value) {
+    if answer["exception"]["class"] != "ActiveRecord::RecordInvalid" || answer["status"] != 422 { return; }
+    let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/422.html").expect("public/422.html is embedded").body));
+    answer["body"] = json!(page);
+    answer["headers"] = json!({
+        "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
+        "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
+    });
+    answer.as_object_mut().unwrap().remove("exception");
+}
+
 /// A listed divergence of the `settings_pref_regenerate*` scenarios: the personal REST token and the personal
 /// application's uid are random on either side. Each recorded step's revealed token must be the one live
 /// token of its own side's rows, every token 64 hex digits, the uid and secret present; then they read as placeholders.
@@ -633,6 +647,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             }
         }
         let mut rails = rails;
+        if name.starts_with("settings_") {
+            for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
+        }
         if name.starts_with("settings_pref_regenerate") {
             if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
                 failures.push(format!("{name} (listed divergence): {message}"));
@@ -650,9 +667,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 41, "complete S1 inventory, D5b's connect flow and the preference writes");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 50, "complete S1 inventory, D5b's connect flow and the preference writes");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 161, "action inventory");
-        assert_eq!(dirs.len(), 160 + 4 + 161 + 413 + 3 + 45 + 41, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 161 + 413 + 3 + 45 + 50, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }

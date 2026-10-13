@@ -753,6 +753,12 @@ module Pages
           elsif exception
             raise exception
           end
+        elsif step['rails_exception_status']
+          # A settings write where Rails raises (update! on an invalid user): the test environment's debugging page.
+          exception = request_exception
+          raise "#{dir} step #{index}: expected Rails exception #{step['rails_exception_status']}, got #{response.status}, #{exception.inspect}" unless exception && response.status == step['rails_exception_status']
+          answer['exception'] = { 'class' => exception.class.name, 'message' => exception.message }
+          answer['body'] = ''
         end
         answer['settings_rows'] = settings_rows if step['settings_snapshot']
         answer['broadcasts'] = broadcasts if step['broadcasts']

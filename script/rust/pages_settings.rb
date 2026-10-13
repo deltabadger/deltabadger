@@ -476,6 +476,26 @@ module Pages
     grid['settings_pref_email_nonadmin'] =
       settings_case(email.call({ 'smtp_provider' => 'env_smtp' }, 403), user: owner('admin' => false))
 
+    # A stored attribute the model rejects (here a wash-sale jurisdiction no form offers) fails every save of the user,
+    # changed or not: the currency answers render_preference_error, the update! actions raise ActiveRecord::RecordInvalid
+    # before anything is written or broadcast.
+    invalid = owner('wash_sale_jurisdiction' => 'ZZ')
+    raised = { 'expect' => 422, 'rails_exception_status' => 422 }
+    # Signed in from the connect page, which neither draws the jurisdiction nor writes anything.
+    on_invalid = ->(step, user = invalid) { { 'user' => user, 'steps' => [get('/login'), login, get('/settings/connect'), step] } }
+    grid['settings_pref_invalid_stored_currency'] = on_invalid.call(currency.call('EUR', 422))
+    grid['settings_pref_invalid_stored_currency_unchanged'] = on_invalid.call(currency.call('USD', 422))
+    grid['settings_pref_invalid_stored_currency_both'] = on_invalid.call(currency.call('XYZ', 422))
+    grid['settings_pref_invalid_stored_hide'] = on_invalid.call(hide.call({ 'hide_balances' => '1' }, raised))
+    grid['settings_pref_invalid_stored_hide_unchanged'] = on_invalid.call(hide.call({ 'hide_balances' => '0' }, raised))
+    grid['settings_pref_invalid_stored_cash'] = on_invalid.call(cash.call('1', raised))
+    grid['settings_pref_invalid_stored_cash_unchanged'] =
+      on_invalid.call(cash.call('1', raised), invalid.merge('tracker_settings' => { 'show_cash' => true }))
+    grid['settings_pref_invalid_stored_advanced'] =
+      on_invalid.call(pref.call('update_advanced_bots', { 'enabled' => '1' }, 422, raised))
+    grid['settings_pref_invalid_stored_advanced_unchanged'] =
+      on_invalid.call(pref.call('update_advanced_bots', { 'enabled' => '0' }, 422, raised))
+
     # The personal REST token: rust/tests/pages.rs compares its random values as placeholders, once each side's revealed
     # token is that side's one live token.
     regenerate = lambda do |path = '/settings/regenerate_api_token'|
