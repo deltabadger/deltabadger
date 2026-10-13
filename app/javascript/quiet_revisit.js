@@ -76,13 +76,12 @@ function settle(node, next) {
     return sameAttributes(node, next, ["connected"]) ? "keep" : "swap";
   }
   if (node.localName === "turbo-frame") {
-    const src = next.getAttribute("src");
+    // The server says this frame still has to load: what a past load left in it is no proof of
+    // what it would load now (fresh figures, balances hidden since), so it loads again.
+    if (next.hasAttribute("src")) return "swap";
     // The server's frame has nothing to load: a src left behind by a past navigation (the bot
     // switcher, a chart that came through its lazy frame) is history, and dropping it loads nothing.
-    if (!src) return node.hasAttribute("data-controller") ? swapUnlessEqual(node, next) : "morph";
-    // Already showing what that src loads: keep it rather than fall back to the placeholder.
-    if (node.hasAttribute("complete") && sameURL(node.getAttribute("src"), src)) return "keep";
-    return "swap";
+    return node.hasAttribute("data-controller") ? swapUnlessEqual(node, next) : "morph";
   }
   if (node.hasAttribute("data-controller")) return swapUnlessEqual(node, next);
   return "morph";
@@ -95,9 +94,4 @@ function sameAttributes(node, next, ignored) {
   const ours = names(node);
   const theirs = names(next);
   return ours.length === theirs.length && ours.every((name, i) => name === theirs[i] && node.getAttribute(name) === next.getAttribute(name));
-}
-
-function sameURL(a, b) {
-  if (!a) return false;
-  return new URL(a, location.href).href === new URL(b, location.href).href;
 }
