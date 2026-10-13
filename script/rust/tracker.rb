@@ -133,6 +133,7 @@ module TrackerParity
   def binance(ctx) = venue(ctx, Exchanges::Binance, 'Binance')
   def binance_us(ctx) = venue(ctx, Exchanges::BinanceUs, 'Binance.US')
   def kraken(ctx) = venue(ctx, Exchanges::Kraken, 'Kraken')
+  def ibkr(ctx) = venue(ctx, Exchanges::Ibkr, 'IBKR')
 
   def asset(ctx, symbol, external_id, category = 'Cryptocurrency')
     ctx[:assets][symbol] ||= Asset.create!(external_id:, symbol:, name: symbol, category:)
@@ -782,6 +783,25 @@ module TrackerParity
           balance(c, 'USDT', '1000', usd_price: '1', exchange: b)
           balance(c, 'BTC', '0.00999', usd_price: '61000', exchange: b)
         } },
+      # The backfill alone: its range for SOL comes back empty, and the money-in walk's prefetch then stores SOL's price.
+      # The sweep values the days from the prices read before that walk, so they stay unpriced.
+      { name: 'backfill_prices_read_before_the_walk', backfill_only: true, market: { HISTORY => [history([]), flat(150)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'SOL')
+          row(c, :airdrop, 'SOL', '2', '2026-09-10T10:00:00Z', exchange: b)
+          balance(c, 'SOL', '2', usd_price: '150', exchange: b)
+        } },
+      # A stock held at IBKR, its closes already stored: swept from them, with nothing fetched.
+      { name: 'ibkr_stock_from_stored_closes',
+        setup: lambda { |c|
+          k = ibkr(c)
+          HistoricalPrice.insert_all(weekdays('2026-09-02', '2026-09-30').each_with_index.map { |d, i| { asset: 'stock:AAPL', currency: 'USD', date: d, price: 200 + i } })
+          deposit(c, '1000', '2026-09-01T14:00:00Z', exchange: k)
+          buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z', exchange: k)
+          balance(c, 'USD', '600', usd_price: '1', exchange: k)
+          balance(c, 'AAPL', '2', usd_price: '220', exchange: k)
+        } },
       # Only the futures and margin wallets: the walk sets them aside, the backfill applies them to balances.
       { name: 'borrowed_only_history', market: { HISTORY => [flat(1), flat(60_000)] },
         setup: lambda { |c|
@@ -822,7 +842,8 @@ module TrackerParity
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'parity_scratch' => true, 'user_id' => ctx[:user].id, 'at' => AT,
                                         'market' => sc[:market] || {}, 'alpaca' => sc[:alpaca] || {}, 'ecb' => sc[:ecb] || {} }
-                                        .merge(sc[:rust_balances] ? { 'balances_synced_by_rust' => true } : {})))
+                                        .merge(sc[:rust_balances] ? { 'balances_synced_by_rust' => true } : {})
+                                        .merge(sc[:backfill_only] ? { 'backfill_only' => true } : {})))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -895,11 +916,13 @@ module TrackerParity
       user = User.find(sc['user_id'])
       ledger = ledger_error = backfill_error = nil
       travel_to(Time.iso8601(sc['at'])) do
-        begin
-          Tracker::LedgerJob.perform_now(user.id)
-          ledger = report(user)
-        rescue StandardError => e
-          ledger_error = "#{e.class}: #{e.message}"
+        unless sc['backfill_only']
+          begin
+            Tracker::LedgerJob.perform_now(user.id)
+            ledger = report(user)
+          rescue StandardError => e
+            ledger_error = "#{e.class}: #{e.message}"
+          end
         end
         begin
           PortfolioSnapshot::BackfillJob.perform_now(user.id)

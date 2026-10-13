@@ -66,7 +66,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 60, "the tracker grid");
+    assert_eq!(dirs.len(), 62, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -144,4 +144,9 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     assert!(snapshots(&rails_of("borrowed_only_history")).len() > 20, "a history of the borrowed wallets alone");
     let venue_days = |name: &str| rails_of(name)["tables"]["portfolio_venue_snapshots"].as_array().unwrap().iter().map(|r| r["exchange_id"].as_i64().unwrap()).collect::<std::collections::BTreeSet<_>>();
     assert_eq!(venue_days("binance_to_alpaca_linked_transfer").len(), 2, "each venue's history under its own exchange");
+    assert_eq!(requests("backfill_prices_read_before_the_walk", "market"), 2, "the backfill's empty range, then the walk's prefetch");
+    assert!(snapshots(&rails_of("backfill_prices_read_before_the_walk")).iter().all(|r| r["partial"] == 1 || r["date"].as_str() < Some("2026-09-10")),
+            "valued from the prices read before the walk: none");
+    assert!(snapshots(&rails_of("ibkr_stock_from_stored_closes")).iter().any(|r| r["date"] == "2026-09-29" && r["partial"] == 0), "IBKR's AAPL from its stored closes");
+    assert_eq!(requests("ibkr_stock_from_stored_closes", "alpaca") + requests("ibkr_stock_from_stored_closes", "market"), 0);
 }

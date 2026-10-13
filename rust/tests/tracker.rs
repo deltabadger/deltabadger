@@ -320,27 +320,6 @@ async fn no_connection_is_held_while_fetching() {
     assert!(!wrote.borrow().is_empty() && wrote.borrow().iter().all(Result::is_ok), "{:?}", wrote.borrow());
 }
 
-/// A row of another venue that lands while the backfill's fetch is out is read with every other row by the walk that
-/// follows, and swept with them: its venue's days are written under its own exchange.
-#[tokio::test(flavor = "current_thread")]
-async fn a_venue_row_landing_during_the_backfills_fetch_is_swept_under_its_venue() {
-    use deltabadger::tracker::jobs::backfill_run;
-    let (dir, user, _, api) = hooked_install(|path, n| if n == 0 {
-        Connection::open(path.join("production.sqlite3")).unwrap().execute_batch("
-            INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', '2026-09-01 00:00:00', '2026-09-01 00:00:00');
-            INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, created_at, updated_at)
-              SELECT user_id, last_insert_rowid(), 4, 'USDT', 100, 'b-1', '2026-09-03 00:00:00', '{}', '{}', '2026-09-20 02:58:00', '2026-09-20 02:58:00' FROM account_transactions LIMIT 1;").unwrap();
-    });
-    let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher());
-    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
-    let out = backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), Some(&api), None, user, &deltabadger::engine::FixedClock(at)).await;
-    assert_eq!(out, Ok(true));
-    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    let binance_days: i64 = c.query_row("SELECT count(*) FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance'", [], |r| r.get(0)).unwrap();
-    let invested: f64 = c.query_row("SELECT v.invested_usd FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance' AND date = '2026-09-19'", [], |r| r.get(0)).unwrap();
-    assert_eq!((binance_days, invested), (17, 100.0), "3 to 19 September on Binance, the 100 USDT in");
-}
-
 /// Rows that move after the backfill's walk read them, here during the walk's own fetch: the write sees a ledger that
 /// is not the one swept, and writes neither table nor either stamp.
 #[tokio::test(flavor = "current_thread")]
@@ -404,4 +383,49 @@ async fn a_two_venue_history_is_rewritten_under_each_venue_and_rolled_back_whole
         CREATE TRIGGER refuse_stamp BEFORE UPDATE ON app_configs WHEN NEW.key LIKE 'snapshot_history_version_%' BEGIN SELECT RAISE(ABORT, 'stamp refused'); END;").unwrap();
     assert!(sweep().await.is_err());
     assert_eq!(dump(&c), before);
+}
+
+/// Both tables and both stamps, as text.
+fn history_dump(dir: &Path) -> Vec<String> {
+    let c = Connection::open(dir.join("production.sqlite3")).unwrap();
+    let mut out = vec![];
+    for sql in ["SELECT date || '|' || value_usd || '|' || invested_usd || '|' || partial FROM portfolio_snapshots ORDER BY date",
+                "SELECT exchange_id || '|' || date || '|' || value_usd || '|' || invested_usd FROM portfolio_venue_snapshots ORDER BY exchange_id, date",
+                "SELECT key || '|' || value FROM app_configs WHERE key LIKE 'snapshot_%' ORDER BY key"] {
+        let mut s = c.prepare(sql).unwrap();
+        out.extend(s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap));
+    }
+    out
+}
+
+/// A populated history, then a change while the backfill's own range fetch is out: the window and the price plan were
+/// made from the rows before it, so the write refuses and the history and its stamps stay exactly as they were.
+async fn a_change_during_the_range_fetch_writes_nothing(change: &'static str) {
+    use deltabadger::tracker::jobs::{backfill_run, SWEEP_MOVED};
+    let armed = Rc::new(std::cell::Cell::new(false));
+    let a = armed.clone();
+    let (dir, user, _, api) = hooked_install(move |path, _| if a.replace(false) { Connection::open(path.join("production.sqlite3")).unwrap().execute_batch(change).unwrap(); });
+    let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher());
+    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    let (venues, clock) = (Scripted(ScriptedTransport::from_script(&script())), deltabadger::engine::FixedClock(at));
+    let run = || backfill_run(&db, &venues, Some(&api), None, user, &clock);
+    assert_eq!(run().await, Ok(true));
+    // Moved on, so the next run sweeps: the stamp no longer matches.
+    Connection::open(dir.path().join("production.sqlite3")).unwrap().execute("UPDATE account_transactions SET updated_at = '2026-09-19 23:00:00' WHERE tx_id = 'd-1'", []).unwrap();
+    let before = history_dump(dir.path());
+    assert!(before.len() > 20);
+    armed.set(true);
+    assert_eq!(run().await.err().as_deref(), Some(SWEEP_MOVED));
+    assert_eq!(history_dump(dir.path()), before);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn every_row_deleted_during_the_range_fetch_writes_no_history() {
+    a_change_during_the_range_fetch_writes_nothing("DELETE FROM account_transactions").await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_new_instrument_during_the_range_fetch_writes_no_history() {
+    a_change_during_the_range_fetch_writes_nothing("INSERT INTO account_transactions (user_id, exchange_id, api_key_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, created_at, updated_at)
+        SELECT user_id, exchange_id, api_key_id, 8, 'ETH', 0.5, 'a-eth', '2026-09-07 00:00:00', '{}', '{}', '2026-09-20 02:59:00', '2026-09-20 02:59:00' FROM account_transactions WHERE tx_id = 'd-1'").await;
 }

@@ -183,7 +183,6 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
             }
             continue;
         }
-        if i.venue.name_id != super::VENUE { return Err(super::refused(&format!("a stock's closes from {}", i.venue.name_id))); }
         // `stock_price_range`: fetch only when nothing is stored from the window's last weekday on, and only with a key
         // of the venue and a ticker of the symbol.
         let last_weekday = (0..prices::span(i.from, last)).map(|n| last.checked_sub_days(Days::new(n as u64)).unwrap_or(last))
@@ -203,6 +202,8 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
             }
         };
         let Some(api_key_id) = key else { continue };
+        // Only Alpaca's closes are fetched here; a stock venue's stored closes are swept as they are.
+        if i.venue.name_id != super::VENUE { return Err(super::refused(&format!("a stock's closes from {}", i.venue.name_id))); }
         plan.fetches.push(Close::Bars(Bars { api_key_id, symbol: i.symbol.clone(), from: i.from, to: last }));
     }
     Ok(plan)
@@ -224,7 +225,10 @@ pub fn bar_rows(body: &serde_json::Value, bars: &Bars, have: &std::collections::
 /// price key → day → the price that day, the last observed carried at most CARRY_LIMIT days and never across a day
 /// the symbol changed coin. Sparse: a day with no price has no entry, so what is held is the prices, which the budget
 /// meters; every day walked is a step.
-fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<HashMap<String, BTreeMap<NaiveDate, Dec>>, FiguresError> {
+/// The prices `load_prices` builds, read before the money-in walk (whose own fetches it does not see), as Rails reads them.
+pub type Prices = HashMap<String, BTreeMap<NaiveDate, Dec>>;
+
+pub fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<Prices, FiguresError> {
     // The catalogue and every stored close of the instruments, read once.
     let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &plan.instruments.iter().map(|i| i.symbol.clone()).collect())?;
     let mut out = HashMap::new();
@@ -266,8 +270,7 @@ fn add(held: &mut Held, venue: &str, symbol: &str, amount: &Dec) -> Result<(), F
 /// per venue, then each venue's quantities valued; the whole account is the venues' sum. `fx` values fiat cash, `ids`
 /// names each venue's exchange (`Exchange.all.to_h { [name_id, id] }`).
 #[allow(clippy::too_many_arguments)]
-pub fn sweep(c: &Connection, plan: &Plan, rows: &[Stored], terms: &[Term], first: NaiveDate, last: NaiveDate, fx: &super::fx::FxTable, ids: &HashMap<String, i64>) -> Result<Swept, FiguresError> {
-    let prices = prices_by_day(c, plan, last)?;
+pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], first: NaiveDate, last: NaiveDate, fx: &super::fx::FxTable, ids: &HashMap<String, i64>) -> Result<Swept, FiguresError> {
     let dust = Dec::strict("0.00000001")?;
     let by_id: HashMap<i64, &Stored> = rows.iter().map(|r| (r.id, r)).collect();
     let inverse: std::collections::HashSet<i64> = rows.iter().filter_map(|r| r.linked_to).collect();
@@ -472,7 +475,8 @@ mod tests {
         // The rows recorded both: no instrument, so its days are unpriced.
         c.execute("INSERT INTO account_transactions VALUES (3, 1, 1, '2026-09-03 14:30:00', '2026-09-03 15:00:00', 'BTC', 1)", []).unwrap();
         assert!(instrument(&c).unwrap().is_none());
-        let swept = sweep(&c, &plan(&c, 1, &[bought("BTC")], day("2026-09-02"), day("2026-09-30")).unwrap(), &[bought("BTC")], &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default(), &alpaca_ids()).unwrap();
+        let planned = plan(&c, 1, &[bought("BTC")], day("2026-09-02"), day("2026-09-30")).unwrap();
+        let swept = sweep(&planned, &prices_by_day(&c, &planned, day("2026-09-03")).unwrap(), &[bought("BTC")], &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default(), &alpaca_ids()).unwrap();
         assert!(swept.whole.iter().all(|(_, d)| d.partial && d.held_value.as_ref().is_some_and(Dec::is_zero)), "unpriced, not valued at either close");
     }
 
@@ -550,7 +554,7 @@ mod tests {
     fn many_symbols_sweep_in_linear_work_within_the_allowance() {
         let c = install();
         let rows: Vec<Stored> = (0..100_000).map(|i| Stored { id: i, base: format!("S{i}"), ..bought("BTC") }).collect();
-        let sweep_in = |limits| budget::scope(limits, || sweep(&c, &Plan::default(), &rows, &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default(), &alpaca_ids()));
+        let sweep_in = |limits| budget::scope(limits, || sweep(&Plan::default(), &Prices::new(), &rows, &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default(), &alpaca_ids()));
         let (out, used) = sweep_in(budget::FIGURE);
         assert_eq!(out.unwrap().whole.len(), 2);
         assert!(used.steps >= 400_000 && used.steps < budget::FIGURE.steps / 10, "{} steps", used.steps);
@@ -572,7 +576,7 @@ mod tests {
         let plan = plan(&c, 1, &rows, first, last).unwrap();
         assert!(plan.instruments.iter().any(|i| i.key == "stock:AAPL" && i.from == day("2026-10-01")));
         assert!(prices_by_day(&c, &plan, last).unwrap()["stock:AAPL"].is_empty(), "no AAPL price on any swept day");
-        let swept = sweep(&c, &plan, &rows, &[], first, last, &super::super::fx::FxTable::default(), &alpaca_ids()).unwrap();
+        let swept = sweep(&plan, &prices_by_day(&c, &plan, last).unwrap(), &rows, &[], first, last, &super::super::fx::FxTable::default(), &alpaca_ids()).unwrap();
         assert_eq!(swept.whole.len(), 30);
     }
 }
