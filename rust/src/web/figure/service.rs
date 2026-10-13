@@ -2,7 +2,7 @@
 //! kept here with that account's own allowance of fills, so that a fill that is turned away or overtaken leaves its
 //! demand behind, and waiting behind another account never spends it. Figures work for the `figures` service is queued
 //! here too, one entry per account (`enqueue`), with what its CPU work runs on (`Workers`).
-use crate::figures::page_market::Cache;
+use crate::figures::page_market::{Cache,FxDeps};
 use std::collections::{BTreeMap,BTreeSet};
 use std::sync::{Arc,Mutex,MutexGuard};
 use tokio::sync::Notify;
@@ -37,7 +37,8 @@ struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTr
     unkeyed:BTreeMap<i64,(u64,i64,Option<&'static str>)> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
-type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>);
+/// And the held conversions its figures read.
+type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>,FxDeps);
 struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,reason:Option<&'static str>,cache:Cache }
 /// `Busy`: both fills are taken by other accounts. `Failed` also when a fill is needed and the waiting account has no
 /// allowance left.
@@ -189,9 +190,15 @@ impl Service {
     /// publication a full mailbox dropped). `false` otherwise: it must not be delivered, and the account's latest is
     /// forgotten. A publication past the mailbox's bounds is kept as incomplete, which `latest` never sends.
     pub fn record(&self,user:i64,serial:u64,identity:&str,revision:u64,now:i64,streams:&[(String,String)])->bool {
+        self.record_with(user,serial,identity,revision,now,streams,FxDeps::default(),|_|true)
+    }
+    /// `record`, for figures that read held conversions (`fx`): accepted only if `holds` says those conversions still hold
+    /// as it is accepted, and a replay checks them again (`latest_with`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_with(&self,user:i64,serial:u64,identity:&str,revision:u64,now:i64,streams:&[(String,String)],fx:FxDeps,holds:impl FnOnce(&FxDeps)->bool)->bool {
         use crate::web::cable::{MAILBOX_BYTES,MAILBOX_ENTRIES};
         let mut state=self.state();
-        if !Self::fresh(&state,user,serial,identity,revision,now) { state.latest.remove(&user); return false; }
+        if !Self::fresh(&state,user,serial,identity,revision,now) || !holds(&fx) { state.latest.remove(&user); return false; }
         let (mut kept,mut bytes)=(Vec::new(),0);
         for (stream,html) in streams {
             if kept.len()>=MAILBOX_ENTRIES || bytes+html.len()>MAILBOX_BYTES { break; }
@@ -199,20 +206,24 @@ impl Service {
             kept.push((Arc::from(stream.as_str()),Arc::from(html.as_str())));
         }
         let complete=kept.len()==streams.len();
-        state.latest.insert(user,(serial,complete,kept));
+        state.latest.insert(user,(serial,complete,kept,fx));
         true
     }
     /// This account's latest payloads on `stream`, only if all of that publication was kept and its figures are still
     /// fresh. `None` otherwise (incomplete, expired, written since, other credentials, evicted or never kept): nothing
     /// stale or partial is sent, and the caller asks for a publication instead (`loading::resubscribed`).
     pub fn latest(&self,user:i64,identity:&str,revision:u64,now:i64,stream:&str)->Option<Vec<Arc<str>>> {
+        self.latest_with(user,identity,revision,now,stream).map(|(kept,_)|kept)
+    }
+    /// `latest`, with the held conversions its figures read, for the caller to check before replaying them.
+    pub fn latest_with(&self,user:i64,identity:&str,revision:u64,now:i64,stream:&str)->Option<(Vec<Arc<str>>,FxDeps)> {
         let mut state=self.state();
         if state.entries.get(&user).is_some_and(|entry|!crate::engine::model::identity_current_for(&entry.identity,identity).is_fresh()) {
             state.entries.remove(&user);state.latest.remove(&user);return None;
         }
-        let (serial,complete,kept)=state.latest.get(&user)?;
+        let (serial,complete,kept,fx)=state.latest.get(&user)?;
         if !*complete || !Self::fresh(&state,user,*serial,identity,revision,now) { return None; }
-        Some(kept.iter().filter(|(on,_)|&**on==stream).map(|(_,html)|html.clone()).collect())
+        Some((kept.iter().filter(|(on,_)|&**on==stream).map(|(_,html)|html.clone()).collect(),fx.clone()))
     }
 }
 impl Ticket {

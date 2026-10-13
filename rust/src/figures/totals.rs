@@ -32,6 +32,7 @@ pub const FIAT_SYMBOLS: [&str; 33] = [
 fn exchange_rate(c: &Connection, market: &dyn MarketData, from: &str, to: &str) -> Result<Fetch<Quoted>, FiguresError> {
     let (from, to) = (from.to_uppercase(), to.to_uppercase());
     if from == to { return Ok(Ok(Quoted::Num(Num::Float(1.0)))); }
+    if let Some(held) = market.held_rate(&from, &to) { return Ok(held); }
     let from_asset = db::asset_by_symbol(c, &from)?;
     let to_asset = db::asset_by_symbol(c, &to)?;
     let category = |asset: &Option<db::Asset>| asset.as_ref().and_then(|asset| asset.category.clone());
@@ -64,6 +65,18 @@ fn exchange_rate(c: &Connection, market: &dyn MarketData, from: &str, to: &str) 
         return Ok(market.coin_price(&coin, &to.to_lowercase()).map_err(|_| fx_unavailable()).and_then(positive_fx).map(|d| Quoted::Num(Num::Dec(d))));
     }
     Ok(Err(unknown()))
+}
+
+/// Utilities::Currency.exchange_rate uncached, for whoever holds its answers (the fill, the tracker): `from` in `to`.
+pub fn conversion(c: &Connection, market: &dyn MarketData, from: &str, to: &str) -> Result<Fetch<Quoted>, FiguresError> {
+    budget::within(|| exchange_rate(c, market, from, to))
+}
+
+/// Utilities::Currency.cache_duration_for: a pair of slow movers (fiat or a stablecoin, by symbol) is held hours, any
+/// other minutes.
+pub fn held_for(from: &str, to: &str) -> i64 {
+    let slow = |symbol: &str| { let symbol = symbol.to_uppercase(); FIAT_SYMBOLS.contains(&symbol.as_str()) || STABLECOIN_IDS.iter().any(|(s, _)| *s == symbol) };
+    if slow(from) && slow(to) { 12 * 60 * 60 } else { 6 * 60 }
 }
 
 fn fx_unavailable() -> Failure { Failure::NotComputed("Currency conversion unavailable".into()) }

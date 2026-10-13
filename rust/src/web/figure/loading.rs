@@ -1,6 +1,6 @@
 //! Network work never owns the database lock. Only raw JSON and request descriptions cross threads.
 use super::service::{Load,Work};
-use crate::figures::{at::At,budget,db,page_market::{Cache,Reader}};
+use crate::figures::{at::At,budget,db,page_market::{Cache,FxDeps,FxSnapshot,Reader}};
 use crate::venue::http::{self,HttpRequest,HttpResponse,ReqwestTransport,Transport,TransportError};
 use crate::web::{App,WebError};
 use crate::crypto::Credentials;
@@ -9,7 +9,9 @@ use serde_json::Value;
 use std::time::Duration;
 
 #[derive(Clone,Default)]
-pub enum Source { #[default] Live, Disabled, Script(Value) }
+pub enum Source { #[default] Live, Disabled, Script(Value),
+    /// `Script`, recording the key of every request it answers, in order (for tests that count requests).
+    Counted(Value,std::sync::Arc<std::sync::Mutex<Vec<String>>>) }
 #[derive(Clone)]
 /// Ready: the cache, its stamp, the revision it was prepared against, where the database stood when that revision was
 /// read (`unchanged_since`), if on the connection that renders it, and until when (Unix seconds) its figures may be shown.
@@ -183,7 +185,7 @@ impl Transport for Wire {
         match &self.source {
             Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?,true).await,
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
-            Source::Script(script)=>{
+            Source::Script(script)|Source::Counted(script,_)=>{
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
                 let host=r.base.split_once("://").map_or(r.base.as_str(),|(_,h)|h);
                 let data=host=="data.alpaca.markets";
@@ -191,6 +193,7 @@ impl Transport for Wire {
                 if !data{picked.sort();}
                 let suffix=if picked.is_empty(){String::new()}else{format!("?{}",picked.iter().map(|(k,v)|format!("{k}={v}")).collect::<Vec<_>>().join("&"))};
                 let key=format!("{} {host}{}{suffix}",r.method,r.path);
+                if let Source::Counted(_,log)=&self.source { log.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(key.clone()); }
                 let reply=script.get(&key).ok_or_else(||TransportError::Permanent("Unscripted market request".into()))?;
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
@@ -232,7 +235,7 @@ async fn build<T:Send+'static>(app:&App,work:impl FnOnce(&Connection)->Result<T,
     tokio::task::spawn_blocking(move||{ let _permit=permit; service.with_builder(work) }).await.map_err(|e|WebError::Task(e.to_string()))?
 }
 /// Figures rendered for kept use, by (locale, path prefix).
-type Rendered=Vec<((String,String),(Value,super::Slots))>;
+type Rendered=Vec<((String,String),(Value,super::Slots),FxDeps)>;
 /// The key a publication renders: the account's own locale and its paths (Bot#with_user_locale,
 /// ApplicationController#default_url_options).
 pub(crate) fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::Error> {
@@ -241,7 +244,16 @@ pub(crate) fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::
     Ok((locale.to_string(),crate::web::locale::path(locale,"")))
 }
 fn kept_key(revision:u64,at:At,locale:&str,prefix:&str)->String { serde_json::json!([revision,at.0,locale,prefix]).to_string() }
-fn kept_value((value,slots):(Value,super::Slots))->std::sync::Arc<Value> { std::sync::Arc::new(serde_json::json!({"figures":value,"slots":slots})) }
+/// Kept figures, with the held conversions they read (`fx`): they are shown only while those still hold (`fx_holds`).
+fn kept_value((value,slots):(Value,super::Slots),fx:&FxDeps)->std::sync::Arc<Value> { std::sync::Arc::new(serde_json::json!({"figures":value,"slots":slots,"fx":fx.to_json()})) }
+/// The conversions kept figures read (none for a record that names none).
+fn kept_fx(kept:&Value)->FxDeps { FxDeps::from_json(&kept["fx"]).unwrap_or_default() }
+/// Whether the conversions kept figures read still hold now, for the provider configured now (read on `c`, which must be
+/// able to read it: App::db's connection). Figures that read none hold without reading it.
+fn fx_holds(c:&Connection,cache:&Cache,deps:&FxDeps,now:i64)->bool {
+    if deps.pairs.is_empty() { return true; }
+    crate::web::tracker::fx::provider(c).is_ok_and(|(identity,_)|cache.fx_current(deps,&identity,now))
+}
 /// The fill's computation: its last pass, with every market answer it needs, renders the account's own key and every key
 /// of the work it carries, to be kept with the cache (`spawn_fill`).
 async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,keys:std::collections::BTreeSet<(String,String)>)->Result<Rendered,Option<&'static str>> {
@@ -252,8 +264,8 @@ async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,keys:std::col
         for (locale,prefix) in keys {
             let rendered=super::kept_account(c,user,reader,now,&locale,&prefix)?;
             // A pass that still lacks market data fetches it first; only the last pass renders every key.
-            if reader.failed() || !reader.demands().is_empty() { return Ok(vec![]); }
-            out.push(((locale,prefix),rendered));
+            if reader.failed() || !reader.demands().is_empty() || !reader.fx_demands().is_empty() { return Ok(vec![]); }
+            out.push(((locale,prefix),rendered,reader.fx_deps()));
         }
         Ok(out)
     }).await
@@ -282,27 +294,33 @@ fn walk_reason(c:&Connection,user:i64)->Option<&'static str> {
     matches!(fills,Err(crate::figures::FiguresError::NotComputed(ref why)) if why=="executed fill value unavailable").then_some("executed fill value unavailable")
 }
 /// What a render-only pass came to.
-enum Kept { Done, Overtaken, Failed(String) }
+enum Kept { Done, Overtaken, Failed(String), Fx(Vec<(String,String)>) }
 /// The render-only pass: keys this ready cache has not kept are rendered from it, with no market request, each under a
 /// figure's budget of its own, and kept if no write overtook the pass. `Overtaken`: the revision moved, and a retry fills
 /// anew. `Failed`: a key could not be computed against the unchanged revision, which a retry would only repeat.
-fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collections::BTreeSet<(String,String)>)->Kept {
-    let missing:Vec<&(String,String)>=keys.iter().filter(|(locale,prefix)|cache.kept(&kept_key(prepared,at,locale,prefix)).is_none()).collect();
+/// `fx`: the held conversions as they stand (`identity`'s), and `clock` the time now: kept figures whose conversions no
+/// longer hold are rendered again. A conversion not held is `Fx`: the queue fetches it and comes back.
+#[allow(clippy::too_many_arguments)]
+fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collections::BTreeSet<(String,String)>,fx:&FxSnapshot,identity:&str,clock:i64)->Kept {
+    let missing:Vec<&(String,String)>=keys.iter().filter(|(locale,prefix)|cache.kept(&kept_key(prepared,at,locale,prefix)).is_none_or(|kept|!cache.fx_current(&kept_fx(&kept),identity,clock))).collect();
     if missing.is_empty() { return Kept::Done; }
+    let mut asked=std::collections::BTreeSet::new();
     let names=match symbols(c,user) { Ok(names)=>names, Err(e)=>return Kept::Failed(format!("{e:?}")) };
     let (mut out,mut failed)=(vec![],vec![]);
     for (locale,prefix) in missing {
         let (rendered,_)=budget::scope(budget::FIGURE,||{
-            let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(names.clone());
+            let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(names.clone()).with_fx(fx.clone());
             let rendered=super::kept_account(c,user,&reader,at,locale,prefix)?;
+            asked.extend(reader.fx_demands());
             if reader.failed() || !reader.demands().is_empty() { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
-            Ok(rendered)
+            Ok((rendered,reader.fx_deps()))
         });
-        match rendered { Ok(rendered)=>out.push((kept_key(prepared,at,locale,prefix),rendered)), Err(e)=>failed.push(format!("{locale}: {e:?}")) }
+        match rendered { Ok((rendered,deps))=>out.push((kept_key(prepared,at,locale,prefix),rendered,deps)), Err(e)=>failed.push(format!("{locale}: {e:?}")) }
     }
+    if !asked.is_empty() { return Kept::Fx(asked.into_iter().collect()); }
     match revision(c,user) {
         Ok((now,_)) if now!=prepared=>Kept::Overtaken,
-        Ok(_)=>{ for (key,rendered) in out { cache.keep(key,kept_value(rendered)); } if failed.is_empty() { Kept::Done } else { Kept::Failed(failed.join("; ")) } }
+        Ok(_)=>{ for (key,rendered,deps) in out { cache.keep(key,kept_value(rendered,&deps)); } if failed.is_empty() { Kept::Done } else { Kept::Failed(failed.join("; ")) } }
         Err(e)=>Kept::Failed(format!("{e:?}")),
     }
 }
@@ -314,12 +332,15 @@ pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:
 /// failed snapshots: arbitrary provider diagnostics and stored data cannot become page text.
 async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->Result<T,crate::figures::FiguresError>+Clone+Send+'static)->Result<T,Option<&'static str>> {
     for _ in 0..4 {
+        // The held conversions as they stand now, of the provider configured now (read on App::db, which can read it).
+        let Ok((identity,config))=app.db(crate::web::tracker::fx::provider).await else { return Err(None) };
+        let fx=app.fx_cache.store.snapshot(&identity,app.now().timestamp());
         let snapshot=cache.clone();let work=work.clone();
         let pass=build(app,move|c|{
             if !admit(c,user)? { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
-                let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names);
+                let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names).with_fx(fx);
                 let result=work(c,&reader);
                 let failed=reader.failed();
                 let (out,reason)=match result {
@@ -327,14 +348,16 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
                     Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>(None,Some("Currency conversion unavailable")),
                     Err(_)=>(None,None),
                 };
-                Ok::<_,crate::figures::FiguresError>((reader.demands(),out,reason))
+                Ok::<_,crate::figures::FiguresError>((reader.demands(),reader.fx_demands(),out,reason))
             });
             Ok(result.ok()) // allow-swallow: computation failure becomes a failed fill; only the safe reason above is retained
         }).await;
-        let Ok(Some((demands,out,reason)))=pass else { return Err(None) };
-        if demands.is_empty(){return out.ok_or(reason);}
+        let Ok(Some((demands,fx_demands,out,reason)))=pass else { return Err(None) };
+        if demands.is_empty() && fx_demands.is_empty(){return out.ok_or(reason);}
         if demands.len()>crate::figures::page_market::MAX_ENTRIES{return Err(None);}
-        cache.fill_bounded(wire,demands,now.utc().timestamp(),&app.figure_service.compute()).await;
+        // Conversions from the market-data provider, never over the venue's wire (it carries the venue's key).
+        if !fx_demands.is_empty() && crate::web::tracker::fx::fill(app,&identity,config,fx_demands).await.is_err() { return Err(None); }
+        if !demands.is_empty() { cache.fill_bounded(wire,demands,now.utc().timestamp(),&app.figure_service.compute()).await; }
     }
     Err(None)
 }
@@ -357,8 +380,8 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
         Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
-        Load::Ready(cache,_,until)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache,at,info.revision,Some(info.mark),until))},
-        Load::Start(ticket,cache)=>{ spawn_fill(app,user,info,now,ticket,cache,None); Ok(Snapshot::Cold) }
+        Load::Ready(cache,_,until)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache.with_fx(app.fx_cache.store.clone()),at,info.revision,Some(info.mark),until))},
+        Load::Start(ticket,cache)=>{ spawn_fill(app,user,info,now,ticket,cache.with_fx(app.fx_cache.store.clone()),None); Ok(Snapshot::Cold) }
     }
 })}
 /// A fill of this account's market cache, on a task of its own. `work`: what the queue asked of it (`follow`).
@@ -378,7 +401,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it.
             Ok(rendered) if unchanged=>match build(&inner,move|c|lock_deadline(c,user,now)).await {
-                Ok(deadline)=>{ for ((locale,prefix),rendered) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered)); } (true,None,deadline) }
+                Ok(deadline)=>{ for ((locale,prefix),rendered,deps) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered,&deps)); } (true,None,deadline) }
                 Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
             },
             Err(Some(reason)) if unchanged=>(false,Some(reason),None),
@@ -433,6 +456,9 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
                 // are rendered. The fill or the queue renders them; a page only reads what was kept, and a form token is
                 // per request: kept figures record where each form's field goes, and a page writes its own.
                 let Some(kept)=cache.kept(&kept_key(*prepared_revision,*now,locale,prefix)) else { return Ok(None) };
+                // Rendered with conversions that no longer hold (refreshed, expired, another provider): the loading state,
+                // and the queue renders them anew.
+                if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
                 let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
                 let shown=with_token(&kept["figures"],&slots,csrf);
                 // Their lifetime is checked as they are shown, not when the page prepared them: past the cut (or a wash-sale
@@ -486,23 +512,30 @@ async fn publish_with(app:App,user:i64)->Result<bool,WebError>{
         let serial=app.figure_service.settled(user);
         let ready=matches!(snapshot,Snapshot::Ready(..));
         let inner=app.clone();
-        let (streams,info,unkept,expired)=app.db(move|c|{
+        let (streams,info,unkept,expired,fx,provider)=app.db(move|c|{
             let key=own_key(c,user)?;
             let expired=matches!(&snapshot,Snapshot::Ready(..,until) if inner.now().timestamp()>=*until);
+            // The conversions the figures published read: a replay holds only while they do (`resubscribed`).
+            let fx=match &snapshot { Snapshot::Ready(cache,at,revision,..)=>cache.kept(&kept_key(*revision,*at,&key.0,&key.1)).map(|kept|kept_fx(&kept)).unwrap_or_default(), _=>FxDeps::default() };
             let (streams,unkept)=match render(c,user,&snapshot,&key.0,"",&key.1,&*inner.clock)? {
                 // A failure here fails the publication: nothing is recorded or delivered, and the caller's retry keeps the demand.
                 Some(rendered)=>(super::streams(c,user,&rendered).map_err(|e|WebError::Task(format!("figure streams: {e:?}")))?,None),
                 None=>(vec![],(ready&&!expired).then_some(key)),
             };
             let info=if ready { read_info(c,&inner,user)? } else { None };
-            Ok((streams,info,unkept,expired))
+            // The provider the conversions are checked against as the publication is accepted.
+            let provider=if fx.pairs.is_empty() { String::new() } else { crate::web::tracker::fx::provider(c).map(|(identity,_)|identity).unwrap_or_default() };
+            Ok((streams,info,unkept,expired,fx,provider))
         }).await?;
         // Expired while it was being rendered: tried once more, which fills anew.
         if expired { continue; }
         // Ready, and nothing kept in the account's own key: the queue renders it from this cache and publishes.
         if let Some(key)=unkept { app.figure_service.enqueue(user,Work{publish:true,locales:[key].into(),not_before:app.now().timestamp()}); return Ok(false); }
         if ready {
-            let fresh=info.is_some_and(|info|app.figure_service.record(user,serial,&info.identity,info.revision,app.now().timestamp(),&streams));
+            // A conversion refreshed or expired since the render refuses the publication, as a write does.
+            let store=app.fx_cache.store.clone();let clock=app.clock.clone();
+            let holds=move|fx:&FxDeps|fx.pairs.is_empty() || store.current(fx,&provider,clock.now().timestamp());
+            let fresh=info.is_some_and(|info|app.figure_service.record_with(user,serial,&info.identity,info.revision,app.now().timestamp(),&streams,fx,holds));
             if !fresh { continue; }
         }
         app.figure_service.served(user);
@@ -561,9 +594,20 @@ async fn consume(app:&App,user:i64,mut work:Work) {
     let Some(now)=At::from_utc(app.now()) else{return};
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
         Load::Ready(cache,_,_)=>{
+            let cache=cache.with_fx(app.fx_cache.store.clone());
             let at=cache.stamp().unwrap_or(now);
             let (publish,mut keys,revision)=(work.publish,work.locales.clone(),info.revision);
-            match build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys)) }).await {
+            let Ok((identity,config))=app.db(crate::web::tracker::fx::provider).await else { work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; };
+            let clock=app.now().timestamp();
+            let fx=app.fx_cache.store.snapshot(&identity,clock);
+            let held=identity.clone();
+            match build(app,move|c|{ if publish { keys.insert(own_key(c,user)?); } Ok(keep(c,user,&cache,at,revision,&keys,&fx,&held,clock)) }).await {
+                // A conversion was not held: fetched from the provider, and the work comes back to render with it (a
+                // failure is held too, so the next pass finds an answer).
+                Ok(Kept::Fx(pairs))=>{
+                    if crate::web::tracker::fx::fill(app,&identity,config,pairs).await.is_err() { work.not_before=now.utc().timestamp().saturating_add(1); }
+                    app.figure_service.enqueue(user,work);
+                }
                 // Published only once its own key is kept: a publication never computes.
                 Ok(Kept::Done)=>if publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); },
                 // A write overtook the pass: the work is queued again. Its retry finds the new revision and starts a fill
@@ -580,7 +624,7 @@ async fn consume(app:&App,user:i64,mut work:Work) {
                 Err(_)=>{ work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); }
             }
         }
-        Load::Start(ticket,cache)=>spawn_fill(app,user,info,now,ticket,cache,Some(work)),
+        Load::Start(ticket,cache)=>spawn_fill(app,user,info,now,ticket,cache.with_fx(app.fx_cache.store.clone()),Some(work)),
         Load::Cold=>app.figure_service.enqueue(user,work),
         Load::Busy=>{ work.not_before=now.utc().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); }
         Load::Failed(_)=>if work.publish && publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); },
@@ -592,7 +636,13 @@ pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str
     // A failure to read the account (a transient database error) asks for the publication through the retry path.
     let info=match app.db(move|c|read_info(c,&inner,user)).await { Ok(info)=>info, Err(_)=>{ app.figure_service.mark_owner(user); return Vec::new(); } };
     let Some(info)=info else { return Vec::new() };
-    if let Some(kept)=app.figure_service.latest(user,&info.identity,info.revision,app.now().timestamp(),stream) { return kept; }
+    if let Some((kept,fx))=app.figure_service.latest_with(user,&info.identity,info.revision,app.now().timestamp(),stream) {
+        // Rendered with conversions that no longer hold (a tracker request refreshed the display rate, one expired, the
+        // provider changed): not replayed; a publication is asked for instead.
+        let store=app.fx_cache.store.clone();let now=app.now().timestamp();
+        let holds=fx.pairs.is_empty() || app.db(move|c|Ok(crate::web::tracker::fx::provider(c).is_ok_and(|(identity,_)|store.current(&fx,&identity,now)))).await.unwrap_or(false);
+        if holds { return kept; }
+    }
     let app=app.clone();
     tokio::spawn(async move { if publish_with(app.clone(),user).await.is_err() { app.figure_service.mark_owner(user); } });
     Vec::new()

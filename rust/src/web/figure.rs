@@ -30,19 +30,57 @@ fn precision(n: &Num, digits: usize, grouping: bool) -> Result<String, FiguresEr
 fn percent(n: &Num, digits: usize) -> Result<String, FiguresError> {
     Ok(format!("{:.*}%", digits, n.mul(&Num::Int(100))?.to_f()))
 }
-fn dollars(n: &Num, digits: usize) -> Result<String, FiguresError> {
-    let text = precision(n, digits, true)?;
-    Ok(if let Some(rest) = text.strip_prefix('-') { format!("-<small>$</small>{rest}") } else { format!("<small>$</small>{text}") })
+/// Denomination::UNITS: the symbol of each currency an account may be shown in; any other is its code.
+fn unit(currency: &str) -> &str {
+    match currency { "USD" => "$", "EUR" => "€", "GBP" => "£", "CHF" => "Fr.", "PLN" => "zł", other => other }
 }
-fn tile(s: &Subject, m: &Metrics, unavailable: bool, hidden: bool) -> Result<String, FiguresError> {
+/// Denomination::SUFFIXED: written after the amount in the countries that use it.
+fn suffixed(currency: &str) -> bool { matches!(currency, "CHF" | "PLN") }
+/// The thousands mark Rails writes in the headline's attribute: `number.currency.format.delimiter`, falling back to
+/// `number.format.delimiter`, then ','. Measured on every locale Rails ships (fallbacks on, no rails-i18n gem, no number
+/// keys in config/locales): ',' in each, so there is no table to keep.
+const DELIMITER: &str = ",";
+/// The account's display currency (User#denomination): the conversion is a held one, and when it cannot be had the
+/// figures are shown in dollars (Denomination.for: "a złoty sign on a dollar figure would be a lie").
+fn denomination(c: &Connection, market: &dyn MarketData, display_currency: &str) -> Result<totals::Denomination, FiguresError> {
+    match totals::denomination(c, market, display_currency) {
+        Err(FiguresError::NotComputed(reason)) if reason == FX_UNAVAILABLE => Ok(totals::Denomination { currency: "USD".into(), rate: crate::figures::dec::Dec::one() }),
+        other => other,
+    }
+}
+const FX_UNAVAILABLE: &str = "Currency conversion unavailable";
+/// A figure that needed a conversion that cannot be had is absent, as Rails' is (a Failure, nil): never a page's error.
+fn without_fx<T>(result: Result<Option<T>, FiguresError>) -> Result<Option<T>, FiguresError> {
+    match result { Err(FiguresError::NotComputed(reason)) if reason == FX_UNAVAILABLE => Ok(None), other => other }
+}
+/// Denomination#format: a USD figure in the account's currency (`usd.to_d * rate`), the unit in <small> before the figure
+/// or after it, as number_to_currency lays it out: the negative layout only for a loss of at least half the last digit
+/// shown (NumberToCurrencyConverter: `abs * 10**precision >= 0.5`), so a loss that rounds to nothing is written as one.
+fn shown(d: &totals::Denomination, usd: &Num, digits: usize) -> Result<String, FiguresError> {
+    let amount = (&usd.to_d()? * &d.rate)?;
+    // A negative zero is written as zero (`abs`).
+    let magnitude = if amount.is_negative() { (&crate::figures::dec::Dec::from_i64(0) - &amount)? } else if amount.is_zero() { crate::figures::dec::Dec::from_i64(0) } else { amount.clone() };
+    let scale = crate::figures::dec::Dec::from_i64(10_i64.pow(digits as u32));
+    let negative = amount.is_negative() && (&magnitude * &scale)? >= crate::figures::dec::Dec::strict("0.5")?;
+    let text = precision(&Num::Dec(magnitude), digits, true)?;
+    let unit = format!("<small>{}</small>", crate::web::i18n::escape(unit(&d.currency)));
+    let laid = if suffixed(&d.currency) { format!("{text} {unit}") } else { format!("{unit}{text}") };
+    Ok(if negative { format!("-{laid}") } else { laid })
+}
+/// `Denomination.new(currency, rate).format(usd, precision:)`, for the parity grid's boundary vectors.
+#[doc(hidden)]
+pub fn denominated(currency: &str, rate: &str, usd: &str, digits: usize) -> Result<String, FiguresError> {
+    budget::within(|| shown(&totals::Denomination { currency: currency.into(), rate: crate::figures::dec::Dec::strict(rate)? }, &Num::Dec(crate::figures::dec::Dec::strict(usd)?), digits))
+}
+fn tile(s: &Subject, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
     let kind = if s.bot.kind == db::Kind::Basket { "dca_multi_asset" } else { "dca_index" };
     let mut body = String::new();
     if unavailable { body.push_str(NO_VALUE); }
     else if let Some(pnl) = &m.pnl {
         body = format!("<div class=\"bot-tile__pnl {}\">\n<span class=\"pnl-percent\">{}</span>\n", colour(pnl), percent(pnl, 2)?);
-        if !hidden && s.quote.as_deref() == Some("USD") {
-            let profit = m.total_amount_value_in_quote.sub(&m.total_quote_amount_invested)?;
-            body.push_str(&format!("<span class=\"pnl-amount\">{}{}</span>\n", if profit.is_positive() { "+" } else { "" }, dollars(&profit, 2)?));
+        // Bot#profit_in_usd in the account's currency; absent with balances hidden or without a rate, as in Rails.
+        if let Some(profit) = profit {
+            body.push_str(&format!("<span class=\"pnl-amount\">{}{}</span>\n", if profit.is_positive() { "+" } else { "" }, shown(d, profit, 2)?));
         }
         body.push_str("</div>\n");
     }
@@ -84,6 +122,9 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         let mut bots = Map::new();
         let mut computed = vec![];
         let user = db::user(c, user_id)?;
+        // One rate into the account's currency, and one per quote currency, for the whole page (BotsController#index).
+        let shown_in = denomination(c, market, &user.display_currency)?;
+        let mut rates = totals::Rates::default();
         for (id, _) in db::account_bots(c, user_id)? {
             let subject = Subject::load(c, id)?;
             let walked = walk::metrics(c, &subject, now)?;
@@ -94,14 +135,21 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some(token) => holdings::Token::Value(token) };
             let metrics = holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, &mut token, prefix, now)?;
             if !offsets.is_empty() { slots.push((id.to_string(), offsets)); }
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), user.hide_balances)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
+            // The amount is all a rate was needed for: with balances hidden there is none to convert (BotsController#index).
+            let profit = if user.hide_balances { None } else {
+                match totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live) {
+                    Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
+                    other => without_fx(other)?,
+                }
+            };
+            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
             computed.push((subject, marked_live, marked, missing));
         }
-        let unavailable = computed.iter().any(|(s,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() || s.quote.as_deref() != Some("USD"));
+        let unavailable = computed.iter().any(|(_,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty());
         let parts = |marked: bool| computed.iter().map(|(s,live,chart,_)| totals::Part { bot_id:s.bot.id, quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(if marked { chart } else { live })) }).collect::<Vec<_>>();
-        let pnl = totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false))?;
-        let history = totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true))?;
-        let out = json!({"bots": bots, "account": headline::render(pnl.as_ref(),history.result.as_ref(),unavailable,user.hide_balances)?});
+        let pnl = without_fx(totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false)))?;
+        let history = without_fx(totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true)).map(|h|h.result))?;
+        let out = json!({"bots": bots, "account": headline::render(pnl.as_ref(),history.as_ref(),unavailable,user.hide_balances,&shown_in)?});
         let bytes = out.to_string().len();
         if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
         budget::charge(bytes as u64,0)?;

@@ -13,5 +13,13 @@
   "app/views/bots/bot_tile/_bot_tile_pnl.html.erb": "b6f8ad6668ca4ca197b97e1d412e12d3d6cfc54a3bf7a66cd6f335e3a5e1367d",
   "app/views/bots/_chart.html.erb": "927f06ca3147dbddd2839c843213b28e297af1b876d1763a29a740b9634cceac",
   "app/views/bots/_global_pnl.html.erb": "975007c015d02ff90dbac5a4a4711c470a1085c76aa9fd3fa708be4b39bfa23d",
-  "app/views/bots/_pnl_spark.html.erb": "4379f023d1ee5df1372ef077569592f029f1f1402e1d8aa21cda522b02fe5f27"
+  "app/views/bots/_pnl_spark.html.erb": "4379f023d1ee5df1372ef077569592f029f1f1402e1d8aa21cda522b02fe5f27",
+  "app/models/denomination.rb": "4763ea32cd8ffb02027943b56a17f7f1fd7338f2aa85bd51cb0f81a662dc51a6",
+  "app/models/utilities/currency.rb": "a06a70e56d0272520976995eb6357473b8f0e6ca4f1e596525626db78caf0e74",
+  "app/models/market_data.rb": "6bbe6ff26e48136d21747aa356afe9aba71d1e4bc2b75f0daea8c4da8afe96d7",
+  "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
+  "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",
+  "app/models/user/pnl_history.rb": "d15a8466e46f49866f63f4dab8530008c7f40aef59e45f7dfbe6b345ea0860e1",
+  "app/controllers/bots_controller.rb": "27cd4c487d4587b7c140545ea60c285194a38a67f750e516df9a9ca0a04e728e",
+  "app/javascript/controllers/pnl_spark_controller.js": "b7fd059e48433156884d54112929fd3b657f0dc2b0a22541ec11afd14e6ae559"
 }

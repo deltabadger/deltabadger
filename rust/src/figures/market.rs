@@ -75,4 +75,7 @@ pub trait MarketData {
     fn exchange_rates(&self) -> Fetch<Vec<(String, Member<Num>)>>;
     /// MarketData.get_price: one coin in one currency (lower case), as the provider's JSON carried it.
     fn coin_price(&self, coin_id: &str, currency: &str) -> Fetch<Quoted>;
+    /// Utilities::Currency.exchange_rate's cached answer for a conversion (Rails.cache `exchange_rate_FROM_to_TO`), when
+    /// this market holds conversions instead of raw answers. None: computed from `exchange_rates` and `coin_price`.
+    fn held_rate(&self, _from: &str, _to: &str) -> Option<Fetch<Quoted>> { None }
 }
