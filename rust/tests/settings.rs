@@ -2841,7 +2841,20 @@ async fn r1_sync_and_validation_scheduler_logs_only_structured_diagnostics(){
         Mock::given(method("GET")).and(path(endpoint)).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":text,"code":50310000}))).mount(&server).await;
         let job:Box<dyn Job>=match kind.as_str(){"ledger"=>Box::new(LedgerSync::new(LocalAlpaca(server.uri()),1)),"balance"=>Box::new(BalanceSync::new(LocalAlpaca(server.uri()),std::rc::Rc::new(NoPrices),1)),_=>Box::new(Validator{venues:LocalAlpaca(server.uri()),key_id:1})};
         let spec=job.spec();let name=spec.name;let scope=spec.scope.clone();
-        let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),vec![job],None);
+        // The probed job's follow-ups (a failed sync wakes the tracker's ledger; a validation wakes the balance sync) reach
+        // a runner that has only it: they resolve to a job that runs nothing, so the runner keeps going until it is stopped,
+        // as the real one, which resolves every job, does.
+        struct Inert(&'static str,Option<String>);
+        impl Job for Inert {
+            fn spec(&self)->jobs::Spec{jobs::Spec{name:self.0,scope:self.1.clone(),schedule:None,jitter:jobs::schedule::Jitter::NONE,retry:jobs::Retry::None,deadline:jobs::DEADLINE}}
+            fn run<'a>(&'a self,_:jobs::Cx<'a>,_:Vec<jobs::Wake>)->jobs::JobFuture<'a>{Box::pin(async{jobs::Outcome::Failed("not probed".into())})}
+        }
+        let follow_ups:jobs::Resolver=Box::new(|name,scope|{
+            let name=[deltabadger::tracker::jobs::TRACKER_LEDGER,deltabadger::sync::jobs::BALANCE_SYNC,deltabadger::sync::jobs::LEDGER_SYNC,deltabadger::sync::jobs::API_KEY_VALIDATOR]
+                .into_iter().find(|known|*known==name).ok_or_else(||format!("unexpected wake of {name}"))?;
+            Ok(Box::new(Inert(name,scope.map(String::from))) as Box<dyn Job>)
+        });
+        let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),vec![job],None).with_resolver(follow_ups);
         scheduler.wakers().wake(name,scope.as_deref(),None);
         let (stop,rx)=tokio::sync::watch::channel(false);
         let control=async{loop{
@@ -2851,7 +2864,8 @@ async fn r1_sync_and_validation_scheduler_logs_only_structured_diagnostics(){
                 Err(error) if error.contains("database is locked")=>{},
                 Err(error)=>panic!("fixture state read failed: {error}"),
             }
-            tokio::task::yield_now().await;
+            // Polled as a slow runner would: the job's follow-up wakes reach the runner before this sees its result.
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         }stop.send(true).unwrap();};
         tokio::time::timeout(std::time::Duration::from_secs(15),async{let (out,())=tokio::join!(scheduler.run(rx,h.clock.as_ref()),control);out.unwrap();}).await.unwrap();
         assert!(state::read(&h.c,name,scope.as_deref()).unwrap().last_error.is_some(),"real failed job ran");
