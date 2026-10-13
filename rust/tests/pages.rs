@@ -119,7 +119,7 @@ fn rails_answer(recorded: &Value) -> Value {
     let safe_body=body.to_string();
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
     let mut answer = comparable(status, &headers, &safe_body);
-    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows"] {
+    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
     answer
@@ -336,8 +336,14 @@ async fn run(dir: &Path) -> Value {
         let snapshot = step["action_snapshot"] == true;
         if snapshot && observer.is_none() {
             let cookie = browsers.get("main").and_then(|browser| browser.cookie.as_deref()).map(str::to_owned);
-            observer = Some(ActionObserver::open(&app, cookie.as_deref()).await.unwrap_or_else(|e| panic!("action observer: {e}")));
+            observer = Some(ActionObserver::open(&app, cookie.as_deref(), &["user_1:bot_updates", "user_1:bot_1"]).await.unwrap_or_else(|e| panic!("action observer: {e}")));
         }
+        // A step that names streams records what this crate sent on them, as pages.rb records Rails' payloads.
+        let streams: Vec<&str> = step["broadcasts"].as_array().map(|s| s.iter().map(|v| v.as_str().unwrap()).collect()).unwrap_or_default();
+        let mut listener = if streams.is_empty() { None } else {
+            let cookie = browsers.get("main").and_then(|browser| browser.cookie.as_deref()).map(str::to_owned);
+            Some(ActionObserver::open(&app, cookie.as_deref(), &streams).await.unwrap_or_else(|e| panic!("broadcast listener: {e}")))
+        };
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let before = snapshot.then(|| action_rows(dir).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let answer = match step["json"].as_str() {
@@ -347,6 +353,7 @@ async fn run(dir: &Path) -> Value {
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
         let mut response = rust_answer(&answer);
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
+        if let Some(listener) = listener.as_mut() { response["broadcasts"] = json!(listener.drain(&app).await.unwrap_or_else(|e| panic!("broadcasts: {e}"))); }
         if let Some((rows_before, other_before)) = before {
             let (rows_after, other_after) = action_rows(dir).unwrap_or_else(|error| panic!("action rows after: {error}"));
             let changed = rows_before != rows_after;
@@ -357,7 +364,7 @@ async fn run(dir: &Path) -> Value {
             };
             assert_eq!(woke, changed, "wake must follow an action write: {step}");
             if !changed {
-                assert!(broadcasts == 0, "unchanged action woke engine or broadcast: {step}");
+                assert!(broadcasts.is_empty(), "unchanged action woke engine or broadcast: {step}");
             }
             response["action_snapshot"] = json!(true);
             response["rows_before"] = rows_before;
@@ -400,6 +407,7 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
         if a == b { continue; }
         if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
+        if a.get("broadcasts") != b.get("broadcasts") { return Some(format!("{name} step {index}: broadcasts differ\n  rails: {}\n  rust:  {}",a["broadcasts"],b["broadcasts"])); }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
             return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
         }
@@ -492,6 +500,50 @@ fn unknown_origin_ring(name: &str, rails: &Value, rust: &Value) -> Option<Result
         if reviewed==0{return Err("R divergence exercised no tracker ring".into());}
         match difference(name,&expected,rust){Some(message)=>Err(message),None=>Ok(())}
     })())
+}
+
+/// ActiveRecord::RecordInvalid raised by a settings write (`update!` on a user the model rejects): Rails' test
+/// environment answers 422 with its debugging page, production with public/422.html, which is this crate's answer,
+/// made below the controllers. Rails' recorded rows and broadcasts are kept and compared as they are.
+fn as_record_invalid(answer: &mut Value) {
+    if answer["exception"]["class"] != "ActiveRecord::RecordInvalid" || answer["status"] != 422 { return; }
+    let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/422.html").expect("public/422.html is embedded").body));
+    answer["body"] = json!(page);
+    answer["headers"] = json!({
+        "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
+        "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
+    });
+    answer.as_object_mut().unwrap().remove("exception");
+}
+
+/// A listed divergence of the `settings_pref_regenerate*` scenarios: the personal REST token and the personal
+/// application's uid are random on either side. Each recorded step's revealed token must be the one live
+/// token of its own side's rows, every token 64 hex digits, the uid and secret present; then they read as placeholders.
+fn without_random_tokens(answer: &mut Value) -> Result<(), String> {
+    for response in answer["responses"].as_array_mut().ok_or("no responses")? {
+        let Some(rows) = response.get_mut("settings_rows") else { continue };
+        let tokens = rows["oauth_access_tokens"].as_array_mut().ok_or("no oauth_access_tokens rows")?;
+        let live: Vec<String> = tokens.iter().filter(|row| row["revoked_at"].is_null()).filter_map(|row| row["token"].as_str().map(str::to_string)).collect();
+        for row in tokens.iter_mut() {
+            let token = row["token"].as_str().unwrap_or_default();
+            // Doorkeeper's generator: SecureRandom.urlsafe_base64(32).
+            if token.len() != 43 || !token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') { return Err(format!("token {token:?} is not Doorkeeper's urlsafe base64")); }
+            row["token"] = json!("[random]");
+        }
+        for row in rows["oauth_applications"].as_array_mut().ok_or("no oauth_applications rows")?.iter_mut().filter(|row| row["personal_access_token"] == json!(1)) {
+            if row["uid"].as_str().is_none_or(str::is_empty) { return Err("personal application has no uid".into()); }
+            row["uid"] = json!("[random]");
+        }
+        let [token] = live.as_slice() else { return Err(format!("{} live personal tokens", live.len())) };
+        let mut shown = 0;
+        for line in response["body"].as_array_mut().ok_or("the answer is not markup")? {
+            let text = line.as_str().unwrap_or_default();
+            shown += text.matches(token.as_str()).count();
+            *line = json!(text.replace(token.as_str(), "[token]"));
+        }
+        if shown != 2 { return Err(format!("the live token is shown {shown} times, not twice")); }
+    }
+    Ok(())
 }
 
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
@@ -594,6 +646,16 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
                 countdown_pages += 1;
             }
         }
+        let mut rails = rails;
+        if name.starts_with("settings_") {
+            for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
+        }
+        if name.starts_with("settings_pref_regenerate") {
+            if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
+                failures.push(format!("{name} (listed divergence): {message}"));
+                continue;
+            }
+        }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {
             Some(Ok(())) => {}
             Some(Err(message)) => failures.push(format!("{name} (listed divergence): {message}")),
@@ -605,9 +667,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45, "complete S1 inventory and D5b's connect flow");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52, "complete S1 inventory, D5b's connect flow and the preference writes");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 161, "action inventory");
-        assert_eq!(dirs.len(), 160 + 4 + 161 + 413 + 3 + 45, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 161 + 413 + 3 + 45 + 52, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -920,15 +982,17 @@ fn action_unknown_divergence_is_rejected() {
         Some(Err(message)) if message.contains("unknown divergence")));
 }
 
-// Subscribe to both action streams, then use a marker to count broadcasts without a timing sleep.
+// Subscribe to the streams, then use a marker to collect broadcasts without a timing sleep.
 struct ActionObserver {
+    /// The streams subscribed to; the first carries the marker that ends a drain.
+    streams: Vec<String>,
     socket: tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
     _server: ActionServer,
 }
 struct ActionServer(tokio::task::JoinHandle<()>);
 impl Drop for ActionServer { fn drop(&mut self) { self.0.abort(); } }
 impl ActionObserver {
-    async fn open(app: &App, cookie: Option<&str>) -> Result<Self, Box<dyn std::error::Error>> {
+    async fn open(app: &App, cookie: Option<&str>, streams: &[&str]) -> Result<Self, Box<dyn std::error::Error>> {
         use futures_util::SinkExt;
         use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
@@ -940,28 +1004,29 @@ impl ActionObserver {
         request.headers_mut().insert("sec-websocket-protocol", "actioncable-v1-json".parse()?);
         request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={}", cookie.ok_or("signed-in observer cookie")?).parse()?);
         let socket = tokio::time::timeout(std::time::Duration::from_secs(5), tokio_tungstenite::connect_async(request)).await??.0;
-        let mut observer = Self { socket, _server: server };
-        for stream in ["user_1:bot_updates", "user_1:bot_1"] {
+        let mut observer = Self { streams: streams.iter().map(|s| s.to_string()).collect(), socket, _server: server };
+        for stream in streams {
             let identifier = json!({"channel":"Turbo::StreamsChannel", "signed_stream_name":cable::signed_stream_name(&app.keys.streams, stream)}).to_string();
             observer.socket.send(Message::Text(json!({"command":"subscribe", "identifier":identifier}).to_string().into())).await?;
             observer.receive(true).await?;
         }
         Ok(observer)
     }
-    async fn receive(&mut self, subscribing: bool) -> Result<usize, Box<dyn std::error::Error>> {
+    /// The payloads received until the subscription is confirmed or the marker arrives.
+    async fn receive(&mut self, subscribing: bool) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         use futures_util::StreamExt;
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            let mut count = 0;
+            let mut payloads = vec![];
             while let Some(message) = self.socket.next().await {
                 let value: Value = serde_json::from_str(message?.to_text()?)?;
-                if subscribing && value["type"] == "confirm_subscription" || value["message"] == "parity-marker" { return Ok(count); }
-                if value["message"].is_string() { count += 1; }
+                if subscribing && value["type"] == "confirm_subscription" || value["message"] == "parity-marker" { return Ok(payloads); }
+                if let Some(payload) = value["message"].as_str() { payloads.push(payload.to_string()); }
             }
             Err("action observer closed".into())
         }).await?
     }
-    async fn drain(&mut self, app: &App) -> Result<usize, Box<dyn std::error::Error>> {
-        app.hub.broadcast("user_1:bot_updates", "parity-marker");
+    async fn drain(&mut self, app: &App) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        app.hub.broadcast(&self.streams[0], "parity-marker");
         self.receive(false).await
     }
 }

@@ -697,6 +697,7 @@ module Pages
       responses = scenario['steps'].each_with_index.map do |step, index|
         client = clients[step['client'] || 'main']
         rows_before = other_before = request_exception = nil
+        broadcasts = []
         now += step['advance'].to_i
         travel_to(now, with_usec: true) do
           BEFORE.fetch(step['before']).call if step['before']
@@ -721,8 +722,12 @@ module Pages
           end
           env = step['action_snapshot'] ? { 'action_dispatch.show_exceptions' => :all } : {}
           capture = ->(*args) { request_exception = args.last[:exception_object] if args.last[:exception_object] }
+          # The cable payloads the request sent on the streams the step names, in order.
+          sent = ->(*args) { broadcasts << args.last[:message].to_str if step['broadcasts']&.include?(args.last[:broadcasting]) }
           ActiveSupport::Notifications.subscribed(capture, 'process_action.action_controller') do
-            client[:session].process(step['method'].downcase.to_sym, request_path, params:, headers:, env:)
+            ActiveSupport::Notifications.subscribed(sent, 'broadcast.action_cable') do
+              client[:session].process(step['method'].downcase.to_sym, request_path, params:, headers:, env:)
+            end
           end
         end
         response = client[:session].response
@@ -748,8 +753,15 @@ module Pages
           elsif exception
             raise exception
           end
+        elsif step['rails_exception_status']
+          # A settings write where Rails raises (update! on an invalid user): the test environment's debugging page.
+          exception = request_exception
+          raise "#{dir} step #{index}: expected Rails exception #{step['rails_exception_status']}, got #{response.status}, #{exception.inspect}" unless exception && response.status == step['rails_exception_status']
+          answer['exception'] = { 'class' => exception.class.name, 'message' => exception.message }
+          answer['body'] = ''
         end
         answer['settings_rows'] = settings_rows if step['settings_snapshot']
+        answer['broadcasts'] = broadcasts if step['broadcasts']
         answer
       end
       ActiveJob::Base.queue_adapter = original_adapter if action_scenario

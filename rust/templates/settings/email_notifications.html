@@ -12,12 +12,12 @@
             <span>{{ env_name }}</span>
           </label>
 {% else %}          <label class="form__radio">
-            <input type="radio" name="smtp_provider" id="smtp_provider_" value="" data-action="form--email-notifications#selectNone" {% if !mail_configured %}checked="checked"{% endif %} />
+            <input type="radio" name="smtp_provider" id="smtp_provider_" value="" data-action="form--email-notifications#selectNone" {% if !mail_configured && !show_form %}checked="checked"{% endif %} />
             <span>{{ v.t("settings.email_notifications.none")|safe }}</span>
           </label>
 
           <label class="form__radio">
-            <input type="radio" name="smtp_provider" id="smtp_provider_custom_smtp" value="custom_smtp" data-action="form--email-notifications#selectCustom" {% if custom %}checked="checked"{% endif %} />
+            <input type="radio" name="smtp_provider" id="smtp_provider_custom_smtp" value="custom_smtp" data-action="form--email-notifications#selectCustom" {% if custom || show_form %}checked="checked"{% endif %} />
             <span>Custom SMTP</span>
           </label>
 {% endif %}      </div>
@@ -31,7 +31,7 @@
         <input type="hidden" name="smtp_password" id="smtp_password" value="[redacted]" />
         <input type="hidden" name="smtp_host" id="smtp_host"{% if let Some(host) = host %} value="{{ host }}"{% endif %} />
         <input type="hidden" name="smtp_port" id="smtp_port"{% if let Some(port) = port %} value="{{ port }}"{% endif %} />
-{% else %}        <div class="setting-form" data-form--email-notifications-target="smtpFields" style="margin: 4rem auto; display: none;">
+{% else %}        <div class="setting-form" data-form--email-notifications-target="smtpFields" style="margin: 4rem auto; display: {% if show_form %}flex{% else %}none{% endif %};">
           <div class="form__row form__row--input">
             <input class="form__input" type="text" name="smtp_host" id="smtp_host" value="smtp.gmail.com" placeholder=" ">
             <label class="form__label" for="smtp_host">{{ v.t("settings.email_notifications.smtp_host")|safe }}</label>
@@ -50,7 +50,7 @@
           </div>
           <p class="form__info">{{ v.t("settings.email_notifications.smtp_hint_html")|safe }}</p>
         </div>
-        <div class="setting-form" data-form--email-notifications-target="smtpButtons" style="display: none; margin-top: 2rem;">
+        <div class="setting-form" data-form--email-notifications-target="smtpButtons" style="display: {% if show_form %}flex{% else %}none{% endif %}; margin-top: 2rem;">
           <input type="submit" name="commit" value="{{ v.t("settings.email_notifications.set")|safe }}" class="button button--sky" style="margin-top: 0" data-disable-with="{{ v.t("settings.email_notifications.set")|safe }}" />
         </div>
 {% endif %}

@@ -27,6 +27,24 @@ pub fn set(c: &Connection, cipher: &Cipher, key: &str, value: &str, now: DateTim
     write(c, key, &cipher.encrypt(value), now)
 }
 
+/// AppConfig.set(key, value) with a value that may be nil (a parameter the request did not send): a nil value on a row
+/// that holds nil is not dirty; a new row is saved with a NULL value.
+pub fn set_nullable(c: &Connection, cipher: &Cipher, key: &str, value: Option<&str>, now: DateTime<Utc>) -> Result<(), String> {
+    match (value, stored(c, key)?) {
+        (Some(value), _) => set(c, cipher, key, value, now),
+        (None, Some(None)) => Ok(()),
+        (None, Some(Some(_))) => c.execute("UPDATE app_configs SET value = NULL, updated_at = ?2 WHERE key = ?1", (key, format_time(now)))
+            .map(drop).map_err(|e| format!("app_configs[{key}]: {e}")),
+        (None, None) => c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, NULL, ?2, ?2)", (key, format_time(now)))
+            .map(drop).map_err(|e| format!("app_configs[{key}]: {e}")),
+    }
+}
+
+/// AppConfig.delete(key): `find_by(key:)&.destroy`.
+pub fn delete(c: &Connection, key: &str) -> Result<(), String> {
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [key]).map(drop).map_err(|e| format!("app_configs[{key}]: {e}"))
+}
+
 /// A key only Rust reads and writes, stored plain: there is no secret in it, so `deltabadger check` reads it without the
 /// instance's keys. Rails never reads these keys, and would read a plain value as itself.
 pub fn get_plain(c: &Connection, key: &str) -> Result<Option<String>, String> { Ok(stored(c, key)?.flatten()) }

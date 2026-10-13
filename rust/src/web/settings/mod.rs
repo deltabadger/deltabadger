@@ -6,6 +6,7 @@ pub mod clients;
 pub mod keys;
 pub mod validator;
 pub mod mail;
+pub mod preferences;
 mod qr;
 pub mod tax;
 pub mod two_fa;
@@ -104,6 +105,16 @@ pub async fn write(
     }
     if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_wash_sale" {
         return tax::write(app, ctx, headers).await;
+    }
+    if ctx.method == Method::POST && ctx.params.route_path == "/settings/regenerate_api_token" {
+        return api::regenerate(app, ctx).await;
+    }
+    if ctx.method == Method::PATCH
+        && preferences::ACTIONS
+            .iter()
+            .any(|s| ctx.params.route_path == format!("/settings/{s}"))
+    {
+        return preferences::write(app, ctx, headers).await;
     }
     if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_two_fa" {
         return two_fa::handle(app, ctx, true).await;
