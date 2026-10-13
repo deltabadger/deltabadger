@@ -116,6 +116,8 @@ impl Service {
         self.state().unkeyed.get(&user).filter(|(at,until,_)|*at==revision&&*until>now).map(|(_,_,reason)|*reason)
     }
     pub fn set_unkeyed(&self,user:i64,revision:u64,until:i64,reason:Option<&'static str>) { self.state().unkeyed.insert(user,(revision,until,reason)); }
+    /// Whether a fill of this account is running.
+    pub fn filling(&self,user:i64)->bool { self.state().active_users.contains(&user) }
     /// When the earliest queued work is due.
     pub fn next_due(&self)->Option<i64> { self.state().pending.values().map(|w|w.not_before).min() }
     fn state(&self)->MutexGuard<'_,State> { self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }

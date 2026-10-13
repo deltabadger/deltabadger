@@ -14,6 +14,16 @@ use std::time::{Duration, Instant};
 
 const AT: &str = "2026-03-18T12:01:00Z";
 
+// Wall-clock bounds hold for a release build. A debug build on a busy CI runner served a page in 66 ms beside a CPU-heavy
+// fill, so debug gets four times the room: still far below the multi-second work the pages must not wait on, which each
+// test also measures (`FILL_OVER_PAGE`).
+const ROOM: u32 = if cfg!(debug_assertions) { 4 } else { 1 };
+/// A page's p95 beside background figures work, and a commit beside a builder statement.
+const PAGE_BOUND: Duration = Duration::from_millis(50 * ROOM as u64);
+/// How many times longer than the pages' p95 the background work (at least the window the pages were measured in) must
+/// take, for the test to say anything.
+const FILL_OVER_PAGE: u32 = 10;
+
 /// Daily bars of AAA up to the day before `AT`.
 fn bars() -> Value {
     let start = common::web::at("2026-03-02T00:00:00Z");
@@ -405,7 +415,8 @@ async fn boot_fetch_is_bounded_to_eight_in_flight() {
     let t = Instant::now();
     install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
     until(20, "the first publication", async || published(&install.app, 1).await).await;
-    assert!(t.elapsed() <= Duration::from_secs(6), "first publication after {:?}", t.elapsed());
+    // Six seconds for a release build; the fetch's own bound is the eight in flight above.
+    assert!(t.elapsed() <= Duration::from_secs(6) * ROOM, "first publication after {:?}", t.elapsed());
 }
 
 #[tokio::test]
@@ -414,12 +425,16 @@ async fn pages_stay_responsive_during_large_market_responses() {
     let install = members_install(32, 32, 13_000, "2026-03-12T00:00:00Z", 30, 100);
     let idle = p95(latencies(&install, "/settings/connect", 10, Duration::from_millis(5)).await);
     let _stop = install.consume();
+    let started = Instant::now();
     install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
     tokio::time::sleep(Duration::from_millis(50)).await;
-    let during = latencies(&install, "/settings/connect", 20, Duration::from_millis(25)).await;
-    assert!(!published(&install.app, 1).await, "the pages were measured while the fill ran");
+    let during = latencies(&install, "/settings/connect", 40, Duration::from_millis(25)).await;
+    // The fill outlasted every page measured beside it: it has run at least this long.
+    assert!(install.app.figure_service.filling(1), "the pages were measured while the fill ran");
+    let fill = started.elapsed();
     let during = p95(during);
-    assert!(during < Duration::from_millis(50), "p95 {during:?} during the fill ({idle:?} idle)");
+    assert!(during < PAGE_BOUND, "p95 {during:?} during the fill ({idle:?} idle)");
+    assert!(fill > during * FILL_OVER_PAGE, "the fill ({fill:?}) was no longer than the pages beside it (p95 {during:?})");
 }
 
 #[tokio::test]
@@ -427,12 +442,16 @@ async fn pages_stay_responsive_during_a_cpu_heavy_fill() {
     // 60 holdings, 3,000 orders, two years of daily bars each: a computation of seconds.
     let install = members_install(60, 3_000, 730, "2024-03-18T00:00:00Z", 86_400, 0);
     let _stop = install.consume();
+    let started = Instant::now();
     install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
     tokio::time::sleep(Duration::from_millis(50)).await;
-    let during = latencies(&install, "/settings/connect", 20, Duration::from_millis(25)).await;
-    assert!(!published(&install.app, 1).await, "the pages were measured while the fill ran");
+    let during = latencies(&install, "/settings/connect", 40, Duration::from_millis(25)).await;
+    // The fill outlasted every page measured beside it: it has run at least this long.
+    assert!(install.app.figure_service.filling(1), "the pages were measured while the fill ran");
+    let fill = started.elapsed();
     let during = p95(during);
-    assert!(during < Duration::from_millis(50), "p95 {during:?} during the fill");
+    assert!(during < PAGE_BOUND, "p95 {during:?} during the fill");
+    assert!(fill > during * FILL_OVER_PAGE, "the fill ({fill:?}) was no longer than the pages beside it (p95 {during:?})");
 }
 
 #[tokio::test]
@@ -498,8 +517,9 @@ async fn wal_slow_builder_statement_blocks_neither_writer_nor_web() {
     let pages = p95(latencies(&install, "/settings/connect", 20, Duration::from_millis(25)).await);
     assert!(!slow.is_finished(), "the slow statement ran throughout");
     assert_eq!(slow.await.unwrap().unwrap(), 2000 * 2001 / 2);
-    assert!(commit < Duration::from_millis(50), "a commit took {commit:?} beside the builder's statement");
-    assert!(pages < Duration::from_millis(50), "pages p95 {pages:?} beside the builder's statement");
+    assert!(commit < PAGE_BOUND, "a commit took {commit:?} beside the builder's statement");
+    assert!(pages < PAGE_BOUND, "pages p95 {pages:?} beside the builder's statement");
+    assert!(Duration::from_secs(2) > pages * FILL_OVER_PAGE && Duration::from_secs(2) > commit * FILL_OVER_PAGE, "the builder's statement (2 s) was no longer than what ran beside it");
 }
 
 #[tokio::test]
