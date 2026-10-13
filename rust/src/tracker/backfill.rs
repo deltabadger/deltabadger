@@ -552,7 +552,6 @@ mod tests {
     /// step: bounded, and refused under an allowance it exceeds.
     #[test]
     fn many_symbols_sweep_in_linear_work_within_the_allowance() {
-        let c = install();
         let rows: Vec<Stored> = (0..100_000).map(|i| Stored { id: i, base: format!("S{i}"), ..bought("BTC") }).collect();
         let sweep_in = |limits| budget::scope(limits, || sweep(&Plan::default(), &Prices::new(), &rows, &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default(), &alpaca_ids()));
         let (out, used) = sweep_in(budget::FIGURE);
