@@ -160,6 +160,8 @@ impl Reference {
         self.prices.get(&(asset.to_string(), "USD".to_string())).filter(|_| from <= to).into_iter().flat_map(move |days| days.range(from..=to))
     }
 
+    /// The category of the asset `venue_id` lists under `symbol`: None when it lists nothing, Some(None) uncategorised.
+    pub fn listed_category_on(&self, venue_id: i64, symbol: &str) -> Option<Option<&str>> { self.listed.get(&(venue_id, symbol.to_string())).map(|(_, cat)| cat.as_deref()) }
     /// The category of the asset the default venue lists under `symbol`: None when it lists nothing.
     pub fn listed_category(&self, symbol: &str) -> Option<Option<&str>> { self.listed.get(&(self.default, symbol.to_string())).map(|(_, cat)| cat.as_deref()) }
 }

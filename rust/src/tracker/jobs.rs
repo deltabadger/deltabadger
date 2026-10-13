@@ -252,8 +252,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, e
 }
 
 /// PortfolioSnapshot::BackfillJob#perform. Returns whether a history was written (none before the first transaction's
-/// day has ended). This build sweeps D4a's domain, one Alpaca account in dollars; any other history is refused before
-/// anything is written, its stamps included.
+/// day has ended). Every venue's history is swept; nothing is written when the rows moved after its walk read them.
 pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option<&DataApi<T>>, ecb: Option<&fx::Source>, user_id: i64, clock: &dyn Clock) -> Result<bool, String> {
     let now = clock.now();
     let today = now.date_naive();
@@ -264,7 +263,6 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let begun = metered(db, &mut allowance, move |c, cipher| {
         let version = backfill::history_version(c, user_id)?;
         let all = super::rows::load_all(c, user_id)?;
-        super::rows::alpaca_sweep_domain(c, user_id, &all).map_err(|why| FiguresError::NotComputed(format!("the tracker backfill is not ported for {why}")))?;
         let first = all.iter().map(|r| r.date()).min();
         match first {
             Some(first) if first <= last => Ok(Some((version, first, backfill::plan(c, user_id, &all, first, last)?))),
@@ -282,10 +280,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
     let (plan, version) = (std::sync::Arc::new(plan), std::sync::Arc::new(version));
     metered(db, &mut allowance, move |c, cipher| {
         written_for(c, &inputs.origin, &|| now, |fenced, _| {
-            // The rows swept are the rows the write sees, and they are inside the domain this sweep carries.
+            // The rows swept are the rows the write sees.
             if backfill::history_version(fenced, user_id)? != inputs.history { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
-            super::rows::alpaca_sweep_domain(fenced, user_id, &inputs.all).map_err(|why| FiguresError::NotComputed(format!("the tracker backfill is not ported for {why}")))?;
-            let swept = backfill::sweep(fenced, &plan, &inputs.all, &terms, first, last)?;
+            let swept = backfill::sweep(fenced, &plan, &inputs.all, &terms, first, last, &inputs.fx, &inputs.ids)?;
             backfill::store(fenced, cipher, user_id, &swept, last, &version, now)
         })?;
         Ok(true)

@@ -582,6 +582,24 @@ module TrackerParity
           deposit(c, '100', '2026-09-15T10:00:00Z', currency: 'EUR', exchange: b)
           balance(c, 'EUR', '100', usd_price: '1.17', exchange: b)
         } },
+      # The backfill's own ECB loads (perform's, its price service's, its money-in walk's): the first two fail, the third
+      # loads. The ledger job's load before them fails too.
+      { name: 'ecb_fails_then_loads_backfill', market: { HISTORY => [flat(60_000)] },
+        ecb: { ECB => [{ 'status' => 500, 'body' => 'Internal Server Error' }, { 'status' => 500, 'body' => 'Internal Server Error' },
+                       { 'status' => 500, 'body' => 'Internal Server Error' }, ok(ecb_csv(series))] }.merge(nothing),
+        setup: ->(c) { stale_ecb_rows(c) } },
+      # EUR cash held since early September, rates only to the 10th and the ECB unavailable: the backfill values the
+      # later days with no rate (partial), and asks data-api for nothing to cross them with.
+      { name: 'backfill_old_eur_cash_without_current_fx', market: { HISTORY => [history([])] },
+        ecb: { ECB => [{ 'status' => 500, 'body' => 'Internal Server Error' }] }.merge(nothing),
+        setup: lambda { |c|
+          FxRate.delete_all
+          rates('USD', '2026-09-01', '2026-09-10', '1.16')
+          b = binance(c)
+          coins(c, 'EUR')
+          deposit(c, '300', '2026-09-02T10:00:00Z', currency: 'EUR', exchange: b)
+          balance(c, 'EUR', '300', usd_price: '1.17', exchange: b)
+        } },
       { name: 'standalone_fiat_fee_missing_fx', market: { HISTORY => [history([])] },
         setup: lambda { |c|
           rates('USD', '2026-09-01', '2026-09-05', '1.17')
@@ -763,6 +781,15 @@ module TrackerParity
           sell(c, 'BTC', '0.01', '70000', '2026-09-20T10:00:00Z', quote: 'USDT', exchange: b, fee_currency: 'BTC', fee_amount: '0.00001')
           balance(c, 'USDT', '1000', usd_price: '1', exchange: b)
           balance(c, 'BTC', '0.00999', usd_price: '61000', exchange: b)
+        } },
+      # Only the futures and margin wallets: the walk sets them aside, the backfill applies them to balances.
+      { name: 'borrowed_only_history', market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          b = binance(c)
+          coins(c, 'USDT')
+          row(c, :other_income, 'USDT', '50', '2026-09-05T10:00:00Z', exchange: b, tx_id: 'usdt-futures-1')
+          row(c, :fee, 'BTC', '0.0001', '2026-09-06T10:00:00Z', exchange: b, tx_id: 'margin-interest-1-BTC')
+          balance(c, 'USDT', '50', usd_price: '1', exchange: b)
         } },
       # Fees FIFO never applies (Engine#settle_fee): a third coin paid on a withdrawal, and a coin's own fee on the out-leg
       # of a coin-for-coin swap, charged on top.

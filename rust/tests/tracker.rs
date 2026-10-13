@@ -320,10 +320,10 @@ async fn no_connection_is_held_while_fetching() {
     assert!(!wrote.borrow().is_empty() && wrote.borrow().iter().all(Result::is_ok), "{:?}", wrote.borrow());
 }
 
-/// A row of another venue that lands while the backfill's fetch is out reaches the rows the sweep would write from: the
-/// write sees it and refuses, and neither table nor either history stamp moves.
+/// A row of another venue that lands while the backfill's fetch is out is read with every other row by the walk that
+/// follows, and swept with them: its venue's days are written under its own exchange.
 #[tokio::test(flavor = "current_thread")]
-async fn a_venue_row_landing_during_the_backfills_fetch_writes_no_history() {
+async fn a_venue_row_landing_during_the_backfills_fetch_is_swept_under_its_venue() {
     use deltabadger::tracker::jobs::backfill_run;
     let (dir, user, _, api) = hooked_install(|path, n| if n == 0 {
         Connection::open(path.join("production.sqlite3")).unwrap().execute_batch("
@@ -331,6 +331,23 @@ async fn a_venue_row_landing_during_the_backfills_fetch_writes_no_history() {
             INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, created_at, updated_at)
               SELECT user_id, last_insert_rowid(), 4, 'USDT', 100, 'b-1', '2026-09-03 00:00:00', '{}', '{}', '2026-09-20 02:58:00', '2026-09-20 02:58:00' FROM account_transactions LIMIT 1;").unwrap();
     });
+    let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher());
+    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    let out = backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), Some(&api), None, user, &deltabadger::engine::FixedClock(at)).await;
+    assert_eq!(out, Ok(true));
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let binance_days: i64 = c.query_row("SELECT count(*) FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance'", [], |r| r.get(0)).unwrap();
+    let invested: f64 = c.query_row("SELECT v.invested_usd FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance' AND date = '2026-09-19'", [], |r| r.get(0)).unwrap();
+    assert_eq!((binance_days, invested), (17, 100.0), "3 to 19 September on Binance, the 100 USDT in");
+}
+
+/// Rows that move after the backfill's walk read them, here during the walk's own fetch: the write sees a ledger that
+/// is not the one swept, and writes neither table nor either stamp.
+#[tokio::test(flavor = "current_thread")]
+async fn rows_moving_under_the_backfills_walk_write_no_history() {
+    use deltabadger::tracker::jobs::{backfill_run, SWEEP_MOVED};
+    // Request 0 is the backfill's own range for the coin; the walk's prefetch is the next.
+    let (dir, user, _, api) = hooked_install(|path, n| if n == 1 { edit_deposit(path, "1200", "2026-09-20 02:59:00") });
     let state = |dir: &Path| {
         let c = Connection::open(dir.join("production.sqlite3")).unwrap();
         let count = |sql: &str| c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
@@ -341,6 +358,50 @@ async fn a_venue_row_landing_during_the_backfills_fetch_writes_no_history() {
     let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
     let out = backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), Some(&api), None, user, &deltabadger::engine::FixedClock(at)).await;
-    assert!(out.as_ref().is_err_and(|e| e.starts_with("the tracker backfill is not ported for ")), "{out:?}");
+    assert_eq!(out.err().as_deref(), Some(SWEEP_MOVED));
     assert_eq!(state(dir.path()), before, "no history row and no stamp written");
+}
+
+/// Two venues, rewritten: a transfer from Alpaca lands on Binance at the withdrawal, so Binance's days start there;
+/// unlinked and swept again, they start at Binance's own first row, and the days before it are gone. Today's rows,
+/// `record!`'s, are left alone. A failure in the write unit leaves both tables and the version as they were.
+#[tokio::test(flavor = "current_thread")]
+async fn a_two_venue_history_is_rewritten_under_each_venue_and_rolled_back_whole() {
+    use deltabadger::tracker::jobs::backfill_run;
+    let (dir, user, _) = install();
+    let path = dir.path().join("production.sqlite3");
+    let c = Connection::open(&path).unwrap();
+    c.execute_batch(&format!("
+        INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', '2026-09-01 00:00:00', '2026-09-01 00:00:00');
+        INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, created_at, updated_at)
+          VALUES ({user}, (SELECT id FROM exchanges WHERE type = 'Exchanges::Binance'), 4, 'USD', 100, 'b-dep', '2026-09-08 10:00:00', '{{}}', '{{}}', '2026-09-08 11:00:00', '2026-09-08 11:00:00');
+        INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, linked_transaction_id, created_at, updated_at)
+          SELECT {user}, exchange_id, 5, 'USD', 100, 'a-wd', '2026-09-05 10:00:00', '{{}}', '{{}}', (SELECT id FROM account_transactions WHERE tx_id = 'b-dep'), '2026-09-05 11:00:00', '2026-09-05 11:00:00'
+          FROM account_transactions WHERE tx_id = 'd-1';
+        INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, value_usd, invested_usd, partial, created_at, updated_at)
+          SELECT {user}, id, '2026-09-20', 7, 7, 0, '2026-09-20 02:00:00', '2026-09-20 02:00:00' FROM exchanges;")).unwrap();
+    let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), seed::cipher());
+    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    let sweep = || async { backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), None::<&DataApi<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at)).await };
+    let binance = |c: &Connection| -> (String, i64, i64) { c.query_row("SELECT min(date), count(*), sum(date = '2026-09-20' AND value_usd = 7) FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap() };
+    assert_eq!(sweep().await, Ok(true));
+    assert_eq!(binance(&c), ("2026-09-05".to_string(), 16, 1), "5 to 19 September, and today's row kept");
+    c.execute("UPDATE account_transactions SET linked_transaction_id = NULL, updated_at = '2026-09-19 12:00:00' WHERE tx_id = 'a-wd'", []).unwrap();
+    assert_eq!(sweep().await, Ok(true));
+    assert_eq!(binance(&c), ("2026-09-08".to_string(), 13, 1), "from Binance's own first row; the days before it gone");
+    // A write that fails rolls the unit back: both tables and the version stamp stay as the last sweep left them.
+    let dump = |c: &Connection| -> Vec<String> {
+        let mut out = vec![];
+        for sql in ["SELECT date || value_usd || invested_usd FROM portfolio_snapshots ORDER BY date", "SELECT exchange_id || date || value_usd FROM portfolio_venue_snapshots ORDER BY exchange_id, date",
+                    "SELECT key || value FROM app_configs WHERE key LIKE 'snapshot_%' ORDER BY key"] {
+            let mut s = c.prepare(sql).unwrap();
+            out.extend(s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap));
+        }
+        out
+    };
+    let before = dump(&c);
+    c.execute_batch("UPDATE account_transactions SET updated_at = '2026-09-19 13:00:00' WHERE tx_id = 'a-wd';
+        CREATE TRIGGER refuse_stamp BEFORE UPDATE ON app_configs WHEN NEW.key LIKE 'snapshot_history_version_%' BEGIN SELECT RAISE(ABORT, 'stamp refused'); END;").unwrap();
+    assert!(sweep().await.is_err());
+    assert_eq!(dump(&c), before);
 }

@@ -39,29 +39,9 @@ fn cipher() -> Arc<deltabadger::crypto::Cipher> {
 
 fn read(path: &Path) -> Value { serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap() }
 
-/// Plan D2b-2a: the backfill this build carries sweeps one Alpaca account in dollars, and refuses any other history
-/// before it writes anything. The ledger job's results must equal Rails' exactly: the scopes and figures, today's rows
-/// of both tables, the locks; Rails' backfill then rewrote every earlier day, which Rust left alone (no earlier row, no
-/// stamp), and what it fetched and asked for is all after what the ledger job did (Rust's lists are a prefix of Rails').
-fn backfill_refused(rails: &Value, rust: &Value) -> Result<(), String> {
-    for k in ["ledger", "ledger_error"] { if rails[k] != rust[k] { return Err(format!("{k} differs")); } }
-    if rails["backfill_error"] != Value::Null { return Err("Rails' backfill failed".into()); }
-    if !rust["backfill_error"].as_str().is_some_and(|m| m.starts_with("the tracker backfill is not ported for ")) { return Err(format!("Rust's backfill: {}", rust["backfill_error"])); }
-    let today = |rows: &Value| rows.as_array().map(|r| r.iter().filter(|row| row["date"] == "2026-10-01").cloned().collect::<Vec<_>>()).unwrap_or_default();
-    for table in ["portfolio_snapshots", "portfolio_venue_snapshots"] {
-        if today(&rails["tables"][table]) != rust["tables"][table].as_array().cloned().unwrap_or_default() { return Err(format!("{table}: today's rows differ, or Rust wrote an earlier day")); }
-    }
-    if rails["tables"]["wash_sale_locks"] != rust["tables"]["wash_sale_locks"] { return Err("wash_sale_locks differ".into()); }
-    for key in ["snapshot_history_version_1", "snapshot_price_generation_1"] { if rust["tables"][key] != Value::Null { return Err(format!("Rust stamped {key}")); } }
-    let prefix = |a: &Value, b: &Value| { let (a, b) = (a.as_array().cloned().unwrap_or_default(), b.as_array().cloned().unwrap_or_default()); a.len() <= b.len() && b[..a.len()] == a[..] };
-    if !prefix(&rust["tables"]["historical_prices"], &rails["tables"]["historical_prices"]) { return Err("stored prices differ".into()); }
-    for kind in ["market", "alpaca", "ecb"] { if !prefix(&rust["requests"][kind], &rails["requests"][kind]) { return Err(format!("{kind} requests differ")); } }
-    Ok(())
-}
-
 /// R: legacy fixture balances have no credential provenance. Retain every historical
 /// amount; R4 refuses today's snapshots and associated wash-lock publication until a producer sync succeeds.
-const UNKNOWN_ORIGIN: &[&str] = &["a_failed_sync_and_stale_prices", "stale_prices_alone", "cash_beyond_the_history_and_an_unpriced_holding", "a_failed_price_fetched_again", "bought_since_the_sync", "buys_priced", "coin_fee_stated_price", "coin_fee_then_withdrawal", "departed_and_cash_short", "dividends_fees_withdrawal", "linked_dollars", "old_loss_outside_the_horizon", "return_of_capital", "sale_gain_with_a_losing_lot", "sell_at_loss_wash_off", "sell_at_loss_wash_on", "sold_before_any_buy", "split_priced_by_a_second_fetch"];
+const UNKNOWN_ORIGIN: &[&str] = &["other_venue_balance", "a_failed_sync_and_stale_prices", "stale_prices_alone", "cash_beyond_the_history_and_an_unpriced_holding", "a_failed_price_fetched_again", "bought_since_the_sync", "buys_priced", "coin_fee_stated_price", "coin_fee_then_withdrawal", "departed_and_cash_short", "dividends_fees_withdrawal", "linked_dollars", "old_loss_outside_the_horizon", "return_of_capital", "sale_gain_with_a_losing_lot", "sell_at_loss_wash_off", "sell_at_loss_wash_on", "sold_before_any_buy", "split_priced_by_a_second_fetch"];
 fn unknown_origin(name:&str,rails:&Value,rust:&Value,before_locks:&Value)->Option<Result<(),String>> {
     if !UNKNOWN_ORIGIN.contains(&name){return None;}
     Some((|| {
@@ -72,30 +52,11 @@ fn unknown_origin(name:&str,rails:&Value,rust:&Value,before_locks:&Value)->Optio
         expected["tables"]["wash_sale_locks"]=before_locks.clone();
         for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {
             let rows=expected["tables"][table].as_array_mut().ok_or("missing snapshot table")?;
-            if rows.iter().filter(|row|row["date"]=="2026-10-01").count()!=1{return Err(format!("{table}: expected exactly one current fixture row"));}
+            if !rows.iter().any(|row|row["date"]=="2026-10-01"){return Err(format!("{table}: expected a current fixture row"));}
             rows.retain(|row|row["date"]!="2026-10-01");
         }
         if expected==*rust{Ok(())}else{Err("a field besides the refused ledger/current snapshots/unchanged wash locks differs; retained history and amounts must compare exactly".into())}
     })())
-}
-
-/// Scenarios where Rust deliberately does not do what Rails does, each asserted on its own terms.
-fn listed(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    // Every venue-shaped history (Plan D2b-2a): the walk and today's rows match, the backfill is refused.
-    let alpaca_domain = ["coin_fee_unpriced", "unnamed_coin"];
-    // A balance on a venue with no key: no Rust sync produced it, so today's rows are refused (R4), and the backfill is
-    // refused as for any other venue's history. Rails states both.
-    if name == "other_venue_balance" {
-        return Some((|| {
-            if rails["ledger"] == Value::Null || rails["tables"]["portfolio_snapshots"].as_array().is_none_or(Vec::is_empty) { return Err("Rails no longer states this history".into()); }
-            if rust["ledger_error"] != json!(deltabadger::engine::model::CREDENTIALS_CHANGED) { return Err(format!("Rust's ledger: {}", rust["ledger_error"])); }
-            if !rust["backfill_error"].as_str().is_some_and(|m| m.starts_with("the tracker backfill is not ported for ")) { return Err(format!("Rust's backfill: {}", rust["backfill_error"])); }
-            if rust["tables"]["portfolio_snapshots"] != json!([]) || rust["tables"]["portfolio_venue_snapshots"] != json!([]) { return Err("Rust wrote a snapshot".into()); }
-            Ok(())
-        })());
-    }
-    if scenario["balances_synced_by_rust"] == true && !alpaca_domain.contains(&name) { return Some(backfill_refused(rails, rust)); }
-    None
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -105,7 +66,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 57, "the tracker grid");
+    assert_eq!(dirs.len(), 60, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -119,7 +80,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
         drop(initial);
         let rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
         let rails_out = read(&d.join("rails.json"));
-        match unknown_origin(&name,&rails_out,&rust_out,&before_locks).or_else(||listed(&name, &scenario, &rails_out, &rust_out)) {
+        match unknown_origin(&name,&rails_out,&rust_out,&before_locks) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => divergences.push(name),
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -128,10 +89,6 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     let mut expected=UNKNOWN_ORIGIN.iter().map(|name|name.to_string()).collect::<Vec<_>>();
-    for d in &dirs {
-        let name = d.file_name().unwrap().to_string_lossy().to_string();
-        if read(&d.join("scenario.json"))["balances_synced_by_rust"] == true && !["coin_fee_unpriced", "unnamed_coin"].contains(&name.as_str()) { expected.push(name); }
-    }
     expected.sort();
     assert_eq!(divergences,expected,"all reviewed legacy-origin and original divergences are exercised");
 
@@ -178,4 +135,13 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
         assert_eq!(today(&rails_of(name))["partial"], 0, "{name}");
     }
     assert_eq!(rails_of("binance_to_alpaca_linked_transfer")["ledger"]["venues"].as_object().unwrap().len(), 2, "the transfer's two venues");
+    // The backfill for every venue (Plan D2b-2b).
+    let ecb_path_calls = |name: &str| rails_of(name)["requests"]["ecb"].as_array().unwrap().iter().filter(|r| r[0].as_str().is_some_and(|k| k.contains("/service/data/EXR/"))).count();
+    assert_eq!(ecb_path_calls("ecb_fails_then_loads_backfill"), 4, "the ledger's load and the backfill's three, the last one loading");
+    let eur = snapshots(&rails_of("backfill_old_eur_cash_without_current_fx"));
+    assert!(eur.iter().any(|r| r["partial"] == 0 && r["date"].as_str() < Some("2026-09-10")) && eur.iter().any(|r| r["partial"] == 1 && r["date"].as_str() < Some("2026-10-01")),
+            "EUR valued while a rate is within a week, partial after");
+    assert!(snapshots(&rails_of("borrowed_only_history")).len() > 20, "a history of the borrowed wallets alone");
+    let venue_days = |name: &str| rails_of(name)["tables"]["portfolio_venue_snapshots"].as_array().unwrap().iter().map(|r| r["exchange_id"].as_i64().unwrap()).collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(venue_days("binance_to_alpaca_linked_transfer").len(), 2, "each venue's history under its own exchange");
 }

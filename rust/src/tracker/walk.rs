@@ -1016,18 +1016,22 @@ fn cash_conversions(rows: &[Row], ps: &mut PriceService) -> Result<HashMap<usize
 
 /// Tracker::UnfundedCash.closers: which positions a shortfall may be read at, and for which venue.
 fn closers(rows: &[Row]) -> HashMap<usize, String> {
-    let mut last: HashMap<(String, String), usize> = HashMap::new();
-    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { last.insert((r.exchange.clone(), g.clone()), i); } }
-    let mut open: HashMap<String, i64> = HashMap::new();
-    let mut seen: HashSet<(String, String)> = HashSet::new();
+    closers_of(&rows.iter().map(|r| (r.exchange.as_str(), r.group.as_deref())).collect::<Vec<_>>())
+}
+
+/// `UnfundedCash.closers` over (venue, group id) entries: position → the venue a shortfall may be read for there.
+pub fn closers_of(entries: &[(&str, Option<&str>)]) -> HashMap<usize, String> {
+    let mut last: HashMap<(&str, &str), usize> = HashMap::new();
+    for (i, (venue, group)) in entries.iter().enumerate() { if let Some(g) = group { last.insert((venue, g), i); } }
+    let mut open: HashMap<&str, i64> = HashMap::new();
+    let mut seen: HashSet<(&str, &str)> = HashSet::new();
     let mut closing = HashMap::new();
-    for (i, r) in rows.iter().enumerate() {
-        if let Some(g) = &r.group {
-            let key = (r.exchange.clone(), g.clone());
-            if seen.insert(key.clone()) { *open.entry(r.exchange.clone()).or_insert(0) += 1; }
-            if last.get(&key) == Some(&i) { *open.entry(r.exchange.clone()).or_insert(0) -= 1; }
+    for (i, (venue, group)) in entries.iter().enumerate() {
+        if let Some(g) = group {
+            if seen.insert((venue, g)) { *open.entry(venue).or_insert(0) += 1; }
+            if last.get(&(*venue, *g)) == Some(&i) { *open.entry(venue).or_insert(0) -= 1; }
         }
-        if open.get(&r.exchange).copied().unwrap_or(0) == 0 { closing.insert(i, r.exchange.clone()); }
+        if open.get(venue).copied().unwrap_or(0) == 0 { closing.insert(i, venue.to_string()); }
     }
     closing
 }
