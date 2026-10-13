@@ -178,3 +178,74 @@ async fn the_ecb_is_loaded_with_no_data_api_configured(){
     let newest:String=db.run(|c,_|c.query_row("SELECT max(date) FROM fx_rates WHERE currency='USD'",[],|r|r.get(0)).map_err(|e|e.to_string())).await.unwrap();
     assert_eq!(newest,"2026-09-18");
 }
+
+// S0: which venues hold the page cache back. A deleted key's rows are final history (Rails' `dependent: :nullify`);
+// only a key that exists without a current import, over rows, refuses.
+fn binance(c:&rusqlite::Connection)->i64{c.execute("INSERT INTO exchanges(type,name,maker_fee,taker_fee,created_at,updated_at) VALUES('Exchanges::Binance','Binance','0.1','0.1','2026-09-01 00:00:00','2026-09-01 00:00:00')",[]).unwrap();c.last_insert_rowid()}
+fn key(c:&rusqlite::Connection,owner:i64,venue:i64,status:i64)->i64{let cipher=common::seed::cipher();c.execute("INSERT INTO api_keys(user_id,exchange_id,key,secret,status,key_type,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,0,'2026-09-01 00:00:00','2026-09-01 00:00:00')",rusqlite::params![owner,venue,cipher.encrypt("k"),cipher.encrypt("s"),status]).unwrap();c.last_insert_rowid()}
+fn row(c:&rusqlite::Connection,owner:i64,venue:i64){c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,'USD',50,'2026-09-02 00:00:00','{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00')",[owner,venue]).unwrap();}
+fn delete_key(c:&rusqlite::Connection,id:i64){c.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id]).unwrap();c.execute("DELETE FROM api_keys WHERE id=?1",[id]).unwrap();}
+async fn state(db:&Db,owner:i64)->State{db.run(move|c,_|Ok(cache::read(c,owner,None,clock().0).unwrap())).await.unwrap()}
+#[tokio::test(flavor="current_thread")]
+async fn a_pending_key_with_no_rows_does_not_hold_the_cache_back(){
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);key(&o.primary,s.user_id,b,0);seed(&o.primary,s.user_id,s.exchange_id);
+    let db=Db::new(o.primary,common::seed::cipher());
+    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,s.user_id).await,State::Warm(_)),"a pending key on a venue with no rows has nothing to be current about");
+}
+#[tokio::test(flavor="current_thread")]
+async fn a_key_without_a_current_import_over_rows_holds_the_cache_back(){
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);key(&o.primary,s.user_id,b,2);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);
+    let db=Db::new(o.primary,common::seed::cipher());
+    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,s.user_id).await,State::Cold));
+}
+#[tokio::test(flavor="current_thread")]
+async fn the_last_key_deleted_leaves_its_rows_as_current_history(){
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);delete_key(&o.primary,s.api_key_id);
+    let db=Db::new(o.primary,common::seed::cipher());
+    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,s.user_id).await,State::Warm(_)),"Rails shows a deleted key's history");
+}
+#[tokio::test(flavor="current_thread")]
+async fn a_key_deleted_beside_a_connected_venue_leaves_its_rows_as_current_history(){
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);let gone=key(&o.primary,s.user_id,b,1);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);delete_key(&o.primary,gone);
+    let db=Db::new(o.primary,common::seed::cipher());
+    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,s.user_id).await,State::Warm(_)));
+}
+#[tokio::test(flavor="current_thread")]
+async fn a_pass_a_deletion_overtook_states_nothing_and_a_fresh_pass_publishes(){
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);let gone=key(&o.primary,s.user_id,b,1);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);
+    // The deletion lands inside the pass's write unit, after its inputs were read.
+    o.primary.execute(&format!("CREATE TRIGGER delete_key AFTER INSERT ON portfolio_snapshots BEGIN UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id={gone}; DELETE FROM api_keys WHERE id={gone}; END;"),[]).unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;
+    assert!(matches!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(_)),"an overtaken pass must not look successful");
+    assert!(matches!(state(&db,owner).await,State::Cold),"neither its result nor a failure is stated");
+    db.run(|c,_|{c.execute("DROP TRIGGER delete_key",[]).unwrap();Ok(())}).await.unwrap();
+    assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,owner).await,State::Warm(_)));
+}
+/// The deletion lands after the last pass captured its keys and before its write unit (a price that pass fetched
+/// stores it): the write unit refuses on the changed credentials, and the run states no failure for it either.
+#[tokio::test(flavor="current_thread")]
+async fn a_pass_whose_key_was_deleted_before_its_write_states_no_failure(){
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);let gone=key(&o.primary,s.user_id,b,1);row(&o.primary,s.user_id,b);
+    common::seed::fresh_stock_jobs(&o.primary,clock().0);
+    let day=|d:&str|d.parse::<chrono::NaiveDate>().unwrap();
+    let rows="INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,?3,'BTC',?4,?5,?6,?7,'{}','{}','2026-09-01 00:00:00','2026-09-01 00:00:00')";
+    o.primary.execute(rows,rusqlite::params![s.user_id,s.exchange_id,0,"1","USD","60000","2026-04-30 00:00:00"]).unwrap();
+    for d in ["2026-05-01","2026-05-04"] {o.primary.execute(rows,rusqlite::params![s.user_id,s.exchange_id,10,"0.0001",None::<&str>,None::<&str>,format!("{d} 12:00:00")]).unwrap();}
+    let price=|ds:&[&str]|json!({"status":200,"body":{"prices":ds.iter().map(|d|json!([day(d).and_hms_opt(0,0,0).unwrap().and_utc().timestamp_millis(),60000.0])).collect::<Vec<_>>()}});
+    let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":[price(&["2026-05-01","2026-05-04"]),price(&["2026-05-02"]),price(&["2026-05-03"])]}));
+    let api=Rc::new(Some(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone())));
+    // Three passes each moved by their own price; the third pass's fetch is where the key goes.
+    o.primary.execute(&format!("CREATE TRIGGER delete_key AFTER INSERT ON historical_prices WHEN NEW.date='2026-05-03' BEGIN UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id={gone}; DELETE FROM api_keys WHERE id={gone}; END;"),[]).unwrap();
+    let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;let wakers=jobs::Wakers::default();
+    let outcome=job_with(owner,api.clone()).run(Cx{db:db.clone(),clock:&clock(),wakers:wakers.clone()},vec![]).await;
+    assert_eq!(outcome,Outcome::Failed(deltabadger::engine::model::CREDENTIALS_CHANGED.into()));
+    assert!(matches!(state(&db,owner).await,State::Cold),"no calculation failure is stated for an overtaken pass");
+    assert_eq!(ledger_wakes(&wakers),1,"it stored prices, so the next run is woken");
+    assert_eq!(job_with(owner,api).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(matches!(state(&db,owner).await,State::Warm(_)));
+}

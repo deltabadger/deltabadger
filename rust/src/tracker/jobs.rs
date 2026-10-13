@@ -240,9 +240,6 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&DataApi<T>>, e
             super::snapshot::write(c, user_id, &rows, now.date_naive())?;
             // The lock rows' timestamps are the pass's clock reading, as Rails' frozen `Time.current` is in one job.
             super::wash::confirm_all(c, user_id, &locks, began)?;
-            // A historical-only rebuild (no healthy reading slot) cannot publish a current page cache.
-            let historical: bool = c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [user_id], |r| r.get(0))?;
-            if historical { return Ok(Published::NotCurrent); }
             if super::cache::version(c, user_id)? != inputs.cache { return Ok(Published::Moved); }
             Ok(if super::cache::publish(c, user_id, &inputs.cache, Some(&w), now)? { Published::Yes } else { Published::NotCurrent })
         })
@@ -377,12 +374,14 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:O
     let mut allowance=Allowance::run();
     let out=match ledger_run_published(&cx.db,api,ecb,owner,cx.clock,wall.clone(),&mut allowance).await {
         Ok((_,Published::Moved))=>Err(CACHE_MOVING.to_string()),
-        Ok((walked,_))=>Ok(walked),
+        Ok((walked,Published::NotCurrent))=>{crate::engine::log(&format!("[tracker] ledger cache for user {owner} not published: a venue with history has a key but no current import"));Ok(walked)}
+        Ok((walked,Published::Yes))=>Ok(walked),
         Err(e)=>Err(e),
     };
     match &out {
         Ok(_)=>{}
-        Err(e) if e==MOVED || e==CACHE_MOVING => {}
+        // A key replaced or deleted under the pass: its result is not stated, and no failure is either.
+        Err(e) if e==MOVED || e==CACHE_MOVING || e==crate::engine::model::CREDENTIALS_CHANGED => {}
         Err(_)=>{
             let clock=wall.clone();
             cx.db.run(move|c,_|{
@@ -391,8 +390,6 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:O
                 let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
                 tx.commit().map_err(|e|e.to_string())?;
                 written_for(c,&origin,&*clock,|c,now|{
-                    let historical:bool=c.query_row("SELECT NOT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)",[owner],|r|r.get(0))?;
-                    if historical {return Ok(false)}
                     super::cache::publish(c,owner,&before,None,now)
                 }).map_err(message)
             }).await?;
