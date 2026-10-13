@@ -839,3 +839,35 @@ async fn a_no_key_publication_overtaken_by_the_cut_is_still_delivered() {
     assert!(!armed.load(SeqCst), "the reading crossed the cut");
     assert!(delivered.is_ok(), "the page never received its publication");
 }
+
+// ---- Review: a render-only pass that fails with nothing written makes no loop -----------------------------------------
+
+#[tokio::test]
+async fn a_failing_render_only_pass_with_no_write_is_not_retried_in_a_loop() {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst};
+    let install = Install::new(1, 0);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the English figures", async || published(&install.app, 1).await).await;
+    // From now on every figures computation on the builder fails (as one over its budget would), and nothing is written:
+    // the revision and the ready entry stay as they are. Each computation reads the account's settings first.
+    let (armed, passes) = (Arc::new(AtomicBool::new(true)), Arc::new(AtomicUsize::new(0)));
+    let (failing, counted) = (armed.clone(), passes.clone());
+    install.app.figure_service.on_builder(move |c| {
+        c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+            if failing.load(SeqCst) && matches!(context.action, rusqlite::hooks::AuthAction::Read { table_name: "users", column_name: "hide_balances" }) {
+                counted.fetch_add(1, SeqCst);
+                return rusqlite::hooks::Authorization::Deny;
+            }
+            rusqlite::hooks::Authorization::Allow
+        }));
+    });
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: BTreeSet::from([("fr".to_string(), "/fr".to_string()), ("de".to_string(), "/de".to_string())]), not_before: install.now() });
+    until(10, "the French and German passes", async || passes.load(SeqCst) > 0).await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    let made = passes.load(SeqCst);
+    assert!(made <= 4, "{made} computations in a second and a half: a pass that fails with nothing written is retried in a loop");
+    let failures: Vec<String> = install.app.figure_service.logged().into_iter().filter(|line| line.contains("not rendered")).collect();
+    assert_eq!(failures.len(), 1, "the failure is said once: {failures:?}");
+    assert_eq!(fills(&install.app, 1), 1, "no fill: nothing was written");
+}

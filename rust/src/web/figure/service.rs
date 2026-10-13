@@ -80,7 +80,9 @@ impl Service {
         let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match &builder.connection { Some(c)=>hook(c), None=>builder.hooks.push(Box::new(hook)) }
     }
-    /// What the builder logged when it opened.
+    /// Logs `line`, and keeps it among what the figures service said (`logged`).
+    pub fn note(&self,line:&str) { crate::engine::log(line); self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).logged.push(line.into()); }
+    /// What the figures service logged: the builder when it opened, and passes that could not render (`note`).
     pub fn logged(&self)->Vec<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).logged.clone() }
     /// The database file the builder opens; None until told (`loading::build`).
     pub fn builder_path(&self)->Option<String> { self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner).path.clone() }
