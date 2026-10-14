@@ -15,7 +15,7 @@
   "app/views/tracker/_tiles.html.erb": "5538f13874dd7314d93036ebe04cd17a418e5ae697ba09428c04bb4ee3e30d10",
   "app/views/tracker/_holdings.html.erb": "11c3e4e91a2161b37f3fb470cc656b0ffa2a6246ef477cc15d35b305cb50bdc2",
   "app/views/tracker/_chart.html.erb": "4ddc7aad19547bf72a44c4684826e11f1ad71447e046f80f35fe6b0476f9b4e2",
-  "app/views/tracker/_record.html.erb": "b7a91469bfe2c4e30fa3e4d55a8dd6a897ea558725357083d5d2b5f59a8d2027",
+  "app/views/tracker/_record.html.erb": "2d1755f8239bc5c09c989c3ea9d2aad88c1b5f43764cefd796ae5db48a1da139",
   "app/views/bots/_metrics_item.html.erb": "bcf755c106a064f3eca6e5cd0d4a0607d2b2e74d4f64f5fc5fba5f97520cb3d8",
   "app/views/shared/_segmented.html.erb": "f550a9ffc90302012d6be10333e251a540e87d415d622fefd4f7f99474b28a20",
   "app/views/svg/_24x24_sync.html.haml": "a76bed78ef79842578770333dc8555a4e7b350291574defe8f0c6e16b2bad782",

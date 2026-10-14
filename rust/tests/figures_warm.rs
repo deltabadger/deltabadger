@@ -23,6 +23,9 @@ const PAGE_BOUND: Duration = Duration::from_millis(50 * ROOM as u64);
 /// How many times longer than the pages' p95 the background work (at least the window the pages were measured in) must
 /// take, for the test to say anything.
 const FILL_OVER_PAGE: u32 = 10;
+/// How long pages are measured beside a fill, unless it ends first: twice what a page within `PAGE_BOUND` needs the
+/// fill to outlast, so a fill that is still running clears `FILL_OVER_PAGE` whatever the runner's speed.
+const FILL_WINDOW: Duration = Duration::from_millis(2 * FILL_OVER_PAGE as u64 * 50 * ROOM as u64);
 
 /// Daily bars of AAA up to the day before `AT`.
 fn bars() -> Value {
@@ -384,6 +387,23 @@ async fn latencies(install: &Install, path: &str, n: usize, gap: Duration) -> Ve
 }
 fn p95(mut times: Vec<Duration>) -> Duration { times.sort(); times[((times.len() as f64 - 1.0) * 0.95).round() as usize] }
 
+/// Page loads of `path`, one due every `gap`, while account 1's fill runs, for up to `FILL_WINDOW`; and how long the fill
+/// has run since `started`, to within one `gap`. Every page measured ran beside the fill.
+async fn latencies_while_filling(install: &Install, path: &str, gap: Duration, started: Instant) -> (Vec<Duration>, Duration) {
+    until(5, "the fill to start", async || install.app.figure_service.filling(1)).await;
+    let mut browser = browser(install);
+    let mut out = vec![];
+    let mut due = tokio::time::Instant::now();
+    while install.app.figure_service.filling(1) && started.elapsed() < FILL_WINDOW {
+        let page = browser.get(&install.app, path).await;
+        out.push(due.elapsed());
+        assert_eq!(page.status, 200, "{path}: {:?} {}", page.headers, page.body);
+        due += gap;
+        tokio::time::sleep_until(due).await;
+    }
+    (out, started.elapsed())
+}
+
 /// A transport that answers every request `delay` later and counts how many are in flight at once.
 struct Counting { delay: Duration, now: std::sync::atomic::AtomicUsize, most: std::sync::atomic::AtomicUsize }
 impl deltabadger::venue::http::Transport for Counting {
@@ -427,11 +447,8 @@ async fn pages_stay_responsive_during_large_market_responses() {
     let _stop = install.consume();
     let started = Instant::now();
     install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
-    tokio::time::sleep(Duration::from_millis(50)).await;
-    let during = latencies(&install, "/settings/connect", 40, Duration::from_millis(25)).await;
-    // The fill outlasted every page measured beside it: it has run at least this long.
-    assert!(install.app.figure_service.filling(1), "the pages were measured while the fill ran");
-    let fill = started.elapsed();
+    let (during, fill) = latencies_while_filling(&install, "/settings/connect", Duration::from_millis(25), started).await;
+    assert!(during.len() >= 20, "{} pages measured while the fill ran ({fill:?})", during.len());
     let during = p95(during);
     assert!(during < PAGE_BOUND, "p95 {during:?} during the fill ({idle:?} idle)");
     assert!(fill > during * FILL_OVER_PAGE, "the fill ({fill:?}) was no longer than the pages beside it (p95 {during:?})");
@@ -444,11 +461,8 @@ async fn pages_stay_responsive_during_a_cpu_heavy_fill() {
     let _stop = install.consume();
     let started = Instant::now();
     install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
-    tokio::time::sleep(Duration::from_millis(50)).await;
-    let during = latencies(&install, "/settings/connect", 40, Duration::from_millis(25)).await;
-    // The fill outlasted every page measured beside it: it has run at least this long.
-    assert!(install.app.figure_service.filling(1), "the pages were measured while the fill ran");
-    let fill = started.elapsed();
+    let (during, fill) = latencies_while_filling(&install, "/settings/connect", Duration::from_millis(25), started).await;
+    assert!(during.len() >= 20, "{} pages measured while the fill ran ({fill:?})", during.len());
     let during = p95(during);
     assert!(during < PAGE_BOUND, "p95 {during:?} during the fill");
     assert!(fill > during * FILL_OVER_PAGE, "the fill ({fill:?}) was no longer than the pages beside it (p95 {during:?})");
