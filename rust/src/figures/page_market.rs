@@ -15,11 +15,23 @@ pub const MAX_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_ENTRIES: usize = 512;
 const UNAVAILABLE: &str = "Market data unavailable";
 
-// Responses are shared, not copied: every page load clones the account's cache (`Service::begin`).
+/// A closed candle as the figures read it: its time (`bar_time`), the venue's own text of it (the next tail's `start`), and
+/// its open exactly as the venue sent it, a number or a string, read by `Dec::to_d` as the answer itself is.
+#[derive(Clone, Debug)]
+struct Bar { at: i64, t: Box<str>, o: Value }
+impl Bar {
+    /// What it takes in memory, for the retained-bytes bound.
+    fn size(&self) -> usize { std::mem::size_of::<Bar>() + self.t.len() + self.o.as_str().map_or(0, str::len) }
+}
+/// A kept answer: a price answer as `Reader::prices` reads it (`prices_only`), or a candle series.
 #[derive(Clone)]
-struct Entry { until: i64, value: Fetch<Arc<Value>>, origin:Option<crate::engine::model::CredentialVersion>, size: usize }
+enum Answer { Json(Arc<Value>), Bars(Arc<[Bar]>) }
+// Responses are shared, not copied: every page load clones the account's cache (`Service::begin`). A candle series is
+// held once: its answer's entry and its head share it.
 #[derive(Clone)]
-struct Head { until: i64, bars: Arc<Vec<Value>>, origin:Option<crate::engine::model::CredentialVersion>, size: usize }
+struct Entry { until: i64, value: Fetch<Answer>, origin:Option<crate::engine::model::CredentialVersion>, size: usize }
+#[derive(Clone)]
+struct Head { until: i64, bars: Arc<[Bar]>, origin:Option<crate::engine::model::CredentialVersion>, size: usize }
 /// What was rendered from one cache as it stands, by the caller's key: shared by every clone of it until a fill or a new
 /// stamp changes it (both start an empty one).
 type Rendered = Arc<Mutex<Vec<(String, Arc<Value>)>>>;
@@ -67,38 +79,58 @@ async fn cpu<T: Send + 'static>(compute: &Arc<tokio::sync::Semaphore>, work: imp
     tokio::task::spawn_blocking(move || { let _permit = permit; work() }).await.unwrap_or_else(|_| Err(Failure::Failed(UNAVAILABLE.into())))
 }
 fn size(value: &Value) -> usize { value.to_string().len() }
+/// A price answer cut to what `Reader::prices` reads of it: each symbol's price, as sent, under every symbol the answer
+/// names, in its order. An answer whose symbols are not an object is kept whole, so that it fails there as it did. The
+/// snapshot of an index's whole venue listing is thousands of symbols of five quotes each; a price is all a figure reads.
+fn prices_only(path: &str, mut body: Value) -> Value {
+    let crypto = path.ends_with("/latest/trades");
+    if !crypto && !path.ends_with("/snapshots") { return body; }
+    let symbols = if crypto { body.get_mut("trades") } else { Some(&mut body) };
+    let Some(Value::Object(symbols)) = symbols else { return body };
+    let kept: serde_json::Map<String, Value> = std::mem::take(symbols).into_iter().map(|(code, mut item)| {
+        let price = if crypto { item.get_mut("p") } else { item.get_mut("latestTrade").and_then(|trade| trade.get_mut("p")) }.map_or(Value::Null, Value::take);
+        (code, if crypto { serde_json::json!({ "p": price }) } else { serde_json::json!({ "latestTrade": { "p": price } }) })
+    }).collect();
+    if crypto { serde_json::json!({ "trades": kept }) } else { Value::Object(kept) }
+}
 /// One demand's answer, ready to insert: the entry's value and size, and the candle head it leaves, if any.
-struct Answer { key: String, value: Fetch<Arc<Value>>, size: usize, head: Option<(Arc<Vec<Value>>, usize)> }
-async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<Vec<Value>>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Answer {
+struct Answered { key: String, value: Fetch<Answer>, size: usize, head: Option<(Arc<[Bar]>, usize)> }
+async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Answered {
     let key = key(&request);
-    let answered = if request.path.ends_with("/bars") { candles(wire, request, old, now, compute).await } else {
-        match send(wire, &request).await {
-            Ok(body) => cpu(compute, move || decode(&body).map(|value| (size(&value), value, None))).await,
-            Err(failure) => Err(failure),
-        }
+    if request.path.ends_with("/bars") {
+        // The entry shares the head's series; its bytes are counted once, on the head.
+        return match candles(wire, request, old, now, compute).await {
+            Ok(Some((bars, size))) => Answered { key, value: Ok(Answer::Bars(bars.clone())), size: 0, head: Some((bars, size)) },
+            Ok(None) => Answered { key, value: Ok(Answer::Bars(Arc::from(Vec::new()))), size: 0, head: None },
+            Err(failure) => Answered { key, value: Err(failure), size: 0, head: None },
+        };
+    }
+    let path = request.path.clone();
+    let answered = match send(wire, &request).await {
+        Ok(body) => cpu(compute, move || decode(&body).map(|value| { let value = prices_only(&path, value); (size(&value), value) })).await,
+        Err(failure) => Err(failure),
     };
     match answered {
-        Ok((size, value, head)) => Answer { key, value: Ok(Arc::new(value)), size, head },
-        Err(failure) => Answer { key, value: Err(failure), size: 0, head: None },
+        Ok((size, value)) => Answered { key, value: Ok(Answer::Json(Arc::new(value))), size, head: None },
+        Err(failure) => Answered { key, value: Err(failure), size: 0, head: None },
     }
 }
 /// A candle series: the tail since the last stored bar, merged onto it, or the whole series again when the venue rewrote
-/// the overlapping bar (a split).
-async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<Vec<Value>>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<(usize, Value, Option<(Arc<Vec<Value>>, usize)>)> {
+/// the overlapping bar (a split). With its size; `None` for a series with no closed bar, which leaves no head.
+async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<Option<(Arc<[Bar]>, usize)>> {
     let mut tail_request = request.clone();
     if let Some(last) = old.as_ref().and_then(|old| old.last()) {
-        let start = last["t"].as_str().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
-        for (name, value) in &mut tail_request.query { if *name == "start" { *value = start.to_string(); } }
+        for (name, value) in &mut tail_request.query { if *name == "start" { *value = last.t.to_string(); } }
     }
     let body = send(wire, &tail_request).await?;
     let merging = request.clone();
     let merged = cpu(compute, move || {
         let tail = closed(decode(&body)?, &merging, now)?;
         let adjusted = merging.query.iter().any(|(k,v)| *k == "adjustment" && v == "split");
-        let old = old.map(|old| old.to_vec()).unwrap_or_default();
+        let old: &[Bar] = old.as_deref().unwrap_or_default();
         if old.last().map(|last| rewritten(last, &tail, adjusted)).transpose()?.unwrap_or(false) { return Ok(None); }
-        let last = old.last().and_then(bar_time);
-        Ok(Some(old.into_iter().chain(tail.into_iter().filter(|bar| last.is_none_or(|last| bar_time(bar).is_some_and(|t| t > last)))).collect::<Vec<_>>()))
+        let last = old.last().map(|bar| bar.at);
+        Ok(Some(old.iter().cloned().chain(tail.into_iter().filter(|bar| last.is_none_or(|last| bar.at > last))).collect::<Vec<_>>()))
     }).await?;
     let unsorted = match merged {
         Some(bars) => bars,
@@ -107,36 +139,36 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<Ve
     cpu(compute, move || {
         let mut bars = unsorted;
         // Stable sort preserves the first occurrence, as Ruby's uniq-before-sort does.
-        bars.sort_by_key(bar_time);
-        bars.dedup_by_key(|bar| bar_time(bar));
-        let head_size = bars.iter().map(size).sum::<usize>();
-        let head = (!bars.is_empty()).then(|| (Arc::new(bars.clone()), head_size));
-        let value = Value::Array(bars);
-        Ok((size(&value), value, head))
+        bars.sort_by_key(|bar| bar.at);
+        bars.dedup_by_key(|bar| bar.at);
+        let size = bars.iter().map(Bar::size).sum::<usize>();
+        Ok((!bars.is_empty()).then(|| (Arc::from(bars), size)))
     }).await
 }
-fn closed(body: Value, request: &HttpRequest, now: i64) -> Fetch<Vec<Value>> {
+/// The answer's closed candles, each checked as a price, taken out of the answer: nothing of it is kept but these.
+fn closed(mut body: Value, request: &HttpRequest, now: i64) -> Fetch<Vec<Bar>> {
     let bars = if request.path.starts_with("/v1beta3/") {
         let symbol = request.query.iter().find(|(k,_)| *k == "symbols").map_or("", |(_,v)| v);
-        body["bars"][symbol].as_array()
-    } else { body["bars"].as_array() };
-    let Some(bars) = bars else { return Err(Failure::Failed(UNAVAILABLE.into())); };
+        body.get_mut("bars").and_then(|bars| bars.get_mut(symbol))
+    } else { body.get_mut("bars") };
+    let Some(Value::Array(bars)) = bars.map(Value::take) else { return Err(Failure::Failed(UNAVAILABLE.into())); };
     let mut out = vec![];
-    for bar in bars {
-        let time = bar_time(bar).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+    for mut bar in bars {
+        let time = bar_time(&bar).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
         if time.saturating_add(seconds(request)) <= now {
             // Validate even overlapping bars before a merge can discard them.
-            bar_price(bar)?;
-            out.push(bar.clone());
+            bar_price(&bar)?;
+            let t = bar["t"].as_str().unwrap_or_default().into(); // allow-swallow: bar_time read it as text above
+            out.push(Bar { at: time, t, o: bar["o"].take() });
         }
     }
     Ok(out)
 }
-fn rewritten(old: &Value, tail: &[Value], adjusted: bool) -> Fetch<bool> {
-    let Some(overlap) = tail.iter().find(|bar| bar_time(bar) == bar_time(old)) else { return Ok(adjusted) };
+fn rewritten(old: &Bar, tail: &[Bar], adjusted: bool) -> Fetch<bool> {
+    let Some(overlap) = tail.iter().find(|bar| bar.at == old.at) else { return Ok(adjusted) };
     // Decimals are local to this call and never survive an await or move to another thread.
-    let before = bar_price(old)?;
-    let after = bar_price(overlap)?;
+    let before = Dec::to_d(&old.o)?;
+    let after = Dec::to_d(&overlap.o)?;
     if before.is_zero() || after.is_zero() { return Ok(false); }
     let ratio = (&after - &before)?.div(&before)?;
     Ok(ratio > Dec::to_d(&serde_json::json!("0.001"))? || ratio < Dec::to_d(&serde_json::json!("-0.001"))?)
@@ -178,7 +210,7 @@ impl Cache {
         self.origin=wire.producer();
         let producer = wire.producer();
         // What each candle demand starts from: its stored head, unless another key's head or an expired one.
-        let jobs: Vec<(HttpRequest, Option<Arc<Vec<Value>>>)> = demands.into_iter().map(|request| {
+        let jobs: Vec<(HttpRequest, Option<Arc<[Bar]>>)> = demands.into_iter().map(|request| {
             let cache_key = key(&request);
             if self.heads.borrow().get(&cache_key).is_some_and(|h|!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.remove_head(&cache_key); }
             let old = request.path.ends_with("/bars").then(|| self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.clone())).flatten();
@@ -224,7 +256,7 @@ impl<'a> Reader<'a> {
     pub fn failed(&self) -> bool { self.failed.get() }
     pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
     pub fn demands(&self) -> Vec<HttpRequest> { self.demands.borrow().values().cloned().collect() }
-    fn get(&self, request: HttpRequest) -> Fetch<Arc<Value>> {
+    fn get(&self, request: HttpRequest) -> Fetch<Answer> {
         let fresh=|origin:&Option<crate::engine::model::CredentialVersion>|->Result<bool,Failure> {
             let Some(c)=self.current else { return Ok(true) }; // The unbound numerical harness reads no stored credentials.
             if !crate::engine::model::current_for(origin.as_ref(),self.cache.origin.as_ref()).is_fresh(){return Ok(false)}
@@ -239,8 +271,8 @@ impl<'a> Reader<'a> {
             if let Some(entry) = self.cache.entries.borrow().get(&key).filter(|entry| fresh(&entry.origin).unwrap_or(false) && entry.until > self.now) {
                 return entry.value.clone();
             }
-            if let Some(head) = self.cache.heads.borrow().get(&key).filter(|head| fresh(&head.origin).unwrap_or(false) && head.until > self.now && head.bars.last().and_then(bar_time).is_some_and(|t| self.now < t.saturating_add(2 * seconds(&request)))) {
-                return Ok(Arc::new(Value::Array(head.bars.to_vec())));
+            if let Some(head) = self.cache.heads.borrow().get(&key).filter(|head| fresh(&head.origin).unwrap_or(false) && head.until > self.now && head.bars.last().is_some_and(|bar| self.now < bar.at.saturating_add(2 * seconds(&request)))) {
+                return Ok(Answer::Bars(head.bars.clone()));
             }
         } else if let Some(entry) = self.cache.entries.borrow().get(&key).filter(|entry| fresh(&entry.origin).unwrap_or(false) && entry.until > self.now) { return entry.value.clone(); }
         self.demands.borrow_mut().insert(key, request);
@@ -261,7 +293,8 @@ impl MarketData for Reader<'_> {
             let path = if crypto { "/v1beta3/crypto/us/latest/trades" } else { "/v2/stocks/snapshots" };
             match self.get(request(path, vec![("symbols", names.join(","))])) {
                 Err(error) => failed = Some(error),
-                Ok(body) => {
+                Ok(Answer::Bars(_)) => failed = Some(Failure::Failed(UNAVAILABLE.into())),
+                Ok(Answer::Json(body)) => {
                     let entries = if crypto { &body["trades"] } else { &*body };
                     let Some(entries) = entries.as_object() else { failed = Some(Failure::Failed(UNAVAILABLE.into())); continue; };
                     for (code, item) in entries {
@@ -289,12 +322,11 @@ impl MarketData for Reader<'_> {
                 query.extend([("limit", "10000".into()), ("start", start), ("timeframe", name.into())]);
                 (format!("/v2/stocks/{code}/bars"), query)
             };
-            let body = self.get(request(&path, query))?;
-            let bars = body.as_array().ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+            let Answer::Bars(bars) = self.get(request(&path, query))? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
             bars.iter().map(|bar| {
-                let at = bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).and_then(|t| At::from_utc(t.to_utc()))
+                let at = chrono::DateTime::parse_from_rfc3339(&bar.t).ok().and_then(|t| At::from_utc(t.to_utc()))
                     .ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
-                Ok((at, bar_price(bar)?))
+                Ok((at, Dec::to_d(&bar.o)?))
             }).collect()
         })();
         if result.is_err() { self.failed.set(true); }
@@ -423,8 +455,8 @@ mod r4_cache_tests {
     }
     /// What the retained responses take, recounted from them, as `bytes` was once computed on every call.
     fn recount(cache:&Cache)->usize {
-        cache.entries.borrow().values().map(|e| e.value.as_ref().map_or(0,|v|v.to_string().len())).sum::<usize>()
-            + cache.heads.borrow().values().map(|h|h.bars.iter().map(|v|v.to_string().len()).sum::<usize>()).sum::<usize>()
+        cache.entries.borrow().values().map(|e| match &e.value { Ok(Answer::Json(v))=>v.to_string().len(), _=>0 }).sum::<usize>()
+            + cache.heads.borrow().values().map(|h|h.bars.iter().map(Bar::size).sum::<usize>()).sum::<usize>()
     }
     #[tokio::test]
     async fn bytes_total_matches_a_full_recount(){
@@ -447,6 +479,32 @@ mod r4_cache_tests {
         c.execute("UPDATE api_keys SET key='ciphertext-A' WHERE id=1",[]).unwrap();
         let many:Vec<HttpRequest>=(0..MAX_ENTRIES+3).map(|i|bars(&format!("S{i}"))).collect();
         cache.fill(&wire,many,now+200).await;
+        assert_eq!(cache.bytes(),recount(&cache));
+    }
+    /// A series is held once: its answer's entry and the head the next tail starts from are one allocation, and a merged
+    /// tail keeps each bar's open as the venue sent it.
+    #[tokio::test]
+    async fn a_series_is_held_once_and_keeps_its_opens(){
+        struct Tail(RefCell<u8>,CredentialVersion);
+        impl Transport for Tail {
+            fn producer(&self)->Option<CredentialVersion>{Some(self.1.clone())}
+            async fn send(&self,_:&HttpRequest)->Result<HttpResponse,TransportError>{
+                *self.0.borrow_mut()+=1;
+                let bars=if *self.0.borrow()==1 { serde_json::json!([{"t":"2026-01-01T00:00:00Z","o":"10.50"},{"t":"2026-01-02T00:00:00Z","o":11}]) }
+                    else { serde_json::json!([{"t":"2026-01-02T00:00:00Z","o":11},{"t":"2026-01-03T00:00:00Z","o":"12.000"}]) };
+                Ok(HttpResponse{status:200,body:serde_json::json!({"bars":bars}).to_string()})
+            }
+        }
+        let req=request("/v2/stocks/AAPL/bars",vec![("start","2025-01-01T00:00:00Z".into()),("timeframe","1Day".into())]);
+        let key=key(&req);let day=86_400;let start=chrono::DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z").unwrap().timestamp();
+        let wire=Tail(RefCell::new(0),model::credential_version_by_id(&db(),1).unwrap().unwrap());let mut cache=Cache::default();
+        let shared=|cache:&Cache|match &cache.entries.borrow()[&key].value { Ok(Answer::Bars(bars))=>Arc::ptr_eq(bars,&cache.heads.borrow()[&key].bars), _=>false };
+        cache.fill(&wire,vec![req.clone()],start+3*day).await;
+        assert!(shared(&cache),"the entry and the head hold one series");
+        cache.fill(&wire,vec![req.clone()],start+4*day).await;
+        assert!(shared(&cache));
+        let opens:Vec<Value>=cache.heads.borrow()[&key].bars.iter().map(|bar|bar.o.clone()).collect();
+        assert_eq!(opens,vec![serde_json::json!("10.50"),serde_json::json!(11),serde_json::json!("12.000")]);
         assert_eq!(cache.bytes(),recount(&cache));
     }
     #[tokio::test]

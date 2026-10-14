@@ -322,3 +322,58 @@ fn test_origin(name:&str)->String {
     use sha2::{Digest,Sha256};
     serde_json::json!([1,{"key_id":1,"ciphertext_digest":hex::encode(Sha256::digest(name.as_bytes()))}]).to_string()
 }
+
+/// A kept bar's open is the venue's own value, number or string: the figures read it with `Dec::to_d` as a fresh
+/// answer is read, from the answer's entry and, once that has expired, from the series kept for the next tail.
+#[tokio::test]
+async fn kept_opens_read_exactly_as_the_venues_answer() {
+    use deltabadger::figures::{at::At, dec::Dec};
+    for open in [json!("12.5"), json!("0.1000000000000000055511151231257827"), json!(0.1), json!(1e-7),
+                 json!(12345678901234567890u64), json!(-0.0), json!("-0"), json!("-0.000")] {
+        for crypto in [false, true] {
+            let bar = json!({"t":"1970-01-01T00:00:00Z","o":open});
+            let body = if crypto { json!({"bars":{"BTC/USD":[bar]}}) } else { json!({"bars":[bar]}) };
+            let expected = Dec::to_d(&open).unwrap().to_s_f();
+            let mut cache = Cache::default();
+            let reader = Reader::new(&cache, 3600);
+            let _ = reader.candles(&venue(), &ticker(crypto), At(0), 3600, true);
+            cache.fill(&Reply(Ok(HttpResponse { status: 200, body: body.to_string() })), reader.demands(), 3600).await;
+            // 3600: the answer's own entry. 3700: past its minute, read from the kept series (the last bar is recent).
+            for now in [3600, 3700] {
+                let reader = Reader::new(&cache, now);
+                let bars = reader.candles(&venue(), &ticker(crypto), At(0), 3600, true).unwrap();
+                assert_eq!(bars.len(), 1);
+                assert_eq!(bars[0].0, At(0));
+                assert_eq!(bars[0].1.to_s_f(), expected, "open {open} read at {now}");
+                assert!(reader.demands().is_empty() && !reader.failed());
+            }
+        }
+    }
+}
+
+/// A price answer keeps only the prices the figures read, and keeps reading as the whole answer did: every symbol the
+/// answer names (asked for or not), a missing or null trade as no price, and an answer that is not a list of symbols
+/// as a failure.
+#[tokio::test]
+async fn kept_price_answers_read_as_the_whole_answer() {
+    let stocks = vec!["AAA".to_string(), "BBB".into(), "CCC".into(), "DDD".into(), "EEE".into()];
+    let crypto = vec!["BTC/USD".to_string(), "ETH/USD".into(), "SOL/USD".into(), "DOT/USD".into()];
+    let good_stocks = json!({"AAA":{"latestTrade":{"p":"12.5","s":3},"dailyBar":{"o":1}},"BBB":{"latestTrade":{"p":0}},
+        "CCC":{"dailyBar":{"o":1}},"DDD":{"latestTrade":{"p":null}},"EEE":[1],"ZZZ":{"latestTrade":{"p":7}}});
+    let good_crypto = json!({"trades":{"BTC/USD":{"p":"12.5","s":1},"ETH/USD":{"p":0},"SOL/USD":{},"DOT/USD":{"p":null},"XRP/USD":{"p":2}}});
+    let read = |body: serde_json::Value, symbols: Vec<String>| async move {
+        let mut cache = Cache::default();
+        let reader = Reader::new(&cache, 0);
+        let _ = reader.prices(&venue(), &symbols);
+        cache.fill(&Reply(Ok(HttpResponse { status: 200, body: body.to_string() })), reader.demands(), 0).await;
+        let reader = Reader::new(&cache, 0);
+        let prices = reader.prices(&venue(), &symbols).map(|p| p.into_iter().map(|(code, price)| (code, price.unwrap().to_s_f())).collect::<Vec<_>>());
+        (prices.ok(), reader.failed())
+    };
+    assert_eq!(read(good_stocks, stocks.clone()).await,
+        (Some(vec![("AAA".into(), "12.5".into()), ("BBB".into(), "0.0".into()), ("ZZZ".into(), "7.0".into())]), false));
+    assert_eq!(read(good_crypto, crypto.clone()).await,
+        (Some(vec![("BTC/USD".into(), "12.5".into()), ("ETH/USD".into(), "0.0".into()), ("XRP/USD".into(), "2.0".into())]), false));
+    for malformed in [json!(null), json!([]), json!("AAA")] { assert_eq!(read(malformed, stocks.clone()).await, (None, true)); }
+    for malformed in [json!({"trades":null}), json!({}), json!({"trades":[]}), json!(null)] { assert_eq!(read(malformed, crypto.clone()).await, (None, true)); }
+}
