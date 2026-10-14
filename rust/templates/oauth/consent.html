@@ -15,8 +15,6 @@
 
     <p class="text-center">{{ description|safe }}</p>
 
-    <p class="consent__warning">{{ warning|safe }}</p>
-
     <form id="consent_approve" action="/oauth/authorize" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
       {% include "oauth/_fields.html" %}
 
@@ -28,18 +26,6 @@
           {% endfor %}
         </ul>
       </div>
-
-      {% for section in sections %}
-        <div class="consent__section">
-          <p class="consent__label">{{ section.label|safe }}</p>
-          {% for group in section.groups %}
-            <label class="consent__group">
-              <input type="checkbox" name="{{ section.field }}[]" id="{{ section.field }}_{{ group.name }}" value="{{ group.name }}"{% if group.checked %} checked="checked"{% endif %} />
-              <span>{{ group.label|safe }}</span>
-            </label>
-          {% endfor %}
-        </div>
-      {% endfor %}
 
       <p class="consent__label">
         {{ redirect_label|safe }}

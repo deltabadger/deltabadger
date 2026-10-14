@@ -4,9 +4,13 @@
 #
 # Permissions used to hang off the user alone, which meant every client the user
 # had ever authorized shared one set — including tools switched on long after the
-# client was connected. This record is the client half of that decision: the tool
-# names the user granted at consent, frozen at that moment. It never widens on its
-# own; ToolAccess intersects it with the user's current setting on every call.
+# client was connected. This record is the client half of that decision.
+#
+# A column holds either NULL or a list. NULL means no per-client choice: the client
+# follows the user's own Tool permissions, so a switch there applies to it at once.
+# A new connection starts that way. A list is explicit and is set when the user edits the
+# client in Settings. It never widens on its own. ToolAccess intersects either one
+# with the user's current setting on every call.
 class ConnectedClient < ApplicationRecord
   belongs_to :user
   belongs_to :oauth_application, class_name: 'Doorkeeper::Application'
@@ -27,10 +31,12 @@ class ConnectedClient < ApplicationRecord
   # If a tool is ever renamed, retire the old name for good. AppConfig's tool
   # constants carry the same note.
   def granted_mcp_tools
-    Array(mcp_tools).map(&:to_s) & AppConfig::MCP_TOOL_DEFAULTS.keys
+    names = mcp_tools.nil? ? user.enabled_mcp_tool_names : Array(mcp_tools).map(&:to_s)
+    names & AppConfig::MCP_TOOL_DEFAULTS.keys
   end
 
   def granted_rest_tools
-    Array(rest_tools).map(&:to_s) & AppConfig::REST_TOOL_DEFAULTS.keys
+    names = rest_tools.nil? ? user.enabled_rest_tool_names : Array(rest_tools).map(&:to_s)
+    names & AppConfig::REST_TOOL_DEFAULTS.keys
   end
 end

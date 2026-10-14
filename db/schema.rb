@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -254,9 +254,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
 
   create_table "connected_clients", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.json "mcp_tools", default: [], null: false
+    t.json "mcp_tools", default: []
     t.integer "oauth_application_id", null: false
-    t.json "rest_tools", default: [], null: false
+    t.json "rest_tools", default: []
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["oauth_application_id"], name: "index_connected_clients_on_oauth_application_id"

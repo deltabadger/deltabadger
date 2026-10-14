@@ -113,6 +113,13 @@ module McpParity
                                                  %q(UPDATE bots SET type='Bots::DcaSingleAsset', settings='{"base_asset_id":2,"quote_asset_id":1,"quote_amount":10,"interval":"day"}' WHERE id=1)])]
     s['missing_assets'] =
       ready + [tool('list_bots').merge('sql' => [%q(UPDATE bots SET settings='{"allocations":{"999":1},"quote_asset_id":999}' WHERE id=1)])]
+    # A client with no stored list follows the owner's switches, also after one moves. The owner's switches stay
+    # within the tools this crate serves, so both runtimes list the same set.
+    switches = ->(on) { "UPDATE users SET mcp_settings = #{ActiveRecord::Base.connection.quote({ 'tool_permissions' => AppConfig::MCP_TOOL_DEFAULTS.keys.index_with { |name| on.include?(name) } }.to_json)}" }
+    s['following_grant'] =
+      ready + [session_rpc('tools/list').merge('sql' => ['UPDATE connected_clients SET mcp_tools = NULL, rest_tools = NULL', switches.call(%w[list_bots list_exchanges])]),
+               tool('list_bots'), session_rpc('tools/list').merge('sql' => [switches.call(%w[list_exchanges list_tax_jurisdictions])]),
+               tool('list_bots'), tool('list_tax_jurisdictions')]
     s['no_grant_row'] = ready + [session_rpc('tools/list').merge('sql' => ['DELETE FROM connected_clients']), tool('list_bots')]
     s['unknown_stored_grant'] =
       ready + [session_rpc('tools/list').merge('sql' => [%q(UPDATE connected_clients SET mcp_tools='["unknown","list_bots","list_bots"]')]),

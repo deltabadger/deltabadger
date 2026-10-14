@@ -102,6 +102,36 @@ class ToolAccessTest < ActiveSupport::TestCase
     assert_empty access.enabled_mcp_tool_names
   end
 
+  # --- a client that follows the user (no stored list) ----------------------
+
+  test 'a client with no stored list follows the user, live, on both surfaces' do
+    ConnectedClient.create!(user: @user, oauth_application: @application, mcp_tools: nil, rest_tools: nil)
+
+    assert ToolAccess.new(user: @user, application: @application).mcp_enabled?('list_bots')
+    assert_not ToolAccess.new(user: @user, application: @application).mcp_enabled?('market_buy')
+    assert_not ToolAccess.new(user: @user, application: @application).rest_enabled?('list_bots')
+
+    @user.set_mcp_tool_enabled('market_buy', true)
+    @user.set_mcp_tool_enabled('list_bots', false)
+    @user.set_rest_tool_enabled('list_bots', true)
+    access = ToolAccess.new(user: @user, application: @application)
+
+    assert access.mcp_enabled?('market_buy')
+    assert_not access.mcp_enabled?('list_bots')
+    assert access.rest_enabled?('list_bots')
+    assert_equal @user.enabled_mcp_tool_names.sort, access.enabled_mcp_tool_names.sort
+  end
+
+  test 'one surface can follow while the other keeps its list' do
+    ConnectedClient.create!(user: @user, oauth_application: @application, mcp_tools: %w[list_bots], rest_tools: nil)
+    @user.set_mcp_tool_enabled('market_buy', true)
+    @user.set_rest_tool_enabled('market_buy', true)
+    access = ToolAccess.new(user: @user, application: @application)
+
+    assert_not access.mcp_enabled?('market_buy'), 'an explicit list does not pick up a new tool'
+    assert access.rest_enabled?('market_buy')
+  end
+
   # --- REST ---------------------------------------------------------------
 
   test 'rest tools intersect the same way' do

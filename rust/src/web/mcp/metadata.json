@@ -1133,7 +1133,7 @@
     "config/initializers/version.rb": "0b047ced29695420c080951e60f42c5aef8d05d733e9ca79e70884ff73f74233",
     "config/initializers/action_mcp_time_zone.rb": "53a0ab62e95c590c3d955e289db8033f47d59ccd0b2a6a5eec231f6df86459bb",
     "app/lib/tool_access.rb": "89381cc0de5810ac85969422eda7b61f7508ab8d333f3edee8e029f02204b402",
-    "app/models/connected_client.rb": "d2b6f75cfa11678db50ad1af761a1330c8299ab91d392f8b852ca70ffea1cb50",
+    "app/models/connected_client.rb": "de9e87a29c68daac742c635c859ed06b68155e46c084ccc995d2e0e17219ba63",
     "app/models/app_config.rb": "0d9af05433ada1382be6acd3267477ce465c81d21aac2d8f56f520fa126082b3",
     "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",

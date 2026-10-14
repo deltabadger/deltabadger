@@ -75,19 +75,32 @@ pub fn enabled(c: &Connection, user: i64, surface: &str) -> Result<Vec<String>, 
     );
     Ok(enabled)
 }
+/// What the client holds on one surface, and whether its stored list is NULL: a NULL list follows
+/// the owner's enabled tools (ConnectedClient#granted_mcp_tools).
 fn grants(
     c: &Connection,
     user: i64,
     application: i64,
     surface: &str,
-) -> Result<Vec<String>, WebError> {
+) -> Result<(Vec<String>, bool), WebError> {
     let column = if surface == "mcp" {
         "mcp_tools"
     } else {
         "rest_tools"
     };
-    let text:Option<String>=c.query_row(&format!("SELECT {column} FROM connected_clients WHERE user_id=?1 AND oauth_application_id=?2"),(user,application),|r|r.get(0)).optional()?;
-    let list: Value = text
+    let stored:Option<Option<String>>=c.query_row(&format!("SELECT {column} FROM connected_clients WHERE user_id=?1 AND oauth_application_id=?2"),(user,application),|r|r.get(0)).optional()?;
+    let following = matches!(stored, Some(None));
+    if following {
+        let mut names = vec![];
+        for name in enabled(c, user, surface)? {
+            if TOOL_DEFAULTS.iter().any(|(tool, _)| *tool == name) && !names.contains(&name) {
+                names.push(name);
+            }
+        }
+        return Ok((names, true));
+    }
+    let list: Value = stored
+        .flatten()
         .map(|s| serde_json::from_str(&s))
         .transpose()
         .map_err(|_| WebError::Config("invalid client grants".into()))?
@@ -101,7 +114,7 @@ fn grants(
             names.push(name);
         }
     }
-    Ok(names)
+    Ok((names, false))
 }
 fn connected(c: &Connection, ctx: &Ctx, user: i64, id: i64) -> Result<bool, WebError> {
     Ok(c.query_row(
@@ -128,7 +141,7 @@ fn load(c: &Connection, ctx: &Ctx, user: i64) -> Result<Vec<Client>, WebError> {
         for (group, tools) in TOOL_GROUPS {
             let mut switches = vec![];
             for surface in ["mcp", "rest"] {
-                let granted = grants(c, user, id, surface)?;
+                let (granted, _) = grants(c, user, id, surface)?;
                 let available = enabled(c, user, surface)?;
                 let here = granted
                     .iter()
@@ -297,11 +310,12 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
   }else{
    let tools=TOOL_GROUPS.iter().find(|(name,_)|*name==group).map(|(_,tools)|*tools).ok_or_else(||WebError::Config("unknown tool group".into()))?;
    let column=if surface=="mcp"{"mcp_tools"}else{"rest_tools"};
-   let current=grants(&tx,user.id,id,&surface)?;let mut next=current.clone();
+   let (current,following)=grants(&tx,user.id,id,&surface)?;let mut next=current.clone();
    if on{for name in enabled(&tx,user.id,&surface)?.into_iter().filter(|name|tools.contains(&name.as_str())){if !next.contains(&name){next.push(name);}}}else{next.retain(|name|!tools.contains(&name.as_str()));}
    let found:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM connected_clients WHERE user_id=?1 AND oauth_application_id=?2)",(user.id,id),|r|r.get(0))?;
    if !found{tx.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,rest_tools,created_at,updated_at)VALUES(?1,?2,'[]','[]',?3,?3)",(user.id,id,&now))?;}
-   if next!=current{tx.execute(&format!("UPDATE connected_clients SET {column}=?1,updated_at=?2 WHERE user_id=?3 AND oauth_application_id=?4"),(serde_json::to_string(&next).map_err(|_|WebError::Config("cannot encode client grants".into()))?,&now,user.id,id))?;}
+   // A NULL list becomes explicit on the first edit, even when it reads the same (ActiveRecord: nil != []).
+   if following||next!=current{tx.execute(&format!("UPDATE connected_clients SET {column}=?1,updated_at=?2 WHERE user_id=?3 AND oauth_application_id=?4"),(serde_json::to_string(&next).map_err(|_|WebError::Config("cannot encode client grants".into()))?,&now,user.id,id))?;}
   }
   let body=widget(&tx,&v,&token,user.id)?;tx.commit()?;Ok(Some(body))
  }).await?;

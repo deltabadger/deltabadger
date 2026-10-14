@@ -246,10 +246,7 @@ fr:
             authorize_title: "Autoriser l'accès"
             authorize_description_html: '<b>%{client_name}</b> souhaite accéder à ton serveur Deltabadger.'
             authorize_scopes_label: 'Cela pourra :'
-            authorize_groups_label_mcp: 'Choisis ce que ce client peut utiliser via MCP :'
-            authorize_groups_label_api: 'Choisis ce que ce client peut utiliser via l''API REST :'
             authorize_redirect_label: 'Te renvoie vers :'
-            authorize_unverified: 'Cette application s''est enregistrée elle-même. Deltabadger ne l''a pas vérifiée. Ne continue que si tu es à l''origine de la demande.'
             scope_mcp: 'Lire ton portefeuille, tes soldes et tes transactions, et utiliser les outils de trading que tu as activés'
             scope_api: 'Utiliser l''API REST avec les outils que tu as activés'
             authorize_description: '%{client_name} souhaite accéder à ton serveur Deltabadger.'

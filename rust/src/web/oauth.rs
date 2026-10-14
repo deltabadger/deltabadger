@@ -461,7 +461,7 @@ pub const TOOL_DEFAULTS: [(&str, bool); 39] = [
     ("set_transaction_price", false),
 ];
 
-/// AppConfig::TOOL_GROUPS: the catalogue as the consent screen and Settings group it.
+/// AppConfig::TOOL_GROUPS: the catalogue as Settings groups it.
 pub const TOOL_GROUPS: [(&str, &[&str]); 4] = [
     ("read", &["list_bots", "get_bot_details", "list_exchanges", "get_exchange_balances", "get_portfolio_summary", "list_transactions",
                "list_open_orders", "list_rules", "list_indices"]),
