@@ -29,7 +29,6 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
     crate::crypto::scrub_known(text,&values)
 }
 /// K: no new tracking. Read the intent and the engine's actual polling rows under the write lock.
-pub const PAPER_ONLY:&str="This build accepts paper keys only.";
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
 fn settling(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> {
     let mut stmt = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 ORDER BY id")?;
@@ -43,7 +42,7 @@ fn settling(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> 
     Ok(false)
 }
 fn refusal_text(ctx: &Ctx, reason: &str) -> String {
-    if reason == SETTLING || reason == PAPER_ONLY { reason.to_string() }
+    if reason == SETTLING { reason.to_string() }
     else { i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
 }
 #[derive(Clone)]
@@ -140,7 +139,7 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64)->Result<ValidatedKey
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
     let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
     let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},producer);
-    let result=handle.check(&app.settings_key_url,kind).await?;
+    let result=handle.check(&app.alpaca_trading_url(handle.credentials()),kind).await?;
     app.observe_validation(result.origin().clone())?;
     Ok(ValidatedKey{key:key.clone(),columns,handle,result})
 }
@@ -227,18 +226,6 @@ pub async fn save(
         if let Some(value)=ctx.params.form(&format!("api_key[{name}]")){candidate.extras[i]=Some(value.into());}
     }
     if let Some(value)=ctx.params.form("api_key[ibkr_realm]"){candidate.realm=Some(value.into());}
-    if candidate.passphrase.as_deref() == Some("live") {
-        let body = turbo::prepend_flash(&flash::render(&flash::take(
-            &ctx.session,
-            &[(flash::ALERT, PAPER_ONLY.into())],
-        ))?);
-        return Ok((
-            StatusCode::UNPROCESSABLE_ENTITY,
-            [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
-            body,
-        )
-            .into_response());
-    }
     let validated=validate(&app,&candidate,&original,kind).await?;
     match &validated.result.value {
         Validity::Incorrect => {
@@ -682,7 +669,6 @@ pub async fn legacy(
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
   let current=Key::read(&tx,&inner,user.id,exchange,kind)?;
-  if venue=="Exchanges::Alpaca"&&passphrase.as_deref().or(current.passphrase.as_deref())==Some("live"){return Ok(Err(Some(PAPER_ONLY.into())));}
   if current.id.is_some() && settling(&tx,user.id,exchange)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
   if venue=="Exchanges::Hyperliquid"{
@@ -725,9 +711,8 @@ async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>{
         let kind=c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0))?;
         Ok((credentials,version,values,kind))
     }).await?;
-    if credentials.passphrase.as_deref()==Some("live"){return Ok(None)}
     let handle=super::validator::ValidationHandle::stored(credentials,version);
-    let result=handle.check(&app.settings_key_url,kind).await?;
+    let result=handle.check(&app.alpaca_trading_url(handle.credentials()),kind).await?;
     let status=result.map(|result|match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Pending(ref e)=>{
         app.settings_key_logger.warn(&format!("[Alpaca] API key validation failed: {}",scrub(&e.log_text(),&values)));0
     }});

@@ -612,7 +612,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
             Sizing::Place(plan) => {
                 // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
                 // sized before the change is placed (the fence is in the intent's own transaction).
-                let intent = match placement::begin_with_credentials(c, bot, &plan, &tickers, &composition, reconciled, &cx.credential_version, clock)? {
+                let intent = match placement::begin_with_credentials(c, bot, &plan, &tickers, &composition, reconciled, &cx.credential_version, venue.placement_identity(), clock)? {
                     placement::Begun::Intent(intent) => intent,
                     placement::Begun::Changed => break,
                     placement::Begun::Fenced => { legs.fenced = true; break; }

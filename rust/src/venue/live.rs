@@ -19,6 +19,7 @@ macro_rules! each { ($s:expr, $v:ident => $e:expr) => { match $s { LiveVenue::Al
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }
+    fn placement_identity(&self) -> Option<serde_json::Value> { each!(self, v => v.placement_identity()) }
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { each!(self, v => v.positions().await) }
     async fn clock(&self) -> Result<ClockAnswer, VenueError> { each!(self, v => v.clock().await) }
     async fn price(&self, t: &Ticker, s: PriceSide) -> Result<BigDec, VenueError> { each!(self, v => v.price(t, s).await) }

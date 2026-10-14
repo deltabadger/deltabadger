@@ -1,4 +1,4 @@
-//! One paper-only validation boundary used by browser saves, rechecks and the scheduler.
+//! One validation boundary used by browser saves, rechecks and the scheduler (Exchanges::Alpaca#get_api_key_validity).
 use crate::web::WebError;
 pub enum Validity {
     Correct,
@@ -36,7 +36,6 @@ fn pending(status:Option<u16>,body:&str,text:impl Into<String>)->Validity {
     Validity::Pending(Diagnostic{status,body:body.into(),text:text.into()})
 }
 pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<Validity, WebError> {
-    if key.passphrase.as_deref()==Some("live") {return Ok(Validity::Incorrect);}
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(30))

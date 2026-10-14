@@ -397,7 +397,7 @@ pub enum Refusal {
     Unreadable(Vec<(i64, String)>),
     /// Bots with an unresolved order whose composition, asset, exchange or quote a write would change (`placement::stranded`).
     Reconciling(Vec<String>),
-    /// What this build cannot trade, in `alpaca::preflight`'s words: a venue with no Rust code, a live Alpaca key, no key.
+    /// What this build cannot trade, in `alpaca::preflight`'s words: a venue with no Rust code, no key.
     Untradable(Vec<String>),
     /// The check itself could not run.
     Failed(EngineError),
@@ -439,7 +439,7 @@ impl Report {
 /// `commit`, with the instance's `Cipher` (the web: `app.cipher`). `Ok`: commit. `Err`: roll back, and answer in the
 /// caller's own shape (the web: 422 with `engine.write_refused` carrying `reason()`). It refuses, in this order: what
 /// the engine does not run (`check`'s words); a write that would strand an unresolved order; what this build cannot
-/// trade (`preflight`'s words: Kraken, or Alpaca paper; a key present and readable). A write that skips it and makes the
+/// trade (`preflight`'s words: Kraken or Alpaca, a key present and readable). A write that skips it and makes the
 /// install ineligible is caught by the engine's pass in one process (`run::step`'s debug assertion). When the check
 /// itself fails, the real error is logged with `bot_id`, or for a background job when absent; `reason()` stays generic.
 pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<(), Refusal> {

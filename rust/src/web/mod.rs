@@ -342,7 +342,7 @@ pub struct Inner {
     pub settings_smtp:crate::mail::smtp::Env,
     settings_smtp_provider_name:String,
     settings_market_provider_name:String,
-    pub settings_key_url:String,
+    pub settings_key_hosts:crate::venue::alpaca::Hosts,
     pub settings_key_logger:Arc<dyn settings::keys::Logger>,
     settings_validation_observer:Mutex<Option<ValidationObserver>>,
     pub settings_mailer:Arc<dyn settings::mail::Mailer>,
@@ -405,7 +405,7 @@ impl App {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
-            settings_key_url:crate::venue::alpaca::PAPER_TRADING_URL.into(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
+            settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
             settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
@@ -435,9 +435,14 @@ impl App {
     }
 
     /// Scripted account HTTP and application logger, only before sharing the App.
-    pub fn with_settings_key_boundary(self,url:String,logger:Arc<dyn settings::keys::Logger>)->Result<Self,WebError>{
+    pub fn with_settings_key_boundary(self,hosts:crate::venue::alpaca::Hosts,logger:Arc<dyn settings::keys::Logger>)->Result<Self,WebError>{
         let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
-        inner.settings_key_url=url;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
+        inner.settings_key_hosts=hosts;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
+    }
+
+    /// The trading host a key is validated on: its own mode's (`Urls::pick`), from the credentials that will sign the request.
+    pub(crate) fn alpaca_trading_url(&self,credentials:&crate::crypto::Credentials)->String{
+        crate::venue::alpaca::Urls::pick(credentials.passphrase.as_deref(),&self.settings_key_hosts).trading
     }
 
     #[doc(hidden)]

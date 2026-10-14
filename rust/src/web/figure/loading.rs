@@ -156,7 +156,6 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     // means no figures (this install's configuration, not a passing fault).
     let columns=crate::sync::credential_columns(c,id)?;
     let credentials=match crate::sync::credentials_from_columns(&app.cipher,id,&columns) { Ok(c)=>c,Err(_)=>return Ok(None) };
-    if !matches!(credentials.passphrase.as_deref(),None|Some("paper")) { return Ok(None); }
     let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
     let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
     let revision=revision(c,user)?.0;
@@ -369,7 +368,7 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    // No paper Alpaca key, so no fill: why its figures are absent was read by the queue (`consume`) against the same
+    // No Alpaca key, so no fill: why its figures are absent was read by the queue (`consume`) against the same
     // fingerprint the figures are held to; until it is, the page shows the loading state and asks for it.
     let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{
         let revision=app.db(move|c|Ok(revision(c,user)?.0)).await?;
@@ -558,7 +557,7 @@ pub async fn deliver(app:&App,streams:Vec<(String,String)>){
 /// asks (`publish`): ready figures go out at once, and otherwise the account waits, through the fill and allowance
 /// machinery, and the fill's end publishes. So a page that stays mounted converges after any reconnect: after a
 /// dropped publication, after its figures expired or were written, after the account was evicted, after a restart.
-/// An account with no figures (no paper Alpaca key, or market data disabled) is sent and asks nothing.
+/// An account with no figures (no Alpaca key, or market data disabled) is sent and asks nothing.
 /// The account's latest publication on `stream` while its figures are fresh (`Service::latest`), asking nothing.
 pub async fn latest(app:&App,user:i64,stream:&str)->Option<Vec<std::sync::Arc<str>>>{
     let inner=app.clone();
@@ -577,7 +576,7 @@ async fn consume(app:&App,user:i64,mut work:Work) {
     let inner=app.clone();
     let info=match app.db(move|c|read_info(c,&inner,user)).await {
         Ok(Some(info))=>info,
-        // No paper key, so no figures: why, from the stored fills, for the page to read (`begin`), and published if asked.
+        // No Alpaca key, so no figures: why, from the stored fills, for the page to read (`begin`), and published if asked.
         Ok(None)=>{
             let now=app.now().timestamp();
             let read=build(app,move|c|Ok((revision(c,user)?.0,walk_reason(c,user)))).await;

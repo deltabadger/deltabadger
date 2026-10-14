@@ -12,18 +12,31 @@ use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
+pub const TRADING_URL: &str = "https://api.alpaca.markets";
 pub const PAPER_TRADING_URL: &str = "https://paper-api.alpaca.markets";
 pub const DATA_URL: &str = "https://data.alpaca.markets";
+
+/// Where each Alpaca mode goes. Production is `Hosts::alpaca()`; a test points them at local servers, and `Urls::pick`
+/// still makes the choice.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Hosts { pub paper: String, pub live: String, pub data: String }
+
+impl Hosts {
+    pub fn alpaca() -> Self { Self { paper: PAPER_TRADING_URL.into(), live: TRADING_URL.into(), data: DATA_URL.into() } }
+    /// One local server for all three (a test that does not tell the modes apart).
+    pub fn all(url: &str) -> Self { Self { paper: url.into(), live: url.into(), data: url.into() } }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Urls { pub trading: String, pub data: String }
 
 impl Urls {
-    /// Exchanges::Alpaca#paper_mode? picks the live host for exactly "live". Before 3.0 this build is paper only: every
-    /// passphrase gets the paper host, and the live host is not in the binary (LiveFactory and preflight refuse "live").
-    pub fn for_passphrase(_passphrase: Option<&str>) -> Self {
-        Self { trading: PAPER_TRADING_URL.into(), data: DATA_URL.into() }
+    /// Exchanges::Alpaca#paper_mode? and Clients::Alpaca: the live trading host for exactly "live" (nil and anything else
+    /// is paper); market data on its own host whatever the mode. The only place a mode becomes a host.
+    pub fn pick(passphrase: Option<&str>, hosts: &Hosts) -> Self {
+        Self { trading: if passphrase == Some("live") { hosts.live.clone() } else { hosts.paper.clone() }, data: hosts.data.clone() }
     }
+    pub fn for_passphrase(passphrase: Option<&str>) -> Self { Self::pick(passphrase, &Hosts::alpaca()) }
 }
 
 /// `value.to_d` on a JSON-parsed Ruby value: nil → 0, Integer exact, Float#to_d, a decimal String.
@@ -146,11 +159,21 @@ impl<'a,T:Transport> Captured<'a,T> {
     }
 }
 #[derive(Clone)]
-pub struct AlpacaVenue<T: Transport> { transport: T, urls: Urls }
+pub struct AlpacaVenue<T: Transport> { transport: T, urls: Urls, identity: Option<Value> }
+
+/// What an intent records of the key it is sent under (`placement::begin_with_credentials`), and what recovery compares
+/// before it asks anything: the mode (which trading host) and a fingerprint of the public key id. Never the secret.
+pub fn placement_identity(credentials: &Credentials) -> Value {
+    use sha2::{Digest, Sha256};
+    json!({ "alpaca_live": credentials.passphrase.as_deref() == Some("live"), "key_fingerprint": hex::encode(Sha256::digest(credentials.key.as_bytes())) })
+}
 
 impl<T: Transport> AlpacaVenue<T> {
-    pub fn new(transport: T, urls: Urls) -> Self { Self { transport, urls } }
+    pub fn new(transport: T, urls: Urls) -> Self { Self { transport, urls, identity: None } }
     pub fn urls(&self) -> &Urls { &self.urls }
+    /// The key this venue sends with, as `placement_identity` states it (the factory sets it from the same credentials
+    /// that picked the host).
+    pub fn with_identity(mut self, credentials: &Credentials) -> Self { self.identity = Some(placement_identity(credentials)); self }
     fn redact_error(&self,error:VenueError)->VenueError{
         match error{
             VenueError::Rejected(messages)=>VenueError::Rejected(messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()),
@@ -365,6 +388,7 @@ impl<T: Transport> AlpacaVenue<T> {
 
 impl<T: Transport> Venue for AlpacaVenue<T> {
     fn rules(&self)-> &'static VenueRules{&ALPACA}
+    fn placement_identity(&self)->Option<Value>{self.identity.clone()}
     async fn positions(&self)->Result<std::collections::HashMap<String, BigDec>,VenueError>{self.positions_diagnostic_source().await.map_err(|error|self.redact_error(error))}
     async fn clock(&self)->Result<ClockAnswer,VenueError>{self.clock_diagnostic_source().await.map_err(|error|self.redact_error(error)) .map(|answer|match answer{ClockAnswer::Failed{status,message}=>ClockAnswer::Failed{status,message:self.transport.redact_diagnostic(&message)},other=>other})}
     async fn price(&self, ticker: &Ticker, side: PriceSide)->Result<BigDec,VenueError>{self.price_diagnostic_source(ticker,side).await.map_err(|error|self.redact_error(error))}
@@ -377,15 +401,12 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     async fn balance(&self, asset_symbol: &str, all_crypto: bool)->Result<BigDec,VenueError>{self.balance_diagnostic_source(asset_symbol,all_crypto).await.map_err(|error|self.redact_error(error))}
 }
 
-/// Before 3.0 the engine trades Alpaca paper only.
-pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build (paper only before 3.0)";
-
-/// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper only before 3.0)
-/// and Kraken (through its proxy, ExchangeProxy.for, read each time a venue is built). A venue with no Rust code yet gets a
-/// venue that sends nothing; `run`'s preflight refuses such bots before it claims the install, so this is the second line.
-/// A passphrase that does not decrypt never reaches here: `model::credentials_for` fails that bot's tick.
+/// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper or live, as
+/// the key says) and Kraken (through its proxy, ExchangeProxy.for, read each time a venue is built). A venue with no Rust
+/// code yet gets a venue that sends nothing; `run`'s preflight refuses such bots before it claims the install, so this is
+/// the second line. A passphrase that does not decrypt never reaches here: `model::credentials_for` fails that bot's tick.
 #[derive(Clone)]
-pub struct LiveFactory { client: reqwest::Client, paper_boundary: Option<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>,
+pub struct LiveFactory { client: reqwest::Client, hosts: Hosts, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>,
     settings: Option<(std::path::PathBuf, Cipher)> }
 
 /// What a factory with no install to read `proxy_<venue>` from answers for a proxied venue: it cannot know whether a proxy
@@ -395,7 +416,7 @@ const SETTINGS_UNREAD: &str = "this process has no install to read the venue's p
 impl LiveFactory {
     /// Share the deadline producer clock with every real HTTP venue handle.
     pub fn with_clock(mut self,clock:std::sync::Arc<dyn crate::engine::Clock + Send + Sync>)->Self{self.clock=clock;self}
-    pub fn new() -> Self { Self { client: http::client(), paper_boundary: None, clock: std::sync::Arc::new(crate::engine::SystemClock), settings: None } }
+    pub fn new() -> Self { Self { client: http::client(), hosts: Hosts::alpaca(), clock: std::sync::Arc::new(crate::engine::SystemClock), settings: None } }
     /// The engine's factory: each venue it builds reads its proxy from this install's database (`c`'s file) at that moment.
     pub fn for_install(c: &Connection, cipher: &Cipher) -> Self {
         Self { settings: c.path().filter(|p| !p.is_empty()).map(|p| (p.into(), cipher.clone())), ..Self::new() }
@@ -406,8 +427,8 @@ impl LiveFactory {
         let c = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(|_| format!("the {name} proxy setting is unreadable"))?;
         super::live::egress(&c, cipher, &|k| std::env::var(k).ok(), name, &self.client)
     }
-    /// Explicit local HTTP boundary for native production-adapter tests.
-    #[doc(hidden)] pub fn with_paper_boundary(url:String)->Self{Self{paper_boundary:Some(url),..Self::new()}}
+    /// Local Alpaca hosts for native production-adapter tests; `Urls::pick` still chooses between them.
+    #[doc(hidden)] pub fn with_hosts(hosts:Hosts)->Self{Self{hosts,..Self::new()}}
 }
 
 impl Default for LiveFactory {
@@ -415,18 +436,17 @@ impl Default for LiveFactory {
 }
 
 impl LiveFactory {
-    /// An Alpaca venue for this key (the bot's, or a sync job's): paper host only; a live key gets a transport that sends
-    /// nothing.
+    /// An Alpaca venue for this key (the bot's, or a sync job's). Its host and its identity come from the same
+    /// credentials it signs with; no key is Rails' unsaved fallback, paper (`paper_mode?(nil)`).
     pub fn alpaca(&self, credentials: Option<Credentials>, sensitive: Vec<String>) -> AlpacaVenue<ReqwestTransport> {
-        let live = credentials.as_ref().is_some_and(|c| c.passphrase.as_deref() == Some("live"));
+        let urls = Urls::pick(credentials.as_ref().and_then(|c| c.passphrase.as_deref()), &self.hosts);
+        let identity = credentials.as_ref().map(placement_identity);
         let transport = match credentials {
-            _ if live => ReqwestTransport::refused(LIVE_REFUSED),
             Some(c) => ReqwestTransport::new(self.client.clone(), c.key, c.secret).with_sensitive_values(c.redaction_values),
             // Rails' unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
             None => ReqwestTransport::new(self.client.clone(), String::new(), String::new()),
         };
-        // Every key that gets this far is paper (anything but exactly "live"), so the live host is never even named.
-        AlpacaVenue::new(transport.with_clock(self.clock.clone()).with_sensitive_values(sensitive), match &self.paper_boundary{Some(url)=>Urls{trading:url.clone(),data:url.clone()},None=>Urls::for_passphrase(None)})
+        AlpacaVenue { transport: transport.with_clock(self.clock.clone()).with_sensitive_values(sensitive), urls, identity }
     }
 }
 
@@ -459,7 +479,7 @@ impl VenueFactory for LiveFactory {
 /// What `deltabadger run` refuses before it claims anything: anything `check` refuses, and then every bot the engine will
 /// call a venue for — each eligible bot, and each bot of ANY status with an outstanding order or a placement intent (the
 /// loop polls and reconciles those too) — that is on a venue this build cannot reach, has no key, has a key this
-/// SECRET_KEY_BASE cannot decrypt, or has a live key.
+/// SECRET_KEY_BASE cannot decrypt.
 pub fn preflight(c: &Connection, cipher: &Cipher) -> Result<Vec<i64>, Vec<String>> {
     let report = eligibility::check_install(c).map_err(|e| vec![format!("{e:?}")])?;
     let mut problems = report.problems.clone();
@@ -484,13 +504,11 @@ pub fn preflight(c: &Connection, cipher: &Cipher) -> Result<Vec<i64>, Vec<String
 fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String>, EngineError> {
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
-    let alpaca = exchange == ALPACA.exchange_type;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
         return Ok(Some(format!("{exchange} is not connected in this build (only Kraken and Alpaca)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),
-        Some(k) if alpaca && k.passphrase.as_deref() == Some("live") => Some(LIVE_REFUSED.into()),
         Some(_) => None,
     })
 }

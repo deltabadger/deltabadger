@@ -76,6 +76,7 @@ impl<V:Venue> Handle<V> {
 }
 impl<V:Venue> Venue for &V {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{(*self).producer()}
+    fn placement_identity(&self)->Option<serde_json::Value>{(*self).placement_identity()}
     fn rules(&self)->&'static VenueRules{(*self).rules()}
     async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{(*self).positions().await}
     async fn clock(&self)->Result<ClockAnswer,VenueError>{(*self).clock().await}
@@ -89,6 +90,7 @@ impl<V:Venue> Venue for &V {
 }
 impl<V:Venue> Venue for Handle<V> {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
+    fn placement_identity(&self)->Option<serde_json::Value>{self.venue.placement_identity()}
     fn rules(&self)->&'static VenueRules{self.venue.rules()}
     async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{self.venue.positions().await}
     async fn clock(&self)->Result<ClockAnswer,VenueError>{self.venue.clock().await}
@@ -115,6 +117,9 @@ pub trait Attributed:Venue + sealed::Sealed {
 impl<V:Venue> Attributed for Handle<V> {}
 pub trait Venue {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
+    /// The key an order is sent under, as an intent records it and recovery compares it (`alpaca::placement_identity`):
+    /// an object of fields merged into the intent. None where a venue has nothing to tell (Kraken, a scripted venue).
+    fn placement_identity(&self)->Option<serde_json::Value>{None}
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { Err(VenueError::Rejected(vec!["positions unavailable".into()])) }
 
     /// The market clock. Asked only where VenueRules::market_hours. A transport failure that Client.network_failure raises

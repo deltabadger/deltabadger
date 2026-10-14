@@ -235,7 +235,7 @@ fn any_other_exchange_is_refused() {
 #[test]
 fn the_guard_refuses_a_write_that_makes_the_install_ineligible_and_names_the_bot() {
     use deltabadger::engine::model;
-    let (_d, o, s) = common::install_alpaca(); // this build trades Alpaca paper only: the guard checks that too
+    let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     // A write the engine can run: the guard says commit.
     let tx = model::immediate(&o.primary).unwrap();
@@ -269,7 +269,7 @@ fn a_report_refuses_problems_first_then_unreadable_rows_in_checks_words() {
 }
 
 /// The guard refuses what this build cannot trade, in `preflight`'s words, inside the write: a start with no key (Kraken,
-/// Alpaca) and an Alpaca start with a live key. Each refused start rolls back; a Kraken start with its key goes through.
+/// Alpaca). Each refused start rolls back; a Kraken start with its key, and an Alpaca start with a live key, go through.
 #[test]
 fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() {
     use deltabadger::engine::model;
@@ -296,13 +296,12 @@ fn the_guard_refuses_a_start_this_build_cannot_trade_and_the_start_rolls_back() 
     assert!(untradable(&refused, &format!("bot {id}: no Kraken API key")), "{refused:?}");
     assert_eq!(status(&o.primary, id), 2, "rolled back");
 
-    // Alpaca with a live key, then with no key.
+    // Alpaca with a live key starts as in Rails; with no key it is refused.
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
-    let refused = start(&o.primary, id).unwrap_err();
-    assert!(untradable(&refused, &format!("bot {id}: {}", deltabadger::venue::alpaca::LIVE_REFUSED)), "{refused:?}");
-    assert_eq!(status(&o.primary, id), 2, "rolled back");
+    assert!(start(&o.primary, id).is_ok(), "a live key starts");
+    o.primary.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
     let refused = start(&o.primary, id).unwrap_err();
     assert!(untradable(&refused, &format!("bot {id}: no Alpaca API key")), "{refused:?}");

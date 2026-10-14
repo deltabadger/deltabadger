@@ -1,0 +1,631 @@
+{
+  "rows": [
+    {
+      "passphrase": null,
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "paper",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "Live",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "LIVE",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "live ",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": " live",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "order_create",
+      "method": "POST",
+      "path": "/v2/orders",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "order_get",
+      "method": "GET",
+      "path": "/v2/orders/OID",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "account_activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "clock",
+      "method": "GET",
+      "path": "/v2/clock",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "stock_snapshots",
+      "method": "GET",
+      "path": "/v2/stocks/snapshots",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "stock_bars",
+      "method": "GET",
+      "path": "/v2/stocks/AAPL/bars",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "crypto_quotes",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/quotes",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "crypto_trades",
+      "method": "GET",
+      "path": "/v1beta3/crypto/us/latest/trades",
+      "host": "data.alpaca.markets"
+    },
+    {
+      "passphrase": "",
+      "call": "key_validity",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    },
+    {
+      "passphrase": null,
+      "call": "no_key_account",
+      "method": "GET",
+      "path": "/v2/account",
+      "host": "paper-api.alpaca.markets"
+    }
+  ],
+  "ported_sources": {
+    "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
+    "app/models/exchanges/alpaca.rb#paper_mode?": "69c77e195dee37c8338acd2b7a010abc1a302c9bccc604416f8520fe240a9007"
+  }
+}

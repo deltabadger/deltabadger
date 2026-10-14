@@ -11,7 +11,7 @@ use super::activities::Raw;
 use crate::jobs::data_api::{ApiError, PriceFuture, PriceSource};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
-use super::{ load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread, LIVE_REFUSED};
+use super::{ load_key, number, parsed, phase, record_sync_error, sql_time, venue_failure, Failure, SyncError, Unread};
 use crate::crypto::Credentials;
 use crate::engine::Clock;
 use crate::ruby::BigDec;
@@ -224,7 +224,6 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
             Ok::<_, SyncError>(Err(Failure { error, raised: false }))
         }
     };
-    if super::live(credentials) { return fail(LIVE_REFUSED.into(), false).await; }
 
     // #get_balances: the account, then the positions. A failed request, or an answer that is not JSON, ends it there
     // (a failure the venue returned is its word on the key, `condemn`; a transport failure is not). Both answers are

@@ -363,3 +363,28 @@ async fn collision_mcp_identity_precedes_parsing() {
         }
     }
 }
+
+/// MCP's live reads ask the key's own mode's trading host, as Rails' set_client: a live key `api.alpaca.markets`, a paper
+/// key `paper-api.alpaca.markets`, never the other (the scripted wire answers by host, so a crossed read is unscripted).
+#[tokio::test(flavor="current_thread")]
+async fn mcp_reads_ask_the_keys_own_modes_host() {
+    use deltabadger::web::mcp::{reads,tools::Called};
+    for (mode,host) in [("paper","paper-api.alpaca.markets"),("live","api.alpaca.markets")] {
+        let (dir,o,s)=common::install_alpaca();
+        o.primary.execute("UPDATE api_keys SET passphrase=?1",[common::seed::cipher().encrypt(mode)]).unwrap();
+        let script=json!({
+            format!("GET {host}/v2/orders?limit=50&status=open"):{"status":200,"body":[]},
+            format!("GET {host}/v2/account"):{"status":200,"body":{"cash":"10"}},
+            format!("GET {host}/v2/positions"):{"status":200,"body":[]},
+        });
+        let log=std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+        let app=web::app(dir.path(),"engine-test-secret",TestClock::at(AT)).with_figure_source(deltabadger::web::figure::loading::Source::Counted(script,log.clone())).unwrap();
+        for (tool,args) in [("list_open_orders",json!({})),("get_exchange_balances",json!({"exchange_name":"Alpaca"}))] {
+            let Called::Fetch(fetch)=reads::plan(&o.primary,&app,s.user_id,tool,&args).unwrap() else{panic!("{tool}: a fetch")};
+            let result=reads::finish(&o.primary,reads::fetch(&app,fetch).await).unwrap();
+            assert_ne!(result["isError"],true,"{mode} {tool}: {result}");
+        }
+        let asked=log.lock().unwrap().clone();
+        assert!(!asked.is_empty() && asked.iter().all(|k|k.starts_with(&format!("GET {host}/"))),"{mode}: {asked:?}");
+    }
+}
