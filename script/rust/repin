@@ -51,6 +51,10 @@ RECORDED = {
                                 r'|bot_actions/rows/\w+/\d+/(key|passphrase|secret|run_identity|confirmation_token|encrypted_password|otp_secret_key)'),
 }
 ALSO_WRITES = {FIX + 'ruby_vectors.json': ['rust/src/web/time_zones.json']}
+# setup.rb renders whole pages, so it needs the built JavaScript and CSS; their tokens, nonces, cookies, ciphertexts,
+# asset digests and fake-server ports are drawn fresh each run, so they are masked out of the content comparison.
+NEEDS_ASSETS = {FIX + 'setup_vectors.json'}
+MASK = {FIX + 'setup_vectors.json': r'[A-Za-z0-9+/=_%.$-]{16,}|127\.0\.0\.1:\d+|"p":"[^"]*"'}
 HASH_ONLY = [FIX + n for n in ('page_figure_sources.json', 'tracker_connect_sources.json', 'tracker_first_sync_sources.json',
                                'tracker_holdings_sources.json', 'tracker_index_sources.json', 'tracker_populated_sources.json',
                                'tracker_walk_sources.json')]
@@ -89,11 +93,12 @@ def leaves(node, path=()):
     else:
         yield '/'.join(path), node
 
-def content_change(before, after, noise):
+def content_change(before, after, noise, mask=None):
     """Leaf paths whose value moved, outside the pins and the fields a recorder draws at random."""
     def flat(text):
         data = json.loads(text)
-        return {p: v for p, v in leaves(data) if not re.match(r'(sources|ported_sources)/', p)}
+        return {p: re.sub(mask, '~', v) if mask and isinstance(v, str) else v
+                for p, v in leaves(data) if not re.match(r'(sources|ported_sources)/', p)}
     a, b = flat(before), flat(after)
     moved = sorted(p for p in set(a) | set(b) if a.get(p, KeyError) != b.get(p, KeyError))
     if noise:
@@ -126,8 +131,10 @@ def record(dest, fixture):
         if db.startswith(rails_env): os.remove(os.path.join(dest, 'storage', db))
     scratch = tempfile.mkdtemp(prefix='repin-scratch.')
     log = []
+    assets = ['bash script/rust/build_assets.sh'] if fixture in NEEDS_ASSETS and not os.path.exists(
+        os.path.join(dest, 'app/assets/builds/application.css')) else []
     try:
-        for command in ['bin/rails db:schema:load'] + [c.format(out=fixture, scratch=scratch) for c in commands]:
+        for command in assets + ['bin/rails db:schema:load'] + [c.format(out=fixture, scratch=scratch) for c in commands]:
             done = subprocess.run(command, shell=True, cwd=dest, env=env, capture_output=True, text=True)
             log.append(f'$ {command}\n{done.stdout}{done.stderr}')
             if done.returncode: return None, '\n'.join(log)
@@ -180,7 +187,7 @@ def main(argv):
             for extra in ALSO_WRITES.get(fixture, []):
                 shutil.copyfile(os.path.join(dest, extra), os.path.join(ROOT, extra))
             for p in changed: print(f're-recorded  {fixture}  {p}')
-            moved, drawn = content_change(before, text, RECORDED[fixture][2])
+            moved, drawn = content_change(before, text, RECORDED[fixture][2], MASK.get(fixture))
             note = f' ({drawn} random fields re-drawn)' if drawn else ''
             if moved:
                 print(f'  CONTENT CHANGED: {len(moved)} values moved{note}; Rails behaves differently, check the port:')
