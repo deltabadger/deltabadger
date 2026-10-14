@@ -626,7 +626,7 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), names.len(), failures.join("\n"));
     println!("{} scenarios, {steps_compared} steps; {crossed} cross-runtime plays", names.len());
     if std::env::var("OAUTH").is_err() {
-        assert_eq!((names.len(), crossed), (125, 18), "a scenario was dropped or added without this count");
+        assert_eq!((names.len(), crossed), (126, 18), "a scenario was dropped or added without this count");
     }
 }
 
