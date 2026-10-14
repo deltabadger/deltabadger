@@ -139,3 +139,26 @@ pub async fn prepare(app:&App,owner:i64)->Result<Prepared,WebError>{
     let rate=rate.and_then(|f|figures::budget::within(||Dec::from_f64(f).map(|d|d.to_s_f())).ok());
     Ok(Prepared{identity,requested,rate,until:held.until})
 }
+
+/// The display currency's rate for a page, read from the held conversions only: a request never asks the network. A
+/// conversion not held for this provider, or held past its time, is wanted from the figures queue (`Service::want_fx`),
+/// which fills it outside any request; until then the page states "Currency conversion unavailable".
+pub fn held(app:&App,c:&Connection,owner:i64)->Result<Prepared,WebError>{
+    let requested:String=c.query_row("SELECT display_currency FROM users WHERE id=?1",[owner],|r|r.get(0))?;
+    let requested=figures::totals::normalized_currency(&requested);
+    let identity=crate::engine::provider::fingerprint(c).map_err(|_|unavailable())?;
+    if requested=="USD" {return Ok(Prepared{identity,requested,rate:Some("1.0".into()),until:i64::MAX});}
+    let configured=crate::engine::provider::config(c).map_err(|_|unavailable())?.is_some();
+    let (Some(identity_key),true)=(identity.clone(),configured) else {return Ok(Prepared{identity,requested,rate:None,until:i64::MIN})};
+    let Some(held)=app.fx_cache.store.get(&identity_key,"USD",&requested,app.now().timestamp()) else {
+        app.figure_service.want_fx("USD",&requested);
+        return Ok(Prepared{identity,requested,rate:None,until:i64::MIN});
+    };
+    let rate=match held.value {
+        Ok(HeldRate::Float(f))=>Some(f),
+        Ok(HeldRate::Decimal(_))|Err(_)=>None,
+    };
+    // `Denomination.for`: the rate is `result.data.to_d`, a Float read as a decimal.
+    let rate=rate.and_then(|f|figures::budget::within(||Dec::from_f64(f).map(|d|d.to_s_f())).ok());
+    Ok(Prepared{identity,requested,rate,until:held.until})
+}

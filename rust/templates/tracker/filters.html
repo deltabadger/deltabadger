@@ -1,0 +1,64 @@
+<div class="tracker-exchanges">
+  <div class="filters">
+{% if chips.is_empty() %}      <a class="rbutton rbutton--icon" data-turbo-frame="modal" aria-label="{{ v.t("tracker.connect_exchange")|safe }}" href="{{ connect_href }}">
+        {% include "svg/_24x24_plus.html" %}
+
+</a>{% else %}      
+<div class="segmented segmented--fluid" aria-label="{{ all_label|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle">
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+{% for chip in chips %}            <a class="segmented__option{% if chip.active %} is-on{% endif %}"{% if chip.active %} aria-current="page"{% endif %} data-value="{{ chip.value }}"{% if chip.broken %} data-broken="true" data-turbo-frame="modal"{% endif %} data-segmented-target="option" data-action="segmented#select" href="{{ chip.href|safe }}">{{ chip.label|safe }}</a>
+{% endfor %}          <a class="segmented__option segmented__option--action" data-turbo-frame="modal"{% if !menu.is_empty() %} data-action="segmented#open"{% endif %} aria-label="{{ v.t("tracker.connect_exchange")|safe }}"{% if !menu.is_empty() %} aria-expanded="false"{% endif %} href="{{ connect_href }}">
+            {% include "svg/_24x24_plus.html" %}
+
+</a>      </div>
+{% if !menu.is_empty() %}        <div class="segmented__pane segmented__submenu">
+          <button type="button" class="segmented__back" data-action="segmented#back"
+                  aria-label="{{ v.t("button.back")|safe }}">
+            {% include "svg/_24x24_back.html" %}
+
+          </button>
+{% for item in menu %}            <a class="segmented__submenu-item" data-turbo-frame="modal" href="{{ item.href|safe }}">
+                <span class="segmented__submenu-icon">{{ item.icon|safe }}</span>
+              {{ item.label|safe }}
+</a>{% endfor %}        </div>
+{% endif %}    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    {% include "svg/_16x16_down.html" %}
+
+</span></div>
+{% endif %}  </div>
+
+  <div class="tracker-exchanges__end">
+    <div class="tracker-exchanges__sync">
+{{ sync|safe }}{% if syncable %}        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
+          {% include "svg/_24x24_sync.html" %}
+
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>{% endif %}    </div>
+{% if report %}
+      <a class="rbutton" data-turbo-frame="modal" href="{{ v.path("/tracker/export_modal") }}">{{ v.t("tracker.get_report")|safe }}</a>
+{% endif %}
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+      {% include "svg/_24x24_dot_menu.html" %}
+
+      <div class="dropdown">
+        <form class="switch-row-form" data-controller="form--submit" action="{{ v.path("/settings/update_show_cash") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+          <label class="dropdown__item dropdown__item--switch" data-dropdown-keep-open>
+            <span>{{ v.t("tracker.show_cash")|safe }}</span>
+            <div class="toggle toggle--small">
+              <input type="hidden" name="show_cash" id="show_cash" value="0" />
+              <input type="checkbox" name="show_cash" id="show_cash" value="1" data-action="change-&gt;form--submit#submit"{% if show_cash %} checked="checked"{% endif %} />
+              <div class="toggle__style"></div>
+            </div>
+          </label>
+</form>        <div class="dropdown__item dropdown__item--divider"></div>
+        <a class="dropdown__item" href="{{ export_path|safe }}">{{ v.t("bot.details.stats.download_csv")|safe }}</a>
+        <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/tracker/import/new") }}">{{ v.t("tracker.import.title")|safe }}</a>
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -9,7 +9,7 @@ fn first_sync_oracle_sources_stay_pinned() {
 #[test]
 fn first_sync_stays_inside_the_read_boundary_and_adds_no_money_or_credentials() {
     let index=include_str!("../src/web/tracker/index.rs");
-    assert!(index.contains("super::read::only(c,|c|render(c,&ctx,owner,fx.as_ref()))"));
+    assert!(index.contains("super::read::only(c,|c|{let fx=super::fx::held(&ctx.app,c,owner)?;render(c,&ctx,owner,Some(&fx))})"));
     let source=include_str!("../src/web/tracker/first_sync.rs").split("#[cfg(test)]").next().unwrap();
     for forbidden in ["wake_job(","wake_engine(",".execute(",".execute_batch(",".unwrap(",".expect(","amount_exec","quote_amount_exec","usd_value","decrypt("] {
         assert!(!source.contains(forbidden),"first-sync view includes {forbidden}");

@@ -77,3 +77,17 @@ fn cold_figures_need_balances_synced_by_the_current_key(){
         assert_eq!(result.reason,Some("Tracker figures unavailable: balances not yet synced with the current key"),"{case}");
     }
 }
+
+#[test]
+fn cold_holdings_sources_and_ci_are_pinned(){
+    use sha2::{Digest,Sha256};
+    let sources:serde_json::Value=serde_json::from_str(include_str!("fixtures/tracker_holdings_sources.json")).unwrap();
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path,hash) in sources.as_object().unwrap(){assert_eq!(format!("{:x}",Sha256::digest(std::fs::read(root.join(path)).unwrap())),hash.as_str().unwrap(),"{path}: record holdings again");}
+}
+#[test]
+fn cold_holdings_ci_includes_standalone_contract(){
+    let workflow=include_str!("../../.github/workflows/rust.yml");
+    assert!(workflow.contains("--test tracker_holdings_contract"));
+    for path in ["script/rust/pages_tracker_holdings.rb","app/helpers/application_helper.rb","app/views/assets/_logo.html.erb"]{assert_eq!(workflow.matches(&format!("- '{path}'")).count(),2,"both CI events cover {path}");}
+}

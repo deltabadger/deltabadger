@@ -34,7 +34,10 @@ struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTr
     signed_in:BTreeMap<i64,i64>,
     /// An account with no paper Alpaca key: why its figures are absent, read by the queue from its stored fills, for the
     /// revision (`loading::revision`) it was read against, until the next cut.
-    unkeyed:BTreeMap<i64,(u64,i64,Option<&'static str>)> }
+    unkeyed:BTreeMap<i64,(u64,i64,Option<&'static str>)>,
+    /// Conversions (from, to) a page found no held answer for: filled by the queue (`loading::follow`), whatever the
+    /// account (a tracker-only account has no paper key, and its rate is wanted all the same).
+    fx_wanted:BTreeSet<(String,String)> }
 /// An account's last publication: the serial of the figures it rendered, whether all of it was kept, and (stream,
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 /// And the held conversions its figures read.
@@ -65,6 +68,12 @@ impl Service {
         drop(state);
         self.1.notify_one();
     }
+    /// A page wants a conversion it found no held answer for. The queue fills it; the page never fetches.
+    pub fn want_fx(&self,from:&str,to:&str) {
+        if self.state().fx_wanted.insert((from.to_string(),to.to_string())) { self.1.notify_one(); }
+    }
+    /// The wanted conversions, taken off the queue.
+    pub fn take_fx(&self)->Vec<(String,String)> { std::mem::take(&mut self.state().fx_wanted).into_iter().collect() }
     /// The queued work due at `now`, taken off the queue.
     pub fn take_due(&self,now:i64)->Vec<(i64,Work)> {
         let mut state=self.state();

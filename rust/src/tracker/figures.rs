@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 /// An `account_balances` row with something in it (`nonzero`), as the model reads it.
 #[derive(Clone, Debug)]
-pub struct Balance { pub category: Option<String>, pub symbol: String, pub exchange: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
+pub struct Balance { pub asset: i64, pub category: Option<String>, pub symbol: String, pub exchange: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
 
 /// A decimal column of `scale` with a precision, as ActiveRecord casts what SQLite returns: a REAL is
 /// `BigDecimal(float.round(scale), 16)` then the scale (sync::balances::cast_float's rule), anything else to_d and the
@@ -36,14 +36,14 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
 /// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.
 pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<Balance>, FiguresError> {
     let mut s = c.prepare(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
          WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 ORDER BY b.id")?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
         out.push(Balance {
-            category: r.get(7)?, symbol: r.get(0)?, exchange: r.get(8)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
+            asset: r.get(9)?, category: r.get(7)?, symbol: r.get(0)?, exchange: r.get(8)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
             usd_price: scaled(r.get_ref(3)?, 8)?, usd_value: scaled(r.get_ref(4)?, 8)?, priced_at: instant(r.get(5)?)?, synced_at: instant(r.get(6)?)?,
         });
     }
@@ -127,7 +127,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
 /// One holding: what the venue holds of a symbol (and what arrived since its sync), what it is worth, and its cost
 /// against the history (none for cash).
 #[derive(Clone, Debug)]
-pub struct Holding { pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool, pub unrealised: Option<Dec>, pub note: Option<Note> }
+pub struct Holding { pub asset: Option<i64>, pub symbol: String, pub quantity: Dec, pub value: Dec, pub cost: Option<Dec>, pub cash: bool, pub unrealised: Option<Dec>, pub note: Option<Note> }
 
 impl Holding {
     /// `Holding#percent`: the gain on its cost, none without one.
@@ -176,6 +176,26 @@ impl Figures {
         for h in self.holdings.iter().filter(|h| h.cash) { idle = (&idle + &h.value)?; }
         Ok(((&self.value - &idle)?, (&self.invested - &idle)?))
     }
+
+    /// `Result#without_cash` as the page reads it: the cash rows gone, and taken off the value and money in.
+    pub fn without_cash_result(&self) -> Result<Figures, FiguresError> {
+        let (value, invested) = self.without_cash()?;
+        Ok(Figures { value, invested, holdings: self.holdings.iter().filter(|h| !h.cash).cloned().collect(), ..self.clone() })
+    }
+}
+
+/// The asset a holding is drawn as (`rows.first&.asset || Ledger.symbol_index(user, [symbol])[symbol] ||
+/// Asset.find_by(symbol:)`): a balance of the user's in that symbol, else the catalog's coin, then its currency, else any
+/// asset of that symbol.
+fn asset_for(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<i64>, FiguresError> {
+    use rusqlite::OptionalExtension;
+    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND a.symbol = ?2 ORDER BY b.id LIMIT 1",
+        rusqlite::params![user_id, symbol], |r| r.get(0)).optional()?;
+    if held.is_some() { return Ok(held); }
+    let catalog: Option<i64> = c.query_row("SELECT id FROM assets WHERE symbol = ?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category = 'Cryptocurrency' DESC, id LIMIT 1",
+        [symbol], |r| r.get(0)).optional()?;
+    if catalog.is_some() { return Ok(catalog); }
+    Ok(c.query_row("SELECT id FROM assets WHERE symbol = ?1 ORDER BY id LIMIT 1", [symbol], |r| r.get(0)).optional()?)
 }
 
 /// `rate(currency)`: a dollar and a stablecoin are one dollar; other cash at today's ECB rate, at par when there is none,
@@ -264,6 +284,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         held = (&units + &held)?;
         if !held.is_positive() { continue; }
         if rows.is_empty() && !known.contains(&symbol) { continue; }
+        let asset = match rows.first() { Some(r) => Some(r.asset), None => asset_for(c, user_id, &symbol)? };
         let exchange = rows.first().map(|r| r.exchange.as_str()).filter(|name| rows.iter().all(|r| r.exchange == *name));
         let mut prices = Dec::zero();
         let mut values = Dec::zero();
@@ -274,7 +295,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         let price = if prices.is_positive() { Some(values.div(&units)?) } else { None };
         if cash(&symbol) {
             let value = if stable(&symbol) { held.clone() } else { (&held * &match &price { Some(p) => p.clone(), None => rate(&symbol, fx, today, &mut notes)? })? };
-            holdings.push(Holding { symbol, quantity: held, value, cost: None, cash: true, unrealised: None, note: None });
+            holdings.push(Holding { asset, symbol, quantity: held, value, cost: None, cash: true, unrealised: None, note: None });
             continue;
         }
         let position = position_of.get(symbol.as_str()).copied();
@@ -310,7 +331,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         // A coin the venue has not reported yet is held at cost until it does, and says so whatever else was assumed.
         let note = match note { None if since_sync => notes.note("since_sync", &symbol, exchange, Some(&history), Some(&held), cost.clone(), true), note => note };
         let value = match &price { Some(p) => (&held * p)?, None => cost.clone() };
-        holdings.push(Holding { symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note });
+        holdings.push(Holding { asset, symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note });
     }
     // `sort_by { -value }`.
     holdings.sort_by(|a, b| b.value.cmp(&a.value));

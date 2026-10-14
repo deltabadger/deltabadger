@@ -13,7 +13,7 @@ pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=cold(&tx,owner,exchange,show_cash)?;tx.commit()?;return Ok(out)}
     let mut s=c.prepare("SELECT a.id,a.symbol,a.name,a.category,a.color,a.image_url,b.usd_value,b.priced_at,b.synced_at FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.exchange_id=?2) AND b.free+b.locked>0 ORDER BY b.id")?;
     let mut q=s.query(rusqlite::params![owner,exchange])?;
-    let mut holdings:Vec<Holding>=vec![];let mut synced=None;let mut oldest=None;let mut unpriced=vec![];let mut missing_time=false;
+    let mut holdings:Vec<Holding>=vec![];let mut synced=None;let mut oldest=None;let mut unpriced=vec![];let mut unpriced_assets=vec![];let mut missing_time=false;
     while let Some(r)=q.next()? {
         crate::figures::budget::charge(1,0)?;
         let id=r.get(0)?;let symbol=r.get::<_,Option<String>>(1)?.unwrap_or_default();
@@ -22,7 +22,7 @@ pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result
         synced=synced.max(balance_time);
         if value.as_ref().is_some_and(Dec::is_positive){
             if let Some(at)=price_time {oldest=Some(oldest.map_or(at,|old:DateTime<Utc>|old.min(at)));}else{missing_time=true;}
-        }else if !unpriced.contains(&symbol){unpriced.push(symbol.clone());}
+        }else if !unpriced_assets.contains(&id){unpriced_assets.push(id);unpriced.push(symbol.clone());}
         // A missing amount remains unavailable. The placeholder is never summed or displayed.
         let Some(value)=value else {continue};
         if let Some(h)=holdings.iter_mut().find(|h|h.asset==id){h.value=(&h.value+&value)?;}else{
@@ -41,4 +41,18 @@ pub fn cold(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool)->Result
     let only_cash=had_holdings && holdings.is_empty();
     let value=if reason.is_some(){None}else{Some(holdings.iter().try_fold(Dec::zero(),|sum,h|&sum+&h.value)?)};
     Ok(Cold{holdings,value,synced,stale,unpriced,only_cash,reason})
+}
+
+/// The page's figures once the ledger is warm (`Tracker::Figures.for` with the cached scope), restated without the cash
+/// when the switch hides it (`Result#without_cash`), and whether that left nothing but cash (`@portfolio_all_cash`).
+pub struct Warm {pub figures:super::Figures,pub all_cash:bool,pub received:Dec}
+pub fn warm(c:&Connection,owner:i64,exchange:Option<i64>,show_cash:bool,ledger:&crate::tracker::walk::Summary,fx:&crate::tracker::fx::FxTable,today:chrono::NaiveDate)->Result<Warm,FiguresError>{
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=warm(&tx,owner,exchange,show_cash,ledger,fx,today)?;tx.commit()?;return Ok(out)}
+    let balances=super::balances(c,owner,exchange)?;
+    let pending=super::pending(c,owner,exchange)?;
+    let figures=super::compute_on(c,owner,ledger,&balances,&pending,fx,today)?;
+    let received=ledger.received.clone();
+    if show_cash {return Ok(Warm{figures,all_cash:false,received})}
+    let invested=figures.without_cash_result()?;
+    Ok(Warm{all_cash:!figures.holdings.is_empty() && invested.holdings.is_empty(),figures:invested,received})
 }

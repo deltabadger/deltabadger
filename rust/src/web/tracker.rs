@@ -10,6 +10,7 @@ pub mod read;
 pub mod index;
 pub mod first_sync;
 pub mod holdings;
+pub mod populated;
 pub mod row;
 pub mod transaction;
 pub mod modal;

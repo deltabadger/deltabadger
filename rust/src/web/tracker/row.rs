@@ -80,6 +80,14 @@ pub(super) fn formatted(value:&Dec,d:&Denomination)->Result<String,WebError>{
     let sign=if negative{"-"}else{""};let u=escape(unit(d));let a=amount(&abs,&d.currency)?;
     Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} <small>{u}</small>")}else{format!("{sign}<small>{u}</small>{a}")})
 }
+/// `Denomination#format_plain`: the same figure with its unit spelled out, for a sentence or an attribute.
+pub(super) fn plain(value:&Dec,d:&Denomination)->Result<String,WebError>{
+    let negative=value.is_negative(); let abs=if negative{value.neg()}else{value.clone()};
+    let sign=if negative{"-"}else{""};let u=unit(d);let a=amount(&abs,&d.currency)?;
+    Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} {u}")}else{format!("{sign}{u}{a}")})
+}
+/// `tracker_amount`: a quantity in the unit named beside it.
+pub(super) fn amount_text(value:&Dec,currency:&str)->Result<String,WebError>{amount(value,currency)}
 fn logo(c:&Connection,row:&Row)->Result<String,WebError>{
     // Recorded asset, then the owner's balances, then the ranked crypto catalogue.
     let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};

@@ -4,8 +4,7 @@
     <span class="label">{{ shares|safe }}</span>
   </div>
 
-{% if count == 0 %}{% if only_cash %}      <p class="tracker-holdings__empty">{{ v.t("tracker.portfolio.only_cash")|safe }}</p>
-{% else %}      <p class="tracker-holdings__empty">{{ v.t("tracker.portfolio.no_balances")|safe }}</p>
+{% if count == 0 %}{% if let Some(empty) = empty %}      <p class="tracker-holdings__empty">{{ empty|safe }}</p>
 {% endif %}{% else %}    <div class="tracker-holdings__comp">
       <div class="tracker-holdings__ring">
         <svg viewBox="0 0 230 230" role="img" aria-label="{{ v.t("tracker.holdings")|safe }}">
@@ -15,8 +14,8 @@
                     stroke-dasharray="{{ arc.dash }}" stroke-dashoffset="{{ arc.offset }}"><title>{{ arc.label|safe }}</title></circle>
 {% endfor %}        </svg>
         <div class="tracker-holdings__centre">
-          <span class="tracker-holdings__centre-value ">
-            —
+          <span class="tracker-holdings__centre-value {% if let Some((_, tone)) = centre %}{{ tone }}{% endif %}">
+            {% if let Some((value, _)) = centre %}{{ value }}{% else %}—{% endif %}
           </span>
           <span class="label">{{ v.t("tracker.unrealised")|safe }}</span>
         </div>
@@ -38,4 +37,10 @@
 {% endif %}      </div>
     </div>
 {% endif %}
-</div>
+{% if let Some(unpriced) = unpriced %}    <p class="tracker-holdings__empty">
+      {{ unpriced|safe }}
+    </p>
+{% endif %}{% if !asides.is_empty() %}    <ul class="tracker-holdings__notes">
+{% for aside in asides %}        <li class="tracker-holdings__note">{{ aside|safe }}</li>
+{% endfor %}    </ul>
+{% endif %}</div>

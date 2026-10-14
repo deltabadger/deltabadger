@@ -14,6 +14,14 @@
   </span>
   <span class="tracker-holdings__pct">{{ percent }}%</span>
 {% if !hidden %}    <span class="tracker-holdings__value">{{ value|safe }}</span>
-{% endif %}    <span class="tracker-holdings__pl" title="{{ v.t("tracker.basis_incomplete")|safe }}"><span class="no-value">—</span></span>
-    <span class="tracker-holdings__spacer"></span>
-</div>
+{% endif %}{% if let Some((pnl, tone)) = pnl %}    <span class="tracker-holdings__pl {{ tone }}">{{ pnl }}</span>
+{% else %}    <span class="tracker-holdings__pl" title="{{ v.t("tracker.basis_incomplete")|safe }}"><span class="no-value">—</span></span>
+{% endif %}{% if let Some(note) = note %}    <span class="tracker-holdings__info" role="button" tabindex="0" aria-label="{{ note|safe }}"
+          data-controller="tooltip" data-tooltip-fixed-value="true"
+          data-action="click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+      {% include "svg/_24x24_info.html" %}
+
+      <div class="tooltip tooltip--hint">{{ note|safe }}</div>
+    </span>
+{% else %}    <span class="tracker-holdings__spacer"></span>
+{% endif %}</div>

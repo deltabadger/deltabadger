@@ -1,0 +1,23 @@
+{
+  "app/controllers/tracker_controller.rb": "f1dc9709d464882d2b7e23dc32c512d464e47509a057b28bb1538b7e8e4b2c78",
+  "app/models/tracker/figures.rb": "bfae57d2a68f14c67b4718d850f176730c1ff50f133fff58f1efff7cb20f4f28",
+  "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+  "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+  "app/models/portfolio_snapshot.rb": "b13f74f516f4f787ab22e469ed20803f681edbd049139a2a38db81f2ff249ac0",
+  "app/models/denomination.rb": "4763ea32cd8ffb02027943b56a17f7f1fd7338f2aa85bd51cb0f81a662dc51a6",
+  "app/helpers/tracker_helper.rb": "0e918379e98824fc25bcc10b6ca9af30552455e25abda670de696c24adde0301",
+  "app/helpers/application_helper.rb": "3d3ed601497033c19a8982d64ed292511ad12b338df042b4288f5ba317abd44c",
+  "app/jobs/tax/generate_report_job.rb": "c8d9fbc2ab484ca6442c3fa7bda3f44ec1964afd342310f1e966721945dfec32",
+  "app/views/tracker/index.html.erb": "9d658aec7fa0c09980f3c31a2832fe761f3fad2d6c4eac34e1ff7a43bdb6392f",
+  "app/views/tracker/_exchange_filters.html.erb": "3372ca07a8d5eba94c36142115fb192827bbaeed485f5c9deec4880d7c2a8ac2",
+  "app/views/tracker/_tiles.html.erb": "5538f13874dd7314d93036ebe04cd17a418e5ae697ba09428c04bb4ee3e30d10",
+  "app/views/tracker/_holdings.html.erb": "11c3e4e91a2161b37f3fb470cc656b0ffa2a6246ef477cc15d35b305cb50bdc2",
+  "app/views/tracker/_holding_row.html.erb": "be99d471d9741a1cb2164a17a6973fc0a874669eabcb1c125e2b88ba3facd4cd",
+  "app/views/tracker/_sync_warnings.html.erb": "4adc392f2c544a32942fe30e2d7fe459c0cfebd9eea66be955609a1961c64cbb",
+  "app/views/tracker/_key_fix_buttons.html.erb": "95e2d9eb42a084035302e4ec2aaca94a82f3b02b881c343a958f3c65a38dcc5b",
+  "app/views/tracker/_report_refused.html.erb": "2066f0ef6c69974dcf1055f3cd6f50c0b761c06e82c2b08923c01aa08d5e8e64",
+  "app/views/shared/_segmented.html.erb": "f550a9ffc90302012d6be10333e251a540e87d415d622fefd4f7f99474b28a20",
+  "app/views/bots/_metrics_item.html.erb": "bcf755c106a064f3eca6e5cd0d4a0607d2b2e74d4f64f5fc5fba5f97520cb3d8",
+  "app/views/assets/_logo.html.erb": "25109c3cd34c5e198f5ed4137c08139ce746c41f3457f1586ab2107b89b5d5ef",
+  "script/rust/pages_tracker_populated.rb": "d5e8522bcb91a5db2284b1532750557d51ae1ab3b682965eb07ff051ae18b0ab"
+}

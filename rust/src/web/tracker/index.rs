@@ -54,7 +54,6 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:Option<&super::fx::Prepared>)->Res
 
 pub async fn index(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};
-    let eligible=app.db(move|c|super::read::only(c,|c|super::holdings::supported(c,owner))).await?;
-    let fx=if eligible{Some(super::fx::prepare(&app,owner).await?)}else{None};
-    app.db(move|c|super::read::only(c,|c|render(c,&ctx,owner,fx.as_ref()))).await
+    // The display currency's rate as held: a page never fetches it (`fx::held`).
+    app.db(move|c|super::read::only(c,|c|{let fx=super::fx::held(&ctx.app,c,owner)?;render(c,&ctx,owner,Some(&fx))})).await
 }
