@@ -165,4 +165,61 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     assert_select '#chart.widget--chart', 0
     assert_select '#chart .widget--chart__plot', 0
   end
+
+  # Ready figures are drawn with the page: no frame to fetch, so a revisit has nothing to wait for and
+  # nothing to swap in. The frame's markup is the one its own request would answer with no refresh.
+  test 'a page whose figures are ready draws its chart inline, as its frame would' do
+    data = warm_chart
+
+    get bot_path(id: @bot.id)
+
+    assert_response :success
+    frame = css_select('turbo-frame#bot_chart').sole
+    assert_nil frame['src']
+    assert_select 'turbo-frame#bot_chart [data-controller="bot--chart"]', 1 do |chart|
+      assert_equal data[:chart][:series], JSON.parse(chart.first['data-bot--chart-series-value'])
+    end
+    assert_select 'turbo-frame#bot_chart [data-controller="broadcast--on-connect"]', 0
+    assert_select 'turbo-frame#bot_chart .loader', 0
+
+    page_frame = raw_chart_frame
+    get bot_chart_path(bot_id: @bot.id), headers: { 'Turbo-Frame' => 'bot_chart' }
+    assert_equal raw_chart_frame, page_frame
+  end
+
+  test 'a cold chart still arrives through its frame' do
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), @bot.metrics)
+
+    get bot_path(id: @bot.id)
+
+    assert_equal bot_chart_path(@bot), css_select('turbo-frame#bot_chart').sole['src']
+    assert_select 'turbo-frame#bot_chart .loader', 1
+  end
+
+  # The panels' own figures cold: the frame is the one place that asks, whatever the chart's cache holds.
+  test 'a page whose panels found no figures leaves the chart to its frame' do
+    warm_chart
+    Rails.cache.delete(@bot.send(:metrics_with_current_prices_cache_key))
+
+    get bot_path(id: @bot.id)
+
+    assert_equal bot_chart_path(@bot, metrics_missing: 1), css_select('turbo-frame#bot_chart').sole['src']
+    assert_select 'turbo-frame#bot_chart [data-controller="bot--chart"]', 0
+  end
+
+  private
+
+  # The frame as the response wrote it, indentation aside: the page nests it two levels deeper.
+  def raw_chart_frame
+    response.body[%r{<turbo-frame id="bot_chart">.*?</turbo-frame>}m].gsub(/^\s+/, '')
+  end
+
+  def warm_chart
+    data = @bot.metrics.deep_dup
+    data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
+    data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), @bot.metrics)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
+    data
+  end
 end

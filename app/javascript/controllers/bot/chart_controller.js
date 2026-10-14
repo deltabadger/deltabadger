@@ -137,20 +137,75 @@ export default class extends Controller {
     if (!(name in this.#parsed)) this.#parsed[name] = this[`${name}Value`];
     return this.#parsed[name];
   }
-  seriesValueChanged() { delete this.#parsed.series; }
-  labelsValueChanged() { delete this.#parsed.labels; }
-  pnlValueChanged() { delete this.#parsed.pnl; }
-  assetsValueChanged() { delete this.#parsed.assets; }
-  buysValueChanged() { delete this.#parsed.buys; }
-  pricesValueChanged() { delete this.#parsed.prices; }
-  buyLogosValueChanged() { delete this.#parsed.buyLogos; }
+  seriesValueChanged() { this.#changed("series"); }
+  labelsValueChanged() { this.#changed("labels"); }
+  pnlValueChanged() { this.#changed("pnl"); }
+  assetsValueChanged() { this.#changed("assets"); }
+  buysValueChanged() { this.#changed("buys"); }
+  pricesValueChanged() { this.#changed("prices"); }
+  buyLogosValueChanged() { this.#changed("buyLogos"); }
+
+  // A morph copies the attributes one at a time: one redraw for all of them, once they are all in.
+  #changed(name) {
+    delete this.#parsed[name];
+    if (!this.chart || this.refreshQueued) return; // Stimulus reports every value before connect, too
+    this.refreshQueued = true;
+    queueMicrotask(() => {
+      this.refreshQueued = false;
+      if (this.chart) this.#refresh();
+    });
+  }
+
+  // New figures on the chart in hand: same canvas, same mode, window, holding and toggles.
+  #refresh() {
+    this.stamps = null;
+    this.bounds = null;
+    if (this.days !== undefined) this.#window(this.days);
+    this.focused = this.#chartable(this.focused) || this.#chartable(this.#pinned);
+    this.pnlSeries = this.#derivePnl();
+    this.#buildChart();
+    // From whatever the update left hovered — Chart.js replays the last pointer event, so a pointer
+    // held over the plot keeps its point, and the headline has to read that point, not the latest.
+    this.#updateSummary(this.chart.tooltip);
+  }
+
+  // A revisit morphs the page into the server's answer (quiet_revisit.js). This element's insides are
+  // drawn here — the canvas, the headline, the axis, the marks — so it is never morphed: it takes the
+  // answer's figures and redraws. Only a different shape (the mode switch came or went, balances were
+  // hidden or shown) is replaced whole.
+  #morph = (event) => {
+    const next = event.detail.newElement;
+    if (event.target !== this.element || !next) return;
+
+    event.preventDefault();
+    if (this.#sameShape(next)) {
+      for (const name of next.getAttributeNames()) {
+        if (name.startsWith("data-bot--chart-") && next.getAttribute(name) !== this.element.getAttribute(name)) {
+          this.element.setAttribute(name, next.getAttribute(name));
+        }
+      }
+    } else {
+      queueMicrotask(() => this.element.replaceWith(next));
+    }
+  };
+
+  #sameShape(next) {
+    const attribute = (element, name) => element.getAttribute(name);
+    const switched = (element) => !!element.querySelector(".widget--chart__modes [data-controller~='segmented']");
+    return attribute(next, "data-controller") === attribute(this.element, "data-controller") &&
+      attribute(next, "data-bot--chart-pnl-only-value") === attribute(this.element, "data-bot--chart-pnl-only-value") &&
+      switched(next) === switched(this.element);
+  }
 
   connect() {
     // PnL is what the chart opens on, and the switch is rendered on it. A reader who picked VALUE
     // gets it back from the `segmented` control's own memory, which replays the choice as a click
     // — including after the ~5-minute metrics broadcast that destroys this controller and
     // re-renders the switch on its default.
-    this.currentMode = "pnl";
+    // A cached copy of the page (Turbo's preview) comes with the switch already on the reader's VALUE,
+    // and the segmented control replays nothing it finds already on: read it off the switch.
+    const on = this.element.querySelector(".widget--chart__modes [data-segmented-target='option'].is-on");
+    this.currentMode = on?.dataset.value === "value" ? "value" : "pnl";
     // Seeded synchronously: the ResizeObserver below is debounced by 100ms, and a mode click
     // inside that window would otherwise rebuild with an undefined budget (Array(NaN) throws,
     // leaving the buttons in one mode and the summary in the other).
@@ -197,9 +252,11 @@ export default class extends Controller {
       }, 100); // 100ms delay
     });
     this.resizeObserver.observe(this.element);
+    this.element.addEventListener("turbo:before-morph-element", this.#morph);
   }
 
   disconnect() {
+    this.element.removeEventListener("turbo:before-morph-element", this.#morph);
     this.resizeObserver.disconnect();
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
@@ -283,8 +340,16 @@ export default class extends Controller {
   // says what the last thirty days did instead of where the whole history happens to stand today.
   // ALL is the initial state, so a chart nobody touches renders exactly as it did before.
   range(event) {
+    // Held, so new figures can be windowed the same way.
+    this.days = Number(event.detail.value);
+    this.#window(this.days);
+    this.pnlSeries = this.#derivePnl();
+    this.#buildChart();
+    this.#renderSummary();
+  }
+
+  #window(days) {
     const stamps = this.#allTimestamps();
-    const days = Number(event.detail.value);
     if (!Number.isFinite(days) || !stamps.length) {
       this.from = 0;
     } else {
@@ -293,9 +358,6 @@ export default class extends Controller {
       // Two points still make a line: a window narrower than the sampling would leave none.
       this.from = Math.min(Math.max(first, 0), Math.max(stamps.length - 2, 0));
     }
-    this.pnlSeries = this.#derivePnl();
-    this.#buildChart();
-    this.#renderSummary();
   }
 
   // --- one holding at a time --------------------------------------------------------
@@ -611,99 +673,109 @@ export default class extends Controller {
 
   #buildChart() {
     const labels = this.#timestamps();
-    const invested_color = this.#color("--benchmark");
-    const plot = this.#plot(labels);
-    const datasets = plot.datasets;
-    const maxPointsToDraw = plot.points;
+    // Held, not closed over: the plugins below belong to the chart for its whole life, and every
+    // build after the first updates that chart in place.
+    this.investedColor = this.#color("--benchmark");
+    this.plot = this.#plot(labels);
+    const datasets = this.plot.datasets;
+    const maxPointsToDraw = this.plot.points;
 
     Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || 'Montserrat';
+    const options = this.#options(maxPointsToDraw);
     if (this.chart) {
-      this.chart.destroy();
+      // The same chart on the same canvas: a rebuild would reset the canvas to its authored 10x2
+      // and drop the pointer the reader is holding over it.
+      this.chart.data.datasets = datasets;
+      this.chart.options = options;
+      this.chart.update("none");
+    } else {
+      this.chart = new Chart(this.#canvasContext(), { type: "line", plugins: this.#plugins(), data: { datasets }, options });
     }
-    this.chart = new Chart(this.#canvasContext(), {
-      type: "line",
-      plugins: [
-        {
-          // The zero line the PnL curve is read against, under the datasets so the curve and its
-          // ribbon sit on top of it. VALUE has no baseline — its own invested curve is one.
-          beforeDatasetsDraw: (chart) => {
-            if (!plot.baseline) return;
-
-            const y = chart.scales.y.getPixelForValue(plot.baseline.value);
-            const ctx = chart.ctx;
-            ctx.save();
-            ctx.beginPath();
-            ctx.setLineDash([3, 3]);
-            ctx.moveTo(chart.chartArea.left, y);
-            ctx.lineTo(chart.chartArea.right, y);
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = plot.baseline.color;
-            ctx.stroke();
-            ctx.restore();
-          },
-        },
-        {
-          // Dashed cursor line through the hovered point.
-          afterDatasetsDraw: (chart) => {
-            if (!chart.tooltip?._active?.length) return;
-
-            const x = chart.tooltip._active[0].element.x;
-            const ctx = chart.ctx;
-            ctx.save();
-            ctx.beginPath();
-            ctx.setLineDash([3, 3]);
-            ctx.moveTo(x, chart.chartArea.top);
-            ctx.lineTo(x, chart.chartArea.bottom);
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = invested_color;
-            ctx.stroke();
-            ctx.restore();
-          },
-        },
-      ],
-      data: {
-        datasets: datasets,
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        // Off, or every cursor move restarts the point-radius transition and the hover dot
-        // throbs while you track along the line.
-        animation: false,
-        layout: {
-          padding: { top: 8, right: 4 },
-        },
-        scales: {
-          // No axes: the summary carries the numbers and the shape carries the rest.
-          x: { type: "time", display: false },
-          y: plot.y,
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-          // The numbers live in the summary above the chart, not in a floating box.
-          tooltip: {
-            enabled: false,
-            intersect: false,
-            external: ({ tooltip }) => this.#updateSummary(tooltip),
-          },
-          decimation: {
-            enabled: true,
-            algorithm: "lttb",
-            samples: maxPointsToDraw,
-            threshold: maxPointsToDraw - 1,
-          },
-        },
-        parsing: false,
-        interaction: {
-          intersect: false,
-          mode: "curveIndex",
-        },
-      },
-    });
     this.#renderBuys();
     this.#renderAxis();
+  }
+
+  #plugins() {
+    return [
+      {
+        // The zero line the PnL curve is read against, under the datasets so the curve and its
+        // ribbon sit on top of it. VALUE has no baseline — its own invested curve is one.
+        beforeDatasetsDraw: (chart) => {
+          const plot = this.plot;
+          if (!plot.baseline) return;
+
+          const y = chart.scales.y.getPixelForValue(plot.baseline.value);
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.moveTo(chart.chartArea.left, y);
+          ctx.lineTo(chart.chartArea.right, y);
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = plot.baseline.color;
+          ctx.stroke();
+          ctx.restore();
+        },
+      },
+      {
+        // Dashed cursor line through the hovered point.
+        afterDatasetsDraw: (chart) => {
+          if (!chart.tooltip?._active?.length) return;
+
+          const x = chart.tooltip._active[0].element.x;
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.moveTo(x, chart.chartArea.top);
+          ctx.lineTo(x, chart.chartArea.bottom);
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = this.investedColor;
+          ctx.stroke();
+          ctx.restore();
+        },
+      },
+    ];
+  }
+
+  #options(maxPointsToDraw) {
+    return {
+      responsive: true,
+      maintainAspectRatio: true,
+      // Off, or every cursor move restarts the point-radius transition and the hover dot
+      // throbs while you track along the line.
+      animation: false,
+      layout: {
+        padding: { top: 8, right: 4 },
+      },
+      scales: {
+        // No axes: the summary carries the numbers and the shape carries the rest.
+        x: { type: "time", display: false },
+        y: this.plot.y,
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        // The numbers live in the summary above the chart, not in a floating box.
+        tooltip: {
+          enabled: false,
+          intersect: false,
+          external: ({ tooltip }) => this.#updateSummary(tooltip),
+        },
+        decimation: {
+          enabled: true,
+          algorithm: "lttb",
+          samples: maxPointsToDraw,
+          threshold: maxPointsToDraw - 1,
+        },
+      },
+      parsing: false,
+      interaction: {
+        intersect: false,
+        mode: "curveIndex",
+      },
+    };
   }
 
   // --- the buys under the plot -------------------------------------------------------

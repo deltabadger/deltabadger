@@ -122,14 +122,27 @@ fn bot_chart(body: &str) -> (Option<String>, Vec<String>) {
     (frame.value().attr("src").map(str::to_string), common::html::normalize(&frame.html()))
 }
 
+/// The chart frame exactly as the response wrote it, byte for byte.
+fn raw_bot_chart(body: &str) -> &str {
+    let start = body.find("<turbo-frame id=\"bot_chart\"").expect("no bot_chart frame");
+    let end = start + body[start..].find("</turbo-frame>").unwrap() + "</turbo-frame>".len();
+    &body[start..end]
+}
+
 /// A browser on the bot page, then on its chart frame at the `src` the page gave it, against what Rails answered in the
-/// same `state` (pages.rb figures: page_figures.rb#pages). Returns the frame's body.
+/// same `state` (pages.rb figures: page_figures.rb#pages). A page whose chart is ready draws it inline, byte for byte
+/// as Rails wrote it, and has no frame to load. Returns the body that holds the chart.
 async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, rails: &Value) -> String {
     let (page, rails_page) = (browser.get(app, &format!("/bots/{id}")).await, bot_chart(rails["page"].as_str().unwrap()));
     assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
     let ours = bot_chart(&page.body);
     assert_eq!(ours, rails_page, "{name} {state}: the page's chart frame");
-    let chart = browser.get(app, ours.0.as_deref().unwrap()).await;
+    let Some(src) = ours.0 else {
+        assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(rails["page"].as_str().unwrap()), "{name} {state}: the inline chart, byte for byte");
+        assert!(rails["chart"].is_null(), "{name} {state}: Rails loaded a frame for an inline chart");
+        return page.body;
+    };
+    let chart = browser.get(app, &src).await;
     assert_eq!(chart.status, 200, "{name} {state}");
     assert_eq!(bot_chart(&chart.body).1, bot_chart(rails["chart"].as_str().unwrap()).1, "{name} {state}: the chart frame");
     chart.body
@@ -341,6 +354,31 @@ async fn figures_fragments_match_the_rails_page_partials() {
             for (_,payload) in streams {assert!(payload.contains(absent));assert!(!payload.contains("data-bot--chart-series"));}
             continue; // Exact unavailable output above replaces the named Rails money defect.
         }
+        if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && name == "no_orders" {
+            // A bot with no orders has no chart point, and Rails writes no figures to its cache for it
+            // (Measurable#metrics_with_current_prices returns first): its page, cold or after a fill, keeps the frame that
+            // asks, and draws nothing inline. After the fill only the page's frame is compared, not what the frame then
+            // loads: the fill of an account with no market demand leaves its figures unavailable, where Rails shows the
+            // empty chart.
+            use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
+            let env=common::web::env(common::web::SECRET);
+            let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap())).unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+            let user=sc["user_id"].as_i64().unwrap();
+            let password:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
+            let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
+            let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
+            let ids:Vec<String>=sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()).collect();
+            for id in &ids { chart_frames(name,"cold",id,&mut browser,&app,&expected["cold"]["bots"][id]).await; }
+            loading::publish(&app,user).await.unwrap();
+            tokio::time::timeout(std::time::Duration::from_secs(5),async {
+                while !matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Ready(..)) { tokio::task::yield_now().await; }
+            }).await.unwrap();
+            for id in &ids {
+                let page=browser.get(&app,&format!("/bots/{id}")).await;
+                assert_eq!(page.status,200,"{name} warm: {}",page.body);
+                assert_eq!(bot_chart(&page.body),bot_chart(expected["warm"]["bots"][id]["page"].as_str().unwrap()),"{name} warm: the page's chart frame");
+            }
+        }
         if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && ["basket_buys", "hidden", "owner_account"].contains(&name) {
             use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
             let env=common::web::env(common::web::SECRET);
@@ -390,7 +428,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
             let want=want.select(&selector).next().unwrap().html();
             assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"warm route {name}");
-            // Warm: the page's chart frame asks for nothing, and it arrives drawn.
+            // Warm: the chart is drawn with the page, and asks for nothing.
             let chart=chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await;
             assert!(chart.contains("data-controller=\"bot--chart\""));
             }
@@ -830,6 +868,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
         }
         let reader = Reader::new(&cache, now.utc().timestamp());
         let actual = deltabadger::web::figure::account(&c, sc["user_id"].as_i64().unwrap(), &reader, now, "en", "token", "").unwrap();
+        // What Rails would hold cached, which decides whether its bot page draws the chart inline: never for a bot with no
+        // chart point (no_orders), always for a priced one (basket_buys).
+        if ["no_orders", "basket_buys"].contains(&name) {
+            for parts in actual["bots"].as_object().unwrap().values() { assert_eq!(parts["cached"].as_bool(), Some(name == "basket_buys"), "{name}: cached"); }
+        }
         if ["split_fresh", "split_unsized"].contains(&name) {
             for parts in actual["bots"].as_object().unwrap().values() {
                 for part in ["tile", "metrics", "chart"] {

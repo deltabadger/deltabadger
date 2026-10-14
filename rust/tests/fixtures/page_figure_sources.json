@@ -20,6 +20,6 @@
   "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
   "app/models/user.rb": "889b7a23dc922b8f655a546e1e10613ed664d0e9f68a90c22985ef0b589461c4",
   "app/models/user/pnl_history.rb": "d15a8466e46f49866f63f4dab8530008c7f40aef59e45f7dfbe6b345ea0860e1",
-  "app/controllers/bots_controller.rb": "27cd4c487d4587b7c140545ea60c285194a38a67f750e516df9a9ca0a04e728e",
+  "app/controllers/bots_controller.rb": "71a43f3fbfb71abd06d9f5ac5e10b4d0fe2ac85b0b3c3a13f47571368ab9b526",
   "app/javascript/controllers/pnl_spark_controller.js": "b7fd059e48433156884d54112929fd3b657f0dc2b0a22541ec11afd14e6ae559"
 }

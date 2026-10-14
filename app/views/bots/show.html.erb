@@ -35,10 +35,17 @@
       <%= render partial: "bots/status/status_button", locals: { bot: @bot } %>
     </div>
 
-    <%# The chart arrives in its own frame (Bots::ChartsController), which also asks for a metrics
-        refresh when a cache is cold; the placeholder keeps the page's layout until it lands. %>
-    <%= turbo_frame_tag "bot_chart", src: bot_chart_path(@bot, metrics_missing: (1 if @metrics_loading)) do %>
-      <%= render partial: "bots/chart", locals: { bot: @bot, metrics: nil, loading: true } %>
+    <%# Ready figures are drawn here, in the frame's own markup without a src. Otherwise the chart
+        arrives in its own frame (Bots::ChartsController), which also asks for a metrics refresh when a
+        cache is cold; the placeholder keeps the page's layout until it lands. %>
+    <% if @chart_metrics %>
+      <%= turbo_frame_tag "bot_chart" do %>
+        <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @chart_metrics, loading: false } %>
+      <% end %>
+    <% else %>
+      <%= turbo_frame_tag "bot_chart", src: bot_chart_path(@bot, metrics_missing: (1 if @metrics_loading)) do %>
+        <%= render partial: "bots/chart", locals: { bot: @bot, metrics: nil, loading: true } %>
+      <% end %>
     <% end %>
 
     <div id="<%= dom_id(@bot, :columns) %>" class="columns<%= ' bot-locked' if @bot.working? %>">

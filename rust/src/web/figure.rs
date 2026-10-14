@@ -142,7 +142,10 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                     other => without_fx(other)?,
                 }
             };
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing }));
+            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing,
+                // What Rails would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
+                // chart point yet, are never written, so its bot page reads them as still loading.
+                "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty() }));
             computed.push((subject, marked_live, marked, missing));
         }
         let unavailable = computed.iter().any(|(_,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty());
