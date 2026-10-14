@@ -73,14 +73,17 @@ module BotApi
       end
 
       # Every member under the key it goes by (Bots::DcaMultiAsset::Allocatable#member_keys), with the
-      # asset behind it — the key is what update_settings takes back.
+      # asset and ticker behind it — the ids update_settings takes back.
       def allocation_assets(bot)
         return nil unless bot.dca_multi_asset?
 
         @allocation_assets ||= begin
           keys = bot.member_keys
+          # The ticker a trading condition watches (update_settings' *_in_ticker_id); nil until the
+          # member trades on the bot's exchange.
+          tickers = bot.composition_tickers.index_by(&:base_asset_id)
           bot.base_assets.map do |asset|
-            { key: keys[asset.id], asset_id: asset.id, symbol: asset.symbol, name: asset.name,
+            { key: keys[asset.id], asset_id: asset.id, ticker_id: tickers[asset.id]&.id, symbol: asset.symbol, name: asset.name,
               weight: bot.allocation_for(asset.id) }
           end
         end

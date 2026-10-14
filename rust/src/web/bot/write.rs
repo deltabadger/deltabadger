@@ -111,7 +111,7 @@ fn settings_inner<T>(
     let mut mcp_carry = None;
     let mut mcp_refused = false;
     if submitted.mcp() {
-        match super::mcp_input::apply(&tx, &mut draft, &fields)? {
+        match super::mcp_input::apply(&tx, &mut draft, &fields, &zone, ctx.now)? {
             super::mcp_input::InputOutcome::Parsed => {},
             super::mcp_input::InputOutcome::AsciiAliasRefused => mcp_refused = true,
         }

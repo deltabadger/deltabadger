@@ -2,23 +2,20 @@
 
 module BotApi
   module Bots
-    # Updates the settings a stopped bot exposes to automation: amount and label on any bot, the
-    # index knobs on an index bot, and the basket weights on a basket bot. Membership is not
-    # editable here — only how much of each the bot buys.
+    # Changes a stopped bot's settings the way its settings page does: the page's field names and
+    # choices (SettingsFields), saved through the page's own save (Bot::SettingsForm). What this adds is
+    # the automation dialect only — strict numbers, true/false for the page's switches, null for a
+    # cleared field, basket weights by symbol — turned into exactly what the page would post.
     class UpdateSettings
-      def self.call(user:, bot_id:, **attrs)
-        new(user: user, bot_id: bot_id, **attrs).call
+      def self.call(user:, bot_id:, **settings)
+        new(user: user, bot_id: bot_id, **settings).call
       end
 
-      def initialize(user:, bot_id:, quote_amount: nil, label: nil, num_coins: nil,
-                     allocation_flattening: nil, allocations: nil)
+      # `settings` holds only what the caller sent: an omitted field is absent, a cleared one is nil.
+      def initialize(user:, bot_id:, **settings)
         @user = user
         @bot_id = bot_id
-        @quote_amount = quote_amount
-        @label = label
-        @num_coins = num_coins
-        @allocation_flattening = allocation_flattening
-        @allocations = allocations
+        @settings = settings.transform_keys(&:to_s).slice(*SettingsFields::NAMES)
       end
 
       def call
@@ -39,100 +36,105 @@ module BotApi
                                 "Bot must be stopped before updating settings. Current status: #{bot.status}.")
         end
 
-        updates = build_updates(bot)
-        return updates if updates.is_a?(Result)
-        return Result.failure(:validation_failed, 'no_updates_provided', 'No settings provided to update.') if updates.empty?
+        form = build_form(bot)
+        return form if form.is_a?(Result)
+        return Result.failure(:validation_failed, 'no_updates_provided', 'No settings provided to update.') if form.empty?
 
-        # Before the edit, so the carry is what was owed under the settings as they were.
-        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
-        apply(bot, updates)
-
-        if bot.save
-          Result.success({ id: bot.id, label: bot.label, updated: updates.keys.map(&:to_s) })
+        if Bot::SettingsForm.save(bot, form)
+          Result.success({ id: bot.id, label: bot.label, updated: SettingsFields::NAMES & form.keys })
         else
           Result.failure(:validation_failed, 'bot_save_failed',
                          "Failed to update bot: #{bot.errors.full_messages.join(', ')}")
         end
       end
 
-      # A Hash of accepted updates, or a Result carrying the first refusal.
-      def build_updates(bot)
-        updates = {}
+      # What the settings page would post, or a Result carrying the first refusal. Checked in catalogue
+      # order, so the original tool's refusals come first, as they always did.
+      def build_form(bot)
+        kind = SettingsFields.kind(bot)
+        form = ActiveSupport::HashWithIndifferentAccess.new
 
-        if @quote_amount.present?
-          # A signal bot has no per-order amount — its sizing lives on its rules.
-          return unsupported('quote_amount', 'DCA') unless bot.respond_to?(:quote_amount=)
+        SettingsFields::FIELDS.each do |field|
+          name = field.name
+          next unless @settings.key?(name)
 
-          amount = Number.parse(@quote_amount)
-          return invalid_number('quote_amount') unless amount&.positive?
-
-          # Floats at the model boundary, as the model stores them.
-          updates[:quote_amount] = amount.to_f
-        end
-        updates[:label] = @label if @label.present?
-
-        if @num_coins.present? || @allocation_flattening.present?
-          return unsupported('num_coins / allocation_flattening', 'index') unless bot.dca_index?
-
-          # Strict: 'abc'.to_f is 0, which would silently flatten an index or fail validation
-          # with a message about a number the caller never sent.
-          if @num_coins.present?
-            count = Number.integer(@num_coins)
-            return invalid_number('num_coins') unless count
-
-            updates[:num_coins] = count
+          value = @settings[name]
+          if blank?(value)
+            # The page posts a blank for a field it cleared; other fields ignore one.
+            form[name] = nil if field.nullable
+            next
           end
-          if @allocation_flattening.present?
-            flattening = Number.within(@allocation_flattening, 0.0..1.0)
-            return invalid_number('allocation_flattening') unless flattening
-
-            updates[:allocation_flattening] = flattening.to_f
+          unless field.kinds.include?(kind)
+            # The original tool refused its two index knobs together, and still says so.
+            setting = name.in?(%w[num_coins allocation_flattening]) ? 'num_coins / allocation_flattening' : name
+            return unsupported(setting, field.applies)
           end
+
+          posted = posted_value(bot, field, value)
+          return posted if posted.is_a?(Result)
+
+          form[name] = posted
         end
-
-        if @allocations.present?
-          return unsupported('allocations', 'basket') unless bot.dca_multi_asset?
-
-          weights = basket_weights(bot)
-          return weights if weights.is_a?(Result)
-
-          updates[:allocations] = weights
-        end
-
-        updates
+        form
       end
 
-      def apply(bot, updates)
-        updates.each do |key, value|
-          if key == :allocations
-            # Giving weights by hand is what the wizard's slider does: it takes the basket off
-            # market-cap weighting.
-            bot.assign_attributes(allocations: value, weighting: 'manual')
-          else
-            bot.public_send("#{key}=", value)
+      # Absent, null, or blank text: the original tool treated these as "not given", and so does this.
+      def blank?(value) = value.nil? || (value.is_a?(String) && value.strip.empty?)
+
+      # The string the page would post for this value, or a Result refusal.
+      def posted_value(bot, field, value)
+        case field.name
+        when 'label' then value
+        when 'allocations' then basket_weights(bot)
+        when 'quote_amount'
+          amount = Number.parse(value)
+          # Strict: 'abc'.to_f is 0, which would fail validation with a message about a number the
+          # caller never sent.
+          amount&.positive? ? amount.to_s('F') : invalid_number('quote_amount')
+        when 'allocation_flattening'
+          Number.within(value, 0.0..1.0)&.to_s('F') || invalid_number('allocation_flattening')
+        else
+          case field.type
+          when 'boolean' then switch(value)
+          when 'number' then number(field.name, value)
+          else value.to_s
           end
         end
-        # An explicit count is a fixed count; a count at the ceiling means the whole universe. The
-        # settings form says this with the slider's own ceiling (Bots::DcaIndex#parse_params); over
-        # the API the universe is the only ceiling there is.
-        bot.hold_all = updates[:num_coins].to_i >= bot.max_coins if updates.key?(:num_coins) && bot.respond_to?(:hold_all=)
+      end
+
+      # A page switch posts '1' or '0'. A JSON false must become '0': the page's parser drops a blank, and
+      # false is blank in Ruby, so it could never switch anything off.
+      def switch(value)
+        case value
+        when true then '1'
+        when false then '0'
+        else value.to_s
+        end
+      end
+
+      def number(name, value)
+        if name.end_with?('_id', '_period', 'num_coins')
+          Number.integer(value)&.to_s || invalid_number(name)
+        else
+          Number.parse(value)&.to_s('F') || invalid_number(name)
+        end
       end
 
       def basket_weights(bot)
-        given = parse_allocations(@allocations)
+        given = parse_allocations(@settings['allocations'])
         unless given
           return Result.failure(:validation_failed, 'invalid_allocations',
                                 "allocations must be 'SYMBOL:percent,…' or {symbol: percent}.")
         end
 
-        # Every identifier to its asset FIRST, so completeness and the total are judged on assets.
+        # Every identifier to its asset first; a member is named once.
         keys = bot.member_keys
         weights = {}
         given.each do |identifier, pct|
           ids = member_ids_named(bot, keys, identifier)
           if ids.empty?
             return Result.failure(:validation_failed, 'asset_not_in_basket',
-                                  "#{identifier} is not in this basket; membership cannot be changed here.")
+                                  "#{identifier} is not in this basket; add it with add_asset_id first.")
           end
           if ids.many?
             return Result.failure(:validation_failed, 'ambiguous_basket_asset',
@@ -143,15 +145,12 @@ module BotApi
 
           weights[ids.first] = pct
         end
-        if (missing = keys.keys - weights.keys).any?
-          return Result.failure(:validation_failed, 'missing_basket_asset',
-                                "Give a weight for every basket asset; missing: #{keys.values_at(*missing).join(', ')}.")
+        # The page posts every member's slider: the ones the caller named at their new weight, the rest at
+        # the weight the slider shows (rounded to 0.1). Balance is judged at start, as on the page.
+        bot.allocations.keys.to_h do |asset_id|
+          pct = weights[asset_id.to_i]
+          [asset_id, pct ? pct.to_s('F') : (bot.allocation_for(asset_id) * 100).round(1).to_s]
         end
-        balanced = (weights.values.sum - 100).abs <= 0.1
-        return Result.failure(:validation_failed, 'allocations_unbalanced', 'Weights must sum to 100.') unless balanced
-
-        # Floats keyed by asset id, as the composition stores them.
-        weights.to_h { |asset_id, pct| [asset_id.to_s, (pct / 100).to_f] }
       end
 
       # The members an identifier names: the one with that key and the one with that asset id — both, when a

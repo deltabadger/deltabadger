@@ -135,11 +135,7 @@ impl Draft {
         self.parsed.clear();
         // Actual parse_params output, deliberately narrower than stored_attributes / strong params.
         for (key, value) in fields {
-            let common = matches!(key.as_str(), "quote_asset_id" | "quote_amount" | "interval" | "smart_intervaled" | "smart_interval_quote_amount" | "smart_interval_base_amount" |
-                "limit_ordered" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "start_time_of_day" | "start_at" | "rebalance_enabled" | "rebalance_threshold");
-            let basket_field = matches!(key.as_str(), "weighting" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "quote_amount_limited" | "quote_amount_limit" | "base_amount_limited" | "base_amount_limit")
-                || trigger_field(key);
-            if !(common || (basket && basket_field) || (self.candidate.kind == Kind::Index && key == "allocation_flattening")) { continue; }
+            if !form_field(self.candidate.kind, key) { continue; }
             let explicit_null = matches!(key.as_str(), "start_at" | "rebalance_threshold" | "sell_amount" | "sell_quote_amount");
             if key == "rebalance_enabled" { self.parsed.insert(key.clone(), json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true")))); continue; }
             if key == "start_time_enabled" {
@@ -252,6 +248,16 @@ impl Draft {
         let messages: Vec<&str> = self.errors.iter().map(|e| e.message.as_str()).collect();
         sentence(&messages, locale)
     }
+}
+
+/// The scalar settings one bot kind's `parse_params` reads (deliberately narrower than stored_attributes /
+/// strong params). The settings form and the MCP adapter both ask this, so their field sets cannot drift.
+pub(super) fn form_field(kind: Kind, key: &str) -> bool {
+    let common = matches!(key, "quote_asset_id" | "quote_amount" | "interval" | "smart_intervaled" | "smart_interval_quote_amount" | "smart_interval_base_amount" |
+        "limit_ordered" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "start_time_of_day" | "start_at" | "rebalance_enabled" | "rebalance_threshold");
+    let basket_field = matches!(key, "weighting" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "quote_amount_limited" | "quote_amount_limit" | "base_amount_limited" | "base_amount_limit")
+        || trigger_field(key);
+    common || (kind == Kind::Basket && basket_field) || (kind == Kind::Index && key == "allocation_flattening")
 }
 
 fn trigger_field(key: &str) -> bool {

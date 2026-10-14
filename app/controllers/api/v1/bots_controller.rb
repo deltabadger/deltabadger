@@ -37,13 +37,7 @@ module Api
       end
 
       def update
-        result = BotApi::Bots::UpdateSettings.call(
-          user: current_user, bot_id: params[:id],
-          quote_amount: params[:quote_amount], label: params[:label],
-          num_coins: params[:num_coins], allocation_flattening: params[:allocation_flattening],
-          # A String on MCP-shaped bodies, a Hash on JSON ones; the service normalises both.
-          allocations: update_allocations
-        )
+        result = BotApi::Bots::UpdateSettings.call(user: current_user, bot_id: params[:id], **update_settings)
         render_result(result)
       end
 
@@ -112,8 +106,14 @@ module Api
                status: :unprocessable_entity
       end
 
-      def update_allocations
-        params[:allocations].is_a?(ActionController::Parameters) ? params[:allocations].permit! : params[:allocations]
+      # Only the settings the caller sent, so an omitted field stays as it is and a JSON null clears it.
+      # allocations is a String on MCP-shaped bodies and a Hash on JSON ones; the service takes both.
+      def update_settings
+        names = BotApi::Bots::SettingsFields::NAMES
+        settings = params.permit(*(names - ['allocations'])).to_h
+        allocations = params[:allocations]
+        settings['allocations'] = allocations.is_a?(ActionController::Parameters) ? allocations.permit! : allocations if params.key?(:allocations)
+        settings
       end
 
       def index_params
