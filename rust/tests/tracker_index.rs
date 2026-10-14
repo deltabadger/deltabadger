@@ -22,7 +22,7 @@ async fn turbo_frame_skips_unreadable_navbar_but_full_layout_keeps_rails_error()
 async fn check_grid(selected:&[&str]) {
     grid::check_grid("script/rust/pages_tracker_index.rb","D5_INDEX_GRID",82,selected,|name| {
         if name=="index_broker_unconfigured" { return grid::Mode::FirstSync; }
-        if ["index_populated","index_filtered_empty","index_bad_date","index_pending","index_from_last_date","index_to_last_date"].contains(&name) {grid::Mode::Deferred}else{grid::Mode::Exact}
+        if name=="index_populated" {grid::Mode::Served} else if ["index_filtered_empty","index_bad_date","index_from_last_date","index_to_last_date"].contains(&name) {grid::Mode::Deferred}else{grid::Mode::Exact}
     }).await;
 }
 

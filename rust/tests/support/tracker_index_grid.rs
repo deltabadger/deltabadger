@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
-pub enum Mode { Exact, Deferred, FirstSync, Holdings }
+pub enum Mode { Exact, Deferred, FirstSync, Holdings, Served }
 pub fn snapshot(c: &Connection) -> Value {
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
@@ -139,6 +139,11 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
             for key in keys {c.execute("DELETE FROM app_configs WHERE key=?1",[key]).unwrap();}
         }
         same_rows(snapshot(&c),before,&name);assert_eq!(snapshot(&queue),queue_before,"{name}: queue changed");
+        // A populated page this grid's fixture cannot prepare (no Rust ledger cache, no sync stamps): served, and compared
+        // byte for byte by tracker_populated, whose fixtures are.
+        if matches!(mode(&name),Mode::Served) {
+            assert_eq!(answer.status,200,"{name}: the populated page is served");assert!(answer.body.contains("  <div class=\"tracker\">\n"),"{name}");continue;
+        }
         if matches!(mode(&name),Mode::Deferred) {
             assert_eq!(answer.status,501,"{name}: deferred scope must be refused");assert!(answer.body.contains("not-ported"));continue;
         }
