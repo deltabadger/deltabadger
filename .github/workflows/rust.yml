@@ -367,6 +367,12 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # A Rails edit that moves a pinned file fails here, once, instead of in ten test binaries later.
+      - name: Rails pins are current
+        if: runner.os != 'Windows'
+        working-directory: .
+        run: script/rust/repin --check || { echo "::error::Rails files pinned by Rust fixtures changed. Run script/rust/repin and commit what it changes."; exit 1; }
+
       - name: Install Rust 1.94.0
         shell: bash
         run: |

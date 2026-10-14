@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""Re-record every stale Rails pin in the Rust test fixtures.
+
+  script/rust/repin           re-record (or re-hash) every fixture whose pinned files changed
+  script/rust/repin --check   list the stale pins and exit 1 if there are any; needs no Ruby
+
+A fixture pins Rails files by sha256 and its test fails when one changes. Two kinds:
+  * RECORDED: the fixture holds what a recorder got from Rails. A stale pin re-runs that recorder, from a clean
+    export of the working tree (git archive, no .env, a freshly loaded schema), and takes its whole output. Rails is
+    the oracle: these are never re-hashed by hand.
+  * HASH_ONLY: the fixture is only the pin list; the Rails half of its grid is played live by the full suite, so
+    the pins are re-hashed in place.
+A new fixture with pins must be added to one of the two, or --check fails.
+"""
+import hashlib, json, os, re, shutil, subprocess, sys, tempfile
+
+ROOT = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=True,
+                      cwd=os.path.dirname(os.path.abspath(__file__))).stdout.strip()
+FIX = 'rust/tests/fixtures/'
+
+def runner(script, *args):
+    return f'bin/rails runner script/rust/{script} ' + ' '.join(args)
+
+# fixture -> (RAILS_ENV, commands, random-field pattern). In a command, {out} is the fixture's own path in the
+# export and {scratch} an empty directory. The environment is the one each fixture was recorded in: a re-run on
+# unchanged sources writes the same bytes, apart from the fields the pattern names (fresh salts and IVs).
+RECORDED = {
+    FIX + 'figures_vectors.json': ('test', [runner('record_figures_vectors.rb', '{out}')], None),
+    FIX + 'histories.json': ('test', [runner('record_histories.rb', '{out}')], None),
+    FIX + 'histories_r1.json': ('test', [runner('record_histories_r1.rb', '{out}')], None),
+    # Recorded in development: under the test environment its rails_wire cases come out null.
+    FIX + 'histories_r2.json': ('development', [runner('record_histories_r2.rb', '{out}')], None),
+    **{FIX + f'histories_r{n}.json': ('test', [runner(f'record_histories_r{n}.rb', '{out}')], None) for n in (3, 5, 6, 7, 8, 9)},
+    FIX + 'index_histories.json': ('test', [runner('index_histories.rb', '{out}')], None),
+    FIX + 'mail_vectors.json': ('test', [runner('mail_vectors.rb', '{out}')], None),
+    FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
+    FIX + 'settings_r9_vectors.json': ('test', [runner('settings_r9_vectors.rb', '{out}')], None),
+    FIX + 'setup_vectors.json': ('test', [runner('setup.rb', '{scratch}', '{out}')], None),
+    FIX + 'start_time_vectors.json': ('test', [runner('start_time.rb', '{out}')], None),
+    FIX + 'sync_vectors.json': ('test', [runner('record_sync_vectors.rb', '{out}')], None),
+    FIX + 'tax_vectors.json': ('test', [runner('tax_vectors.rb', '{out}')],
+                               r'scenarios/\d+/tables/(api_keys|users)/\d+/(key|secret|encrypted_password|otp_secret_key)'),
+    FIX + 'tracker_cache.json': ('test', [runner('tracker_cache.rb', '{out}')], None),
+    FIX + 'tracker_completion.json': ('test', [runner('tracker_completion.rb', '{out}')], None),
+    'rust/src/web/mcp/metadata.json': ('test', [runner('mcp.rb', 'metadata', '{out}')], None),
+    # The full run, then the two groups it leaves to their own modes (bot_actions, action_lifecycle). It also
+    # writes rust/src/web/time_zones.json, which is copied back with it.
+    FIX + 'ruby_vectors.json': ('development', [runner('record_vectors.rb', '{out}'), runner('record_vectors.rb'),
+                                                'ACTION_LIFECYCLE_ONLY=true ' + runner('record_vectors.rb')],
+                                r'bcrypt/\d+/hash|turbo/stream_from|ciphertexts/\w+/(cipher|plain)'
+                                r'|bot_actions/rows/\w+/\d+/(key|passphrase|secret|run_identity|confirmation_token|encrypted_password|otp_secret_key)'),
+}
+ALSO_WRITES = {FIX + 'ruby_vectors.json': ['rust/src/web/time_zones.json']}
+# setup.rb renders whole pages, so it needs the built JavaScript and CSS; their tokens, nonces, cookies, ciphertexts,
+# asset digests and fake-server ports are drawn fresh each run, so they are masked out of the content comparison.
+NEEDS_ASSETS = {FIX + 'setup_vectors.json'}
+MASK = {FIX + 'setup_vectors.json': r'[A-Za-z0-9+/=_%.$-]{16,}|127\.0\.0\.1:\d+|"p":"[^"]*"'}
+HASH_ONLY = [FIX + n for n in ('page_figure_sources.json', 'tracker_connect_sources.json', 'tracker_first_sync_sources.json',
+                               'tracker_holdings_sources.json', 'tracker_index_sources.json', 'tracker_populated_sources.json',
+                               'tracker_walk_sources.json')]
+SHA = re.compile(r'^[0-9a-f]{64}$')
+
+def sha(path):
+    try:
+        with open(os.path.join(ROOT, path), 'rb') as f: return hashlib.sha256(f.read()).hexdigest()
+    except FileNotFoundError:
+        return None
+
+def pins(fixture):
+    """The {path: sha256} a fixture pins: the whole file for a pin list, else its sources/ported_sources."""
+    with open(os.path.join(ROOT, fixture)) as f: data = json.load(f)
+    if isinstance(data, dict) and data and all(isinstance(v, str) and SHA.match(v) for v in data.values()):
+        return data
+    if not isinstance(data, dict): return {}
+    return data.get('sources') or data.get('ported_sources') or {}
+
+def stale():
+    """[(fixture, [changed paths])] in a fixed order, and the pinning fixtures neither list knows."""
+    out = []
+    for fixture in sorted(RECORDED) + HASH_ONLY:
+        changed = [p for p, h in pins(fixture).items() if sha(p) != h]
+        if changed: out.append((fixture, changed))
+    known = set(RECORDED) | set(HASH_ONLY)
+    candidates = [FIX + n for n in sorted(os.listdir(os.path.join(ROOT, FIX))) if n.endswith('.json')]
+    unknown = [f for f in candidates if f not in known and pins(f)]
+    return out, unknown
+
+def leaves(node, path=()):
+    if isinstance(node, dict):
+        for k, v in node.items(): yield from leaves(v, path + (str(k),))
+    elif isinstance(node, list):
+        for i, v in enumerate(node): yield from leaves(v, path + (str(i),))
+    else:
+        yield '/'.join(path), node
+
+def content_change(before, after, noise, mask=None):
+    """Leaf paths whose value moved, outside the pins and the fields a recorder draws at random."""
+    def flat(text):
+        data = json.loads(text)
+        return {p: re.sub(mask, '~', v) if mask and isinstance(v, str) else v
+                for p, v in leaves(data) if not re.match(r'(sources|ported_sources)/', p)}
+    a, b = flat(before), flat(after)
+    moved = sorted(p for p in set(a) | set(b) if a.get(p, KeyError) != b.get(p, KeyError))
+    if noise:
+        drawn = [p for p in moved if re.fullmatch(noise, p)]
+        return [p for p in moved if p not in drawn], len(drawn)
+    return moved, 0
+
+def export():
+    """A clean copy of the working tree: tracked files as they stand (staged or not) plus untracked, unignored ones."""
+    git = lambda *a: subprocess.run(['git', *a], cwd=ROOT, capture_output=True, check=True).stdout
+    rev = git('stash', 'create').decode().strip() or 'HEAD'   # a commit of the working tree; moves nothing
+    dest = tempfile.mkdtemp(prefix='repin-export.')
+    archive = subprocess.Popen(['git', 'archive', rev], cwd=ROOT, stdout=subprocess.PIPE)
+    subprocess.run(['tar', '-x', '-C', dest], stdin=archive.stdout, check=True)
+    if archive.wait(): sys.exit('git archive failed')
+    for path in git('ls-files', '-z', '--others', '--exclude-standard').decode().split('\0'):
+        if path:
+            os.makedirs(os.path.dirname(os.path.join(dest, path)), exist_ok=True)
+            shutil.copy2(os.path.join(ROOT, path), os.path.join(dest, path))
+    for env in ('.env', '.env.local', '.env.test', '.env.development'):
+        if os.path.exists(os.path.join(dest, env)): os.remove(os.path.join(dest, env))
+    return dest
+
+def record(dest, fixture):
+    """Run the fixture's recorder in the export on a fresh schema. Returns the new text, or None and the log."""
+    rails_env, commands, _ = RECORDED[fixture]
+    env = {k: v for k, v in os.environ.items() if not k.endswith('DATABASE_URL') and not k.startswith(('RAILS_', 'BUNDLE_GEMFILE'))}
+    env.update(RAILS_ENV=rails_env, APP_ROOT_URL='http://localhost:3000', SKIP_TEST_DATABASE='true')
+    for db in os.listdir(os.path.join(dest, 'storage')) if os.path.isdir(os.path.join(dest, 'storage')) else []:
+        if db.startswith(rails_env): os.remove(os.path.join(dest, 'storage', db))
+    scratch = tempfile.mkdtemp(prefix='repin-scratch.')
+    log = []
+    assets = ['bash script/rust/build_assets.sh'] if fixture in NEEDS_ASSETS and not os.path.exists(
+        os.path.join(dest, 'app/assets/builds/application.css')) else []
+    try:
+        for command in assets + ['bin/rails db:schema:load'] + [c.format(out=fixture, scratch=scratch) for c in commands]:
+            done = subprocess.run(command, shell=True, cwd=dest, env=env, capture_output=True, text=True)
+            log.append(f'$ {command}\n{done.stdout}{done.stderr}')
+            if done.returncode: return None, '\n'.join(log)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    with open(os.path.join(dest, fixture)) as f: return f.read(), None
+
+def rehash(fixture, changed):
+    path = os.path.join(ROOT, fixture)
+    with open(path) as f: text = f.read()
+    for p in changed:
+        new = sha(p)
+        if new is None: sys.exit(f'{fixture}: {p} is gone; drop the pin by hand (and what was recorded for it)')
+        text, n = re.subn(r'(%s\s*:\s*")[0-9a-f]{64}"' % re.escape(json.dumps(p)), lambda m: m.group(1) + new + '"', text)
+        if n != 1: sys.exit(f'{fixture}: could not find the one pin of {p}')
+    with open(path, 'w') as f: f.write(text)
+
+def main(argv):
+    check = argv[1:] == ['--check']
+    if argv[1:] not in ([], ['--check']): sys.exit(__doc__)
+    found, unknown = stale()
+    for f in unknown:
+        print(f'{f}: pins Rails files but script/rust/repin does not know it: add it to RECORDED or HASH_ONLY')
+    if check:
+        for fixture, changed in found:
+            how = 're-record' if fixture in RECORDED else 're-hash'
+            for p in changed: print(f'stale  {fixture}  {p}  ({how})')
+        if found: print('\nRun script/rust/repin and commit what it changes.')
+        return 1 if found or unknown else 0
+    if not found:
+        print('every pin is current')
+        return 1 if unknown else 0
+    failed = []
+    to_record = [(f, c) for f, c in found if f in RECORDED]
+    dest = export() if to_record else None
+    try:
+        for fixture, changed in found:
+            if fixture not in RECORDED:
+                rehash(fixture, changed)
+                for p in changed: print(f're-hashed    {fixture}  {p}')
+                continue
+            print(f're-recording {fixture} ({", ".join(changed)}) ...', flush=True)
+            text, log = record(dest, fixture)
+            if text is None:
+                failed.append(fixture)
+                print(f'FAILED       {fixture}: the recorder stopped; the fixture is left as it was\n' + log[-3000:])
+                continue
+            with open(os.path.join(ROOT, fixture)) as f: before = f.read()
+            with open(os.path.join(ROOT, fixture), 'w') as f: f.write(text)
+            for extra in ALSO_WRITES.get(fixture, []):
+                shutil.copyfile(os.path.join(dest, extra), os.path.join(ROOT, extra))
+            for p in changed: print(f're-recorded  {fixture}  {p}')
+            moved, drawn = content_change(before, text, RECORDED[fixture][2], MASK.get(fixture))
+            note = f' ({drawn} random fields re-drawn)' if drawn else ''
+            if moved:
+                print(f'  CONTENT CHANGED: {len(moved)} values moved{note}; Rails behaves differently, check the port:')
+                for p in moved[:25]: print(f'    {p}')
+                if len(moved) > 25: print(f'    ... and {len(moved) - 25} more (git diff {fixture})')
+            else:
+                print(f'  content unchanged{note}')
+    finally:
+        if dest: shutil.rmtree(dest, ignore_errors=True)
+    left, _ = stale()
+    for fixture, changed in left:
+        if fixture not in failed: print(f'still stale after re-recording: {fixture} {changed}'); failed.append(fixture)
+    return 1 if failed or unknown else 0
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
