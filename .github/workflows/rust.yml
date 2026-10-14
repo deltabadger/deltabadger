@@ -411,9 +411,13 @@ jobs:
           --test mail --test smtp --test sync_vectors --test mcp_contract --test mcp_reads_contract --test mcp_control_contract --test settings --test s1_http_clock --test start_time --test setup
 
   full-suite:
-    name: Full Rust suite with Rails parity
+    name: Full Rust suite with Rails parity (${{ matrix.partition }}/3)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3]
     env:
       APP_ROOT_URL: http://localhost:3000
       SKIP_TEST_DATABASE: 'true'
@@ -433,9 +437,14 @@ jobs:
         with:
           workspaces: rust
           key: full-suite
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        with:
+          tool: cargo-nextest@0.9.146
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - name: Build the web assets
         run: bash script/rust/build_assets.sh
+      # The same tests as `cargo test` (the crate has no doctests), each in its own process, spread over three
+      # runners; every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
       - name: Test the full Rust suite
         working-directory: rust
-        run: cargo test --locked
+        run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/3

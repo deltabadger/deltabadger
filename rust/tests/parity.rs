@@ -27,6 +27,14 @@ pub fn try_rails(args: &[&str]) -> Result<(), String> {
     run(&full)
 }
 
+/// `command`'s grid, as `rails(&[command, into])` builds it: built once per test run (common::run_template), and
+/// copied into `into` for every test that asks.
+fn built_grid(command: &str, into: &Path) {
+    let template = common::run_template(&format!("decisions-{command}"), common::has_subdirs,
+        |out| rails(&[command, out.to_str().unwrap()]));
+    common::copy_tree(&template, into);
+}
+
 fn copy_dir(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
@@ -100,7 +108,7 @@ fn unreadable_number_refused(name: &str, dir: &Path, rails_out: &serde_json::Val
 async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    rails(&["grid", rails_root.path().to_str().unwrap()]);
+    built_grid("grid", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 306, "the grid has {} scenarios", dirs.len());
@@ -154,7 +162,7 @@ async fn decide_refuses_anything_but_a_marked_scratch_copy() {
 async fn a_copy_is_planned_per_eligible_bot_at_its_next_checkpoint() {
     let src = tempfile::tempdir().unwrap();
     let rails_root = tempfile::tempdir().unwrap();
-    rails(&["grid", rails_root.path().to_str().unwrap()]);
+    built_grid("grid", rails_root.path());
     let one = rails_root.path().join("week-market-on_schedule");
     for f in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(one.join(f), src.path().join(f)).unwrap(); }
     let out = tempfile::tempdir().unwrap();
@@ -176,7 +184,7 @@ fn a_killed_or_failed_parity_run_leaves_no_copies_and_no_children() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let src = tempfile::tempdir().unwrap();
     let grid = tempfile::tempdir().unwrap();
-    rails(&["grid", grid.path().to_str().unwrap()]);
+    built_grid("grid", grid.path());
     let one = grid.path().join("week-market-on_schedule");
     for f in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(one.join(f), src.path().join(f)).unwrap(); }
     let body = serde_json::json!({ "error": [], "result": { "XXBTZEUR": { "a": ["2", "1", "1.000"], "b": ["1", "1", "1.000"], "c": ["1.5", "0.1"], "v": ["12.5", "30.1"], "p": ["1.5", "1.5"], "t": [100, 250], "l": ["1.5", "1.5"], "h": ["1.5", "1.5"], "o": "1.5" } } });
@@ -238,7 +246,7 @@ fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rus
 async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    rails(&["grid-alpaca", rails_root.path().to_str().unwrap()]);
+    built_grid("grid-alpaca", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     // 369 (with #451's unreadable-number variants) and the six mail variants (54 scenarios).
@@ -337,7 +345,7 @@ fn a_suppressed_funds_notification_is_a_difference() {
 async fn an_alpaca_copy_is_planned_with_alpaca_bodies() {
     let src = tempfile::tempdir().unwrap();
     let grid = tempfile::tempdir().unwrap();
-    rails(&["grid-alpaca", grid.path().to_str().unwrap()]);
+    built_grid("grid-alpaca", grid.path());
     let one = grid.path().join("day-market-sweep_rejected_ignored"); // one waiting order, OMKT-1
     for f in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(one.join(f), src.path().join(f)).unwrap(); }
     let quotes = serde_json::json!({ "quotes": { "BTC/USD": { "ap": 2.0, "bp": 1.0 } } });
@@ -357,7 +365,7 @@ async fn an_alpaca_copy_is_planned_with_alpaca_bodies() {
 fn an_unscripted_call_fails_the_run_on_both_venues() {
     for (grid, scenario) in [("grid", "script"), ("grid-alpaca", "alpaca")] {
         let built = tempfile::tempdir().unwrap();
-        rails(&[grid, built.path().to_str().unwrap()]);
+        built_grid(grid, built.path());
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(built.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
         dirs.sort();
         let root = tempfile::tempdir().unwrap();
@@ -401,7 +409,7 @@ type Outputs = Vec<(String, PathBuf, serde_json::Value, serde_json::Value)>;
 async fn grid_outputs(command: &str, expected: usize) -> (tempfile::TempDir, Outputs) {
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
-    rails(&[command, rails_root.path().to_str().unwrap()]);
+    built_grid(command, rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), expected, "{command} has {} scenarios", dirs.len());
@@ -719,7 +727,7 @@ async fn rails_and_rust_decide_identically_across_the_basket_grid() {
 async fn a_basket_copy_is_planned_with_every_members_prices() {
     let src = tempfile::tempdir().unwrap();
     let grid = tempfile::tempdir().unwrap();
-    rails(&["grid-basket", grid.path().to_str().unwrap()]);
+    built_grid("grid-basket", grid.path());
     let one = grid.path().join("basket-sizing-w70-resting-market"); // a 70/30 basket with one resting ETH buy, OOPEN-1
     for f in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(one.join(f), src.path().join(f)).unwrap(); }
     let pair = |sym: &str, p: f64| (format!("{sym}/USD"), serde_json::json!({

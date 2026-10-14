@@ -70,3 +70,11 @@ wiremock = "0.6"
 
 [profile.release]
 panic = "abort" # a panicking engine must not leave a server up with nothing trading (spec §3 Supervision)
+
+# Panics keep file:line backtraces; full DWARF only slowed every relink of the ~100 test binaries
+# (measured on the Mac: an incremental test build after touching src/lib.rs went from 106 s to 55 s).
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

@@ -8,6 +8,7 @@
 require 'json'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 # Tax::PriceService#fetch_price_range asks data-api from `Date#to_time`, which is the HOST's zone: hosted containers
 # run in UTC, and so does this harness.
@@ -78,14 +79,10 @@ module TrackerParity
   end
 
   def build(dir, scenario)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-    end
+    SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
     travel_to(Time.utc(2026, 9, 1, 9, 0, 0)) do
-      user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+      user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
                       confirmed_at: Time.current, setup_completed: true)
       user.save!(validate: false)
       alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
