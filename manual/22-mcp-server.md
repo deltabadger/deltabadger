@@ -66,7 +66,7 @@ A tool is usable only when both of these are true:
 | **Create signal bot** | Create and start a signal bot: one pair, no schedule. Orders placed with **Market buy** / **Market sell** and its bot id are recorded on the bot's page |
 | **Start bot** | Start a stopped or newly created bot. By default it resets the schedule and can place an order at once (unless a future starting time applies); asked to continue, it keeps the schedule but can invest what was missed while stopped. A bot that can sell waits until the wash-sale question is answered |
 | **Stop bot** | Stop a running bot |
-| **Update bots** | Change settings on a stopped bot: amount and label on any bot, the index knobs on an index bot, the weights on a basket bot. Membership is not editable |
+| **Update bots** | Change anything a stopped bot's settings page changes, under the page's own field names and choices: amount, interval, label, exchange; index count and flattening; basket weights, members (`add_asset_id`, `remove_asset_id`, `normalize_allocations`) and weighting; selling amounts; Smart Intervals; limit orders; starting time; spending and selling caps; the price, price-drop, moving-average and RSI conditions; rebalancing. Only the fields you pass change; `null` clears the four the page can blank (`sell_amount`, `sell_quote_amount`, `rebalance_threshold`, `start_at`). `get_bot_details` lists each basket member's asset and ticker ids |
 | **Archive bot** | Stop a bot and take it off the dashboard, keeping its history (see [Managing bots](15-managing-bots.md)) |
 | **Reactivate bot** | Bring an archived bot back, stopped |
 | **Delete bot** | Delete a bot, running or not; its schedule is cancelled and its history is kept but hidden |
