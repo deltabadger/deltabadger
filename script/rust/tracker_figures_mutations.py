@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
-walk, figures, cache = (root / 'rust/src/tracker' / f for f in ('walk.rs', 'figures.rs', 'cache.rs'))
+walk, figures, cache, jobs = (root / 'rust/src/tracker' / f for f in ('walk.rs', 'figures.rs', 'cache.rs', 'jobs.rs'))
 parity = ['--test', 'tracker_parity']
 unit = ['--lib', '-E', 'test(/tracker::cache/)']
 mutations = [
@@ -20,6 +20,7 @@ mutations = [
     ('openings', walk, 'for r in rows.iter().filter(|r| r.opening) {', 'for r in rows.iter().filter(|_| false) {', parity),
     ('position dates', walk, 'opened_at: lots.iter().map(|l| l.date).min(),', 'opened_at: lots.iter().map(|l| l.date).max(),', parity),
     ('note floor', figures, '} >= Dec::one();', '} >= Dec::zero();', parity),
+    ('since_sync note', figures, 'None if since_sync => notes.note("since_sync"', 'None if false => notes.note("since_sync"', parity),
     ('at_par note', figures, 'None => { notes.note("at_par", currency, None, None, None, Dec::zero(), true); Dec::one() }', 'None => Dec::one(),', parity),
     ('cash unrealised', figures, 'cash_unrealised = (&cash_unrealised + &(&worth - &basis)?)?;', 'let _ = (&worth, &basis);', parity),
     ('backstop', figures, 'if magnitude(&drift) > tolerance {', 'if magnitude(&drift) > tolerance && false {', parity),
@@ -28,6 +29,7 @@ mutations = [
     ('cache schema 3 decode', cache, 'received:decimal(&v["received"])?', 'received:decimal(&v["realised"])?', unit),
     ('cache schema 2 read', cache, 'v["schema"].as_u64()!=Some(3)', 'v["schema"].as_u64()<Some(2)', unit),
     ('cache publish bound', cache, '[&s.total_invested,&s.received,&s.realised,&s.fees,&s.cash_usd,&s.unpriced_proceeds]', '[&s.total_invested]', unit),
+    ('refused publication keeps the entry', jobs, ' || super::cache::refused(e)', '', ['--test', 'tracker_cache_producer']),
 ]
 env = dict(os.environ, CARGO_TERM_COLOR='never')
 assert env.get('CARGO_TARGET_DIR'), 'CARGO_TARGET_DIR must be set'

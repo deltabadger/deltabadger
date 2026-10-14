@@ -293,6 +293,18 @@ module TrackerParity
           balance(c, 'AAPL', '2', usd_price: '205', synced_at: Time.utc(2026, 9, 30, 2, 30), priced_at: Time.utc(2026, 9, 30, 2, 30))
         },
         market: { HISTORY => [history([['2026-09-30', 2510]])] } },
+      # The same, with balances a current key produced: the coin bought since the sync is held at cost, and says so.
+      { name: 'bought_since_a_current_sync', rust_balances: true, alpaca: aapl_bars,
+        setup: lambda { |c|
+          c[:key].update_columns(balances_synced_at: Time.utc(2026, 9, 30, 2, 30))
+          deposit(c, '1000', '2026-09-01T14:00:00Z')
+          buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z')
+          buy(c, 'AAPL', '1', '210', '2026-09-30T15:00:00Z')
+          buy(c, 'ETH', '0.1', '2500', '2026-09-30T16:00:00Z')
+          balance(c, 'USD', '600', usd_price: '1', synced_at: Time.utc(2026, 9, 30, 2, 30), priced_at: Time.utc(2026, 9, 30, 2, 30))
+          balance(c, 'AAPL', '2', usd_price: '205', synced_at: Time.utc(2026, 9, 30, 2, 30), priced_at: Time.utc(2026, 9, 30, 2, 30))
+        },
+        market: { HISTORY => [history([['2026-09-30', 2510]])] } },
       { name: 'departed_and_cash_short', alpaca: aapl_bars,
         market: { HISTORY => [history((1..30).map { |d| [format('2026-09-%02d', d), 2400 + d] })] },
         setup: lambda { |c|

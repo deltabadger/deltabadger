@@ -11,6 +11,11 @@ pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
+/// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
+pub const DECIMAL_TOO_LARGE: &str = "ledger cache computed decimal exceeds 1048576-byte limit";
+pub const PAYLOAD_TOO_LARGE: &str = "ledger cache exceeds its size limit";
+/// Whether a run's error is a publication refusal (nothing to state as a failed calculation).
+pub fn refused(error:&str)->bool { error==DECIMAL_TOO_LARGE || error==PAYLOAD_TOO_LARGE }
 #[derive(Clone, Debug)]
 pub enum State { Cold, Failed(&'static str), Warm(Box<Summary>) }
 #[derive(Clone, Debug)]
@@ -75,14 +80,14 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
         for decimal in decimals(summary) {
             if decimal.to_s_f().len()>MAX_COMPUTED_DECIMAL {
                 crate::engine::log("[tracker] ledger cache publish refused: computed decimal exceeds 1048576-byte limit");
-                return Err(FiguresError::NotComputed("ledger cache computed decimal exceeds 1048576-byte limit".into()));
+                return Err(FiguresError::NotComputed(DECIMAL_TOO_LARGE.into()));
             }
         }
     }
     // Schema 3: the page's figures too (round trips, received, realised, fees, cash at today's rates, unpriced proceeds,
     // openings, position dates). Schema 1 and 2 entries read cold and the next pass republishes.
     let payload=json!({"schema":3,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
-    if payload.len()>MAX_PAYLOAD {return Err(FiguresError::NotComputed("ledger cache exceeds its size limit".into()));}
+    if payload.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache publish refused: payload exceeds 8388608-byte limit");return Err(FiguresError::NotComputed(PAYLOAD_TOO_LARGE.into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     Ok(true)
 }

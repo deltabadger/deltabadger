@@ -66,7 +66,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 65, "the tracker grid");
+    assert_eq!(dirs.len(), 66, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -94,8 +94,10 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
 
     // What the grid must have exercised, read from Rails' own output.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
-    // The page's figures (Plan tracker holdings S0b): every one stated somewhere in the grid, not only zeros.
-    let summaries: Vec<Value> = dirs.iter().flat_map(|d| {
+    // The page's figures (Plan tracker holdings S0b): every one stated somewhere in the grid, not only zeros, and only
+    // where Rust's are compared (a listed divergence nulls Rust's expected ledger).
+    let compared: Vec<&PathBuf> = dirs.iter().filter(|d| !UNKNOWN_ORIGIN.contains(&d.file_name().unwrap().to_string_lossy().as_ref())).collect();
+    let summaries: Vec<Value> = compared.iter().flat_map(|d| {
         let ledger = read(&d.join("rails.json"))["ledger"].clone();
         std::iter::once(ledger["whole"].clone()).chain(ledger["venues"].as_object().map(|v| v.values().cloned().collect::<Vec<_>>()).unwrap_or_default())
     }).filter(|s| !s.is_null()).collect();
@@ -109,7 +111,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     assert!(trips.iter().any(|t| t["opened_at"].is_string()), "a round trip's opening date");
     assert!(summaries.iter().flat_map(|s| s["positions"].as_array().into_iter().flatten()).all(|p| p["opened_at"].is_string()), "every position's date");
     // Tracker::Figures::Result: every field stated, every note kind written, on a holding and in the list.
-    let figures: Vec<Value> = dirs.iter().flat_map(|d| read(&d.join("rails.json"))["ledger"]["figures"].as_object().map(|f| f.values().cloned().collect::<Vec<_>>()).unwrap_or_default()).collect();
+    let figures: Vec<Value> = compared.iter().flat_map(|d| read(&d.join("rails.json"))["ledger"]["figures"].as_object().map(|f| f.values().cloned().collect::<Vec<_>>()).unwrap_or_default()).collect();
     for field in ["fees", "realised", "unrealised", "total"] { assert!(figures.iter().any(|f| f[field].as_str().is_some_and(|v| v != "0.0")), "no scenario states figures {field}"); }
     let holdings: Vec<&Value> = figures.iter().flat_map(|f| f["holdings"].as_array().into_iter().flatten()).collect();
     assert!(holdings.iter().any(|h| h["percent"].is_string()) && holdings.iter().any(|h| h["unrealised"].is_string()), "a holding's gain");

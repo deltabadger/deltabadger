@@ -276,3 +276,17 @@ async fn a_pass_whose_key_was_deleted_before_its_write_states_no_failure(){
     assert_eq!(job_with(owner,api).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
     assert!(matches!(state(&db,owner).await,State::Warm(_)));
 }
+/// A walk whose entry is too large to store is a refused publication, not a failed calculation: the scheduled job
+/// keeps the previous entry instead of stating a failure over it.
+#[tokio::test(flavor="current_thread")]
+async fn an_oversized_entry_keeps_the_previous_one(){
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
+    let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;let venue=s.exchange_id;
+    assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    let before=db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap();
+    assert!(before.is_some());
+    // A coin whose symbol alone is larger than an entry may be.
+    db.run(move|c,_|{c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,?3,1,'2026-09-02 00:00:00','{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00')",rusqlite::params![owner,venue,"X".repeat(9*1024*1024)]).unwrap();Ok(())}).await.unwrap();
+    assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(cache::PAYLOAD_TOO_LARGE.into()));
+    assert_eq!(db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap(),before,"the previous entry is kept, not replaced by a failure");
+}

@@ -401,8 +401,9 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:O
     };
     match &out {
         Ok(_)=>{}
-        // A key replaced or deleted under the pass: its result is not stated, and no failure is either.
-        Err(e) if e==MOVED || e==CACHE_MOVING || e==crate::engine::model::CREDENTIALS_CHANGED => {}
+        // A key replaced or deleted under the pass: its result is not stated, and no failure is either. A refused
+        // publication keeps the previous entry: the calculation did not fail, its result was too large to store.
+        Err(e) if e==MOVED || e==CACHE_MOVING || e==crate::engine::model::CREDENTIALS_CHANGED || super::cache::refused(e) => {}
         Err(_)=>{
             let clock=wall.clone();
             cx.db.run(move|c,_|{
