@@ -58,11 +58,17 @@ impl Row {
 
 /// One term of money in, as the chart reads it day by day (Tracker::Ledger::Term).
 #[derive(Clone, Debug)]
-pub struct Term { pub at: At, pub amount: Dec, pub complete: bool, pub opens: Option<(String, Dec)>, pub exchange: String }
+pub struct Term { pub at: At, pub amount: Dec, pub complete: bool, pub opens: Option<(String, Dec)>, pub exchange: String,
+                  /// `in_kind?` of the row the term is paired with: its amount is money in nobody paid for (`received_usd`).
+                  pub received: bool }
 
-/// A position the lots hold (Tracker::Ledger::Position, without its dates).
+/// A position the lots hold (Tracker::Ledger::Position).
 #[derive(Clone, Debug)]
-pub struct Position { pub symbol: String, pub quantity: Dec, pub cost: Dec, pub avg_cost: Dec, pub estimated: bool, pub unpriced: Dec }
+pub struct Position { pub symbol: String, pub quantity: Dec, pub cost: Dec, pub avg_cost: Dec, pub opened_at: Option<At>, pub estimated: bool, pub unpriced: Dec }
+
+/// Tracker::Ledger::RoundTrip: one row per round trip, not per sell.
+#[derive(Clone, Debug)]
+pub struct RoundTrip { pub symbol: String, pub opened_at: Option<At>, pub closed_at: At, pub quantity: Dec, pub invested: Dec, pub proceeds: Dec, pub fees: Dec, pub realised: Dec, pub incomplete: bool }
 
 /// What the snapshots, the figures and the arming read of Tracker::Ledger::Summary.
 #[derive(Clone, Debug)]
@@ -77,11 +83,25 @@ pub struct Summary {
     /// Per symbol, the day of its latest loss sale inside the wash-sale horizon, in the order first sold. The whole
     /// account's only.
     pub loss_sales: Vec<(String, NaiveDate)>,
+    pub round_trips: Vec<RoundTrip>,
+    /// The part of money in nobody paid for (`received_usd`).
+    pub received: Dec,
+    /// `realised_pnl_usd`: the disposals' gains, and what return of capital past the basis, third-coin fees, the cash
+    /// book and cash that left for nothing realised.
+    pub realised: Dec,
+    pub fees: Dec,
+    /// The cash at today's rates (`cash_usd`).
+    pub cash_usd: Dec,
+    pub unpriced_proceeds: Dec,
+    /// Per asset, what must have been held before its history begins, in the order first opened.
+    pub openings: Vec<(String, Dec)>,
 }
 
 impl Summary {
     /// `empty_summary`: a venue the walk has no rows of.
-    pub fn empty() -> Summary { Summary { positions: vec![], total_invested: Dec::zero(), cash: vec![], cash_basis: vec![], incomplete: false, loss_sales: vec![] } }
+    pub fn empty() -> Summary { Summary { positions: vec![], total_invested: Dec::zero(), cash: vec![], cash_basis: vec![], incomplete: false, loss_sales: vec![],
+                                        round_trips: vec![], received: Dec::zero(), realised: Dec::zero(), fees: Dec::zero(), cash_usd: Dec::zero(),
+                                        unpriced_proceeds: Dec::zero(), openings: vec![] } }
 }
 
 /// Every scope from one walk (`Ledger.scopes`): each venue's summary by exchange id, in the order the walk met the
@@ -421,9 +441,12 @@ struct Lot { amount: Dec, cost_per_unit: Dec, date: At, basis_assumed: bool, unp
 #[derive(Clone, Debug)]
 struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced: Dec, weight: Dec }
 
-/// A disposal, as far as the figures and the arming read one.
+/// A disposal (Tax::Methods::Fifo#disposal_row, without a holding rule), as the figures, the round trips and the arming
+/// read one.
 #[derive(Clone, Debug)]
-pub struct Disposal { pub at: At, pub asset: String, pub exchange: String, pub unpriced_quantity: Dec, pub any_lot_lost: Option<bool> }
+pub struct Disposal { pub at: At, pub acquired: Option<At>, pub asset: String, pub exchange: String, pub amount: Dec, pub proceeds: Dec, pub cost_basis: Dec,
+                      pub fee: Dec, pub gain_loss: Dec, pub data_incomplete: bool, pub unpriced_quantity: Dec, pub unpriced_proceeds: Dec,
+                      pub closes_position: bool, pub any_lot_lost: Option<bool> }
 
 type GroupKey = (String, String);
 
@@ -444,6 +467,12 @@ pub struct Engine {
     swap_in_groups: HashMap<GroupKey, (HashMap<usize, Dec>, bool)>,
     swap_out_groups: HashMap<GroupKey, (HashMap<usize, Dec>, Dec)>,
     transferred: HashMap<GroupKey, Vec<Tranche>>,
+    /// Per venue: return of capital past the basis (`roc_at`), and what third-coin fees realised (`fee_asset_realised_at`).
+    roc: HashMap<Option<String>, Dec>,
+    fee_realised: HashMap<Option<String>, Dec>,
+    /// The value the fee being paid was counted at, and whether nothing counted it (a cost).
+    fee_value: Dec,
+    fee_is_cost: bool,
 }
 
 fn group_key(r: &Row) -> Option<GroupKey> { r.group.clone().map(|g| (r.exchange.clone(), g)) }
@@ -470,8 +499,17 @@ impl Engine {
     pub fn new(located: bool) -> Engine {
         Engine { located, venue: None, lots: BTreeMap::new(), disposals: vec![], uncovered: false, uncovered_venues: HashSet::new(), released: HashMap::new(),
                  moved: HashMap::new(), fee_basis: HashMap::new(), original: HashMap::new(), row: None, fee_consumed: false, paying_trade_fee: false,
-                 swap_in_groups: HashMap::new(), swap_out_groups: HashMap::new(), transferred: HashMap::new() }
+                 swap_in_groups: HashMap::new(), swap_out_groups: HashMap::new(), transferred: HashMap::new(),
+                 roc: HashMap::new(), fee_realised: HashMap::new(), fee_value: Dec::zero(), fee_is_cost: true }
     }
+
+    fn add(map: &mut HashMap<Option<String>, Dec>, venue: Option<String>, amount: &Dec) -> Result<(), FiguresError> {
+        let entry = map.entry(venue).or_insert_with(Dec::zero);
+        *entry = (&*entry + amount)?;
+        Ok(())
+    }
+    pub fn roc_at(&self, venue: &str) -> Dec { self.roc.get(&Some(venue.to_string())).cloned().unwrap_or_else(Dec::zero) }
+    pub fn fee_asset_realised_at(&self, venue: &str) -> Dec { self.fee_realised.get(&Some(venue.to_string())).cloned().unwrap_or_else(Dec::zero) }
 
     fn key(&self, asset: &str) -> (Option<String>, String) { (if self.located { self.venue.clone() } else { None }, asset.to_string()) }
     fn lots(&mut self, asset: &str) -> &mut VecDeque<Lot> { let k = self.key(asset); self.lots.entry(k).or_default() }
@@ -513,14 +551,33 @@ impl Engine {
     }
 
     /// `consume_fee_asset`: a fee in a third coin leaves that coin's lots.
+    /// The tracker's override: the difference from the basis the coins carried is theirs to realise.
     fn consume_fee_asset(&mut self, asset: &str, amount: &Dec) -> Result<(), FiguresError> {
         self.fee_consumed = true;
+        let before = self.pool_basis(asset)?;
         self.dequeue(asset, amount)?;
-        Ok(())
+        // A stablecoin fee is cash: the cash book pays it, at face, and it gains nothing.
+        if cash(asset) { return Ok(()); }
+        let released = (&before - &self.pool_basis(asset)?)?;
+        let counted = if self.fee_is_cost { Dec::zero() } else { self.fee_value.clone() };
+        Engine::add(&mut self.fee_realised, self.venue.clone(), &(&counted - &released)?)
     }
 
     /// `apply_acquisition_fee`: the quantity acquired and its cost, after the fee.
     fn acquisition_fee(&mut self, r: &Row, amount: &Dec, value: &Dec) -> Result<(Dec, Dec), FiguresError> {
+        self.fee_value = r.fee_fiat_value.clone();
+        // Cash bought is the cash book's: a coin paid as its fee has no lot to go into, and leaves at its basis.
+        self.fee_is_cost = cash(&r.base);
+        let (quantity, cost) = self.acquisition_fee_applied(r, amount, value)?;
+        // A same-coin fee that took everything that arrived opens a lot of nothing, and its cost goes with it: spent.
+        if !self.fee_is_cost && r.kind != Kind::SwapIn && quantity.is_zero() && cost.is_positive() {
+            Engine::add(&mut self.fee_realised, self.venue.clone(), &cost.neg())?;
+        }
+        Ok((quantity, cost))
+    }
+
+    /// AcquisitionFee#apply_acquisition_fee.
+    fn acquisition_fee_applied(&mut self, r: &Row, amount: &Dec, value: &Dec) -> Result<(Dec, Dec), FiguresError> {
         if r.fee_present() && r.fee_is(&r.base) {
             let Some(fee) = &r.fee_amount else { return Ok((amount.clone(), value.clone())) };
             let net = (amount - fee)?;
@@ -536,6 +593,9 @@ impl Engine {
     /// The tracker's `consume_disposal_fee`: a coin's own sale fee in that coin leaves on top; else AcquisitionFee's.
     fn disposal_fee(&mut self, r: &Row) -> Result<(), FiguresError> {
         self.paying_trade_fee = true;
+        self.fee_value = r.fee_fiat_value.clone();
+        // Off a coin's gain it was counted at its value; off cash sold, nothing counts it — a cost.
+        self.fee_is_cost = cash(&r.base);
         let fee = r.fee();
         let out = if r.fee_is(&r.base) && !cash(&r.base) {
             if fee.is_positive() { self.consume_fee_asset(&r.base.clone(), &fee) } else { Ok(()) }
@@ -559,11 +619,23 @@ impl Engine {
     fn record_disposal(&mut self, r: &Row, asset: &str, amount: &Dec, value: &Dec) -> Result<(), FiguresError> {
         if cash(asset) { self.dequeue(asset, amount)?; return self.disposal_fee(r); }
         let held = self.held(asset)?;
+        let has_lots = !self.lots(asset).is_empty();
         let (tranches, _) = self.dequeue(asset, amount)?;
         self.disposal_fee(r)?;
+        let cost_basis = sum(tranches.iter().map(|t| Ok(t.cost.clone())))?;
         let unpriced_quantity = sum(tranches.iter().map(|t| Ok(t.unpriced.clone())))?;
-        self.disposals.push(Disposal { at: r.at, asset: asset.into(), exchange: r.exchange.clone(), unpriced_quantity, any_lot_lost: Engine::verdict(r, &tranches, amount, value)? });
-        if held < *amount { self.uncovered = true; self.uncovered_venues.insert(self.venue.clone()); }
+        let fee = r.fee_fiat_value.clone();
+        let covered = held >= *amount;
+        let closes_position = held.is_positive() && covered && self.lots(asset).is_empty();
+        self.disposals.push(Disposal {
+            at: r.at, acquired: tranches.first().map(|t| t.date), asset: asset.into(), exchange: r.exchange.clone(), amount: amount.clone(),
+            proceeds: value.clone(), gain_loss: (&(value - &cost_basis)? - &fee)?, cost_basis, fee,
+            // FIFO's `data_incomplete?`, and a sale only partly covered (which FIFO books at zero basis).
+            data_incomplete: r.price_missing || tranches.iter().any(|t| t.basis_assumed) || !has_lots || !covered,
+            unpriced_proceeds: if amount.is_positive() { (value * &unpriced_quantity)?.div(amount)? } else { Dec::zero() },
+            unpriced_quantity, closes_position, any_lot_lost: Engine::verdict(r, &tranches, amount, value)?,
+        });
+        if !covered { self.uncovered = true; self.uncovered_venues.insert(self.venue.clone()); }
         Ok(())
     }
 
@@ -712,20 +784,28 @@ impl Engine {
             _ => None,
         };
         let value = r.fiat_value.clone();
+        let venue = self.venue.clone();
         let lots = self.lots(&r.base);
-        if let (Some(per_unit), false) = (&per_unit, lots.is_empty()) {
-            for lot in lots.iter_mut() { lot.cost_per_unit = max(&(&lot.cost_per_unit - per_unit)?, &Dec::zero()); }
-            return Ok(());
-        }
-        let mut remaining = value;
-        for lot in lots.iter_mut() {
-            if !remaining.is_positive() { break; }
-            let lot_cost = (&lot.amount * &lot.cost_per_unit)?;
-            let take = min(&lot_cost, &remaining);
-            lot.cost_per_unit = if lot.amount.is_positive() { (&lot_cost - &take)?.div(&lot.amount)? } else { Dec::zero() };
-            remaining = (&remaining - &take)?;
-        }
-        Ok(())
+        // What is returned past the basis is realised (`roc_at`).
+        let excess = if let (Some(per_unit), false) = (&per_unit, lots.is_empty()) {
+            let mut excess = Dec::zero();
+            for lot in lots.iter_mut() {
+                excess = (&excess + &(&lot.amount * &max(&(per_unit - &lot.cost_per_unit)?, &Dec::zero()))?)?;
+                lot.cost_per_unit = max(&(&lot.cost_per_unit - per_unit)?, &Dec::zero());
+            }
+            excess
+        } else {
+            let mut remaining = value;
+            for lot in lots.iter_mut() {
+                if !remaining.is_positive() { break; }
+                let lot_cost = (&lot.amount * &lot.cost_per_unit)?;
+                let take = min(&lot_cost, &remaining);
+                lot.cost_per_unit = if lot.amount.is_positive() { (&lot_cost - &take)?.div(&lot.amount)? } else { Dec::zero() };
+                remaining = (&remaining - &take)?;
+            }
+            remaining
+        };
+        Engine::add(&mut self.roc, venue, &excess)
     }
 
     /// `settle_fee`: a fee in a coin that FIFO never applied still left the account, at the basis it carried.
@@ -738,6 +818,8 @@ impl Engine {
         if !amount.is_positive() || cash(&asset) { return Ok(()); }
         if row.quote.as_deref() == Some(asset.as_str()) { return Ok(()); }
         if asset == row.base && !matches!(row.kind, Kind::Sell | Kind::SwapOut) { return Ok(()); }
+        self.fee_value = Dec::zero();
+        self.fee_is_cost = true;
         self.consume_fee_asset(&asset, &amount)
     }
 
@@ -829,7 +911,7 @@ impl Engine {
             let quantity = sum(lots.iter().map(|l| Ok(l.amount.clone())))?;
             if !quantity.is_positive() { continue; }
             let cost = sum(lots.iter().map(|l| &l.amount * &l.cost_per_unit))?;
-            out.push(Position { symbol: symbol.clone(), avg_cost: cost.div(&quantity)?, quantity, cost,
+            out.push(Position { symbol: symbol.clone(), avg_cost: cost.div(&quantity)?, quantity, cost, opened_at: lots.iter().map(|l| l.date).min(),
                                 estimated: lots.iter().any(|l| l.basis_assumed), unpriced: sum(lots.iter().map(|l| Ok(l.unpriced.clone())))? });
         }
         crate::figures::budget::charge(super::rows::sort_steps(out.len()), 0)?;
@@ -1122,9 +1204,14 @@ fn unfunded(book: &mut Book, venue: &str, r: &Row, ps: &mut PriceService) -> Res
     Ok(total)
 }
 
+/// The terms, the cash book, and per venue what coins cost when they left for nothing.
+type MoneyIn = (Vec<Term>, Book, HashMap<String, Dec>);
+
 /// `money_in_terms`: one term per row (two more for a linked transfer between venues), and the cash book.
-fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService) -> Result<(Vec<Term>, Book), FiguresError> {
+fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService) -> Result<MoneyIn, FiguresError> {
     let mut book = Book::default();
+    // Per venue: what coins cost when they left for nothing (a fee row, a transfer's fee slice), realised as a loss.
+    let mut costs: HashMap<String, Dec> = HashMap::new();
     let mut carried: HashMap<usize, Dec> = HashMap::new();
     let conversions = cash_conversions(rows, ps)?;
     let closes = closers(rows);
@@ -1133,20 +1220,22 @@ fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService) -> Result<
         crate::figures::budget::check()?;
         let kept = ps.warnings.len();
         let withdrawn = book_cash(&mut book, r, &mut carried, &conversions, ps)?;
-        coin_cost(r, engine);
+        let cost = coin_cost(r, engine);
+        let entry = costs.entry(r.exchange.clone()).or_insert_with(Dec::zero);
+        *entry = (&*entry - &cost)?;
         let mut amount = contribution(r, engine, &withdrawn, ps)?;
         if let Some(venue) = closes.get(&i) { amount = (&amount + &unfunded(&mut book, venue, r, ps)?)?; }
         let complete = ps.warnings.len() == kept && !(r.price_missing && valued_by_price(r));
-        terms.push(Term { at: r.at, amount, complete, opens: r.opening.then(|| (r.base.clone(), r.amount.clone())), exchange: r.exchange.clone() });
+        terms.push(Term { at: r.at, amount, complete, opens: r.opening.then(|| (r.base.clone(), r.amount.clone())), exchange: r.exchange.clone(), received: in_kind(r) });
         if between_venues(r) {
             let moved = if cash(&r.base) { carried.get(&r.uid).cloned().unwrap_or_else(Dec::zero) } else { engine.moved.get(&r.uid).map_or_else(Dec::zero, |(m, _)| m.clone()) };
             let complete = !engine.moved.get(&r.uid).is_some_and(|(_, u)| *u);
             let to = r.to_exchange.clone().unwrap_or_default();
-            terms.push(Term { at: r.at, amount: moved.neg(), complete, opens: None, exchange: r.exchange.clone() });
-            terms.push(Term { at: r.at, amount: moved, complete, opens: None, exchange: to });
+            terms.push(Term { at: r.at, amount: moved.neg(), complete, opens: None, exchange: r.exchange.clone(), received: false });
+            terms.push(Term { at: r.at, amount: moved, complete, opens: None, exchange: to, received: false });
         }
     }
-    Ok((terms, book))
+    Ok((terms, book, costs))
 }
 
 /// `loss_sales`: per symbol, the latest loss-making disposal no older than 31 days.
@@ -1167,7 +1256,7 @@ pub fn loss_sales(disposals: &[Disposal], today: NaiveDate) -> Result<Vec<(Strin
 }
 
 /// The two walks over one enrichment, and the money-in terms: `Ledger.walk`.
-pub struct Walk { pub rows: Vec<Row>, pub engine: Engine, pub global: Engine, pub terms: Vec<Term>, book: Book }
+pub struct Walk { pub rows: Vec<Row>, pub engine: Engine, pub global: Engine, pub terms: Vec<Term>, book: Book, costs: HashMap<String, Dec> }
 
 /// `Ledger.walk(user)`: enriched, ordered for transfers, walked account-wide and then located, and read for money in.
 pub fn walk_rows(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService) -> Result<Walk, FiguresError> {
@@ -1180,8 +1269,8 @@ pub fn walk_rows(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Price
     let located = open_with_held(located_order, ps, true, &mut next_uid)?;
     let mut engine = Engine::new(true);
     engine.calculate(&taxable(&located))?;
-    let (terms, book) = money_in(&located, &mut engine, ps)?;
-    Ok(Walk { rows: located, engine, global, terms, book })
+    let (terms, book, costs) = money_in(&located, &mut engine, ps)?;
+    Ok(Walk { rows: located, engine, global, terms, book, costs })
 }
 
 /// `Ledger.money_in`: the terms alone, as the backfill reads them (no summary, so nothing valued today).
@@ -1204,26 +1293,78 @@ pub fn scopes(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceSer
     Ok(Walked { venues: by_venue, whole, terms: w.terms })
 }
 
+/// `round_trips`: one row per round trip, not per sell. What is still accumulating when the disposals run out is flushed
+/// as its own row, only when FIFO matched a basis.
+fn round_trips(disposals: &[&Disposal]) -> Result<Vec<RoundTrip>, FiguresError> {
+    let mut open: Vec<RoundTrip> = vec![];
+    let mut closed = vec![];
+    for d in disposals {
+        crate::figures::budget::check()?;
+        let i = match open.iter().position(|t| t.symbol == d.asset) {
+            Some(i) => i,
+            None => { open.push(RoundTrip { symbol: d.asset.clone(), opened_at: d.acquired, closed_at: d.at, quantity: Dec::zero(), invested: Dec::zero(),
+                                            proceeds: Dec::zero(), fees: Dec::zero(), realised: Dec::zero(), incomplete: false }); open.len() - 1 }
+        };
+        let t = &mut open[i];
+        t.quantity = (&t.quantity + &d.amount)?;
+        t.invested = (&t.invested + &d.cost_basis)?;
+        t.proceeds = (&t.proceeds + &d.proceeds)?;
+        t.fees = (&t.fees + &d.fee)?;
+        t.realised = (&t.realised + &d.gain_loss)?;
+        t.closed_at = d.at;
+        t.incomplete = t.incomplete || d.data_incomplete;
+        if d.closes_position { closed.push(open.remove(i)); }
+    }
+    closed.extend(open.into_iter().filter(|t| t.invested.is_positive()));
+    Ok(closed)
+}
+
+/// Adds `amount` to `key`'s entry, a new key going last, as a Ruby Hash does.
+fn add_to(list: &mut Vec<(String, Dec)>, key: &str, amount: &Dec) -> Result<(), FiguresError> {
+    match list.iter_mut().find(|(k, _)| k == key) { Some((_, v)) => *v = (&*v + amount)?, None => list.push((key.to_string(), (&Dec::zero() + amount)?)) }
+    Ok(())
+}
+
 /// `summarise`: a venue's slice of the walk.
 fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Summary, FiguresError> {
     let positions = w.engine.positions(Some(venue))?;
     let terms: Vec<&Term> = w.terms.iter().filter(|t| t.exchange == venue).collect();
+    let disposals: Vec<&Disposal> = w.engine.disposals.iter().filter(|d| d.exchange == venue).collect();
     let rows: Vec<&Row> = w.rows.iter().filter(|r| r.exchange == venue).collect();
     let cash: Vec<(String, Dec)> = w.book.cash.iter().filter(|((v, _), _)| v == venue).map(|((_, c), a)| (c.clone(), a.clone())).collect();
     let kept = ps.warnings.len();
-    // `cash_in_usd` and `fees`: their values are the pages', but what they look up warns as Rails' does.
-    for (currency, amount) in &cash { if !stable(currency) { ps.convert_fiat(amount, currency, "USD", now)?; } }
-    for r in &rows { if r.kind == Kind::Fee && fiat(&r.base) { ps.convert_fiat(&r.amount, &r.base, "USD", r.at)?; } }
+    // `cash_in_usd`, then `fees` (a fee ROW in fiat is valued here: `enrich` prices a fiat base at zero).
+    let mut cash_usd = Dec::zero();
+    for (currency, amount) in &cash { cash_usd = (&cash_usd + &if stable(currency) { amount.clone() } else { ps.convert_fiat(amount, currency, "USD", now)? })?; }
+    let mut fees = Dec::zero();
+    for r in &rows {
+        fees = (&fees + &r.fee_fiat_value)?;
+        if r.kind == Kind::Fee { fees = (&fees + &if fiat(&r.base) { ps.convert_fiat(&r.amount, &r.base, "USD", r.at)? } else { r.fiat_value.clone() })?; }
+    }
     let incomplete = positions.iter().any(|p| p.unpriced.is_positive()) || w.engine.uncovered_venues.contains(&Some(venue.to_string()))
-        || w.engine.disposals.iter().any(|d| d.exchange == venue && d.unpriced_quantity.is_positive())
+        || disposals.iter().any(|d| d.unpriced_quantity.is_positive())
         || rows.iter().any(|r| r.price_missing) || terms.iter().any(|t| !t.complete) || ps.warnings.len() > kept;
+    let gains = sum(disposals.iter().map(|d| Ok(d.gain_loss.clone())))?;
+    let book_realised = w.book.realised.get(venue).cloned().unwrap_or_else(Dec::zero);
+    let costs = w.costs.get(venue).cloned().unwrap_or_else(Dec::zero);
+    let mut openings: Vec<(String, Dec)> = vec![];
+    for r in rows.iter().filter(|r| r.opening) {
+        match openings.iter_mut().find(|(k, _)| *k == r.base) { Some((_, v)) => *v = r.amount.clone(), None => openings.push((r.base.clone(), r.amount.clone())) }
+    }
     Ok(Summary {
         positions,
         total_invested: sum(terms.iter().map(|t| Ok(t.amount.clone())))?,
+        received: sum(terms.iter().filter(|t| t.received).map(|t| Ok(t.amount.clone())))?,
+        realised: (&(&(&(&gains + &w.engine.roc_at(venue))? + &w.engine.fee_asset_realised_at(venue))? + &book_realised)? + &costs)?,
+        fees,
+        cash_usd,
+        unpriced_proceeds: sum(disposals.iter().map(|d| Ok(d.unpriced_proceeds.clone())))?,
+        round_trips: round_trips(&disposals)?,
         cash,
         cash_basis: w.book.basis.iter().filter(|((v, _), b)| v == venue && !b.is_zero()).map(|((_, c), b)| (c.clone(), b.clone())).collect(),
         incomplete,
         loss_sales: vec![],
+        openings,
     })
 }
 
@@ -1237,8 +1378,17 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         Ok(())
     };
     let mut held: Vec<(String, Vec<Position>)> = vec![];
+    let (mut received, mut realised, mut fees, mut cash_usd, mut unpriced_proceeds) = (Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero());
+    let (mut round_trips, mut openings) = (vec![], vec![]);
     for (_, s) in venues {
         total = (&total + &s.total_invested)?;
+        received = (&received + &s.received)?;
+        realised = (&realised + &s.realised)?;
+        fees = (&fees + &s.fees)?;
+        cash_usd = (&cash_usd + &s.cash_usd)?;
+        unpriced_proceeds = (&unpriced_proceeds + &s.unpriced_proceeds)?;
+        round_trips.extend(s.round_trips.iter().cloned());
+        for (symbol, quantity) in &s.openings { add_to(&mut openings, symbol, quantity)?; }
         for (c, a) in &s.cash { add(&mut cash, c, a)?; }
         for (c, a) in &s.cash_basis { add(&mut basis, c, a)?; }
         for p in &s.positions {
@@ -1250,7 +1400,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         if list.len() == 1 { positions.extend(list); continue; }
         let quantity = sum(list.iter().map(|p| Ok(p.quantity.clone())))?;
         let cost = sum(list.iter().map(|p| Ok(p.cost.clone())))?;
-        positions.push(Position { symbol, avg_cost: cost.div(&quantity)?, quantity, cost, estimated: list.iter().any(|p| p.estimated),
+        positions.push(Position { symbol, avg_cost: cost.div(&quantity)?, quantity, cost, opened_at: list.iter().filter_map(|p| p.opened_at).min(), estimated: list.iter().any(|p| p.estimated),
                                   unpriced: sum(list.iter().map(|p| Ok(p.unpriced.clone())))? });
     }
     positions.sort_by(|a, b| b.cost.cmp(&a.cost));
@@ -1258,5 +1408,6 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         positions, total_invested: total, cash, cash_basis: basis.into_iter().filter(|(_, b)| !b.is_zero()).collect(),
         incomplete: venues.iter().any(|(_, s)| s.incomplete) || w.engine.uncovered || !ps.warnings.is_empty(),
         loss_sales: loss_sales(&w.global.disposals, ps.today)?,
+        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings,
     })
 }

@@ -293,6 +293,18 @@ module TrackerParity
           balance(c, 'AAPL', '2', usd_price: '205', synced_at: Time.utc(2026, 9, 30, 2, 30), priced_at: Time.utc(2026, 9, 30, 2, 30))
         },
         market: { HISTORY => [history([['2026-09-30', 2510]])] } },
+      # The same, with balances a current key produced: the coin bought since the sync is held at cost, and says so.
+      { name: 'bought_since_a_current_sync', rust_balances: true, alpaca: aapl_bars,
+        setup: lambda { |c|
+          c[:key].update_columns(balances_synced_at: Time.utc(2026, 9, 30, 2, 30))
+          deposit(c, '1000', '2026-09-01T14:00:00Z')
+          buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z')
+          buy(c, 'AAPL', '1', '210', '2026-09-30T15:00:00Z')
+          buy(c, 'ETH', '0.1', '2500', '2026-09-30T16:00:00Z')
+          balance(c, 'USD', '600', usd_price: '1', synced_at: Time.utc(2026, 9, 30, 2, 30), priced_at: Time.utc(2026, 9, 30, 2, 30))
+          balance(c, 'AAPL', '2', usd_price: '205', synced_at: Time.utc(2026, 9, 30, 2, 30), priced_at: Time.utc(2026, 9, 30, 2, 30))
+        },
+        market: { HISTORY => [history([['2026-09-30', 2510]])] } },
       { name: 'departed_and_cash_short', alpaca: aapl_bars,
         market: { HISTORY => [history((1..30).map { |d| [format('2026-09-%02d', d), 2400 + d] })] },
         setup: lambda { |c|
@@ -301,6 +313,16 @@ module TrackerParity
           buy(c, 'ETH', '0.1', '2400', '2026-09-03T10:00:00Z')
           balance(c, 'USD', '300', usd_price: '1')
           balance(c, 'AAPL', '1', usd_price: '215')
+        } },
+      # A coin the history holds and no venue reports: left at cost, the note naming the one venue it was booked on.
+      { name: 'departed_coin_names_its_venue', rust_balances: true, alpaca: aapl_bars,
+        market: { HISTORY => [history((1..30).map { |d| [format('2026-09-%02d', d), 2400 + d] })] },
+        setup: lambda { |c|
+          deposit(c, '1000', '2026-09-01T14:00:00Z')
+          buy(c, 'AAPL', '2', '200', '2026-09-02T14:30:00Z')
+          buy(c, 'ETH', '0.1', '2400', '2026-09-03T10:00:00Z')
+          balance(c, 'USD', '360', usd_price: '1')
+          balance(c, 'AAPL', '2', usd_price: '215')
         } },
       { name: 'cash_beyond_the_history_and_an_unpriced_holding', alpaca: aapl_bars,
         setup: lambda { |c|
@@ -359,6 +381,16 @@ module TrackerParity
           row(c, :return_of_capital, 'AAPL', '10', '2026-09-20T00:00:00Z', quote_currency: 'USD', quote_amount: '5',
                                                      raw_data: { 'per_share_amount' => '0.5', 'activity_type' => 'DIVROC' })
           balance(c, 'USD', '1005', usd_price: '1')
+          balance(c, 'AAPL', '10', usd_price: '101')
+        } },
+      # Return of capital past the basis: the excess is realised (`roc_at`).
+      { name: 'return_of_capital_past_basis', rust_balances: true, alpaca: aapl_bars,
+        setup: lambda { |c|
+          deposit(c, '2000', '2026-09-01T14:00:00Z')
+          buy(c, 'AAPL', '10', '100', '2026-09-02T14:30:00Z')
+          row(c, :return_of_capital, 'AAPL', '10', '2026-09-20T00:00:00Z', quote_currency: 'USD', quote_amount: '1200',
+                                                     raw_data: { 'per_share_amount' => '120', 'activity_type' => 'DIVROC' })
+          balance(c, 'USD', '2200', usd_price: '1')
           balance(c, 'AAPL', '10', usd_price: '101')
         } },
       { name: 'unquoted_trade_leg', rust_balances: true, alpaca: aapl_bars, market: { HISTORY => [history([['2026-09-02', 201]])] },
@@ -600,6 +632,17 @@ module TrackerParity
           coins(c, 'EUR')
           deposit(c, '300', '2026-09-02T10:00:00Z', currency: 'EUR', exchange: b)
           balance(c, 'EUR', '300', usd_price: '1.17', exchange: b)
+        } },
+      # The same cash with no price on its balance and no rate today: the figures take it at par, and say so.
+      { name: 'cash_at_par_without_a_rate', market: { HISTORY => [history([])] },
+        ecb: { ECB => [{ 'status' => 500, 'body' => 'Internal Server Error' }] }.merge(nothing),
+        setup: lambda { |c|
+          FxRate.delete_all
+          rates('USD', '2026-09-01', '2026-09-10', '1.16')
+          b = binance(c)
+          coins(c, 'EUR')
+          deposit(c, '300', '2026-09-02T10:00:00Z', currency: 'EUR', exchange: b)
+          balance(c, 'EUR', '320', exchange: b)
         } },
       { name: 'standalone_fiat_fee_missing_fx', market: { HISTORY => [history([])] },
         setup: lambda { |c|
@@ -850,22 +893,37 @@ module TrackerParity
   end
 
   def d(value) = value&.to_d&.to_s('F')
+  def t(time) = time&.utc&.iso8601(6)
 
   def summary(s)
     { 'positions' => s.positions.sort_by(&:symbol).map do |p|
         { 'symbol' => p.symbol, 'quantity' => d(p.quantity), 'cost' => d(p.cost_usd), 'avg_cost' => d(p.avg_cost_usd),
-          'estimated' => p.estimated ? true : false, 'unpriced' => d(p.unpriced_quantity) }
+          'opened_at' => t(p.opened_at), 'estimated' => p.estimated ? true : false, 'unpriced' => d(p.unpriced_quantity) }
       end,
-      'total_invested' => d(s.total_invested_usd), 'cash' => s.cash.map { |c, a| [c, d(a)] }, 'cash_basis' => s.cash_basis.map { |c, a| [c, d(a)] },
+      'round_trips' => s.round_trips.map do |r|
+        { 'symbol' => r.symbol, 'opened_at' => t(r.opened_at), 'closed_at' => t(r.closed_at), 'quantity' => d(r.quantity),
+          'invested' => d(r.invested_usd), 'proceeds' => d(r.proceeds_usd), 'fees' => d(r.fees_usd),
+          'realised' => d(r.realised_pnl_usd), 'incomplete' => r.incomplete ? true : false }
+      end,
+      'total_invested' => d(s.total_invested_usd),
+      'received' => d(s.received_usd), 'realised' => d(s.realised_pnl_usd), 'fees' => d(s.fees_usd), 'cash_usd' => d(s.cash_usd),
+      'unpriced_proceeds' => d(s.unpriced_proceeds_usd), 'openings' => s.openings.map { |c, a| [c, d(a)] }, 'cash' => s.cash.map { |c, a| [c, d(a)] }, 'cash_basis' => s.cash_basis.map { |c, a| [c, d(a)] },
       'incomplete' => s.incomplete ? true : false, 'loss_sales' => s.loss_sales.map { |sym, on| [sym, on.to_s] } }
   end
 
   def figures(f)
     positions = f.without_cash
     { 'value' => d(f.value), 'invested' => d(f.invested), 'held_value' => d(positions.value), 'held_cost' => d(positions.invested),
+      'fees' => d(f.fees), 'realised' => d(f.realised), 'unrealised' => d(f.unrealised), 'total' => d(f.total),
       'holdings' => f.holdings.sort_by { |h| h.asset.symbol }.map do |h|
-        { 'symbol' => h.asset.symbol, 'quantity' => d(h.quantity), 'value' => d(h.value), 'cost' => d(h.cost) }
-      end }
+        { 'symbol' => h.asset.symbol, 'quantity' => d(h.quantity), 'value' => d(h.value), 'cost' => d(h.cost),
+          'unrealised' => d(h.unrealised), 'percent' => d(h.percent), 'note' => h.note && note(h.note) }
+      end,
+      'notes' => f.notes.map { |n| note(n) } }
+  end
+
+  def note(n)
+    { 'kind' => n.kind.to_s, 'symbol' => n.symbol, 'exchange' => n.exchange, 'history' => d(n.history), 'held' => d(n.held), 'amount' => d(n.amount_usd) }
   end
 
   # The scopes the job cached, and the figures each of today's rows was made from (PortfolioSnapshot.today_row).

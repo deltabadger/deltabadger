@@ -1,6 +1,7 @@
-//! Page-facing cache of the existing supported walk, not the full Rails page Summary.
+//! Page-facing cache of the tracker walk: every scope's Summary the page reads (Tracker::Ledger::Summary).
 //! One Rust-owned app_configs row per user; no request computes, writes or enqueues.
-use super::{backfill, walk::{Position, Summary, Walked}};
+use super::{backfill, walk::{Position, RoundTrip, Summary, Walked}};
+use crate::figures::at::At;
 use crate::{app_config, figures::{dec::Dec, FiguresError}};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use rusqlite::Connection;
@@ -10,6 +11,11 @@ pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
+/// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
+pub const DECIMAL_TOO_LARGE: &str = "ledger cache computed decimal exceeds 1048576-byte limit";
+pub const PAYLOAD_TOO_LARGE: &str = "ledger cache exceeds its size limit";
+/// Whether a run's error is a publication refusal (nothing to state as a failed calculation).
+pub fn refused(error:&str)->bool { error==DECIMAL_TOO_LARGE || error==PAYLOAD_TOO_LARGE }
 #[derive(Clone, Debug)]
 pub enum State { Cold, Failed(&'static str), Warm(Box<Summary>) }
 #[derive(Clone, Debug)]
@@ -23,8 +29,19 @@ pub fn version(c:&Connection,owner:i64)->Result<Version,FiguresError> {
 }
 pub fn key(owner:i64)->String { format!("rust_tracker_ledger.{owner}") }
 fn encode(s:&Summary)->Value {
-    json!({"positions":s.positions.iter().map(|p|json!({"symbol":p.symbol,"quantity":p.quantity.to_s_f(),"cost":p.cost.to_s_f(),"avg_cost":p.avg_cost.to_s_f(),"estimated":p.estimated,"unpriced":p.unpriced.to_s_f()})).collect::<Vec<_>>(),
-        "total_invested":s.total_invested.to_s_f(),"cash":s.cash.iter().map(|(k,v)|json!([k,v.to_s_f()])).collect::<Vec<_>>(),"cash_basis":s.cash_basis.iter().map(|(k,v)|json!([k,v.to_s_f()])).collect::<Vec<_>>(),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
+    let at=|a:&Option<At>|a.map(|a|a.0);
+    let pairs=|l:&[(String,Dec)]|l.iter().map(|(k,v)|json!([k,v.to_s_f()])).collect::<Vec<_>>();
+    json!({"positions":s.positions.iter().map(|p|json!({"symbol":p.symbol,"quantity":p.quantity.to_s_f(),"cost":p.cost.to_s_f(),"avg_cost":p.avg_cost.to_s_f(),"opened_at":at(&p.opened_at),"estimated":p.estimated,"unpriced":p.unpriced.to_s_f()})).collect::<Vec<_>>(),
+        "round_trips":s.round_trips.iter().map(|t|json!({"symbol":t.symbol,"opened_at":at(&t.opened_at),"closed_at":t.closed_at.0,"quantity":t.quantity.to_s_f(),"invested":t.invested.to_s_f(),"proceeds":t.proceeds.to_s_f(),"fees":t.fees.to_s_f(),"realised":t.realised.to_s_f(),"incomplete":t.incomplete})).collect::<Vec<_>>(),
+        "total_invested":s.total_invested.to_s_f(),"received":s.received.to_s_f(),"realised":s.realised.to_s_f(),"fees":s.fees.to_s_f(),"cash_usd":s.cash_usd.to_s_f(),"unpriced_proceeds":s.unpriced_proceeds.to_s_f(),
+        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
+}
+/// Every computed decimal a summary stores: the bound a reader applies is applied before publishing too.
+fn decimals(s:&Summary)->impl Iterator<Item=&Dec> {
+    [&s.total_invested,&s.received,&s.realised,&s.fees,&s.cash_usd,&s.unpriced_proceeds].into_iter()
+        .chain(s.cash.iter().chain(&s.cash_basis).chain(&s.openings).map(|(_,v)|v))
+        .chain(s.positions.iter().flat_map(|p|[&p.quantity,&p.cost,&p.avg_cost,&p.unpriced]))
+        .chain(s.round_trips.iter().flat_map(|t|[&t.quantity,&t.invested,&t.proceeds,&t.fees,&t.realised]))
 }
 fn malformed()->FiguresError { FiguresError::Data("ledger cache payload is unreadable".into()) }
 fn text(v:&Value)->Result<&str,FiguresError> { v.as_str().ok_or_else(malformed) }
@@ -44,19 +61,33 @@ fn decimal(v:&Value)->Result<Dec,FiguresError> {
     Ok(Dec::parse(text)?)
 }
 fn boolean(v:&Value)->Result<bool,FiguresError> { v.as_bool().ok_or_else(malformed) }
+fn instant(v:&Value)->Result<At,FiguresError> { v.as_i64().map(At).ok_or_else(malformed) }
+fn optional_instant(v:&Value)->Result<Option<At>,FiguresError> { if v.is_null() {Ok(None)} else {instant(v).map(Some)} }
 fn decode(v:&Value)->Result<Summary,FiguresError> {
     let pairs=|v:&Value|array(v)?.iter().map(|p|Ok((text(&p[0])?.into(),decimal(&p[1])?))).collect::<Result<Vec<_>,FiguresError>>();
-    Ok(Summary { positions:array(&v["positions"] )?.iter().map(|p|Ok(Position { symbol:text(&p["symbol"] )?.into(),quantity:decimal(&p["quantity"] )?,cost:decimal(&p["cost"] )?,avg_cost:decimal(&p["avg_cost"] )?,estimated:boolean(&p["estimated"] )?,unpriced:decimal(&p["unpriced"] )? })).collect::<Result<_,FiguresError>>()?,
-        total_invested:decimal(&v["total_invested"] )?,cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
+    Ok(Summary { positions:array(&v["positions"] )?.iter().map(|p|Ok(Position { symbol:text(&p["symbol"] )?.into(),quantity:decimal(&p["quantity"] )?,cost:decimal(&p["cost"] )?,avg_cost:decimal(&p["avg_cost"] )?,opened_at:optional_instant(&p["opened_at"])?,estimated:boolean(&p["estimated"] )?,unpriced:decimal(&p["unpriced"] )? })).collect::<Result<_,FiguresError>>()?,
+        round_trips:array(&v["round_trips"])?.iter().map(|t|Ok(RoundTrip { symbol:text(&t["symbol"])?.into(),opened_at:optional_instant(&t["opened_at"])?,closed_at:instant(&t["closed_at"])?,quantity:decimal(&t["quantity"])?,invested:decimal(&t["invested"])?,proceeds:decimal(&t["proceeds"])?,fees:decimal(&t["fees"])?,realised:decimal(&t["realised"])?,incomplete:boolean(&t["incomplete"])? })).collect::<Result<_,FiguresError>>()?,
+        total_invested:decimal(&v["total_invested"] )?,received:decimal(&v["received"])?,realised:decimal(&v["realised"])?,fees:decimal(&v["fees"])?,cash_usd:decimal(&v["cash_usd"])?,unpriced_proceeds:decimal(&v["unpriced_proceeds"])?,
+        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
 }
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
 pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
     if &version(c,owner)? != before { return Ok(false); }
     let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
-    // Schema 2: every venue's scope (schema 1 held one venue's and reads cold).
-    let payload=json!({"schema":2,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
-    if payload.len()>MAX_PAYLOAD {return Err(FiguresError::NotComputed("ledger cache exceeds its size limit".into()));}
+    // The read bound applies at publish too: an entry the reader would refuse is never written.
+    for summary in walked.into_iter().flat_map(|w|std::iter::once(&w.whole).chain(w.venues.iter().map(|(_,s)|s))) {
+        for decimal in decimals(summary) {
+            if decimal.to_s_f().len()>MAX_COMPUTED_DECIMAL {
+                crate::engine::log("[tracker] ledger cache publish refused: computed decimal exceeds 1048576-byte limit");
+                return Err(FiguresError::NotComputed(DECIMAL_TOO_LARGE.into()));
+            }
+        }
+    }
+    // Schema 3: the page's figures too (round trips, received, realised, fees, cash at today's rates, unpriced proceeds,
+    // openings, position dates). Schema 1 and 2 entries read cold and the next pass republishes.
+    let payload=json!({"schema":3,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
+    if payload.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache publish refused: payload exceeds 8388608-byte limit");return Err(FiguresError::NotComputed(PAYLOAD_TOO_LARGE.into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     Ok(true)
 }
@@ -67,7 +98,7 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
     let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(State::Cold)};
     if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(State::Cold)}
     let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(State::Cold)};
-    if v["schema"].as_u64()!=Some(2) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
+    if v["schema"].as_u64()!=Some(3) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
     let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(State::Cold)};
     if now>=expires {return Ok(State::Cold)}
     let current=version(c,owner)?;
@@ -111,12 +142,53 @@ mod tests {
     fn now()->DateTime<Utc> {"2026-10-08T12:00:00Z".parse().unwrap()}
     fn walked()->Walked {
         let mut whole=Summary::empty(); whole.total_invested=Dec::strict("123.4567890123456789").unwrap();
-        whole.positions.push(Position{symbol:"AAPL".into(),quantity:Dec::strict("2.5").unwrap(),cost:Dec::strict("123.4567890123456789").unwrap(),avg_cost:Dec::strict("49.38271560493827156").unwrap(),estimated:true,unpriced:Dec::zero()});
+        whole.positions.push(Position{symbol:"AAPL".into(),quantity:Dec::strict("2.5").unwrap(),cost:Dec::strict("123.4567890123456789").unwrap(),avg_cost:Dec::strict("49.38271560493827156").unwrap(),opened_at:Some(At(1_790_000_000_123_456_789)),estimated:true,unpriced:Dec::zero()});
+        whole.round_trips.push(RoundTrip{symbol:"MSFT".into(),opened_at:None,closed_at:At(1_790_000_100_000_000_000),quantity:Dec::strict("1.5").unwrap(),invested:Dec::strict("300.01").unwrap(),proceeds:Dec::strict("280.5").unwrap(),fees:Dec::strict("0.25").unwrap(),realised:Dec::strict("-19.76").unwrap(),incomplete:true});
+        whole.received=Dec::strict("3.3").unwrap();whole.realised=Dec::strict("-19.76").unwrap();whole.fees=Dec::strict("0.25").unwrap();whole.cash_usd=Dec::strict("7.125").unwrap();whole.unpriced_proceeds=Dec::strict("0.5").unwrap();
+        whole.openings=vec![("BTC".into(),Dec::strict("0.01").unwrap())];
         whole.cash=vec![("USD".into(),Dec::strict("-0.0").unwrap())];whole.cash_basis=vec![("USD".into(),Dec::strict("1.01").unwrap())];whole.incomplete=true;whole.loss_sales=vec![("AAPL".into(),now().date_naive())];
         Walked{venues:vec![(7,whole.clone())],whole,terms:vec![]}
     }
     fn warm(c:&Connection,exchange:Option<i64>)->Summary {
         let State::Warm(s)=read(c,1,exchange,now()).unwrap() else { panic!("expected warm cache") };*s
+    }
+    #[test]
+    fn cache_publish_decimal_limit_keeps_previous_entry() {
+        let c=db();let v=version(&c,1).unwrap();
+        publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
+        let before=app_config::get_plain(&c,&key(1)).unwrap();
+        let timestamps: (String,String)=c.query_row("SELECT created_at,updated_at FROM app_configs WHERE key=?1",[key(1)],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+        let changes=c.total_changes();
+        // Exercise every decimal field and both scopes, below the payload limit.
+        for scope in [false,true] {
+            for field in 0..20 {
+                let mut w=walked();
+                let s=if scope {&mut w.venues[0].1}else{&mut w.whole};
+                let huge=Dec::parse(&format!("0.{}1","0".repeat(MAX_COMPUTED_DECIMAL))).unwrap();
+                match field {
+                    0=>s.total_invested=huge,1=>s.positions[0].quantity=huge,
+                    2=>s.positions[0].cost=huge,3=>s.positions[0].avg_cost=huge,
+                    4=>s.positions[0].unpriced=huge,5=>s.cash[0].1=huge,
+                    6=>s.cash_basis[0].1=huge,7=>s.positions[0].cost=huge.neg(),
+                    8=>s.received=huge,9=>s.realised=huge,10=>s.fees=huge,11=>s.cash_usd=huge,12=>s.unpriced_proceeds=huge,13=>s.openings[0].1=huge,
+                    14=>s.round_trips[0].quantity=huge,15=>s.round_trips[0].invested=huge,16=>s.round_trips[0].proceeds=huge,17=>s.round_trips[0].fees=huge,
+                    18=>s.round_trips[0].realised=huge,_=>s.realised=huge.neg(),
+                }
+                let result=publish(&c,1,&v,Some(&w),7,now());
+                assert!(result.is_err(),"publish must refuse oversize decimal in scope {scope} field {field}");
+                assert_eq!(app_config::get_plain(&c,&key(1)).unwrap(),before,"previous cache must survive rejected publication");
+                assert_eq!(c.query_row("SELECT created_at,updated_at FROM app_configs WHERE key=?1",[key(1)],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).unwrap(),timestamps);
+                assert_eq!(c.total_changes(),changes,"rejected publication must execute no write");
+                warm(&c,None);
+            }
+        }
+    }
+    #[test]
+    fn cache_publish_decimal_limit_logs_reason() {
+        let output=std::process::Command::new(std::env::current_exe().unwrap()).args(["--exact","tracker::cache::tests::cache_publish_decimal_limit_keeps_previous_entry","--nocapture"]).output().unwrap();
+        assert!(output.status.success());
+        let log=String::from_utf8(output.stdout).unwrap();
+        assert!(log.contains("ledger cache publish refused: computed decimal exceeds 1048576-byte limit"),"publish refusal must state safe reason: {log}");
     }
     #[test]
     fn cache_roundtrip_is_exact_owner_scoped_and_read_only() {
@@ -159,13 +231,28 @@ mod tests {
         let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();raw["padding"]=serde_json::json!("x".repeat(MAX_PAYLOAD));
         app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));
+        // Schema 3's figures are bounded on read like the rest: an oversized one never becomes money.
+        let huge=serde_json::json!(format!("0.{}1","0".repeat(MAX_COMPUTED_DECIMAL)));
+        for path in [&["whole","received"][..],&["whole","realised"],&["whole","fees"],&["whole","cash_usd"],&["whole","unpriced_proceeds"]] {
+            publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
+            let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();raw[path[0]][path[1]]=huge.clone();
+            app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
+            assert!(matches!(read(&c,1,None,now()),Ok(State::Cold)),"oversized {path:?}");
+        }
+        for (list,field) in [("round_trips","fees"),("round_trips","realised"),("openings","1")] {
+            publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
+            let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
+            if list=="openings" {raw["whole"][list][0][1]=huge.clone()} else {raw["whole"][list][0][field]=huge.clone()}
+            app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
+            assert!(matches!(read(&c,1,None,now()),Ok(State::Cold)),"oversized {list}.{field}");
+        }
     }
     #[test]
     fn cache_failure_malformed_schema_and_bad_decimals_never_return_money() {
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,None,7,now()).unwrap();
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Failed(UNAVAILABLE)));
         for raw in ["not JSON","null","{}"] {app_config::set_plain(&c,&key(1),raw,now()).unwrap();assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));}
-        for (field,value) in [("schema",serde_json::json!(0)),("owner",serde_json::json!(42))] {
+        for (field,value) in [("schema",serde_json::json!(0)),("schema",serde_json::json!(2)),("owner",serde_json::json!(42))] {
             publish(&c,1,&v,Some(&walked()),7,now()).unwrap();let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();raw[field]=value;app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));
         }
         publish(&c,1,&v,Some(&walked()),7,now()).unwrap();let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();raw["whole"]["total_invested"]=serde_json::json!("NaN");app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));
