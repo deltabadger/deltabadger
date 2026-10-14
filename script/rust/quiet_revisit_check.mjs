@@ -298,8 +298,13 @@ try {
   check("revisit builds the chart once (the preview's)", page.built === 1, page);
   check("revisit fetches no chart frame", chartRequests(1) === before, server.requests.slice(-5));
   check("revisit leaves one permanent #flash", page.flash === 1, page);
-  const fresh = await evaluate(`JSON.stringify(__chart().chart.data.datasets[0].data.at(-1).y)`);
-  check("revisit draws the answer's figures in place", Number(fresh) !== 0 && page.datasets >= 1, fresh);
+  // The last point of the plotted curve is the answer's, not the preview's (one version behind).
+  const plotted = await evaluate(`__chart().chart.data.datasets[0].data.at(-1).y`);
+  const answered = figures(1).pnl.at(-1);
+  server.version[1]--;
+  const previewed = figures(1).pnl.at(-1);
+  server.version[1]++;
+  check("revisit draws the answer's figures in place", Math.abs(plotted - answered) < 1e-9 && Math.abs(plotted - previewed) > 1e-6, { plotted, answered, previewed });
 
   // 2. Stream subscriptions live through the morph, and still deliver.
   check("revisit keeps connected stream sources", page.streams.length === 1 && page.streams[0].mark === "preview0" && page.streams[0].connected, page.streams);
