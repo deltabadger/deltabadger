@@ -115,6 +115,7 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
     }
     if form.is_empty() { fail(draft, "No settings provided to update.".into()); return Ok(InputOutcome::Parsed); }
     let accepted: Map<String, Value> = form.keys().map(|k| (k.clone(), Value::Null)).collect();
+    draft.callback_zone = Some(zone.to_owned());
     match draft.parse(c, &Value::Object(form), zone, now) {
         Ok(()) | Err(super::draft::ParseError::Invalid(_)) => {},
         Err(super::draft::ParseError::Database(e)) => return Err(e),
