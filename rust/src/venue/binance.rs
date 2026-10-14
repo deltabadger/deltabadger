@@ -68,6 +68,13 @@ impl<T: Transport> BinanceVenue<T> {
         params.push(("timestamp", timestamp_ms(now).to_string()));
         let signature = sign(&self.secret, &build_query(&params));
         params.push(("signature", signature));
+        self.get(path, params, limit).await
+    }
+
+    /// An unsigned GET (honeymaker's #exchange_information): the params sorted, no key, no signature.
+    pub async fn public_get(&self, path: &str, params: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> { self.get(path, params, limit).await }
+
+    async fn get(&self, path: &str, mut params: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> {
         params.sort_by(|a, b| a.0.cmp(b.0));
         let request = HttpRequest { method: "GET", base: self.base.clone(), path: path.into(), query: params, body: None, not_after: None };
         match self.transport.send_limited(&request, limit).await {

@@ -90,6 +90,79 @@ impl Transport for Served {
     }
 }
 
+/// A Binance account served from a step's `binance_state`, as script/rust/sync.rb's FakeBinance serves it (see there):
+/// the histories by window and page, the trade list by `fromId`, by `startTime`, or the most recent; failures by path
+/// (or path and symbol).
+#[derive(Clone)]
+struct FakeBinance { state: Arc<Value>, requests: std::rc::Rc<std::cell::RefCell<Vec<HttpRequest>>> }
+
+impl FakeBinance {
+    fn body(&self, r: &HttpRequest) -> Result<Value, String> {
+        let q = |k: &str| r.query.iter().find(|(name, _)| *name == k).map(|(_, v)| v.clone());
+        let int = |k: &str| q(k).and_then(|v| v.parse::<i64>().ok());
+        let list = |k: &str| self.state[k].as_array().cloned().unwrap_or_default();
+        let window = |rows: Vec<Value>, time: &dyn Fn(&Value) -> Option<i64>| -> Value {
+            let (from, to) = (int("startTime"), int("endTime"));
+            let (offset, limit) = (int("offset").unwrap_or(0) as usize, int("limit").unwrap_or(1000) as usize);
+            Value::Array(rows.into_iter().filter(|r| time(r).is_some_and(|t| from.is_none_or(|f| t >= f) && to.is_none_or(|e| t <= e))).skip(offset).take(limit).collect())
+        };
+        Ok(match r.path.as_str() {
+            "/api/v3/account" => json!({ "accountType": "SPOT", "balances": list("balances").iter().map(|b| json!({ "asset": b[0], "free": b[1], "locked": b.get(2).cloned().unwrap_or(json!("0.00000000")) })).collect::<Vec<_>>() }),
+            "/api/v3/exchangeInfo" => json!({ "timezone": "UTC", "symbols": list("symbols").iter().map(|s| json!({ "symbol": s[0], "status": s.get(3).cloned().unwrap_or(json!("TRADING")), "baseAsset": s[1], "quoteAsset": s[2] })).collect::<Vec<_>>() }),
+            "/sapi/v1/capital/deposit/hisrec" => window(list("deposits"), &|d| d["insertTime"].as_i64()),
+            "/sapi/v1/capital/withdraw/history" => window(list("withdrawals"), &|w| w["applyTime"].as_str().and_then(super::binance_ledger::apply_time).map(|t| t.timestamp_millis())),
+            "/api/v3/myTrades" => {
+                let mut trades = self.state["trades"][q("symbol").unwrap_or_default()].as_array().cloned().unwrap_or_default();
+                trades.sort_by_key(|t| t["id"].as_i64());
+                let limit = int("limit").unwrap_or(500) as usize;
+                Value::Array(match (int("fromId"), int("startTime")) {
+                    (Some(from), _) => trades.into_iter().filter(|t| t["id"].as_i64().is_some_and(|id| id >= from)).take(limit).collect(),
+                    (None, Some(from)) => trades.into_iter().filter(|t| t["time"].as_i64().is_some_and(|at| at >= from)).take(limit).collect(),
+                    (None, None) => { let skip = trades.len().saturating_sub(limit); trades.into_iter().skip(skip).collect() }
+                })
+            }
+            // Rails' FakeBinance serves these from the state's lists, each row by its own time.
+            "/sapi/v1/convert/tradeFlow" => json!({ "list": window(list("converts"), &|c| c["createTime"].as_i64()), "moreData": false }),
+            "/sapi/v1/fiat/payments" => {
+                let key = if q("transactionType").as_deref() == Some("1") { "fiat_sells" } else { "fiat_buys" };
+                let (from, to) = (int("beginTime"), int("endTime"));
+                let rows: Vec<Value> = list(key).into_iter().filter(|p| p["createTime"].as_i64().is_some_and(|t| from.is_none_or(|f| t >= f) && to.is_none_or(|e| t <= e))).collect();
+                let (page, size) = (int("page").unwrap_or(1).max(1) as usize, int("rows").unwrap_or(100) as usize);
+                json!({ "code": "000000", "message": "success", "total": rows.len(), "success": true, "data": rows.iter().skip((page - 1) * size).take(size).cloned().collect::<Vec<_>>() })
+            }
+            "/sapi/v1/asset/dribblet" => { let rows = window(list("dust"), &|d| d["operateTime"].as_i64()); json!({ "total": rows.as_array().map_or(0, Vec::len), "userAssetDribblets": rows }) }
+            "/sapi/v1/asset/assetDividend" => { let rows = window(list("dividends"), &|d| d["divTime"].as_i64()); json!({ "rows": rows, "total": rows.as_array().map_or(0, Vec::len) }) }
+            "/sapi/v1/margin/interestHistory" | "/sapi/v1/margin/forceLiquidationRec" => json!({ "rows": [], "total": 0 }),
+            "/fapi/v1/income" | "/dapi/v1/income" => json!([]),
+            path if path.starts_with("/sapi/v1/simple-earn/") => {
+                let key = path.trim_start_matches("/sapi/v1/simple-earn/").replace("/history/", "_");
+                let (from, to) = (int("startTime"), int("endTime"));
+                let time = |r: &Value| ["time", "deliverDate", "createTime"].iter().find_map(|k| r[*k].as_i64());
+                let rows: Vec<Value> = self.state["earn"][&key].as_array().cloned().unwrap_or_default().into_iter()
+                    .filter(|r| time(r).is_some_and(|t| from.is_none_or(|f| t >= f) && to.is_none_or(|e| t <= e))).collect();
+                let (current, size) = (int("current").unwrap_or(1).max(1) as usize, int("size").unwrap_or(10) as usize);
+                json!({ "rows": rows.iter().skip((current - 1) * size).take(size).cloned().collect::<Vec<_>>(), "total": rows.len() })
+            }
+            other => return Err(format!("fake Binance has no {other}")),
+        })
+    }
+}
+
+impl Transport for FakeBinance {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        self.requests.borrow_mut().push(r.clone());
+        let symbol = r.query.iter().find(|(k, _)| *k == "symbol").map(|(_, v)| v.as_str()).unwrap_or_default();
+        let fails = &self.state["fail"];
+        if let Some(reply) = fails.get(format!("{}?symbol={symbol}", r.path)).or_else(|| fails.get(&r.path)) {
+            if let Some(message) = reply["network"].as_str().map(|_| reply["message"].as_str().unwrap_or_default().to_string()) { return Err(TransportError::NotSent(message)); }
+            let body = match &reply["body"] { Value::String(s) => s.clone(), other => other.to_string() };
+            return Ok(HttpResponse { status: reply["status"].as_u64().unwrap_or(200) as u16, body });
+        }
+        let body = self.body(r).unwrap_or_else(|e| panic!("{e}"));
+        Ok(HttpResponse { status: 200, body: body.to_string() })
+    }
+}
+
 /// After every step, each bot's `restatement_generation`: a split that arrives in two syncs moves it twice.
 fn generations(c: &Connection) -> Result<Vec<(i64, i64)>, SyncError> {
     let mut s = c.prepare("SELECT id, restatement_generation FROM bots ORDER BY id")?;
@@ -123,18 +196,22 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     for step in scenario["steps"].as_array().ok_or_else(|| data("steps"))? {
         let at: DateTime<Utc> = step["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| data("step.at"))?;
         let binance = step.get("binance").is_some();
+        let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
         let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
-        let raised = match step["kind"].as_str() {
+        let raised = match (step["kind"].as_str(), &fake) {
+            (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
+            (kind, _) => match kind {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
-        };
+        } };
         // As Rails' harness logs them: "METHOD path" and the query pairs, sorted.
-        let mut requests: Vec<Value> = transport.requests().iter().map(|r| {
+        let sent = match &fake { Some(fake) => fake.requests.borrow().clone(), None => transport.requests() };
+        let mut requests: Vec<Value> = sent.iter().map(|r| {
             let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
             query.sort();
             json!([format!("{} {}", r.method, r.path), query])

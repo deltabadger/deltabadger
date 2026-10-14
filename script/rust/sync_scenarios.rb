@@ -665,9 +665,9 @@ module SyncScenarios
     ]
   end
 
-  # Exchanges::Binance#get_ledger's deposits, withdrawals and spot trades with AccountTransactionSync, both sides served
-  # from one Binance account (FakeBinance). Requests differ by design (Rust pages trades by id, paces withdrawals and
-  # reads no convert/earn/margin source yet); the rows are compared, and Rust's reads-more rulings are listed.
+  # Exchanges::Binance#get_ledger with AccountTransactionSync, both sides served from one Binance account (FakeBinance).
+  # Requests differ by design (Rust pages trades by id, walks every source in windows, paces, and reads no margin or
+  # futures); the rows are compared, and Rust's reads-more rulings are listed.
   def binance_ledger_scenarios
     night = '2026-09-20T02:00:00.250000Z'
     symbols = [%w[BTCUSDT BTC USDT], %w[ETHUSDT ETH USDT], %w[ETHBTC ETH BTC], %w[BTCEUR BTC EUR], %w[BNBUSDT BNB USDT], %w[XRPUSDT XRP USDT BREAK]]
@@ -701,7 +701,56 @@ module SyncScenarios
     later = { 'symbols' => symbols, 'balances' => [%w[BTC 0.04], %w[USDT 400], %w[ETH 0.7]],
               'trades' => { 'BTCUSDT' => btc.first(1) + [P.bn_trade(102, 12, '62000', '0.001', t.(2026, 9, 19, 21), buyer: true, asset: 'BNB', commission: '0.0001')],
                             'ETHBTC' => eth + [P.bn_trade(8, 4, '0.041', '0.2', t.(2026, 9, 19, 20, 30), buyer: true, commission: '0.0002', asset: 'ETH')] } }
+    # The sources after the trades: converts, fiat payments, dust, dividends and Simple Earn, in the shapes Binance
+    # documents. Rails' fields everywhere here; the earn rows Rails misreads are their own scenario below.
+    at = ->(*args) { P.ms(Time.utc(*args)) }
+    others = {
+      'converts' => [{ 'quoteId' => 'f3b9e1c2a7d4', 'orderId' => 940_708_407_462_087_195, 'orderStatus' => 'SUCCESS', 'fromAsset' => 'USDT', 'fromAmount' => '100',
+                       'toAsset' => 'BNB', 'toAmount' => '0.25000000', 'ratio' => '0.0025', 'inverseRatio' => '400', 'createTime' => 1_786_789_800_321 }],
+      'fiat_buys' => [{ 'orderNo' => '353fca443f06466db0c4dc89f94f027a', 'sourceAmount' => '200.0', 'fiatCurrency' => 'EUR', 'obtainAmount' => '0.003',
+                        'cryptoCurrency' => 'BTC', 'totalFee' => '2.5', 'price' => '66000', 'status' => 'Completed', 'paymentMethod' => 'Credit Card',
+                        'createTime' => at.(2026, 8, 16, 9), 'updateTime' => at.(2026, 8, 16, 9, 1) },
+                      { 'orderNo' => 'pending01', 'sourceAmount' => '50.0', 'fiatCurrency' => 'EUR', 'obtainAmount' => '0.0007', 'cryptoCurrency' => 'BTC',
+                        'totalFee' => '1', 'price' => '66000', 'status' => 'Processing', 'paymentMethod' => 'Credit Card', 'createTime' => at.(2026, 8, 16, 10),
+                        'updateTime' => at.(2026, 8, 16, 10) }],
+      'fiat_sells' => [{ 'orderNo' => 'sell01', 'sourceAmount' => '0.001', 'fiatCurrency' => 'EUR', 'obtainAmount' => '60.0', 'cryptoCurrency' => 'BTC',
+                         'totalFee' => '0', 'price' => '60000', 'status' => 'Completed', 'createTime' => at.(2026, 8, 17, 9), 'updateTime' => at.(2026, 8, 17, 9) }],
+      'dust' => [{ 'operateTime' => 1_786_960_800_777, 'totalTransferedAmount' => '0.000882', 'totalServiceChargeAmount' => '0.000018', 'transId' => 45_178_372_831,
+                   'userAssetDribbletDetails' => [
+                     { 'transId' => 4_359_321, 'serviceChargeAmount' => '0.000009', 'amount' => '0.9', 'operateTime' => 1_786_960_800_777, 'transferedAmount' => '0.000441',
+                       'fromAsset' => 'USDT', 'targetAsset' => 'BNB' },
+                     { 'transId' => 4_359_322, 'serviceChargeAmount' => '0.000009', 'amount' => '1.5', 'operateTime' => 1_786_960_800_777, 'transferedAmount' => '0.000441',
+                       'fromAsset' => 'XRP', 'targetAsset' => 'BNB' }] }],
+      'dividends' => [{ 'id' => 1_637_366_104, 'amount' => '10.00000000', 'asset' => 'BNB', 'divTime' => at.(2026, 8, 18, 12), 'enInfo' => 'BNB Vault',
+                        'tranId' => 2_968_885_920, 'direction' => 1 }],
+      'earn' => { 'flexible_rewardsRecord' => [{ 'asset' => 'USDT', 'rewards' => '0.05000000', 'projectId' => 'USDT001', 'type' => 'REALTIME', 'time' => at.(2026, 8, 19) }] }
+    }
+    everything = basic.merge(others)
+    second = everything.merge('trades' => { 'BTCUSDT' => btc + [P.bn_trade(102, 12, '62000', '0.001', t.(2026, 9, 19, 21), buyer: true, asset: 'BNB', commission: '0.0001')],
+                                           'ETHBTC' => eth },
+                              'converts' => others['converts'] + [others['converts'][0].merge('quoteId' => 'a1b2c3', 'fromAmount' => '40', 'toAmount' => '0.1',
+                                                                                               'createTime' => at.(2026, 9, 21, 12))],
+                              'earn' => { 'flexible_rewardsRecord' => others['earn']['flexible_rewardsRecord'] +
+                                                                       [{ 'asset' => 'USDT', 'rewards' => '0.06', 'projectId' => 'USDT001', 'type' => 'REALTIME', 'time' => at.(2026, 9, 21) }] })
+    documented = basic.merge('earn' => {
+      'locked_rewardsRecord' => [{ 'positionId' => '123123', 'time' => at.(2026, 8, 20), 'asset' => 'BNB', 'lockPeriod' => '30', 'amount' => '0.00120069', 'type' => 'Locked Rewards' }],
+      'flexible_subscriptionRecord' => [{ 'amount' => '100.00000000', 'asset' => 'USDT', 'time' => at.(2026, 8, 21), 'purchaseId' => 26_055, 'productId' => 'USDT001',
+                                          'type' => 'AUTO', 'sourceAccount' => 'SPOT', 'amtFromSpot' => '100', 'amtFromFunding' => '0', 'status' => 'SUCCESS' }],
+      'flexible_redemptionRecord' => [{ 'amount' => '10.54000000', 'asset' => 'USDT', 'time' => at.(2026, 8, 22), 'productId' => 'USDT001', 'redeemId' => 40_607,
+                                        'destAccount' => 'SPOT', 'status' => 'PAID' }],
+      'locked_subscriptionRecord' => [{ 'positionId' => '123124', 'purchaseId' => '26056', 'projectId' => 'BNB30', 'time' => at.(2026, 8, 23), 'asset' => 'BNB',
+                                        'amount' => '0.5', 'lockPeriod' => '30', 'type' => 'NORMAL', 'sourceAccount' => 'SPOT', 'status' => 'SUCCESS' }],
+      'locked_redemptionRecord' => [{ 'positionId' => '123124', 'redeemId' => '40608', 'time' => at.(2026, 9, 2), 'asset' => 'BNB', 'lockPeriod' => '30', 'amount' => '0.5',
+                                      'type' => 'MATURE', 'deliverDate' => at.(2026, 9, 2).to_s, 'status' => 'PAID' }]
+    })
     [
+      { name: 'binance-ledger-other_sources', setup: ->(ctx) { P.binance(ctx) }, steps: [P.binance_ledger(night, everything)] },
+      # Two nights over every source; Rust's second night also runs on Rails' first (rust/tests/sync_parity.rs hand-over).
+      { name: 'binance-ledger-two_nights', setup: ->(ctx) { P.binance(ctx) },
+        steps: [P.binance_ledger(night, everything), P.binance_ledger('2026-09-22T02:00:00.250000Z', second)] },
+      { name: 'binance-ledger-earn_documented_amounts', setup: ->(ctx) { P.binance(ctx) }, steps: [P.binance_ledger(night, documented)] },
+      { name: 'binance-ledger-earn_fails', setup: ->(ctx) { P.binance(ctx) },
+        steps: [P.binance_ledger(night, everything.merge('fail' => { '/sapi/v1/simple-earn/flexible/history/rewardsRecord' => { 'status' => 400, 'body' => { 'code' => -1003, 'msg' => 'Too many requests.' } } }))] },
       { name: 'binance-ledger-full', setup: ->(ctx) { P.binance(ctx) }, steps: [P.binance_ledger(night, basic)] },
       { name: 'binance-ledger-idle', setup: incremental.call(t.(2026, 9, 19, 2)) { |ctx| stored.call(ctx) },
         steps: [P.binance_ledger(night, later.merge('trades' => { 'BTCUSDT' => btc.first(1), 'ETHBTC' => eth }))] },

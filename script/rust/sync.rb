@@ -87,13 +87,12 @@ end
 # histories by their documented windows and pages, the trade list by `fromId` (trades >= it, by id), by `startTime`
 # (from it on, by id; ponytail: the docs do not say what an open-ended startTime returns, so nothing is cut off at
 # 24 hours here) or else the most recent `limit`. Rust's half (rust/src/sync/parity.rs FakeBinance) serves the same.
-# The sources Rails reads and Rust does not yet (convert, fiat, dust, dividends, earn, margin, futures) answer empty.
+# Converts, fiat payments, dust, dividends and Simple Earn are served from the state by each row's own time, and paged
+# where Binance pages; margin and futures (not read by Rust, ruling Q11) answer empty.
 module FakeBinance
   module_function
 
   EMPTY = {
-    '/sapi/v1/convert/tradeFlow' => { 'list' => [] }, '/sapi/v1/fiat/payments' => { 'data' => [] },
-    '/sapi/v1/asset/dribblet' => { 'total' => 0, 'userAssetDribblets' => [] }, '/sapi/v1/asset/assetDividend' => { 'rows' => [], 'total' => 0 },
     '/sapi/v1/margin/interestHistory' => { 'rows' => [], 'total' => 0 }, '/sapi/v1/margin/forceLiquidationRec' => { 'rows' => [], 'total' => 0 },
     '/fapi/v1/income' => [], '/dapi/v1/income' => []
   }.freeze
@@ -113,10 +112,30 @@ module FakeBinance
            when '/sapi/v1/capital/deposit/hisrec' then window(state.fetch('deposits', []), query) { |d| d['insertTime'] }
            when '/sapi/v1/capital/withdraw/history' then window(state.fetch('withdrawals', []), query) { |w| applied(w['applyTime']) }
            when '/api/v3/myTrades' then trades(state.fetch('trades', {}).fetch(query['symbol'], []), query)
-           when %r{\A/sapi/v1/simple-earn/} then { 'rows' => [], 'total' => 0 }
+           when '/sapi/v1/convert/tradeFlow' then { 'list' => window(state.fetch('converts', []), query) { |c| c['createTime'] }, 'moreData' => false }
+           when '/sapi/v1/fiat/payments'
+             rows = between(state.fetch(query['transactionType'] == '1' ? 'fiat_sells' : 'fiat_buys', []), query['beginTime'], query['endTime']) { |p| p['createTime'] }
+             size = query.fetch('rows', '100').to_i
+             { 'code' => '000000', 'message' => 'success', 'total' => rows.size, 'success' => true,
+               'data' => rows.drop((query.fetch('page', '1').to_i - 1) * size).first(size) }
+           when '/sapi/v1/asset/dribblet'
+             rows = between(state.fetch('dust', []), query['startTime'], query['endTime']) { |d| d['operateTime'] }
+             { 'total' => rows.size, 'userAssetDribblets' => rows }
+           when '/sapi/v1/asset/assetDividend'
+             rows = window(state.fetch('dividends', []), query) { |d| d['divTime'] }
+             { 'rows' => rows, 'total' => rows.size }
+           when %r{\A/sapi/v1/simple-earn/}
+             key = path.delete_prefix('/sapi/v1/simple-earn/').sub('/history/', '_')
+             rows = between(state.fetch('earn', {}).fetch(key, []), query['startTime'], query['endTime']) { |r| r['time'] || r['deliverDate'] || r['createTime'] }
+             size = query.fetch('size', '10').to_i
+             { 'rows' => rows.drop((query.fetch('current', '1').to_i - 1) * size).first(size), 'total' => rows.size }
            else EMPTY.fetch(path) { raise Harness::Unscripted, "fake Binance has no #{path}" }
            end
     { 'status' => 200, 'body' => body }
+  end
+
+  def between(rows, from, to)
+    rows.select { |r| (t = yield(r)) && (from.nil? || t >= from.to_i) && (to.nil? || t <= to.to_i) }
   end
 
   def window(rows, query)
