@@ -51,6 +51,31 @@ fn withheld(name: &str, tiles: String, holdings: String) -> (String, String) {
     (parts.join(marker), format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>\n\n"))
 }
 
+/// Rails' page with the listed divergences applied (`withheld`), and with no display rate each transaction row's money
+/// stated as unavailable (D5a's rule: never a dollar figure where the reader's currency was asked for).
+fn withheld_page(name: &str, body: &str) -> String {
+    let [_, _, tiles, holdings, _] = rails_regions(body);
+    let (new_tiles, new_holdings) = withheld(name, tiles.clone(), holdings.clone());
+    let mut out = body.to_string();
+    if !tiles.is_empty() { out = out.replacen(&tiles, &new_tiles, 1); }
+    out = out.replacen(&holdings, &new_holdings, 1);
+    if name == "populated_dead" {
+        // The navbar ring withholds balances no current key produced already (S1); Rails draws them.
+        let head = out.find("      <circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\"\n").unwrap();
+        let end = head + out[head..].find("</svg>\n").unwrap();
+        out.replace_range(head..end, "    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n");
+    }
+    if name == "populated_fx_unavailable" {
+        while let Some(start) = out.find("<tr id=\"account_transaction_") {
+            let id: String = out[start + 28..].chars().take_while(char::is_ascii_digit).collect();
+            let end = start + out[start..].find("</tr>\n").unwrap() + 6;
+            out.replace_range(start..end, &deltabadger::web::tracker::row::unavailable(id.parse().unwrap()).replace("<tr id", "<TR id"));
+        }
+        out = out.replace("<TR id", "<tr id");
+    }
+    out
+}
+
 /// The request's context, as the router builds it for a signed-in GET of `path`.
 fn ctx(app: &deltabadger::web::App, c: &Connection, owner: i64, path: &str, token: &str) -> deltabadger::web::layout::Ctx {
     let (route, query) = path.split_once('?').unwrap_or((path, ""));
@@ -92,7 +117,7 @@ async fn populated_regions_match_rails() {
     let selected = std::env::var("D5_POPULATED_CASES").unwrap_or_default();
     let mut names = std::fs::read_dir(&root).unwrap().map(|e| e.unwrap()).filter(|e| e.file_type().unwrap().is_dir()).map(|e| e.file_name().into_string().unwrap()).collect::<Vec<_>>();
     names.sort();
-    assert_eq!(names.len(), 66, "the populated grid");
+    assert_eq!(names.len(), 76, "the populated grid");
     let mut failures = vec![];
     for name in names {
         if !selected.is_empty() && !selected.split(',').any(|s| s == name) { continue; }
@@ -116,10 +141,14 @@ async fn populated_regions_match_rails() {
         if name == "populated_report_refused" { std::fs::write(format!("{}.refused.json", csv.display()), r#"{"reason":"tokenized_unsupported","symbols":["TSLAx","NVDAx"]}"#).unwrap(); }
         if name == "populated_report_ready" { std::fs::write(&csv, "date,amount\n").unwrap(); }
         // The ledger the scheduler would have cached by now (none where Rails has none cached either).
+        // The pass writes today's snapshot as Rails' job does; the recorded page read none (Rails' fixture computed the
+        // ledger alone), so the history the page draws is put back as it was.
+        c.execute_batch("CREATE TEMP TABLE kept_whole AS SELECT * FROM portfolio_snapshots; CREATE TEMP TABLE kept_venues AS SELECT * FROM portfolio_venue_snapshots;").unwrap();
         if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_dead") {
             let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, scenario["secret_key_base"].as_str().unwrap()).unwrap()));
             deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ScriptedTransport>>, None, owner, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap_or_else(|e| panic!("{name}: ledger pass: {e}"));
         }
+        c.execute_batch("DELETE FROM portfolio_snapshots; INSERT INTO portfolio_snapshots SELECT * FROM kept_whole; DELETE FROM portfolio_venue_snapshots; INSERT INTO portfolio_venue_snapshots SELECT * FROM kept_venues; DROP TABLE kept_whole; DROP TABLE kept_venues;").unwrap();
         let env = { let secret = scenario["secret_key_base"].as_str().unwrap().to_string(); let tmp = tmp.display().to_string(); move |n: &str| match n { "SECRET_KEY_BASE" => Some(secret.clone()), "APP_TMP_DIR" => Some(tmp.clone()), _ => None } };
         let opened = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
         let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, opened.primary, TestClock::at(scenario["at"].as_str().unwrap())).unwrap();
@@ -131,26 +160,23 @@ async fn populated_regions_match_rails() {
             let (identity, config) = app.db(fx::provider).await.unwrap();
             fx::fill(&app, &identity, config, vec![("USD".into(), wanted)]).await.unwrap();
         }
+        // The page, served: every region, through the router, exactly as a signed-in browser asks for it.
+        let (hash,): (String,) = c.query_row("SELECT encrypted_password FROM users WHERE id=?1", [owner], |r| Ok((r.get(0)?,))).unwrap();
         let token = deltabadger::web::csrf::new_token();
-        let path = step["path"].as_str().unwrap().to_string();
-        let built = { let app2 = app.clone(); let token = token.clone(); app.db(move |c| { let ctx = ctx(&app2, c, owner, &path, &token); let held = fx::held(&app2, c, owner)?; populated::regions(c, &ctx, owner, &held) }).await.unwrap() };
-        let populated::Built::Regions(r) = built else { panic!("{name}: refused") };
-        let warnings = format!("<div id=\"sync-warnings\" data-turbo-permanent>\n    {}\n  </div>\n\n    </div>\n", r.warnings);
-        let ours = [r.pending, r.filters, r.tiles, r.holdings, warnings];
-        let [pending, filters, tiles, holdings, warns] = rails_regions(expected["body"].as_str().unwrap());
-        let (tiles, holdings) = withheld(&name, tiles, holdings);
-        let theirs = [pending, filters, tiles, holdings, warns];
-        for ((label, ours), theirs) in ["pending", "filters", "tiles", "holdings", "warnings"].iter().zip(ours).zip(theirs) {
-            let ours = grid::masked(&ours, None, None);
-            let theirs = grid::masked(&theirs, None, None);
-            if ours != theirs {
-                std::fs::write(Path::new(&root).join(format!("{name}.{label}.rust.html")), &ours).unwrap();
-                std::fs::write(Path::new(&root).join(format!("{name}.{label}.rails.html")), &theirs).unwrap();
-                failures.push(format!("{name} {label}"));
-            }
+        let data = session::SessionData { user: Some((owner, hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
+        let mut browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
+        let headers = step["headers"].as_object().unwrap().iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect::<Vec<_>>();
+        let answer = browser.send(&app, "GET", step["path"].as_str().unwrap(), None, common::web::Csrf::None, &headers).await;
+        assert_eq!(answer.status, 200, "{name}: {}", &answer.body[..answer.body.len().min(300)]);
+        let ours = grid::masked(&answer.body, Some(&app), Some(&token));
+        let theirs = grid::masked(&withheld_page(&name, expected["body"].as_str().unwrap()), None, None);
+        if ours != theirs {
+            std::fs::write(Path::new(&root).join(format!("{name}.rust.html")), &ours).unwrap();
+            std::fs::write(Path::new(&root).join(format!("{name}.rails.html")), &theirs).unwrap();
+            failures.push(name.clone());
         }
     }
-    assert!(failures.is_empty(), "{} regions differ (rust/rails pairs written beside the grid):\n{}", failures.len(), failures.join("\n"));
+    assert!(failures.is_empty(), "{} pages differ (rust/rails pairs written beside the grid):\n{}", failures.len(), failures.join("\n"));
 }
 
 /// The Rails files the grid was recorded from: a change to one is recorded again with the Rust side in the same change.

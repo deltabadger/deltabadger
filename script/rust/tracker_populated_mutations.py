@@ -1,6 +1,6 @@
 """One behavioural mutation per branch of the populated tracker index's regions and its held-rate reader; each must turn
-a test red. Run from a clean export with CARGO_TARGET_DIR and D5_POPULATED_GRID (a recorded pages_tracker_populated.rb
-grid) set: python3 script/rust/tracker_populated_mutations.py [name ...]"""
+a test red. Run from a clean export with D5_POPULATED_GRID (a recorded pages_tracker_populated.rb
+grid) set, and CARGO_CMD to run cargo through a wrapper: python3 script/rust/tracker_populated_mutations.py [name ...]"""
 import os
 import subprocess
 import sys
@@ -12,6 +12,8 @@ fx = root / 'rust/src/web/tracker/fx.rs'
 loading = root / 'rust/src/web/figure/loading.rs'
 cache = root / 'rust/src/sync/cache.rs'
 page = root / 'rust/src/tracker/figures/page.rs'
+record = root / 'rust/src/web/tracker/record.rs'
+index = root / 'rust/src/web/tracker/index.rs'
 grid = ['--test', 'tracker_populated']
 held = ['--test', 'tracker_fx_held']
 mutations = [
@@ -32,16 +34,30 @@ mutations = [
     ('notes find their row', populated, 'n.symbol == symbol', 'n.symbol != symbol', grid),
     ('the centre reads the covered holdings', populated, 'if let Some(c) = &h.cost { cost = num(&cost + c)?; covered = num(&covered + &h.value)?; }', 'if let Some(c) = &h.cost { cost = num(&cost + c)?; covered = num(&covered + c)?; }', grid),
     ('a warm ledger states its figures', populated, 'Ok(warm) => Some(warm),', 'Ok(_) => None,', grid),
+    ('the table shows a window', record, 'const ROW_LIMIT: i64 = 200;', 'const ROW_LIMIT: i64 = 199;', grid),
+    ('all=1 lists every row', record, 'let all = ctx.params.query("all").is_some_and(|v| !v.trim().is_empty());', 'let all = false;', grid),
+    ('an unswept day is not drawn', record, 'if !show_cash {\n        let (gone, kept)', 'if false {\n        let (gone, kept)', grid),
+    ('a gap is swept', record, 'let gap = first.is_some_and(|f| f < today && history.first().is_none_or(|d| d.date > f));', 'let gap = false;', grid),
+    ('ranges shorter than the history', record, '.filter(|(_, _, days)| span > *days)', '.filter(|(_, _, days)| span >= *days * 100)', grid),
+    ('hidden balances normalize the curve', record, 'let (value_series, invested_series) = if hidden {', 'let (value_series, invested_series) = if false {', grid),
+    ('newest positions first', record, '    rows.reverse();\n', '', grid),
+    ('a trip draws its own asset', record, '1 => Ok(Some(own[0])),', '1 => Ok(None),', grid),
+    ('statuses offered', record, 'let statuses = offered(statuses);', 'let statuses: Vec<SegmentedOption> = vec![];', grid),
+    ('types offered', record, 'let types = offered(types);', 'let types: Vec<SegmentedOption> = vec![];', grid),
+    ('a warming ledger spins the positions', record, 'let positions_table = if warm.is_none() {', 'let positions_table = if false {', grid),
+    ('chart in the display currency', record, 'let converted = |d: &Dec| num(d * &den.rate);', 'let converted = |d: &Dec| Ok(d.clone());', grid),
 ]
 env = dict(os.environ, CARGO_TERM_COLOR='never')
-assert env.get('CARGO_TARGET_DIR') and env.get('D5_POPULATED_GRID'), 'CARGO_TARGET_DIR and D5_POPULATED_GRID must be set'
+assert env.get('D5_POPULATED_GRID'), 'D5_POPULATED_GRID must be set'
+# CARGO_CMD: how cargo is run here (a locking wrapper, say); plain cargo by default.
+cargo = env.get('CARGO_CMD', 'cargo').split()
 survived = []
 for name, path, old, new, test in [m for m in mutations if not sys.argv[1:] or m[0] in sys.argv[1:]]:
     text = path.read_text()
     assert text.count(old) == 1, f'{name}: anchor not found once in {path.name}'
     path.write_text(text.replace(old, new))
     try:
-        code = subprocess.run(['cargo', 'nextest', 'run', '--manifest-path', str(root / 'rust/Cargo.toml'), '-j', '6', '--no-fail-fast', *test],
+        code = subprocess.run([*cargo, 'nextest', 'run', '--manifest-path', str(root / 'rust/Cargo.toml'), '-j', '6', '--no-fail-fast', *test],
                               env=env, cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
     finally:
         path.write_text(text)

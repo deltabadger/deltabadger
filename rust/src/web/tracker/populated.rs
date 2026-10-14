@@ -13,7 +13,7 @@ fn dec(raw: &str) -> Result<Dec, WebError> { Dec::parse(raw).map_err(|_| invalid
 fn num<T>(r: Result<T, crate::figures::num::NumError>) -> Result<T, WebError> { r.map_err(|_| invalid()) }
 
 /// What the page places, region by region, in Rails' order.
-pub struct Regions { pub pending: String, pub filters: String, pub tiles: String, pub holdings: String, pub warnings: String }
+pub struct Regions { pub pending: String, pub filters: String, pub chart: String, pub tiles: String, pub holdings: String, pub record: String, pub warnings: String }
 
 /// `rescue_from Tracker::Figures::AmbiguousAssetClass`: the page is a 422 with the message.
 pub enum Built { Regions(Regions), Refused(String) }
@@ -53,7 +53,7 @@ fn to_i(v: &serde_json::Value) -> i64 {
 }
 fn ruby_s(v: &serde_json::Value) -> String { match v { serde_json::Value::String(s) => s.clone(), serde_json::Value::Null => String::new(), other => other.to_string() } }
 
-fn pending_report(ctx: &Ctx, owner: i64, settings: &serde_json::Value) -> Result<String, WebError> {
+pub(super) fn pending_report(ctx: &Ctx, owner: i64, settings: &serde_json::Value) -> Result<String, WebError> {
     let Some(pending) = settings.get("pending_report").filter(|v| v.is_object()) else { return Ok(String::new()) };
     let truthy = |v: &serde_json::Value| !matches!(v, serde_json::Value::Null | serde_json::Value::Bool(false));
     let (country, year) = (&pending["country"], &pending["year"]);
@@ -83,6 +83,8 @@ struct Refused { message: String }
 /// What the page states from `load_ledgers` and `load_portfolio`.
 struct Portfolio {
     warm: Option<page::Warm>,
+    /// The scoped ledger the warm figures were computed from (`@scoped_ledger`).
+    ledger: Option<Box<crate::tracker::walk::Summary>>,
     cold: page::Cold,
     has_keys: bool,
     never_synced: bool,
@@ -92,11 +94,12 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
     let figures_error = |e: crate::figures::FiguresError| match e { crate::figures::FiguresError::Sqlite(e) => WebError::from(e), _ => invalid() };
     let cold = crate::figures::budget::within(|| page::cold(c, owner, scope, show_cash)).map_err(figures_error)?;
     let now = ctx.app.now();
+    let mut ledger = None;
     let warm = match crate::figures::budget::within(|| crate::tracker::cache::read(c, owner, scope, now)).map_err(figures_error)? {
         crate::tracker::cache::State::Warm(summary) => {
             let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load(c)).map_err(figures_error)?;
             match crate::figures::budget::within(|| page::warm(c, owner, scope, show_cash, &summary, &fx, now.date_naive())) {
-                Ok(warm) => Some(warm),
+                Ok(warm) => { ledger = Some(summary); Some(warm) }
                 Err(crate::figures::FiguresError::NotComputed(message)) if message.contains("ambiguous asset class") => return Ok(Err(message)),
                 Err(e) => return Err(figures_error(e)),
             }
@@ -107,7 +110,7 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
     let has_keys: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [owner], |r| r.get(0))?;
     let balances: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) AND free+locked>0)", rusqlite::params![owner, scope], |r| r.get(0))?;
     let marked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND balances_synced_at IS NOT NULL)", [owner], |r| r.get(0))?;
-    Ok(Ok(Portfolio { warm, cold, has_keys, never_synced: has_keys && !balances && !marked }))
+    Ok(Ok(Portfolio { warm, ledger, cold, has_keys, never_synced: has_keys && !balances && !marked }))
 }
 
 fn signed(d: &Dec, den: &Denomination) -> Result<String, WebError> { Ok(format!("{}{}", if d.is_negative() { "" } else { "+" }, money(d, den)?)) }
@@ -353,13 +356,40 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     // An account whose first balance sync has not completed keeps its money withheld, a warm ledger or not: the card
     // says it was never synced, and no tile states a value the balances cannot vouch for.
     let sync = super::holdings::synced_label(ctx, p.cold.synced, p.cold.stale);
+    // `Denomination.for` falls back to dollars when no rate is had: the chart and the positions are drawn in them.
+    let usd = Denomination { currency: "USD".into(), rate: Dec::one() };
+    let shown = den.as_ref().unwrap_or(&usd);
     Ok(Built::Regions(Regions {
         pending: pending_report(ctx, owner, &settings)?,
         filters: filters(c, ctx, owner, scope, show_cash, sync)?,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
         holdings: holdings(c, ctx, &p, den.as_ref(), withheld)?,
+        chart: super::record::chart(c, ctx, owner, scope, show_cash, shown)?,
+        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown)?,
         warnings: crate::web::settings::keys::warnings(c, ctx, owner)?,
     }))
+}
+
+#[derive(Template)]
+#[template(path = "tracker/populated.html")]
+struct Page<'a> { v: &'a Ctx, preferences: String, tax_report: String, sync: String, body: String }
+
+/// TrackerController#index for a populated account: every region, as Rails' index places them.
+pub fn page(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<axum::response::Response, WebError> {
+    use axum::response::IntoResponse;
+    let Some(user) = ctx.user() else { return Ok(crate::web::auth::unauthenticated(ctx)) };
+    let r = match regions(c, ctx, owner, fx)? {
+        Built::Regions(r) => r,
+        Built::Refused(message) => return Ok((axum::http::StatusCode::UNPROCESSABLE_ENTITY, [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")], message).into_response()),
+    };
+    let tiles = if r.tiles.is_empty() { "\n    ".to_string() } else { format!("  {}", r.tiles) };
+    let body = format!("{}  <div class=\"tracker\">\n    {}\n    {}\n    {tiles}{}    {}\n  </div>\n", r.pending, r.filters, r.chart, r.holdings, r.record);
+    let body = Page { v: ctx, preferences: format!("user_{owner}:preferences"), tax_report: format!("user_{owner}:tax_report"), sync: format!("user_{owner}:sync"), body }.render()?;
+    let page = super::layout::Page { status: axum::http::StatusCode::OK, body, flash_now: vec![] };
+    if ctx.turbo_frame.is_some() { return super::layout::frame(&ctx.csrf_token(), &page); }
+    let shell = crate::web::shell::Shell::load(c, &ctx.app, user)?;
+    let extra = format!("  <div id=\"sync-warnings\" data-turbo-permanent>\n    {}\n  </div>\n", r.warnings);
+    crate::web::shell::application_with_flash_extra(ctx, &ctx.csrf_token(), user, &shell, page, &extra)
 }
 
 #[cfg(test)]

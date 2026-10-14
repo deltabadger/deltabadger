@@ -19,5 +19,11 @@
   "app/views/shared/_segmented.html.erb": "f550a9ffc90302012d6be10333e251a540e87d415d622fefd4f7f99474b28a20",
   "app/views/bots/_metrics_item.html.erb": "bcf755c106a064f3eca6e5cd0d4a0607d2b2e74d4f64f5fc5fba5f97520cb3d8",
   "app/views/assets/_logo.html.erb": "25109c3cd34c5e198f5ed4137c08139ce746c41f3457f1586ab2107b89b5d5ef",
-  "script/rust/pages_tracker_populated.rb": "d5e8522bcb91a5db2284b1532750557d51ae1ab3b682965eb07ff051ae18b0ab"
+  "script/rust/pages_tracker_populated.rb": "bdd2914ee3c724f1174e2f5fd3918ed51b3387dd42fd6238d83463c296dce04e",
+  "app/views/tracker/_chart.html.erb": "4ddc7aad19547bf72a44c4684826e11f1ad71447e046f80f35fe6b0476f9b4e2",
+  "app/views/tracker/_record.html.erb": "b7a91469bfe2c4e30fa3e4d55a8dd6a897ea558725357083d5d2b5f59a8d2027",
+  "app/views/tracker/_transaction_row.html.erb": "eb3ad3af5119f80bbf82ee0252cf15b241690fffef8c84cf650ca6bf0465c27e",
+  "app/views/tracker/_positions_row.html.erb": "28ab06fb9c40010c4845fe1e90469fb23efa7b20488f878d9f8a74e56a07d813",
+  "app/helpers/bot_helper.rb": "300be82274ed74aee31a41a2570500b66d0312e54c2deb373b444b193222db34",
+  "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500"
 }

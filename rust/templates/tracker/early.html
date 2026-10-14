@@ -1,7 +1,7 @@
 {{ v.stream_from(&preferences)|safe }}
 {{ v.stream_from(&tax_report)|safe }}
 {{ v.stream_from(&sync)|safe }}
-  <div class="welcome-screen">
+{{ pending|safe }}  <div class="welcome-screen">
 {% if missing %}    <p>{{ v.t("tracker.welcome.needs_market_data")|safe }}</p>
     <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ v.path("/tracker/connect_market_data") }}">
       {{ connect|safe }}

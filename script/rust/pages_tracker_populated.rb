@@ -74,6 +74,32 @@ module PopulatedFixture
       binance_key.update_columns(last_sync_error: 'Binance answered 500')
     when 'dead'
       binance_key.update_columns(status: ApiKey.statuses[:incorrect], last_sync_error: 'Invalid API-key, IP, or permissions for action.')
+    when 'history', 'long'
+      # A swept history: the whole and each venue, with the positions' own readings (show cash off), and one
+      # day the sweep could not value without the cash (`held_cost_usd` nil).
+      first = kind == 'long' ? Date.new(2026, 6, 1) : Date.new(2026, 9, 1)
+      (first..Date.new(2026, 9, 9)).each_with_index do |day, i|
+        held = day == Date.new(2026, 9, 5) ? nil : (600 + i * 3.25).to_d
+        PortfolioSnapshot.create!(user: user, date: day, value_usd: 1000 + i * 4.5, invested_usd: 900 + i, held_value_usd: held,
+                                  held_cost_usd: held && (500 + i))
+        [alpaca, binance].each_with_index do |venue, v|
+          PortfolioVenueSnapshot.create!(user: user, exchange: venue, date: day, value_usd: 500 + i * (v + 1), invested_usd: 450 + v,
+                                         held_value_usd: 300 + i, held_cost_usd: 250 + v)
+        end
+      end
+    when 'rows'
+      # More rows than the table shows, a transfer between the venues, and a price the user stated.
+      HistoricalPrice.create!(asset: 'DOT', currency: 'USD', date: Date.new(2026, 9, 6), price: '4.25')
+      asset('DOT', 'Polkadot', 'Cryptocurrency', '#E6007A')
+      out = row(user, binance, :withdrawal, 'USD', '20', '2026-09-06T09:00:00Z')
+      into = row(user, alpaca, :deposit, 'USD', '20', '2026-09-06T09:05:00Z')
+      out.update_columns(linked_transaction_id: into.id)
+      stated = row(user, binance, :airdrop, 'DOT', '2', '2026-09-06T12:00:00Z')
+      stated.update_columns(manual_values: { 'price' => '4.5' })
+      row(user, binance, :airdrop, 'DOT', '1', '2026-09-06T13:00:00Z')
+      200.times { |i| row(user, alpaca, :buy, 'AAPL', '0.001', (Time.utc(2026, 9, 7, 10) + (i * 60)).iso8601, quote: '0.2') }
+      # The round trip's own rows record their asset: the positions row draws it.
+      AccountTransaction.where(base_currency: 'MSFT').update_all(base_asset_id: msft.id)
     when 'lone'
       AccountTransaction.where(exchange: binance).delete_all
       AccountBalance.where(exchange: binance).delete_all
@@ -86,7 +112,7 @@ module PopulatedFixture
 end
 
 before = Pages::BEFORE.dup
-%w[base many notes stale unpriced failed dead lone cold].each do |kind|
+%w[base many notes stale unpriced failed dead lone cold history long rows].each do |kind|
   before["populated_#{kind}"] = -> { PopulatedFixture.build(kind) }
 end
 %w[EUR GBP].each do |currency|
@@ -95,6 +121,11 @@ end
     User.first.update!(display_currency: currency)
     Rails.cache.write("exchange_rate_USD_to_#{currency}", Result::Success.new(currency == 'EUR' ? 0.8 : 0.5), expires_in: 12.hours)
   end
+end
+before['populated_history_eur'] = lambda do
+  PopulatedFixture.build('history')
+  User.first.update!(display_currency: 'EUR')
+  Rails.cache.write('exchange_rate_USD_to_EUR', Result::Success.new(0.8), expires_in: 12.hours)
 end
 before['populated_fx_unavailable'] = lambda do
   PopulatedFixture.build('base')
@@ -136,6 +167,16 @@ module D5PopulatedGrid
       add.call("notes_#{locale}", "/#{locale}/tracker", 'notes', 'tracker_settings' => { 'show_cash' => true })
     end
     add.call('cash', '/tracker', 'base', 'tracker_settings' => { 'show_cash' => true })
+    add.call('history', '/tracker', 'history')
+    add.call('history_cash', '/tracker', 'history', 'tracker_settings' => { 'show_cash' => true })
+    add.call('history_hidden', '/tracker', 'history', 'hide_balances' => true)
+    add.call('history_scope', '/tracker?exchange_id=2', 'history')
+    add.call('history_long', '/tracker', 'long')
+    add.call('history_eur', '/tracker', 'history_eur')
+    add.call('rows', '/tracker', 'rows')
+    add.call('rows_all', '/tracker?all=1', 'rows')
+    add.call('rows_scope', '/tracker?exchange_id=2', 'rows')
+    add.call('rows_hidden', '/tracker', 'rows', 'hide_balances' => true)
     add.call('scope_alpaca', '/tracker?exchange_id=1', 'base')
     add.call('scope_binance', '/tracker?exchange_id=2', 'base')
     add.call('scope_ibkr', '/tracker?exchange_id=3', 'base')
@@ -169,6 +210,8 @@ if command == 'record'
     app/views/tracker/_tiles.html.erb app/views/tracker/_holdings.html.erb app/views/tracker/_holding_row.html.erb
     app/views/tracker/_sync_warnings.html.erb app/views/tracker/_key_fix_buttons.html.erb app/views/tracker/_report_refused.html.erb
     app/views/shared/_segmented.html.erb app/views/bots/_metrics_item.html.erb app/views/assets/_logo.html.erb
+    app/views/tracker/_chart.html.erb app/views/tracker/_record.html.erb app/views/tracker/_transaction_row.html.erb
+    app/views/tracker/_positions_row.html.erb app/helpers/bot_helper.rb app/models/account_transaction.rb
   ]
   File.write(File.join(root, 'sources.json'), "#{JSON.pretty_generate(sources.to_h { |p| [p, Digest::SHA256.file(Rails.root.join(p)).hexdigest] })}\n")
 end
