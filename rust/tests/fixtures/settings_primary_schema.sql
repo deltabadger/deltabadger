@@ -69,7 +69,7 @@ FOREIGN KEY ("exchange_id")
 FOREIGN KEY ("user_id")
   REFERENCES "users" ("id")
 );
-CREATE TABLE "connected_clients" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "mcp_tools" json DEFAULT '[]' NOT NULL, "oauth_application_id" integer NOT NULL, "rest_tools" json DEFAULT '[]' NOT NULL, "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_bfae147170"
+CREATE TABLE "connected_clients" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "created_at" datetime(6) NOT NULL, "mcp_tools" json DEFAULT '[]', "oauth_application_id" integer NOT NULL, "rest_tools" json DEFAULT '[]', "updated_at" datetime(6) NOT NULL, "user_id" integer NOT NULL, CONSTRAINT "fk_rails_bfae147170"
 FOREIGN KEY ("oauth_application_id")
   REFERENCES "oauth_applications" ("id")
  ON DELETE CASCADE, CONSTRAINT "fk_rails_cc7e236a30"
@@ -359,3 +359,4 @@ INSERT INTO schema_migrations(version) VALUES('20261006100000');
 INSERT INTO schema_migrations(version) VALUES('20261009120000');
 INSERT INTO schema_migrations(version) VALUES('20261009130000');
 INSERT INTO schema_migrations(version) VALUES('20261011170000');
+INSERT INTO schema_migrations(version) VALUES('20261014120000');
