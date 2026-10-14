@@ -28,6 +28,8 @@ pub fn stale(c: &Connection, user: i64, exchange: Option<i64>) -> Result<bool, E
     let scopes = stmt.query_map(rusqlite::params![user, exchange], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     for exchange in scopes {
         let id: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND status=1 AND key_type!=1 ORDER BY CASE WHEN key_type=0 THEN 0 ELSE 1 END,id LIMIT 1", [user, exchange], |r| r.get(0)).optional()?;
+        // A venue whose key cannot read yet (an IBKR key pending activation) and that holds no balances has nothing stale.
+        if id.is_none() && !c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND exchange_id=?2)", [user, exchange], |r| r.get::<_, bool>(0))? { continue; }
         let stamp = app_config::get_plain(c, &key(user, exchange)).map_err(EngineError::Data)?
             .and_then(|s| serde_json::from_str::<Value>(&s).ok());
         let producer=stamp.as_ref().and_then(CredentialVersion::from_stamp);

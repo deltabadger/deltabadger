@@ -11,7 +11,7 @@
 
   <div class="tracker-exchanges__end">
     <div class="tracker-exchanges__sync">
-        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
+{% if let Some(cold) = cold %}{{ cold.sync|safe }}{% endif %}        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
           {% include "svg/_24x24_sync.html" %}
 
 </button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>    </div>
@@ -55,7 +55,7 @@
     {{ v.t("bot.details.stats.portfolio_value")|safe }}
   </div>
   <div class="data-grid__item__value ">
-      {{ unavailable|safe }}
+      {% if let Some(cold) = cold %}{{ cold.value|safe }}{% else %}{{ unavailable|safe }}{% endif %}
   </div>
 </div>
 
@@ -105,7 +105,9 @@
   </div>
 
 {% else %}    
-{% endif %}    <div class="widget tracker-holdings {% if hidden %}tracker-holdings--anon{% endif %}">
+{% endif %}    {% if let Some(cold) = cold %}{{ cold.card|safe }}
+
+{% else %}<div class="widget tracker-holdings {% if hidden %}tracker-holdings--anon{% endif %}">
   <div class="tracker-holdings__head">
     <span class="label">{{ v.t("tracker.holdings")|safe }} · 0</span>
     <span class="label"></span>
@@ -115,7 +117,7 @@
 
 </div>
 
-    <div class="tracker-record" data-controller="tracker--record">
+{% endif %}    <div class="tracker-record" data-controller="tracker--record">
   <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold">
     {{ record_switch|safe }}
   </div>

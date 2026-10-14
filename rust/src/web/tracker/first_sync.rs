@@ -25,7 +25,7 @@ use askama::Template;
 use axum::{http::StatusCode,response::Response};
 #[derive(Template)]
 #[template(path="tracker/first_sync.html")]
-struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String}
+struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>}
 
 /// HTML date controls submit ISO days. Other Date.parse grammars remain an explicit later slice.
 fn dates(ctx:&Ctx)->Result<Option<(String,String)>,WebError>{
@@ -43,6 +43,9 @@ fn dates(ctx:&Ctx)->Result<Option<(String,String)>,WebError>{
 }
 
 pub fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
+    render_with(c,ctx,owner,None)
+}
+pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::holdings::Presentation>)->Result<Response,WebError>{
     let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(ctx))};
     let Some((from,to))=dates(ctx)? else{return Ok(layout::refused(ctx,"tracker date syntax"))};
     let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
@@ -61,7 +64,7 @@ pub fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<Response,WebError>{
     let pairs=ctx.params.query.iter().filter(|(key,_)|matches!(key.as_str(),"exchange_id"|"from"|"to")).cloned().collect::<Vec<_>>();
     let query=crate::web::locale::switch_query(&pairs);
     let export_path=i18n::escape(&ctx.path(&format!("/tracker/export{}",if query.is_empty(){String::new()}else{format!("?{query}")})));
-    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable}.render()?;
+    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable,cold}.render()?;
     let page=layout::Page{status:StatusCode::OK,body,flash_now:vec![]};
     if ctx.turbo_frame.is_some(){return layout::frame(&ctx.csrf_token(),&page);}
     let shell=Shell::load(c,&ctx.app,user)?;

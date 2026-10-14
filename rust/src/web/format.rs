@@ -237,7 +237,7 @@ pub fn distance_of_time_in_words(seconds: f64, now: DateTime<Utc>, locale: &str)
 }
 
 /// DOTIW::TimeHash#build_years_months_weeks_days between two UTC times: (years, months, weeks, days).
-fn calendar_distance(smallest: DateTime<Utc>, largest: DateTime<Utc>) -> (i64, i64, i64, i64) {
+pub(super) fn calendar_distance(smallest: DateTime<Utc>, largest: DateTime<Utc>) -> (i64, i64, i64, i64) {
     let months = (i64::from(largest.year()) - i64::from(smallest.year())) * 12 + i64::from(largest.month()) - i64::from(smallest.month());
     let (mut years, mut months) = (months.div_euclid(12), months.rem_euclid(12));
     let days = i64::from(largest.day()) - i64::from(smallest.day());

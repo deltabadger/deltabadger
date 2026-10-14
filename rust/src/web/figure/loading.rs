@@ -681,6 +681,12 @@ pub async fn follow(app:App,mut events:tokio::sync::mpsc::UnboundedReceiver<crat
             let wait=Duration::from_secs(due.saturating_sub(app.now().timestamp()).max(0) as u64).min(QUEUE_POLL);
             if !wait.is_zero() { tokio::select!{ _=service.marked_wait()=>{}, _=tokio::time::sleep(wait)=>{} } }
             for (user,work) in service.take_due(app.now().timestamp()) { consume(&app,user,work).await; }
+            // Conversions a page wanted (the tracker's display currency): filled for the install, outside any request and
+            // past any account's key. A failed fill is held as a failure (`fx::FAILURE_TTL`); the next page asks again.
+            let wanted=service.take_fx();
+            if !wanted.is_empty() {
+                if let Ok((identity,config))=app.db(crate::web::tracker::fx::provider).await { let _=crate::web::tracker::fx::fill(&app,&identity,config,wanted).await; } // allow-swallow: a failure is held for the page, and a page that finds none wants it again
+            }
             if service.marked()==0 && !service.has_owners() { continue; }
             tokio::time::sleep(COALESCE).await;
             let bots=service.take_marked();

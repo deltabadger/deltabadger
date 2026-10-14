@@ -4,8 +4,9 @@ use deltabadger::web::{csrf, session, cable};
 use rusqlite::{Connection, types::{Value as Sql, ValueRef}};
 use serde_json::{json, Map, Value};
 use std::path::Path;
+#[allow(dead_code)]
 #[derive(Clone,Copy)]
-pub enum Mode { Exact, Deferred, FirstSync }
+pub enum Mode { Exact, Deferred, FirstSync, Holdings }
 pub fn snapshot(c: &Connection) -> Value {
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
@@ -28,7 +29,7 @@ pub fn snapshot(c: &Connection) -> Value {
     }
     Value::Object(tables)
 }
-fn combined(answer: &Value, phase: &str) -> Value {
+pub fn combined(answer: &Value, phase: &str) -> Value {
     let mut tables = answer[format!("rows_{phase}")].as_object().unwrap().clone();
     tables.extend(answer[format!("other_rows_{phase}")].as_object().unwrap().clone());
     Value::Object(tables)
@@ -46,7 +47,7 @@ fn same_rows(actual: Value, expected: Value, label: &str) {
 }
 
 // Mask only authenticated variable values; preserve every other byte and whitespace.
-fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->String {
+pub fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->String {
     let values=common::html::masked_values(body);let mut out=body.to_string();
     for v in values.tokens {if let Some(t)=token{assert!(csrf::valid(t,&v));}out=out.replace(&v,"[csrf]");}
     if let Some(rest)=body.split("<meta name=\"csp-nonce\" content=\"").nth(1){
@@ -64,6 +65,16 @@ fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->Stri
         out=out.replace(&v,&format!("[signed {name}]"));
     }
     out
+}
+
+/// The rows Rails' step saw before it ran, written over the copied install.
+pub fn restore(c:&Connection,expected:&Value)->Value{
+    c.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE").unwrap();let before=combined(expected,"before");
+    for(table,rows)in before.as_object().unwrap(){c.execute(&format!("DELETE FROM {table}"),[]).unwrap();
+        for row in rows.as_array().unwrap(){let row=row.as_object().unwrap();let columns=row.keys().cloned().collect::<Vec<_>>().join(",");let slots=(1..=row.len()).map(|i|format!("?{i}")).collect::<Vec<_>>().join(",");
+            c.execute(&format!("INSERT INTO {table}({columns}) VALUES({slots})"),rusqlite::params_from_iter(row.values().map(scalar))).unwrap();}}
+    c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
+    before
 }
 
 pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],mode:fn(&str)->Mode) {
@@ -89,12 +100,33 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         let dir=tempfile::tempdir().unwrap();
         for file in ["production.sqlite3","production_queue.sqlite3"]{std::fs::copy(source.join(file),dir.path().join(file)).unwrap();}
         let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
-        c.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE").unwrap();let before=combined(expected,"before");
-        for(table,rows)in before.as_object().unwrap(){c.execute(&format!("DELETE FROM {table}"),[]).unwrap();
-            for row in rows.as_array().unwrap(){let row=row.as_object().unwrap();let columns=row.keys().cloned().collect::<Vec<_>>().join(",");let slots=(1..=row.len()).map(|i|format!("?{i}")).collect::<Vec<_>>().join(",");
-                c.execute(&format!("INSERT INTO {table}({columns}) VALUES({slots})"),rusqlite::params_from_iter(row.values().map(scalar))).unwrap();}}
-        c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
+        let before=restore(&c,expected);
+        // Rails keeps no credential provenance. A Rust sync stamps which key produced the balances; seed that
+        // completed stamp for the holdings cases (not for `holdings_unsynced`), then remove it before the row check.
+        let seeded=if matches!(mode(&name),Mode::Holdings) && name!="holdings_unsynced" {
+            let keys=|c:&Connection|c.prepare("SELECT key FROM app_configs").unwrap().query_map([],|r|r.get::<_,String>(0)).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
+            let old=keys(&c);let at:chrono::DateTime<chrono::Utc>=scenario["at"].as_str().unwrap().parse().unwrap();
+            let producers=c.prepare("SELECT id,user_id,exchange_id FROM api_keys WHERE key_type!=1").unwrap().query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?,r.get::<_,i64>(2)?))).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
+            for (id,user,exchange) in producers {
+                let v=deltabadger::engine::model::credential_version_by_id(&c,id).unwrap().unwrap();
+                deltabadger::engine::model::credential_write(&c,&Some(v.clone()),|f|deltabadger::sync::cache::record(f,user,exchange,&v,true,at)).unwrap();
+            }
+            Some((keys(&c).into_iter().filter(|k|!old.contains(k)).collect::<Vec<_>>(),snapshot(&c)))
+        }else{None};
         let app=web::app(dir.path(),scenario["secret_key_base"].as_str().unwrap(),TestClock::at(scenario["at"].as_str().unwrap()));
+        let app=if matches!(mode(&name),Mode::Holdings){
+            let rates=if name=="holdings_fx_unavailable"{json!({})}else{json!({"usd":{"value":100.0},"eur":{"value":80.0},"gbp":{"value":50.0},"chf":{"value":90.0},"pln":{"value":400.0}})};
+            app.with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({"GET 127.0.0.1:1/api/v1/exchange_rates":{"body":{"data":rates}}}))).unwrap()
+        }else{app};
+        // A page reads the held rate only (`fx::held`): the warmer's fill comes first, as it would on the install.
+        if matches!(mode(&name),Mode::Holdings) {
+            let raw:String=c.query_row("SELECT display_currency FROM users ORDER BY id LIMIT 1",[],|r|r.get(0)).unwrap();
+            let wanted=deltabadger::figures::totals::normalized_currency(&raw);
+            if wanted!="USD" {
+                let (identity,config)=app.db(deltabadger::web::tracker::fx::provider).await.unwrap();
+                deltabadger::web::tracker::fx::fill(&app,&identity,config,vec![("USD".into(),wanted)]).await.unwrap();
+            }
+        }
         let (owner,hash):(i64,String)=c.query_row("SELECT id,encrypted_password FROM users ORDER BY id LIMIT 1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
         let token=csrf::new_token();let data=session::SessionData{user:Some((owner,hash.chars().take(29).collect())),csrf:Some(token.clone()),..Default::default()};
         let mut browser=Browser{cookie:Some(session::seal(&app.keys.session,&data,app.now())),page:None};
@@ -102,6 +134,10 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         let headers=step["headers"].as_object().unwrap().iter().map(|(k,v)|(k.as_str(),v.as_str().unwrap())).collect::<Vec<_>>();
         let answer=browser.send(&app,"GET",step["path"].as_str().unwrap(),None,Csrf::None,&headers).await;
         for secret in ["synthetic-d5-market-token","synthetic-d5-paper-key","synthetic-d5-paper-secret"] {assert!(!answer.body.contains(secret),"{name}: secret in page");}
+        if let Some((keys,rows))=&seeded {
+            assert_eq!(&snapshot(&c),rows,"{name}: GET changed rows");
+            for key in keys {c.execute("DELETE FROM app_configs WHERE key=?1",[key]).unwrap();}
+        }
         same_rows(snapshot(&c),before,&name);assert_eq!(snapshot(&queue),queue_before,"{name}: queue changed");
         if matches!(mode(&name),Mode::Deferred) {
             assert_eq!(answer.status,501,"{name}: deferred scope must be refused");assert!(answer.body.contains("not-ported"));continue;
@@ -112,6 +148,32 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
             assert_eq!(answer.body,body,"{name}: public error body");continue;
         }
         let actual=masked(&answer.body,Some(&app),Some(&token));let mut oracle=masked(expected["body"].as_str().unwrap(),None,None);
+        if matches!(mode(&name),Mode::Holdings) {
+            let reason=match name.as_str(){
+                "holdings_stale"|"holdings_stale_hidden"=>Some("Tracker figures unavailable: stale prices"),
+                "holdings_fx_unavailable"=>Some("Currency conversion unavailable"),
+                "holdings_missing_price"=>Some("Tracker figures unavailable: price timestamp missing"),
+                "holdings_unpriced"|"holdings_zero_value"=>Some("Tracker figures unavailable: unpriced holdings"),
+                "holdings_unsynced"=>Some("Tracker figures unavailable: balances not yet synced with the current key"),_=>None};
+            if name=="holdings_unsynced" {
+                // The navbar ring withholds unsynced balances already (S1); Rails draws them.
+                let head=oracle.find("      <circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\"\n").unwrap();
+                let end=head+oracle[head..].find("</svg>\n").unwrap();
+                oracle.replace_range(head..end,"    <circle class=\"stroke--icon\" cx=\"12\" cy=\"12\" r=\"9\"\n            fill=\"none\" stroke-width=\"2\"/>\n");
+            }
+            if let Some(reason)=reason {
+                let head=oracle.find("    <div class=\"widget tracker-holdings ").unwrap();
+                let end=head+oracle[head..].find("    <div class=\"tracker-record\"").unwrap();
+                oracle.replace_range(head..end,&format!("    <div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>\n\n"));
+                if name!="holdings_stale_hidden" {
+                let tile=oracle.find("data-grid__item__value \">\n      <small>$</small>").unwrap();
+                let head=tile+oracle[tile..].find("      <small>").unwrap();let end=head+oracle[head..].find('\n').unwrap();
+                oracle.replace_range(head..end,&format!("      <span class=\"no-value\" title=\"{reason}\">—</span>"));
+                }
+            }
+            std::fs::write(source.join("rust.html"),&actual).unwrap();
+            std::fs::write(source.join("rails-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
+        }
         if matches!(mode(&name),Mode::FirstSync) && !c.query_row("SELECT hide_balances FROM users WHERE id=?1",[owner],|r|r.get::<_,bool>(0)).unwrap() {
             let zero=match name.as_str() {
                 "first_currency_EUR"=>"      <small>€</small>0.00\n",

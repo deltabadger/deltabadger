@@ -344,7 +344,8 @@ impl WarningKey{
     fn failed(&self)->bool{self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
     fn permission(&self)->bool{self.venue=="Exchanges::Kraken"&&self.error.as_deref().is_some_and(|e|e.contains("EGeneral:Permission denied"))}
 }
-fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
+/// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
+pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
     let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
     let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?}))?.collect::<Result<Vec<_>,_>>()?;
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
@@ -362,7 +363,7 @@ fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
         let reason=if key.permission(){Some("missing_permission")}else if key.status==2{Some("dead")}else{None};
         if let Some(reason)=reason{
             let args=[("exchange",i18n::Arg::Text(&key.name))];let label=|name:&str|i18n::t(v.locale,name,&args);
-            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange)),reading_path:v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange)),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
+            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
         }
     }
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")

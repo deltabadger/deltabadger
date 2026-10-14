@@ -75,16 +75,29 @@ fn in_display(c:&Connection,amount:&Dec,currency:&str,day:chrono::NaiveDate,d:&D
     match (rate(currency)?,rate(&d.currency)?) {(Some(from),Some(to))=>Ok(Some(number(amount * &number(to.div(&from))?)?)),_=>Ok(None)}
 }
 fn unit(d:&Denomination)->&str {match d.currency.as_str(){"USD"=>"$","EUR"=>"€","GBP"=>"£","CHF"=>"Fr.","PLN"=>"zł",other=>other}}
-fn formatted(value:&Dec,d:&Denomination)->Result<String,WebError>{
+/// NumberToCurrencyConverter: an amount that rounds to nothing is written without its minus.
+fn nonzero(rounded:&str)->bool{rounded.chars().any(|c|c.is_ascii_digit()&&c!='0')}
+pub(super) fn formatted(value:&Dec,d:&Denomination)->Result<String,WebError>{
     let negative=value.is_negative(); let abs=if negative{value.neg()}else{value.clone()};
-    let sign=if negative{"-"}else{""};let u=escape(unit(d));let a=amount(&abs,&d.currency)?;
+    let a=amount(&abs,&d.currency)?;let sign=if negative&&nonzero(&a){"-"}else{""};let u=escape(unit(d));
     Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} <small>{u}</small>")}else{format!("{sign}<small>{u}</small>{a}")})
 }
+/// `Denomination#format_plain`: the same figure with its unit spelled out, for a sentence or an attribute.
+pub(super) fn plain(value:&Dec,d:&Denomination)->Result<String,WebError>{
+    let negative=value.is_negative(); let abs=if negative{value.neg()}else{value.clone()};
+    let a=amount(&abs,&d.currency)?;let sign=if negative&&nonzero(&a){"-"}else{""};let u=unit(d);
+    Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} {u}")}else{format!("{sign}{u}{a}")})
+}
+/// `tracker_amount`: a quantity in the unit named beside it.
+pub(super) fn amount_text(value:&Dec,currency:&str)->Result<String,WebError>{amount(value,currency)}
 fn logo(c:&Connection,row:&Row)->Result<String,WebError>{
     // Recorded asset, then the owner's balances, then the ranked crypto catalogue.
     let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};
     let Some(id)=id else{return Ok(String::new())};
     let (image,color,symbol,category):(Option<String>,Option<String>,String,Option<String>)=c.query_row("SELECT image_url,color,symbol,category FROM assets WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
+    asset_logo(image,color,symbol,category)
+}
+pub(super) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String,category:Option<String>)->Result<String,WebError>{
     let flag=if category.as_deref().is_none_or(|c|c.is_empty() || matches!(c,"Currency"|"Fiat")) {
         [("USD","us"),("EUR","eu"),("GBP","gb"),("JPY","jp"),("CHF","ch"),("CAD","ca"),("AUD","au"),("PLN","pl"),("ARS","ar"),("BRL","br"),("TRY","tr"),("MXN","mx"),("ZAR","za"),("UAH","ua"),("CZK","cz"),("RUB","ru"),("IDR","id")].iter().find(|(s,_)|*s==symbol.to_uppercase()).map(|(_,flag)|crate::web::assets::path(&format!("flags/{flag}.svg")).to_string())
     }else{None};
@@ -150,4 +163,19 @@ fn venue(class: &str) -> String {
 /// FX refusal replaces every monetary cell; never a zero or a mislabeled dollar figure.
 pub fn unavailable(id:i64)->String {
     format!("<tr id=\"account_transaction_{id}\" class=\"tracker-row\"><td colspan=\"10\"><span class=\"no-value\">Currency conversion unavailable</span></td></tr>\n")
+}
+
+#[cfg(test)]
+mod rounding_tests {
+    use super::*;
+    /// As Rails' Denomination#format writes them (probed with the unchanged app): an amount that rounds to nothing
+    /// carries no minus.
+    #[test]
+    fn an_amount_rounding_to_nothing_has_no_minus() {
+        let usd = Denomination { currency: "USD".into(), rate: Dec::one() };
+        for (value, written) in [("-0.37", "-<small>$</small>0.37"), ("-0.374", "-<small>$</small>0.37"), ("-12.5", "-<small>$</small>12.50"), ("-0.004", "<small>$</small>0.00")] {
+            assert_eq!(formatted(&Dec::parse(value).unwrap(), &usd).unwrap(), written, "{value}");
+        }
+        assert_eq!(plain(&Dec::parse("-0.004").unwrap(), &usd).unwrap(), "$0.00");
+    }
 }

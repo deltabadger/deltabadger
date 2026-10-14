@@ -1,0 +1,27 @@
+<div class="tracker-holdings__row">
+  <span class="tracker-holdings__name">
+    {{ logo|safe }}
+    <b>{{ symbol|safe }}</b>
+    <span class="tracker-holdings__full">{{ name|safe }}</span>
+  </span>
+  <span class="tracker-holdings__type">{% if !kind.is_empty() %}<span class="pill pill--quiet">{{ kind }}</span>{% endif %}</span>
+  <span class="slider">
+    <span class="slider__style">
+      <span class="slider__style__track" style="border-left-color: {{ color }}; grid-template-columns: {{ share }}% auto;">
+        <span class="slider__style__progress" style="background-color: {{ color }};"></span>
+      </span>
+    </span>
+  </span>
+  <span class="tracker-holdings__pct">{{ percent }}%</span>
+{% if !hidden %}    <span class="tracker-holdings__value">{{ value|safe }}</span>
+{% endif %}{% if let Some((pnl, tone)) = pnl %}    <span class="tracker-holdings__pl {{ tone }}">{{ pnl }}</span>
+{% else %}    <span class="tracker-holdings__pl" title="{{ v.t("tracker.basis_incomplete")|safe }}"><span class="no-value">—</span></span>
+{% endif %}{% if let Some(note) = note %}    <span class="tracker-holdings__info" role="button" tabindex="0" aria-label="{{ note|safe }}"
+          data-controller="tooltip" data-tooltip-fixed-value="true"
+          data-action="click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+      {% include "svg/_24x24_info.html" %}
+
+      <div class="tooltip tooltip--hint">{{ note|safe }}</div>
+    </span>
+{% else %}    <span class="tracker-holdings__spacer"></span>
+{% endif %}</div>

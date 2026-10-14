@@ -186,6 +186,8 @@ pub struct Config {
     pub claim_token: Option<String>,
     /// LAUNCHPAD_URL, else https://deltabadger.com: where claims are redeemed.
     pub launchpad_url: String,
+    /// `AppPaths.tmp`: APP_TMP_DIR, else the install's `tmp` (Rails.root/tmp; this process runs from Rails.root).
+    pub tmp_dir: std::path::PathBuf,
 }
 
 /// `config.hosts` as config/environments/production.rb builds it: nothing when ALLOWED_HOSTS is
@@ -248,6 +250,7 @@ impl Config {
             setup_token: env("SETUP_TOKEN"),
             claim_token: present("CLAIM_TOKEN"),
             launchpad_url: env("LAUNCHPAD_URL").unwrap_or_else(|| launchpad::DEFAULT_URL.into()),
+            tmp_dir: present("APP_TMP_DIR").map_or_else(|| std::path::PathBuf::from("tmp"), std::path::PathBuf::from),
         })
     }
 
