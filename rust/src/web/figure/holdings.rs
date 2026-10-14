@@ -50,7 +50,7 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
             let action = if let Some(id) = row.asset.filter(|_| row.can_sell) {
                 let query = form_urlencoded::Serializer::new(String::new()).append_pair("asset_id", &id.to_string()).append_pair("symbol", &row.key).finish();
                 let title = if row.harvest { format!(" title=\"{}\"", escape(&i18n::text(locale, "bot.liquidation.harvest_hint", &[]))) } else { String::new() };
-                format!("<a class=\"rbutton rbutton--small {}\"{title} data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>", if row.harvest { "rbutton--success" } else { "" }, escape(prefix), s.bot.id, escape(&query), t(locale, "bot.liquidation.sell"))
+                format!("<a class=\"rbutton rbutton--small rbutton--outline {}\"{title} data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>", if row.harvest { "rbutton--success" } else { "" }, escape(prefix), s.bot.id, escape(&query), t(locale, "bot.liquidation.sell"))
             } else { String::new() };
             let lock = row.lock.as_ref().map(|(days, until, source)| {
                 let label = i18n::t(locale,"bot.liquidation.locked",&[("days",Arg::Count(*days))]);

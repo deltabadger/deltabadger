@@ -105,8 +105,8 @@
       <% if params[:exchange_id].present? %>
         <%= hidden_field_tag :exchange_id, params[:exchange_id] %>
       <% end %>
-      <input type="date" name="from" value="<%= @date_from %>" class="sinput" data-action="change->form--submit#submit">
-      <input type="date" name="to" value="<%= @date_to %>" class="sinput" data-action="change->form--submit#submit">
+      <input type="date" name="from" value="<%= @date_from %>" class="rinput" data-action="change->form--submit#submit">
+      <input type="date" name="to" value="<%= @date_to %>" class="rinput" data-action="change->form--submit#submit">
     <% end %>
   </div>
 </div>

@@ -86,6 +86,7 @@ cs:
                 restricted: 'Burza neumožňuje obchodovat toto aktivum z tvého regionu — změň aktivum nebo burzu.'
             setting_orders: "Zadávání příkazů…"
             paused: "Pozastaveno"
+            disconnected: "Odpojeno"
             archived: "Archivováno"
             next_try: "Další pokus za"
             waiting: "Čekání na splnění všech podmínek"

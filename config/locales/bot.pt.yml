@@ -87,6 +87,7 @@ pt:
                 restricted: 'A exchange não permite negociar este ativo a partir da tua região — muda o ativo ou a exchange.'
             setting_orders: "Configurando ordens…"
             paused: "Pausado"
+            disconnected: "Desligado"
             archived: "Arquivado"
             next_try: "Próxima tentativa em"
             waiting: "À espera que todas as condições sejam cumpridas"

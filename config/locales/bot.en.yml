@@ -86,6 +86,7 @@ en:
                 restricted: 'The exchange does not allow trading this asset from your region — switch the asset or the exchange.'
             setting_orders: "Setting orders…"
             paused: "Paused"
+            disconnected: "Disconnected"
             archived: "Archived"
             next_try: "Next try in"
             waiting: "Waiting for all conditions to be met"

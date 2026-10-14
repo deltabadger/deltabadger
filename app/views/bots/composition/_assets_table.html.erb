@@ -32,11 +32,11 @@
           (if !sellable[symbol]
              nil
            elsif selling
-             selling_placeholder(t('bot.liquidation.sell'))
+             selling_placeholder(t('bot.liquidation.sell'), outline: true)
            else
              link_to(t('bot.liquidation.sell'),
                      new_bot_liquidation_path(bot_id: bot.id, symbol: symbol, asset_id: sellable[symbol]),
-                     class: "rbutton rbutton--small #{'rbutton--success' if harvest}",
+                     class: "rbutton rbutton--small rbutton--outline #{'rbutton--success' if harvest}",
                      title: (harvest ? t('bot.liquidation.harvest_hint') : nil),
                      data: { turbo_frame: 'modal' })
            end)

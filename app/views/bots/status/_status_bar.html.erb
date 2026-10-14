@@ -3,6 +3,13 @@
     <div class="bot-control__status__text" data-marquee-target="text">
       <%= t('bot.status.archived') %>
     </div>
+  <% elsif bot.exchange.present? && !bot.exchange.retired? && !bot.api_key.correct? %>
+    <%# No working key. One partial serves the tile and the bot page (the broadcast replaces both),
+        so both are here: the tile says Disconnected, the bot page offers Connect. %>
+    <div class="bot-control__status__text bot-control__status__disconnected" data-marquee-target="text">
+      <%= t('bot.status.disconnected') %>
+    </div>
+    <%= link_to t('button.connect'), new_bot_add_api_key_path(bot), class: "rbutton rbutton--small rbutton--success bot-control__connect", data: { turbo_frame: "modal" } %>
   <% elsif bot.executing? %>
     <div class="bot-control__status__text" data-marquee-target="text">
       <%= t('bot.status.setting_orders') %>
