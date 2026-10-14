@@ -86,6 +86,7 @@ sv:
                 restricted: 'Börsen tillåter inte handel med den här tillgången från din region — byt tillgång eller börs.'
             setting_orders: "Lägger ordrar…"
             paused: "Pausad"
+            disconnected: "Frånkopplad"
             archived: "Arkiverad"
             next_try: "Nästa försök om"
             waiting: "Väntar på att alla villkor ska uppfyllas"

@@ -87,6 +87,7 @@ pl:
                 restricted: 'Giełda nie pozwala handlować tym aktywem z Twojego regionu — zmień aktywo albo giełdę.'
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
+            disconnected: "Rozłączony"
             archived: "Zarchiwizowany"
             next_try: "Następna próba za"
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"

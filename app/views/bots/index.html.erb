@@ -119,7 +119,7 @@
         <span class="merge-bar__warning" data-bots-merge-target="warning" hidden></span>
       </div>
       <div class="merge-bar__actions">
-        <%= button_tag t('button.cancel'), type: 'button', class: 'rbutton',
+        <%= button_tag t('button.cancel'), type: 'button', class: 'rbutton rbutton--outline',
                        data: { action: 'bots-merge#cancel' } %>
         <%# Split mode points this form at the split modal (bots_merge_controller). %>
         <%= form_with url: new_bots_merge_path, method: :get, data: { turbo_frame: 'modal', bots_merge_target: 'form' } do %>

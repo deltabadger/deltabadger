@@ -87,6 +87,7 @@ nl:
                 restricted: 'De exchange staat handel in deze asset vanuit jouw regio niet toe — kies een andere asset of een andere exchange.'
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
+            disconnected: "Losgekoppeld"
             archived: "Gearchiveerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"

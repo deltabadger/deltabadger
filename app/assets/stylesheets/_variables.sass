@@ -65,6 +65,7 @@
     --concrete: #9CA8B8
     --steel: #C2CAD4
     --silver: #E2E6EB
+    --zinc: #E2E6EB
     --paper: #F8F9Fa
     --washed: #FFFFFF
     --paper-on-washed: #F5F6F8
@@ -122,8 +123,6 @@
     --ticker-tooltip-border: var(--silver)
     --ticker-tooltip-secondary: var(--stone)
 
-    --side-menu-border: var(--silver)
-
 @media (prefers-color-scheme: dark)
   \:root
     --sky: color(display-p3 0 0 1)
@@ -134,12 +133,13 @@
     --concrete: #4F6991
     --steel: #163253
     --silver: #010f1f
+    --zinc: #122944
     --paper: #00152a
     --washed: #0c1e37
     --paper-on-washed: #122949
     --white: #FFFFFF
-    --grass: color(display-p3 0 0.7 0.45)
-    --berry: #ff0055
+    --grass: color(display-p3 0 0.55 0.43)
+    --berry: #b1003b
     --highlight: var(--white)
     --autocomplete: #122b49
     --inputTextFocus: #fff
@@ -164,7 +164,7 @@
     --slider-progress: color(display-p3 0 0 1)
     --label: #B2D5FFc9
     --label-select-inactive: #b2d5ff77
-    --close-hover: #fff1
+    --close-hover: var(--zinc)
 
     --modal-backdrop: #012b
     --pick-bot-item-bg: #0D223F
@@ -190,7 +190,5 @@
     --ticker-tooltip-background: var(--steel)
     --ticker-tooltip-border: none
     --ticker-tooltip-secondary: var(--ash)
-
-    --side-menu-border: var(--steel)
 
 $fontText: var(--font-family)

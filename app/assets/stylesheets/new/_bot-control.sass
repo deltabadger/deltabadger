@@ -55,15 +55,18 @@
         color: var(--label-select-inactive)
         &:has(.bot-control__status.active)
             color: var(--grass)
-        // No working key: Connect takes the status text's place, next to the logo.
-        &:has(.bot-control__connect) .bot-control__status
-            display: none
         .bot-control__status
             width: 0
             background: none
             box-shadow: none
             &__text
                 padding-left: 1rem
+        // No working key: Connect stands where the status text would; the tile says Disconnected.
+        .bot-control__connect
+            align-self: center
+            margin-left: 1rem
+        .bot-control__status__disconnected
+            display: none
     // The exchange select is replaced on its own, so it is a form; display: contents lays its logo
     // and Connect out as the meter's own items. Positioned, to paint over the progress.
     &__exchange
@@ -82,9 +85,6 @@
             order: 1
             flex: none
             margin-right: 0.5rem
-        > .bot-control__connect
-            order: 0
-            margin: 0 0 0 1rem
     &__progress
         position: absolute
         inset: 0
@@ -100,6 +100,11 @@
 // The bot page's Start/Stop, full size: as wide as the old pill button was.
 .bot-control > [id$="_status_button"] .rbutton
     min-width: 10rem
+.bot-control
+    .rbutton--disabled,&[disabled="disabled"],&[disabled]
+        background: var(--washed) !important
+        color: var(--steel) !important
+        box-shadow: var(--shadow-widget)
 
 turbo-cable-stream-source
     display: none !important

@@ -86,6 +86,7 @@ sk:
                 restricted: 'Burza neumožňuje obchodovať toto aktívum z tvojej krajiny — zmeň aktívum alebo burzu.'
             setting_orders: "Zadávanie príkazov…"
             paused: "Pozastavené"
+            disconnected: "Odpojené"
             archived: "Archivované"
             next_try: "Ďalší pokus za"
             waiting: "Čakanie na splnenie všetkých podmienok"

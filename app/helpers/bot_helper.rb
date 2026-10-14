@@ -656,8 +656,9 @@ module BotHelper
   #
   # aria-hidden on the ghost, the status role on the spinner: a screen reader hears "selling", not
   # a Sell button it cannot press.
-  def selling_placeholder(label)
-    ghost = tag.span(label, class: 'rbutton rbutton--small', aria: { hidden: 'true' })
+  # outline: true when the button it stands in for wears one — the border is part of its width.
+  def selling_placeholder(label, outline: false)
+    ghost = tag.span(label, class: ['rbutton rbutton--small', ('rbutton--outline' if outline)], aria: { hidden: 'true' })
     spinner = tag.span('', class: 'loader--small', role: 'status', aria: { label: t('bot.liquidation.selling') })
     tag.span(ghost + spinner, class: 'table__busy')
   end

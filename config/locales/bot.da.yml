@@ -86,6 +86,7 @@ da:
                 restricted: 'Børsen tillader ikke handel med dette aktiv fra din region — skift aktiv eller børs.'
             setting_orders: "Opretter ordrer…"
             paused: "Sat på pause"
+            disconnected: "Afbrudt"
             archived: "Arkiveret"
             next_try: "Næste forsøg om"
             waiting: "Venter på, at alle betingelser opfyldes"

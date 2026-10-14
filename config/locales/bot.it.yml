@@ -86,6 +86,7 @@ it:
                 restricted: "L'exchange non consente di negoziare questo asset dal tuo paese — cambia asset o exchange."
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
+            disconnected: "Disconnesso"
             archived: "Archiviato"
             next_try: "Prossimo tentativo in"
             waiting: "In attesa che tutte le condizioni siano soddisfatte"

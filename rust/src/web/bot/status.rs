@@ -198,6 +198,8 @@ struct Bar<'a> {
     text: Option<String>,
     dots: bool,
     countdown: Option<Countdown>,
+    /// No working key: `new_bot_add_api_key_path`, for the Connect that stands beside "Disconnected".
+    connect: Option<String>,
 }
 
 enum Button {
@@ -303,9 +305,10 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
         width: progress_width(ctx.now, start.as_ref(), *end),
         start: start.as_ref().and_then(|start| DateTime::from_timestamp_micros(start.floor_micros())).map(iso8601), end: end.map(iso8601),
     });
-    let (mut text, mut dots, mut countdown) = (None, false, None);
+    let (mut text, mut dots, mut countdown, mut connect) = (None, false, None, None);
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
+        _ if !bot.exchange.retired() && !bot.api_key_correct() => connect = Some(ctx.path(&format!("/bots/{}/add_api_key/new", bot.id))),
         BotStatus::Executing => text = Some(t("bot.status.setting_orders")),
         _ if bot.excess_members() > 0 => {
             text = Some(i18n::text(ctx.locale, "bot.dca_multi_asset.too_many_assets", &[("count", i18n::Arg::Count(bot.excess_members() as i64))]));
@@ -334,7 +337,7 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
         }
         BotStatus::Created | BotStatus::Deleted => {}
     }
-    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, text, dots, countdown }.render()?;
+    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, text, dots, countdown, connect }.render()?;
     let progress = Progress { id: bot.dom_id("progress_bar"), fill }.render()?;
     // _status_button.html.erb runs `bot.invalid?(:start)` whatever the status, and the errors it leaves are printed
     // under their fields by the settings rendered after it.

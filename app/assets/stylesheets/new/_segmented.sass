@@ -35,6 +35,8 @@
             color: #fff
     &--primary
         background: var(--sky)
+    &--outline
+        border: 0.125rem solid var(--silver)
     &--danger
         background: var(--berry)
     // The affirmative half of a two-answer prompt. Paired with --danger rather than with the
@@ -60,27 +62,52 @@
     // The animicon glyph takes the label colour, so a plain rbutton draws it in link blue.
     .animicon
         &__a, &__b
-            background: currentColor
+            background: var(--concrete)
     &--start, &--stop
         padding: 0 1.75rem
         cursor: pointer
-        box-shadow: none
+        box-shadow: var(--shadow-paper)
+        .animicon
+            &__a, &__b
+                background: var(--white)
     &--start
         color: #fff
         background: var(--grass)
     &--stop
-        background: var(--silver)
+        background: var(--zinc)
         .animicon
             &__a,&__b
                 background: var(--stone)
     // A Start that cannot start: the glyph greys out, and the small one loses its green.
-    &--disabled
+    &--disabled,&[disabled="disabled"],&[disabled]
         cursor: default
-        &:not(.rbutton--small)
-            .animicon__a, .animicon__b
-                color: var(--steel)
+        background: var(--paper) !important
+        color: var(--steel) !important
+        box-shadow: inset 1px 1px var(--silver)
+        .animicon__a, .animicon__b
+            background: var(--zinc)
         &.rbutton--small
-            background: var(--silver)
+            box-shadow: inset 1px 1px 0 var(--silver) !important
+            background: var(--paper) !important
+            .animicon
+                filter: drop-shadow(1px 1px 0 var(--silver)) !important
+                &__a, &__b
+                    background: var(--washed) !important
+// The input that sits beside an .rbutton: same box, same type, so a row of both reads as one set.
+.rinput
+    height: 4rem
+    width: fit-content
+    border-radius: 1rem
+    border: none
+    background: var(--washed)
+    box-shadow: var(--shadow-widget)
+    font-family: inherit
+    font-size: 1.5rem
+    font-weight: 600
+    text-transform: uppercase
+    color: var(--link)
+    padding: 0 1.5rem
+    cursor: pointer
 .segmented
     position: relative
     display: grid

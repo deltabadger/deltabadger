@@ -86,6 +86,7 @@ de:
                 restricted: 'Die Börse erlaubt den Handel mit diesem Asset aus deiner Region nicht — wechsle das Asset oder die Börse.'
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
+            disconnected: "Getrennt"
             archived: "Archiviert"
             next_try: "Nächster Versuch in"
             waiting: "Warten bis alle Bedingungen erfüllt sind"

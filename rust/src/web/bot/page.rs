@@ -302,7 +302,6 @@ struct ExchangeSelect<'a> {
     can_reconnect: bool,
     exchange_note: Option<String>,
     other_exchanges: Vec<OtherExchange>,
-    needs_key: bool,
 }
 
 pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, owner: i64) -> Result<String, WebError> {
@@ -322,8 +321,7 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
         };
     Ok(ExchangeSelect { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), param_key: bot.param_key(),
         exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: capitalize(&bot.exchange.name),
-        can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges,
-        needs_key: !bot.exchange.retired() && !bot.api_key_correct() }.render()?)
+        can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges }.render()?)
 }
 
 #[derive(Template)]

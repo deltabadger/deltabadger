@@ -1,5 +1,11 @@
 {#- bots/status/_status_bar.html.erb: the first state that applies. -#}
 <div id="{{ id }}" class="bot-control__status {% if active %}active{% endif %}" data-controller="marquee" style="display: flex;">
+{% if let Some(connect) = connect %}
+    <div class="bot-control__status__text bot-control__status__disconnected" data-marquee-target="text">
+      {{ v.t("bot.status.disconnected")|safe }}
+    </div>
+    <a class="rbutton rbutton--small rbutton--success bot-control__connect" data-turbo-frame="modal" href="{{ connect }}">{{ v.t("button.connect")|safe }}</a>
+{% endif %}
 {% if let Some(text) = text %}
     <div class="bot-control__status__text" data-marquee-target="text">
       {{ text }}{% if dots %}

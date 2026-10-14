@@ -48,7 +48,5 @@
 
   <% if bot.exchange&.retired? %>
     <span class="text-warning"><%= t('bot.status.exchange_retired') %></span>
-  <% elsif bot.exchange.present? && !bot.api_key.correct? %>
-    <%= link_to t('button.connect'), new_bot_add_api_key_path(bot), class: "rbutton rbutton--small rbutton--success bot-control__connect", data: { turbo_frame: "modal" } %>
   <% end %>
 <% end %>

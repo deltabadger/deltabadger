@@ -87,6 +87,7 @@ fr:
                 restricted: "La plateforme n'autorise pas le trading de cet actif depuis ton pays — change d'actif ou de plateforme."
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
+            disconnected: "Déconnecté"
             archived: "Archivé"
             next_try: "Prochain essai dans"
             waiting: "En attente que toutes les conditions soient remplies"
