@@ -163,3 +163,77 @@ fn populated_sources_and_ci_are_pinned() {
     let workflow = include_str!("../../.github/workflows/rust.yml");
     for path in ["script/rust/pages_tracker_populated.rb", "app/jobs/tax/generate_report_job.rb"] { assert_eq!(workflow.matches(&format!("- '{path}'")).count(), 2, "both CI events cover {path}"); }
 }
+
+const AT: &str = "2026-09-20T02:00:00Z";
+
+/// An Alpaca account whose ledger the scheduler has cached: a dollar deposit and a bitcoin buy, and (`synced`) the
+/// balances of a completed sync by the current key.
+async fn warm_install(synced: bool) -> (tempfile::TempDir, deltabadger::web::App, i64, std::path::PathBuf) {
+    let (dir, o, s) = common::install_alpaca();
+    let c = &o.primary;
+    c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
+    let at: chrono::DateTime<chrono::Utc> = AT.parse().unwrap();
+    common::seed::fresh_stock_jobs(c, at);
+    let row = "INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'{}','{}',?8,?8)";
+    c.execute(row, rusqlite::params![s.user_id, s.exchange_id, 4, "USD", "1000", None::<&str>, None::<&str>, "2026-09-01 00:00:00"]).unwrap();
+    c.execute(row, rusqlite::params![s.user_id, s.exchange_id, 0, "BTC", "0.01", "USD", "600", "2026-09-02 00:00:00"]).unwrap();
+    let v = deltabadger::engine::model::credential_version_by_id(c, s.api_key_id).unwrap().unwrap();
+    if synced {
+        let usd: i64 = c.query_row("SELECT id FROM assets WHERE symbol='USD' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap_or_else(|_| { c.execute("INSERT INTO assets(external_id,symbol,name,category,created_at,updated_at) VALUES('usd','USD','US Dollar','Currency',?1,?1)", [AT]).unwrap(); c.last_insert_rowid() });
+        for (asset, free, price) in [(usd, "400", "1"), (s.btc, "0.01", "60000")] {
+            c.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at) VALUES(?1,?2,?3,?4,0,?5,?4*?5,'2026-09-20 02:00:00','2026-09-20 02:00:00','2026-09-20 02:00:00','2026-09-20 02:00:00')",
+                      rusqlite::params![s.user_id, s.exchange_id, asset, free, price]).unwrap();
+        }
+        c.execute("UPDATE api_keys SET balances_synced_at='2026-09-20 02:00:00' WHERE id=?1", [s.api_key_id]).unwrap();
+        deltabadger::engine::model::credential_write(c, &Some(v.clone()), |f| deltabadger::sync::cache::record(f, s.user_id, s.exchange_id, &v, true, at)).unwrap();
+    }
+    deltabadger::engine::model::credential_write(c, &Some(v.clone()), |f| deltabadger::sync::cache::record_ledger(f, s.api_key_id, &v, at)).unwrap();
+    let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), common::seed::cipher());
+    deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ScriptedTransport>>, None, s.user_id, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap();
+    let state = deltabadger::tracker::cache::read(c, s.user_id, None, at).unwrap();
+    assert!(matches!(state, deltabadger::tracker::cache::State::Warm(_)), "the ledger is cached");
+    let app = common::web::app(dir.path(), common::web::SECRET, TestClock::at(AT));
+    let file = dir.path().join("production.sqlite3");
+    (dir, app, s.user_id, file)
+}
+
+async fn regions_of(app: &deltabadger::web::App, owner: i64, before: impl FnOnce(&Connection) + Send + 'static) -> populated::Regions {
+    let page = app.clone();
+    let built = app.db(move |c| { before(c); let ctx = ctx(&page, c, owner, "/tracker", "token"); let held = fx::held(&page, c, owner)?; let out = populated::regions(c, &ctx, owner, &held); c.authorizer(None::<fn(rusqlite::hooks::AuthContext<'_>) -> rusqlite::hooks::Authorization>); out }).await.unwrap();
+    match built { populated::Built::Regions(r) => r, populated::Built::Refused(m) => panic!("refused: {m}") }
+}
+
+/// A balance sync that commits while the page reads cannot leave it approving one set of balances and stating figures
+/// from another: every input is read in one snapshot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sync_landing_mid_read_cannot_split_the_page() {
+    let (_dir, app, owner, file) = warm_install(true).await;
+    let calm = regions_of(&app, owner, |_| {}).await;
+    assert!(calm.tiles.contains("<small>$</small>600.00"), "{}", calm.tiles);
+    // After the balances were approved and the ledger read, before the figures: the sync's next batch lands, its
+    // stamp not yet complete, with a new price for bitcoin.
+    let fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let hook = fired.clone();
+    let mid = regions_of(&app, owner, move |c| c.authorizer(Some(move |ctx: rusqlite::hooks::AuthContext<'_>| {
+        if matches!(ctx.action, rusqlite::hooks::AuthAction::Read { table_name: "fx_rates", .. }) && !hook.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            let w = Connection::open(&file).unwrap();
+            w.execute("UPDATE account_balances SET usd_price=90000, usd_value=900 WHERE usd_price=60000", []).unwrap();
+            let (key, user, exchange): (i64, i64, i64) = w.query_row("SELECT id,user_id,exchange_id FROM api_keys LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+            let v = deltabadger::engine::model::credential_version_by_id(&w, key).unwrap().unwrap();
+            deltabadger::engine::model::credential_write(&w, &Some(v.clone()), |f| deltabadger::sync::cache::record(f, user, exchange, &v, false, AT.parse().unwrap())).unwrap();
+        }
+        rusqlite::hooks::Authorization::Allow
+    }))).await;
+    assert!(fired.load(std::sync::atomic::Ordering::SeqCst), "the sync landed during the read");
+    assert_eq!((mid.tiles, mid.holdings), (calm.tiles, calm.holdings), "the page read one snapshot");
+}
+
+/// A ledger can be cached before the first balance sync completes: the card says the account was never synced, and no
+/// tile states money the balances decide (money in, value, unrealised, total; fees and realised are the ledger's).
+#[tokio::test(flavor = "current_thread")]
+async fn a_warm_ledger_before_the_first_balance_sync_withholds_the_money() {
+    let (_dir, app, owner, _) = warm_install(false).await;
+    let r = regions_of(&app, owner, |_| {}).await;
+    assert!(r.holdings.contains(&deltabadger::web::i18n::t("en", "tracker.portfolio.never_synced", &[])), "{}", r.holdings);
+    assert_eq!(r.tiles.matches("<span class=\"no-value\" title=\"Tracker figures unavailable: balances not yet synced with the current key\">").count(), 4, "{}", r.tiles);
+}

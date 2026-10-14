@@ -190,7 +190,9 @@ fn type_label(symbol: &str, category: Option<&str>) -> &'static str {
 /// `tracker_percent`: signed, one decimal.
 fn percent_text(d: &Dec) -> Result<String, WebError> { Ok(format!("{}{}%", if d.is_negative() { "" } else { "+" }, fixed(d, 1)?)) }
 fn fixed(d: &Dec, digits: i64) -> Result<String, WebError> {
+    // number_with_precision writes a figure that rounds to zero without its minus.
     let text = num(d.round(digits))?.to_s_f();
+    let text = if text.trim_start_matches('-').chars().all(|c| c == '0' || c == '.') { text.trim_start_matches('-').to_string() } else { text };
     let (whole, fraction) = text.split_once('.').ok_or_else(invalid)?;
     Ok(format!("{whole}.{fraction:0<width$}", width = digits as usize))
 }
@@ -338,6 +340,9 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash:
 // ---- the page -------------------------------------------------------------------------------------------------------
 
 pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<Built, WebError> {
+    // One snapshot for every input: the balances `cold` approves, the cached ledger and the balances `warm` computes
+    // from are the same rows, whatever a sync commits meanwhile.
+    if c.is_autocommit() { let tx = c.unchecked_transaction()?; let out = regions(&tx, ctx, owner, fx)?; tx.commit()?; return Ok(out); }
     let scope = ctx.params.query("exchange_id").filter(|s| !s.trim().is_empty()).map(|s| crate::web::bot::id_from_path(s).ok_or_else(invalid)).transpose()?;
     let raw: Option<String> = c.query_row("SELECT tracker_settings FROM users WHERE id=?1", [owner], |r| r.get(0))?;
     let settings: serde_json::Value = match raw.as_deref() { Some(text) => serde_json::from_str(text).map_err(|_| invalid())?, None => serde_json::Value::Null };
@@ -345,7 +350,8 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     let p = match portfolio(c, ctx, owner, scope, show_cash)? { Ok(p) => p, Err(message) => return Ok(Built::Refused(message)) };
     let den = fx.denomination(c, owner, ctx.app.now().timestamp())?;
     let withheld = if den.is_none() { Some("Currency conversion unavailable") } else { p.cold.reason };
-    let withheld = if p.never_synced { None } else { withheld };
+    // An account whose first balance sync has not completed keeps its money withheld, a warm ledger or not: the card
+    // says it was never synced, and no tile states a value the balances cannot vouch for.
     let sync = super::holdings::synced_label(ctx, p.cold.synced, p.cold.stale);
     Ok(Built::Regions(Regions {
         pending: pending_report(ctx, owner, &settings)?,
@@ -354,4 +360,16 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
         holdings: holdings(c, ctx, &p, den.as_ref(), withheld)?,
         warnings: crate::web::settings::keys::warnings(c, ctx, owner)?,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    /// number_with_precision: a percentage that rounds to zero is written without its minus (Rails' 0.0%).
+    #[test]
+    fn a_percentage_rounding_to_zero_has_no_minus() {
+        let p = |v: &str| super::percent_text(&crate::figures::dec::Dec::parse(v).unwrap()).unwrap();
+        assert_eq!(p("-0.03"), "0.0%");
+        assert_eq!(p("-0.3"), "-0.3%");
+        assert_eq!(p("0.04"), "+0.0%");
+    }
 }

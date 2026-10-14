@@ -75,15 +75,17 @@ fn in_display(c:&Connection,amount:&Dec,currency:&str,day:chrono::NaiveDate,d:&D
     match (rate(currency)?,rate(&d.currency)?) {(Some(from),Some(to))=>Ok(Some(number(amount * &number(to.div(&from))?)?)),_=>Ok(None)}
 }
 fn unit(d:&Denomination)->&str {match d.currency.as_str(){"USD"=>"$","EUR"=>"€","GBP"=>"£","CHF"=>"Fr.","PLN"=>"zł",other=>other}}
+/// NumberToCurrencyConverter: an amount that rounds to nothing is written without its minus.
+fn nonzero(rounded:&str)->bool{rounded.chars().any(|c|c.is_ascii_digit()&&c!='0')}
 pub(super) fn formatted(value:&Dec,d:&Denomination)->Result<String,WebError>{
     let negative=value.is_negative(); let abs=if negative{value.neg()}else{value.clone()};
-    let sign=if negative{"-"}else{""};let u=escape(unit(d));let a=amount(&abs,&d.currency)?;
+    let a=amount(&abs,&d.currency)?;let sign=if negative&&nonzero(&a){"-"}else{""};let u=escape(unit(d));
     Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} <small>{u}</small>")}else{format!("{sign}<small>{u}</small>{a}")})
 }
 /// `Denomination#format_plain`: the same figure with its unit spelled out, for a sentence or an attribute.
 pub(super) fn plain(value:&Dec,d:&Denomination)->Result<String,WebError>{
     let negative=value.is_negative(); let abs=if negative{value.neg()}else{value.clone()};
-    let sign=if negative{"-"}else{""};let u=unit(d);let a=amount(&abs,&d.currency)?;
+    let a=amount(&abs,&d.currency)?;let sign=if negative&&nonzero(&a){"-"}else{""};let u=unit(d);
     Ok(if matches!(d.currency.as_str(),"CHF"|"PLN"){format!("{sign}{a} {u}")}else{format!("{sign}{u}{a}")})
 }
 /// `tracker_amount`: a quantity in the unit named beside it.
@@ -161,4 +163,19 @@ fn venue(class: &str) -> String {
 /// FX refusal replaces every monetary cell; never a zero or a mislabeled dollar figure.
 pub fn unavailable(id:i64)->String {
     format!("<tr id=\"account_transaction_{id}\" class=\"tracker-row\"><td colspan=\"10\"><span class=\"no-value\">Currency conversion unavailable</span></td></tr>\n")
+}
+
+#[cfg(test)]
+mod rounding_tests {
+    use super::*;
+    /// As Rails' Denomination#format writes them (probed with the unchanged app): an amount that rounds to nothing
+    /// carries no minus.
+    #[test]
+    fn an_amount_rounding_to_nothing_has_no_minus() {
+        let usd = Denomination { currency: "USD".into(), rate: Dec::one() };
+        for (value, written) in [("-0.37", "-<small>$</small>0.37"), ("-0.374", "-<small>$</small>0.37"), ("-12.5", "-<small>$</small>12.50"), ("-0.004", "<small>$</small>0.00")] {
+            assert_eq!(formatted(&Dec::parse(value).unwrap(), &usd).unwrap(), written, "{value}");
+        }
+        assert_eq!(plain(&Dec::parse("-0.004").unwrap(), &usd).unwrap(), "$0.00");
+    }
 }
