@@ -12,11 +12,9 @@ Add the URL wherever your client accepts a remote MCP server. There is no token 
 
 ## Authorizing a client
 
-The first time a client connects, your browser opens Deltabadger's **Authorize access** page. Sign in if you are not already. The page shows which client is asking ("*Name* wants to access your Deltabadger server"), warns that the application registered itself and Deltabadger has not verified it — only continue if you started this yourself — and lists what the access covers. Under "Choose what it may use over MCP:" there is a checkbox per group: **Read**, **Control**, **Trade**, **Tax & Reporting**. Only **Read** is ticked to begin with.
+The first time a client connects, your browser opens Deltabadger's **Authorize access** page. Sign in if you are not already. The page shows which client is asking ("*Name* wants to access your Deltabadger server"), lists what the access covers and where you will be sent back. Press **Connect**, or **Cancel** to refuse.
 
-Untick what you do not want this client to have, then press **Connect**, or **Cancel** to refuse. The ticked groups become the client's grant, limited to the tools switched on at that moment; tools you switch on later are granted from the **Connected clients** list.
-
-A client that also asked for REST API access shows a second set of checkboxes, "Choose what it may use over the REST API:"; see [REST API](23-rest-api.md).
+The page asks nothing about tools. A newly connected client can use whatever you have switched on in [Tools and permissions](#tools-and-permissions), and follows those switches as you change them. To limit one client, use its card under **Connected clients**. Claude's own connector settings can also limit which tools it calls.
 
 The client receives a token that lasts an hour and renews it on its own. You do not authorize again unless you revoke the client.
 
@@ -25,6 +23,8 @@ The client receives a token that lasts an hour and renews it on its own. You do 
 **Connected clients**, at the bottom of the page, is a card per client you have authorized, with the date it connected. Each card is a small grid: a row per group, a switch under **MCP** and one under **REST API**. A surface the client never asked for shows **–** instead of a switch.
 
 A switch is on when the client holds everything you currently have enabled in that group, and half-set when it holds only part of it. Switch it on to grant the whole group (only the tools you currently have on), or off to take the group away. A tool switched off in the matrix above is off for every client at once, but stays in the client's grant until you remove it here.
+
+A client you have never changed here follows **Tool permissions**. The first change you make on its card fixes its grant: from then on a tool you switch on later reaches it only when you switch the group on here too.
 
 **Revoke** disconnects a client and stops its tokens immediately. It has to authorize again to connect.
 
@@ -41,7 +41,7 @@ On MCP, **Read** and **Tax & Reporting** start on, **Control** and **Trade** sta
 A tool is usable only when both of these are true:
 
 1. It is switched on in the **MCP** column of **Tool permissions**.
-2. The client was granted it. A client receives its grant when you authorize it, and the grant only contains tools that were switched on at that moment. Tools you enable later have to be granted to each client from the **Connected clients** list. A client only sees the tools that pass both checks.
+2. The client holds it. A newly connected client holds everything switched on in **Tool permissions**, and keeps following it until you change that client's card under **Connected clients**. After that, the client holds what its card says. A client only sees the tools that pass both checks.
 
 ### Read
 

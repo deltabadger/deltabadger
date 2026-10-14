@@ -26,6 +26,14 @@ class ConnectedClientTest < ActiveSupport::TestCase
     assert_empty client.granted_rest_tools
   end
 
+  test 'a surface with no stored list follows the user' do
+    @user.set_rest_tool_enabled('list_bots', true)
+    client = ConnectedClient.create!(user: @user, oauth_application: @application, mcp_tools: nil, rest_tools: nil)
+
+    assert_equal @user.enabled_mcp_tool_names, client.granted_mcp_tools
+    assert_equal %w[list_bots], client.granted_rest_tools
+  end
+
   test 'filters tool names that are not real tools' do
     client = ConnectedClient.create!(
       user: @user, oauth_application: @application,

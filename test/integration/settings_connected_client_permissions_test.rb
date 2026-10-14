@@ -181,6 +181,42 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
     assert_match 'Acme Connector', response.body
   end
 
+  # ---- a client that follows the user ----------------------------------------
+  #
+  # A new connection stores no list (NULL): its card shows what the user has on, and the
+  # first edit pins an explicit list built from that.
+
+  test 'a following client shows on wherever the user has something on' do
+    @client.update!(mcp_tools: nil, rest_tools: nil)
+    get settings_api_path
+
+    assert_select '.connected-client tr[data-group=read] td[data-surface=mcp] .toggle:not(.toggle--partial) input[checked]', 1
+    assert_select '.connected-client tr[data-group=trade] td[data-surface=mcp] input[type=checkbox]:not([checked])', 1
+    assert_select '.connected-client tr[data-group=read] td[data-surface=rest] input[type=checkbox]:not([checked])', 1
+  end
+
+  test 'switching a group off on a following client pins the rest of what the user has on' do
+    @client.update!(mcp_tools: nil, rest_tools: nil)
+
+    patch update_path, params: { surface: 'mcp', group: 'read', enabled: '0' }
+
+    @client.reload
+    assert_equal @user.enabled_mcp_tool_names - AppConfig::MCP_TOOL_GROUPS['read'], @client.mcp_tools
+    assert_nil @client.rest_tools, 'the other surface still follows'
+
+    @user.set_mcp_tool_enabled('market_buy', true)
+    assert_not_includes @client.reload.granted_mcp_tools, 'market_buy', 'a pinned client no longer follows'
+  end
+
+  test 'switching a group on from following pins a list even when nothing visible changes' do
+    @client.update!(mcp_tools: nil, rest_tools: nil)
+
+    patch update_path, params: { surface: 'rest', group: 'read', enabled: '1' }
+
+    assert_equal [], @client.reload.rest_tools
+    assert_nil @client.mcp_tools
+  end
+
   # ---- editing a grant ----------------------------------------------------
 
   test 'granting a group adds only tools the user has on' do

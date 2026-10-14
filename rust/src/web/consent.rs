@@ -7,9 +7,9 @@
 //! A request is never redirected to a URI the client did not register. Until `client_id` and
 //! `redirect_uri` have been checked against the client's row, every refusal is shown here, as a page
 //! (or, on a POST, as JSON); only after that may an error travel to the redirect URI.
-use super::auth::{self, User};
+use super::auth;
 use super::layout::{self, Ctx};
-use super::oauth::{self, present, redirect_uri_allowed, redirect_with, scopes, scopes_valid, text, Application, Uri, TOOL_DEFAULTS, TOOL_GROUPS};
+use super::oauth::{self, present, redirect_uri_allowed, redirect_with, scopes, scopes_valid, text, Application, Uri, TOOL_DEFAULTS};
 use super::{headers, i18n, i18n::Arg, App, WebError};
 use crate::codec::format_time;
 use askama::Template;
@@ -19,18 +19,16 @@ use axum::response::{IntoResponse, Response};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
-/// The two surfaces a grant covers: (scope, form field, `users` column, `connected_clients` column, on by default).
+/// The two surfaces a grant covers: (`users` column, `connected_clients` column, on by default).
 struct Surface {
-    scope: &'static str,
-    field: &'static str,
     settings: &'static str,
     column: &'static str,
     /// MCP tools start as the catalogue says; REST tools all start off.
     defaults: bool,
 }
 const SURFACES: [Surface; 2] = [
-    Surface { scope: "mcp", field: "granted_mcp_groups", settings: "mcp_settings", column: "mcp_tools", defaults: true },
-    Surface { scope: "api", field: "granted_rest_groups", settings: "rest_settings", column: "rest_tools", defaults: false },
+    Surface { settings: "mcp_settings", column: "mcp_tools", defaults: true },
+    Surface { settings: "rest_settings", column: "rest_tools", defaults: false },
 ];
 
 /// User#enabled_mcp_tool_names / #enabled_rest_tool_names: the defaults with the owner's overrides
@@ -48,20 +46,23 @@ fn enabled_tools(c: &Connection, user_id: i64, surface: &Surface) -> Result<Vec<
     Ok(enabled)
 }
 
-/// ConnectedClient#granted_mcp_tools / #granted_rest_tools: what the client was granted, without
-/// names the catalogue no longer has. `None` when the client has no grant from this user yet.
+/// ConnectedClient#granted_mcp_tools / #granted_rest_tools: what the client holds, without names the
+/// catalogue no longer has. A NULL list follows the owner's enabled tools. `None` when the client
+/// has no row for this user.
 fn granted_tools(c: &Connection, user_id: i64, application_id: i64, surface: &Surface) -> Result<Option<Vec<String>>, WebError> {
-    let stored: Option<String> = c.query_row(&format!("SELECT {} FROM connected_clients WHERE user_id = ?1 AND oauth_application_id = ?2", surface.column),
-                                             [user_id, application_id], |r| r.get(0)).optional()?;
-    Ok(stored.map(|text| {
-        let names: Vec<String> = serde_json::from_str::<Value>(&text).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default().iter()
-            .map(|name| name.as_str().map_or_else(|| name.to_string(), str::to_string)).collect();
-        let mut known: Vec<String> = Vec::new();
-        for name in names {
-            if TOOL_DEFAULTS.iter().any(|(tool, _)| *tool == name) && !known.contains(&name) { known.push(name); }
-        }
-        known
-    }))
+    let stored: Option<Option<String>> = c.query_row(&format!("SELECT {} FROM connected_clients WHERE user_id = ?1 AND oauth_application_id = ?2", surface.column),
+                                                     [user_id, application_id], |r| r.get(0)).optional()?;
+    let names: Vec<String> = match stored {
+        None => return Ok(None),
+        Some(None) => enabled_tools(c, user_id, surface)?,
+        Some(Some(text)) => serde_json::from_str::<Value>(&text).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default().iter()
+            .map(|name| name.as_str().map_or_else(|| name.to_string(), str::to_string)).collect(),
+    };
+    let mut known: Vec<String> = Vec::new();
+    for name in names {
+        if TOOL_DEFAULTS.iter().any(|(tool, _)| *tool == name) && !known.contains(&name) { known.push(name); }
+    }
+    Ok(Some(known))
 }
 
 /// The OAuth parameters of an authorization request, from the query (GET) or the consent form.
@@ -187,18 +188,6 @@ fn to_client(asked: &Asked, redirect_uri: &str, parameters: &[(&str, &str)]) -> 
     cached_as_rails(response)
 }
 
-struct Group {
-    name: &'static str,
-    label: String,
-    checked: bool,
-}
-
-struct Section {
-    field: &'static str,
-    label: String,
-    groups: Vec<Group>,
-}
-
 #[derive(Template)]
 #[template(path = "oauth/consent.html")]
 struct ConsentPage<'a> {
@@ -207,10 +196,8 @@ struct ConsentPage<'a> {
     logo: String,
     title: String,
     description: String,
-    warning: String,
     scopes_label: String,
     scope_lines: Vec<String>,
-    sections: Vec<Section>,
     redirect_label: String,
     redirect_host: String,
     cancel: String,
@@ -219,43 +206,13 @@ struct ConsentPage<'a> {
     pre_auth: &'a PreAuth,
 }
 
-/// The sections of the consent form: for each scope asked, the tool groups, each ticked or not.
-/// First consent: only `read`. Again: a group only when the grant already covers every tool of it
-/// the owner has on, so that approving without touching the form never widens the grant.
-fn sections(c: &Connection, user: &User, pre_auth: &PreAuth) -> Result<Vec<Section>, WebError> {
-    let asked = scopes(&pre_auth.scope);
-    let mut out = Vec::new();
-    for surface in SURFACES.iter().filter(|surface| asked.contains(&surface.scope)) {
-        let granted = granted_tools(c, user.id, pre_auth.client.id, surface)?;
-        let enabled = enabled_tools(c, user.id, surface)?;
-        let groups = TOOL_GROUPS.iter().map(|(name, tools)| {
-            let checked = match &granted {
-                Some(granted) => {
-                    let available: Vec<&String> = enabled.iter().filter(|tool| tools.contains(&tool.as_str())).collect();
-                    !available.is_empty() && available.iter().all(|tool| granted.contains(tool))
-                }
-                None => *name == "read",
-            };
-            Group { name, label: i18n::t(i18n::DEFAULT, &format!("settings.mcp.tools_{name}"), &[]), checked }
-        }).collect();
-        out.push(Section { field: surface.field, label: i18n::t(i18n::DEFAULT, &format!("settings.mcp.authorize_groups_label_{}", surface.scope), &[]), groups });
-    }
-    Ok(out)
-}
-
 /// GET /oauth/authorize. Signed out: to the login page, which comes back here. The page is in
 /// English whatever the account's language: Oauth::BaseController sets no locale.
 pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)); }
     let asked = Asked::of(&ctx);
-    let (found, asked) = app.db(move |c| {
-        let found = match pre_authorize(c, &asked)? {
-            Ok(pre_auth) => { let sections = sections(c, &user, &pre_auth)?; Ok((pre_auth, sections)) }
-            Err(refused) => Err(refused),
-        };
-        Ok((found, asked))
-    }).await?;
-    let (pre_auth, sections) = match found {
+    let (found, asked) = app.db(move |c| Ok((pre_authorize(c, &asked)?, asked))).await?;
+    let pre_auth = match found {
         Ok(found) => found,
         Err(refused) => return error_page(refusal_status(&refused), &refused.description),
     };
@@ -266,11 +223,9 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers
         logo: format!("{}/logo_email_app.png", app.config.request_origin(&headers).unwrap_or_default()),
         title: t("settings.mcp.authorize_title"),
         description: i18n::t(i18n::DEFAULT, "settings.mcp.authorize_description_html", &[("client_name", Arg::Text(&pre_auth.client.name))]),
-        warning: t("settings.mcp.authorize_unverified"),
         scopes_label: t("settings.mcp.authorize_scopes_label"),
         // `t("settings.mcp.scope_<scope>", default: scope)`; both scopes have a text.
         scope_lines: scopes(&pre_auth.scope).iter().map(|scope| t(&format!("settings.mcp.scope_{scope}"))).collect(),
-        sections,
         redirect_label: t("settings.mcp.authorize_redirect_label"),
         redirect_host: Uri::parse(&pre_auth.redirect_uri).and_then(|uri| uri.host).filter(|host| !host.is_empty()).unwrap_or_else(|| pre_auth.redirect_uri.clone()),
         cancel: t("button.cancel"), connect: t("button.connect"),
@@ -279,43 +234,12 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers
     Ok(cached_as_rails(layout::html(StatusCode::OK, page.render()?)))
 }
 
-/// The values of the fields called `boxes` or `field`.
-fn named<'a>(fields: &'a [(String, String)], boxes: &str, field: &str) -> Vec<&'a str> {
-    fields.iter().filter(|(name, _)| name == boxes || name == field).map(|(_, value)| value.as_str()).collect()
-}
-
-/// ConnectedClients::RecordConsent: the client's grant becomes the tools of the groups left ticked,
-/// as far as the owner has them on now. A surface whose scope the authorization does not carry is
-/// left as it was.
-fn record_consent(c: &Connection, ctx: &Ctx, user_id: i64, application_id: i64, granted_scopes: &[&str], now: &str) -> Result<(), WebError> {
-    let mut tools: Vec<String> = Vec::new();
-    for surface in &SURFACES {
-        let names = if granted_scopes.contains(&surface.scope) {
-            // `Array(params[field])`: the `field[]` boxes, or a single `field`; the query's when the
-            // query names the field at all (Rails' `params`), else the form's.
-            let boxes = format!("{}[]", surface.field);
-            let mut ticked = named(&ctx.params.query, &boxes, surface.field);
-            if ticked.is_empty() { ticked = named(&ctx.params.form, &boxes, surface.field); }
-            let requested: Vec<&str> = TOOL_GROUPS.iter().filter(|(group, _)| ticked.contains(group)).flat_map(|(_, tools)| tools.iter().copied()).collect();
-            enabled_tools(c, user_id, surface)?.into_iter().filter(|tool| requested.contains(&tool.as_str())).collect()
-        } else {
-            granted_tools(c, user_id, application_id, surface)?.unwrap_or_default()
-        };
-        tools.push(json!(names).to_string());
-    }
-    let stored: Option<(String, String)> = c.query_row("SELECT mcp_tools, rest_tools FROM connected_clients WHERE user_id = ?1 AND oauth_application_id = ?2",
-                                                       [user_id, application_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    let Some(stored) = stored else {
-        c.execute("INSERT INTO connected_clients (user_id, oauth_application_id, mcp_tools, rest_tools, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                  (user_id, application_id, &tools[0], &tools[1], now))?;
-        return Ok(());
-    };
-    // ActiveRecord writes, and moves `updated_at`, only when a list changed.
-    let same = |a: &str, b: &str| serde_json::from_str::<Value>(a).ok() == serde_json::from_str::<Value>(b).ok();
-    if !same(&stored.0, &tools[0]) || !same(&stored.1, &tools[1]) {
-        c.execute("UPDATE connected_clients SET mcp_tools = ?1, rest_tools = ?2, updated_at = ?3 WHERE user_id = ?4 AND oauth_application_id = ?5",
-                  (&tools[0], &tools[1], now, user_id, application_id))?;
-    }
+/// ConnectedClients::RecordConsent: a new connection gets a row with no tool lists (NULL), so the
+/// client follows the owner's enabled tools; an existing row is left as it is. Nothing from the
+/// request is read.
+fn record_consent(c: &Connection, user_id: i64, application_id: i64, now: &str) -> Result<(), WebError> {
+    c.execute("INSERT INTO connected_clients (user_id, oauth_application_id, mcp_tools, rest_tools, created_at, updated_at) VALUES (?1, ?2, NULL, NULL, ?3, ?3) \
+               ON CONFLICT (user_id, oauth_application_id) DO NOTHING", (user_id, application_id, now))?;
     Ok(())
 }
 
@@ -324,7 +248,7 @@ fn record_consent(c: &Connection, ctx: &Ctx, user_id: i64, application_id: i64, 
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user_id) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let asked = Asked::of(&ctx);
-    let (clock, inner) = (app.clone(), ctx.clone());
+    let clock = app.clone();
     let (outcome, asked) = app.db(move |c| oauth::transaction(c, &*clock.clock, |c, now| {
         let now = format_time(now);
         let pre_auth = match pre_authorize(c, &asked)? {
@@ -336,7 +260,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         c.execute("INSERT INTO oauth_access_grants (application_id, resource_owner_id, token, expires_in, redirect_uri, scopes, code_challenge, code_challenge_method, created_at) \
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                   (pre_auth.client.id, user_id, &code, oauth::CODE_SECONDS, &pre_auth.redirect_uri, granted.join(" "), &asked.code_challenge, &asked.code_challenge_method, &now))?;
-        record_consent(c, &inner, user_id, pre_auth.client.id, &granted, &now)?;
+        record_consent(c, user_id, pre_auth.client.id, &now)?;
         Ok((Ok((pre_auth.redirect_uri, code)), asked))
     })).await?;
     let state = asked.state.as_deref().unwrap_or("");

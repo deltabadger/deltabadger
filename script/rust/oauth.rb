@@ -269,6 +269,7 @@ module OauthParity
       'consent_state_is_text' => { 'steps' => [register] + sign_in + [authorize('state' => %(a b&c="d"<e>+é)), approve] },
       'consent_fragment_mode' => { 'steps' => [register] + sign_in + [authorize('response_mode' => 'fragment'), approve, authorize('response_mode' => 'fragment'),
                                                                      deny] },
+      # The consent form has no groups: groups forged into the form or the query change nothing that is written.
       'consent_groups_not_in_the_form' => { 'steps' => [register] + sign_in + [
         authorize, approve('granted_mcp_groups[]' => %w[bogus tax tax], 'granted_rest_groups[]' => %w[read]),
         authorize, approve('granted_mcp_groups[]' => nil, 'granted_mcp_groups' => 'read')
@@ -278,13 +279,20 @@ module OauthParity
         authorize('redirect_uri' => 'HTTPS://Client.example:0443/Callback'), expect(302, approve),
         expect(200, exchange('redirect_uri' => 'HTTPS://Client.example:0443/Callback')), authorize('redirect_uri' => 'HTTPS://Client.example:0443/Callback'), expect(302, deny)
       ] },
-      # The ticked groups are read from Rails' `params` too: the query's, when the query names them.
       'consent_groups_in_the_query' => { 'user' => control_enabled, 'steps' => [register] + sign_in + [
         authorize, expect(302, approve('granted_mcp_groups[]' => nil).merge('query' => { 'granted_mcp_groups[]' => %w[trade] })),
         authorize, expect(302, approve('granted_mcp_groups[]' => %w[read control]).merge('query' => { 'granted_mcp_groups[]' => %w[tax] })),
         authorize, expect(302, approve.merge('query' => { 'granted_mcp_groups' => 'read' }))
       ] },
       'consent_denied' => { 'steps' => [register] + sign_in + [authorize, expect(302, deny)] },
+      # A client's row, however Settings left it, is what it was after another approval.
+      'consent_keeps_a_stored_row' => { 'user' => control_enabled, 'steps' => [register(both)] + sign_in + [
+        with_sql(authorize(both), "INSERT INTO connected_clients (user_id, oauth_application_id, mcp_tools, rest_tools, created_at, updated_at) " \
+                                  "SELECT 1, id, '[\"list_bots\"]', NULL, '#{SEEDED_AT}', '#{SEEDED_AT}' FROM oauth_applications WHERE uid = '$client_id'"),
+        expect(302, approve('granted_mcp_groups[]' => %w[read control trade tax])),
+        with_sql(authorize(both), "UPDATE connected_clients SET mcp_tools = '[]', rest_tools = '[]'"), expect(302, approve),
+        with_sql(authorize(both), %q(UPDATE connected_clients SET mcp_tools = '["start_bot"]', rest_tools = '["list_bots"]')), expect(302, approve)
+      ] },
       'consent_tampered_approve' => { 'steps' => [register] + sign_in + [
         authorize, approve('redirect_uri' => 'https://evil.example/cb'), authorize, approve('client_id' => 'nobody'),
         authorize, approve('scope' => 'mcp admin'), authorize, approve('code_challenge' => nil), authorize, approve('response_type' => 'token'),
@@ -507,7 +515,7 @@ module OauthParity
       'cross_code_issued_before_the_switch' => { 'steps' => authorized + [cut(expect(200, exchange)), cut(expect(400, exchange)), expect(200, refresh)] },
       # A client registered under one runtime is authorised under the other and gets its tokens back under the first.
       'cross_registered_only' => { 'steps' => [register, cut(again[0]), again[1], authorize, approve, cut(expect(200, exchange)), use] },
-      # The grant of tools written by one runtime is what the other shows and narrows at the next consent.
+      # The row written at consent by one runtime is left alone by the other's consent.
       'cross_reconsent' => { 'user' => control_enabled, 'steps' => connected + [
         cut(again[0]), again[1], expect(200, authorize), approve('granted_mcp_groups[]' => %w[read control]), expect(200, exchange),
         cut(again[0]), again[1], expect(200, authorize), deny, expect(200, refresh('$refresh_token.1')), use

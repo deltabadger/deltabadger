@@ -66,6 +66,35 @@ class PerClientToolPermissionsTest < ActiveSupport::TestCase
     assert_equal({ 'user_id' => @user.id }, session.session_data)
   end
 
+  test 'a client with no stored list lists and runs what the user has on, live' do
+    ConnectedClient.create!(user: @user, oauth_application: @application, mcp_tools: nil, rest_tools: nil)
+    OauthClientContext.oauth_application = @application
+    session = Struct.new(:session_data, :tool_registry).new(nil, nil)
+    gateway = ApplicationGateway.new(nil)
+    gateway.stubs(:user).returns(@user)
+
+    gateway.configure_session(session)
+    assert_equal @user.enabled_mcp_tool_names.sort, session.tool_registry.sort
+    assert_not ListBotsTool.call.error?
+
+    @user.set_mcp_tool_enabled('list_bots', false)
+    gateway.configure_session(session)
+    assert_not_includes session.tool_registry, 'list_bots'
+    assert_match(/disabled/, ListBotsTool.call.contents.first.text)
+  end
+
+  test 'an api-only token reaches no MCP tool even when the client follows the user' do
+    ConnectedClient.create!(user: @user, oauth_application: @application, mcp_tools: nil, rest_tools: nil)
+    token = Doorkeeper::AccessToken.create!(
+      application: @application, resource_owner_id: @user.id,
+      token: SecureRandom.hex(32), scopes: 'api', expires_in: 3600
+    )
+    request = Struct.new(:env).new({ 'HTTP_AUTHORIZATION' => "Bearer #{token.token}" })
+
+    assert_raises(ActionMCP::GatewayIdentifier::Unauthorized) { MCPTokenIdentifier.new(request).resolve }
+    assert_nil OauthClientContext.oauth_application
+  end
+
   test 'the identifier publishes the client for the rest of the request' do
     token = Doorkeeper::AccessToken.create!(
       application: @application, resource_owner_id: @user.id,

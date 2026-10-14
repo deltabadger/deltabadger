@@ -74,7 +74,7 @@ module Pages
          ['Bitmart', 'BitMart'], ['Gemini', 'Gemini', false], ['Hyperliquid', 'Hyperliquid'], ['Bitget', 'Bitget']].each do |klass, name, available|
           "Exchanges::#{klass}".constantize.create!(name:, maker_fee: 0, taker_fee: 0, available: available != false)
         end
-      when 'clients'
+      when 'clients', 'clients_following'
         other = User.create!(name: 'Other', email: 'other@example.com', password: PASSWORD, confirmed_at: Time.current)
         application = Doorkeeper::Application.create!(name: 'Owner client', uid: 'settings-client', secret: '',
                                                       redirect_uri: 'http://localhost:9911/callback', confidential: false, scopes: 'mcp api')
@@ -83,6 +83,8 @@ module Pages
                                           refresh_token: "settings-refresh-#{user.id}", expires_in: 1, scopes: 'mcp')
           ConnectedClient.create!(user:, oauth_application: application, mcp_tools: AppConfig::MCP_TOOL_GROUPS['read'], rest_tools: [])
         end
+        # A client connected after consent stopped asking: no stored lists, it follows the owner's switches.
+        ConnectedClient.where(user: owner).update_all(mcp_tools: nil, rest_tools: nil) if scenario['settings_fixture'] == 'clients_following'
       end
     end
 
@@ -201,6 +203,12 @@ module Pages
       grid["settings_client_grant_#{group}"] =
         settings_case(settings_write('update_client_tool_permissions/1', { '_method' => 'patch', 'surface' => 'mcp', 'group' => group, 'enabled' => '1' }), # rubocop:disable Layout/LineLength -- Literal parity request values.
                       fixture: 'clients')
+    end
+    grid['settings_client_following_list'] = settings_case(get('/settings/api'), fixture: 'clients_following')
+    [%w[mcp read 0], %w[mcp trade 1], %w[rest read 1], %w[rest read 0]].each do |surface, group, enabled|
+      grid["settings_client_following_#{surface}_#{group}_#{enabled}"] =
+        settings_case(settings_write('update_client_tool_permissions/1', { '_method' => 'patch', 'surface' => surface, 'group' => group, 'enabled' => enabled }), # rubocop:disable Layout/LineLength -- Literal parity request values.
+                      fixture: 'clients_following')
     end
     %w[trading read_only].each do |type|
       request = post('/tracker/add_api_key', { 'exchange_id' => '1', 'key_type' => type,

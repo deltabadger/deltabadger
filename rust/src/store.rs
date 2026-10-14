@@ -223,8 +223,8 @@ const PRIMARY: &[TableContract] = &[
         ("created_at", "datetime(6)", true), ("revoked_at", "datetime(6)", false),
     ], unique_indexes: &[&["token"], &["refresh_token"]] },
     TableContract { name: "connected_clients", columns: &[
-        ("id", "integer", true), ("user_id", "integer", true), ("oauth_application_id", "integer", true), ("mcp_tools", "json", true),
-        ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+        ("id", "integer", true), ("user_id", "integer", true), ("oauth_application_id", "integer", true), ("mcp_tools", "json", false),
+        ("rest_tools", "json", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
     // The tick reads and writes a basket's members exactly as Bot::Composition::Allocatable does.
     TableContract { name: "bot_index_assets", columns: &[
