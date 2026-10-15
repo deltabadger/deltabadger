@@ -50,7 +50,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
         assert_eq!(d(&s.amount).as_deref(), want["amount"].as_str(), "amount {c}");
         assert_eq!(d(&s.quote_amount).as_deref(), want["quote_amount"].as_str(), "quote_amount {c}");
         assert_eq!(s.amount_exec.to_s_f(), want["amount_exec"], "amount_exec {c}");
-        assert_eq!(s.quote_amount_exec.to_s_f(), want["quote_amount_exec"], "quote_amount_exec {c}");
+        assert_eq!(s.quote_amount_exec.as_ref().unwrap().to_s_f(), want["quote_amount_exec"], "quote_amount_exec {c}");
         assert_eq!(s.limit, want["order_type"] == "limit_order", "order_type {c}");
         assert_eq!(s.sell, want["side"] == "sell", "side {c}");
     }
@@ -146,7 +146,7 @@ async fn orders_are_fetched_one_by_one_and_the_first_failure_is_the_answer() {
     assert_eq!(v.orders(&["A".into(), "B".into(), "C".into()]).await, Err(VenueError::Rejected(vec!["internal server error".into()])));
     assert_eq!(t.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), ["/v2/orders/A", "/v2/orders/B"], "C is never asked");
     let a = v.orders(&["A".into()]).await.unwrap().remove(0);
-    assert_eq!((a.status, a.amount_exec.clone(), a.quote_amount_exec.clone()), (OrderStatus::Closed, bd("0.000932719"), &bd("0.000932719") * &bd("64328.1")));
+    assert_eq!((a.status, a.amount_exec.clone(), a.quote_amount_exec.clone()), (OrderStatus::Closed, bd("0.000932719"), Some(&bd("0.000932719") * &bd("64328.1"))));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -154,16 +154,16 @@ async fn only_alpacas_own_404_proves_absence() {
     let found = json!({ "id": "OTX-9", "client_order_id": "c-1", "status": "filled", "type": "market", "side": "buy", "notional": "60", "qty": null, "filled_qty": "0.001", "filled_avg_price": "60000", "limit_price": null });
     let since = "2026-09-01T09:00:00Z".parse().unwrap();
     let (t, v) = venue(json!({ "GET /v2/orders:by_client_order_id": ok(found) }));
-    assert_eq!(v.order_by_client_id("c-1", since).await.unwrap().map(|o| o.txid), Some("OTX-9".into()));
+    assert_eq!(v.order_by_client_id("c-1", "BTC/USD", since).await.unwrap().map(|o| o.txid), Some("OTX-9".into()));
     assert_eq!(t.requests()[0].query, vec![("client_order_id", "c-1".to_string())]);
-    assert!(v.order_by_client_id("c-2", since).await.is_err(), "an answer about another client order id proves nothing");
+    assert!(v.order_by_client_id("c-2", "BTC/USD", since).await.is_err(), "an answer about another client order id proves nothing");
     let (_, v) = venue(json!({ "GET /v2/orders:by_client_order_id": status(404, json!({ "code": 40410000, "message": "order not found for c-1" })) }));
-    assert_eq!(v.order_by_client_id("c-1", since).await, Ok(None));
+    assert_eq!(v.order_by_client_id("c-1", "BTC/USD", since).await, Ok(None));
     for reply in [status(404, json!("<html>Not Found</html>")), status(404, json!({})), status(404, json!({ "message": "route not found" })),
                   status(404, json!({ "code": 40410000, "message": "route not found" })), status(500, json!({ "message": "internal server error" })),
                   json!([{ "network": "post_send", "message": "timeout" }])] {
         let (_, v) = venue(json!({ "GET /v2/orders:by_client_order_id": reply }));
-        assert!(v.order_by_client_id("c-1", since).await.is_err(), "incomplete: the intent must stay");
+        assert!(v.order_by_client_id("c-1", "BTC/USD", since).await.is_err(), "incomplete: the intent must stay");
     }
 }
 
@@ -302,4 +302,20 @@ async fn a_stock_bot_spends_buying_power_and_a_crypto_bot_non_marginable_buying_
     assert_eq!(v.balance("USD", true).await.unwrap(), bd("100"));
     let (_t, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "10" })), "GET /v2/positions": ok(json!([])) }));
     assert_eq!(v.balance("USD", false).await.unwrap(), bd("10"), "an absent field falls back to cash (`balance[key] || balance[:free]`)");
+}
+
+#[test]
+fn a_binance_bot_passes_preflight_like_rails_under_krakens_restrictions() {
+    use common::seed::{self, BotSpec};
+    use deltabadger::engine::eligibility;
+    let (_d, o, s) = common::install();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Binance', name = 'Binance'", []).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]));
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 100) WHERE id = ?1", [id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.iter().any(|p| p.contains("quote_amount_limited (Binance: amount limits are not supported by this engine yet)")), "{:?}", r.problems);
+    o.primary.execute("UPDATE bots SET settings = json_remove(settings, '$.quote_amount_limited') WHERE id = ?1", [id]).unwrap();
+    o.primary.execute("DELETE FROM api_keys", []).unwrap();
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Err(vec![format!("bot {id}: no Binance API key")]));
 }

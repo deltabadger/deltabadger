@@ -121,7 +121,7 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
         asset_class: o["asset_class"].as_str().map(str::to_string),
         txid: id.to_string(), status: status(o["status"].as_str()), price: Some(price),
         amount: qty, quote_amount: notional,
-        quote_amount_exec: &filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero), amount_exec: filled_qty,
+        quote_amount_exec: Some(&filled_qty * &filled_avg_price.unwrap_or_else(BigDec::zero)), amount_exec: filled_qty,
         limit: o["type"] == "limit", sell: o["side"] == "sell", pair: o["symbol"].as_str().map(str::to_string),
     })
 }
@@ -396,13 +396,13 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     async fn orders(&self, ids: &[String])->Result<Vec<OrderState>,VenueError>{self.orders_identified_diagnostic_source(ids, |_,_,_|Ok(true)).await.map(|(orders,_)|orders).map_err(|error|self.redact_error(error))}
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError>
     where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.orders_identified_diagnostic_source(ids,identify).await.map_err(|error|self.redact_error(error))}
-    async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.order_by_client_id_diagnostic_source(cl_ord_id,since).await.map_err(|error|self.redact_error(error))}
+    async fn order_by_client_id(&self, cl_ord_id: &str, _symbol: &str, since: DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.order_by_client_id_diagnostic_source(cl_ord_id,since).await.map_err(|error|self.redact_error(error))}
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.fills_from_trades_diagnostic_source(txids,since).await.map_err(|error|self.redact_error(error))}
     async fn balance(&self, asset_symbol: &str, all_crypto: bool)->Result<BigDec,VenueError>{self.balance_diagnostic_source(asset_symbol,all_crypto).await.map_err(|error|self.redact_error(error))}
 }
 
 /// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper or live, as
-/// the key says) and Kraken (through its proxy, ExchangeProxy.for, read each time a venue is built). A venue with no Rust
+/// the key says), Kraken and Binance (each through its proxy, ExchangeProxy.for, read each time a venue is built). A venue with no Rust
 /// code yet gets a venue that sends nothing; `run`'s preflight refuses such bots before it claims the install, so this is
 /// the second line. A passphrase that does not decrypt never reaches here: `model::credentials_for` fails that bot's tick.
 #[derive(Clone)]
@@ -422,10 +422,13 @@ impl LiveFactory {
         Self { settings: c.path().filter(|p| !p.is_empty()).map(|p| (p.into(), cipher.clone())), ..Self::new() }
     }
     /// A venue's egress now: its client and proxy URL (venue::live::egress), from a fresh read of the install's settings.
-    fn egress(&self, name: &str) -> super::live::Egress {
+    fn egress(&self, name: &str) -> super::live::Egress { self.egress_and(name, |_| Ok(())).map(|(e, ())| e) }
+    /// `egress`, and `read` of the same install database (Binance's tickers) in that one open.
+    fn egress_and<R>(&self, name: &str, read: impl FnOnce(&Connection) -> Result<R, String>) -> Result<((reqwest::Client, Option<String>), R), String> {
         let (path, cipher) = self.settings.as_ref().ok_or(SETTINGS_UNREAD)?;
         let c = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(|_| format!("the {name} proxy setting is unreadable"))?;
-        super::live::egress(&c, cipher, &|k| std::env::var(k).ok(), name, &self.client)
+        let egress = super::live::egress(&c, cipher, &|k| std::env::var(k).ok(), name, &self.client)?;
+        Ok((egress, read(&c)?))
     }
     /// Local Alpaca hosts for native production-adapter tests; `Urls::pick` still chooses between them.
     #[doc(hidden)] pub fn with_hosts(hosts:Hosts)->Self{Self{hosts,..Self::new()}}
@@ -458,6 +461,7 @@ impl VenueFactory for LiveFactory {
     fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,sensitive:Vec<String>)->Self::V{
         use super::live::LiveVenue;
         let refused = |why: String| ReqwestTransport::refused(&format!("{exchange_type} is not connected in this build{why}"));
+        let identity = credentials.clone();
         match exchange_type {
             "Exchanges::Alpaca" => LiveVenue::Alpaca(self.alpaca(credentials, sensitive)),
             "Exchanges::Kraken" => {
@@ -469,7 +473,28 @@ impl VenueFactory for LiveFactory {
                         ReqwestTransport::new(client, key, secret).kraken().with_sensitive_values(values).with_clock(self.clock.clone())
                     }
                 };
-                LiveVenue::Kraken(super::kraken::KrakenVenue::new(transport.with_sensitive_values(sensitive)))
+                let venue = super::kraken::KrakenVenue::new(transport.with_sensitive_values(sensitive));
+                LiveVenue::Kraken(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
+            // Exchanges::Binance: ExchangeProxy.for('binance'), read at each build, and the exchange's tickers (#parse_order_data,
+            // #parse_trade_data, #asset_from_symbol). Binance.US trades nowhere in this build (only its tracker reads exist).
+            super::binance::BINANCE => {
+                let pairs = |c: &Connection| -> Result<super::binance::Pairs, String> {
+                    let id: i64 = c.query_row("SELECT id FROM exchanges WHERE type = ?1", [exchange_type], |r| r.get(0))
+                        .map_err(|_| "the Binance exchange row is unreadable".to_string())?;
+                    super::binance::Pairs::load(c, id).map_err(|_| "the Binance tickers are unreadable".to_string())
+                };
+                let (transport, pairs) = match self.egress_and("binance", pairs) {
+                    Err(why) => (refused(format!(": {why}")), super::binance::Pairs::default()),
+                    Ok(((client, proxy), pairs)) => {
+                        let (key, secret, mut values) = credentials.clone().map(|c| (c.key, c.secret, c.redaction_values)).unwrap_or_default();
+                        values.extend(proxy);
+                        (ReqwestTransport::binance(client, key, secret).with_sensitive_values(values).with_clock(self.clock.clone()), pairs)
+                    }
+                };
+                let secret = credentials.as_ref().map(|c| c.secret.clone()).unwrap_or_default();
+                let venue = super::binance::BinanceVenue::new(transport.with_sensitive_values(sensitive), super::binance::URL, &secret).with_pairs(pairs);
+                LiveVenue::Binance(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             _ => LiveVenue::Alpaca(AlpacaVenue::new(refused(String::new()), Urls::for_passphrase(None))),
         }
@@ -505,7 +530,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance and Alpaca)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

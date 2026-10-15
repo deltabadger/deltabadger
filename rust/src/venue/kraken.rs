@@ -165,7 +165,7 @@ pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueErro
         txid: txid.into(),
         status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
-        amount_exec: required(&o["vol_exec"])?, quote_amount_exec: required(&o["cost"])?, limit,
+        amount_exec: required(&o["vol_exec"])?, quote_amount_exec: Some(required(&o["cost"])?), limit,
         sell: o["descr"]["type"] == "sell",
         pair: o["descr"]["pair"].as_str().map(str::to_string),
     })
@@ -214,17 +214,19 @@ pub(crate) fn aggregate_trades(trades: &[Value], txids: &[String]) -> Result<Vec
     }
     Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
         asset_class: None,
-        txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair,
+        txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: Some(cost), limit, sell, pair,
     }).collect())
 }
 
 // ---- the adapter
 
 #[derive(Clone)]
-pub struct KrakenVenue<T: Transport> { transport: T, base: String }
+pub struct KrakenVenue<T: Transport> { transport: T, base: String, identity: Option<Value> }
 
 impl<T: Transport> KrakenVenue<T> {
-    pub fn new(transport: T) -> Self { Self { transport, base: URL.into() } }
+    pub fn new(transport: T) -> Self { Self { transport, base: URL.into(), identity: None } }
+    /// The key this venue sends with (`venue::key_identity`), recorded in each intent and compared before a recovery asks.
+    pub fn with_identity(mut self, credentials: &crate::crypto::Credentials) -> Self { self.identity = Some(super::key_identity(&self.base, credentials)); self }
     /// Another host: local test servers only.
     #[doc(hidden)]
     pub fn with_base(mut self, base: &str) -> Self { self.base = base.into(); self }
@@ -271,6 +273,7 @@ impl<T: Transport> KrakenVenue<T> {
 
 impl<T: Transport> Venue for KrakenVenue<T> {
     fn rules(&self) -> &'static VenueRules { &KRAKEN }
+    fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
     /// Exchanges::Kraken#get_ticker_information: public Ticker by the ticker's own pair.
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
@@ -305,7 +308,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
 
     /// OpenOrders, then ClosedOrders since `since`, each filtered by `cl_ord_id`; a row whose echo matches is the order.
     /// Finding nothing never proves absence (ABSENCE_UNPROVEN).
-    async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+    async fn order_by_client_id(&self, cl_ord_id: &str, _symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         // ponytail: one ClosedOrders page; with the filter honoured one page answers. A miss stays unproven either way.
         for (path, key, fields) in [("/0/private/OpenOrders", "open", vec![("cl_ord_id", cl_ord_id.to_string())]),
                                     ("/0/private/ClosedOrders", "closed", vec![("cl_ord_id", cl_ord_id.to_string()), ("start", since.timestamp().to_string())])] {

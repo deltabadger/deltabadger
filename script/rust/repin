@@ -34,6 +34,7 @@ RECORDED = {
     FIX + 'index_histories.json': ('test', [runner('index_histories.rb', '{out}')], None),
     FIX + 'mail_vectors.json': ('test', [runner('mail_vectors.rb', '{out}')], None),
     FIX + 'alpaca_hosts.json': ('test', [runner('record_alpaca_hosts.rb', '{out}')], None),
+    FIX + 'binance_vectors.json': ('test', [runner('record_binance_vectors.rb', '{out}')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'settings_r9_vectors.json': ('test', [runner('settings_r9_vectors.rb', '{out}')], None),
     FIX + 'setup_vectors.json': ('test', [runner('setup.rb', '{scratch}', '{out}')], None),

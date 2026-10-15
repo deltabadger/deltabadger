@@ -2,6 +2,7 @@
 //! Exchange subclasses), and the per-venue proxy (ExchangeProxy.for). A ported venue trades as in Rails: there is no
 //! live gate.
 use super::alpaca::AlpacaVenue;
+use super::binance::BinanceVenue;
 use super::http::{self, ReqwestTransport};
 use super::kraken::KrakenVenue;
 use super::{ClockAnswer, NewOrder, OrderState, PriceSide, Venue, VenueError};
@@ -13,9 +14,9 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
 /// A bot's venue, picked by its exchange type (no trait objects: the engine stays generic over one concrete type).
-pub enum LiveVenue { Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>) }
+pub enum LiveVenue { Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>) }
 
-macro_rules! each { ($s:expr, $v:ident => $e:expr) => { match $s { LiveVenue::Alpaca($v) => $e, LiveVenue::Kraken($v) => $e } } }
+macro_rules! each { ($s:expr, $v:ident => $e:expr) => { match $s { LiveVenue::Alpaca($v) => $e, LiveVenue::Kraken($v) => $e, LiveVenue::Binance($v) => $e } } }
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }
@@ -27,7 +28,9 @@ impl Venue for LiveVenue {
     async fn orders(&self, ids: &[String]) -> Result<Vec<OrderState>, VenueError> { each!(self, v => v.orders(ids).await) }
     async fn orders_identified<F>(&self, ids: &[String], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.orders_identified(ids, identify).await) }
-    async fn order_by_client_id(&self, id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> { each!(self, v => v.order_by_client_id(id, since).await) }
+    async fn order_identified<F>(&self, id: &str, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.order_identified(id, identify).await) }
+    async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> { each!(self, v => v.order_by_client_id(id, symbol, since).await) }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { each!(self, v => v.fills_from_trades(ids, since).await) }
     async fn balance(&self, s: &str, crypto: bool) -> Result<BigDec, VenueError> { each!(self, v => v.balance(s, crypto).await) }
 }

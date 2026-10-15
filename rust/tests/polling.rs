@@ -170,7 +170,7 @@ fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() 
                       rusqlite::params![id, s.exchange_id]).unwrap();
     let tx = o.primary.last_insert_rowid();
     let state = |pair: &str| OrderState { asset_class: Some("crypto".into()), txid: "OLEGACY".into(), status: OrderStatus::Open, price: Some(BigDec::from_i64(2500)), amount: None,
-        quote_amount: Some(BigDec::from_i64(18)), amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: false, sell: false, pair: Some(pair.into()) };
+        quote_amount: Some(BigDec::from_i64(18)), amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: false, sell: false, pair: Some(pair.into()) };
     let row = || -> (Option<String>, Option<String>, Option<i64>, Option<i64>) { o.primary.query_row(
         "SELECT base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap() };
     { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
@@ -204,4 +204,69 @@ async fn stored_trade_lookup_time_out_of_range_is_refused() {
     let result = polling::sweep(&o.primary, &FakeVenue::new(), &bot(&o, b), now()).await;
     assert!(matches!(result, Err(PollFailure::General(ref message)) if message.contains("time is outside the representable range")), "{result:?}");
     assert_eq!(o.primary.query_row("SELECT external_status FROM transactions WHERE external_id='OTX-edge'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+}
+
+/// A venue that never names missing ids (Exchanges::Binance#get_orders answers `missing: []`): FakeVenue's answers under
+/// BINANCE's rules.
+struct NoMissing(FakeVenue);
+impl deltabadger::venue::Venue for NoMissing {
+    fn rules(&self) -> &'static deltabadger::engine::venue_rules::VenueRules { &deltabadger::engine::venue_rules::BINANCE }
+    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
+    async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String, deltabadger::venue::VenueError> { self.0.add_order(o).await }
+    async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
+    async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(id, symbol, since).await }
+    async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
+    async fn balance(&self, s: &str, c: bool) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(s, c).await }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_venue_that_names_no_missing_ids_leaves_an_unreported_row_waiting_even_when_stale() {
+    let (_d, o, s, b) = setup(json!({}));
+    let old = seed::insert_tx(&o.primary, &s, b, &open_market("2026-08-01 10:00:00", "OLD-1"));
+    let v = NoMissing(FakeVenue::new());
+    polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
+    let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [old], |r| r.get(0)).unwrap();
+    assert_eq!(ext, 0, "Rails never abandons a Binance row get_orders did not return");
+    assert_eq!(v.0.calls("/0/private/TradesHistory"), 0, "no trade recovery for an id the venue did not name missing");
+    // Under Kraken's rules the same row is abandoned (the contrast that makes the flag matter).
+    polling::sweep(&o.primary, &FakeVenue::new(), &bot(&o, b), now()).await.unwrap();
+    let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [old], |r| r.get(0)).unwrap();
+    assert_eq!(ext, 4);
+}
+
+#[test]
+fn a_fill_with_no_stated_quote_amount_leaves_the_column_as_it_is() {
+    use deltabadger::ruby::BigDec;
+    use deltabadger::venue::{OrderState, OrderStatus};
+    let (_d, o, s, b) = setup(json!({}));
+    let tx = seed::insert_tx(&o.primary, &s, b, &TxSpec { quote_amount_exec: Some("12.5"), amount_exec: Some("0"), ..open_market("2026-09-29 10:00:00", "OHIST-1") });
+    // Exchanges::Binance#parse_order_data on a historical order: executedQty 0, cummulativeQuoteQty negative → nil.
+    let state = OrderState { asset_class: None, txid: "OHIST-1".into(), status: OrderStatus::Cancelled, price: None, amount: None,
+        quote_amount: Some(BigDec::from_i64(60)), amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None };
+    { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=model::check_credential_result(&unit,&None).unwrap();
+      polling::apply_in(&fenced, b, tx, &state, true, now()).unwrap(); unit.commit().unwrap(); }
+    let (ext, qexec, exec): (i64, f64, f64) = o.primary.query_row("SELECT external_status, quote_amount_exec, amount_exec FROM transactions WHERE id = ?1", [tx],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    assert_eq!((ext, qexec, exec), (3, 12.5, 0.0), "nil is omitted (update(...).compact), never written as 0");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_binance_follow_up_asks_for_its_one_order_and_records_the_fill_rebuilt_from_its_trades() {
+    use deltabadger::venue::{binance::BinanceVenue, http::ScriptedTransport};
+    let (_d, o, s, b) = setup(json!({}));
+    let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "BTCUSDT-28457"));
+    let t = ScriptedTransport::from_script(&json!({
+        "GET /api/v3/order": [{ "status": 200, "body": { "symbol": "BTCUSDT", "orderId": 28457, "price": "0.00000000", "origQty": "0.00000000",
+            "origQuoteOrderQty": "60.00000000", "executedQty": "0.00119000", "cummulativeQuoteQty": "59.99000000", "status": "FILLED",
+            "type": "MARKET", "side": "BUY" } }],
+        "GET /api/v3/myTrades": [{ "status": 200, "body": [
+            { "symbol": "BTCUSDT", "id": 7, "orderId": 28457, "price": "50410.00", "qty": "0.00119000", "quoteQty": "59.98790000",
+              "commission": "0.00000119", "commissionAsset": "BTC", "isBuyer": true, "isMaker": false }] }] }));
+    let v = BinanceVenue::new(t.clone(), "https://api.binance.com", "s");
+    assert_eq!(polling::follow_up(&o.primary, &v, b, tx, now()).await, Ok(polling::FollowUp::Done));
+    let keys: Vec<String> = t.requests().iter().map(|r| format!("{} {}", r.method, r.path)).collect();
+    assert_eq!(keys, ["GET /api/v3/order", "GET /api/v3/myTrades"], "Exchange#get_order, never allOrders");
+    let (ext, price, exec, qexec): (i64, f64, f64, f64) = o.primary.query_row(
+        "SELECT external_status, price, amount_exec, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    assert_eq!((ext, price, exec, qexec), (2, 50410.0, 0.00118881, 59.9879), "net of the base commission");
 }

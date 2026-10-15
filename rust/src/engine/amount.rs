@@ -5,7 +5,7 @@ use super::EngineError;
 use crate::codec::format_time;
 use crate::enums::{TxExternalStatus, TxStatus};
 use crate::ruby::{to_sql, BigDec};
-use super::venue_rules::{MinimumLogic, WireFormat};
+use super::venue_rules::{AmountLogic, MinimumLogic, WireFormat};
 use crate::venue::{NewOrder, OrderKind};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -50,14 +50,18 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     let distance = bot.limit_distance();
     let price = order_price(bot, ticker, reference)?;
     let Some(amount) = x.div(&price) else { return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }) };
-    let (quote_type, below) = match logic {
-        // Exchanges::Alpaca: :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size;
-        // minimum_base_size is not checked here; a limit qty under it is refused at placement (OrderPlan::limit_refusal).
-        MinimumLogic::Quote => (true, x.floor(quote_decimals) < ticker.minimum_quote_size),
-        // Kraken minimum_amount_logic: anything but a market buy is :base.
-        MinimumLogic::KrakenBaseOrQuote if distance.is_some() => (false, amount.floor(base_decimals) < ticker.minimum_base_size),
-        MinimumLogic::KrakenBaseOrQuote => {
-            // :base_or_quote (Bot::OrderSetter#calculate_best_amount_info). Divisions are BigDecimal divisions.
+    let (quote_type, below) = match if distance.is_some() { logic.limit } else { logic.market } {
+        // :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size; minimum_base_size is not
+        // checked here; a limit qty under it is refused at placement (OrderPlan::limit_refusal).
+        AmountLogic::Quote => (true, x.floor(quote_decimals) < ticker.minimum_quote_size),
+        AmountLogic::Base => (false, amount.floor(base_decimals) < ticker.minimum_base_size),
+        // :base_and_quote_in_base: the quote minimum in base, rounded UP to base_decimals, against the base floored DOWN.
+        AmountLogic::BaseAndQuoteInBase => {
+            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect("price is non-zero").ceil(base_decimals);
+            (false, amount.floor(base_decimals) < minimum_quote_size_in_base.max(ticker.minimum_base_size.clone()))
+        }
+        AmountLogic::BaseOrQuote => {
+            // :base_or_quote / :base_and_quote (Bot::OrderSetter#calculate_best_amount_info). Divisions are BigDecimal divisions.
             let minimum_base_size_in_quote = (&ticker.minimum_base_size * &price).ceil(quote_decimals);
             let minimum_quote_amount = minimum_base_size_in_quote.max(ticker.minimum_quote_size.clone());
             let minimum_quote_amount_in_base = minimum_quote_amount.div(&price).expect("price is non-zero");
