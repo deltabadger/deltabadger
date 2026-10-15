@@ -6,7 +6,7 @@
 use crate::venue::Attributed;
 use super::amount::{write_accepted_order, write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
-use super::schedule::{checkpoints, effective};
+use super::schedule::checkpoints;
 use super::{polling, Clock, EngineError};
 use crate::ruby::BigDec;
 use crate::venue::{Side, Venue, VenueError};
@@ -149,8 +149,8 @@ pub fn remove_wait(c: &Connection, bot_id: Option<i64>) -> Result<(), EngineErro
 }
 
 fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::schedule::Checkpoints) -> i64) -> Result<(), EngineError> {
-    let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount(), bot.schedule_key()?) else { return Ok(()) };
-    let at = pick(checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?);
+    let (Some(anchor), Some(eff), Some(schedule)) = (bot.started_at_us()?, bot.effective(), bot.schedule_key()?) else { return Ok(()) };
+    let at = pick(checkpoints(anchor, now.timestamp_micros(), eff)?);
     let until = DateTime::from_timestamp_micros(at).ok_or_else(super::schedule::time_range_error)?.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
               params![json!({ "until": until, "schedule": schedule, "origin": "local" }).to_string(), bot.id])?;

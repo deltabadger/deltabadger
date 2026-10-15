@@ -118,6 +118,8 @@ fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
 pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     if bot.status == BotStatus::Deleted { return Ok(BigDec::zero()); }
+    // While selling the buy carry is frozen: the stored missed_quote_amount, before the started_at guard (accountable.rb:27).
+    if bot.selling() { return carry_num(bot.transient.get("missed_quote_amount"))?.to_dec().map_err(data); }
     let Some(started) = bot.started_at_us()? else { return Ok(BigDec::zero()) };
     let since = bot.calc_since_us()?.ok_or_else(super::schedule::time_range_error)?;
     // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
@@ -129,7 +131,7 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     let quote_amount = bot.quote_amount().ok_or_else(|| EngineError::Data("quote_amount".into()))?;
     let smart = bot.smart_quote_amount();
     let eff = effective(interval, quote_amount, smart);
-    let intervals = interval_count(checkpoints(started, now_us, eff)?.last_us, since, eff)?;
+    let intervals = interval_count(checkpoints(started, now_us, eff.clone())?.last_us, since, eff)?;
     // Keep Integer/Float settings kinds; Accountable alone determines carry coercion.
     pending_window(bot.effective_quote_amount_num()?, intervals, carry_num(bot.transient.get("missed_quote_amount"))?, &rows)?.to_dec().map_err(data)
 }
@@ -137,9 +139,14 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
 /// Bot::Lifecycle#start(start_fresh: false)'s `set_orders_now`, for a stopped bot the web continued. `use_delayed_first` is
 /// always false there (only a fresh start computes a start time), so the bot runs at once unless #restarting_within_interval?:
 /// it had ticked (last_action_job_at is set) and what it owes, capped as QuoteAmountLimitable caps it, is under one
-/// `effective_quote_amount` (a smart split's amount when the split is on). Only the buy side: a selling bot is refused.
+/// `effective_quote_amount` (a smart split's amount when the split is on). A selling bot's carry is frozen, so it compares
+/// the time since its last tick with the sell cadence instead (lifecycle.rb:151): within one interval it waits.
 pub fn continue_runs_now(c: &Connection, bot: &Bot, now_us: i64) -> Result<bool, EngineError> {
-    if bot.last_action_job_at_us()?.is_none() { return Ok(true); }
+    let Some(last) = bot.last_action_job_at_us()? else { return Ok(true) };
+    if bot.selling() {
+        let eff = bot.effective().ok_or_else(|| data("no sell cadence"))?;
+        return Ok(!super::schedule::within(now_us.checked_sub(last).ok_or_else(super::schedule::time_range_error)?, &eff));
+    }
     let mut owed = pending_quote_amount(c, bot, now_us)?;
     if let Some(available) = quote_amount_available(c, bot)? { if available < owed { owed = available; } }
     Ok(owed >= bot.effective_quote_amount_num()?.to_dec().map_err(data)?)
@@ -311,6 +318,8 @@ pub fn web_minimum(a: WebNum, b: WebNum) -> Result<WebNum, WebError> {
 /// Fallible Accountable read through the shared normalizer, bounded to 100000 rows.
 pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<WebNum, WebError> {
     validate_web_amounts(bot)?;
+    // Frozen while selling, before the started_at guard, as the engine's pending_quote_amount.
+    if bot.text("direction") == Some("selling") { return web_capped(c, bot, carry_num(bot.transient.get("missed_quote_amount"))?); }
     let mut started = bot.started_at;
     for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
         if bot.on(&format!("{prefix}ed")) {
@@ -334,7 +343,11 @@ pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<W
     let amount = core(web_effective_amount(bot)?);
     let carry = carry_num(bot.transient.get("missed_quote_amount"))?;
     let rows = crate::figures::fill::action_commitments(c, bot.id, &codec::format_time(since)).map_err(web_bot::fill_error)?;
-    let pending = pending_window(amount, count as i64, carry, &rows)?;
+    web_capped(c, bot, pending_window(amount, count as i64, carry, &rows)?)
+}
+
+/// Bot::QuoteAmountLimitable's `[super, available].min` over the web's pending amount.
+fn web_capped(c: &Connection, bot: &WebBot, pending: Num) -> Result<WebNum, WebError> {
     if let Some(cap) = web_amount_limit(c, bot)? { Ok(view(minimum(pending, core(cap.left.ok_or_else(||error("unknown cap spend"))?))?)) } else { Ok(view(pending)) }
 }
 
@@ -353,6 +366,7 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
     if anchor > now { return Ok(round6_micros(us, &[(d,-1)])); }
     let elapsed = now.timestamp_micros().checked_sub(us).ok_or_else(start::history_error)? as f64 / 1_000_000.0;
     let terms = match eff {
+        Effective::Decimal(..) => return super::schedule::checkpoints(us, now.timestamp_micros(), eff).map(|c| c.last_us).map_err(|_| start::history_error()),
         Effective::Seconds(_) => vec![((elapsed/d).ceil()*d,1),(d,-1)],
         Effective::MonthSeconds(_) => {
             let mut k = (elapsed/d).floor() as i64;

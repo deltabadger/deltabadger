@@ -527,3 +527,126 @@ async fn ticker_changes_during_price_lookup_write_no_intent_and_send_nothing() {
         assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
     }
 }
+
+// ---- 6a: a one-asset basket selling (Bot::Composition::OrderSetter#one_asset_sell_orders_data) ----
+
+fn seller(extra: &[(&str, serde_json::Value)]) -> BotSpec {
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling"));
+    for (k, v) in extra { spec = spec.with(k, v.clone()); }
+    spec
+}
+fn base_seller(amount: f64) -> BotSpec { seller(&[("sell_denomination", json!("base")), ("sell_amount", json!(amount))]) }
+fn holding(free: &str) -> FakeVenue { FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("XBT", free, "0") }
+fn sides(o: &store::Opened) -> Vec<(i64, i64, String, String)> {
+    o.primary.prepare("SELECT side, status, CAST(amount AS TEXT), CAST(price AS TEXT) FROM transactions ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect()
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_market_seller_sells_its_base_amount_at_the_bid_and_skips_the_funds_check() {
+    let (_d, o, id) = setup(base_seller(0.01));
+    let v = holding("0.5").next_add(AddOutcome::Accept("OTX-S".into()));
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:00.5Z").await, TickOutcome::Done { placed: true }));
+    let sent = &v.sent()[0];
+    assert_eq!((sent.side, sent.kind.clone(), sent.volume.as_str(), sent.quote_volume), (deltabadger::venue::Side::Sell, deltabadger::venue::OrderKind::Market, "0.01", false));
+    assert_eq!(sides(&o), vec![(1, 0, "0.01".into(), "49990.1".into())], "a submitted sell row at the bid");
+    assert_eq!(v.calls("/0/private/BalanceEx"), 1, "one free-base read; no quote-buffer read while selling");
+    assert_eq!(bot(&o, id).status, BotStatus::Scheduled);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_limit_seller_for_quote_prices_above_last_and_sizes_quote_over_that_price() {
+    let (_d, o, id) = setup(seller(&[("sell_denomination", json!("quote")), ("sell_quote_amount", json!(100.0)),
+                                      ("limit_ordered", json!(true)), ("limit_order_pcnt_distance", json!(0.0025))]));
+    let v = holding("1");
+    run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    // 49995.0 × 1.0025 = 50119.9875, floored to 1 place; 100 / 50119.9 floored to 8 places.
+    assert_eq!(v.sent()[0].kind, deltabadger::venue::OrderKind::Limit { price: "50119.9".into() });
+    assert_eq!(v.sent()[0].volume, "0.00199521");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_seller_never_sells_more_than_is_free() {
+    let (_d, o, id) = setup(base_seller(0.01));
+    let v = holding("0.004");
+    run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    assert_eq!(v.sent()[0].volume, "0.004");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn nothing_free_is_a_skip_with_no_row_and_no_failure() {
+    let (_d, o, id) = setup(base_seller(0.01));
+    let v = holding("0");
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Done { placed: false }));
+    assert!(v.sent().is_empty());
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs"), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_empty_sell_sentence_reads_no_price_and_no_balance() {
+    let (_d, o, id) = setup(seller(&[("sell_denomination", json!("base"))]));
+    let v = holding("0.5");
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Done { placed: false }));
+    assert_eq!((v.calls("/0/public/Ticker"), v.calls("/0/private/BalanceEx")), (0, 0));
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_under_the_base_floor_writes_a_skipped_sell_row() {
+    let (_d, o, id) = setup(base_seller(0.01));
+    let v = holding("0.00001");
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Done { placed: false }));
+    assert_eq!(sides(&o), vec![(1, 2, "1.0e-05".into(), "49990.1".into())]);
+    assert_eq!(one::<String>(&o, "SELECT event FROM bot_activity_logs"), "order_skipped");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_free_balance_fails_the_tick_and_never_reads_as_empty() {
+    let (_d, o, id) = setup(base_seller(0.01));
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/public/Ticker": [{ "error": [], "result": { "XXBTZEUR": { "a": ["50000.0","1","1"], "b": ["49990.1","1","1"], "c": ["49995.0","0.1"] } } }],
+        "/0/private/BalanceEx": [{ "error": ["EGeneral:Internal error"] }] } }));
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
+    assert!(v.sent().is_empty());
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn insufficient_funds_while_selling_is_the_error_mail_not_end_of_funds() {
+    let (_d, o, id) = setup(base_seller(0.01));
+    let v = holding("0.5").next_add(AddOutcome::Reject(vec!["EOrder:Insufficient funds".into()]));
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
+    let b = bot(&o, id);
+    assert_eq!(b.last_failure_kind().as_deref(), Some("insufficient_funds"));
+    assert!(one::<bool>(&o, "SELECT last_end_of_funds_notification IS NULL FROM bots"), "the quote budget is not spent");
+    assert!(b.transient.get(notice::ERROR).is_some_and(|v| !v.is_null()), "the error mail is owed");
+    assert!(b.transient["failure_notifications"]["insufficient_funds"].is_string(), "on the kind's own budget");
+}
+
+#[test]
+fn the_buy_carry_is_frozen_while_selling() {
+    let (_d, o, id) = setup(base_seller(0.01).transient("missed_quote_amount", json!("12.5")));
+    let b = bot(&o, id);
+    let pending = deltabadger::engine::amount::pending_quote_amount(&o.primary, &b, "2026-12-01T10:00:00Z".parse::<DateTime<Utc>>().unwrap().timestamp_micros()).unwrap();
+    assert_eq!(pending.to_s_f(), "12.5", "not three months of weekly buys");
+}
+
+#[test]
+fn a_seller_runs_on_its_sell_cadence_everywhere() {
+    let (_d, o, id) = setup(seller(&[("sell_interval", json!("hour"))]));
+    let b = bot(&o, id);
+    assert_eq!(b.effective(), Some(deltabadger::engine::schedule::Effective::Seconds(3600.0)));
+    assert!(b.schedule_key().unwrap().unwrap().ends_with("Seconds(3600.0)"), "the stored wait is keyed to the sell cadence");
+    let mut buyer = b.clone();
+    buyer.settings["direction"] = json!("buying");
+    assert_eq!(buyer.effective(), Some(deltabadger::engine::schedule::Effective::Seconds(604_800.0)));
+}
+
+#[test]
+fn a_stopped_seller_continued_within_its_sell_interval_waits() {
+    let (_d, o, id) = setup(seller(&[("sell_interval", json!("day"))]).transient("last_action_job_at", json!("2026-09-01T10:00:00.000Z")));
+    let b = bot(&o, id);
+    let now = |s: &str| s.parse::<DateTime<Utc>>().unwrap().timestamp_micros();
+    assert!(!deltabadger::engine::amount::continue_runs_now(&o.primary, &b, now("2026-09-01T20:00:00Z")).unwrap(), "frozen carry, but within a day");
+    assert!(deltabadger::engine::amount::continue_runs_now(&o.primary, &b, now("2026-09-02T10:00:01Z")).unwrap());
+}

@@ -268,8 +268,8 @@ pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) ->
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for id in &report.eligible {
         let bot = model::load_bot(&c, *id)?;
-        let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) else { continue };
-        let next = schedule::checkpoints(anchor, now.timestamp_micros(), schedule::effective(interval, quote, bot.smart_quote_amount()))?.next_us;
+        let (Some(anchor), Some(eff)) = (bot.started_at_us()?, bot.effective()) else { continue };
+        let next = schedule::checkpoints(anchor, now.timestamp_micros(), eff)?.next_us;
         let at = DateTime::from_timestamp_micros(next.saturating_add(1_000_000)).ok_or_else(|| EngineError::Data("copy checkpoint out of range".into()))?;
         let dir = out.join(format!("bot-{id}"));
         std::fs::create_dir_all(&dir).map_err(|e| EngineError::Data(e.to_string()))?;

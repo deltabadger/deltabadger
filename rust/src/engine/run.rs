@@ -2,7 +2,7 @@
 //! ticks the due ones, and sleeps until the earliest next event. What Rails would hold in Solid Queue —
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
 use super::events::{EngineEvent, EngineEvents};
-use super::schedule::{checkpoints, effective};
+use super::schedule::checkpoints;
 use super::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use super::{amount, eligibility, model, placement, polling, Clock, EngineError};
 use crate::crypto::Cipher;
@@ -313,13 +313,13 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
     let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(bot) };
     crate::codec::optional_time(request.get("requested_at")).map_err(|_|EngineError::Data("unreadable stored timestamp".into()))?
         .ok_or_else(||EngineError::Data("missing continue timestamp".into()))?;
-    if let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) {
-        checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?.validate_times()?;
+    if let (Some(anchor), Some(eff)) = (bot.started_at_us()?, bot.effective()) {
+        checkpoints(anchor, now.timestamp_micros(), eff)?.validate_times()?;
     }
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending') \
                 WHERE id = ?1", [id])?;
     placement::remove_wait(&tx, Some(id))?;
-    let decision = if bot.started_at_us()?.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
+    let decision = if bot.started_at_us()?.is_none() || bot.effective().is_none() {
         "never ticks" // step_bot skips it as before
     } else if request.get("was_stopped").and_then(serde_json::Value::as_bool) == Some(false)
         || amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
@@ -384,9 +384,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
 
-    let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) else { return Ok(()) };
-    let eff = effective(interval, quote, bot.smart_quote_amount());
-    let cps = checkpoints(anchor, now_us, eff)?;
+    let (Some(anchor), Some(eff)) = (bot.started_at_us()?, bot.effective()) else { return Ok(()) };
+    let cps = checkpoints(anchor, now_us, eff.clone())?;
     cps.validate_times()?;
     // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
     // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.
