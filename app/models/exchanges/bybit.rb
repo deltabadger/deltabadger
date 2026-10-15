@@ -432,11 +432,16 @@ class Exchanges::Bybit < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
+    # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
+    # past the rows it never got, and they would never be fetched again. That includes a rejection
+    # inside an HTTP-200 envelope (retCode 10006 "Too many visits"), which the client hands over as
+    # a Success.
+
     # Trades
     cursor = nil
     loop do
-      result = hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor)
-      break if result.failure?
+      result = checked_ledger_read(hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor))
+      return result if result.failure?
 
       list = result.data.dig('result', 'list') || []
       break if list.empty?
@@ -460,37 +465,37 @@ class Exchanges::Bybit < Exchange
     end
 
     # Deposits
-    result = hm_client.deposit_records(start_time: start_ms)
-    unless result.failure?
-      (result.data.dig('result', 'rows') || []).each do |dep|
-        next unless dep['status'].to_i == 3 # success
+    result = checked_ledger_read(hm_client.deposit_records(start_time: start_ms), optional: true)
+    return result if result.failure?
 
-        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txID'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
-      end
+    (result.data.dig('result', 'rows') || []).each do |dep|
+      next unless dep['status'].to_i == 3 # success
+
+      entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                   tx_id: dep['txID'], group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
     end
 
     # Withdrawals
-    result = hm_client.withdraw_records(start_time: start_ms)
-    unless result.failure?
-      (result.data.dig('result', 'rows') || []).each do |wd|
-        next unless wd['status'] == 'success'
+    result = checked_ledger_read(hm_client.withdraw_records(start_time: start_ms), optional: true)
+    return result if result.failure?
 
-        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
-                     tx_id: wd['txID'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
-      end
+    (result.data.dig('result', 'rows') || []).each do |wd|
+      next unless wd['status'] == 'success'
+
+      entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
+                   tx_id: wd['txID'], group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
     end
 
     # Linear futures trades
     cursor = nil
     loop do
-      result = hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor)
-      break if result.failure?
+      result = checked_ledger_read(hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor), optional: true)
+      return result if result.failure?
 
       list = result.data.dig('result', 'list') || []
       break if list.empty?
@@ -514,6 +519,22 @@ class Exchanges::Bybit < Exchange
   end
 
   private
+
+  # 10005 is "Permission denied". The key setup asks for Spot - Trade only and warns against
+  # Derivatives, so a key without the scope for futures or wallet history is the normal case; there
+  # the read has nothing to give and counts as empty, as it did before. Spot trades are what the
+  # key is for, so a 10005 there fails like any other code.
+  LEDGER_NOT_PERMITTED = 10_005
+
+  def checked_ledger_read(result, optional: false)
+    return result if result.failure?
+
+    ret_code = result.data['retCode']
+    return result if ret_code.to_s == '0'
+    return Result::Success.new({}) if optional && ret_code.to_i == LEDGER_NOT_PERMITTED
+
+    Result::Failure.new("#{name} ledger read failed: #{ret_code} #{result.data['retMsg']}")
+  end
 
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol

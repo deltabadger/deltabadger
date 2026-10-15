@@ -270,9 +270,22 @@ class Exchanges::Kucoin < Exchange
     )
   end
 
+  # KuCoin keeps a cancelled order for lookup only ~2 days and a filled one ~7 days, then answers
+  # "order does not exist". Its code (400100) is the generic parameter error, so the message decides.
+  # Spellings as seen in the wild (ccxt maps the same set to OrderNotFound); "Order not found" is the
+  # honeymaker client's own answer to a success envelope with no order in it.
+  ORDER_NOT_FOUND_MESSAGES = ['the order does not exist', 'order not exist', 'order_not_exist',
+                              'ordernotexist', 'order not found'].freeze
+
   def get_order(order_id:)
     result = client.get_order(order_id: order_id)
-    return result if result.failure?
+    if result.failure?
+      return result unless order_not_found?(result)
+
+      # Flagged so Bot::StaleOrderResolver can retire the order instead of polling it forever.
+      return Result::Failure.new("KuCoin no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
@@ -281,14 +294,21 @@ class Exchanges::Kucoin < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -387,22 +407,22 @@ class Exchanges::Kucoin < Exchange
   # than a week returns a window that already ended.
   def ledger_window = 7.days
 
+  # `/api/v1/fills` has nothing before KuCoin's v2 data starts on 2019-02-18, so a full-history sync
+  # walks its weekly windows from there.
+  FILLS_HISTORY_FROM = Time.utc(2019, 2, 18)
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('kucoin', api_key: api_key.key, api_secret: api_key.secret,
                                             passphrase: api_key.passphrase, proxy: ExchangeProxy.for('kucoin'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Fills (paginated)
-    page = 1
-    loop do
-      result = hm_client.get_fills(start_at: start_ms, current_page: page, limit: 500)
-      break if result.failure?
-
-      items = result.data.dig('data', 'items') || []
-      break if items.empty?
-
-      items.each do |fill|
+    # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
+    # past the rows it never got, and they would never be fetched again.
+    window_start = (start_time || FILLS_HISTORY_FROM).to_i * 1000
+    now_ms = Time.now.utc.to_i * 1000
+    while window_start < now_ms
+      window_end = [window_start + (ledger_window.to_i * 1000), now_ms].min
+      failed = read_fills(hm_client, window_start, window_end) do |fill|
         symbol = fill['symbol'] # e.g. "BTC-USDT"
         parts = symbol.split('-')
         is_buyer = fill['side'] == 'buy'
@@ -413,40 +433,98 @@ class Exchanges::Kucoin < Exchange
                      tx_id: fill['tradeId'], group_id: nil, description: nil,
                      transacted_at: Time.at(fill['createdAt'].to_i / 1000.0).utc, raw_data: fill }
       end
-      total_page = result.data.dig('data', 'totalPage').to_i
-      break if page >= total_page
+      return failed if failed
 
-      page += 1
+      window_start = window_end
     end
 
-    # Deposits
-    result = hm_client.get_deposits(start_at: start_ms, status: 'SUCCESS')
-    unless result.failure?
-      (result.data.dig('data', 'items') || []).each do |dep|
-        entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: dep['currency'], fee_amount: dep['fee'].to_d,
-                     tx_id: dep['walletTxId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
-      end
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    fetch = ->(page) { hm_client.get_deposits(start_at: start_ms, status: 'SUCCESS', current_page: page, page_size: 500) }
+    failed = each_page(fetch) do |dep|
+      entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: dep['currency'], fee_amount: dep['fee'].to_d,
+                   tx_id: dep['walletTxId'], group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
     end
+    return failed if failed
 
-    # Withdrawals
-    result = hm_client.get_withdrawals(start_at: start_ms, status: 'SUCCESS')
-    unless result.failure?
-      (result.data.dig('data', 'items') || []).each do |wd|
-        entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
-                     tx_id: wd['walletTxId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
-      end
+    fetch = ->(page) { hm_client.get_withdrawals(start_at: start_ms, status: 'SUCCESS', current_page: page, page_size: 500) }
+    failed = each_page(fetch) do |wd|
+      entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
+                   tx_id: wd['walletTxId'] || wd['id'], group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
     end
+    return failed if failed
 
     Result::Success.new(entries)
   end
 
   private
+
+  # KuCoin answers at most 50,000 fills for one queried range, however it is paged, and asks for a
+  # shorter range beyond that. A window over it is halved until it fits; at an hour it still does not,
+  # and the sync fails visibly rather than storing a week with fills missing.
+  FILLS_RANGE_CAP = 50_000
+  FILLS_MIN_RANGE = 1.hour
+
+  def read_fills(hm_client, from_ms, to_ms, &)
+    fetch = ->(page) { hm_client.get_fills(start_at: from_ms, end_at: to_ms, current_page: page, limit: 500) }
+    failed = each_page(fetch, max_items: FILLS_RANGE_CAP, &)
+    return failed unless failed&.data.is_a?(Hash) && failed.data[:over_cap]
+    return failed if to_ms - from_ms <= FILLS_MIN_RANGE.to_i * 1000
+
+    middle = from_ms + ((to_ms - from_ms) / 2)
+    read_fills(hm_client, from_ms, middle, &) || read_fills(hm_client, middle, to_ms, &)
+  end
+
+  # Each page costs KuCoin's request quota, and a first sync walks some 400 weekly windows, so a long
+  # history runs into the limit part way. A throttled page is waited out and asked for again, as
+  # Kraken's ledger does: failing here throws away every page read so far, and the next sync starts
+  # over from 2019. Kept out of ERRORS[:throttle] on purpose, which would also change how order
+  # placement and polling treat a 429.
+  LEDGER_THROTTLE = ['429000', 'Too Many Requests'].freeze
+  LEDGER_THROTTLE_WAIT = 10
+  LEDGER_THROTTLE_RETRIES = 6
+
+  # KuCoin pages by currentPage up to totalPage. Yields each item; returns the failure that stopped
+  # the read, or nil. These reads skip the client's code check, and a rejection arrives as a 200
+  # envelope with no items — read as an empty page it would pass for "nothing happened".
+  def each_page(fetch, max_items: nil, &)
+    page = 1
+    throttled = 0
+    loop do
+      result = fetch.call(page)
+      if result.success? && result.data['code'].to_s != '200000'
+        result = Result::Failure.new("Failed to get #{name} history: #{result.data.values_at('code', 'msg').compact.join(' ')}")
+      end
+      if result.failure?
+        message = Array(result.errors).join(' ')
+        return result unless LEDGER_THROTTLE.any? { |m| message.include?(m) } && throttled < LEDGER_THROTTLE_RETRIES
+
+        throttled += 1
+        sleep(LEDGER_THROTTLE_WAIT)
+        next
+      end
+      throttled = 0
+
+      if max_items && page == 1 && result.data.dig('data', 'totalNum').to_i > max_items
+        return Result::Failure.new("#{name} has more than #{max_items} fills in one range", data: { over_cap: true })
+      end
+
+      Array(result.data.dig('data', 'items')).each(&)
+      return nil if page >= result.data.dig('data', 'totalPage').to_i
+
+      page += 1
+    end
+  end
+
+  def order_not_found?(result)
+    message = Array(result.errors).join(' ').downcase
+    ORDER_NOT_FOUND_MESSAGES.any? { |m| message.include?(m) }
+  end
 
   def get_bid_ask_price(ticker)
     cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
