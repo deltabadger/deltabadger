@@ -94,6 +94,23 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   # == Import ==
 
+  # Order ids are unique per venue only: a merged bot can hold the same id from two venues. The other venue's row
+  # names its venue, so a round trip keeps both orders; the bot's own keeps the bare id earlier files used.
+  test 'the same order id from two venues survives an export and import' do
+    other = create(:exchange, name: 'OtherVenue')
+    create(:transaction, bot: @bot, external_id: 'BTCUSD-7', status: :submitted, external_status: :closed)
+    create(:transaction, bot: @bot, exchange: other, external_id: 'BTCUSD-7', status: :submitted, external_status: :closed)
+
+    csv = @bot.reload.orders_csv
+    assert_equal %w[BTCUSD-7 OtherVenue:BTCUSD-7], CSV.parse(csv, headers: true).map { |r| r['Order ID'] }.sort
+
+    fresh = create(:dca_single_asset, user: @bot.user, exchange: @bot.exchange, base_asset: @bot.base_asset,
+                                      quote_asset: @bot.quote_asset)
+    result = fresh.import_orders_csv(StringIO.new(csv))
+    assert_equal 2, result[:imported_count]
+    assert_equal 2, fresh.transactions.count
+  end
+
   test 'import_orders_csv imports valid CSV' do
     csv = generate_csv([
                          ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
