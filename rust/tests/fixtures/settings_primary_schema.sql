@@ -234,7 +234,7 @@ CREATE INDEX "index_transactions_on_bot_id_and_created_at" ON "transactions" ("b
 CREATE INDEX "index_transactions_on_bot_id_and_status_and_created_at" ON "transactions" ("bot_id", "status", "created_at");
 CREATE INDEX "index_transactions_on_created_at" ON "transactions" ("created_at");
 CREATE INDEX "index_transactions_on_exchange_id" ON "transactions" ("exchange_id");
-CREATE UNIQUE INDEX "index_transactions_on_external_id" ON "transactions" ("external_id");
+CREATE UNIQUE INDEX "index_transactions_on_exchange_id_and_external_id" ON "transactions" ("exchange_id", "external_id");
 CREATE UNIQUE INDEX "index_users_on_confirmation_token" ON "users" ("confirmation_token");
 CREATE UNIQUE INDEX "index_users_on_email" ON "users" ("email");
 CREATE UNIQUE INDEX "index_users_on_reset_password_token" ON "users" ("reset_password_token");
@@ -360,3 +360,4 @@ INSERT INTO schema_migrations(version) VALUES('20261009120000');
 INSERT INTO schema_migrations(version) VALUES('20261009130000');
 INSERT INTO schema_migrations(version) VALUES('20261011170000');
 INSERT INTO schema_migrations(version) VALUES('20261014120000');
+INSERT INTO schema_migrations(version) VALUES('20261015120000');

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -533,8 +533,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
     t.index ["created_at"], name: "index_transactions_on_created_at"
+    t.index ["exchange_id", "external_id"], name: "index_transactions_on_exchange_id_and_external_id", unique: true
     t.index ["exchange_id"], name: "index_transactions_on_exchange_id"
-    t.index ["external_id"], name: "index_transactions_on_external_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|

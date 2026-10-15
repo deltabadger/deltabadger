@@ -23,8 +23,7 @@ module Bot::OrderCreator
   # amounts are unknown until Bot::FetchAndUpdateOrderJob confirms them. Idempotent:
   # never duplicate a row for an external_id we already have — on THIS venue. A merged bot inherits
   # rows placed on other venues, and an id is only unique per venue: an inherited row must never be
-  # taken for the order just accepted here (the table's global unique index then refuses the insert
-  # loudly, which beats recording a fill against the wrong row).
+  # taken for the order just accepted here, which gets its own row.
   def persist_accepted_order!(order_data, order_id)
     transactions.find_by(exchange_id:, external_id: order_id) ||
       create_submitted_order!(order_data.merge(order_id: order_id, status: :unknown))
