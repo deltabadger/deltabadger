@@ -349,3 +349,26 @@ async fn a_sell_posts_type_sell_and_the_bid_is_the_books_b() {
     let (_, v) = venue(json!({ "GET /0/public/Ticker": body("0") }));
     assert_eq!(v.price(&xbt_eur(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for XBTEUR: 0.0".into()])));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sellers_free_base_is_read_under_the_tickers_base_code_and_never_reads_unreadable_as_zero() {
+    let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": [], "result": { "ZEUR": { "balance": "100.5", "hold_trade": "20.25" }, "XXBT": { "balance": "1.5", "hold_trade": "0.25" } } })) }));
+    // XXBT → XBT, the ticker's base code. The asset's symbol "BTC" names no Kraken row: read by symbol it would be 0.
+    assert_eq!(v.free_base_balance(&xbt_eur()).await, Ok(bd("1.25")));
+    assert_eq!(v.balance("BTC", true).await, Ok(BigDec::zero()), "why the base is read by its code");
+    let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": [], "result": { "ZEUR": { "balance": "1", "hold_trade": "0" } } })) }));
+    assert_eq!(v.free_base_balance(&xbt_eur()).await, Ok(BigDec::zero()), "absent is no holdings");
+    let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": [], "result": { "XXBT": { "balance": "garbage", "hold_trade": "0" } } })) }));
+    assert!(matches!(v.free_base_balance(&xbt_eur()).await, Err(VenueError::Ambiguous(_))), "unreadable is never 0");
+    let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": ["EAPI:Invalid key"] })) }));
+    assert_eq!(v.free_base_balance(&xbt_eur()).await, Err(VenueError::Rejected(vec!["EAPI:Invalid key".into()])));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cancel_posts_cancel_order_by_txid_and_the_bodys_error_is_the_failure() {
+    let (t, v) = venue(json!({ "POST /0/private/CancelOrder": ok(json!({ "error": [], "result": { "count": 1 } })) }));
+    assert_eq!(v.cancel("OABC-1").await, Ok(()));
+    assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(), r#"{"txid":"OABC-1"}"#);
+    let (_, v) = venue(json!({ "POST /0/private/CancelOrder": ok(json!({ "error": ["EOrder:Unknown order"] })) }));
+    assert_eq!(v.cancel("OABC-1").await, Err(VenueError::Rejected(vec!["EOrder:Unknown order".into()])));
+}

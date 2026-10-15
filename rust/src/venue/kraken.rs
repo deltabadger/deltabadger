@@ -185,7 +185,9 @@ pub(crate) fn ticker_price(body: &Value, ticker: &Ticker, side: PriceSide) -> Re
 }
 
 /// Exchanges::Kraken#get_balances for one asset: balance − hold_trade under the gem's ASSET_MAP. Rails assigns per row, so
-/// with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins; absent is 0.
+/// with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins; absent is 0. `asset_symbol` is the code
+/// after ASSET_MAP: for a base, the ticker's own base code (XXBT → "XBT", which #asset_from_symbol resolves through the
+/// tickers' `base`), never the asset's symbol ("BTC" names no Kraken row, so it would read 0).
 pub(crate) fn free_balance(body: &Value, asset_symbol: &str) -> Result<BigDec, VenueError> {
     let mut free = BigDec::zero();
     for (code, b) in body["result"].as_object().into_iter().flatten() {
@@ -343,5 +345,16 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {
         let body = self.call(&self.private("/0/private/BalanceEx", &[]), false).await?;
         free_balance(&body, asset_symbol)
+    }
+
+    /// The base's free balance for a seller: the same BalanceEx, under the ticker's base code.
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, VenueError> {
+        let body = self.call(&self.private("/0/private/BalanceEx", &[]), false).await?;
+        free_balance(&body, &ticker.base_code)
+    }
+
+    /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
+    async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
+        self.call(&self.private("/0/private/CancelOrder", &[("txid", txid.to_string())]), false).await.map(|_| ())
     }
 }

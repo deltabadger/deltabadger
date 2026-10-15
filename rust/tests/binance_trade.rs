@@ -397,3 +397,27 @@ async fn a_sell_posts_side_sell_and_the_bid_is_the_books_bid_price() {
     let (_, v) = venue(json!({ "GET /api/v3/ticker/bookTicker": book("0.00000000") }));
     assert_eq!(v.price(&btc_usdt(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for BTCUSDT: 0.0".into()])));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sellers_free_base_is_the_row_of_the_tickers_base_code_and_never_reads_unreadable_as_zero() {
+    let body = json!({ "balances": [{ "asset": "BTC", "free": "0.5", "locked": "0.1" }, { "asset": "USDT", "free": "12", "locked": "0" }] });
+    let (_, v) = venue(json!({ "GET /api/v3/account": ok(body) }));
+    assert_eq!(v.free_base_balance(&btc_usdt()).await, Ok(bd("0.5")), "free, never free + locked");
+    let (_, v) = venue(json!({ "GET /api/v3/account": ok(json!({ "balances": [{ "asset": "USDT", "free": "12", "locked": "0" }] })) }));
+    assert_eq!(v.free_base_balance(&btc_usdt()).await, Ok(BigDec::zero()), "absent is no holdings");
+    let (_, v) = venue(json!({ "GET /api/v3/account": ok(json!({ "balances": [{ "asset": "BTC", "free": "garbage", "locked": "0" }] })) }));
+    assert!(matches!(v.free_base_balance(&btc_usdt()).await, Err(VenueError::Ambiguous(_))), "unreadable is never 0");
+    let (_, v) = venue(json!({ "GET /api/v3/account": ok(json!({ "nope": [] })) }));
+    assert!(v.free_base_balance(&btc_usdt()).await.is_err(), "a body without balances is unreadable");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cancel_deletes_the_order_by_symbol_and_order_id() {
+    let (t, v) = venue(json!({ "DELETE /api/v3/order": ok(json!({ "symbol": "BTCUSDT", "orderId": 28457, "status": "CANCELED" })) }));
+    assert_eq!(v.cancel("BTCUSDT-28457").await, Ok(()));
+    let r = &t.requests()[0];
+    assert_eq!((r.method, r.path.as_str()), ("DELETE", "/api/v3/order"));
+    assert_eq!(sent(r), pairs_of(&[("orderId", "28457"), ("recvWindow", "5000"), ("symbol", "BTCUSDT")]));
+    let (_, v) = venue(json!({ "DELETE /api/v3/order": fail(400, json!({ "code": -2011, "msg": "Unknown order sent." })) }));
+    assert_eq!(v.cancel("BTCUSDT-28457").await, Err(VenueError::Rejected(vec!["Unknown order sent.".into()])));
+}

@@ -399,6 +399,18 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     async fn order_by_client_id(&self, cl_ord_id: &str, _symbol: &str, since: DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.order_by_client_id_diagnostic_source(cl_ord_id,since).await.map_err(|error|self.redact_error(error))}
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.fills_from_trades_diagnostic_source(txids,since).await.map_err(|error|self.redact_error(error))}
     async fn balance(&self, asset_symbol: &str, all_crypto: bool)->Result<BigDec,VenueError>{self.balance_diagnostic_source(asset_symbol,all_crypto).await.map_err(|error|self.redact_error(error))}
+    /// #cancel_order through Clients::Alpaca#cancel_order: DELETE /v2/orders/<id> on the trading host.
+    /// Alpaca answers 204 with no body; any 2xx is success, as with_rescue returns it unparsed.
+    async fn cancel(&self, txid: &str)->Result<(),VenueError>{
+        let r = self.request("DELETE", false, format!("/v2/orders/{txid}"), vec![], None);
+        let answer = match self.transport.send(&r).await {
+            Err(TransportError::Permanent(m)) => Err(VenueError::Rejected(vec![m])),
+            Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
+            Ok(resp) if (200..300).contains(&resp.status) => Ok(()),
+            Ok(resp) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
+        };
+        answer.map_err(|error|self.redact_error(error))
+    }
 }
 
 /// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper or live, as

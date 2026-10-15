@@ -475,6 +475,29 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         }
         Ok(free)
     }
+
+    /// The base's free balance for a seller: the same account read, the row whose venue code is the ticker's base code (the
+    /// code #asset_from_symbol resolves to the ticker's base asset). The last such row wins, absent is 0.
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, super::VenueError> {
+        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = self.call(&r, false).await?;
+        let mut free = BigDec::zero();
+        for row in body["balances"].as_array().ok_or_else(unreadable)? {
+            if row["asset"].as_str() != Some(ticker.base_code.as_str()) { continue; }
+            required(&row["locked"])?;
+            free = required(&row["free"])?;
+        }
+        Ok(free)
+    }
+
+    /// #cancel_order through Clients::Binance#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>", with the
+    /// gem's default recvWindow; a failure is #parse_error_message's text.
+    async fn cancel(&self, txid: &str) -> Result<(), super::VenueError> {
+        let mut parts = txid.split('-');
+        let (symbol, ext) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
+        let r = self.signed_now("DELETE", "/api/v3/order", vec![("symbol", symbol.to_string()), ("orderId", ext.to_string()), ("recvWindow", PLACE_RECV_WINDOW.into())]);
+        self.call(&r, false).await.map(|_| ())
+    }
 }
 
 #[cfg(test)]

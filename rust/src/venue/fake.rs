@@ -199,6 +199,19 @@ impl Venue for FakeVenue {
         check(&body)?;
         free_balance(&body, asset_symbol)
     }
+
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, VenueError> {
+        self.wait().await;
+        let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
+        check(&body)?;
+        free_balance(&body, &ticker.base_code)
+    }
+
+    /// A scripted CancelOrder body, or accepted when none is scripted.
+    async fn cancel(&self, _txid: &str) -> Result<(), VenueError> {
+        self.wait().await;
+        match self.body("/0/private/CancelOrder") { Some(body) => check(&body), None => Ok(()) }
+    }
 }
 
 #[derive(Clone, Default)]

@@ -336,3 +336,12 @@ async fn a_sell_posts_side_sell_and_the_bid_is_the_quotes_bp() {
     let (_, v) = venue(json!({ "GET /v2/stocks/AAPL/quotes/latest": ok(json!({ "quote": { "ap": 187.43, "bp": 187.4 } })) }));
     assert_eq!(v.price(&aapl(), PriceSide::Bid).await, Ok(bd("187.4")));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cancel_deletes_the_order_and_a_204_is_success() {
+    let (t, v) = venue(json!({ "DELETE /v2/orders/OTX-1": status(204, json!("")) }));
+    assert_eq!(v.cancel("OTX-1").await, Ok(()));
+    assert_eq!((t.requests()[0].method, t.requests()[0].base.as_str()), ("DELETE", PAPER_TRADING_URL));
+    let (_, v) = venue(json!({ "DELETE /v2/orders/OTX-1": status(422, json!({ "code": 42210000, "message": "order is already in \"filled\" state" })) }));
+    assert_eq!(v.cancel("OTX-1").await, Err(VenueError::Rejected(vec![r#"order is already in "filled" state"#.into()])));
+}
