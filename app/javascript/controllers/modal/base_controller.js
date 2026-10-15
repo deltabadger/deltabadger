@@ -32,8 +32,9 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     if (!frame) return
 
-    // Support both the small modal (.modal) and the full-page wizard (.dialogview).
-    const smallCard = frame.querySelector('.modal')
+    // Support the small modal (.modal), the settings card (.settings, which zooms like it) and the
+    // full-page wizard (.dialogview).
+    const smallCard = frame.querySelector('.modal, .settings')
     const fullCard  = frame.querySelector('.dialogview__vertical-center')
     const card = smallCard || fullCard
     if (card) {

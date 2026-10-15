@@ -128,6 +128,10 @@ html:has(#modal dialog[open])
         .modal,
         .dialogview__vertical-center
             animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
+    // The settings card zooms in when it is inserted, not on [complete]: visited as a page its frame
+    // never completes, and switching sections replaces only the pane inside it, so it zooms once.
+    .settings
+        animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
     .modal--closing,
     .dialogview__vertical-center--closing
         animation: modal-zoom-out 0.15s ease-in both !important
