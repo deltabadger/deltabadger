@@ -1,4 +1,6 @@
 //! The engine and the web UI in one process (`supervisor::serve`), on one runtime, under one lock.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use common::seed::{self, BotSpec, TxSpec};
 use common::web::{self as w, TestClock};
@@ -323,6 +325,7 @@ async fn a_web_write_that_strands_an_unresolved_order_trips_the_debug_assertion_
 /// Measured: with a venue that answers slowly (each call awaits 50 ms of timer, so the thread is free meanwhile)
 /// and an install of ordinary size, a full pass with a full tick never holds the runtime thread longer than the bound.
 #[tokio::test(flavor = "current_thread")]
+#[ignore = "timing: nightly"]
 async fn a_full_tick_never_holds_the_runtime_thread_longer_than_the_bound() {
     let v = priced().latency(Duration::from_millis(50));
     // Due now, started eight days ago: its schedule holds the 500 orders `ordinary_install` gives it.

@@ -43,17 +43,22 @@ class BotApi::Bots::UpdateSettingsTest < ActiveSupport::TestCase
                  BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, allocations: 'BTC:100').error_code
   end
 
-  test 'weights must cover exactly the basket and sum to 100' do
-    bot, btc, = basket
+  test 'weights name members; a partial or unbalanced set saves as the page saves it' do
+    bot, btc, eth = basket
     call = ->(allocations) { BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, allocations: allocations) }
 
     assert_equal 'asset_not_in_basket', call.call('BTC:50,SOL:50').error_code
-    assert_equal 'missing_basket_asset', call.call('BTC:100').error_code
-    assert_equal 'allocations_unbalanced', call.call('BTC:70,ETH:40').error_code
+    assert_equal 'SOL is not in this basket; add it with add_asset_id first.', call.call('SOL:50').error_message
     assert_equal 'invalid_allocations', call.call('BTC:50,btc:50').error_code
     assert_equal 'invalid_allocations', call.call([%w[BTC 50], %w[ETH 50]]).error_code
     assert_equal 'invalid_allocations', call.call('BTC:abc,ETH:40').error_code
     assert_in_delta 0.5, bot.reload.allocation_for(btc.id), 0.0001, 'a refused update must leave the weights alone'
+
+    assert call.call('BTC:70,ETH:40').success?
+    assert_equal({ btc.id.to_s => 0.7, eth.id.to_s => 0.4 }, bot.reload.allocations)
+    assert call.call('BTC:100').success?
+    assert_equal({ btc.id.to_s => 1.0, eth.id.to_s => 0.4 }, bot.reload.allocations, 'an unnamed member keeps its weight')
+    assert_not bot.valid?(:start)
   end
 
   test 'a hash body reweights the same way a string does' do

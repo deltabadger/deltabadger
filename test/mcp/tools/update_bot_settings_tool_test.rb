@@ -80,4 +80,50 @@ class UpdateBotSettingsToolTest < ActiveSupport::TestCase
     assert_match(/settings updated/, response.contents.first.text)
     assert_in_delta 0.7, bot.reload.allocation_for(btc.id), 0.0001
   end
+
+  test 'the schema offers every settings-page field with the page choices' do
+    schema = UpdateBotSettingsTool.to_h[:inputSchema]
+    assert_equal ['bot_id', *BotApi::Bots::SettingsFields::NAMES], schema[:properties].keys
+    assert_equal Automation::Schedulable::INTERVALS.keys, schema[:properties]['interval'][:enum]
+    assert_equal Bot::Startable::MODES, schema[:properties]['start_time_mode'][:enum]
+    assert_equal %w[restrict start flip], schema[:properties]['price_limit_mode'][:enum]
+    assert_equal %w[start flip], schema[:properties]['sell_price_drop_limit_mode'][:enum]
+    assert_equal %w[twenty_four_hours seven_days], schema[:properties]['sell_price_drop_limit_time_window_condition'][:enum]
+    %w[sell_amount sell_quote_amount rebalance_threshold].each { |name| assert_equal %w[number null], schema[:properties][name][:type] }
+    assert_equal %w[string null], schema[:properties]['start_at'][:type]
+    assert_equal 'number', schema[:properties]['quote_amount'][:type], 'only fields the page can blank take null'
+  end
+
+  test 'a starting time is set through the tool' do
+    response = UpdateBotSettingsTool.from_wire('bot_id' => @bot.id, 'start_time_enabled' => true, 'start_time_mode' => 'hour',
+                                               'start_time_of_day' => '09:30').execute
+
+    assert_match(/settings updated: start_time_enabled, start_time_mode, start_time_of_day/, response.contents.first.text)
+    @bot.reload
+    assert_equal [true, 'hour', '09:30'], [@bot.start_time_enabled, @bot.start_time_mode, @bot.start_time_of_day]
+  end
+
+  test 'an omitted field stays, null clears, a value sets' do
+    @bot.settings['start_at'] = '2026-12-01T10:00:00Z'
+    @bot.set_missed_quote_amount
+    @bot.save!
+
+    UpdateBotSettingsTool.from_wire('bot_id' => @bot.id, 'label' => 'Other').execute
+    assert_equal '2026-12-01T10:00:00Z', @bot.reload.start_at
+
+    response = UpdateBotSettingsTool.from_wire('bot_id' => @bot.id, 'start_at' => nil).execute
+    assert_match(/settings updated: start_at/, response.contents.first.text)
+    assert @bot.reload.settings.key?('start_at')
+    assert_nil @bot.start_at
+
+    UpdateBotSettingsTool.from_wire('bot_id' => @bot.id, 'start_at' => '2026-12-02T08:00').execute
+    assert_equal '2026-12-02T08:00:00Z', @bot.reload.start_at
+  end
+
+  test 'a value outside the page choices is refused by the schema' do
+    response = UpdateBotSettingsTool.from_wire('bot_id' => @bot.id, 'interval' => 'fortnight').execute
+
+    assert response.error?, response.to_h.inspect
+    assert_equal 'day', @bot.reload.interval
+  end
 end

@@ -71,6 +71,6 @@
   },
   "rust/src/web/mcp/read_limits.rs": {},
   "rust/src/figures/fill.rs": {
-    "kind: r.get::<_, Option<String>>(11)?.unwrap_or_default(), // NULL kind has no special accounting role; DB errors propagate.": 1
+    "kind: get::<Option<String>>(r, 11)?.unwrap_or_default(), // NULL kind has no special accounting role; DB errors propagate.": 1
   }
 }

@@ -1,4 +1,6 @@
 //! The in-process scheduler (rust/src/jobs): durable state, schedules, the runner.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed;
@@ -315,6 +317,7 @@ fn chunky(deadline: std::time::Duration) -> (Chunky, Arc<AtomicUsize>) {
 }
 
 #[tokio::test(flavor = "current_thread")] // real time: the units sleep on the blocking pool
+#[ignore = "timing: nightly"]
 async fn a_deadline_mid_import_ends_the_run_within_one_unit_and_records_it() {
     let (d, c) = db();
     let deadline = std::time::Duration::from_millis(300);
@@ -343,6 +346,7 @@ async fn a_deadline_mid_import_ends_the_run_within_one_unit_and_records_it() {
 }
 
 #[tokio::test(flavor = "current_thread")] // real time
+#[ignore = "timing: nightly"]
 async fn a_stop_mid_import_returns_at_once_and_leaves_at_most_the_unit_in_hand() {
     let (d, c) = db();
     let (job, done) = chunky(DEADLINE);
@@ -377,6 +381,7 @@ async fn a_run_that_refreshed_nothing_is_recorded_as_a_run_not_a_success() {
 }
 
 #[tokio::test(flavor = "current_thread")] // real time: another connection holds SQLite's write lock
+#[ignore = "timing: nightly"]
 async fn a_stop_while_the_record_waits_for_the_write_lock_returns_at_once_and_skips_the_record() {
     let (d, c) = db();
     let (job, runs, _) = fake("done", Some(Schedule::Daily { hour: 0, minute: 0 }), Retry::None, vec![]); // due at start, done at once

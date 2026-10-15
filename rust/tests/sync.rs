@@ -1,5 +1,7 @@
 //! The tracker's syncs on a Rails-prepared install: the write rule beside a trading engine, the jobs' contract with the
 //! scheduler, the live-key refusal, and the hand-run command's lock. (Row-for-row agreement with Rails: sync_parity.rs.)
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use common::seed::{self, BotSpec, Seeded};
 use deltabadger::crypto::Credentials;
@@ -1088,6 +1090,7 @@ fn no_value_of_an_answer_reaches_the_log() {
 /// The write rule over a history of tens of thousands of rows: every write unit is short, and a writer on another
 /// connection (the engine's, the web's) gets the lock between two of them.
 #[tokio::test(flavor = "current_thread")]
+#[ignore = "timing: nightly"]
 async fn over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in() {
     let (dir, db, s) = install();
     // 30,000 ledger rows of the last week with no asset (every sync looks at them again), 2,000 withdrawals nothing

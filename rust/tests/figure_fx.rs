@@ -1,5 +1,7 @@
 //! The bots page's conversions: held per provider (`figures::page_market::FxStore`), fetched by the fill and never by a
 //! page, and kept figures shown and replayed only while every conversion they read still holds.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use deltabadger::figures::page_market::HeldRate;
 use deltabadger::web::figure::loading::{self, Snapshot, Source};
@@ -230,6 +232,7 @@ async fn divergence_a_string_coin_price_still_shows_the_total() {
 }
 
 #[tokio::test]
+#[ignore = "timing: nightly"]
 async fn a_rate_refreshed_between_render_and_acceptance_refuses_the_publication() {
     let install = install("EUR", script(true, json!(0.9993)));
     let stop = install.consume();

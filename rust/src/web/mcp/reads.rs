@@ -314,6 +314,13 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<(String,bool),WebError>
             Ok(format!("{key} {:.2}%",w*100.0))
         }).collect::<Result<Vec<_>,WebError>>()?;
         lines.push(format!("Allocations: {}",formatted.join(", ")));
+        // The ids update_bot_settings takes back: the asset, and the ticker a trading condition watches.
+        let listed=members.iter().map(|(id,_,_)|{
+            let key=keys.iter().find(|(asset,_)|*asset==figures::keys::Identity::Asset(*id)).map(|(_,key)|key).ok_or_else(error)?;
+            let ticker:Option<i64>=c.query_row("SELECT t.id FROM bot_index_assets m JOIN tickers t ON t.id=m.ticker_id WHERE m.bot_id=?1 AND m.in_index=1 AND t.base_asset_id=?2 ORDER BY m.id DESC LIMIT 1",(b.id,*id),|r|r.get(0)).optional()?;
+            Ok(format!("{key} (asset id {id}, ticker id {})",ticker.map_or_else(||"none".to_string(),|t|t.to_string())))
+        }).collect::<Result<Vec<_>,WebError>>()?;
+        lines.push(format!("Members: {}",listed.join(", ")));
     }
     let result=metrics(c,&b,now);
     let mut redeploy_line=None;

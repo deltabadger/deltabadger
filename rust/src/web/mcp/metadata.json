@@ -889,7 +889,7 @@
     },
     {
       "name": "update_bot_settings",
-      "description": "Update settings on a stopped or newly created bot: amount and label on any bot, the index knobs on an index bot, the weights on a basket bot",
+      "description": "Change a stopped bot's settings, as its settings page does: amount, interval, label, exchange; index count and flattening; basket weights, members and weighting; selling amounts; Smart Intervals; limit orders; starting time; spending and selling caps; price, price-drop, moving-average and RSI conditions; rebalancing. Only what you pass changes; each field says which bot types have it.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -900,23 +900,484 @@
           },
           "quote_amount": {
             "type": "number",
-            "description": "Amount per order in quote currency (optional)"
+            "description": "Amount per order, in the quote currency."
           },
           "label": {
             "type": "string",
-            "description": "Bot label (optional)"
+            "description": "Bot label."
           },
           "num_coins": {
             "type": "number",
-            "description": "Index bots: how many top assets to hold (2-100)"
+            "description": "Index bots: how many top assets to hold (2-100); the top of the range holds them all."
           },
           "allocation_flattening": {
             "type": "number",
-            "description": "Index bots: 0 = market-cap weights, 1 = equal"
+            "description": "Index bots: 0 = market-cap weights, 1 = equal weights."
           },
           "allocations": {
             "type": "string",
-            "description": "Basket bots: new weights for every current asset, e.g. 'BTC:70,ETH:30' (sum 100). Name an asset by its key from get_bot_details when two share a symbol, or by asset id"
+            "description": "Basket bots: weights in percent for any members, e.g. 'BTC:70,ETH:30'. Members not named keep their weight (rounded to 0.1, as the page does); weights need not sum to 100 to save, but must to start. Name a member by its key from get_bot_details when two share a symbol, or by asset id."
+          },
+          "exchange_id": {
+            "type": "number",
+            "description": "Move the bot to another connected exchange (id from list_exchanges)."
+          },
+          "interval": {
+            "type": "string",
+            "description": "Buying interval.",
+            "enum": [
+              "hour",
+              "day",
+              "week",
+              "month"
+            ]
+          },
+          "weighting": {
+            "type": "string",
+            "description": "Basket bots: manual weights, or weights derived from market cap.",
+            "enum": [
+              "manual",
+              "market_cap"
+            ]
+          },
+          "add_asset_id": {
+            "type": "number",
+            "description": "Basket bots: add this asset (id) as a member with weight 0."
+          },
+          "remove_asset_id": {
+            "type": "number",
+            "description": "Basket bots: remove this member (asset id)."
+          },
+          "normalize_allocations": {
+            "type": "boolean",
+            "description": "Basket bots: true scales the weights to sum to 100."
+          },
+          "sell_amount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "While selling a one-asset basket: base amount to sell per sell interval. null clears it."
+          },
+          "sell_quote_amount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "While selling: quote amount to sell for per sell interval. null clears it."
+          },
+          "sell_interval": {
+            "type": "string",
+            "description": "While selling: the selling interval.",
+            "enum": [
+              "hour",
+              "day",
+              "week",
+              "month"
+            ]
+          },
+          "smart_intervaled": {
+            "type": "boolean",
+            "description": "Smart Intervals (split each order into smaller, more frequent ones): on or off."
+          },
+          "smart_interval_quote_amount": {
+            "type": "number",
+            "description": "Smart Intervals: size of each smaller buy, in the quote currency."
+          },
+          "smart_interval_base_amount": {
+            "type": "number",
+            "description": "Smart Intervals while selling a base amount: size of each smaller sell."
+          },
+          "limit_ordered": {
+            "type": "boolean",
+            "description": "Limit orders instead of market orders: on or off (always on for Hyperliquid)."
+          },
+          "limit_order_pcnt_distance": {
+            "type": "number",
+            "description": "Limit orders: distance from the price, in percent (0.5 = 0.5%)."
+          },
+          "start_time_enabled": {
+            "type": "boolean",
+            "description": "Starting time (delay the first order): on or off."
+          },
+          "start_time_mode": {
+            "type": "string",
+            "description": "Starting time: a weekday, a date (start_at), or the next occurrence of an hour (start_time_of_day).",
+            "enum": [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday",
+              "date",
+              "hour"
+            ]
+          },
+          "start_time_of_day": {
+            "type": "string",
+            "description": "Starting time for weekday or hour modes: 'HH:MM' in the account time zone."
+          },
+          "start_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Starting time for date mode: a datetime, e.g. 2026-06-15T09:30 in the account time zone or with an offset. null clears it."
+          },
+          "quote_amount_limited": {
+            "type": "boolean",
+            "description": "Spending cap (don't spend more than) while buying: on or off."
+          },
+          "quote_amount_limit": {
+            "type": "number",
+            "description": "Spending cap, in the quote currency."
+          },
+          "base_amount_limited": {
+            "type": "boolean",
+            "description": "Selling cap (don't sell more than) for a one-asset basket: on or off."
+          },
+          "base_amount_limit": {
+            "type": "number",
+            "description": "Selling cap, in the base asset."
+          },
+          "price_limited": {
+            "type": "boolean",
+            "description": "Price condition while buying: on or off."
+          },
+          "price_limit_mode": {
+            "type": "string",
+            "description": "Price condition while buying: what it does.",
+            "enum": [
+              "restrict",
+              "start",
+              "flip"
+            ]
+          },
+          "price_limit_value_condition": {
+            "type": "string",
+            "description": "Price condition while buying: price above, below or between (between needs mode restrict).",
+            "enum": [
+              "above",
+              "below",
+              "between"
+            ]
+          },
+          "price_limit": {
+            "type": "number",
+            "description": "Price condition while buying: the price, in the quote currency."
+          },
+          "price_limit_range_lower_bound": {
+            "type": "number",
+            "description": "Price condition while buying: lower price of a between range."
+          },
+          "price_limit_range_upper_bound": {
+            "type": "number",
+            "description": "Price condition while buying: upper price of a between range."
+          },
+          "price_limit_in_ticker_id": {
+            "type": "number",
+            "description": "Price condition while buying. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "price_drop_limited": {
+            "type": "boolean",
+            "description": "Price-drop condition while buying: on or off."
+          },
+          "price_drop_limit_mode": {
+            "type": "string",
+            "description": "Price-drop condition while buying: what it does.",
+            "enum": [
+              "start",
+              "flip"
+            ]
+          },
+          "price_drop_limit": {
+            "type": "number",
+            "description": "Price-drop condition while buying: the move, in percent (10 = 10%) below the high."
+          },
+          "price_drop_limit_time_window_condition": {
+            "type": "string",
+            "description": "Price-drop condition while buying: the high it is measured from.",
+            "enum": [
+              "ath",
+              "twenty_four_hours"
+            ]
+          },
+          "price_drop_limit_in_ticker_id": {
+            "type": "number",
+            "description": "Price-drop condition while buying. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "moving_average_limited": {
+            "type": "boolean",
+            "description": "Moving-average condition while buying: on or off."
+          },
+          "moving_average_limit_mode": {
+            "type": "string",
+            "description": "Moving-average condition while buying: what it does.",
+            "enum": [
+              "restrict",
+              "start",
+              "flip"
+            ]
+          },
+          "moving_average_limit_value_condition": {
+            "type": "string",
+            "description": "Moving-average condition while buying: price above or below the average.",
+            "enum": [
+              "above",
+              "below"
+            ]
+          },
+          "moving_average_limit_in_ma_type": {
+            "type": "string",
+            "description": "Moving-average condition while buying: the average.",
+            "enum": [
+              "sma",
+              "ema"
+            ]
+          },
+          "moving_average_limit_in_timeframe": {
+            "type": "string",
+            "description": "Moving-average condition while buying: candle size.",
+            "enum": [
+              "one_hour",
+              "four_hours",
+              "one_day",
+              "three_days",
+              "one_week",
+              "one_month"
+            ]
+          },
+          "moving_average_limit_in_period": {
+            "type": "number",
+            "description": "Moving-average condition while buying: number of candles."
+          },
+          "moving_average_limit_in_ticker_id": {
+            "type": "number",
+            "description": "Moving-average condition while buying. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "indicator_limited": {
+            "type": "boolean",
+            "description": "RSI condition while buying: on or off."
+          },
+          "indicator_limit_mode": {
+            "type": "string",
+            "description": "RSI condition while buying: what it does.",
+            "enum": [
+              "restrict",
+              "start",
+              "flip"
+            ]
+          },
+          "indicator_limit_value_condition": {
+            "type": "string",
+            "description": "RSI condition while buying: indicator above or below the level.",
+            "enum": [
+              "above",
+              "below"
+            ]
+          },
+          "indicator_limit": {
+            "type": "number",
+            "description": "RSI condition while buying: the level (0-100)."
+          },
+          "indicator_limit_in_indicator": {
+            "type": "string",
+            "description": "RSI condition while buying: the indicator.",
+            "enum": [
+              "rsi"
+            ]
+          },
+          "indicator_limit_in_timeframe": {
+            "type": "string",
+            "description": "RSI condition while buying: candle size.",
+            "enum": [
+              "one_hour",
+              "four_hours",
+              "one_day",
+              "three_days",
+              "one_week",
+              "one_month"
+            ]
+          },
+          "indicator_limit_in_ticker_id": {
+            "type": "number",
+            "description": "RSI condition while buying. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "sell_price_limited": {
+            "type": "boolean",
+            "description": "Price condition while selling: on or off."
+          },
+          "sell_price_limit_mode": {
+            "type": "string",
+            "description": "Price condition while selling: what it does.",
+            "enum": [
+              "restrict",
+              "start",
+              "flip"
+            ]
+          },
+          "sell_price_limit_value_condition": {
+            "type": "string",
+            "description": "Price condition while selling: price above, below or between (between needs mode restrict).",
+            "enum": [
+              "above",
+              "below",
+              "between"
+            ]
+          },
+          "sell_price_limit": {
+            "type": "number",
+            "description": "Price condition while selling: the price, in the quote currency."
+          },
+          "sell_price_limit_range_lower_bound": {
+            "type": "number",
+            "description": "Price condition while selling: lower price of a between range."
+          },
+          "sell_price_limit_range_upper_bound": {
+            "type": "number",
+            "description": "Price condition while selling: upper price of a between range."
+          },
+          "sell_price_limit_in_ticker_id": {
+            "type": "number",
+            "description": "Price condition while selling. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "sell_price_drop_limited": {
+            "type": "boolean",
+            "description": "Price-drop condition while selling: on or off."
+          },
+          "sell_price_drop_limit_mode": {
+            "type": "string",
+            "description": "Price-drop condition while selling: what it does.",
+            "enum": [
+              "start",
+              "flip"
+            ]
+          },
+          "sell_price_drop_limit": {
+            "type": "number",
+            "description": "Price-drop condition while selling: the move, in percent (10 = 10%) above the low."
+          },
+          "sell_price_drop_limit_time_window_condition": {
+            "type": "string",
+            "description": "Price-drop condition while selling: the low it is measured from.",
+            "enum": [
+              "twenty_four_hours",
+              "seven_days"
+            ]
+          },
+          "sell_price_drop_limit_in_ticker_id": {
+            "type": "number",
+            "description": "Price-drop condition while selling. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "sell_moving_average_limited": {
+            "type": "boolean",
+            "description": "Moving-average condition while selling: on or off."
+          },
+          "sell_moving_average_limit_mode": {
+            "type": "string",
+            "description": "Moving-average condition while selling: what it does.",
+            "enum": [
+              "restrict",
+              "start",
+              "flip"
+            ]
+          },
+          "sell_moving_average_limit_value_condition": {
+            "type": "string",
+            "description": "Moving-average condition while selling: price above or below the average.",
+            "enum": [
+              "above",
+              "below"
+            ]
+          },
+          "sell_moving_average_limit_in_ma_type": {
+            "type": "string",
+            "description": "Moving-average condition while selling: the average.",
+            "enum": [
+              "sma",
+              "ema"
+            ]
+          },
+          "sell_moving_average_limit_in_timeframe": {
+            "type": "string",
+            "description": "Moving-average condition while selling: candle size.",
+            "enum": [
+              "one_hour",
+              "four_hours",
+              "one_day",
+              "three_days",
+              "one_week",
+              "one_month"
+            ]
+          },
+          "sell_moving_average_limit_in_period": {
+            "type": "number",
+            "description": "Moving-average condition while selling: number of candles."
+          },
+          "sell_moving_average_limit_in_ticker_id": {
+            "type": "number",
+            "description": "Moving-average condition while selling. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "sell_indicator_limited": {
+            "type": "boolean",
+            "description": "RSI condition while selling: on or off."
+          },
+          "sell_indicator_limit_mode": {
+            "type": "string",
+            "description": "RSI condition while selling: what it does.",
+            "enum": [
+              "restrict",
+              "start",
+              "flip"
+            ]
+          },
+          "sell_indicator_limit_value_condition": {
+            "type": "string",
+            "description": "RSI condition while selling: indicator above or below the level.",
+            "enum": [
+              "above",
+              "below"
+            ]
+          },
+          "sell_indicator_limit": {
+            "type": "number",
+            "description": "RSI condition while selling: the level (0-100)."
+          },
+          "sell_indicator_limit_in_indicator": {
+            "type": "string",
+            "description": "RSI condition while selling: the indicator.",
+            "enum": [
+              "rsi"
+            ]
+          },
+          "sell_indicator_limit_in_timeframe": {
+            "type": "string",
+            "description": "RSI condition while selling: candle size.",
+            "enum": [
+              "one_hour",
+              "four_hours",
+              "one_day",
+              "three_days",
+              "one_week",
+              "one_month"
+            ]
+          },
+          "sell_indicator_limit_in_ticker_id": {
+            "type": "number",
+            "description": "RSI condition while selling. Basket bots: the ticker id of the member it watches (get_bot_details lists them)."
+          },
+          "rebalance_enabled": {
+            "type": "boolean",
+            "description": "Threshold rebalancing: on or off."
+          },
+          "rebalance_threshold": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Threshold rebalancing: drift that triggers it, in percent (5 = 5%). null clears it (the default applies)."
           }
         },
         "required": [
@@ -1164,7 +1625,7 @@
     "app/mcp/tools/download_tax_report_tool.rb": "100e2cd07c60c3fe771ffc8f1b79c4f7cd3e44afe7607e2dbe85031c951de4b1",
     "app/mcp/tools/export_transactions_csv_tool.rb": "34d16a2a8e150a93e4574796b5eec69412d0be701017e05cf682d98625481ebb",
     "app/mcp/tools/generate_tax_report_tool.rb": "1a6141595778d07db231a511dc8e2b9bba00624a5d88f05135e368959735d5b5",
-    "app/mcp/tools/get_bot_details_tool.rb": "05ad74624899733b5e251ce1e17503e99076c2c355cfb76a204f7bb925f7877d",
+    "app/mcp/tools/get_bot_details_tool.rb": "9a69d1daa222d447514205b332871da6af6b1419b6aa9e287f8aad3769f6f44d",
     "app/mcp/tools/get_exchange_balances_tool.rb": "17c6dab6fd739474e5db360da7ee72fb0bd230c7cfbba216c781d1f0c8adf46c",
     "app/mcp/tools/get_portfolio_summary_tool.rb": "a2c576f9d6babd85f3a0dd733e2b8a0192b6109590cef2bd3d1f3e6f45c52bff",
     "app/mcp/tools/get_tax_report_status_tool.rb": "41e576b87dbfc14174d42d733465417fd123520f6e12200dc545dbb168c7e0b7",
@@ -1189,13 +1650,13 @@
     "app/mcp/tools/stop_rule_tool.rb": "0739e769ec64c3e8d8ee14c7404fb8042f08ae996da964bd43a9b236ad1cc363",
     "app/mcp/tools/sync_tracker_tool.rb": "512e2f5339f4d374e027598c3cb5cd22b80b4cb2487c4626238005cee760983b",
     "app/mcp/tools/unarchive_bot_tool.rb": "0baea107d8c7c2c26519e39cfb5593382ac769eb451a20a333078219eeed592e",
-    "app/mcp/tools/update_bot_settings_tool.rb": "b17de3315ebdc4ad306a3b81a7e9e39c1640249295af04eebced138454bdd9c8",
+    "app/mcp/tools/update_bot_settings_tool.rb": "dd36821491ee80d90f8b5c3a195bc6d385b9cbf92e3eb1d1cc6a0b88f29a1211",
     "app/mcp/tools/update_rule_settings_tool.rb": "7bd19101e8f542a6d386670666ea80c12fb3bf97f21a52e01fafd2f1472d9a6a",
     "app/services/bot_api/bots/list.rb": "1b28072e3b55fb1d77069b5f5a5b03e33362b7893fabbddb0b8a93520d0c8b79",
     "app/services/bot_api/exchanges/list.rb": "966f83ea42243ec9475f555365cc4c04f1c4c254a0f974624da02e510461e323",
     "app/services/bot_api/transactions/list.rb": "35f1e182b8052db0fe8244dbe28230a716b21118566af350e2c37a061a63804f",
     "app/services/bot_api/tax/list_jurisdictions.rb": "6fd4335c8c307fa865c7432c738753b86e76a13636fd67c99401570933d78970",
-    "app/services/bot_api/bots/get.rb": "fe324f5115eac53f54a5534002036ba4a291c815e1906cbcf76fbe58e6b2eeec",
+    "app/services/bot_api/bots/get.rb": "a0c8abb0483880dac12a2903d969aea14f39cf46a32a86014dafef0e7c2a27bb",
     "app/services/bot_api/exchanges/balances.rb": "1c9d8459b4ce3b2f50646b7d094d41b569aa81476bd9117bb54febd269f48354",
     "app/services/bot_api/orders/list_open.rb": "da45717f2379df823358fdbadee4dc79e9b2c3517036523845a746406172d5ad",
     "app/services/bot_api/orders/lookup.rb": "412aa13f38934ef19cb67d51aea781042149fc4a7770e7cf1f4f16a5099f3527",
@@ -1224,9 +1685,11 @@
     "app/services/bot_api/bots/answer_redeploy.rb": "17e4b138aef9a00d3abd35175cd4b17447fb671fdf83bebf1449087a94229a70",
     "app/services/bot_api/bots/unarchive.rb": "068493f8fe8450c36d75d96d7f77aa3a4e3290294c396040fbd65f328bc767f8",
     "app/services/bot_api/bots/delete.rb": "e6e19e51eaffbdb89be5a0d2c4237351d71d0aa02865bfe527d14debfb15b640",
-    "app/services/bot_api/bots/update_settings.rb": "4311a16ad0a05dc624a6344201816ee34f7ad3603dd0436a1fe7bbd0f1f9cad5",
+    "app/services/bot_api/bots/update_settings.rb": "6b8b1d2b54998a45118d89a48d1b922c798ae9d394bc38a8ca7f29c2dc665bc6",
     "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
     "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
-    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c"
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/services/bot_api/bots/settings_fields.rb": "74fa7ffa413811aaf9916d0941ad808579f56264b5b6a6995a923825771ede06",
+    "app/models/bot/settings_form.rb": "0e856f3a999b659eba0993e51fd3a04da1281dd3dbe6d70c2e8dddf90d5642b7"
   }
 }
