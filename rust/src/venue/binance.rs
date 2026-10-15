@@ -318,38 +318,13 @@ pub fn parse_trade(t: &serde_json::Value, pairs: &Pairs) -> Result<Trade, super:
     Ok(Trade { price, amount, quote_amount, amount_exec, quote_amount_exec })
 }
 
-/// The BigDecimal Ruby makes of a Float divisor (Float#to_d): BigDec::from_f64, except where two shortest digit strings are
-/// equally near the binary value (831844647283.65625: "…6562" or "…6563"). Ruby's dtoa takes the even one; Rust's formatter,
-/// which from_f64 reads, rounds the tie up. Local because ruby.rs is a byte-pinned primitive (see the E2 report).
-fn float_to_d(f: f64) -> Option<BigDec> {
-    let d = BigDec::from_f64(f).ok()?;
-    let shortest = format!("{:e}", f.abs());
-    let (mantissa, exp) = shortest.split_once('e')?;
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let n: u64 = digits.parse().ok()?;
-    if digits.len() > 16 || n.is_multiple_of(2) { return Some(d); } // a 17th digit is truncated anyway; an even one is Ruby's
-    let shift = exp.parse::<i64>().ok()? - digits.len() as i64 + 1; // the last digit's power of ten
-    // The exact binary value, every digit (a double's expansion ends within 1100 places), trailing zeros dropped.
-    let exact = format!("{:.1100e}", f.abs());
-    let (exact_digits, exact_exp) = exact.split_once('e')?;
-    let exact_digits: String = exact_digits.chars().filter(char::is_ascii_digit).collect();
-    for alt in [n - 1, n + 1] {
-        if alt.to_string().len() != digits.len() || format!("{alt}e{shift}").parse::<f64>().ok() != Some(f.abs()) { continue; }
-        // A tie: the value is exactly the midpoint of the two, the smaller one's digits followed by a 5.
-        if exact_exp == exp && exact_digits.trim_end_matches('0') == format!("{}5", n.min(alt)) {
-            return BigDec::parse(&format!("{}{alt}e{shift}", if f < 0.0 { "-" } else { "" })).ok();
-        }
-    }
-    Some(d)
-}
-
 /// Exchanges::Binance#aggregate_trades over one order's trades (never empty: the caller refuses that first).
 /// Utilities::Math.weighted_average divides the BigDecimal Σ price×qty by Σ qty `.to_f`: a Float divisor, as Ruby converts it
-/// (`float_to_d`).
+/// (`BigDec::from_f64`, Float#to_d).
 pub fn aggregate(trades: &[Trade], pair: Option<&Pair>) -> Result<Fill, super::VenueError> {
     let total = |f: fn(&Trade) -> &BigDec| trades.iter().fold(BigDec::zero(), |a, t| &a + f(t));
     let weighted = trades.iter().fold(BigDec::zero(), |a, t| &a + &(&t.price * &t.amount));
-    let divisor = float_to_d(total(|t| &t.amount).to_f()).ok_or_else(unreadable)?;
+    let divisor = BigDec::from_f64(total(|t| &t.amount).to_f()).map_err(|_| unreadable())?;
     let mut price = weighted.div(&divisor).ok_or_else(unreadable)?;
     if let Some(p) = pair { price = price.round(p.price_decimals); }
     Ok(Fill { price, amount_exec: total(|t| &t.amount_exec), quote_amount_exec: total(|t| &t.quote_amount_exec) })
