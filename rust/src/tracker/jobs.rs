@@ -373,7 +373,9 @@ impl<T: Transport> Job for LedgerWalk<T> {
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
             match cached_ledger_run(&cx, (*self.api).as_ref(), self.ecb.as_ref(), self.user_id, self.wall.clone()).await {
-                Ok(_) => { cx.db.notifications.ledger_done(self.user_id); Outcome::Done }
+                // The page reloads only for a ledger it can now read: a run that left the cache cold (no current
+                // import yet) would reload a page that wakes it again, with nothing new to walk.
+                Ok(published) => { if published { cx.db.notifications.ledger_done(self.user_id); } Outcome::Done }
                 Err(e) => Outcome::Failed(e),
             }
         })
@@ -387,17 +389,17 @@ pub const CACHE_MOVING: &str = "Tracker ledger unavailable: inputs changed durin
 /// page states the calculation failed). A run that fails, or whose cache moved, wakes the next only if it stored a price
 /// itself (passes moved by its own price writes finish then); one that stored nothing made no progress, and a writer
 /// that moves the inputs wakes this job itself.
-async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:Option<&fx::Source>,owner:i64,wall:Wall)->Result<Walked,String> {
+async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&DataApi<T>>,ecb:Option<&fx::Source>,owner:i64,wall:Wall)->Result<bool,String> {
     let mut allowance=Allowance::run();
     let out=match ledger_run_published(&cx.db,api,ecb,owner,cx.clock,wall.clone(),&mut allowance).await {
         Ok((_,Published::Moved,_))=>Err(CACHE_MOVING.to_string()),
-        Ok((walked,Published::NotCurrent,snapshot))=>{
+        Ok((_,Published::NotCurrent,snapshot))=>{
             crate::engine::log(&format!("[tracker] ledger cache for user {owner} not published: a venue with history has a key but no current import"));
             // Neither the snapshot nor the cache: the run achieved nothing, as a stale balance run always reported.
-            if snapshot {Ok(walked)} else {Err(crate::engine::model::CREDENTIALS_CHANGED.to_string())}
+            if snapshot {Ok(false)} else {Err(crate::engine::model::CREDENTIALS_CHANGED.to_string())}
         }
         // The cache is current; a snapshot skipped for balances no current key produced is logged, not a failure.
-        Ok((walked,Published::Yes,_))=>Ok(walked),
+        Ok((_,Published::Yes,_))=>Ok(true),
         Err(e)=>Err(e),
     };
     match &out {

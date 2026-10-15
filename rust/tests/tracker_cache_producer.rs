@@ -290,3 +290,18 @@ async fn an_oversized_entry_keeps_the_previous_one(){
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(cache::PAYLOAD_TOO_LARGE.into()));
     assert_eq!(db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap(),before,"the previous entry is kept, not replaced by a failure");
 }
+/// The page reloads on the run's refresh and wakes the walk again while the cache is cold: a run that could not publish
+/// (a key with no current import) must not ask for that reload, or page and job chase each other with nothing new.
+#[tokio::test(flavor="current_thread")]
+async fn only_a_published_ledger_refreshes_the_page(){
+    let heard=|db:Db|{let sent=Arc::new(std::sync::Mutex::new(Vec::<String>::new()));let into=sent.clone();
+        (db.with_notifications(jobs::notifications::Notifications::new(move|_,payload|{into.lock().unwrap().push(payload.to_string());Ok(())})),sent)};
+    let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);key(&o.primary,s.user_id,b,2);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);
+    let (db,sent)=heard(Db::new(o.primary,common::seed::cipher()));
+    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert!(sent.lock().unwrap().is_empty(),"an unpublished run asked the page to reload");
+    let (_dir,o,s)=common::install_alpaca();seed(&o.primary,s.user_id,s.exchange_id);
+    let (db,sent)=heard(Db::new(o.primary,common::seed::cipher()));
+    assert_eq!(job(s.user_id).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
+    assert_eq!(*sent.lock().unwrap(),vec!["<turbo-stream action=\"refresh\"></turbo-stream>".to_string()]);
+}
