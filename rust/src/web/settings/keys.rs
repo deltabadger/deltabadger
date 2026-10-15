@@ -395,7 +395,7 @@ fn ibkr(c: &Connection, app: &App, ctx: &Ctx, user: i64) -> Result<Option<String
         Some((3, _)) => "PENDING",
         _ => "OFF",
     };
-    let control = format!("\n    <a class=\"rbutton rbutton--outline\" data-turbo-frame=\"_top\" href=\"{}\">{}</a>\n", crate::web::i18n::escape(&ctx.path("/settings/ibkr_connect")), ctx.t(if key.is_some() { "settings.ibkr.manage" } else { "settings.ibkr.connect_cta" }));
+    let control = format!("\n    <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}\">{}</a>\n", crate::web::i18n::escape(&ctx.path("/settings/ibkr_connect")), ctx.t(if key.is_some() { "settings.ibkr.manage" } else { "settings.ibkr.connect_cta" }));
     Ok(Some(super::dialog::row(&ctx.t("settings.ibkr.widget_title"), Some(status), "", " id=\"ibkr_settings\"", None, Some(&control))))
 }
 fn connection_widgets(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<(String,String),WebError>{
@@ -660,7 +660,7 @@ async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>{
 
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
-struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool }
+struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool }
 #[derive(Template)]
 #[template(path="settings/alpaca_modal.html")]
 struct AlpacaModal<'a> { card:&'a str }
@@ -698,7 +698,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     let csrf=ctx.csrf_token();
     let modal=ctx.turbo_frame.as_deref()==Some("modal");
     let instructions_key=if kind==2&&lookup(ctx.locale,"read_only_api.alpaca.instructions").is_some(){"read_only_api.alpaca.instructions"}else{"bot.api.alpaca.instructions"};
-    let card=AlpacaForm{v:&ctx,csrf:&csrf,action:ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),form_data:if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,instructions_key).unwrap_or("")),live:key.passphrase.as_deref()==Some("live")}.render()?;
+    let card=AlpacaForm{v:&ctx,csrf:&csrf,action:ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),form_data:if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,instructions_key).unwrap_or("")),live:key.passphrase.as_deref()==Some("live"),modal}.render()?;
     let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[])}.render()?};
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
@@ -744,7 +744,7 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     let (venue,key,shell)=app.db(move|c|Ok((c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get::<_,String>(0))?,Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
     if venue!="Exchanges::Alpaca"{return Ok(crate::web::layout::not_ported_response(&ctx.method,&ctx.params.fullpath,ctx.turbo_frame.as_deref()))}
     let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
-    let card=AlpacaForm{v:&ctx,csrf:&csrf,action,form_data:"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,"bot.api.alpaca.instructions").unwrap_or("")),live:key.passphrase.as_deref()==Some("live")}.render()?;
+    let card=AlpacaForm{v:&ctx,csrf:&csrf,action,form_data:"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,"bot.api.alpaca.instructions").unwrap_or("")),live:key.passphrase.as_deref()==Some("live"),modal:true}.render()?;
     let body=AlpacaModal{card:&card}.render()?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }

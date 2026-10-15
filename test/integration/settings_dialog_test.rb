@@ -122,13 +122,13 @@ class SettingsDialogTest < ActionDispatch::IntegrationTest
 end
 
 class SettingsDialogOutlineTest < ActionDispatch::IntegrationTest
-  # The dialog's controls are all the outline kind — an unbordered one reads as a different family.
-  test 'every button and input in the dialog is outlined' do
+  # The dialog's buttons are all the secondary kind, its inputs the outline kind — another reads as a different family.
+  test 'every button in the dialog is secondary and every input outlined' do
     sign_in create(:user, admin: true, setup_completed: true)
 
     %i[settings_account_path settings_api_keys_path settings_connect_path settings_mcp_path settings_api_path].each do |path|
       get send(path)
-      assert_select '.settings .rbutton:not(.rbutton--outline)', 0, "#{path} has an unoutlined button"
+      assert_select '.settings .rbutton:not(.rbutton--secondary)', 0, "#{path} has a non-secondary button"
       assert_select '.settings .rinput:not(.rinput--outline)', 0, "#{path} has an unoutlined input"
     end
   end

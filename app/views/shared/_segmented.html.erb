@@ -34,8 +34,9 @@
                     segmented_key: local_assigns[:key] }.merge(local_assigns[:data] || {}) do %>
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
   <%# display: contents while the control is expanded — the panes and the box around them are
-      only boxes once the control has collapsed and they become the dropdown. %>
-  <div class="segmented__dropdown" data-segmented-target="dropdown">
+      only boxes once the control has collapsed and they become the dropdown: a regular .dropdown,
+      which adds nothing of its own but the slide between its two panes. %>
+  <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">
       <div class="segmented__pane segmented__menu">
         <% options.each do |option| %>
@@ -72,20 +73,18 @@
           <% end %>
         <% end %>
       </div>
-      <%# What the action opens. Expanded it is a box of its own hanging off the action; collapsed
-          it is the dropdown's second pane, one slide left behind the arrow that slides it back.
-          Either way the href on each row is the whole of its behaviour — this list navigates. %>
+      <%# What the action opens, a .dropdown of its own. Expanded it hangs off the action; collapsed
+          it is the outer dropdown's second pane, one slide left behind the arrow that slides it
+          back. Either way the href on each row is the whole of its behaviour — this list navigates. %>
       <% if action && action[:menu] %>
-        <div class="segmented__pane segmented__submenu">
-          <button type="button" class="segmented__back" data-action="segmented#back"
+        <div class="segmented__pane segmented__submenu dropdown dropdown--exchanges">
+          <button type="button" class="dropdown__item segmented__back" data-action="segmented#back"
                   aria-label="<%= t('button.back') %>">
             <%= render 'svg/24x24_back' %>
           </button>
           <% action[:menu].each do |item| %>
-            <%= link_to item[:href], class: 'segmented__submenu-item', data: item[:data] do %>
-              <% if item[:icon] %>
-                <span class="segmented__submenu-icon"><%= render item[:icon] %></span>
-              <% end %>
+            <%= link_to item[:href], class: 'dropdown__item', data: item[:data] do %>
+              <%= render item[:icon] if item[:icon] %>
               <%= item[:label] %>
             <% end %>
           <% end %>

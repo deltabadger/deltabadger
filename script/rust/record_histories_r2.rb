@@ -117,7 +117,7 @@ ActiveRecord::Base.transaction do
      rails_wire: captured, quantized_quantity: qty.to_s('F'), quantized_cost: (qty*price).to_s('F'),
      exact:, safe_quantity: safe_qty.to_s('F'), exact_cost: cost.to_s('F'), steps:, reduced_skip:, activities:, skipped:, captures:}
   end
-  sources = %w[app/models/bot/composition/order_setter.rb app/models/bot/composition/measurable.rb app/models/bot/order_setter.rb app/models/bot/order_creator.rb app/models/bot/accountable.rb app/models/bot/quote_amount_limitable.rb app/models/ticker.rb app/models/exchanges/alpaca.rb script/rust/record_histories_r2.rb]
+  sources = %w[app/models/bot/composition/order_setter.rb app/models/bot/composition/measurable.rb app/models/bot/order_setter.rb app/models/bot/order_creator.rb app/models/bot/accountable.rb app/models/bot/quote_amount_limitable.rb app/models/ticker.rb app/models/exchanges/alpaca.rb app/views/bots/composition/_warning_below_minimums.html.erb app/views/bots/dca_single_assets/_warning_below_minimums.html.erb app/views/layouts/modal/_base.html.erb app/views/svg/_24x24_close.html.haml script/rust/record_histories_r2.rb]
   output = {synthetic_only: true, sources: sources.to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }, cases:}
   File.write(ARGV.fetch(0), JSON.pretty_generate(output) + "\n")
   raise ActiveRecord::Rollback

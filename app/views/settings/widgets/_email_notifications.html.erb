@@ -8,7 +8,7 @@
   <% show_form = @show_smtp_form || false %>
   <% has_credentials = AppConfig.smtp_username.present? && AppConfig.smtp_password.present? %>
   <% send_test = button_to t('settings.email_notifications.send_test'), settings_send_test_email_path,
-                           class: 'rbutton rbutton--outline' %>
+                           class: 'rbutton rbutton--secondary' %>
 
   <% if env_available %>
     <%= settings_row t('settings.index.email_notifications_section'), AppConfig.smtp_env_provider_name do %>
@@ -52,7 +52,7 @@
                                                     aria: { label: t('settings.email_notifications.smtp_password') },
                                                     placeholder: t('settings.email_notifications.smtp_password') %>
         <p class="srow__hint"><%= t('settings.email_notifications.smtp_hint_html') %></p>
-        <%= submit_tag t('settings.email_notifications.set'), class: 'rbutton rbutton--outline' %>
+        <%= submit_tag t('settings.email_notifications.set'), class: 'rbutton rbutton--secondary' %>
       <% end %>
     <% end %>
   <% end %>

@@ -5,7 +5,9 @@
     <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
-    <h2 class="modal__title"><%= t('tracker.import.title') %></h2>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('tracker.import.title') %></h1>
+    </div>
 
     <% if @error || @result[:error] %>
       <p class="tracker-empty"><%= t("tracker.import.error_#{@error || @result[:error]}") %></p>
@@ -25,8 +27,10 @@
           <%= hidden_field_tag :api_key_id, @result[:candidates].first&.id,
                                data: { 'form--segmented-field-target': 'field' } %>
         </div>
-        <%= f.submit t('tracker.import.confirm'), class: 'button button--sky button--large',
-                     data: { turbo_submits_with: t('tracker.import.importing') } %>
+        <div class="modal__footer">
+          <%= f.submit t('tracker.import.confirm'), class: 'rbutton rbutton--primary',
+                       data: { turbo_submits_with: t('tracker.import.importing') } %>
+        </div>
       <% end %>
     <% else %>
       <%# Nothing landed. The file was read fine — every row in it is already here. %>

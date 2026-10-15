@@ -54,7 +54,7 @@
         <span class="merge-bar__warning" data-bots-merge-target="warning" hidden></span>
       </div>
       <div class="merge-bar__actions">
-        <button name="button" type="button" class="rbutton rbutton--outline" data-action="bots-merge#cancel">{{ v.t("button.cancel")|safe }}</button>
+        <button name="button" type="button" class="rbutton rbutton--secondary" data-action="bots-merge#cancel">{{ v.t("button.cancel")|safe }}</button>
         <form data-turbo-frame="modal" data-bots-merge-target="form" action="{{ v.path("/bots/merge/new") }}" accept-charset="UTF-8" method="get">
           <span data-bots-merge-target="ids" hidden></span>
           <button name="button" type="submit" class="rbutton rbutton--primary" disabled="disabled" data-bots-merge-target="confirm">{{ v.t("button.merge")|safe }}</button>

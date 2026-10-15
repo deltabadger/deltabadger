@@ -18,7 +18,7 @@
       <%= render 'bots/wash_sale_prompts/question', checked: current_user.wash_sale_enabled %>
       <%= button_tag t('settings.wash_sale.confirm'), type: :submit,
                      disabled: !current_user.wash_sale_decided?,
-                     class: 'rbutton rbutton--outline',
+                     class: 'rbutton rbutton--secondary',
                      data: { form__checkbox_enables_target: 'submit' } %>
     <% end %>
 

@@ -8,21 +8,27 @@
             title: t('bot.setup.connect_to', name: 'CoinGecko'),
             mark: 'svg/coingecko',
             path: setup_coingecko_tracker_path,
-            form_data: { controller: 'form--label-animations form--html5-validations',
+            form_data: { controller: 'form--html5-validations',
                          action: 'turbo:submit-end->modal--base#submitEnd' },
+            modal: true,
             instructions_title: t('bot.setup.how_to_get_keys', exchange: 'CoinGecko'),
             instructions: t('setup.coingecko_api_key_hint_html')
           } do |f| %>
         <%# Nothing came before this modal, so it says why a market-data key is being asked for. %>
         <p class="set-api__note"><%= t('tracker.setup_coingecko_html') %></p>
-        <div class="form__row form__row--input">
-          <%= f.text_field :api_key, required: true, autofocus: true, autocomplete: 'off', data: { controller: 'autofocus' }, class: 'form__input' %>
-          <%= f.label :api_key, t('setup.coingecko_api_key'), class: 'form__label' %>
-        </div>
+        <%= settings_row t('setup.coingecko_api_key') do %>
+          <%= f.text_field :api_key, required: true, autofocus: true, autocomplete: 'off', data: { controller: 'autofocus' },
+                                     class: 'rinput rinput--outline rinput--text', aria: { label: t('setup.coingecko_api_key') } %>
+        <% end %>
       <% end %>
     <% else %>
-      <div class="set-api set-api--connect">
-        <%= render 'shared/connect_brand', title: t('bot.setup.connect_to', name: 'CoinGecko'), mark: 'svg/coingecko' %>
+      <div class="set-api set-api--connect set-api--modal">
+        <div class="modal__header">
+          <h1 class="modal__title set-api__brand">
+            <span class="set-api__mark" aria-hidden="true"><%= render 'svg/coingecko' %></span>
+            <%= t('bot.setup.connect_to', name: 'CoinGecko') %>
+          </h1>
+        </div>
         <p class="set-api__note"><%= t('setup.coingecko_admin_only') %></p>
       </div>
     <% end %>

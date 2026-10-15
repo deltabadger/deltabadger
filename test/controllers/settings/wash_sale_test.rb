@@ -58,7 +58,7 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
   test 'the button matches the rest of the page' do
     get settings_account_path
 
-    assert_select '#wash_sale form button.rbutton.rbutton--outline'
+    assert_select '#wash_sale form button.rbutton.rbutton--secondary'
   end
 
   test 'an empty answer changes nothing' do

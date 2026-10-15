@@ -127,7 +127,7 @@ pub fn confirm(csrf: &str, label: &str, text: &str, confirm: &str, url: &str, me
         .map(|(name, value)| format!("<input type=\"hidden\" name=\"{}\" value=\"{}\" />", escape(name), escape(value)))
         .collect();
     format!(
-        "<details class=\"sconfirm\">\n  <summary class=\"rbutton rbutton--outline\">{label}</summary>\n  <div class=\"sconfirm__panel\">\n    <p>{text}</p>\n    <form class=\"button_to\" method=\"post\" action=\"{}\">{method_field}<button class=\"rbutton rbutton--outline rbutton--danger\" type=\"submit\">{confirm}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />{params}</form>\n  </div>\n</details>\n",
+        "<details class=\"sconfirm\">\n  <summary class=\"rbutton rbutton--secondary\">{label}</summary>\n  <div class=\"sconfirm__panel\">\n    <p>{text}</p>\n    <form class=\"button_to\" method=\"post\" action=\"{}\">{method_field}<button class=\"rbutton rbutton--secondary rbutton--danger\" type=\"submit\">{confirm}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />{params}</form>\n  </div>\n</details>\n",
         escape(url)
     )
 }

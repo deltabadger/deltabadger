@@ -9,14 +9,14 @@
 </button>    <div class="modal__header">
       <h1 class="modal__title">{{ bot.label }}</h1>
     </div>
-    <div class="modal__body text-center">
+    <div class="modal__body">
       <p>
         {{ v.t("bot.messages.do_you_want_to_archive")|safe }}
       </p>
-      <div class="buttons buttons--row--2">
-        <button name="button" type="button" class="button button--outline button--large" data-action="modal--base#animateOutCloseAndCleanUp">
+      <div class="modal__footer">
+        <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
           {{ v.t("button.cancel")|safe }}
-</button>        <form data-action="turbo:submit-end-&gt;modal--base#submitEnd" class="button_to" method="post" action="{{ path }}/archive"><button class="button button--sky button--large" type="submit">{{ v.t("button.archive")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+</button>        <form data-action="turbo:submit-end-&gt;modal--base#submitEnd" class="button_to" method="post" action="{{ path }}/archive"><button class="rbutton rbutton--primary" type="submit">{{ v.t("button.archive")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
       </div>
     </div>
   </div>

@@ -3,7 +3,9 @@
     <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
-    <h2 class="modal__title"><%= t('tracker.import.title') %></h2>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('tracker.import.title') %></h1>
+    </div>
     <%# No account field. The format says where a Binance file came from and our own export says it
         per row — asking would be a control whose wrong answer files one venue's history under
         another. %>
