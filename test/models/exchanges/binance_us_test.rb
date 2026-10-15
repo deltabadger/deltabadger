@@ -82,4 +82,13 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  test 'get_ledger reads through the Binance.US client' do
+    api_key = create(:api_key, exchange: @exchange)
+    hm_client = mock('honeymaker_client')
+    hm_client.stubs(:deposit_history).returns(Result::Failure.new('stop'))
+    Honeymaker.expects(:client).with('binance_us', has_entries(proxy: ExchangeProxy.for('binance_us'))).returns(hm_client)
+
+    assert @exchange.get_ledger(api_key: api_key).failure?
+  end
 end

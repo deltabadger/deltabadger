@@ -227,4 +227,42 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_includes steps, 'Do not enable Withdrawals'
     assert_not_includes steps, 'Do not enable Spot'
   end
+
+  # Each walk stops after 100 pages; one that has not reached the end by then must not pass as complete.
+  test 'get_orders fails when 100 pages do not reach the orders' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:all_orders).times(100)
+             .returns(Result::Success.new([{ raw: { 'orderId' => 1 } }]))
+
+    assert @exchange.get_orders(order_ids: ['BTCUSDT-123']).failure?
+  end
+
+  def five_orders(**fields)
+    (1..5).map { |id| { order_id: "BTCUSDT-#{id}", **fields } }
+  end
+
+  def btc_trade(order_id)
+    { 'symbol' => 'BTCUSDT', 'orderId' => order_id, 'price' => '100', 'qty' => '0.1', 'quoteQty' => '10',
+      'commission' => '0', 'commissionAsset' => 'BNB', 'isBuyer' => true, 'isMaker' => false, 'time' => 2 }
+  end
+
+  test 'the trades walk fails when 100 pages do not cover the orders' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:account_trade_list).times(100)
+             .returns(Result::Success.new(Array.new(1000) { { 'orderId' => 999, 'time' => 1 } }))
+
+    result = @exchange.send(:get_aggregated_trades_for_orders, five_orders(amount: 0.1.to_d))
+    assert result.failure?
+  end
+
+  test 'the trades walk stops once quote-sized orders are covered' do
+    page = (1..5).map { |id| btc_trade(id) } + Array.new(995) { { 'orderId' => 999, 'time' => 1 } }
+    @exchange.set_client
+    @exchange.send(:client).expects(:account_trade_list).once.returns(Result::Success.new(page))
+
+    orders = five_orders(amount: nil, quote_amount: 10.to_d, amount_exec_excl_commission: 0.1.to_d)
+    result = @exchange.send(:get_aggregated_trades_for_orders, orders)
+    assert result.success?
+    assert_equal 0.1.to_d, result.data['BTCUSDT-3'][:amount]
+  end
 end
