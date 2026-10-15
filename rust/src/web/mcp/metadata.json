@@ -1668,7 +1668,7 @@
     "app/models/bots/dca_single_asset/measurable.rb": "5d97bfbd2da99b342112da2315779e3d9c42e3e437e76f0ddbd62990a71167d8",
     "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
     "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
-    "app/models/bot/reversible.rb": "8b5a875d29bd39eb4656c51a7becb58b5975bb29576ea3ad6b541f6f29fa6e38",
+    "app/models/bot/reversible.rb": "dc751df2041cd682b24a6d384ee612884191caa379decfe77f8210a4f8a2ec60",
     "app/models/bot/price_limitable.rb": "d0f00a1c80cf0a29f9fb2ba084a5755345010b4dac04c01106b09331855b67c0",
     "app/models/bot/price_drop_limitable.rb": "a5cea6fd7aa70c2511518a6c4ba5f0e6b9bac1173822feca0461cb0bde21061d",
     "app/models/bot/moving_average_limitable.rb": "853350ff2ae43531e9a1da58a02048638e92f3dee7ec14691000b8c07afb7ae2",
