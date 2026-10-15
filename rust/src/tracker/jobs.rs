@@ -112,7 +112,8 @@ pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError>
     let all = super::rows::load_all(&tx, user_id)?;
     let rows = super::rows::walk_rows(&all)?;
     let deposits = all.iter().map(|r| (r.id, r.amount.clone())).collect();
-    let reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
+    let mut reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
+    reference.record_coins(&tx, user_id)?;
     let fx = FxTable::load(&tx)?;
     let mut ids = HashMap::new();
     {

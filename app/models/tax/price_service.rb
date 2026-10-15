@@ -451,14 +451,18 @@ module Tax
         (@coin_ids ||= {})[[symbol, exchange&.id]] ||= Tax::AssetIdentity.catalogue_coin(symbol, exchange: exchange)
     end
 
-    # The assets each venue's rows recorded under each name, and the names a coin was recorded under
-    # anywhere: what a row that recorded nothing is read by (`Tax::AssetIdentity.identity`).
+    # The assets each venue's rows recorded under each name: what a row that recorded nothing is read
+    # by (`Tax::AssetIdentity.identity`). And the names a coin was recorded under anywhere in these
+    # users' whole history, not only the rows handed over: a coin owns its bare key whichever rows a
+    # calculation reads, as the transactions table sees it.
     def record_assets(transactions)
       rows = transactions.select { |tx| tx.respond_to?(:base_asset_id) && tx.base_asset_id }
       ActiveRecord::Associations::Preloader.new(records: rows.grep(ActiveRecord::Base), associations: :base_asset).call
       @recorded = rows.group_by { |tx| [tx.exchange_id, tx.base_currency] }
                       .transform_values { |list| list.map(&:base_asset).uniq }
-      @recorded_coins = rows.select { |tx| tx.base_asset.category == Tax::AssetIdentity::CRYPTO }.to_set(&:base_currency)
+      users = transactions.filter_map { |tx| tx.user_id if tx.respond_to?(:user_id) }.uniq
+      @recorded_coins = AccountTransaction.where(user_id: users).joins(:base_asset)
+                                          .where(assets: { category: Tax::AssetIdentity::CRYPTO }).distinct.pluck(:base_currency).to_set
     end
 
     def recorded_asset(transaction)

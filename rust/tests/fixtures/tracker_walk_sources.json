@@ -3,7 +3,7 @@
   "app/models/tracker/cash_book.rb": "503bea1409664c84887e4a866a7752fdc3a8c6f93fdac7bf85e3236d901c1c9d",
   "app/models/tracker/unfunded_cash.rb": "29908ac85d48cb06ea12a96c485c913503b268eff95bb23ed43c117b04ac3f8a",
   "app/models/tracker/figures.rb": "bfae57d2a68f14c67b4718d850f176730c1ff50f133fff58f1efff7cb20f4f28",
-  "app/models/tax/price_service.rb": "cf635ac8771e6f5c2d40af86de20390967f3d9d2fe9662d967c8a5fe6eec124b",
+  "app/models/tax/price_service.rb": "af3d8c552c42483068c3d88164925df77c83ae4d37639a994ead7c80912c1055",
   "app/models/tax/asset_identity.rb": "fe5642b088a08992d0ab0eb5cdee80e5f4ebca6192df773d3003a19155c6494a",
   "app/models/tax/ecb_fx_rates.rb": "86859e879e22b0acd180d1fad29b5ef11ff1ba8768a4e889063bfb95328da141",
   "app/models/tax/methods/fifo.rb": "0eaaab43c43312e2c3fd335e301bd76d07e96f7c4e4e69a578042b818825df5e",

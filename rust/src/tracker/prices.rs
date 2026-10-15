@@ -108,6 +108,8 @@ pub struct Reference {
     assets: HashMap<String, Vec<Asset>>,
     /// (price key: the symbol, or `stock:SYM`; currency) → day → the stored price, as Rails reads the column.
     prices: HashMap<(String, String), BTreeMap<NaiveDate, Dec>>,
+    /// The names a coin was recorded under in the user's whole history (`record_coins`).
+    recorded_coins: HashSet<String>,
 }
 
 impl Reference {
@@ -152,6 +154,15 @@ impl Reference {
             r.prices.entry((asset, currency)).or_default().insert(day, price);
         }
         Ok(r)
+    }
+
+    /// `record_assets`' `@recorded_coins`: every name the user's rows recorded a coin under, filtered or not.
+    pub fn record_coins(&mut self, c: &Connection, user_id: i64) -> Result<(), FiguresError> {
+        let mut s = c.prepare("SELECT DISTINCT t.base_currency FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                               WHERE t.user_id = ?1 AND a.category = 'Cryptocurrency'")?;
+        let mut q = s.query([user_id])?;
+        while let Some(row) = q.next()? { crate::figures::budget::charge(1, 0)?; self.recorded_coins.insert(row.get(0)?); }
+        Ok(())
     }
 
     /// `Exchange.find_by(type: "Exchanges::#{name.camelize}")`.
@@ -303,7 +314,6 @@ pub struct PriceService<'a> {
     coin_ids: HashMap<(String, Option<i64>), Option<String>>,
     /// (exchange id, symbol) → the assets the rows `record` was handed recorded there; the names a coin was recorded under.
     recorded: HashMap<(i64, String), Vec<Asset>>,
-    recorded_coins: HashSet<String>,
     price_keys: HashMap<(String, Option<i64>, Vec<i64>), Option<PriceKey>>,
     /// (asset, currency) → what this pass's fetches brought.
     fetched: HashMap<(String, String), BTreeMap<NaiveDate, Dec>>,
@@ -312,7 +322,7 @@ pub struct PriceService<'a> {
 
 impl<'a> PriceService<'a> {
     pub fn new(r: &'a Reference, fx: &'a FxTable, today: NaiveDate, fetcher: &'a mut dyn Fetcher) -> PriceService<'a> {
-        PriceService { r, fx, today, warnings: vec![], warned_fx: HashSet::new(), fx_cache: HashMap::new(), coin_ids: HashMap::new(), recorded: HashMap::new(), recorded_coins: HashSet::new(), price_keys: HashMap::new(), fetched: HashMap::new(), fetcher }
+        PriceService { r, fx, today, warnings: vec![], warned_fx: HashSet::new(), fx_cache: HashMap::new(), coin_ids: HashMap::new(), recorded: HashMap::new(), price_keys: HashMap::new(), fetched: HashMap::new(), fetcher }
     }
 
     fn venue(&self, name_id: Option<&str>) -> Option<&'a Venue> { let r: &'a Reference = self.r; name_id.and_then(|n| r.venue(n)) }
@@ -323,13 +333,13 @@ impl<'a> PriceService<'a> {
         self.r.price_in(asset, currency, date).cloned()
     }
 
-    /// `record_assets`: what each venue's rows recorded under each name, and the names a coin was recorded under.
+    /// `record_assets`: what each venue's rows recorded under each name (the coins of the whole history are the
+    /// Reference's, `record_coins`).
     pub fn record(&mut self, rows: &[Stored]) {
         for r in rows {
             let Some(asset) = &r.base_asset else { continue };
             let list = self.recorded.entry((r.exchange_id, r.base.clone())).or_default();
             if !list.iter().any(|a| a.0 == asset.0) { list.push(asset.clone()); }
-            if crypto(asset) { self.recorded_coins.insert(r.base.clone()); }
         }
     }
 
@@ -343,7 +353,7 @@ impl<'a> PriceService<'a> {
         };
         let cache = (symbol.to_string(), venue.map(|v| v.id), assets.iter().map(|a| a.0).collect());
         if let Some(hit) = self.price_keys.get(&cache) { return hit.clone(); }
-        let key = price_key(self.r, symbol, venue, None, &assets, self.recorded_coins.contains(symbol));
+        let key = price_key(self.r, symbol, venue, None, &assets, self.r.recorded_coins.contains(symbol));
         self.price_keys.insert(cache, key.clone());
         key
     }
@@ -678,6 +688,28 @@ mod tests {
         }
         assert_eq!(script.asked.len(), 2);
         assert_eq!((script.asked[0].coin.as_str(), script.asked[0].symbol.as_str(), script.asked[0].from, script.asked[0].to), ("MSFT.US", "MSFT", day("2026-06-03"), day("2026-10-01")));
+    }
+
+    /// A coin recorded under the name in a row the walk leaves out still owns the bare key (`record_coins` reads the
+    /// whole history, as the table does).
+    #[test]
+    fn a_coin_recorded_in_a_row_the_walk_leaves_out_keeps_the_security_off_its_key() {
+        let c = catalogue();
+        c.execute_batch("INSERT INTO assets VALUES (7, 'ABC.US', 'Stock', 'ABC', NULL), (8, 'abc-coin', 'Cryptocurrency', 'ABCX', NULL);
+                         INSERT INTO tickers VALUES (1, 1, 'ABC', 7);
+                         CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, base_currency TEXT, base_asset_id INTEGER);
+                         INSERT INTO account_transactions VALUES (1, 1, 2, 'ABC', 8);").unwrap();
+        let mut r = Reference::load(&c, &venue("alpaca"), &names(&["ABC"])).unwrap();
+        assert_eq!(price_key(&r, "ABC", Some(&venue("alpaca")), None, &[], false).map(|k| k.0).as_deref(), Some("ABC"));
+        r.record_coins(&c, 1).unwrap();
+        let fx = FxTable::default();
+        let mut script = Script { answers: vec![vec![(day("2026-10-08"), Dec::from_i64(12))]], asked: vec![] };
+        {
+            let mut ps = PriceService::new(&r, &fx, day("2026-10-15"), &mut script);
+            assert_eq!(ps.price_at("ABC", "USD", At::from_sql("2026-10-08 12:00:00").unwrap(), Some("alpaca")).unwrap().to_s_f(), "12.0");
+        }
+        assert_eq!(script.asked[0].symbol, "stock:ABC");
+        assert_eq!(row_price_key(&c, 1, 1, "Exchanges::Alpaca", "ABC", None, day("2026-10-08")).unwrap().as_deref(), Some("stock:ABC"), "the table agrees");
     }
 
     /// TrackerHelper#tracker_price_key: the table reads a row's price under the key its identity names, with what the

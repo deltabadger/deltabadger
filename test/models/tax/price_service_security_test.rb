@@ -156,4 +156,25 @@ class Tax::PriceServiceSecurityTest < ActiveSupport::TestCase
     assert singles.all? { |coin, days| coin == 'terra-luna' ? days.end <= Date.new(2022, 5, 27) : days.begin >= Date.new(2022, 5, 28) },
            "a one-day window never crosses the cut: #{singles.inspect}"
   end
+
+  # A coin recorded under the name in a row a calculation leaves out (a margin row, say) still owns the
+  # bare key: the security beside it is stored under its own, as the transactions table reads it.
+  test 'a coin recorded in a row the calculation leaves out still keeps the security off its key' do
+    list(@alpaca, security('ABC', 'ABC.US'), 'ABC')
+    renamed = create(:asset, symbol: 'ABCX', external_id: 'abc-coin', name: 'ABC coin', category: 'Cryptocurrency')
+    answer('ABC.US', [[DAY.to_date, 12]])
+    fee('ABC')
+    create(:account_transaction, api_key: create(:api_key, user: @user, exchange: create(:binance_exchange)), entry_type: :fee,
+                                 base_currency: 'ABC', base_asset: renamed, base_amount: 1, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: DAY, tx_id: 'margin-interest-1-ABC')
+    walked = AccountTransaction.for_user(@user).to_a.reject { |tx| Tracker::UnfundedCash.borrowed?(tx.tx_id) }
+
+    test = self
+    MarketData.singleton_class.alias_method(:__range, :get_historical_price_range)
+    MarketData.define_singleton_method(:get_historical_price_range) { |**args| test.market(**args) }
+    travel_to(Time.utc(2026, 10, 15, 12)) { Tax::PriceService.new.enrich(walked, currency: 'USD') }
+    MarketData.singleton_class.alias_method(:get_historical_price_range, :__range)
+
+    assert_equal({ 'stock:ABC' => 12.to_d }, HistoricalPrice.pluck(:asset, :price).to_h)
+  end
 end
