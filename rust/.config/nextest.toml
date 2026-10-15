@@ -13,3 +13,19 @@ threads-required = 6
 [[profile.default.overrides]]
 filter = 'binary(sync) & test(over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in)'
 threads-required = 6
+
+# Scheduling order only; nothing is skipped or changed. nextest starts tests by priority and holds the queue
+# while a test that needs six threads waits for every slot, so one long test running ahead of it (the pages grid,
+# about 15 minutes) idled the other five slots. The six-thread meters run first, one at a time, then the longest
+# tests start, so the run's tail is short tests on every slot.
+[[profile.default.overrides]]
+filter = 'binary(one_process) | (binary(reference_jobs) & test(full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds)) | (binary(sync) & test(over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in))'
+priority = 100
+
+[[profile.default.overrides]]
+filter = 'binary(pages) & test(=rails_and_rust_serve_the_same_pages_across_the_scenario_grid)'
+priority = 90
+
+[[profile.default.overrides]]
+filter = 'binary(parity) | binary(sync_parity) | binary(figures) | binary(tracker_write_parity) | binary(tracker_first_sync) | binary(mcp_control) | binary(oauth) | binary(tracker_parity) | binary(setup) | binary(tracker_index)'
+priority = 50

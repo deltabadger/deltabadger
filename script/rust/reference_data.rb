@@ -7,6 +7,7 @@
 require 'json'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 module Harness
   # An Exception, not a StandardError: with_rescue would turn a harness gap into an ordinary Failure.
@@ -404,11 +405,7 @@ module Reference
   end
 
   def build(dir, scenario)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-    end
+    SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
     travel_to(Time.iso8601('2026-09-01T00:00:00Z')) { scenario['setup']&.call }
   end

@@ -11,6 +11,7 @@
 require 'json'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
+require_relative 'schema_template'
 
 module Harness
   # An Exception, not a StandardError: with_rescue / honeymaker would turn a harness gap into an ordinary Failure.
@@ -145,13 +146,9 @@ module Decisions
   end
 
   def build(dir, sc)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-    end
+    SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
-    user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+    user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
     exchange, btc, quote, ticker, passphrase = sc['venue'] == 'alpaca' ? alpaca_venue(sc) : kraken_venue(sc)
@@ -817,13 +814,9 @@ module Decisions
   # instrument_type stock, external_id "<SYMBOL>.US", the bare symbol as ticker, MarketData::STOCK_TICKER_DEFAULTS. A
   # composition is saved as BotApi::Bots::Create saves one (refresh_composition writes bot_index_assets).
   def build_stock(dir, sc)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-    end
+    SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
-    user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+    user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
     alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
@@ -980,13 +973,9 @@ module Decisions
   # order, weights = the vendor caps; stock assets carry no market_cap, so get_top_coins reads the weights), and a weekly
   # Bots::DcaIndex over it. Members and holdings are seeded as earlier ticks left them.
   def build_index(dir, sc)
-    { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
-      ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
-      ActiveRecord::Schema.verbose = false
-      load Rails.root.join(schema)
-    end
+    SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
-    user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
+    user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
     alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')

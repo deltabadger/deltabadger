@@ -7,6 +7,7 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
+mod common;
 
 /// The scenarios of script/rust/figures.rb: 72 written by hand, one per branch of the code they name, and 24 seeded
 /// histories that mix every kind of order with splits.
@@ -62,22 +63,29 @@ struct Scenario {
 
 struct Grid { scenarios: Vec<Scenario> }
 
-/// Built once per test binary: Rails builds every scenario's install, the installs are copied before Rails reads
-/// them, Rails records its figures, and this library computes its own from the copies. Only the results are kept:
-/// a static is never dropped, so installs held in it would stay on disk after the process ends (gigabytes per run).
+/// Built once per test run (common::run_template): Rails builds every scenario's install, the installs are copied
+/// before Rails reads them, and Rails records its figures. Each test process then computes this library's figures
+/// from its own copy of those copies. Only the results are kept: a static is never dropped, so installs held in it
+/// would stay on disk after the process ends (gigabytes per run).
 fn grid() -> &'static Grid {
     static GRID: OnceLock<Grid> = OnceLock::new();
     GRID.get_or_init(|| {
-        let (rails_root, rust_root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-        rails(&["grid", rails_root.path().to_str().unwrap()]);
-        let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()).collect();
+        let recorded = common::run_template("figures-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+            let (rails_root, rust_root) = (out.join("rails"), out.join("rust"));
+            std::fs::create_dir_all(&rails_root).unwrap();
+            rails(&["grid", rails_root.to_str().unwrap()]);
+            for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()) {
+                let copy = rust_root.join(dir.file_name().unwrap());
+                std::fs::create_dir_all(&copy).unwrap();
+                for file in ["production.sqlite3", "scenario.json"] { std::fs::copy(dir.join(file), copy.join(file)).unwrap(); }
+            }
+            rails(&["record", rails_root.to_str().unwrap()]);
+        });
+        let rails_root = recorded.join("rails");
+        let rust_root = tempfile::tempdir().unwrap();
+        common::copy_tree(&recorded.join("rust"), rust_root.path());
+        let mut dirs: Vec<PathBuf> = std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()).collect();
         dirs.sort();
-        for dir in &dirs {
-            let copy = rust_root.path().join(dir.file_name().unwrap());
-            std::fs::create_dir_all(&copy).unwrap();
-            for file in ["production.sqlite3", "scenario.json"] { std::fs::copy(dir.join(file), copy.join(file)).unwrap(); }
-        }
-        rails(&["record", rails_root.path().to_str().unwrap()]);
         let scenarios = dirs.iter().map(|dir| {
             let name = dir.file_name().unwrap().to_string_lossy().to_string();
             let copy = rust_root.path().join(&name);
@@ -91,7 +99,7 @@ fn grid() -> &'static Grid {
             let logged = std::fs::metadata(copy.join("production.sqlite3-wal")).map_or(0, |log| log.len());
             Scenario { normalized: serde_json::from_str(&std::fs::read_to_string(dir.join("normalized.json")).unwrap()).unwrap(), rails: serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap(), rust, before, after: state(), logged, took, name }
         }).collect();
-        Grid { scenarios } // rails_root and rust_root are dropped here, and their directories removed
+        Grid { scenarios } // rust_root is dropped here, and its directory removed
     })
 }
 

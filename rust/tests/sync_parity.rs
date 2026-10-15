@@ -27,6 +27,16 @@ fn try_rails(args: &[&str]) -> Result<(), String> {
     full.extend_from_slice(args);
     run(&full)
 }
+mod common;
+
+/// The sync grid, as `rails(&["grid", into])` builds it: built once per test run (common::run_template), and copied
+/// into `into` for every test that asks.
+fn built_grid(into: &Path) {
+    let template = common::run_template("sync-grid", common::has_subdirs,
+        |out| rails(&["grid", out.to_str().unwrap()]));
+    common::copy_tree(&template, into);
+}
+
 fn rails(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
 
 fn copy_dir(from: &Path, to: &Path) {
@@ -258,7 +268,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let rails_root = tempfile::tempdir().unwrap();
     let rust_root = tempfile::tempdir().unwrap();
     let handback = tempfile::tempdir().unwrap();
-    rails(&["grid", rails_root.path().to_str().unwrap()]);
+    built_grid(rails_root.path());
     add_unreadable_price_scenarios(rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
@@ -466,7 +476,7 @@ async fn the_rust_half_refuses_anything_but_a_marked_scratch_copy() {
 #[test]
 fn an_unscripted_call_fails_the_rails_run() {
     let built = tempfile::tempdir().unwrap();
-    rails(&["grid", built.path().to_str().unwrap()]);
+    built_grid(built.path());
     for (scenario, emptied) in [("ledger-fills", "alpaca"), ("balances-first", "market")] {
         let root = tempfile::tempdir().unwrap();
         copy_dir(&built.path().join(scenario), &root.path().join("one"));
