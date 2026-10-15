@@ -27,6 +27,8 @@ impl Venue for LiveVenue {
     async fn orders(&self, ids: &[String]) -> Result<Vec<OrderState>, VenueError> { each!(self, v => v.orders(ids).await) }
     async fn orders_identified<F>(&self, ids: &[String], identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.orders_identified(ids, identify).await) }
+    async fn order_identified<F>(&self, id: &str, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> { each!(self, v => v.order_identified(id, identify).await) }
     async fn order_by_client_id(&self, id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> { each!(self, v => v.order_by_client_id(id, since).await) }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { each!(self, v => v.fills_from_trades(ids, since).await) }
     async fn balance(&self, s: &str, crypto: bool) -> Result<BigDec, VenueError> { each!(self, v => v.balance(s, crypto).await) }

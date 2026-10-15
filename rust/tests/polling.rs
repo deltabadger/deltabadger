@@ -249,3 +249,24 @@ fn a_fill_with_no_stated_quote_amount_leaves_the_column_as_it_is() {
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!((ext, qexec, exec), (3, 12.5, 0.0), "nil is omitted (update(...).compact), never written as 0");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_binance_follow_up_asks_for_its_one_order_and_records_the_fill_rebuilt_from_its_trades() {
+    use deltabadger::venue::{binance::BinanceVenue, http::ScriptedTransport};
+    let (_d, o, s, b) = setup(json!({}));
+    let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "BTCUSDT-28457"));
+    let t = ScriptedTransport::from_script(&json!({
+        "GET /api/v3/order": [{ "status": 200, "body": { "symbol": "BTCUSDT", "orderId": 28457, "price": "0.00000000", "origQty": "0.00000000",
+            "origQuoteOrderQty": "60.00000000", "executedQty": "0.00119000", "cummulativeQuoteQty": "59.99000000", "status": "FILLED",
+            "type": "MARKET", "side": "BUY" } }],
+        "GET /api/v3/myTrades": [{ "status": 200, "body": [
+            { "symbol": "BTCUSDT", "id": 7, "orderId": 28457, "price": "50410.00", "qty": "0.00119000", "quoteQty": "59.98790000",
+              "commission": "0.00000119", "commissionAsset": "BTC", "isBuyer": true, "isMaker": false }] }] }));
+    let v = BinanceVenue::new(t.clone(), "https://api.binance.com", "s");
+    assert_eq!(polling::follow_up(&o.primary, &v, b, tx, now()).await, Ok(polling::FollowUp::Done));
+    let keys: Vec<String> = t.requests().iter().map(|r| format!("{} {}", r.method, r.path)).collect();
+    assert_eq!(keys, ["GET /api/v3/order", "GET /api/v3/myTrades"], "Exchange#get_order, never allOrders");
+    let (ext, price, exec, qexec): (i64, f64, f64, f64) = o.primary.query_row(
+        "SELECT external_status, price, amount_exec, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    assert_eq!((ext, price, exec, qexec), (2, 50410.0, 0.00118881, 59.9879), "net of the base commission");
+}

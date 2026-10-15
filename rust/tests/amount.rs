@@ -301,7 +301,8 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
     let (mut quote, mut refused) = (0, 0);
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
-        let t = Ticker { ticker: "BTCUSDT".into(), base_code: "BTC".into(), quote_code: "USDT".into(), quote_symbol: "USDT".into(), exchange_name: "Binance".into(), ..sizing_ticker(&c["ticker"]) };
+        let shape = &vectors["binance_tickers"][c["ticker"].as_u64().unwrap() as usize];
+        let t = Ticker { ticker: "BTCUSDT".into(), base_code: "BTC".into(), quote_code: "USDT".into(), quote_symbol: "USDT".into(), exchange_name: "Binance".into(), ..sizing_ticker(shape) };
         let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), BINANCE.minimum_logic).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");

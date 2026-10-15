@@ -55,7 +55,7 @@ tickers.each do |t|
                else
                  binance.market_buy(ticker:, amount: info[:amount], amount_type: info[:amount_type])
                end
-      row = { 'ticker' => t.transform_values(&:to_s), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
+      row = { 'ticker' => tickers.index(t), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
               'price' => price.to_s('F'), 'amount' => (x / price).to_s('F'), 'amount_type' => info[:amount_type].to_s,
               'below_minimum' => info[:below_minimum_amount] }
       row['wire'] = captured&.compact&.transform_keys(&:to_s)&.transform_values(&:to_s)
@@ -64,6 +64,7 @@ tickers.each do |t|
     end
   end
 end
+out['binance_tickers'] = tickers.map { |t| t.transform_keys(&:to_s).transform_values(&:to_s) }
 out['binance_sizing'] = sizing
 
 # Honeymaker::Clients::Binance's signed requests under a frozen clock (#timestamp_ms): the URL query each one sends, signature
@@ -114,7 +115,39 @@ out['signing'] = [['binance-key', 'NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN6
   end
 end
 
+# #parse_trade_data and #aggregate_trades over generated myTrades pages: commission in the base, the quote, BNB or nothing, on
+# a listed pair or a renamed one (the symbol fallback), the weighted price over a Float divisor, rounded to the tick.
+listed = {
+  'BTCUSDT' => Ticker.new(exchange: binance, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', price_decimals: 2),
+  'ETHBTC' => Ticker.new(exchange: binance, ticker: 'ETHBTC', base: 'ETH', quote: 'BTC', price_decimals: 5)
+}
+binance.define_singleton_method(:tickers) { Object.new.tap { |t| t.define_singleton_method(:find_by) { |ticker:| listed[ticker] } } }
+symbols = { 'BTCUSDT' => %w[BTC USDT], 'ETHBTC' => %w[ETH BTC], 'RNDRUSDT' => %w[RNDR USDT] }
+fills = Array.new(10_000) do |n|
+  symbol = symbols.keys[n % 3]
+  base, quote = symbols[symbol]
+  buyer = rng.rand(10) < 8
+  trades = Array.new(rng.rand(1..4)) do |i|
+    price = decimal.(-6, 5)
+    qty = decimal.(-8, 3)
+    asset = [base, quote, 'BNB', base, quote].sample(random: rng)
+    { 'symbol' => symbol, 'id' => 1000 + i, 'orderId' => 28_457, 'price' => price, 'qty' => qty,
+      'quoteQty' => (BigDecimal(price) * BigDecimal(qty)).round(8).to_s('F'), 'commission' => decimal.(-9, -1), 'commissionAsset' => asset,
+      'isBuyer' => buyer, 'isMaker' => rng.rand(2).zero? }
+  end
+  trades = [1.00, 1.01, 1.00].each_with_index.map { |p, i| trades[0].merge('id' => 2000 + i, 'price' => format('%.2f', p), 'qty' => '1') } if n == 0
+  parsed = trades.map { |t| binance.send(:parse_trade_data, t) }
+  aggregated = binance.send(:aggregate_trades, parsed)
+  # Compact: the symbol once, each trade as [id, price, qty, quoteQty, commission, commissionAsset, isBuyer, isMaker] (orderId
+  # 28457); per trade its net [amount_exec, quote_amount_exec]; the aggregate [price, amount_exec, quote_amount_exec].
+  { 'symbol' => symbol,
+    'trades' => trades.map { |t| t.values_at('id', 'price', 'qty', 'quoteQty', 'commission', 'commissionAsset', 'isBuyer', 'isMaker') },
+    'net' => parsed.map { |t| [t[:amount_exec].to_d.to_s('F'), t[:quote_amount_exec].to_d.to_s('F')] },
+    'aggregate' => %i[price amount_exec quote_amount_exec].map { |k| aggregated[k].to_d.to_s('F') } }
+end
+out['binance_fills'] = fills
+
 # One case per line: the file stays reviewable in a diff and a third the size of pretty JSON.
 lines = out.map { |k, v| v.is_a?(Array) ? "#{k.to_json}: [\n#{v.map { |r| "  #{JSON.generate(r)}" }.join(",\n")}\n]" : "#{k.to_json}: #{JSON.generate(v)}" }
 File.write(ARGV.fetch(0), "{\n#{lines.join(",\n")}\n}\n")
-puts "wrote #{ARGV.fetch(0)}: #{sizing.size} sizing cases"
+puts "wrote #{ARGV.fetch(0)}: #{sizing.size} sizing cases, #{fills.size} fills"

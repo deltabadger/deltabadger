@@ -732,3 +732,20 @@ async fn collision_venue_positions_identify_before_decoding_and_keep_identified_
         assert!(venue(&t).positions().await.is_err(),"identified positions keep strict numbers: {raw}");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_follow_up_of_an_order_of_a_foreign_identity_is_excluded_before_it_is_read() {
+    // The single-order hook (Venue::order_identified) keeps Alpaca's identity callback first: an order on a pair this venue
+    // does not map is excluded and named, and nothing on the row changes.
+    use deltabadger::engine::polling::{self, PollFailure};
+    let (_d, o, id, s) = setup(weekly());
+    let tx = seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OFOREIGN".into()), order_type: 1, amount: Some("1"),
+        quote_amount: None, price: Some("10"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-09-01 10:00:01".into() });
+    o.primary.execute("UPDATE transactions SET base_asset_id = NULL, quote_asset_id = NULL WHERE id = ?1", [tx]).unwrap();
+    let t = script(json!({ "GET /v2/orders/OFOREIGN": ok(json!({ "id": "OFOREIGN", "status": "filled", "symbol": "XYZ/USD", "asset_class": "crypto", "type": "limit",
+        "side": "buy", "notional": null, "qty": "1", "filled_qty": "1", "filled_avg_price": "garbage", "limit_price": "10" })) }));
+    assert_eq!(polling::follow_up(&o.primary, &venue(&t), id, tx, at("2026-09-01T10:00:06Z")).await,
+               Err(PollFailure::General(format!("Failed to fetch order {tx}. Result: unsupported class or unmapped/ambiguous order identity"))));
+    assert_eq!(one::<i64>(&o, "SELECT external_status FROM transactions WHERE external_id = 'OFOREIGN'"), 1, "the row is untouched");
+    assert_eq!(t.requests().len(), 1, "one GET, as Exchange#get_order");
+}

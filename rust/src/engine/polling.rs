@@ -236,14 +236,14 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
     Ok(if open { FollowUp::StillOpen } else { FollowUp::Done })
 }
 
-/// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca: one GET; a throttle or transient
+/// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca and Binance: one order (Venue::order_identified); a throttle or transient
 /// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
 /// unknown status raises. A raise changes no row, as in Rails.
 async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(()) };
     let rules = venue.rules();
     let version = venue.producer();
-    let state = match venue.orders_result(std::slice::from_ref(&ext), |_, pair, class| {
+    let state = match venue.order_result(&ext, |_, pair, class| {
         order_identified(c, bot, id, pair, class).map_err(|_| VenueError::Rejected(vec!["Order identity could not be read".into()]))
     }).await.value {
         Ok((_, skipped)) if skipped.contains(&ext) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: unsupported class or unmapped/ambiguous order identity"))),

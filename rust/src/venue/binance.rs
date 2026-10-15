@@ -141,6 +141,49 @@ impl<T: Transport> BinanceVenue<T> {
         }
     }
 
+    fn parse_order(&self, order_id: &str, o: &serde_json::Value) -> Result<Order, super::VenueError> { parse_order(order_id, o, &self.pairs) }
+
+    /// #get_order / #get_orders after parsing: an order that executed nothing keeps the order's own figures; one that did is
+    /// rebuilt from all its trades (#get_aggregated_trades_for_orders): price and net amounts.
+    async fn settle(&self, order: Order, order_id: &str) -> Result<OrderState, super::VenueError> {
+        let Order { mut state, executed } = order;
+        if executed.is_zero() { return Ok(state); }
+        let fill = self.fill(order_id, &executed).await?;
+        state.price = Some(fill.price);
+        state.amount_exec = fill.amount_exec;
+        state.quote_amount_exec = Some(fill.quote_amount_exec);
+        Ok(state)
+    }
+
+    /// #get_aggregated_trades_for_orders for one order: myTrades by symbol and orderId, paged by trade id from 0 (without one
+    /// Binance answers the latest trades), each trade once by its id, 100 pages at most; complete only when the gross
+    /// quantities add up to executedQty, else Rails' failure (the order stays waiting).
+    async fn fill(&self, order_id: &str, executed: &BigDec) -> Result<Fill, super::VenueError> {
+        let mut parts = order_id.split('-');
+        let (symbol, ext) = (parts.next().unwrap_or_default(), crate::ruby::to_i(parts.next().unwrap_or_default()));
+        let mut trades: Vec<(i64, serde_json::Value)> = vec![];
+        let mut from_id = 0i64;
+        let mut exhausted = true;
+        for _ in 0..PAGES {
+            let r = self.signed_now("GET", "/api/v3/myTrades", vec![("symbol", symbol.to_string()), ("orderId", ext.to_string()),
+                                    ("fromId", from_id.to_string()), ("limit", PAGE.to_string()), ("recvWindow", READ_RECV_WINDOW.into())]);
+            let body = self.call(&r, false).await?;
+            let page = body.as_array().ok_or_else(unreadable)?;
+            for raw in page {
+                let id = field(raw, "id")?.as_i64().ok_or_else(unreadable)?;
+                match trades.iter_mut().find(|(t, _)| *t == id) { Some(slot) => slot.1 = raw.clone(), None => trades.push((id, raw.clone())) }
+            }
+            if page.len() < PAGE { exhausted = false; break; }
+            from_id = trades.iter().map(|(id, _)| *id).max().unwrap_or_default() + 1;
+        }
+        if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of Binance {symbol} trades")])); }
+        let parsed = trades.iter().map(|(_, raw)| parse_trade(raw, &self.pairs)).collect::<Result<Vec<_>, _>>()?;
+        if parsed.is_empty() || parsed.iter().fold(BigDec::zero(), |a, t| &a + &t.amount) != *executed {
+            return Err(super::VenueError::Rejected(vec![format!("Binance trades of order {order_id} do not add up to its executed quantity yet")]));
+        }
+        aggregate(&parsed, self.pairs.by_symbol.get(symbol))
+    }
+
     /// A signed trading call, stamped with the transport's clock just before it is sent (`Transport::now`).
     fn signed_now(&self, method: &'static str, path: &str, params: Vec<(&'static str, String)>) -> HttpRequest {
         self.signed(method, path, params, self.transport.now())
@@ -189,6 +232,120 @@ pub fn error_message(text: &str) -> String {
 
 /// Exchange#condemning_invalid_key_error? for Binance and Binance.US: the failure names one of the venue's own words.
 pub fn condemns(text: &str) -> bool { INVALID_KEY.iter().any(|m| text.contains(m)) }
+
+/// #get_orders / #get_aggregated_trades_for_orders: a page's size, and the most pages one walk reads.
+const PAGE: usize = 1000;
+const PAGES: usize = 100;
+
+/// One order as #parse_order_data reads it, before its fill is settled (`BinanceVenue::settle`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Order { pub state: OrderState, pub executed: BigDec }
+
+/// One trade as #parse_trade_data reads it: gross, then net of a commission in the base (buy −, sell +) or the quote
+/// (buy +, sell −); a commission in a third asset (BNB) is ignored.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Trade { pub price: BigDec, pub amount: BigDec, pub quote_amount: BigDec, pub amount_exec: BigDec, pub quote_amount_exec: BigDec }
+
+/// What #aggregate_trades gives the order: the qty-weighted price (rounded half up to the pair's price decimals when the
+/// pair is known) and the summed net amounts.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fill { pub price: BigDec, pub amount_exec: BigDec, pub quote_amount_exec: BigDec }
+
+/// Utilities::Hash.dig_or_raise: absent or null is unreadable.
+fn field<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, super::VenueError> {
+    v.get(key).filter(|x| !x.is_null()).ok_or_else(unreadable)
+}
+
+/// Exchanges::Binance#parse_order_data. ORDER_STATUS_MAP; a status it does not list is Unknown (Rails raises; the poll
+/// decides, spec E §2.4). An order type other than MARKET or LIMIT is refused, as Rails raises.
+pub fn parse_order(order_id: &str, o: &serde_json::Value, pairs: &Pairs) -> Result<Order, super::VenueError> {
+    use super::OrderStatus;
+    let symbol = field(o, "symbol")?.as_str().ok_or_else(unreadable)?;
+    let limit = match field(o, "type")?.as_str() {
+        Some("MARKET") => false, Some("LIMIT") => true,
+        other => return Err(super::VenueError::Rejected(vec![format!("Unknown Binance order type: {}", other.unwrap_or_default())])),
+    };
+    let nonzero = |d: BigDec| (!d.is_zero()).then_some(d);
+    let amount = nonzero(required(field(o, "origQty")?)?);
+    let quote_amount = nonzero(required(field(o, "origQuoteOrderQty")?)?);
+    let sell = field(o, "side")?.as_str().ok_or_else(unreadable)?.eq_ignore_ascii_case("sell");
+    let executed = required(field(o, "executedQty")?)?;
+    // "for some historical orders" the cumulative quote is negative: nil, never written.
+    let quote_executed = Some(required(field(o, "cummulativeQuoteQty")?)?).filter(|q| *q >= BigDec::zero());
+    let status = match field(o, "status")?.as_str() {
+        Some("NEW" | "PENDING_NEW" | "PARTIALLY_FILLED") => OrderStatus::Open,
+        Some("FILLED") => OrderStatus::Closed,
+        Some("CANCELED" | "EXPIRED" | "EXPIRED_IN_MATCH") => OrderStatus::Cancelled,
+        Some("REJECTED") => OrderStatus::Failed,
+        _ => OrderStatus::Unknown, // PENDING_CANCEL, and anything else
+    };
+    let mut price = required(field(o, "price")?)?;
+    if price.is_zero() && executed.is_positive() {
+        if let Some(q) = quote_executed.as_ref().filter(|q| q.is_positive()) {
+            price = q.div(&executed).expect("executed is positive");
+            if let Some(pair) = pairs.by_symbol.get(symbol) { price = price.round(pair.price_decimals); }
+        }
+    }
+    let state = OrderState { txid: order_id.into(), status, price: nonzero(price), amount, quote_amount, amount_exec: executed.clone(),
+                             quote_amount_exec: quote_executed, limit, sell, pair: Some(symbol.into()), asset_class: None };
+    Ok(Order { state, executed })
+}
+
+/// Exchanges::Binance#parse_trade_data. The commission's asset is matched against the pair's base and quote, or, for a symbol
+/// the exchange no longer lists (a renamed pair), against the symbol's start and end.
+pub fn parse_trade(t: &serde_json::Value, pairs: &Pairs) -> Result<Trade, super::VenueError> {
+    let symbol = field(t, "symbol")?.as_str().ok_or_else(unreadable)?;
+    field(t, "orderId")?;
+    let (price, amount, quote_amount, commission) =
+        (required(field(t, "price")?)?, required(field(t, "qty")?)?, required(field(t, "quoteQty")?)?, required(field(t, "commission")?)?);
+    let asset = field(t, "commissionAsset")?.as_str().ok_or_else(unreadable)?;
+    let buy = *field(t, "isBuyer")? == serde_json::Value::Bool(true);
+    field(t, "isMaker")?;
+    let (in_base, in_quote) = match pairs.by_symbol.get(symbol) {
+        Some(p) => (asset == p.base, asset == p.quote),
+        None => (symbol.starts_with(asset), symbol.ends_with(asset)),
+    };
+    let amount_exec = if in_base { if buy { &amount - &commission } else { &amount + &commission } } else { amount.clone() };
+    let quote_amount_exec = if in_quote { if buy { &quote_amount + &commission } else { &quote_amount - &commission } } else { quote_amount.clone() };
+    Ok(Trade { price, amount, quote_amount, amount_exec, quote_amount_exec })
+}
+
+/// The BigDecimal Ruby makes of a Float divisor (Float#to_d): BigDec::from_f64, except where two shortest digit strings are
+/// equally near the binary value (831844647283.65625: "…6562" or "…6563"). Ruby's dtoa takes the even one; Rust's formatter,
+/// which from_f64 reads, rounds the tie up. Local because ruby.rs is a byte-pinned primitive (see the E2 report).
+fn float_to_d(f: f64) -> Option<BigDec> {
+    let d = BigDec::from_f64(f).ok()?;
+    let shortest = format!("{:e}", f.abs());
+    let (mantissa, exp) = shortest.split_once('e')?;
+    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
+    let n: u64 = digits.parse().ok()?;
+    if digits.len() > 16 || n % 2 == 0 { return Some(d); } // a 17th digit is truncated anyway; an even one is Ruby's
+    let shift = exp.parse::<i64>().ok()? - digits.len() as i64 + 1; // the last digit's power of ten
+    // The exact binary value, every digit (a double's expansion ends within 1100 places), trailing zeros dropped.
+    let exact = format!("{:.1100e}", f.abs());
+    let (exact_digits, exact_exp) = exact.split_once('e')?;
+    let exact_digits: String = exact_digits.chars().filter(char::is_ascii_digit).collect();
+    for alt in [n - 1, n + 1] {
+        if alt.to_string().len() != digits.len() || format!("{alt}e{shift}").parse::<f64>().ok() != Some(f.abs()) { continue; }
+        // A tie: the value is exactly the midpoint of the two, the smaller one's digits followed by a 5.
+        if exact_exp == exp && exact_digits.trim_end_matches('0') == format!("{}5", n.min(alt)) {
+            return BigDec::parse(&format!("{}{alt}e{shift}", if f < 0.0 { "-" } else { "" })).ok();
+        }
+    }
+    Some(d)
+}
+
+/// Exchanges::Binance#aggregate_trades over one order's trades (never empty: the caller refuses that first).
+/// Utilities::Math.weighted_average divides the BigDecimal Σ price×qty by Σ qty `.to_f`: a Float divisor, as Ruby converts it
+/// (`float_to_d`).
+pub fn aggregate(trades: &[Trade], pair: Option<&Pair>) -> Result<Fill, super::VenueError> {
+    let total = |f: fn(&Trade) -> &BigDec| trades.iter().fold(BigDec::zero(), |a, t| &a + f(t));
+    let weighted = trades.iter().fold(BigDec::zero(), |a, t| &a + &(&t.price * &t.amount));
+    let divisor = float_to_d(total(|t| &t.amount).to_f()).ok_or_else(unreadable)?;
+    let mut price = weighted.div(&divisor).ok_or_else(unreadable)?;
+    if let Some(p) = pair { price = price.round(p.price_decimals); }
+    Ok(Fill { price, amount_exec: total(|t| &t.amount_exec), quote_amount_exec: total(|t| &t.quote_amount_exec) })
+}
 
 /// A Binance decimal string or number: present and readable, or the whole answer is unreadable (never a zero). DIVERGES from
 /// Ruby on purpose (ruby::json_to_d): Rails' `.to_d` reads "garbage" as 0.
@@ -246,7 +403,56 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         };
         Ok(format!("{}-{id}", o.pair))
     }
-    async fn orders(&self, _txids: &[String]) -> Result<Vec<OrderState>, super::VenueError> { Err(super::VenueError::Transient("Binance polls are not ported yet".into())) }
+    /// #get_orders: per symbol (the stored "SYMBOL-<orderId>"), allOrders from the smallest id up, 1000 a page, a full page
+    /// moving past its last id, a short one ending the walk (100 pages at most); each order with an execution is rebuilt from
+    /// its trades. An id the venue did not return is simply absent (#get_orders answers `missing: []`).
+    async fn orders(&self, txids: &[String]) -> Result<Vec<OrderState>, super::VenueError> {
+        let mut by_symbol: Vec<(&str, Vec<i64>)> = vec![];
+        for id in txids {
+            let symbol = id.split('-').next().unwrap_or_default();
+            let ext = crate::ruby::to_i(id.rsplit('-').next().unwrap_or_default());
+            match by_symbol.iter_mut().find(|(s, _)| *s == symbol) { Some((_, v)) => v.push(ext), None => by_symbol.push((symbol, vec![ext])) }
+        }
+        let mut found: Vec<(Order, String)> = vec![];
+        for (symbol, mut wanted) in by_symbol {
+            let mut from_id = wanted.iter().copied().min().unwrap_or_default();
+            let mut exhausted = true;
+            for _ in 0..PAGES {
+                let r = self.signed_now("GET", "/api/v3/allOrders", vec![("symbol", symbol.to_string()), ("orderId", from_id.to_string()),
+                                        ("limit", PAGE.to_string()), ("recvWindow", READ_RECV_WINDOW.into())]);
+                let body = self.call(&r, false).await?;
+                let page = body.as_array().ok_or_else(unreadable)?;
+                let mut last = None;
+                for raw in page {
+                    let ext = raw["orderId"].as_i64().ok_or_else(unreadable)?;
+                    last = last.max(Some(ext));
+                    if !wanted.contains(&ext) { continue; }
+                    let id = format!("{symbol}-{ext}");
+                    found.push((self.parse_order(&id, raw)?, id));
+                    wanted.retain(|w| *w != ext);
+                }
+                if wanted.is_empty() || page.len() < PAGE { exhausted = false; break; }
+                from_id = wanted.iter().copied().min().unwrap_or_default().max(last.unwrap_or_default() + 1);
+            }
+            if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of Binance {symbol} orders")])); }
+        }
+        // Rails rebuilds after every symbol's walk, in the order the orders were found.
+        let mut out = vec![];
+        for (order, id) in found { out.push(self.settle(order, &id).await?); }
+        Ok(out)
+    }
+
+    /// #get_order (Bot::FetchAndUpdateOrderJob): GET /api/v3/order by symbol and orderId, rebuilt from its trades when it
+    /// executed. Binance states no identity to check: the callback is Alpaca's.
+    async fn order_identified<F>(&self, txid: &str, _identify: F) -> Result<(Vec<OrderState>, Vec<String>), super::VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, super::VenueError> {
+        let mut parts = txid.split('-');
+        let (symbol, ext) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
+        let r = self.signed_now("GET", "/api/v3/order", vec![("symbol", symbol.to_string()), ("orderId", ext.to_string()), ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = self.call(&r, false).await?;
+        let order = self.parse_order(txid, &body)?;
+        Ok((vec![self.settle(order, txid).await?], vec![]))
+    }
     async fn order_by_client_id(&self, _id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, super::VenueError> { Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) }
     /// Rails' trade fallback is inside #get_orders (the fill rebuild); a missing order is never looked up in trades.
     async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, super::VenueError> { Ok(vec![]) }

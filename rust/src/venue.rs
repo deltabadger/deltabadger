@@ -87,6 +87,7 @@ impl<V:Venue> Venue for &V {
     async fn add_order(&self,o:&NewOrder)->Result<String,VenueError>{(*self).add_order(o).await}
     async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{(*self).orders(ids).await}
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).orders_identified(ids,identify).await}
+    async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).order_identified(id,identify).await}
     async fn order_by_client_id(&self,id:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).order_by_client_id(id,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{(*self).fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{(*self).balance(symbol,crypto).await}
@@ -101,6 +102,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn add_order(&self,o:&NewOrder)->Result<String,VenueError>{self.venue.add_order(o).await}
     async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{self.venue.orders(ids).await}
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_identified(ids,identify).await}
+    async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_identified(id,identify).await}
     async fn order_by_client_id(&self,id:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.venue.fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
@@ -113,6 +115,7 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn positions_result(&self)->crate::engine::model::Produced<Result<std::collections::HashMap<String,BigDec>,VenueError>>{let origin=self.producer();let value=self.positions().await;crate::engine::model::Produced::new(value,origin)}
     async fn balance_result(&self,s:&str,crypto:bool)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.balance(s,crypto).await;crate::engine::model::Produced::new(value,origin)}
     async fn orders_result<F>(&self,ids:&[String],identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.orders_identified(ids,identify).await;crate::engine::model::Produced::new(value,origin)}
+    async fn order_result<F>(&self,id:&str,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_identified(id,identify).await;crate::engine::model::Produced::new(value,origin)}
     async fn fills_result(&self,ids:&[String],since:DateTime<Utc>)->crate::engine::model::Produced<Result<Vec<OrderState>,VenueError>>{let origin=self.producer();let value=self.fills_from_trades(ids,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn placement_result(&self,o:&NewOrder)->crate::engine::model::Produced<Result<String,VenueError>>{let origin=self.producer();let value=self.add_order(o).await;crate::engine::model::Produced::new(value,origin)}
     async fn recovery_result(&self,id:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,since).await;crate::engine::model::Produced::new(value,origin)}
@@ -142,6 +145,12 @@ pub trait Venue {
     async fn orders_identified<F>(&self, txids: &[String], _identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         self.orders(txids).await.map(|orders| (orders, vec![]))
+    }
+    /// One order, as Bot::FetchAndUpdateOrderJob asks for it (Exchange#get_order): `orders_identified` of that one id, unless
+    /// the venue asks for one order its own way (Binance: GET /api/v3/order). Identity first, as there.
+    async fn order_identified<F>(&self, txid: &str, identify: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+    where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
+        self.orders_identified(&[txid.to_string()], identify).await
     }
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete.
     async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
