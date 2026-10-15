@@ -1,7 +1,7 @@
-//! Honeymaker::Clients::Binance (and ::BinanceUs) for the tracker's reads: signed GETs only. This client places no order,
-//! cancels nothing and withdraws nothing; it has no method that sends anything but a GET.
-//! Rails is the oracle: Exchanges::Binance#get_balances through honeymaker's #account_information and #with_rescue.
-use super::http::{HttpRequest, Transport, TransportError};
+//! Honeymaker::Clients::Binance (and ::BinanceUs) for the tracker's reads (signed GETs), and Exchanges::Binance for the
+//! engine's one-asset spot buys (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
+//! method names the Ruby it ports. Binance.US trades nowhere here: only the tracker reads it.
+use super::http::{self, HttpRequest, Transport, TransportError};
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -12,6 +12,13 @@ pub const BINANCE: &str = "Exchanges::Binance";
 pub const BINANCE_US: &str = "Exchanges::BinanceUs";
 /// Exchanges::Binance::READ_RECV_WINDOW: signed reads use Binance's maximum.
 pub const READ_RECV_WINDOW: &str = "60000";
+/// Honeymaker::Clients::Binance#new_order's default recvWindow, which Exchanges::Binance keeps for a placement: a stale order
+/// is rejected (-1021), never executed late.
+pub const PLACE_RECV_WINDOW: &str = "5000";
+pub const UNREADABLE: &str = "Binance: unreadable response";
+/// Named on a read answered with HTTP 429/418 (spec E §2.10, a listed divergence: Rails fails it as a generic error), so
+/// VenueRules::is_throttle sees it: BINANCE's only throttle text.
+pub const HTTP_THROTTLE: &str = "Binance: request rate limit exceeded";
 /// Exchanges::Binance::ERRORS[:invalid_key]: the venue's words that condemn a key (Exchange#condemning_invalid_key_error?).
 pub const INVALID_KEY: [&str; 3] = ["API-key format invalid.", "Invalid API-key, IP, or permissions for action.", "Invalid Api-Key ID."];
 
@@ -59,24 +66,32 @@ pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: Stri
 impl<T: Transport> BinanceVenue<T> {
     pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into() } }
 
-    /// One signed GET as honeymaker sends it: the call's params (nils compacted) and `timestamp`, signed over
-    /// `build_query` of exactly those, and the signature added; Faraday then sends every pair sorted by key.
-    /// `Ok`: the body of a 2xx answer of at most `limit` bytes, unparsed. `Err`: #with_rescue's text for the failure: the
-    /// answer's body when it has one, else Faraday's own message (a transport failure included: honeymaker returns it,
-    /// it never raises).
-    pub async fn signed_get(&self, path: &str, mut params: Vec<(&'static str, String)>, now: DateTime<Utc>, limit: usize) -> Result<String, String> {
+    /// One signed request as honeymaker builds it, on GET, POST and DELETE alike: the call's params (nils compacted) and
+    /// `timestamp`, signed over `build_query` of exactly those, and the signature added; Faraday then sends every pair in the
+    /// query, sorted by key (a POST has no body).
+    pub fn signed(&self, method: &'static str, path: &str, mut params: Vec<(&'static str, String)>, now: DateTime<Utc>) -> HttpRequest {
         params.push(("timestamp", timestamp_ms(now).to_string()));
         let signature = sign(&self.secret, &build_query(&params));
         params.push(("signature", signature));
-        self.get(path, params, limit).await
+        self.request(method, path, params)
+    }
+
+    fn request(&self, method: &'static str, path: &str, mut params: Vec<(&'static str, String)>) -> HttpRequest {
+        params.sort_by(|a, b| a.0.cmp(b.0));
+        HttpRequest { method, base: self.base.clone(), path: path.into(), query: params, body: None, not_after: None }
+    }
+
+    /// One signed GET (`signed`). `Ok`: the body of a 2xx answer of at most `limit` bytes, unparsed. `Err`: #with_rescue's
+    /// text for the failure: the answer's body when it has one, else Faraday's own message (a transport failure included:
+    /// honeymaker returns it, it never raises).
+    pub async fn signed_get(&self, path: &str, params: Vec<(&'static str, String)>, now: DateTime<Utc>, limit: usize) -> Result<String, String> {
+        self.get(self.signed("GET", path, params, now), limit).await
     }
 
     /// An unsigned GET (honeymaker's #exchange_information): the params sorted, no key, no signature.
-    pub async fn public_get(&self, path: &str, params: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> { self.get(path, params, limit).await }
+    pub async fn public_get(&self, path: &str, params: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> { self.get(self.request("GET", path, params), limit).await }
 
-    async fn get(&self, path: &str, mut params: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> {
-        params.sort_by(|a, b| a.0.cmp(b.0));
-        let request = HttpRequest { method: "GET", base: self.base.clone(), path: path.into(), query: params, body: None, not_after: None };
+    async fn get(&self, request: HttpRequest, limit: usize) -> Result<String, String> {
         match self.transport.send_limited(&request, limit).await {
             Err(TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(self.transport.redact_diagnostic(&m)),
             Ok(resp) if (200..300).contains(&resp.status) => Ok(resp.body),
@@ -84,7 +99,42 @@ impl<T: Transport> BinanceVenue<T> {
             Ok(resp) => Err(format!("the server responded with status {} for GET {}", resp.status, request.url())),
         }
     }
+
+    /// A signed trading call, stamped with the transport's clock just before it is sent (`Transport::now`).
+    fn signed_now(&self, method: &'static str, path: &str, params: Vec<(&'static str, String)>) -> HttpRequest {
+        self.signed(method, path, params, self.transport.now())
+    }
+
+    /// One call as honeymaker's #with_rescue and Exchanges::Binance read it (Exchange#ambiguous_placement_error? for a
+    /// placement). A transport failure that sent nothing is Transient; one that may have sent is Transient on a read and
+    /// Ambiguous on a placement. A non-2xx answer is Faraday's raise_error, reported as #parse_error_message reads it (the
+    /// body's `msg`, else the body, else Faraday's message); on a placement only a 4xx, or a -1021 rejection
+    /// (Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS) whatever its status, is definitive. HTTP 429/418 on a read is a throttle
+    /// (`HTTP_THROTTLE`). A 2xx that is not JSON, or holds a number out of range, is unreadable: never a parsed zero.
+    pub(crate) async fn call(&self, r: &HttpRequest, placement: bool) -> Result<serde_json::Value, super::VenueError> {
+        use super::VenueError;
+        let redact = |m: String| self.transport.redact_diagnostic(&m);
+        let resp = match self.transport.send(r).await {
+            Ok(resp) => resp,
+            Err(TransportError::Permanent(m)) => return Err(VenueError::Rejected(vec![redact(m)])),
+            Err(TransportError::NotSent(m)) => return Err(VenueError::Transient(redact(m))),
+            Err(TransportError::MaybeSent(m)) if placement => return Err(VenueError::Ambiguous(redact(m))),
+            Err(TransportError::MaybeSent(m)) => return Err(VenueError::Transient(redact(m))),
+        };
+        if !(200..300).contains(&resp.status) {
+            if !placement && matches!(resp.status, 429 | 418) {
+                return Err(VenueError::Rejected(vec![format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)]));
+            }
+            let message = if resp.body.is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) }
+                          else { error_message(&resp.body) };
+            let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
+            return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
+        }
+        http::decode_json(&resp.body).map_err(|_| unreadable())
+    }
 }
+
+pub(crate) fn unreadable() -> super::VenueError { super::VenueError::Ambiguous(UNREADABLE.into()) }
 
 /// Exchanges::Binance#parse_error_message, as #get_balances applies it to a failure: the JSON body's `msg` when present,
 /// else the failure's own text.

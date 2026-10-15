@@ -66,6 +66,54 @@ tickers.each do |t|
 end
 out['binance_sizing'] = sizing
 
+# Honeymaker::Clients::Binance's signed requests under a frozen clock (#timestamp_ms): the URL query each one sends, signature
+# included, captured at its Faraday adapter. Nothing is sent.
+module SigningRecorder
+  mattr_accessor :seen
+
+  module Adapter
+    def call(env)
+      raise Unscripted, "not Binance: #{env.url}" unless env.url.host == 'api.binance.com'
+
+      SigningRecorder.seen = { 'method' => env.method.to_s.upcase, 'path' => env.url.path, 'query' => env.url.query,
+                               'key_header' => env.request_headers['X-MBX-APIKEY'], 'body' => env.request_body }
+      env.response = Faraday::Response.new
+      save_response(env, 200, '{}', { 'Content-Type' => 'application/json' })
+      @app.call(env)
+    end
+  end
+end
+Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(SigningRecorder::Adapter)
+uuid = '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01'
+signing_calls = [
+  ['POST', '/api/v3/order', :new_order, { symbol: 'BTCUSDT', side: 'BUY', type: 'MARKET', quote_order_qty: '60.5', new_client_order_id: uuid,
+                                          self_trade_prevention_mode: 'EXPIRE_MAKER' }],
+  ['POST', '/api/v3/order', :new_order, { symbol: 'BTCUSDT', side: 'BUY', type: 'MARKET', quantity: '0.00123', new_client_order_id: uuid,
+                                          self_trade_prevention_mode: 'EXPIRE_MAKER' }],
+  ['POST', '/api/v3/order', :new_order, { symbol: 'ETHBTC', side: 'BUY', type: 'LIMIT', time_in_force: 'GTC', price: '0.03512',
+                                          quantity: '1.2', new_client_order_id: uuid }],
+  ['GET', '/api/v3/order', :query_order, { symbol: 'BTCUSDT', order_id: '28457', recv_window: 60_000 }],
+  ['GET', '/api/v3/order', :query_order, { symbol: 'BTCUSDT', orig_client_order_id: uuid, recv_window: 60_000 }],
+  ['GET', '/api/v3/allOrders', :all_orders, { symbol: 'BTCUSDT', order_id: 28_457, limit: 1000, recv_window: 60_000 }],
+  ['GET', '/api/v3/myTrades', :account_trade_list, { symbol: 'BTCUSDT', order_id: 28_457, from_id: 0, limit: 1000, recv_window: 60_000 }],
+  ['GET', '/api/v3/account', :account_information, { omit_zero_balances: true, recv_window: 60_000 }]
+]
+out['signing'] = [['binance-key', 'NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j'], ['k', 's3cr3t/+=']].flat_map do |key, secret|
+  [1_789_871_400_750, 1_499_827_319_559].flat_map do |stamp|
+    signing_calls.map do |method, path, call, args|
+      client = Honeymaker::Clients::Binance.new(api_key: key, api_secret: secret)
+      client.define_singleton_method(:timestamp_ms) { stamp }
+      SigningRecorder.seen = nil
+      client.public_send(call, **args)
+      seen = SigningRecorder.seen or raise "#{call}: nothing sent"
+      raise "#{call}: #{seen['method']} #{seen['path']}" unless [seen['method'], seen['path']] == [method, path]
+
+      { 'api_key' => key, 'api_secret' => secret, 'timestamp' => stamp, 'call' => call.to_s, 'args' => args.transform_keys(&:to_s).transform_values(&:to_s) }
+        .merge(seen)
+    end
+  end
+end
+
 # One case per line: the file stays reviewable in a diff and a third the size of pretty JSON.
 lines = out.map { |k, v| v.is_a?(Array) ? "#{k.to_json}: [\n#{v.map { |r| "  #{JSON.generate(r)}" }.join(",\n")}\n]" : "#{k.to_json}: #{JSON.generate(v)}" }
 File.write(ARGV.fetch(0), "{\n#{lines.join(",\n")}\n}\n")
