@@ -205,7 +205,7 @@ pub fn stored_float(d: f64) -> String {
     };
     if g.len() >= 17 && (g.ends_with("0001") || g.ends_with("9999")) {
         // Float#to_s, for a value Ruby prints without an exponent (10^-4 up to 10^16: the only ones that get here).
-        let (digits, exponent, sign) = decimal(&format!("{d:e}"));
+        let (digits, exponent, sign) = decimal(&crate::ruby::float_e(d));
         let fixed = fixed(&digits, exponent);
         return format!("{sign}{fixed}{}", if fixed.contains('.') { "" } else { ".0" });
     }

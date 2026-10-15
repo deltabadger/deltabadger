@@ -136,3 +136,31 @@ fn time_as_json_is_activesupports_rendering_of_a_parsed_clock_time() {
         assert_eq!(deltabadger::ruby::time_as_json(&raw, &t), want.as_str().unwrap(), "{raw}");
     }
 }
+
+/// Float#to_d and Float#to_s over 10k recorded floats, ties between two shortest digit strings among them
+/// (script/rust/record_float_digits.rb). Every Rust port of either is held to the same rows.
+#[test]
+fn float_digits_match_ruby_on_ties_and_everything_else() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/float_digits.json")).unwrap();
+    let rows = fixture["floats"].as_array().unwrap();
+    assert!(rows.len() >= 10_000 && rows.iter().filter(|r| r[3] == true).count() >= 100);
+    let mut failures = vec![];
+    for r in rows {
+        let f = bits(&r[0]);
+        let (to_d, to_s) = (r[1].as_str().unwrap(), r[2].as_str().unwrap());
+        let unsigned_zero = |s: String| if f == 0.0 { s.trim_start_matches('-').to_string() } else { s };
+        let got = [
+            ("BigDec::from_f64", unsigned_zero(BigDec::from_f64(f).unwrap().to_s_f()), unsigned_zero(to_d.into())),
+            ("figures Dec::from_f64", deltabadger::figures::dec::Dec::from_f64(f).unwrap().to_s_f(), to_d.into()),
+            ("ruby::float_to_s", float_to_s(f), to_s.into()),
+            ("figures float_to_s", deltabadger::figures::num::float_to_s(f), to_s.into()),
+            ("web float_to_s", deltabadger::web::format::float_to_s(f), to_s.into()),
+        ];
+        for (port, got, want) in got { if got != want { failures.push(format!("{port}({}) = {got}, Ruby {want}", r[0])); } }
+        if let Ok(d) = deltabadger::codec::real_to_decimal(f) {
+            if bd(&d.to_string()) != BigDec::from_f64(f).unwrap() { failures.push(format!("real_to_decimal({}) = {d}, Ruby {to_d}", r[0])); }
+        }
+    }
+    let ports: std::collections::BTreeMap<&str, usize> = failures.iter().fold(Default::default(), |mut m, f| { *m.entry(f.split('(').next().unwrap()).or_default() += 1; m });
+    assert!(failures.is_empty(), "{} differ {ports:?}:\n{}", failures.len(), failures.iter().step_by((failures.len() / 20).max(1)).cloned().collect::<Vec<_>>().join("\n"));
+}

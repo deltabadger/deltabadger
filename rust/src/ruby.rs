@@ -113,12 +113,12 @@ impl BigDec {
         }
     }
     pub fn from_i64(i: i64) -> Self { Self(BigDecimal::from(i)) }
-    /// Float#to_d: the shortest round-trip digits, truncated (not rounded) to 16 significant digits.
+    /// Float#to_d: the shortest round-trip digits (`float_e`), truncated (not rounded) to 16 significant digits.
     /// Built directly as digits x 10^exp, so there is no range limit besides f64's own.
     pub fn from_f64(f: f64) -> Result<Self, CodecError> {
         let err = || CodecError::Decimal(format!("{f:e} is not finite"));
         if !f.is_finite() { return Err(err()); }
-        let sci = format!("{f:e}"); // e.g. "-1.2345678912345679e8": the shortest round-trip digits
+        let sci = float_e(f); // e.g. "-1.2345678912345679e8": the shortest round-trip digits
         let (mantissa, exp) = sci.split_once('e').ok_or_else(err)?;
         let exp: i64 = exp.parse().map_err(|_| err())?;
         let digits: String = mantissa.chars().filter(char::is_ascii_digit).take(16).collect();
@@ -410,19 +410,48 @@ pub fn ruby_sum(xs: &[Num]) -> Result<Num, CodecError> {
     Ok(v)
 }
 
+/// `format!("{:e}", f)` with Ruby's digits. Both are the shortest digits that read back as `f`, but where two shortest
+/// strings are equally near it (831844647283.65625: "…6562" or "…6563") Ruby's dtoa (mode 0, behind Float#to_s and
+/// Float#to_d) takes the even one and Rust's formatter the odd one. Every port of either reads its digits here.
+pub fn float_e(f: f64) -> String {
+    let sci = format!("{f:e}");
+    let Some((mantissa, exp)) = sci.split_once('e').filter(|_| f.is_finite()) else { return sci };
+    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
+    if digits.ends_with(['0', '2', '4', '6', '8']) { return sci; }
+    let Ok(exp) = exp.parse::<i64>() else { return sci };
+    let shift = exp + 1 - digits.len() as i64; // the last digit's power of ten
+    let bits = f.to_bits();
+    let (biased, fraction) = ((bits >> 52) & 0x7ff, bits & ((1 << 52) - 1));
+    let (mant, e2) = if biased == 0 { (fraction, -1074) } else { (fraction | 1 << 52, biased as i64 - 1075) };
+    // A tie is 2|f| = (2n ± 1) × 10^shift, an odd integer times 10^shift: 2|f| must be a multiple of 2^shift first.
+    if i64::from(mant.trailing_zeros()) + e2 + 1 < shift { return sci; }
+    let ten = |p: i64| BigInt::from(10).pow(p.max(0) as u32);
+    let numerator = (BigInt::from(mant) << (e2 + 1).max(0) as usize) * ten(-shift);
+    let denominator = (BigInt::from(1) << (-(e2 + 1)).max(0) as usize) * ten(shift);
+    if &numerator % &denominator != BigInt::from(0) { return sci; }
+    let Ok(n) = digits.parse::<BigInt>() else { return sci };
+    let alt = numerator / denominator - &n; // the neighbour on the other side of the midpoint, if it is one
+    let alt_digits = alt.to_string();
+    if (&alt - &n).magnitude() != &1u32.into() || alt_digits.len() != digits.len()
+        || !matches!(format!("{alt_digits}e{shift}").parse::<f64>(), Ok(back) if back == f.abs()) { return sci; }
+    let kept = alt_digits.trim_end_matches('0');
+    let point = if kept.len() > 1 { format!("{}.{}", &kept[..1], &kept[1..]) } else { kept.to_string() };
+    format!("{}{point}e{exp}", if f < 0.0 { "-" } else { "" })
+}
+
 /// `Float#to_s` (numeric.c, flo_to_s): the shortest digits that read back as the same double, in plain notation while
-/// the decimal point sits within 15 integer digits or 3 leading zeros, else `d.ddde±XX`. An integral value keeps `.0`.
+/// the decimal point sits within 15 integer digits (16 when a 17th digit follows) or 3 leading zeros, else `d.ddde±XX`. An integral value keeps `.0`.
 pub fn float_to_s(f: f64) -> String {
     if f.is_nan() { return "NaN".into(); }
     if f.is_infinite() { return if f < 0.0 { "-Infinity".into() } else { "Infinity".into() }; }
     let sign = if f.is_sign_negative() { "-" } else { "" };
     if f == 0.0 { return format!("{sign}0.0"); }
-    let sci = format!("{:e}", f.abs()); // "1.2345678912345679e8": the shortest round-trip digits
+    let sci = float_e(f.abs()); // "1.2345678912345679e8": the shortest round-trip digits
     let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
     let point = exp.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point (Ruby's decpt)
     let n = digits.len() as i64;
-    if point > 15 || point <= -4 {
+    if (point > 15 && !(point == 16 && n > 16)) || point <= -4 { // sixteen integer digits stay plain when a seventeenth follows
         let fraction = if n > 1 { &digits[1..] } else { "0" };
         return format!("{sign}{}.{fraction}e{}{:02}", &digits[..1], if point > 0 { '+' } else { '-' }, (point - 1).abs());
     }
