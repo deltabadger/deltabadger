@@ -371,7 +371,7 @@ class Exchanges::Binance < Exchange
     orders.each do |order|
       symbol, ext_order_id = order[:order_id].split('-')
       trades = {}
-      from_id = nil
+      from_id = 0 # without one, Binance answers the order's LATEST trades, and paging forward would skip the earliest
       exhausted = 100.times do
         result = client.account_trade_list(symbol: symbol, order_id: ext_order_id.to_i, from_id: from_id, limit: limit,
                                            recv_window: READ_RECV_WINDOW)

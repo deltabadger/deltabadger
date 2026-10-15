@@ -278,7 +278,7 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   def trades_walk(executed, *pages)
     @exchange.set_client
     client = @exchange.send(:client)
-    from_ids = [nil]
+    from_ids = [0]
     pages.each_with_index do |page, i|
       client.expects(:account_trade_list)
             .with(symbol: 'BTCUSDT', order_id: 1, from_id: from_ids[i], limit: 1000, recv_window: 60_000)
