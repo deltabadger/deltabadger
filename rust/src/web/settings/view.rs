@@ -250,6 +250,7 @@ pub(super) fn connect_visible(c: &Connection, app: &App, user: &User) -> Result<
 }
 
 /// A section of the dialog as a page (or as the frame it opens in).
+#[allow(clippy::too_many_arguments)]
 pub(super) fn section_page(ctx: &Ctx, csrf: &str, user: &User, shell_data: &Shell, section: &str, connect: bool, pane: &str, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
     let body = dialog::shell(ctx, section, connect, pane);
     shell::application(ctx, csrf, user, shell_data, Page { status, body, flash_now })
