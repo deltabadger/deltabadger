@@ -70,7 +70,7 @@ out = {
   'rows' => rows,
   'ported_sources' => {
     'app/models/clients/alpaca.rb' => Digest::SHA256.file('app/models/clients/alpaca.rb').hexdigest,
-    'app/models/exchanges/alpaca.rb#paper_mode?' => Digest::SHA256.hexdigest(paper_mode)
+    'app/models/exchanges/alpaca.rb' => Digest::SHA256.hexdigest(exchanges_src)
   }
 }
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")

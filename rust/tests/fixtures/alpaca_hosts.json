@@ -626,6 +626,6 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb#paper_mode?": "69c77e195dee37c8338acd2b7a010abc1a302c9bccc604416f8520fe240a9007"
+    "app/models/exchanges/alpaca.rb": "5c69f9e058ab1a5128f07bb31e78ebfeb21067a5e0e8b088a0f9c067accfe483"
   }
 }

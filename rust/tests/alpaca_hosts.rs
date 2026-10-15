@@ -21,10 +21,8 @@ fn the_recorded_rails_sources_are_unchanged() {
     let pins = grid()["ported_sources"].clone();
     let client = std::fs::read(root.join("app/models/clients/alpaca.rb")).unwrap();
     assert_eq!(hex::encode(Sha256::digest(&client)), pins["app/models/clients/alpaca.rb"], "app/models/clients/alpaca.rb changed: re-record script/rust/record_alpaca_hosts.rb");
-    let exchange = std::fs::read_to_string(root.join("app/models/exchanges/alpaca.rb")).unwrap();
-    let start = exchange.find("\n  def paper_mode?(api_key)\n").expect("Exchanges::Alpaca#paper_mode?") + 1;
-    let end = exchange[start..].find("\n  end\n").unwrap() + start + "\n  end\n".len();
-    assert_eq!(hex::encode(Sha256::digest(&exchange[start..end])), pins["app/models/exchanges/alpaca.rb#paper_mode?"], "Exchanges::Alpaca#paper_mode? changed: re-record script/rust/record_alpaca_hosts.rb");
+    let exchange = std::fs::read(root.join("app/models/exchanges/alpaca.rb")).unwrap();
+    assert_eq!(hex::encode(Sha256::digest(&exchange)), pins["app/models/exchanges/alpaca.rb"], "app/models/exchanges/alpaca.rb changed: re-record script/rust/record_alpaca_hosts.rb");
 }
 
 fn btc_usd() -> Ticker {
