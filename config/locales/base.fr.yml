@@ -111,6 +111,18 @@ fr:
         account: Compte
         sign_up: 'S''inscrire'
     settings:
+        sections:
+            mcp_server: 'Serveur MCP'
+            profile: 'Profil'
+            preferences: 'Préférences'
+            security: 'Sécurité'
+            instance: 'Instance'
+            language: 'Langue'
+            time_zone: 'Fuseau horaire'
+            change: 'Modifier'
+            no_keys: 'Aucune clé API pour l’instant.'
+            permissions: 'Autorisations'
+            provider: 'Fournisseur'
         wash_sale:
             title: "Protection des pertes déductibles"
             sentence_html: "Après une vente à perte, attendre %{select_html} avant de racheter"

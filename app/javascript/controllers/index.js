@@ -72,8 +72,6 @@ application.register("flatpickr", FlatpickrController)
 import Form__CheckboxEnablesController from "./form/checkbox_enables_controller"
 application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 
-import Form__EmailNotificationsController from "./form/email_notifications_controller"
-application.register("form--email-notifications", Form__EmailNotificationsController)
 
 import Form__Html5ValidationsController from "./form/html5_validations_controller"
 application.register("form--html5-validations", Form__Html5ValidationsController)
@@ -164,6 +162,9 @@ application.register("rule-toggle", RuleToggleController)
 
 import SegmentedController from "./segmented_controller"
 application.register("segmented", SegmentedController)
+
+import SettingsNavController from "./settings_nav_controller"
+application.register("settings-nav", SettingsNavController)
 
 import SliderController from "./slider_controller"
 application.register("slider", SliderController)

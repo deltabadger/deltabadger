@@ -46,8 +46,8 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     get settings_api_path
 
     assert_select 'turbo-frame#rest_settings' do
-      assert_select 'form[action=?][data-turbo-frame=rest_settings][data-turbo-confirm]',
-                    settings_regenerate_api_token_path, 1
+      # Regenerating breaks every script on the old token, so it asks first, in place.
+      assert_select 'details.sconfirm form[action=?]', settings_regenerate_api_token_path, 1
       assert_select 'a[href=?]', settings_download_api_docs_path, 1
     end
   end

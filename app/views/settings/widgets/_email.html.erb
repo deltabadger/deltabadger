@@ -1,29 +1,26 @@
-<div class="widget widget--settings">
-  <h4 class="modal__title"><%= t('settings.index.email_section') %></h4>
-  <%= turbo_frame_tag "update_email_form" do %>
-    <%= form_with model: current_user, url: settings_update_email_path, class: "setting-form", data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
-
-      <% if current_user.pending_reconfirmation? %>
-        <div class="form__row form__row--input" style="text-align: center;">
-          <%= t('devise.registrations.edit.awaiting_confirmation', email: current_user.unconfirmed_email) %>
-        </div>
+<%# Changing the address asks for the password too, so the row opens into a small form rather than
+    carrying an input it could not submit on its own. %>
+<%= turbo_frame_tag 'update_email_form', class: 'sitem' do %>
+  <% hint = if current_user.pending_reconfirmation?
+              t('devise.registrations.edit.awaiting_confirmation', email: current_user.unconfirmed_email)
+            else
+              current_user.email_was
+            end %>
+  <details <%= 'open' if current_user.errors.any? %>>
+    <summary>
+      <%= settings_row t('settings.index.email_section'), hint do %>
+        <span class="rbutton rbutton--outline"><%= t('settings.sections.change') %></span>
       <% end %>
-
-      <div class="form__row form__row--input">
-        <%= f.email_field :email, autocomplete: "username", class: 'form__input', value: "", placeholder: current_user.email, pattern: email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
-        <%= f.label :email, t('helpers.label.user.new_email'), class: "form__label" %>
-      </div>
-
-      <%= tag.div class: "form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-        <%= f.password_field :current_password, autocomplete: "current-password", class: "form__input form__input--has-icon", data: { form__password_unmask_target: "input" } %>
-        <%= f.label :current_password, t('helpers.label.user.current_password'), class: "form__label" %>
-        <div class="db-unmask" data-action="click->form--password-unmask#toggle">
-          <%= render "layouts/svg_mi_visibility" %>
-          <%= render "layouts/svg_mi_visibility-off" %>
-        </div>
-      <% end %>
-
-      <%= f.submit t('button.update'), class: "button button--sky" %>
+    </summary>
+    <%= form_with model: current_user, url: settings_update_email_path, class: 'sform sform--stack', data: { turbo_frame: 'update_email_form' } do |f| %>
+      <% if current_user.errors.any? %><p class="sform__error"><%= current_user.errors.full_messages.to_sentence %></p><% end %>
+      <%= f.email_field :email, value: '', autocomplete: 'username', required: true, class: 'rinput rinput--outline rinput--text',
+                                pattern: User::Email::ADDRESS_PATTERN, placeholder: t('helpers.label.user.new_email'),
+                                aria: { label: t('helpers.label.user.new_email') } %>
+      <%= f.password_field :current_password, autocomplete: 'current-password', required: true, class: 'rinput rinput--outline rinput--text',
+                                              placeholder: t('helpers.label.user.current_password'),
+                                              aria: { label: t('helpers.label.user.current_password') } %>
+      <%= f.submit t('button.save'), class: 'rbutton rbutton--outline' %>
     <% end %>
-  <% end %>
-</div>
+  </details>
+<% end %>

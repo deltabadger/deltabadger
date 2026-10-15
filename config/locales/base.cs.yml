@@ -112,6 +112,18 @@ cs:
         account: Účet
         sign_up: 'Registrace'
     settings:
+        sections:
+            mcp_server: 'MCP server'
+            profile: 'Profil'
+            preferences: 'Předvolby'
+            security: 'Zabezpečení'
+            instance: 'Instance'
+            language: 'Jazyk'
+            time_zone: 'Časové pásmo'
+            change: 'Změnit'
+            no_keys: 'Zatím žádné API klíče.'
+            permissions: 'Oprávnění'
+            provider: 'Poskytovatel'
         wash_sale:
             title: "Ochrana daňové ztráty"
             sentence_html: "Po prodeji se ztrátou nekupovat stejné aktivum zpět %{select_html}"

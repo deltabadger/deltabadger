@@ -1,0 +1,15 @@
+<%# A destructive button that asks first, in place: the button opens a small panel under it with
+    what will happen and the real button. A <details>, so it needs no script, and a second click
+    on the button is the Cancel. Never a modal — this already lives in one, and the modal frame is
+    the dialog itself.
+
+    locals: label (the button), text (what happens), confirm (the real button's label), url,
+            method (default :delete), params (optional hidden fields) %>
+<details class="sconfirm">
+  <summary class="rbutton rbutton--outline"><%= label %></summary>
+  <div class="sconfirm__panel">
+    <p><%= text %></p>
+    <%= button_to confirm, url, method: local_assigns.fetch(:method, :delete), params: local_assigns.fetch(:params, {}),
+                  class: 'rbutton rbutton--outline rbutton--danger' %>
+  </div>
+</details>

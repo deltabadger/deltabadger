@@ -1,18 +1,25 @@
-<div class="widget widget--settings">
-  <h4 class="modal__title"><%= t('settings.index.api_keys_section') %></h4>
-  <%= turbo_frame_tag "api_keys" do %>
-    <h5><%= t('settings.index.trading_keys_section') %></h5>
-    <div class="tags">
-      <% if trading_api_keys.any? %>
-        <%= render partial: 'api_key', collection: trading_api_keys, as: :api_key %>
+<%# The exchange keys, a row each. Removing one stops the bots trading on it, so it asks first. %>
+<%= turbo_frame_tag 'api_keys' do %>
+  <% keys = current_user.api_keys.includes(:exchange) %>
+  <% { 'settings.index.trading_keys_section' => keys.where.not(key_type: 'withdrawal'),
+       'settings.index.withdrawal_keys_section' => keys.where(key_type: 'withdrawal') }.each_with_index do |(heading, group), index| %>
+    <% next if index.positive? && group.none? %>
+    <h3 class="settings__heading <%= 'settings__heading--first' if index.zero? %>"><%= t(heading) %></h3>
+    <% if group.none? %>
+      <p class="settings__empty"><%= t('settings.sections.no_keys') %></p>
+    <% end %>
+    <% group.each do |api_key| %>
+      <%# A read-only key is the tracker's; beside a trading key on the same venue it would read as a
+          duplicate. Said on the name's own line, so the row keeps one line like its neighbours. %>
+      <% label = safe_join([api_key.exchange.name, (tag.span(t('links.tracker'), class: 'srow__aside') if api_key.read_only?)]) %>
+      <%= settings_row label, icon: exchange_icon_svg(api_key.exchange.name_id), class: 'srow--key', data: { api_key: api_key.id } do %>
+        <% if api_key_instructions?(api_key) %>
+          <%= link_to t('settings.sections.permissions'), settings_api_key_permissions_path(id: api_key.id),
+                      class: 'rbutton rbutton--outline', data: { turbo_frame: 'settings_pane' } %>
+        <% end %>
+        <%= render 'settings/confirm', label: t('button.remove'), text: t('settings.api_keys.confirm_delete'),
+                                       confirm: t('button.delete'), url: settings_destroy_api_key_path(id: api_key.id) %>
       <% end %>
-    </div>
-
-    <% if withdrawal_api_keys.any? %>
-      <h5><%= t('settings.index.withdrawal_keys_section') %></h5>
-      <div class="tags">
-        <%= render partial: 'api_key', collection: withdrawal_api_keys, as: :api_key %>
-      </div>
     <% end %>
   <% end %>
-</div>
+<% end %>

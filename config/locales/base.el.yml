@@ -111,6 +111,18 @@ el:
         account: Λογαριασμός
         sign_up: 'Εγγραφή'
     settings:
+        sections:
+            mcp_server: 'Διακομιστής MCP'
+            profile: 'Προφίλ'
+            preferences: 'Προτιμήσεις'
+            security: 'Ασφάλεια'
+            instance: 'Εγκατάσταση'
+            language: 'Γλώσσα'
+            time_zone: 'Ζώνη ώρας'
+            change: 'Αλλαγή'
+            no_keys: 'Δεν υπάρχουν ακόμη κλειδιά API.'
+            permissions: 'Δικαιώματα'
+            provider: 'Πάροχος'
         wash_sale:
             title: "Προστασία φορολογικής ζημιάς"
             sentence_html: "Μετά από πώληση με ζημιά, μην το ξαναγοράσεις για %{select_html}"

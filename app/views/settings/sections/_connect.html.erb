@@ -1,0 +1,10 @@
+<%# IBKR = per-user connection → everyone, but data-api gated (see the partial).
+    Stocks and market data = container-global → admin-only. %>
+<% ibkr = render('settings/widgets/ibkr') %>
+<% if ibkr.present? || current_user.admin? %>
+  <h3 class="settings__heading settings__heading--first"><%= t('settings.stocks.title') %></h3>
+  <%= ibkr %>
+  <%= render 'settings/widgets/stocks' if current_user.admin? %>
+<% end %>
+
+<%= render 'settings/widgets/market_data' if current_user.admin? %>

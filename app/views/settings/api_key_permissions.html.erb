@@ -1,13 +1,7 @@
-<%= render 'layouts/modal/base' do %>
-  <div class="modal">
-    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-      <%= render partial: 'svg/24x24_close' %>
-    <% end %>
-    <div class="modal__header">
-      <h1 class="modal__title"><%= t('bot.setup.how_to_get_keys', exchange: @api_key.exchange.name) %></h1>
-    </div>
-    <div class="modal__body">
-      <%= render_api_key_instructions(@api_key) %>
-    </div>
-  </div>
+<%= render 'settings/shell' do %>
+  <%= link_to settings_api_keys_path, class: 'settings__back' do %>
+    <%= render 'svg/24x24_back' %><%= t('settings.index.api_keys_section') %>
+  <% end %>
+  <h3 class="settings__heading"><%= t('bot.setup.how_to_get_keys', exchange: @api_key.exchange.name) %></h3>
+  <div class="settings__prose"><%= render_api_key_instructions(@api_key) %></div>
 <% end %>

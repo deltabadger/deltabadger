@@ -113,6 +113,18 @@ pl:
         account: Konto
         sign_up: 'Stwórz konto'
     settings:
+        sections:
+            mcp_server: 'Serwer MCP'
+            profile: 'Profil'
+            preferences: 'Preferencje'
+            security: 'Bezpieczeństwo'
+            instance: 'Instancja'
+            language: 'Język'
+            time_zone: 'Strefa czasowa'
+            change: 'Zmień'
+            no_keys: 'Nie masz jeszcze kluczy API.'
+            permissions: 'Uprawnienia'
+            provider: 'Dostawca'
         wash_sale:
             title: "Ochrona odliczenia straty"
             sentence_html: "Nie odkupuj przez %{select_html} po sprzedaży ze stratą"

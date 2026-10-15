@@ -12,16 +12,15 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
 
   # ---- the matrix ---------------------------------------------------------
   #
-  # One table for both surfaces: a row per tool, grouped the way MCP groups them, and a switch
-  # column per surface. The MCP column is the reference — every MCP tool has a row and a switch.
+  # The MCP section's tool list: a row per tool, under a row per group, each with its switch.
 
   test 'the permissions frame renders one row per MCP tool with an MCP switch' do
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
-    assert_select 'turbo-frame#tool_permissions table.permissions' do
-      assert_select 'tr.permissions__tool', AppConfig::MCP_TOOL_DEFAULTS.size
+    assert_select 'turbo-frame#tool_permissions' do
+      assert_select '.srow--tool', AppConfig::MCP_TOOL_DEFAULTS.size
       AppConfig::MCP_TOOL_DEFAULTS.each_key do |tool|
-        assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=mcp] form[action=?]",
+        assert_select ".srow--tool[data-tool=#{tool}][data-surface=mcp] form[action=?]",
                       settings_update_mcp_tool_permissions_path, 1 do
           assert_select 'input[name=tool_name][value=?]', tool
         end
@@ -30,32 +29,32 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
   end
 
   test 'tool rows show the tool description next to its name' do
-    get settings_api_path
-    assert_select 'tr.permissions__tool[data-tool=market_buy]' do
-      assert_select '.permissions__name', I18n.t('settings.mcp.tools.market_buy.label')
-      assert_select '.permissions__desc', I18n.t('settings.mcp.tools.market_buy.description')
+    get settings_mcp_path
+    assert_select 'turbo-frame#tool_permissions .srow--tool[data-tool=market_buy]' do
+      assert_select '.srow__label', I18n.t('settings.mcp.tools.market_buy.label')
+      assert_select '.srow__hint', I18n.t('settings.mcp.tools.market_buy.description')
     end
   end
 
   test 'a tool switch posts the opposite of its current state' do
     @admin.set_mcp_tool_enabled('start_bot', true)
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select 'tr.permissions__tool[data-tool=start_bot] td[data-surface=mcp] form' do
+    assert_select 'turbo-frame#tool_permissions .srow--tool[data-tool=start_bot][data-surface=mcp] form' do
       assert_select 'input[name=enabled][value=0]', 1
       assert_select 'input[type=checkbox][checked]', 1
     end
-    assert_select 'tr.permissions__tool[data-tool=stop_bot] td[data-surface=mcp] form' do
+    assert_select 'turbo-frame#tool_permissions .srow--tool[data-tool=stop_bot][data-surface=mcp] form' do
       assert_select 'input[name=enabled][value=1]', 1
       assert_select 'input[type=checkbox]:not([checked])', 1
     end
   end
 
   test 'each group row carries a switch that flips the whole MCP group' do
-    get settings_api_path
-    assert_select 'tr.permissions__group', AppConfig::MCP_TOOL_GROUPS.size
+    get settings_mcp_path
+    assert_select 'turbo-frame#tool_permissions .srow--group', AppConfig::MCP_TOOL_GROUPS.size
     AppConfig::MCP_TOOL_GROUPS.each_key do |group|
-      assert_select "tr.permissions__group[data-group=#{group}] td[data-surface=mcp] form[action=?]",
+      assert_select "turbo-frame#tool_permissions .srow--group[data-group=#{group}][data-surface=mcp] form[action=?]",
                     settings_update_mcp_tool_group_permissions_path, 1 do
         assert_select 'input[name=group][value=?]', group
       end
@@ -65,9 +64,9 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
   test 'a group with some of its tools on renders as partial, and a click turns the rest on' do
     AppConfig::MCP_TOOL_GROUPS['control'].each { |t| @admin.set_mcp_tool_enabled(t, false) }
     @admin.set_mcp_tool_enabled('start_bot', true)
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select 'tr.permissions__group[data-group=control] td[data-surface=mcp]' do
+    assert_select 'turbo-frame#tool_permissions .srow--group[data-group=control][data-surface=mcp]' do
       assert_select '.toggle.toggle--partial input[type=checkbox][checked]', 1
       assert_select 'input[name=enabled][value=1]', 1
     end
@@ -75,9 +74,9 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
 
   test 'a group with every tool on is a plain checked switch that turns the group off' do
     AppConfig::MCP_TOOL_GROUPS['trade'].each { |t| @admin.set_mcp_tool_enabled(t, true) }
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select 'tr.permissions__group[data-group=trade] td[data-surface=mcp]' do
+    assert_select 'turbo-frame#tool_permissions .srow--group[data-group=trade][data-surface=mcp]' do
       assert_select '.toggle:not(.toggle--partial) input[type=checkbox][checked]', 1
       assert_select 'input[name=enabled][value=0]', 1
     end

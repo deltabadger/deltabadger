@@ -14,24 +14,25 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   end
 
   test 'mcp widget shows URL' do
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
     assert_select '#mcp_url_display'
   end
 
-  # The page is four frames: the two surfaces on top, then the shared tool matrix, then the
-  # clients — each re-rendered on its own, so a switch in one never redraws the others.
-  test 'the api page renders the surfaces, the permissions and the clients as separate frames' do
-    get settings_api_path
-    assert_response :success
-    assert_select 'turbo-frame#mcp_settings'
-    assert_select 'turbo-frame#rest_settings'
-    assert_select 'turbo-frame#tool_permissions'
-    assert_select 'turbo-frame#connected_clients'
+  # Each section is three frames: the surface, its tools, its clients — each re-rendered on its
+  # own, so a switch in one never redraws the others.
+  test 'each surface section renders the surface, the permissions and the clients as separate frames' do
+    { settings_mcp_path => 'mcp_settings', settings_api_path => 'rest_settings' }.each do |path, frame|
+      get path
+      assert_response :success
+      assert_select "turbo-frame##{frame}"
+      assert_select 'turbo-frame#tool_permissions'
+      assert_select 'turbo-frame#connected_clients'
+    end
   end
 
   test 'connected clients have their own section' do
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
     assert_select 'turbo-frame#connected_clients', /#{I18n.t('settings.mcp.no_clients')}/
   end
@@ -41,13 +42,13 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
     ConnectedClient.create!(user: @admin, oauth_application: app, mcp_tools: AppConfig::MCP_TOOL_GROUPS['read'])
 
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
-    assert_select 'turbo-frame#connected_clients .connected-client', /Test Client/
+    assert_select 'turbo-frame#connected_clients .sclient', /Test Client/
   end
 
   test 'the paper trading switch posts within the mcp frame' do
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
     assert_select 'turbo-frame#mcp_settings form[action=?][data-turbo-frame=mcp_settings]',
                   settings_update_mcp_dry_run_path do
@@ -57,7 +58,7 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   end
 
   test 'the mcp widget no longer carries the tool toggles' do
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
     assert_select 'turbo-frame#mcp_settings input[name=tool_name]', 0
   end
@@ -82,15 +83,18 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     assert_select 'turbo-stream[action=replace][target=connected_clients]', 1
   end
 
-  test 'the revoke confirmation posts back into the clients frame' do
+  # The dialog is the modal frame, so revoke cannot open a modal of its own: it asks in place.
+  test 'revoke asks first, in place' do
     app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
 
-    get settings_confirm_revoke_mcp_client_path(id: app.id)
+    get settings_mcp_path
 
     assert_response :success
-    # button_to puts `data:` on the submitter, and Turbo reads the frame from there.
-    assert_select 'form[action=?] button[data-turbo-frame=connected_clients]', settings_revoke_mcp_client_path(app)
+    assert_select 'turbo-frame#connected_clients details.sconfirm' do
+      assert_select 'summary', I18n.t('settings.mcp.revoke_client')
+      assert_select 'form[action=?]', settings_revoke_mcp_client_path(app)
+    end
   end
 
   test 'user cannot revoke another users client' do
@@ -109,13 +113,13 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
 
-    get settings_api_path
+    get settings_mcp_path
     assert_response :success
     assert_select 'turbo-frame#mcp_settings'
   end
 
   test 'the MCP url copies through a Stimulus action, not an inline handler' do
-    get settings_api_path
+    get settings_mcp_path
 
     assert_response :success
     assert_select '#mcp_url_display[data-controller=?][data-action=?]',

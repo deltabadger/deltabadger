@@ -58,8 +58,7 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
   test 'the button matches the rest of the page' do
     get settings_account_path
 
-    # Full width comes from .setting-form, like every other widget on this page.
-    assert_select '#wash_sale form.setting-form button.button--sky'
+    assert_select '#wash_sale form button.rbutton.rbutton--outline'
   end
 
   test 'an empty answer changes nothing' do

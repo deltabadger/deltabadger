@@ -2,22 +2,15 @@
 <%# Hidden without the data API (no IBKR catalog source on self-hosted) — except for an
     existing connection, which stays visible so it can be managed/disconnected. %>
 <% if StockTradingSettings.ibkr_available? || ibkr_key %>
-  <div class="widget widget--settings">
-    <h4 class="modal__title">
-      <%= t('settings.ibkr.widget_title') %>:
-      <% if ibkr_key&.correct? %>
-        <span class="text-success">CONNECTED</span>
-      <%# Checked before pending_activation? — past the deadline the wizard has given up on this
-          registration, and a PENDING badge here would contradict it. %>
-      <% elsif ibkr_key&.activation_stalled? %>
-        <span class="text-danger">ACTION NEEDED</span>
-      <% elsif ibkr_key&.pending_activation? %>
-        <span class="text-warning">PENDING</span>
-      <% else %>
-        <span class="text-danger">OFF</span>
-      <% end %>
-    </h4>
+  <%# Stalled is checked before pending — past the deadline the wizard has given up on this
+      registration, and a PENDING badge here would contradict it. %>
+  <% status = if ibkr_key&.correct? then 'CONNECTED'
+              elsif ibkr_key&.activation_stalled? then 'ACTION NEEDED'
+              elsif ibkr_key&.pending_activation? then 'PENDING'
+              else 'OFF'
+              end %>
+  <%= settings_row t('settings.ibkr.widget_title'), status, id: 'ibkr_settings' do %>
     <%= link_to(ibkr_key ? t('settings.ibkr.manage') : t('settings.ibkr.connect_cta'),
-                settings_ibkr_connect_path, class: 'button button--sky button--large') %>
-  </div>
+                settings_ibkr_connect_path, class: 'rbutton rbutton--outline', data: { turbo_frame: '_top' }) %>
+  <% end %>
 <% end %>

@@ -1,68 +1,47 @@
-<%= turbo_frame_tag "stocks_settings" do %>
-  <div class="widget widget--settings">
-    <% if StockTradingSettings.deltabadger? %>
-      <%# Hosted: the catalog comes from the platform; nothing to manage here.
-          Trading keys are per-user, entered in the bot-creation key step. %>
-      <h4 class="modal__title">
-        <%= t('settings.stocks.title') %>:
-        <span class="text-success">ON</span>
-      </h4>
-      <p style="text-align: center; margin-top: 3rem"><%= t('settings.stocks.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
-    <% else %>
-      <%# Self-hosted: the badge reflects catalog state (what users actually
-          get in the pickers), not the credential — a synced catalog stays ON
-          after a disconnect; the credential only keeps it refreshing. %>
-      <% is_configured = AppConfig.alpaca_configured? %>
-      <% catalog_active = StockTradingSettings.active? %>
-      <% stored_mode = AppConfig.get('alpaca_mode') %>
-      <% mode = stored_mode == 'paper' ? 'paper' : 'live' %>
-      <%# Unsaved on purpose: only the name and the venue id are wanted, for the card and its walkthrough. %>
-      <% alpaca = Exchanges::Alpaca.new(name: 'Alpaca') %>
-      <h4 class="modal__title">
-        <%= t('settings.stocks.title_html') %>:
-        <% if catalog_active %>
-          <span class="text-success">ON</span>
-        <% else %>
-          <span class="text-danger">OFF</span>
-        <% end %>
-      </h4>
-
-      <%# The same connect card as the bot wizard's key step. This credential is the container's
-          catalog-sync key, so it can be rotated while connected, and dropped. %>
-      <%= render layout: 'shared/connect_form', locals: {
-            title: t('bot.setup.connect_to', name: alpaca.name),
-            mark: 'svg/exchange-alpaca', mark_class: 'sbutton--exchange--alpaca',
-            path: settings_update_stocks_path, method: :patch,
-            form_data: { turbo_frame: "stocks_settings", controller: "form--html5-validations form--label-animations" },
-            actions: (if is_configured
-                        link_to t('settings.stocks.disconnect'), settings_disconnect_stocks_path,
-                                data: { turbo_method: :delete, turbo_frame: "stocks_settings" }, class: "button button--danger"
-                      end),
-            instructions_title: t('bot.setup.how_to_get_keys', exchange: alpaca.name),
-            instructions: render_api_key_instructions_for(alpaca)
-          } do |f| %>
-        <% if is_configured %>
-          <p class="set-api__note"><%= t('settings.stocks.configured', mode: stored_mode&.capitalize || 'Paper') %></p>
-        <% elsif catalog_active %>
-          <p class="set-api__note"><%= t('settings.stocks.not_refreshing') %></p>
-        <% end %>
-        <div class="set-api__mode" data-controller="form--segmented-field"
-             data-action="segmented:change->form--segmented-field#set">
-          <%= render 'shared/segmented', label: 'Mode', options: [
-                { value: 'paper', label: t('settings.stocks.mode_paper'), active: mode == 'paper' },
-                { value: 'live', label: t('settings.stocks.mode_live'), active: mode == 'live' }
-              ] %>
-          <%= f.hidden_field :alpaca_mode, value: mode, data: { 'form--segmented-field-target': 'field' } %>
-        </div>
-        <div class="form__row form__row--input">
-          <%= f.text_field :alpaca_api_key, autocomplete: "off", class: "form__input" %>
-          <%= f.label :alpaca_api_key, "API Key", class: "form__label" %>
-        </div>
-        <div class="form__row form__row--input">
-          <%= f.text_field :alpaca_api_secret, autocomplete: "off", class: "form__input" %>
-          <%= f.label :alpaca_api_secret, "API Secret", class: "form__label" %>
-        </div>
+<%= turbo_frame_tag 'stocks_settings', class: 'sitem' do %>
+  <% if StockTradingSettings.deltabadger? %>
+    <%# Hosted: the catalog comes from the platform; nothing to manage here.
+        Trading keys are per-user, entered in the bot-creation key step. %>
+    <%= settings_row 'Alpaca', t('settings.stocks.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %>
+  <% else %>
+    <%# Self-hosted: the hint reflects catalog state (what users actually get in the pickers), not
+        the credential — a synced catalog stays on after a disconnect; the credential only keeps
+        it refreshing. This credential is the container's catalog-sync key, so it can be rotated
+        while connected, and dropped. %>
+    <% is_configured = AppConfig.alpaca_configured? %>
+    <% stored_mode = AppConfig.get('alpaca_mode') %>
+    <% mode = stored_mode == 'paper' ? 'paper' : 'live' %>
+    <%# Unsaved on purpose: only the name and the venue id are wanted, for the walkthrough. %>
+    <% alpaca = Exchanges::Alpaca.new(name: 'Alpaca') %>
+    <% hint = if is_configured then t('settings.stocks.configured', mode: stored_mode&.capitalize || 'Paper')
+              elsif StockTradingSettings.active? then t('settings.stocks.not_refreshing')
+              end %>
+    <%= settings_row 'Alpaca', hint do %>
+      <% if is_configured %>
+        <%= render 'settings/confirm', label: t('settings.stocks.disconnect'), text: t('settings.index.api_key_confirmation'),
+                                       confirm: t('settings.stocks.disconnect'), url: settings_disconnect_stocks_path %>
       <% end %>
     <% end %>
-  </div>
+
+    <%= form_with url: settings_update_stocks_path, method: :patch, class: 'sform sform--stack sform--inset sitem',
+                  data: { turbo_frame: 'stocks_settings', controller: 'form--segmented-field',
+                          action: 'segmented:change->form--segmented-field#set' } do |f| %>
+      <%# A row of its own: segmented measures its room as its parent's width less its siblings. %>
+      <%= settings_row 'Mode', class: 'srow--flush' do %>
+        <%= render 'shared/segmented', label: 'Mode', options: [
+              { value: 'paper', label: t('settings.stocks.mode_paper'), active: mode == 'paper' },
+              { value: 'live', label: t('settings.stocks.mode_live'), active: mode == 'live' }
+            ] %>
+      <% end %>
+      <%= f.hidden_field :alpaca_mode, value: mode, data: { 'form--segmented-field-target': 'field' } %>
+      <%= f.text_field :alpaca_api_key, autocomplete: 'off', class: 'rinput rinput--outline rinput--text', placeholder: 'API Key', aria: { label: 'API Key' } %>
+      <%= f.text_field :alpaca_api_secret, autocomplete: 'off', class: 'rinput rinput--outline rinput--text', placeholder: 'API Secret', aria: { label: 'API Secret' } %>
+      <%= f.submit t('button.connect'), class: 'rbutton rbutton--outline',
+                   data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+      <details class="shelp">
+        <summary><%= t('bot.setup.how_to_get_keys', exchange: alpaca.name) %></summary>
+        <div class="settings__prose"><%= render_api_key_instructions_for(alpaca) %></div>
+      </details>
+    <% end %>
+  <% end %>
 <% end %>

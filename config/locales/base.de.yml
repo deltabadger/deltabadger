@@ -111,6 +111,18 @@ de:
         account: Konto
         sign_up: Registrieren
     settings:
+        sections:
+            mcp_server: 'MCP-Server'
+            profile: 'Profil'
+            preferences: 'Einstellungen'
+            security: 'Sicherheit'
+            instance: 'Instanz'
+            language: 'Sprache'
+            time_zone: 'Zeitzone'
+            change: 'Ändern'
+            no_keys: 'Noch keine API-Schlüssel.'
+            permissions: 'Berechtigungen'
+            provider: 'Anbieter'
         wash_sale:
             title: "Schutz der Verlustverrechnung"
             sentence_html: "Nach einem Verkauf mit Verlust das Asset %{select_html} nicht zurückkaufen"

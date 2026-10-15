@@ -152,8 +152,10 @@ Rails.application.routes.draw do
         locale = nil unless I18n.available_locales.map(&:to_s).include?(locale)
         locale.presence ? "/#{locale}/settings/connect" : '/settings/connect'
       }
-      get :connect
       get :account
+      get :api_keys
+      get :connect
+      get :mcp
       get :api
       patch :update_password
       patch :update_email
@@ -167,12 +169,8 @@ Rails.application.routes.draw do
       get :edit_two_fa
       patch :update_two_fa
       get 'api_key_permissions/:id', action: :api_key_permissions, as: :api_key_permissions
-      get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
       delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
       post :resync_assets
-      get :confirm_destroy_coingecko_key
-      delete :destroy_coingecko_key
-      post :update_coingecko_key
       patch :update_market_data
       delete :disconnect_market_data
       resource :platform_connection, only: %i[create destroy]
@@ -192,7 +190,6 @@ Rails.application.routes.draw do
       get :download_api_docs
       post :regenerate_api_token
       patch :update_advanced_bots
-      get 'confirm_revoke_mcp_client/:id', action: :confirm_revoke_mcp_client, as: :confirm_revoke_mcp_client
       delete 'revoke_mcp_client/:id', action: :revoke_mcp_client, as: :revoke_mcp_client
       patch 'update_client_tool_permissions/:id', action: :update_client_tool_permissions,
                                                   as: :update_client_tool_permissions

@@ -43,7 +43,7 @@ class Settings::ApiKeyPermissionsTest < ActionDispatch::IntegrationTest
   test 'the settings tag links to the permissions of an exchange that has instructions' do
     api_key = create(:api_key, user: @user, exchange: @kraken)
 
-    get settings_connect_path
+    get settings_api_keys_path
 
     assert_response :success
     assert_includes @response.body, settings_api_key_permissions_path(id: api_key.id)

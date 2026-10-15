@@ -26,49 +26,65 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
 
   # ---- the list -----------------------------------------------------------
 
-  test 'lists the connected client' do
-    get settings_api_path
+  test 'lists the connected client in both sections it holds a scope for' do
+    get settings_mcp_path
 
     assert_response :success
-    assert_select 'turbo-frame#connected_clients .connected-client', /Acme Connector/
+    assert_select 'turbo-frame#connected_clients .sclient', /Acme Connector/
+
+    get settings_api_path
+
+    assert_select 'turbo-frame#connected_clients .sclient', /Acme Connector/
   end
 
   # ---- the card -----------------------------------------------------------
   #
-  # A client card is the tool matrix at group level: a row per group, a column per surface.
-  # A switch appears wherever the client holds the scope; both surfaces carry every group.
+  # A client card is a switch per group of the section's surface. Both surfaces carry every group.
 
-  test 'a client with both scopes gets a switch per surface on every group' do
-    get settings_api_path
+  test 'a client with both scopes gets a switch on every group in each section' do
+    { settings_mcp_path => 'mcp', settings_api_path => 'rest' }.each do |path, surface|
+      get path
 
-    assert_select '.connected-client' do
-      assert_select 'tr[data-group]', AppConfig::TOOL_GROUPS.size
-      AppConfig::TOOL_GROUPS.each_key do |group|
-        assert_select "tr[data-group=#{group}] td[data-surface=mcp] form[action=?]", update_path, 1
-        assert_select "tr[data-group=#{group}] td[data-surface=rest] form[action=?]", update_path, 1 do
-          assert_select 'input[name=surface][value=rest]', 1
-          assert_select 'input[name=group][value=?]', group, 1
+      assert_select '.sclient' do
+        assert_select '.srow[data-group]', AppConfig::TOOL_GROUPS.size
+        AppConfig::TOOL_GROUPS.each_key do |group|
+          assert_select ".srow[data-group=#{group}][data-surface=#{surface}] form[action=?]", update_path, 1 do
+            assert_select 'input[name=surface][value=?]', surface, 1
+            assert_select 'input[name=group][value=?]', group, 1
+          end
         end
       end
     end
   end
 
-  test 'a client with only the mcp scope keeps the REST column, empty' do
+  test 'a client with only the mcp scope is listed under MCP alone' do
     @application.update!(scopes: 'mcp')
     @token.update!(scopes: 'mcp')
-    get settings_api_path
 
-    assert_select '.connected-client' do
-      assert_select 'td[data-surface=rest]', AppConfig::MCP_TOOL_GROUPS.size
-      assert_select 'td[data-surface=rest] form', 0
-      assert_select 'td[data-surface=mcp] form', AppConfig::MCP_TOOL_GROUPS.size
+    get settings_mcp_path
+    assert_select '.sclient form[action=?]', update_path, AppConfig::MCP_TOOL_GROUPS.size
+
+    get settings_api_path
+    assert_select '.sclient', 0
+  end
+
+  test 'a client with no scope at all is listed in both sections, so it can always be revoked' do
+    @application.update!(scopes: '')
+    @token.update!(scopes: '')
+
+    [settings_mcp_path, settings_api_path].each do |path|
+      get path
+      assert_select '.sclient', /Acme Connector/ do
+        assert_select 'form[action=?]', settings_revoke_mcp_client_path(@application), 1
+        assert_select 'form[action=?]', update_path, 0
+      end
     end
   end
 
   test 'a fully granted group is a checked switch that revokes' do
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select '.connected-client tr[data-group=read] td[data-surface=mcp]' do
+    assert_select '.sclient .srow[data-group=read][data-surface=mcp]' do
       assert_select '.toggle:not(.toggle--partial) input[type=checkbox][checked]', 1
       assert_select 'input[name=enabled][value=0]', 1
     end
@@ -76,18 +92,18 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
 
   test 'a group the client holds only part of renders as partial' do
     @client.update!(mcp_tools: %w[list_bots])
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select '.connected-client tr[data-group=read] td[data-surface=mcp]' do
+    assert_select '.sclient .srow[data-group=read][data-surface=mcp]' do
       assert_select '.toggle.toggle--partial input[type=checkbox][checked]', 1
       assert_select 'input[name=enabled][value=0]', 1, 'partial reads as on, so the click revokes'
     end
   end
 
   test 'a group the client has none of is an unchecked switch that grants' do
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select '.connected-client tr[data-group=trade] td[data-surface=mcp]' do
+    assert_select '.sclient .srow[data-group=trade][data-surface=mcp]' do
       assert_select '.toggle:not(.toggle--partial) input[type=checkbox]:not([checked])', 1
       assert_select 'input[name=enabled][value=1]', 1
     end
@@ -100,15 +116,15 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
     @user.set_mcp_tool_enabled('list_bots', true)
     @client.update!(mcp_tools: %w[list_bots])
 
-    get settings_api_path
-    assert_select '.connected-client tr[data-group=read] td[data-surface=mcp] .toggle:not(.toggle--partial) input[checked]', 1
+    get settings_mcp_path
+    assert_select '.sclient .srow[data-group=read][data-surface=mcp] .toggle:not(.toggle--partial) input[checked]', 1
 
     patch settings_update_mcp_tool_permissions_path, params: { tool_name: 'list_exchanges', enabled: '1' }
 
     assert_response :success
     assert_select 'turbo-stream[target=connected_clients]' do |streams|
       card = Nokogiri::HTML5.fragment(streams.first.at('template').inner_html)
-      assert_equal 1, card.css('.connected-client tr[data-group=read] td[data-surface=mcp] .toggle--partial').size,
+      assert_equal 1, card.css('.sclient .srow[data-group=read][data-surface=mcp] .toggle--partial').size,
                    'the card did not learn that the group grew past the grant'
     end
   end
@@ -174,11 +190,12 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
     assert_no_match(/Acme Connector/, response.body)
   end
 
-  test 'the revoke confirmation modal renders' do
-    get settings_confirm_revoke_mcp_client_path(id: @application.id)
+  test 'revoke asks first, in place, and says which section it came from' do
+    get settings_api_path
 
-    assert_response :success
-    assert_match 'Acme Connector', response.body
+    assert_select '.sclient details.sconfirm form[action=?]', settings_revoke_mcp_client_path(@application) do
+      assert_select 'input[name=surface][value=rest]', 1
+    end
   end
 
   # ---- a client that follows the user ----------------------------------------
@@ -188,11 +205,13 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
 
   test 'a following client shows on wherever the user has something on' do
     @client.update!(mcp_tools: nil, rest_tools: nil)
-    get settings_api_path
+    get settings_mcp_path
 
-    assert_select '.connected-client tr[data-group=read] td[data-surface=mcp] .toggle:not(.toggle--partial) input[checked]', 1
-    assert_select '.connected-client tr[data-group=trade] td[data-surface=mcp] input[type=checkbox]:not([checked])', 1
-    assert_select '.connected-client tr[data-group=read] td[data-surface=rest] input[type=checkbox]:not([checked])', 1
+    assert_select '.sclient .srow[data-group=read][data-surface=mcp] .toggle:not(.toggle--partial) input[checked]', 1
+    assert_select '.sclient .srow[data-group=trade][data-surface=mcp] input[type=checkbox]:not([checked])', 1
+
+    get settings_api_path
+    assert_select '.sclient .srow[data-group=read][data-surface=rest] input[type=checkbox]:not([checked])', 1
   end
 
   test 'switching a group off on a following client pins the rest of what the user has on' do

@@ -5,29 +5,28 @@
     second wording to keep in step, and the user meets both. What is only here is the list of what
     the rule is doing right now across every bot. %>
 <% locked = current_user.locked_assets %>
-<%= turbo_frame_tag 'wash_sale' do %>
-  <div class="widget widget--settings">
-    <h4 class="modal__title"><%= t('settings.wash_sale.title') %></h4>
+<%= turbo_frame_tag 'wash_sale', class: 'sitem' do %>
+  <div class="srow srow--block">
+    <div class="srow__text"><div class="srow__label"><%= t('settings.wash_sale.title') %></div></div>
 
-    <%# .setting-form is where this page's buttons get their width, exactly as in the name, email
-        and password widgets. Confirm is dead until an answer is picked — on a decided account one
-        radio is already checked, so it is live from the start. %>
-    <%= form_with url: settings_update_wash_sale_path, method: :patch, class: 'setting-form',
+    <%# Confirm is dead until an answer is picked — on a decided account one radio is already
+        checked, so it is live from the start. %>
+    <%= form_with url: settings_update_wash_sale_path, method: :patch, class: 'sform sform--stack',
                   data: { controller: 'form--checkbox-enables',
                           action: 'change->form--checkbox-enables#toggleSubmitButton',
                           turbo_frame: 'wash_sale' } do %>
       <%= render 'bots/wash_sale_prompts/question', checked: current_user.wash_sale_enabled %>
       <%= button_tag t('settings.wash_sale.confirm'), type: :submit,
                      disabled: !current_user.wash_sale_decided?,
-                     class: 'button button--sky',
+                     class: 'rbutton rbutton--outline',
                      data: { form__checkbox_enables_target: 'submit' } %>
     <% end %>
 
     <%# What the rule is doing right now, across every bot — the one place the whole picture is
         visible, since a bot's own panel only shows the names that bot trades. %>
     <% if current_user.wash_sale_enabled? %>
-      <div class="settings-prefs__notes">
-        <span class="label"><%= t('settings.wash_sale.locked_title') %></span>
+      <div class="srow__hint">
+        <b><%= t('settings.wash_sale.locked_title') %></b>
         <% if locked.any? %>
           <ul class="settings-locked">
             <% locked.sort_by { |entry| entry[:days_left] }.each do |entry| %>

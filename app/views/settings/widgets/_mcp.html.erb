@@ -1,26 +1,16 @@
-<%= turbo_frame_tag "mcp_settings" do %>
-  <div class="widget widget--settings">
-    <h4 class="modal__title"><%= t('settings.mcp.title') %></h4>
-    <p class="text-center" style="text-wrap: balance"><%= t('settings.mcp.description') %></p>
+<%= turbo_frame_tag 'mcp_settings' do %>
+  <h3 class="settings__heading settings__heading--first"><%= t('settings.sections.mcp_server') %></h3>
+  <p class="settings__intro"><%= t('settings.mcp.description') %></p>
 
-    <dl class="settings-kv">
-      <dt class="label">URL</dt>
-      <dd><%= render 'settings/widgets/copy_tag', value: AppConfig.mcp_url, id: 'mcp_url_display' %></dd>
-    </dl>
+  <%= settings_row 'URL' do %>
+    <%= render 'settings/widgets/copy_tag', value: AppConfig.mcp_url, id: 'mcp_url_display' %>
+  <% end %>
 
-    <%# Paper trading is MCP's alone — the REST endpoints place real orders — so it stays with the
-        MCP connection rather than joining the shared tool matrix below. %>
-    <%= form_with url: settings_update_mcp_dry_run_path, method: :patch,
-                  data: { controller: 'form--submit', turbo_frame: 'mcp_settings' }, class: 'switch-row' do |f| %>
-      <%= f.hidden_field :enabled, value: current_user.mcp_dry_run? ? '0' : '1', id: nil %>
-      <div>
-        <div class="switch-row__title"><%= t('settings.mcp.dry_run_title') %></div>
-        <p class="switch-row__hint"><%= t('settings.mcp.dry_run_description') %></p>
-      </div>
-      <label class="toggle" title="<%= t('settings.mcp.dry_run_label') %>">
-        <input type="checkbox" <%= 'checked' if current_user.mcp_dry_run? %> data-action="change->form--submit#submit" />
-        <div class="toggle__style"></div>
-      </label>
-    <% end %>
-  </div>
+  <%# Paper trading is MCP's alone — the REST endpoints place real orders — so it stays with the
+      MCP connection rather than joining the tool list below. %>
+  <% on = current_user.mcp_dry_run? %>
+  <%= settings_row t('settings.mcp.dry_run_title'), t('settings.mcp.dry_run_description') do %>
+    <%= render 'settings/switch', url: settings_update_mcp_dry_run_path, frame: 'mcp_settings',
+                                  state: (on ? :on : :off), enabled: (on ? '0' : '1'), title: t('settings.mcp.dry_run_label') %>
+  <% end %>
 <% end %>

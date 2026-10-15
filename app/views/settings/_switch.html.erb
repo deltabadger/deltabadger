@@ -1,0 +1,19 @@
+<%# A switch that saves itself: a form that submits on change, carrying whatever `fields` its
+    endpoint wants. `state` (:on, :partial, :off) is what the switch shows; `enabled` is what a
+    click sends, under `name`. The caller decides both, because a half-set switch means different
+    things to a user's own group — a click turns the rest on — and to a client's grant, where a
+    click revokes what is there. %>
+<%# The row is the hit area: a second label for the same checkbox, stretched over the row by CSS
+    (.sswitch__hit). Clicking the label, the hint or the empty middle of the row flips the switch. %>
+<% id = "switch-#{SecureRandom.hex(4)}" %>
+<%= form_with url: url, method: :patch, data: { controller: 'form--submit', turbo_frame: frame },
+              class: 'sswitch' do |f| %>
+  <% local_assigns.fetch(:fields, {}).each do |field, value| %><%= f.hidden_field field, value: value, id: nil %><% end %>
+  <%= f.hidden_field local_assigns.fetch(:name, :enabled), value: enabled, id: nil %>
+  <%= tag.label class: ['toggle', 'toggle--small', ('toggle--partial' if state == :partial)],
+                title: local_assigns[:title], aria: { label: local_assigns[:title] } do %>
+    <input type="checkbox" id="<%= id %>" <%= 'checked' if state != :off %> data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+  <% end %>
+  <label class="sswitch__hit" for="<%= id %>" aria-hidden="true"></label>
+<% end %>

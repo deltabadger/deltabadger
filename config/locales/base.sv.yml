@@ -111,6 +111,18 @@ sv:
         account: Konto
         sign_up: 'Skapa konto'
     settings:
+        sections:
+            mcp_server: 'MCP-server'
+            profile: 'Profil'
+            preferences: 'Inställningar'
+            security: 'Säkerhet'
+            instance: 'Instans'
+            language: 'Språk'
+            time_zone: 'Tidszon'
+            change: 'Ändra'
+            no_keys: 'Inga API-nycklar än.'
+            permissions: 'Behörigheter'
+            provider: 'Leverantör'
         wash_sale:
             title: "Skydd för förlustavdrag"
             sentence_html: "Köp inte tillbaka tillgången förrän %{select_html} efter en försäljning med förlust"
