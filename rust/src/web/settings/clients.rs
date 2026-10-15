@@ -3,13 +3,11 @@ use crate::{
     codec::{format_time, parse_time},
     web::{
         auth, flash,
-        layout::{self, Ctx, Page},
+        layout::{self, Ctx},
         oauth::{TOOL_DEFAULTS, TOOL_GROUPS},
-        shell::{self, Shell},
         turbo, App, WebError,
     },
 };
-use askama::Template;
 use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
@@ -17,26 +15,6 @@ use axum::{
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde_json::Value;
 const LIVE:&str="SELECT a.id FROM oauth_applications a WHERE COALESCE(a.personal_access_token,0)=0 AND (EXISTS(SELECT 1 FROM oauth_access_tokens t WHERE t.application_id=a.id AND t.resource_owner_id=?1 AND t.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM oauth_access_grants g WHERE g.application_id=a.id AND g.resource_owner_id=?1 AND g.revoked_at IS NULL AND datetime(g.created_at,'+'||g.expires_in||' seconds')>datetime(?2)))";
-#[derive(Clone)]
-pub struct Client {
-    pub id: i64,
-    pub name: String,
-    pub date: String,
-    pub groups: Vec<Group>,
-}
-#[derive(Clone)]
-pub struct Group {
-    pub name: &'static str,
-    pub label: String,
-    pub switches: Vec<Switch>,
-}
-#[derive(Clone)]
-pub struct Switch {
-    pub surface: &'static str,
-    pub present: bool,
-    pub state: &'static str,
-    pub enabled: &'static str,
-}
 pub fn enabled(c: &Connection, user: i64, surface: &str) -> Result<Vec<String>, WebError> {
     let column = if surface == "mcp" {
         "mcp_settings"
@@ -123,143 +101,42 @@ fn connected(c: &Connection, ctx: &Ctx, user: i64, id: i64) -> Result<bool, WebE
         |r| r.get(0),
     )?)
 }
-fn load(c: &Connection, ctx: &Ctx, user: i64) -> Result<Vec<Client>, WebError> {
+/// The live clients of one surface: every one except a client holding only the other surface's scope,
+/// so no client is ever missing from both lists (one the user cannot see is one they cannot revoke).
+fn load(c: &Connection, ctx: &Ctx, user: i64, surface: &str) -> Result<Vec<super::sections::Client>, WebError> {
     let mut statement=c.prepare(&format!("SELECT id,name,created_at,scopes FROM oauth_applications WHERE id IN ({LIVE}) ORDER BY created_at DESC"))?;
     let rows = statement
-        .query_map((user, format_time(ctx.now)), |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-            ))
-        })?
+        .query_map((user, format_time(ctx.now)), |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?
         .collect::<Result<Vec<_>, _>>()?;
+    let (own, other) = if surface == "mcp" { ("mcp", "api") } else { ("api", "mcp") };
     let mut clients = vec![];
     for (id, name, created, scopes) in rows {
+        let holds = |scope: &str| scopes.split_whitespace().any(|s| s == scope);
+        if holds(other) && !holds(own) { continue; }
         let mut groups = vec![];
-        for (group, tools) in TOOL_GROUPS {
-            let mut switches = vec![];
-            for surface in ["mcp", "rest"] {
-                let (granted, _) = grants(c, user, id, surface)?;
-                let available = enabled(c, user, surface)?;
-                let here = granted
-                    .iter()
-                    .filter(|name| tools.contains(&name.as_str()))
-                    .collect::<Vec<_>>();
+        if holds(own) {
+            let (granted, _) = grants(c, user, id, surface)?;
+            let available = enabled(c, user, surface)?;
+            for (group, tools) in TOOL_GROUPS {
+                let here = granted.iter().filter(|name| tools.contains(&name.as_str())).collect::<Vec<_>>();
                 let state = if here.is_empty() {
                     "off"
-                } else if available
-                    .iter()
-                    .filter(|name| tools.contains(&name.as_str()))
-                    .all(|name| here.contains(&name))
-                {
+                } else if available.iter().filter(|name| tools.contains(&name.as_str())).all(|name| here.contains(&name)) {
                     "on"
                 } else {
                     "partial"
                 };
-                switches.push(Switch {
-                    surface,
-                    present: scopes
-                        .split_whitespace()
-                        .any(|scope| scope == if surface == "mcp" { "mcp" } else { "api" }),
-                    state,
-                    enabled: if here.is_empty() { "1" } else { "0" },
-                });
+                groups.push((group, state, if here.is_empty() { "1" } else { "0" }));
             }
-            groups.push(Group {
-                name: group,
-                label: ctx.t(&format!("settings.mcp.tools_{group}")),
-                switches,
-            });
         }
-        let date = parse_time(&created)
-            .map_err(|_| WebError::Config("invalid client creation date".into()))?;
-        // Rails I18n's time.formats.short; the locale formatter is pinned in the page grid.
-        clients.push(Client {
-            id,
-            name,
-            date: date.format("%d %b %H:%M").to_string(),
-            groups,
-        });
+        let date = parse_time(&created).map_err(|_| WebError::Config("invalid client creation date".into()))?;
+        clients.push(super::sections::Client { id, name, date: date.format("%d %b %H:%M").to_string(), scoped: holds(own), groups });
     }
     Ok(clients)
 }
-#[derive(Template)]
-#[template(path = "settings/connected_clients.html")]
-struct Widget<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    clients: Vec<Client>,
-}
-pub fn widget(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, WebError> {
-    Ok(Widget {
-        v: ctx,
-        csrf,
-        clients: load(c, ctx, user)?,
-    }
-    .render()?)
-}
-#[derive(Template)]
-#[template(path = "settings/revoke_client.html")]
-struct Revoke<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    id: i64,
-    name: String,
-}
-pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else {
-        return Ok(auth::unauthenticated(&ctx));
-    };
-    let id = ctx
-        .params
-        .route_path
-        .rsplit('/')
-        .next()
-        .and_then(|s| s.parse::<i64>().ok());
-    let Some(id) = id else {
-        return Ok(layout::missing());
-    };
-    let inner = app.clone();
-    let v = ctx.clone();
-    let found = app
-        .db(move |c| {
-            if !connected(c, &v, user.id, id)? {
-                return Ok(None);
-            }
-            Ok(Some((
-                c.query_row(
-                    "SELECT name FROM oauth_applications WHERE id=?1",
-                    [id],
-                    |r| r.get::<_, String>(0),
-                )?,
-                Shell::load(c, &inner, &user)?,
-            )))
-        })
-        .await?;
-    let Some((name, shell)) = found else {
-        return Ok(layout::missing());
-    };
-    let csrf = ctx.csrf_token();
-    shell::application(
-        &ctx,
-        &csrf,
-        ctx.user()
-            .ok_or_else(|| WebError::Config("missing client owner".into()))?,
-        &shell,
-        Page {
-            status: StatusCode::OK,
-            body: Revoke {
-                v: &ctx,
-                csrf: &csrf,
-                id,
-                name,
-            }
-            .render()?,
-            flash_now: vec![],
-        },
-    )
+/// settings/widgets/_connected_clients for one surface.
+pub fn widget(c: &Connection, ctx: &Ctx, csrf: &str, user: i64, surface: &str) -> Result<String, WebError> {
+    Ok(super::sections::connected_clients(ctx, csrf, surface, &load(c, ctx, user, surface)?))
 }
 pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
@@ -278,7 +155,12 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(id) = id else {
         return Ok(layout::missing());
     };
-    let surface = ctx.params.form("surface").unwrap_or("").to_string();
+    // Revoke answers the section it came from (SettingsController#surface_param); a grant names its own.
+    let surface = match ctx.params.form("surface").unwrap_or("") {
+        "rest" => "rest".to_string(),
+        _ if revoke => "mcp".to_string(),
+        other => other.to_string(),
+    };
     let group = ctx.params.form("group").unwrap_or("").to_string();
     if !revoke
         && (!["mcp", "rest"].contains(&surface.as_str())
@@ -317,7 +199,7 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
    // A NULL list becomes explicit on the first edit, even when it reads the same (ActiveRecord: nil != []).
    if following||next!=current{tx.execute(&format!("UPDATE connected_clients SET {column}=?1,updated_at=?2 WHERE user_id=?3 AND oauth_application_id=?4"),(serde_json::to_string(&next).map_err(|_|WebError::Config("cannot encode client grants".into()))?,&now,user.id,id))?;}
   }
-  let body=widget(&tx,&v,&token,user.id)?;tx.commit()?;Ok(Some(body))
+  let body=widget(&tx,&v,&token,user.id,&surface)?;tx.commit()?;Ok(Some(body))
  }).await?;
     let Some(body) = body else {
         return Ok(layout::missing());

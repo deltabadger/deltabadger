@@ -3,14 +3,17 @@ pub mod account;
 pub mod confirmation;
 pub mod api;
 pub mod clients;
+pub mod dialog;
 pub mod keys;
 pub mod validator;
 pub mod mail;
 pub mod preferences;
+pub mod sections;
 mod qr;
 pub mod tax;
 pub mod two_fa;
 pub mod view;
+pub use dialog::SECTIONS;
 use super::{
     auth,
     layout::{self, Ctx},
@@ -34,15 +37,12 @@ pub async fn show(
     }
     match ctx.params.route_path.as_str() {
         "/settings/edit_two_fa" => two_fa::handle(app, ctx, false).await,
-        p if p.starts_with("/settings/confirm_revoke_mcp_client/") => clients::show(app, ctx).await,
-        "/settings/api" => api::show(app, ctx).await,
-        "/settings/connect" => keys::show(app, ctx).await,
-        p if p.starts_with("/settings/confirm_destroy_api_key/")
-            || p.starts_with("/settings/api_key_permissions/") =>
-        {
-            keys::modal(app, ctx).await
-        }
         "/settings/account" => view::account(&app, &ctx, StatusCode::OK, None, vec![]).await,
+        "/settings/api_keys" => keys::show_keys(app, ctx).await,
+        "/settings/connect" => keys::show(app, ctx).await,
+        "/settings/mcp" => api::show(app, ctx, "mcp").await,
+        "/settings/api" => api::show(app, ctx, "rest").await,
+        p if p.starts_with("/settings/api_key_permissions/") => keys::modal(app, ctx).await,
         _ => Ok(layout::not_ported_response(
             &ctx.method,
             &ctx.params.fullpath,

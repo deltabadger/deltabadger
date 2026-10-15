@@ -5,7 +5,9 @@
     click revokes what is there. %>
 <%# The row is the hit area: a second label for the same checkbox, stretched over the row by CSS
     (.sswitch__hit). Clicking the label, the hint or the empty middle of the row flips the switch. %>
-<% id = "switch-#{SecureRandom.hex(4)}" %>
+<%# The id is what makes this switch unique on the page — where it posts and what it carries — so
+    it is the same on every render (a random one would differ between two renders of one page). %>
+<% id = ['switch', url, *local_assigns.fetch(:fields, {}).values].join(' ').parameterize %>
 <%= form_with url: url, method: :patch, data: { controller: 'form--submit', turbo_frame: frame },
               class: 'sswitch' do |f| %>
   <% local_assigns.fetch(:fields, {}).each do |field, value| %><%= f.hidden_field field, value: value, id: nil %><% end %>

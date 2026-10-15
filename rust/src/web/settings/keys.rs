@@ -356,18 +356,6 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
 }
 
-#[derive(askama::Template)]
-#[template(path = "settings/api_keys.html")]
-struct KeysView<'a> {
-    v: &'a Ctx,
-    trading: Vec<ListKey>,
-    withdrawal: Vec<ListKey>,
-}
-struct ListKey {
-    id: i64,
-    name: String,
-    instructions: bool,
-}
 fn lookup(locale: &str, key: &str) -> Option<&'static str> {
     for language in [locale, i18n::DEFAULT] {
         let key = format!("{language}.{key}");
@@ -377,183 +365,122 @@ fn lookup(locale: &str, key: &str) -> Option<&'static str> {
     }
     None
 }
-pub fn list(c: &Connection, ctx: &Ctx, user: i64) -> Result<String, WebError> {
+/// settings/widgets/_api_keys for `user`.
+pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, WebError> {
     let mut s=c.prepare("SELECT k.id,e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 ORDER BY k.id")?;
     let rows = s
-        .query_map([user], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, i64>(3)?,
-            ))
-        })?
+        .query_map([user], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    let mut trading = vec![];
-    let mut withdrawal = vec![];
-    for (id, name, venue, kind) in rows {
-        let name_id = venue
-            .strip_prefix("Exchanges::")
-            .unwrap_or("")
-            .to_lowercase();
-        let prefix = if kind == 1 {
-            "withdrawal_api"
-        } else {
-            "bot.api"
-        };
-        let instructions = lookup(ctx.locale, &format!("{prefix}.{name_id}.instructions"))
-            .is_some()
-            || lookup(
-                ctx.locale,
-                &format!("{prefix}.{name_id}.instructions.0.text_html"),
-            )
-            .is_some();
-        let key = ListKey {
-            id,
-            name,
-            instructions,
-        };
-        if kind == 1 {
-            withdrawal.push(key)
-        } else {
-            trading.push(key)
-        }
-    }
-    Ok(KeysView {
-        v: ctx,
-        trading,
-        withdrawal,
-    }
-    .render()?)
+    let keys: Vec<super::sections::Key> = rows
+        .into_iter()
+        .map(|(id, name, venue, kind)| {
+            let name_id = crate::tracker::rows::name_id(&venue);
+            let prefix = if kind == 1 { "withdrawal_api" } else { "bot.api" };
+            let instructions = lookup(ctx.locale, &format!("{prefix}.{name_id}.instructions")).is_some()
+                || lookup(ctx.locale, &format!("{prefix}.{name_id}.instructions.0.text_html")).is_some();
+            super::sections::Key { id, name, name_id, read_only: kind == 2, withdrawal: kind == 1, instructions }
+        })
+        .collect();
+    Ok(super::sections::api_keys(ctx, csrf, &keys))
 }
-#[derive(askama::Template)]
-#[template(path = "settings/connect.html")]
-struct Connect<'a> {v:&'a Ctx,admin:bool,keys:String,stocks:String,market_data:String}
-#[derive(Template)]
-#[template(path="settings/stocks.html")]
-struct Stocks<'a>{v:&'a Ctx,csrf:&'a str,configured:bool,catalog_active:bool,paper:bool,mode:String,hosted:bool,hosted_note:String,configured_note:String,connect_alpaca:String,instructions_alpaca:String,instructions_alpaca_body:String}
-#[derive(Template)]
-#[template(path="settings/market_data.html")]
-struct MarketData<'a>{v:&'a Ctx,csrf:&'a str,configured:bool,selected:String,coingecko:bool,deltabadger:bool,has_coingecko_key:bool,hosted:bool,hosted_note:String,platform_connected:bool,platform_note:String,connect_coingecko:String,connect_platform:String,instructions_coingecko:String}
+/// settings/widgets/_ibkr: shown with the data API, or for a connection there already is.
+fn ibkr(c: &Connection, app: &App, ctx: &Ctx, user: i64) -> Result<Option<String>, WebError> {
+    let key: Option<(i64, String)> = c.query_row("SELECT k.status,k.updated_at FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr' ORDER BY k.id LIMIT 1", [user], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    if !app.config.market_data_url && key.is_none() { return Ok(None); }
+    // ApiKey::ACTIVATION_DEADLINE: past it the wizard has given up on the registration.
+    let stalled = |updated: &str| crate::codec::parse_time(updated).is_ok_and(|at| at <= ctx.now - chrono::Duration::days(14));
+    let status = match &key {
+        Some((1, _)) => "CONNECTED",
+        Some((3, updated)) if stalled(updated) => "ACTION NEEDED",
+        Some((3, _)) => "PENDING",
+        _ => "OFF",
+    };
+    let control = format!("\n    <a class=\"rbutton rbutton--outline\" data-turbo-frame=\"_top\" href=\"{}\">{}</a>\n", crate::web::i18n::escape(&ctx.path("/settings/ibkr_connect")), ctx.t(if key.is_some() { "settings.ibkr.manage" } else { "settings.ibkr.connect_cta" }));
+    Ok(Some(super::dialog::row(&ctx.t("settings.ibkr.widget_title"), Some(status), "", " id=\"ibkr_settings\"", None, Some(&control))))
+}
 fn connection_widgets(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<(String,String),WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
     let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::ruby::blank(&s)));
     let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
-    let deltabadger=hosted||provider=="deltabadger";let coingecko=!hosted&&provider=="coingecko";
-    let configured=if !hosted&&deltabadger{has("market_data_url")?&&has("market_data_token")?}else{hosted||!crate::ruby::blank(&provider)};
+    let deltabadger=hosted||provider=="deltabadger";
     let platform_connected=has("platform_connected_at")?;
     let proxies:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'proxy_%')",[],|r|r.get(0))?;
-    let connect=|name:&str|i18n::t(v.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))]);
-    let instruction=|name:&str|i18n::t(v.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]);
     let hosted_note=|key:&str|i18n::t(v.locale,key,&[("provider_name",i18n::Arg::Text(&app.settings_market_provider_name))]);
-    let market=MarketData{v,csrf,configured,selected:if hosted{"deltabadger".into()}else{provider},coingecko,deltabadger,has_coingecko_key:has("coingecko_api_key")?,hosted,hosted_note:hosted_note("settings.market_data.deltabadger_configured"),platform_connected,platform_note:v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"}),connect_coingecko:connect("CoinGecko"),connect_platform:connect(&v.t("settings.platform.option")),instructions_coingecko:instruction("CoinGecko")}.render()?;
+    let coingecko_configured=!hosted&&provider=="coingecko";
+    // What the reader is in the middle of outranks what is stored; on a plain visit that is what is stored.
+    let selected=if coingecko_configured{"coingecko"}else if provider=="deltabadger"{"deltabadger"}else{""};
+    let market_note=hosted_note("settings.market_data.deltabadger_configured");
+    let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
+    let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
+    let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,coingecko_key_blank:!has("coingecko_api_key")?,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors:None});
     let catalog_active=deltabadger||c.query_row("SELECT EXISTS(SELECT 1 FROM tickers t JOIN exchanges e ON e.id=t.exchange_id WHERE t.available=1 AND e.type IN('Exchanges::Alpaca','Exchanges::Ibkr'))",[],|r|r.get::<_,bool>(0))?;
-    let stored_mode=setting("alpaca_mode")?;let mode=if stored_mode.as_deref()==Some("paper"){"paper"}else{"live"};
+    let stored_mode=setting("alpaca_mode")?;let paper=stored_mode.as_deref()==Some("paper");
     let display_mode=stored_mode.map(|mode|{let mut chars=mode.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+&chars.as_str().to_lowercase()).unwrap_or_default()}).unwrap_or_else(||"Paper".into());
-    let stocks=Stocks{v,csrf,configured:has("alpaca_api_key")?&&has("alpaca_api_secret")?,catalog_active,paper:mode=="paper",mode:mode.into(),hosted:deltabadger,hosted_note:hosted_note("settings.stocks.deltabadger_configured"),configured_note:i18n::t(v.locale,"settings.stocks.configured",&[("mode",i18n::Arg::Text(&display_mode))]),connect_alpaca:connect("Alpaca"),instructions_alpaca:instruction("Alpaca"),instructions_alpaca_body:format!("<p>{}</p>",lookup(v.locale,"bot.api.alpaca.instructions").unwrap_or(""))}.render()?;
+    let configured=has("alpaca_api_key")?&&has("alpaca_api_secret")?;
+    let configured_note=i18n::t(v.locale,"settings.stocks.configured",&[("mode",i18n::Arg::Text(&display_mode))]);
+    let not_refreshing=v.t("settings.stocks.not_refreshing");
+    let stocks_note=hosted_note("settings.stocks.deltabadger_configured");
+    let instructions=format!("<p>{}</p>",lookup(v.locale,"bot.api.alpaca.instructions").unwrap_or(""));
+    let hint=if configured{Some(configured_note.as_str())}else if catalog_active{Some(not_refreshing.as_str())}else{None};
+    let stocks=super::sections::stocks(v,csrf,&super::sections::Stocks{hosted:deltabadger.then_some(stocks_note.as_str()),configured,hint,paper,instructions:&instructions});
     Ok((stocks,market))
 }
+/// GET /settings/api_keys: the exchange keys.
+pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)); };
+    let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
+    let token = csrf.clone();
+    let (pane, shell, connect) = app.db(move |c| Ok((list(c, &v, &token, user.id)?, crate::web::shell::Shell::load(c, &inner, &user)?, super::view::connect_visible(c, &inner, &user)?))).await?;
+    let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
+    super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", connect, &format!("  {pane}\n"), StatusCode::OK, vec![])
+}
+/// GET /settings/connect: IBKR and, for an admin, the container's stock catalog and market data.
 pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else {
-        return Ok(auth::unauthenticated(&ctx));
-    };
-    let inner=app.clone();let v=ctx.clone();let csrf=ctx.csrf_token();let token=csrf.clone();
-    let (keys,shell,stocks,market_data)=app.db(move|c|{
-        let (stocks,market_data)=connection_widgets(c,&inner,&v,&token)?;
-        Ok((list(c,&v,user.id)?,crate::web::shell::Shell::load(c,&inner,&user)?,stocks,market_data))
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)); };
+    let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
+    let token = csrf.clone();
+    let (pane, shell, connect) = app.db(move |c| {
+        let ibkr = ibkr(c, &inner, &v, user.id)?;
+        let mut pane = String::new();
+        if ibkr.is_some() || user.admin {
+            pane.push_str(&format!("    <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n  {}\n", v.t("settings.stocks.title"), ibkr.unwrap_or_default()));
+            if user.admin {
+                let (stocks, market) = connection_widgets(c, &inner, &v, &token)?;
+                pane.push_str(&format!("  {stocks}\n\n{market}\n"));
+            }
+        }
+        Ok((pane, crate::web::shell::Shell::load(c, &inner, &user)?, super::view::connect_visible(c, &inner, &user)?))
     }).await?;
-    let user=ctx.user().ok_or_else(||WebError::Config("missing key owner".into()))?;
-    let body=Connect{v:&ctx,admin:user.admin,keys,stocks,market_data}.render()?;
-    crate::web::shell::application(
-        &ctx,
-        &csrf,
-        user,
-        &shell,
-        crate::web::layout::Page {
-            status: StatusCode::OK,
-            body,
-            flash_now: vec![],
-        },
-    )
+    let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
+    super::view::section_page(&ctx, &csrf, user, &shell, "connect", connect, &pane, StatusCode::OK, vec![])
 }
-#[derive(askama::Template)]
-#[template(path = "settings/delete_key.html")]
-struct DeleteKey<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    id: i64,
-    name: String,
-}
-#[derive(askama::Template)]
-#[template(path = "settings/key_permissions.html")]
-struct Permissions {
-    instructions_alpaca: String,
-    instructions: String,
-}
+/// GET /settings/api_key_permissions/:id: a key's walkthrough in the pane, the sidebar on API keys.
 pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
         return Ok(auth::unauthenticated(&ctx));
     };
-    let id = ctx
-        .params
-        .route_path
-        .rsplit('/')
-        .next()
-        .and_then(|s| s.parse::<i64>().ok());
-    let Some(id) = id else {
+    let Some(id) = ctx.params.route_path.rsplit('/').next().and_then(|s| s.parse::<i64>().ok()) else {
         return Ok(crate::web::layout::missing());
     };
     let inner = app.clone();
-    let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;key.map(|k|Ok((k,crate::web::shell::Shell::load(c,&inner,&user)?))).transpose()}).await?;
-    let Some(((name, venue, _kind), shell)) = found else {
+    let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;key.map(|k|Ok((k,crate::web::shell::Shell::load(c,&inner,&user)?,super::view::connect_visible(c,&inner,&user)?))).transpose()}).await?;
+    let Some(((name, venue, _kind), shell, connect)) = found else {
         return Ok(crate::web::layout::missing());
     };
+    if venue != "Exchanges::Alpaca" {
+        return Ok(crate::web::layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref()));
+    }
     let csrf = ctx.csrf_token();
-    let body = if ctx
-        .params
-        .route_path
-        .starts_with("/settings/confirm_destroy_api_key/")
-    {
-        DeleteKey {
-            v: &ctx,
-            csrf: &csrf,
-            id,
-            name,
-        }
-        .render()?
-    } else {
-        if venue != "Exchanges::Alpaca" {
-            return Ok(crate::web::layout::not_ported_response(
-                &ctx.method,
-                &ctx.params.fullpath,
-                ctx.turbo_frame.as_deref(),
-            ));
-        }
-        Permissions {
-            instructions_alpaca: i18n::t(
-                ctx.locale,
-                "bot.setup.how_to_get_keys",
-                &[("exchange", i18n::Arg::Text(&name))],
-            ),
-            instructions: format!(
-                "<p>{}</p>",
-                lookup(ctx.locale, "bot.api.alpaca.instructions").unwrap_or("")
-            ),
-        }
-        .render()?
-    };
-    crate::web::shell::application(
-        &ctx,
-        &csrf,
-        ctx.user()
-            .ok_or_else(|| WebError::Config("missing key owner".into()))?,
-        &shell,
-        crate::web::layout::Page {
-            status: StatusCode::OK,
-            body,
-            flash_now: vec![],
-        },
-    )
+    let pane = format!(
+        "  <a class=\"settings__back\" href=\"{}\">\n    {}{}\n</a>  <h3 class=\"settings__heading\">{}</h3>\n  <div class=\"settings__prose\"><p>{}</p></div>\n",
+        i18n::escape(&ctx.path("/settings/api_keys")),
+        super::dialog::BACK,
+        ctx.t("settings.index.api_keys_section"),
+        i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", i18n::Arg::Text(&name))]),
+        lookup(ctx.locale, "bot.api.alpaca.instructions").unwrap_or("")
+    );
+    let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
+    super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", connect, &pane, StatusCode::OK, vec![])
 }
 pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
@@ -570,6 +497,7 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     };
     let inner = app.clone();
     let v = ctx.clone();
+    let csrf = ctx.csrf_token();
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let key:Option<(i64,i64)>=tx.query_row("SELECT exchange_id,key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;let Some((exchange,kind))=key else{return Ok(None);};
@@ -582,13 +510,13 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id))?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
-  let body=list(&tx,&v,user.id)?;tx.commit()?;inner.wake_engine();Ok(Some(Ok(body)))
+  let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;inner.wake_engine();Ok(Some(Ok(body)))
  }).await?;
     match outcome {
         None => Ok(crate::web::layout::missing()),
         Some(Ok(body)) => Ok((
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-            body + "\n",
+            [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+            turbo::stream("replace", "api_keys", &body),
         )
             .into_response()),
         Some(Err(reason)) => {

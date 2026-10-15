@@ -1,5 +1,5 @@
 <%= turbo_frame_tag 'update_name_form', class: 'sitem' do %>
-  <%= settings_row t('settings.index.name_section'), current_user.errors[:name].to_sentence.presence do %>
+  <%= settings_row t('settings.index.name_section') do %>
     <%= form_with model: current_user, url: settings_update_name_path, class: 'sform', data: { turbo_frame: 'update_name_form' } do |f| %>
       <%= f.text_field :name, class: 'rinput rinput--outline rinput--text', required: true, pattern: User::Name::PATTERN, autocomplete: 'name',
                               aria: { label: t('settings.index.name_section') } %>

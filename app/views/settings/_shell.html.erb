@@ -6,8 +6,8 @@
     page alone. Visited as a page (an old link, the IBKR wizard's way back) nothing is behind it,
     so closing goes to the bots. %>
 <%= turbo_frame_tag 'modal' do %>
-  <dialog class="dialog sdialog" data-controller="modal--base" data-action="click->modal--base#clickOutside"
-          <%= "data-modal--base-close-url-value=#{bots_path}" unless turbo_frame_request? %>>
+  <%= tag.dialog class: 'dialog sdialog', data: { controller: 'modal--base', action: 'click->modal--base#clickOutside',
+                                                  'modal--base-close-url-value': (bots_path unless turbo_frame_request?) } do %>
     <div class="settings">
       <%= button_tag type: 'button', class: 'settings__close', aria: { label: t('button.close') },
                      data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
@@ -32,5 +32,5 @@
         </div>
       <% end %>
     </div>
-  </dialog>
+  <% end %>
 <% end %>

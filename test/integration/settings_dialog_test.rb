@@ -92,7 +92,7 @@ class SettingsDialogTest < ActionDispatch::IntegrationTest
     patch settings_update_two_fa_path, params: { user: { otp_code_token: '000000' } }
 
     assert_response :unprocessable_entity
-    assert_select 'turbo-frame#two_fa .sform__error'
+    assert_select 'turbo-frame#two_fa .form__info--invalid'
   end
 
   test 'removing a key asks first, in place, and answers with the list' do
@@ -156,10 +156,19 @@ class SettingsLocaleChangeTest < ActionDispatch::IntegrationTest
     assert_select 'turbo-stream[action=reload][target=?]', '/pl/settings/account'
   end
 
-  test 'a foreign or unknown referer can only land on settings' do
-    patch settings_update_locale_path, params: { user: { locale: 'pl' } },
-                                       headers: { 'Referer' => 'https://evil.example/nowhere' }, as: :turbo_stream
+  test 'only the referer path is used, swapping the locale prefix' do
+    patch settings_update_locale_path(locale: 'de'), params: { user: { locale: 'en' } },
+                                                     headers: { 'Referer' => 'https://evil.example/de/tracker?x=1' }, as: :turbo_stream
 
+    assert_select 'turbo-stream[action=reload][target=?]', '/tracker?settings=account'
+  end
+
+  test 'a protocol-relative or missing referer lands on settings, never off-site' do
+    patch settings_update_locale_path, params: { user: { locale: 'pl' } },
+                                       headers: { 'Referer' => 'http://www.example.com//evil.example/x' }, as: :turbo_stream
+    assert_select 'turbo-stream[action=reload][target=?]', '/pl/settings/account'
+
+    patch settings_update_locale_path, params: { user: { locale: 'pl' } }, as: :turbo_stream
     assert_select 'turbo-stream[action=reload][target=?]', '/pl/settings/account'
   end
 

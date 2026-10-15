@@ -9,24 +9,12 @@ use crate::{
         turbo, App, WebError,
     },
 };
-use askama::Template;
 use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
 use qrcode::Color;
 use rusqlite::{Transaction, TransactionBehavior};
-#[derive(Template)]
-#[template(path = "settings/two_fa.html")]
-struct TwoFa<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    enabled: bool,
-    invalid: bool,
-    status_label: String,
-    button: String,
-    qr: String,
-}
 /// ROTP::Base32.random's shape: 32 characters of base32, 160 random bits.
 pub(crate) fn new_seed() -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -118,40 +106,24 @@ pub async fn handle(app: App, ctx: Ctx, write: bool) -> Result<Response, WebErro
         })
         .await?;
     if valid {
-        flash::set(
+        let flash = flash::render(&flash::take(
             &ctx.session,
-            flash::NOTICE,
-            ctx.t(if user.otp_enabled {
-                "settings.two_fa.enabled"
-            } else {
-                "settings.two_fa.disabled"
-            }),
-        );
+            &[(flash::NOTICE, ctx.t(if user.otp_enabled { "settings.two_fa.enabled" } else { "settings.two_fa.disabled" }))],
+        ))?;
         return Ok((
             [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
-            turbo::refresh(),
+            turbo::stream("replace", "two_fa", &super::sections::two_fa(&ctx, user.otp_enabled)) + &turbo::prepend_flash(flash.trim_end()),
         )
             .into_response());
     }
     let csrf = ctx.csrf_token();
-    let body = TwoFa {
-        v: &ctx,
-        csrf: &csrf,
-        enabled: user.otp_enabled,
-        invalid: write,
-        status_label: ctx.t(if user.otp_enabled {
-            "helpers.label.settings.enabled"
-        } else {
-            "helpers.label.settings.disabled"
-        }),
-        button: ctx.t(if user.otp_enabled {
-            "helpers.label.settings.disable_two_fa"
-        } else {
-            "helpers.label.settings.enable_two_fa"
-        }),
-        qr: qr(&ctx, &user, &seed)?,
-    }
-    .render()?;
+    // The wrong code is the field's own error, as `errors.add(:otp_code_token, …)` puts it.
+    let error = write.then(|| {
+        let text = ctx.t("errors.messages.wrong_two_fa_token");
+        let mut chars = text.chars();
+        chars.next().map(|first| first.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default()
+    });
+    let body = super::sections::two_fa_open(&ctx, &csrf, user.otp_enabled, &qr(&ctx, &user, &seed)?, error.as_ref());
     shell::application(
         &ctx,
         &csrf,

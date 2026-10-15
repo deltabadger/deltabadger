@@ -542,18 +542,22 @@ class SettingsController < ApplicationController
     render turbo_stream: [turbo_stream.replace(frame, partial:), turbo_stream_prepend_flash]
   end
 
-  # The page the dialog was opened over, in the new language, with the dialog open on it again.
-  # Rebuilt from the recognised route rather than copied from the Referer, so it can only ever be
-  # one of this app's own pages. A settings page has nothing behind it and stays itself.
+  # The page the dialog was opened over, in the new language, with the dialog open on it again. Only
+  # the Referer's PATH is used, and only one that starts with a single slash, so the reload can never
+  # leave this app. A settings page has nothing behind it and stays itself.
   def page_behind_path(locale)
-    return settings_account_path(locale:) if request.referer.blank?
+    path = begin
+      URI(request.referer.to_s).path.to_s
+    rescue URI::InvalidURIError
+      ''
+    end
+    return settings_account_path(locale:) unless path.match?(%r{\A/(?!/)})
 
-    route = Rails.application.routes.recognize_path(URI(request.referer).path.presence || '/')
-    return settings_account_path(locale:) if route[:controller].to_s.start_with?('settings')
+    rest = path.sub(%r{\A/(?:#{I18n.available_locales.join('|')})(?=/|\z)}, '').presence || '/'
+    return settings_account_path(locale:) if rest.match?(%r{\A/settings(?:/|\z)})
 
-    url_for(**route, locale:, settings: 'account', only_path: true)
-  rescue URI::InvalidURIError, ActionController::RoutingError
-    settings_account_path(locale:)
+    prefix = locale ? "/#{locale}" : ''
+    "#{prefix.empty? || rest != '/' ? "#{prefix}#{rest}" : prefix}?settings=account"
   end
 
   def surface_param

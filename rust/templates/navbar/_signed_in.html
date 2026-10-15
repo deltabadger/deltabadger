@@ -39,9 +39,7 @@
 <a class="menu-mobile__item menu-mobile__item--bots {% if v.current_page(shell.bots_path()) %}menu-mobile__item--active{% endif %}" href="{{ v.path(shell.bots_path()) }}">{{ v.t(shell.bots_label())|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--tracker {% if v.current_page("/tracker") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/tracker") }}">{{ v.t("links.tracker")|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--rules {% if v.current_page("/rules") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/rules") }}">{{ v.t("links.rules")|safe }}
-</a><a class="menu-mobile__item menu-mobile__item--account {% if v.current_page("/settings/account") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/account") }}">{{ v.t("links.account")|safe }}
-</a><a class="menu-mobile__item menu-mobile__item--connections {% if v.current_page("/settings/connect") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/connect") }}">{{ v.t("links.connections")|safe }}
-</a><a class="menu-mobile__item menu-mobile__item--api {% if v.current_page("/settings/api") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/api") }}">{{ v.t("links.api")|safe }}
+</a><a class="menu-mobile__item menu-mobile__item--settings" data-turbo-frame="modal" href="{{ v.path("/settings/account") }}">{{ v.t("links.settings")|safe }}
 </a>{% call hide_balances_toggle("menu-mobile__item") %}{% endcall %}
 {% call display_currency_picker("menu-mobile__item") %}{% endcall %}
 <div class="menu-mobile__divider"></div>
@@ -77,9 +75,7 @@
 
 </div>
 <div class="dropdown">
-<a class="dropdown__item" href="{{ v.path("/settings/account") }}">{{ v.t("links.account")|safe }}</a>
-<a class="dropdown__item" href="{{ v.path("/settings/connect") }}">{{ v.t("links.connections")|safe }}</a>
-<a class="dropdown__item" href="{{ v.path("/settings/api") }}">{{ v.t("links.api")|safe }}</a>
+<a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/settings/account") }}">{{ v.t("links.settings")|safe }}</a>
 {% call hide_balances_toggle("dropdown__item") %}{% endcall %}
 {% call display_currency_picker("dropdown__item") %}{% endcall %}
 <div class="dropdown__item dropdown__item--divider"></div>

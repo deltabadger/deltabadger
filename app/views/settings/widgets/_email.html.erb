@@ -13,7 +13,6 @@
       <% end %>
     </summary>
     <%= form_with model: current_user, url: settings_update_email_path, class: 'sform sform--stack', data: { turbo_frame: 'update_email_form' } do |f| %>
-      <% if current_user.errors.any? %><p class="sform__error"><%= current_user.errors.full_messages.to_sentence %></p><% end %>
       <%= f.email_field :email, value: '', autocomplete: 'username', required: true, class: 'rinput rinput--outline rinput--text',
                                 pattern: User::Email::ADDRESS_PATTERN, placeholder: t('helpers.label.user.new_email'),
                                 aria: { label: t('helpers.label.user.new_email') } %>

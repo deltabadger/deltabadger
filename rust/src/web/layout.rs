@@ -71,6 +71,13 @@ impl Ctx {
         assets::path(logical)
     }
 
+    /// SettingsHelper#settings_reopen_src: `?settings=<section>` on a page opens the settings dialog over it
+    /// (how a language change comes back to the page it was made on). Only a real section.
+    pub fn settings_reopen_src(&self) -> Option<String> {
+        let section = self.params.query("settings")?;
+        crate::web::settings::SECTIONS.contains(&section).then(|| self.path(&format!("/settings/{section}")))
+    }
+
     /// `current_page?(some_path)`: a GET whose path is exactly what the route helper generates now.
     /// So `/en/bots`, and `/bots` for a user whose saved locale is not English, are not "current".
     pub fn current_page(&self, path: &str) -> bool {
