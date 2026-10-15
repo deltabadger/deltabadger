@@ -1111,7 +1111,8 @@ include ActiveSupport::Testing::TimeHelpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe
 i18n_calls = [
   ['en', 'devise.sessions.new.title', {}], ['de', 'devise.sessions.new.title', {}],
-  ['en', 'links.api', {}], ['de', 'links.api', {}], # English only: the German page falls back; `&` is escaped
+  ['en', 'settings.ibkr.start', {}], ['de', 'settings.ibkr.start', {}], # English only: the German page falls back
+  ['en', 'settings.language_and_timezone.title', {}], ['de', 'settings.language_and_timezone.title', {}], # `&` is escaped
   ['en', 'bot.add_api_keys', { 'exchange' => %q(A<b>&"') }], # a plain key: the whole text is escaped
   ['en', 'ads.dca_profit_html', { 'years' => '<4>', 'profit' => '12', 'sp500_diff' => 'a&b' }], # an HTML key: only the arguments are
   ['en', 'devise.failure.invalid', { 'authentication_keys' => 'email' }],

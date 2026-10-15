@@ -62963,17 +62963,31 @@
       },
       {
         "locale": "en",
-        "key": "links.api",
+        "key": "settings.ibkr.start",
         "args": {},
-        "view": "MCP &amp; REST API",
-        "text": "MCP & REST API"
+        "view": "Start setup",
+        "text": "Start setup"
       },
       {
         "locale": "de",
-        "key": "links.api",
+        "key": "settings.ibkr.start",
         "args": {},
-        "view": "MCP &amp; REST API",
-        "text": "MCP & REST API"
+        "view": "Start setup",
+        "text": "Start setup"
+      },
+      {
+        "locale": "en",
+        "key": "settings.language_and_timezone.title",
+        "args": {},
+        "view": "Language &amp; Timezone",
+        "text": "Language & Timezone"
+      },
+      {
+        "locale": "de",
+        "key": "settings.language_and_timezone.title",
+        "args": {},
+        "view": "Sprache &amp; Zeitzone",
+        "text": "Sprache & Zeitzone"
       },
       {
         "locale": "en",
