@@ -19,11 +19,17 @@ class ScanSecurityPricedCoinsTest < ActiveSupport::TestCase
     (0..13).each do |n|
       poisoned = (7..11).cover?(n)
       HistoricalPrice.create!(asset: 'BTC', currency: 'USD', date: day(n), price: poisoned ? 36 + n : 80_000 + n)
-      HistoricalPrice.create!(asset: 'stock:BTC', currency: 'USD', date: day(n), price: 36 + n) if n.between?(6, 9)
+      # The security's own key held the coin's prices once too: no reference.
+      HistoricalPrice.create!(asset: 'stock:BTC', currency: 'USD', date: day(n), price: 80_000 + n) if n.between?(0, 5)
     end
     HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: day(8), price: 33)
     HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: day(9), price: 70_000)
     HistoricalPrice.create!(asset: 'ETH', currency: 'USD', date: day(8), price: 1)
+    # A shared name whose coin swings tenfold in a month is not a security's close.
+    create(:asset, symbol: 'XYZ', external_id: 'xyz-coin')
+    create(:asset, symbol: 'XYZ', external_id: 'XYZ.US', category: 'Stock')
+    create(:account_transaction, api_key: ApiKey.find_by!(user: broker), entry_type: :buy, base_currency: 'XYZ', transacted_at: day(1).to_time(:utc))
+    [0.0001, 0.00001, 0.00004].each_with_index { |usd, n| HistoricalPrice.create!(asset: 'XYZ', currency: 'USD', date: day(n), price: usd) }
     [[broker, 2], [crypto_only, 9], [create(:user), 20]].each do |user, n|
       PortfolioSnapshot.create!(user: user, date: day(n), value_usd: 1, invested_usd: 1, held_value_usd: 1, held_cost_usd: 1, partial: false)
     end
