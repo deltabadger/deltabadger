@@ -323,6 +323,34 @@ async fn rails_and_rust_decide_identically_across_the_binance_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// Slice 6a: a one-asset basket selling on Kraken and Binance (script/rust/decisions.rb sell_scenarios), compared whole.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_sell_grid() {
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-sell", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 120, "the sell grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Pin what Rails does, so that two silent sides cannot pass.
+        let sent = rails_out["sent"].as_array().unwrap().len();
+        let placing = ["-first_tick", "-on_schedule", "-free_below", "-carry_frozen", "-rejected_insufficient"].iter().any(|v| name.ends_with(v));
+        if sent != usize::from(placing) { failures.push(format!("{name}: Rails sent {sent} order(s)\n  rails: {rails_out}")); }
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        if name.ends_with("-rejected_insufficient") { assert!(!mailed.contains(&"end_of_funds"), "{name}: a seller is never told to top up its quote"); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
 fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {

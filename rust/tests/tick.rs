@@ -605,7 +605,7 @@ async fn a_sell_under_the_base_floor_writes_a_skipped_sell_row() {
 async fn an_unreadable_free_balance_fails_the_tick_and_never_reads_as_empty() {
     let (_d, o, id) = setup(base_seller(0.01));
     let v = FakeVenue::from_script(&json!({ "http": { "/0/public/Ticker": [{ "error": [], "result": { "XXBTZEUR": { "a": ["50000.0","1","1"], "b": ["49990.1","1","1"], "c": ["49995.0","0.1"] } } }],
-        "/0/private/BalanceEx": [{ "error": ["EGeneral:Internal error"] }] } }));
+        "/0/private/BalanceEx": [{ "error": ["EQuery:Unknown asset"] }] } }));
     assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:01Z").await, TickOutcome::Rescheduled));
     assert!(v.sent().is_empty());
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 1);

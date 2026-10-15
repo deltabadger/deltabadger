@@ -588,7 +588,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
     let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
     let mut priced = vec![];
     for member in members {
-        let reference = match reference(venue, bot, &member.ticker, side, clock, cx).await {
+        let reference = match reference(venue, bot, &member.ticker, side, &member.ticker.base_symbol, clock, cx).await {
             Ok(p) => p,
             Err(f) => return Ok(Err(f)),
         };
@@ -655,7 +655,8 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
 
 /// Bot::OrderSetter#reference_price through Exchange's 5-second price cache: the venue's "Wrong … price" (a zero book) and
 /// a transport failure both fail the tick as the composition rescues them ("No price for …").
-async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: PriceSide, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<BigDec, Fail> {
+/// `named`: how the failure names the asset (the buy leg its symbol, the sell leg `ticker.base`, the venue's own code).
+async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: PriceSide, named: &str, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<BigDec, Fail> {
     let key = (bot.exchange_id, ticker.id, side);
     let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
         Some(hit) => Ok(hit),
@@ -665,11 +666,11 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
     match fetched {
         Ok(p) => Ok(p),
         // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
-        Err(VenueError::Rejected(e)) => Err(Fail::Transient(format!("No price for {}: {}", ticker.base_symbol, to_sentence(&e)))),
+        Err(VenueError::Rejected(e)) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
         // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
         // unwrapped, so it reaches retry_on with its own message.
         Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Fail::Transient(m)),
-        Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => Err(Fail::Transient(format!("No price for {}: {m}", ticker.base_symbol))),
+        Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => Err(Fail::Transient(format!("No price for {named}: {m}"))),
     }
 }
 
@@ -685,7 +686,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
     };
     let ticker = member.ticker;
     // Bot::OrderSetter#reference_price(ticker, :sell): the last trade for a limit sell, the bid for a market sell.
-    let reference = match reference(venue, bot, &ticker, if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Bid }, clock, cx).await {
+    let reference = match reference(venue, bot, &ticker, if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Bid }, &ticker.base_code, clock, cx).await {
         Ok(p) => p,
         Err(f) => return Ok(Err(f)),
     };
@@ -703,6 +704,8 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         Ok(free) => free,
         Err(VenueError::Rejected(e)) if venue.rules().is_throttle(&e) => return Ok(Err(Fail::RateLimited(to_sentence(&e)))),
         Err(VenueError::Transient(m)) => return Ok(Err(Fail::Transient(m))),
+        // Exchange#transient_failure?'s text rules (Kraken's HTTP-200 "EGeneral:Internal error").
+        Err(VenueError::Rejected(e)) if venue.rules().is_transient(&e) => return Ok(Err(Fail::Transient(to_sentence(&e)))),
         Err(VenueError::Rejected(e)) => {
             let m = format!("Failed to read balance for bot {}: {}", bot.id, to_sentence(&e));
             return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
