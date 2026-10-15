@@ -1,5 +1,6 @@
 // A revisit of a bot page in a real browser: what quiet_revisit.js, the chart controller and the
-// ticker tooltips do across Turbo's preview and the server's answer.
+// ticker tooltips do across Turbo's preview and the server's answer. Also the language switch's
+// reload stream, which must leave no permanent node rendered for the old locale.
 //   bun script/rust/quiet_revisit_check.mjs
 // Run by rust/tests/quiet_revisit_browser.rs. Needs Chrome ($CHROME, else the usual places) and the
 // compiled bundle (script/rust/build_assets.sh). No dependencies: the pages are fixtures served from
@@ -120,6 +121,9 @@ const botPage = (id) => layout(`
   <div id="columns_bot_${id}" class="columns"></div>
 </turbo-frame>`);
 
+// The account page as the menu renders it: a permanent node whose links carry the page's locale prefix.
+const settingsPage = (prefix) => layout(`<div id="settings-menu" data-turbo-permanent><a id="menu-connect" href="${prefix}/settings/connect">Connections</a></div>`);
+
 const botsPage = () => layout(`<a href="/bots/1">One</a> <a href="/bots/2">Two</a>
   <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="user_bots"></turbo-cable-stream-source>`);
 
@@ -143,6 +147,8 @@ const app = Bun.serve({
       await sleep(server.tooltipDelay);
       return html(`<div class="tooltip--ticker__col">Bitcoin</div>`);
     }
+    const settings = url.pathname.match(/^(\/de)?\/settings\/account$/);
+    if (settings) return html(settingsPage(settings[1] ?? ""));
     let match = url.pathname.match(/^\/bots\/(\d)\/chart$/);
     if (match) return html(layout(`<turbo-frame id="bot_chart">${chart(Number(match[1]))}</turbo-frame>`));
     match = url.pathname.match(/^\/bots\/(\d)$/);
@@ -401,6 +407,19 @@ try {
   page = await read();
   check("a late tooltip card leaves no orphan popover", page.tooltips === 1, page);
   server.tooltipDelay = 0;
+
+  // 10. A language switch reloads the page whole: a Turbo visit keeps the permanent menu as it stood,
+  // with links on the old locale's prefix, and that prefix outranks the language just saved.
+  const menuLink = `document.getElementById("menu-connect")?.getAttribute("href")`;
+  const stream = (action) => `Turbo.renderStreamMessage('<turbo-stream action="${action}" target="/settings/account"><template></template></turbo-stream>')`;
+  await load("/de/settings/account");
+  await evaluate(`(async () => { const loaded = __loaded(); ${stream("redirect")}; await loaded; await new Promise((r) => setTimeout(r, 300)); })()`);
+  const visited = await evaluate(`({ path: location.pathname, link: ${menuLink} })`);
+  check("a Turbo visit keeps the permanent menu's old prefix (why the switch reloads)", visited.path === "/settings/account" && visited.link === "/de/settings/connect", visited);
+  await load("/de/settings/account");
+  await evaluate(`window.__unloaded = true; ${stream("reload")}`);
+  const reloaded = await until("the reloaded page", () => evaluate(`!window.__unloaded && document.readyState === "complete" && ({ path: location.pathname, link: ${menuLink} })`).catch(() => false));
+  check("a language switch reloads the menu without the old prefix", reloaded.path === "/settings/account" && reloaded.link === "/settings/connect", reloaded);
 
   check("no uncaught errors", errors.length === 0, errors);
 } catch (error) {

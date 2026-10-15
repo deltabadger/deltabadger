@@ -1,5 +1,5 @@
 //! What Turbo and the compiled JS expect from the server: `<turbo-stream>` elements exactly as
-//! turbo-rails' tag builder writes them, the app's custom actions (`redirect`, `add_class`,
+//! turbo-rails' tag builder writes them, the app's custom actions (`redirect`, `reload`, `add_class`,
 //! `remove_class`, app/javascript/controllers/application.js), and frame requests.
 use super::i18n::escape;
 use axum::http::HeaderMap;
@@ -24,6 +24,11 @@ pub fn refresh() -> &'static str {
 /// SharedHelper#turbo_stream_redirect: the target is the URL to visit.
 pub fn redirect(url: &str) -> String {
     stream("redirect", url, "")
+}
+
+/// SharedHelper#turbo_stream_reload: a full page load of the URL, so no permanent node survives it.
+pub fn reload(url: &str) -> String {
+    stream("reload", url, "")
 }
 
 /// SharedHelper#turbo_stream_prepend_flash; `flash` is the markup of flash::render.

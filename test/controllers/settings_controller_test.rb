@@ -58,6 +58,23 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, 'salert--danger'
   end
 
+  # The account menu is data-turbo-permanent, so a Turbo visit would keep its links on the old
+  # locale's prefix, and that prefix outranks the preference just saved. The switch reloads instead.
+  test 'a language change reloads the whole page on the new locale' do
+    @user.update!(locale: 'de')
+
+    patch settings_update_locale_path(locale: 'de'), params: { user: { locale: 'en' } }
+
+    assert_response :success
+    assert_equal 'en', @user.reload.locale
+    assert_includes @response.body, '<turbo-stream action="reload" target="/settings/account">'
+    assert_not_includes @response.body, 'action="redirect"'
+
+    patch settings_update_locale_path, params: { user: { locale: 'de' } }
+
+    assert_includes @response.body, '<turbo-stream action="reload" target="/de/settings/account">'
+  end
+
   test 'a rejected locale reports the error instead of raising' do
     patch settings_update_locale_path, params: { user: { locale: 'xx' } }
 
