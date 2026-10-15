@@ -11,6 +11,10 @@
 # with the adapter about an entry type, an amount's sign, or a fee's home, and the overlap doubles
 # instead of deduping. That is why `swap` and `buy` are decided by the same cash-leg test the
 # adapter uses, and why dust becomes the same swap_out/swap_in pair rather than one tidy row.
+#
+# Transfers are the exception that cannot be mapped away: the export dates a deposit when it was
+# credited and writes a withdrawal gross at its completion, and neither is in the API's row. Their
+# `raw_data` keeps the operation, and AccountTransactionSync pairs them on that (see "one transfer").
 class Import::BinanceCsv
   # Every operation the export writes, and what it is. Absent from this table means we do not know —
   # such a row is reported, never guessed at, because a wrong guess becomes a wrong tax figure.

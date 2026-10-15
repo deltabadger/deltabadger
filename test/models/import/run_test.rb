@@ -35,6 +35,25 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal %w[buy deposit], AccountTransaction.for_user(@user).pluck(:entry_type).sort
   end
 
+  # The export and the API disagree on a transfer: a deposit is dated when it was credited, a
+  # withdrawal is gross at its completion. Over a synced history, the file's copies are recognised.
+  test 'a file over synced transfers adds none of them' do
+    seen = Time.utc(2021, 7, 1, 14, 6, 41)
+    deposit = { entry_type: :deposit, base_currency: 'USDT', base_amount: '150.2'.to_d, tx_id: 'dep-1', transacted_at: seen,
+                raw_data: { 'amount' => '150.2', 'coin' => 'USDT', 'txId' => 'dep-1', 'insertTime' => (seen.to_f * 1000).to_i } }
+    withdrawal = { entry_type: :withdrawal, base_currency: 'LTC', base_amount: '10.43980476'.to_d, fee_currency: 'LTC',
+                   fee_amount: '0.001'.to_d, tx_id: 'wd-1', transacted_at: Time.utc(2021, 8, 23, 13, 8, 10),
+                   raw_data: { 'amount' => '10.43980476', 'transactionFee' => '0.001', 'coin' => 'LTC', 'txId' => 'wd-1',
+                               'applyTime' => '2021-08-23 13:08:10', 'completeTime' => '2021-08-23 13:20:44' } }
+    AccountTransactionSync.new(@key).store!([deposit, withdrawal])
+    file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,', '1,2021-08-23 13:20:44,Spot,Withdraw,LTC,-10.44080476,'].join("\n")
+
+    result = import(file)
+
+    assert_equal({ imported: 0, duplicates: 2 }, result.slice(:imported, :duplicates))
+    assert_equal 2, AccountTransaction.for_user(@user).count
+  end
+
   # The requirement, stated plainly.
   test 'importing the same file again changes nothing' do
     import

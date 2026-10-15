@@ -273,7 +273,8 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
     let rust_has = |ids: &[&str]| check(tx_ids(rust) == ids, &format!("Rust stores {:?}", tx_ids(rust)));
     const BASIC: [&str; 8] = ["0xd1", "0xd2", "0xw1", "0xw3", "BTCUSDT-10-100", "BTCUSDT-11-101", "ETHBTC-3-7-in", "ETHBTC-3-7-out"];
     Some(match name {
-        "binance-ledger-full" | "binance-ledger-idle" | "binance-ledger-other_sources" | "binance-ledger-two_nights" => same_rows_and_watermark(rails, rust),
+        "binance-ledger-full" | "binance-ledger-idle" | "binance-ledger-other_sources" | "binance-ledger-two_nights" | "binance-ledger-file_transfers"
+        | "binance-ledger-file_transfer_claimed_once" => same_rows_and_watermark(rails, rust),
         // Listed divergence: Rails reads `purchaseAmount`/`rewards` where Binance writes `amount`, and stores 0.
         "binance-ledger-earn_documented_amounts" => (|| {
             let misread = ["lock-reward-1787184000000-BNB", "flex-sub-26055", "lock-sub-26056"];
@@ -372,7 +373,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), dirs.len()), (58, 41, 21, 16, 136), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), dirs.len()), (58, 41, 21, 18, 138), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -398,7 +399,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
-                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -407,6 +408,21 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    // A file transfer an API row pairs with takes its id in place; one with two candidates, or out of reach, does not.
+    let claimed = |name: &str| -> (Vec<String>, Vec<String>) {
+        let ids = |before_null: bool| rows(&rails_of(name), "account_transactions").iter()
+            .filter(|r| if before_null { r["before"].is_null() } else { !r["before"].is_null() && r["before"]["tx_id"].is_null() })
+            .filter_map(|r| r["after"]["tx_id"].as_str().map(str::to_string)).collect::<Vec<_>>();
+        let mut both = (ids(false), ids(true));
+        both.0.sort();
+        both
+    };
+    let (taken, stored) = claimed("binance-ledger-file_transfers");
+    assert_eq!(taken, ["0xd1", "0xw1", "0xw3"]);
+    assert!(stored.contains(&"0xd2".to_string()) && stored.contains(&"0xd8".to_string()) && !stored.contains(&"0xd1".to_string()), "{stored:?}");
+    let (taken, stored) = claimed("binance-ledger-file_transfer_claimed_once");
+    assert_eq!(taken, ["0xd200", "0xd202"]);
+    assert!(["0xd198", "0xd201", "0xd203"].iter().all(|id| stored.contains(&id.to_string())), "{stored:?}");
     for value in ["NaN", "Infinity", "-Infinity", "garbage"] {
         for fallback in ["market", "stale"] {
             let out = rails_of(&format!("balances-unreadable_price_{value}_{fallback}"));
