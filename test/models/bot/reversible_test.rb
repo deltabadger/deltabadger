@@ -385,6 +385,28 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
     end
   end
 
+  # The poll Transaction#cancel enqueues can finish the order before the flip registers it: its callback
+  # finds nothing registered, and an identical re-poll changes nothing to fire on.
+  test 'a final poll landing before the flip registers the buy still credits it, once' do
+    bot = create(:dca_single_asset, :started)
+    order = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open, external_id: 'b1',
+                                 amount: 0.4, price: 100, quote_amount: 40, amount_exec: 0.1, quote_amount_exec: 10)
+    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new)
+    bot.stubs(:pending_quote_amount).returns(60.to_d)
+    test = self
+    bot.define_singleton_method(:get_order) do |order_id:|
+      test.final_poll(order, :cancelled, 0.3, 30) # the poll wins the race, then the flip's own read fails
+      Result::Failure.new("timeout #{order_id}")
+    end
+
+    bot.flip_direction!
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6
+    assert_nil bot.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    final_poll(order, :cancelled, 0.3, 30)
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6
+  end
+
   test 'a fill reported without its executed quote counts at the limit price, not the stale row' do
     bot, order = flip_with_partial_buy(->(stub) { stub.returns(Result::Success.new({ status: :open, amount_exec: 0.2 })) })
 
