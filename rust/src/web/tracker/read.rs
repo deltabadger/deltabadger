@@ -1,4 +1,4 @@
-//! Tracker view work runs with SQLite writes disabled. Never schedules work from a GET.
+//! Tracker view work runs with SQLite writes disabled. A GET never writes; the index wakes its jobs after the read.
 use crate::web::WebError;
 use rusqlite::Connection;
 

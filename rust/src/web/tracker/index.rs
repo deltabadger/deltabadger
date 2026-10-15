@@ -63,8 +63,34 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:Option<&super::fx::Prepared>)->Res
     shell::application_with_flash_extra(ctx,&ctx.csrf_token(),user,&shell,page,"  <div id=\"sync-warnings\" data-turbo-permanent>\n    \n  </div>\n")
 }
 
+/// `load_ledgers` and `load_history`: the jobs this page asks for, past the market-data check, for any account (Rails
+/// runs both loaders whether or not anything is connected). The ledger walks while `Ledger.cached` is nil, warming or
+/// failed. The sweep is asked for by its own gate, `backfill::wanted`, which covers the page's test for every scope;
+/// unlike `stale_prices?` it ignores a partial row outside the window (today's, the sync's to rewrite), which no sweep
+/// writes. A gate that cannot be read drops its own wake only.
+fn wakes(c:&Connection,ctx:&Ctx,owner:i64)->Result<Vec<(&'static str,String)>,WebError>{
+    use crate::tracker::{backfill,cache,jobs};
+    if !crate::web::bots::market_data(c,&ctx.app)?.1 && needs_market_data(c,owner)? {return Ok(vec![]);}
+    let now=ctx.app.now();
+    let mut out=vec![];
+    if !matches!(crate::figures::budget::within(||cache::read(c,owner,None,now)),Ok(cache::State::Warm(_))) {out.push((jobs::TRACKER_LEDGER,owner.to_string()));}
+    match crate::figures::budget::within(||backfill::wanted(c,&ctx.app.cipher,owner,now.date_naive())) {
+        Ok(true)=>out.push((jobs::PORTFOLIO_BACKFILL,owner.to_string())),
+        Ok(false)=>{}
+        Err(e)=>crate::engine::log(&format!("[tracker] backfill check for user {owner} failed: {e:?}")),
+    }
+    Ok(out)
+}
+
 pub async fn index(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};
-    // The display currency's rate as held: a page never fetches it (`fx::held`).
-    app.db(move|c|super::read::only(c,|c|{let fx=super::fx::held(&ctx.app,c,owner)?;render(c,&ctx,owner,Some(&fx))})).await
+    // The display currency's rate as held: a page never fetches it (`fx::held`). Only a page served asks for jobs.
+    let (page,wanted)=app.db(move|c|super::read::only(c,|c|{
+        let fx=super::fx::held(&ctx.app,c,owner)?;
+        let page=render(c,&ctx,owner,Some(&fx))?;
+        let wanted=if page.status()==StatusCode::OK {wakes(c,&ctx,owner)?} else {vec![]};
+        Ok((page,wanted))
+    })).await?;
+    for (name,scope) in wanted {app.wake_job(name,&scope);}
+    Ok(page)
 }

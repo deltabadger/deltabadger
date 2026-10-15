@@ -1,9 +1,9 @@
 //! The tracker's jobs under the scheduler (`crate::jobs`), per user with a reading key of a venue this build syncs:
 //! - `tracker_ledger` (Tracker::LedgerJob): the walk, today's snapshot rows (PortfolioSnapshot.record!) and the
 //!   wash-sale locks. On demand only: the ledger and balance syncs wake it after every run, as Rails' sync jobs end
-//!   in a LedgerJob or a record!, and so does the backfill.
-//! - `portfolio_backfill` (PortfolioSnapshot::BackfillJob): every earlier day. Rails asks for it from the tracker
-//!   page; here it runs at 03:00 UTC, after the nightly syncs, when the page's own test says a sweep is wanted.
+//!   in a LedgerJob or a record!, and so do the backfill and a tracker page that finds no warm ledger.
+//! - `portfolio_backfill` (PortfolioSnapshot::BackfillJob): every earlier day. Woken by the tracker page, as Rails
+//!   enqueues it there, and run at 03:00 UTC after the nightly syncs; either way only when `backfill::wanted`.
 //!
 //! A pass is Rails' `walk(user)`: its inputs are read once (`Inputs`, one read transaction), then the walk runs on a
 //! blocking thread holding no connection, and a price Rails would fetch is fetched at that lookup, inline: the walk hands
