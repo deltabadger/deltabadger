@@ -779,6 +779,28 @@ module TrackerParity
           balance(c, 'USD', '305', usd_price: '1')
           balance(c, 'BTC', '0.0049', usd_price: '61000')
         } },
+      # Alpaca lists a BTC security beside BTC/USD. The coin's fees (CFEE, no quote) are priced as the coin the venue's
+      # rows recorded, never as the security, and the bare key Binance's bitcoin reads holds the coin's closes only.
+      { name: 'btc_coin_beside_btc_security', market: { HISTORY => [flat(1), flat(60_000)] },
+        setup: lambda { |c|
+          security = Asset.create!(external_id: 'BTC.US', symbol: 'BTC', name: 'Bitcoin Mini Trust', category: 'Stock')
+          ExchangeAsset.create!(exchange: c[:alpaca], asset: security, available: true)
+          Ticker.create!(exchange: c[:alpaca], ticker: 'BTC', base: 'BTC', quote: 'USD', base_asset: security, quote_asset: c[:assets]['USD'],
+                         base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+          coin = c[:assets]['BTC'].id
+          b = binance(c)
+          coins(c, 'USDT')
+          deposit(c, '1000', '2026-09-01T10:00:00Z', currency: 'USDT', exchange: b)
+          buy(c, 'BTC', '0.01', '60000', '2026-09-02T10:00:00Z', quote: 'USDT', exchange: b)
+          deposit(c, '1000', '2026-09-01T14:00:00Z')
+          buy(c, 'BTC', '0.01', '60000', '2026-09-03T10:00:00Z', base_asset_id: coin)
+          row(c, :fee, 'BTC', '0.0001', '2026-09-10T00:00:00Z', base_asset_id: coin, description: 'CFEE')
+          row(c, :fee, 'BTC', '0.0001', '2026-09-11T00:00:00Z', description: 'CFEE')
+          balance(c, 'USDT', '400', usd_price: '1', exchange: b)
+          balance(c, 'BTC', '0.01', usd_price: '61000', exchange: b)
+          balance(c, 'USD', '400', usd_price: '1')
+          balance(c, 'BTC', '0.0098', usd_price: '61000')
+        } },
       { name: 'binance_us_rows', market: { HISTORY => [flat(1), flat(310), flat(60_000)] }, setup: ->(c) { bnb_fee_rows(c, binance_us(c)) } },
       { name: 'binance_borrowed_rows_set_aside', market: { HISTORY => [flat(1), flat(310), flat(60_000)] },
         setup: lambda { |c|

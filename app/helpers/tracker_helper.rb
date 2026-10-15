@@ -223,9 +223,30 @@ module TrackerHelper
     elsif (stated = record.manual_value(:price))
       [denomination.convert(stated), :stated]
     else
-      price = HistoricalPrice.lookup(asset: record.base_currency, currency: 'USD', date: record.transacted_at.to_date)
+      key, = tracker_price_key(record)
+      price = key && HistoricalPrice.lookup(asset: key, currency: 'USD', date: record.transacted_at.to_date)
       price&.positive? ? [denomination.convert(price.to_d), :ours] : [nil, nil]
     end
+  end
+
+  # The key the figures stored this row's price under, read as `Tax::PriceService` reads it: by the
+  # asset the row recorded, else by what its venue's rows recorded under the name (`Tax::AssetIdentity`).
+  # nil for a name that is still both a security and a coin. One query per venue and name.
+  def tracker_price_key(record)
+    symbol = record.base_currency
+    return [symbol] unless record.exchange&.stock_venue?
+
+    recorded = if record.base_asset then [record.base_asset]
+               else
+                 (@tracker_recorded ||= {})[[record.user_id, record.exchange_id, symbol]] ||=
+                   Asset.where(id: AccountTransaction.where(user_id: record.user_id, exchange_id: record.exchange_id,
+                                                            base_currency: symbol).select(:base_asset_id)).to_a
+               end
+    coins = (@tracker_recorded_coins ||= {}).fetch([record.user_id, symbol]) do |cache|
+      @tracker_recorded_coins[cache] = AccountTransaction.where(user_id: record.user_id, base_currency: symbol)
+                                                         .joins(:base_asset).exists?(assets: { category: Tax::AssetIdentity::CRYPTO })
+    end
+    Tax::AssetIdentity.price_key(symbol, exchange: record.exchange, at: record.transacted_at, recorded: recorded, recorded_coins: coins)
   end
 
   # What a row was worth, in the DENOMINATION's currency — the one unit that column is written in —

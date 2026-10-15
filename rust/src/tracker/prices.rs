@@ -83,8 +83,13 @@ pub fn alias_coin(symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>) ->
         .map(|(_, coin, _, _)| coin.to_string())
 }
 
-/// One catalogue asset: its external id and category.
-type Asset = (Option<String>, Option<String>);
+/// One catalogue asset: its id, external id and category.
+pub type Asset = (i64, Option<String>, Option<String>);
+
+/// Tax::AssetIdentity::STOCK_CATEGORIES: the categories a broker's securities are filed under.
+pub const STOCK_CATEGORIES: [&str; 4] = ["Stock", "Common Stock", "ETF", "Fund"];
+fn security(a: &Asset) -> bool { a.2.as_deref().is_some_and(|c| STOCK_CATEGORIES.contains(&c)) }
+fn crypto(a: &Asset) -> bool { a.2.as_deref() == Some("Cryptocurrency") }
 
 /// What a pass reads of the catalogue, the venues and the stored prices, for the symbols it names: each table read in
 /// one query, every row read a step of the open budget scope, and indexed in memory, so no lookup issues SQL.
@@ -94,8 +99,8 @@ pub struct Reference {
     default: i64,
     /// `Exchange.find_by(type:)` per name_id: the first exchange of each type.
     venues: HashMap<String, Venue>,
-    /// (exchange id, symbol) → what the venue lists under it: its first ticker's base asset.
-    listed: HashMap<(i64, String), Asset>,
+    /// (exchange id, symbol) → the assets the venue lists under it, in ticker order, each once.
+    listed: HashMap<(i64, String), Vec<Asset>>,
     /// symbol → every asset of the catalogue under it, by market rank.
     assets: HashMap<String, Vec<Asset>>,
     /// (price key: the symbol, or `stock:SYM`; currency) → day → the stored price, as Rails reads the column.
@@ -115,19 +120,23 @@ impl Reference {
             let name = super::rows::name_id(&kind);
             r.venues.entry(name.clone()).or_insert(Venue { id, name_id: name, stock: STOCK_TYPES.contains(&kind.as_str()) });
         }
-        let mut s = c.prepare("SELECT t.exchange_id, t.base, a.external_id, a.category FROM tickers t JOIN assets a ON a.id = t.base_asset_id ORDER BY t.id")?;
+        let mut s = c.prepare("SELECT t.exchange_id, t.base, a.id, a.external_id, a.category FROM tickers t JOIN assets a ON a.id = t.base_asset_id ORDER BY t.id")?;
         let mut q = s.query([])?;
         while let Some(row) = q.next()? {
             crate::figures::budget::charge(1, 0)?;
             let (exchange, base): (i64, String) = (row.get(0)?, row.get(1)?);
-            if symbols.contains(&base) { r.listed.entry((exchange, base)).or_insert((row.get(2)?, row.get(3)?)); }
+            if symbols.contains(&base) {
+                let asset: Asset = (row.get(2)?, row.get(3)?, row.get(4)?);
+                let list = r.listed.entry((exchange, base)).or_default();
+                if !list.iter().any(|a| a.0 == asset.0) { list.push(asset); }
+            }
         }
-        let mut s = c.prepare("SELECT symbol, external_id, category FROM assets ORDER BY market_cap_rank IS NULL, market_cap_rank, id")?;
+        let mut s = c.prepare("SELECT symbol, id, external_id, category FROM assets ORDER BY market_cap_rank IS NULL, market_cap_rank, id")?;
         let mut q = s.query([])?;
         while let Some(row) = q.next()? {
             crate::figures::budget::charge(1, 0)?;
             let Some(symbol) = row.get::<_, Option<String>>(0)? else { continue };
-            if symbols.contains(&symbol) { r.assets.entry(symbol).or_default().push((row.get(1)?, row.get(2)?)); }
+            if symbols.contains(&symbol) { r.assets.entry(symbol).or_default().push((row.get(1)?, row.get(2)?, row.get(3)?)); }
         }
         let mut s = c.prepare("SELECT asset, currency, date, price FROM historical_prices")?;
         let mut q = s.query([])?;
@@ -161,9 +170,9 @@ impl Reference {
     }
 
     /// The category of the asset `venue_id` lists under `symbol`: None when it lists nothing, Some(None) uncategorised.
-    pub fn listed_category_on(&self, venue_id: i64, symbol: &str) -> Option<Option<&str>> { self.listed.get(&(venue_id, symbol.to_string())).map(|(_, cat)| cat.as_deref()) }
+    pub fn listed_category_on(&self, venue_id: i64, symbol: &str) -> Option<Option<&str>> { self.listed.get(&(venue_id, symbol.to_string())).and_then(|l| l.first()).map(|a| a.2.as_deref()) }
     /// The category of the asset the default venue lists under `symbol`: None when it lists nothing.
-    pub fn listed_category(&self, symbol: &str) -> Option<Option<&str>> { self.listed.get(&(self.default, symbol.to_string())).map(|(_, cat)| cat.as_deref()) }
+    pub fn listed_category(&self, symbol: &str) -> Option<Option<&str>> { self.listed_category_on(self.default, symbol) }
 }
 
 /// Every symbol the rows name: base, quote and fee, and BTC (the cross rate a missing ECB rate falls back to).
@@ -173,18 +182,85 @@ pub fn symbols(rows: &[Stored]) -> HashSet<String> {
     s
 }
 
-/// Tax::AssetIdentity.catalogue_coin: what the venue lists under the symbol (its first ticker's base asset; on a stock
-/// venue whatever it is), else the catalogue by market rank, a stock first on a stock venue, else a coin.
+/// Tax::AssetIdentity.catalogue_coin: the venue's first Cryptocurrency listing under the symbol, else the catalogue's
+/// first Cryptocurrency by market rank. Never a security.
 pub fn catalogue_coin_on(r: &Reference, symbol: &str, venue: Option<&Venue>) -> Option<String> {
     if symbol.trim().is_empty() { return None; }
-    if let Some(v) = venue {
-        if let Some((external_id, category)) = r.listed.get(&(v.id, symbol.to_string())) {
-            if v.stock || category.as_deref() == Some("Cryptocurrency") { return external_id.clone(); }
-        }
+    let listed = venue.and_then(|v| r.listed.get(&(v.id, symbol.to_string()))).and_then(|l| l.iter().find(|a| crypto(a)));
+    let ranked = || r.assets.get(symbol).and_then(|l| l.iter().find(|a| crypto(a)));
+    listed.or_else(ranked).and_then(|a| a.1.clone())
+}
+
+/// `identity`'s partition: Some((true, the security)) for securities only, Some((false, the one coin)) for no security,
+/// None for both.
+pub fn classify(candidates: &[Asset]) -> Option<(bool, Option<Asset>)> {
+    let mut unique: Vec<&Asset> = vec![];
+    for a in candidates { if !unique.iter().any(|u| u.0 == a.0) { unique.push(a); } }
+    let (stocks, coins): (Vec<&Asset>, Vec<&Asset>) = unique.into_iter().partition(|a| security(a));
+    match (stocks.first(), coins.len()) {
+        (None, 1) => Some((false, Some(coins[0].clone()))),
+        (None, _) => Some((false, None)),
+        (Some(s), 0) => Some((true, Some((*s).clone()))),
+        _ => None,
     }
-    let assets = r.assets.get(symbol).map_or(&[][..], Vec::as_slice);
-    let stock = if venue.is_some_and(|v| v.stock) { assets.iter().find(|(_, cat)| cat.as_deref() == Some("Stock")) } else { None };
-    stock.or_else(|| assets.iter().find(|(_, cat)| cat.as_deref() == Some("Cryptocurrency"))).and_then(|(id, _)| id.clone())
+}
+
+/// Tax::AssetIdentity.identity: on a crypto venue a coin; on a stock venue the assets recorded under the name decide,
+/// else what the venue lists, else the catalogue by rank.
+pub fn identity(r: &Reference, symbol: &str, venue: Option<&Venue>, recorded: &[Asset]) -> Option<(bool, Option<Asset>)> {
+    let Some(v) = venue.filter(|v| v.stock) else { return Some((false, None)) };
+    let listed = r.listed.get(&(v.id, symbol.to_string())).filter(|l| !l.is_empty());
+    let catalogue = || r.assets.get(symbol).cloned().unwrap_or_default();
+    let candidates: Vec<Asset> = if !recorded.is_empty() { recorded.to_vec() } else { listed.cloned().unwrap_or_else(catalogue) };
+    classify(&candidates)
+}
+
+/// Tax::AssetIdentity.price_key: the key a symbol's prices are stored under and the security when it is one; None for a
+/// name that is still both. A security's key is `stock:SYM` whenever a coin has the symbol (the catalogue, or
+/// `recorded_coins`), else its symbol.
+pub fn price_key(r: &Reference, symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>, recorded: &[Asset], recorded_coins: bool) -> Option<(String, Option<Asset>)> {
+    if alias_coin(symbol, venue, at).is_some() { return Some((symbol.to_string(), None)); }
+    let (stock, asset) = identity(r, symbol, venue, recorded)?;
+    if !stock { return Some((symbol.to_string(), None)); }
+    let shared = recorded_coins || r.assets.get(symbol).is_some_and(|l| l.iter().any(crypto));
+    Some((if shared { format!("stock:{symbol}") } else { symbol.to_string() }, asset))
+}
+
+/// Tax::AssetIdentity.dated_alias?: whether a dated alias cuts this symbol's history on this venue.
+pub fn dated_alias(symbol: &str, venue: Option<&Venue>) -> bool {
+    ALIASES.iter().any(|(s, _, v, until)| *s == symbol && until.is_some() && fits(*v, venue))
+}
+
+/// TrackerHelper#tracker_price_key, read off the database for one row of the table: the row's asset, else what the
+/// owner's rows at its venue recorded under the name, else the venue's listings, else the catalogue.
+pub fn row_price_key(c: &Connection, owner: i64, exchange_id: i64, venue_type: &str, symbol: &str, own: Option<i64>, at: NaiveDate) -> Result<Option<String>, rusqlite::Error> {
+    if !STOCK_TYPES.contains(&venue_type) { return Ok(Some(symbol.to_string())); }
+    let venue = Venue { id: exchange_id, name_id: super::rows::name_id(venue_type), stock: true };
+    if alias_coin(symbol, Some(&venue), Some(at)).is_some() { return Ok(Some(symbol.to_string())); }
+    let read = |sql: &str, params: &[&dyn rusqlite::ToSql]| -> Result<Vec<Asset>, rusqlite::Error> {
+        let mut s = c.prepare_cached(sql)?;
+        let rows = s.query_map(params, |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        rows.collect()
+    };
+    let mut candidates = match own {
+        Some(id) => read("SELECT id, external_id, category FROM assets WHERE id = ?1", rusqlite::params![id])?,
+        None => read("SELECT a.id, a.external_id, a.category FROM assets a WHERE a.id IN (SELECT base_asset_id FROM account_transactions \
+                      WHERE user_id = ?1 AND exchange_id = ?2 AND base_currency = ?3) ORDER BY a.id", rusqlite::params![owner, exchange_id, symbol])?,
+    };
+    if candidates.is_empty() {
+        candidates = read("SELECT a.id, a.external_id, a.category FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.base = ?2 ORDER BY t.id",
+                          rusqlite::params![exchange_id, symbol])?;
+    }
+    if candidates.is_empty() {
+        candidates = read("SELECT id, external_id, category FROM assets WHERE symbol = ?1 ORDER BY market_cap_rank IS NULL, market_cap_rank, id", rusqlite::params![symbol])?;
+    }
+    let Some((stock, _)) = classify(&candidates) else { return Ok(None) };
+    if !stock { return Ok(Some(symbol.to_string())); }
+    let shared: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE symbol = ?2 AND category = 'Cryptocurrency') \
+                                    OR EXISTS(SELECT 1 FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                                              WHERE t.user_id = ?1 AND t.base_currency = ?2 AND a.category = 'Cryptocurrency')",
+                                   rusqlite::params![owner, symbol], |r| r.get(0))?;
+    Ok(Some(if shared { format!("stock:{symbol}") } else { symbol.to_string() }))
 }
 pub fn catalogue_coin(r: &Reference, symbol: &str, venue: &Venue) -> Option<String> { catalogue_coin_on(r, symbol, Some(venue)) }
 
@@ -222,6 +298,10 @@ pub struct PriceService<'a> {
     warned_fx: HashSet<String>,
     fx_cache: HashMap<String, Dec>,
     coin_ids: HashMap<(String, Option<i64>), Option<String>>,
+    /// (exchange id, symbol) → the assets the rows `record` was handed recorded there; the names a coin was recorded under.
+    recorded: HashMap<(i64, String), Vec<Asset>>,
+    recorded_coins: HashSet<String>,
+    price_keys: HashMap<(String, Option<i64>, Vec<i64>), Option<(String, Option<Asset>)>>,
     /// (asset, currency) → what this pass's fetches brought.
     fetched: HashMap<(String, String), BTreeMap<NaiveDate, Dec>>,
     fetcher: &'a mut dyn Fetcher,
@@ -229,7 +309,7 @@ pub struct PriceService<'a> {
 
 impl<'a> PriceService<'a> {
     pub fn new(r: &'a Reference, fx: &'a FxTable, today: NaiveDate, fetcher: &'a mut dyn Fetcher) -> PriceService<'a> {
-        PriceService { r, fx, today, warnings: vec![], warned_fx: HashSet::new(), fx_cache: HashMap::new(), coin_ids: HashMap::new(), fetched: HashMap::new(), fetcher }
+        PriceService { r, fx, today, warnings: vec![], warned_fx: HashSet::new(), fx_cache: HashMap::new(), coin_ids: HashMap::new(), recorded: HashMap::new(), recorded_coins: HashSet::new(), price_keys: HashMap::new(), fetched: HashMap::new(), fetcher }
     }
 
     fn venue(&self, name_id: Option<&str>) -> Option<&'a Venue> { let r: &'a Reference = self.r; name_id.and_then(|n| r.venue(n)) }
@@ -240,15 +320,49 @@ impl<'a> PriceService<'a> {
         self.r.price_in(asset, currency, date).cloned()
     }
 
+    /// `record_assets`: what each venue's rows recorded under each name, and the names a coin was recorded under.
+    pub fn record(&mut self, rows: &[Stored]) {
+        for r in rows {
+            let Some(asset) = &r.base_asset else { continue };
+            let list = self.recorded.entry((r.exchange_id, r.base.clone())).or_default();
+            if !list.iter().any(|a| a.0 == asset.0) { list.push(asset.clone()); }
+            if crypto(asset) { self.recorded_coins.insert(r.base.clone()); }
+        }
+    }
+
+    /// `price_key_for`: the key and the security, cached per venue and recorded asset; a dated alias is a coin's.
+    fn price_key_for(&mut self, symbol: &str, exchange: Option<&str>, date: NaiveDate, recorded: Option<&Asset>) -> Option<(String, Option<Asset>)> {
+        let venue = self.venue(exchange);
+        if alias_coin(symbol, venue, Some(date)).is_some() { return Some((symbol.to_string(), None)); }
+        let assets: Vec<Asset> = match recorded {
+            Some(a) => vec![a.clone()],
+            None => venue.and_then(|v| self.recorded.get(&(v.id, symbol.to_string()))).cloned().unwrap_or_default(),
+        };
+        let cache = (symbol.to_string(), venue.map(|v| v.id), assets.iter().map(|a| a.0).collect());
+        if let Some(hit) = self.price_keys.get(&cache) { return hit.clone(); }
+        let key = price_key(self.r, symbol, venue, None, &assets, self.recorded_coins.contains(symbol));
+        self.price_keys.insert(cache, key.clone());
+        key
+    }
+
     /// `price_at(asset:, currency:, timestamp:, exchange:)`: the price this pass has, else Rails' single-day fetch;
     /// still nothing is a zero and a warning.
     pub fn price_at(&mut self, asset: &str, currency: &str, at: At, exchange: Option<&str>) -> Result<Dec, FiguresError> {
+        self.price_at_recorded(asset, currency, at, exchange, None)
+    }
+
+    /// `price_at(..., recorded:)`: with the asset the row recorded.
+    pub fn price_at_recorded(&mut self, asset: &str, currency: &str, at: At, exchange: Option<&str>, recorded: Option<&Asset>) -> Result<Dec, FiguresError> {
         if asset == currency { return Ok(Dec::one()); }
         if stable(asset) { return self.stablecoin_rate(currency, at); }
-        crate::figures::budget::charge(1, 0)?;
         let date = at.utc().date_naive();
-        if let Some(p) = self.known(asset, currency, date) { return Ok(p); }
-        match self.fetch_single_price(asset, currency, date, exchange)? {
+        let Some((key, security)) = self.price_key_for(asset, exchange, date, recorded) else {
+            self.warnings.push(format!("{asset}/{currency} {date}"));
+            return Ok(Dec::zero());
+        };
+        crate::figures::budget::charge(1, 0)?;
+        if let Some(p) = self.known(&key, currency, date) { return Ok(p); }
+        match self.fetch_single_price(asset, &key, security.as_ref(), currency, date, exchange)? {
             Some(p) => Ok(p),
             None => { self.warnings.push(format!("{asset}/{currency} {date}")); Ok(Dec::zero()) }
         }
@@ -256,14 +370,19 @@ impl<'a> PriceService<'a> {
 
     /// `fetch_single_price`: a window of up to 60 days either side, anchored on its end (never past today), clipped to
     /// the coin the symbol meant that day; then the day's price, if the window brought one.
-    fn fetch_single_price(&mut self, asset: &str, currency: &str, date: NaiveDate, exchange: Option<&str>) -> Result<Option<Dec>, FiguresError> {
+    fn fetch_single_price(&mut self, asset: &str, key: &str, security: Option<&Asset>, currency: &str, date: NaiveDate, exchange: Option<&str>) -> Result<Option<Dec>, FiguresError> {
         let to = plus(date, SINGLE_PRICE_WINDOW).min(self.today);
         let from = minus(to, SINGLE_PRICE_WINDOW * 2);
         let venue = self.venue(exchange);
-        let Some((first, last, coin)) = coin_ids_over_on(self.r, asset, venue, from, to).into_iter().find(|(f, l, _)| *f <= date && date <= *l) else { return Ok(None) };
+        // A security has no dated alias: its own id, over the whole window.
+        let ranges = match security {
+            Some(s) => s.1.iter().map(|id| (from, to, id.clone())).collect(),
+            None => coin_ids_over_on(self.r, asset, venue, from, to),
+        };
+        let Some((first, last, coin)) = ranges.into_iter().find(|(f, l, _)| *f <= date && date <= *l) else { return Ok(None) };
         let end = if last == to { plus(first, SINGLE_PRICE_WINDOW * 2).min(self.today) } else { last };
-        self.fetch_price_range(&Fetch { coin, symbol: asset.into(), currency: currency.into(), from: first, to: end })?;
-        Ok(self.known(asset, currency, date))
+        self.fetch_price_range(&Fetch { coin, symbol: key.into(), currency: currency.into(), from: first, to: end })?;
+        Ok(self.known(key, currency, date))
     }
 
     /// `fetch_price_range`: nothing when every day of the range has a row; else the request, and the new days kept.
@@ -335,12 +454,14 @@ impl<'a> PriceService<'a> {
     pub fn prefetch(&mut self, rows: &[Stored], skip: &dyn Fn(&Stored) -> bool) -> Result<(), FiguresError> {
         let mut coins: Vec<(String, String, NaiveDate, NaiveDate)> = vec![];
         let mut index: HashMap<(String, String), usize> = HashMap::new();
-        let mut add = |me: &mut Self, symbol: Option<&str>, date: NaiveDate, exchange: &str| {
+        let mut add = |me: &mut Self, symbol: Option<&str>, date: NaiveDate, exchange: &str, recorded: Option<&Asset>| {
             let Some(symbol) = symbol.filter(|s| !s.trim().is_empty() && !fiat(s)) else { return };
-            let Some(coin) = me.coin_id_for(symbol, Some(exchange), date) else { return };
-            match index.get(&(symbol.to_string(), coin.clone())) {
+            let Some((key, security)) = me.price_key_for(symbol, Some(exchange), date, recorded) else { return };
+            let coin = match security { Some(s) => s.1, None => me.coin_id_for(symbol, Some(exchange), date) };
+            let Some(coin) = coin else { return };
+            match index.get(&(key.clone(), coin.clone())) {
                 Some(&i) => { let e = &mut coins[i]; e.2 = e.2.min(date); e.3 = e.3.max(date); }
-                None => { index.insert((symbol.to_string(), coin.clone()), coins.len()); coins.push((symbol.to_string(), coin, date, date)); }
+                None => { index.insert((key.clone(), coin.clone()), coins.len()); coins.push((key, coin, date, date)); }
             }
         };
         for r in rows {
@@ -350,9 +471,9 @@ impl<'a> PriceService<'a> {
             if r.quote.as_deref() == Some("USD") && r.quote_amount.is_some() { continue; }
             if r.quote.as_deref().is_some_and(|q| stable(q) || fiat(q)) && r.quote_amount.is_some() { continue; }
             let date = r.date();
-            add(self, Some(&r.base), date, &r.venue);
+            add(self, Some(&r.base), date, &r.venue, r.base_asset.as_ref());
             if r.fee_amount.as_ref().is_some_and(Dec::is_positive) && !r.fee_currency.as_deref().is_some_and(stable) {
-                add(self, r.fee_currency.as_deref(), date, &r.venue);
+                add(self, r.fee_currency.as_deref(), date, &r.venue, None);
             }
         }
         for (symbol, coin, from, to) in coins { self.fetch_price_range(&Fetch::usd(coin, symbol, from, to))?; }
@@ -433,7 +554,7 @@ mod tests {
                          CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER);
                          CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT, symbol TEXT, market_cap_rank INTEGER);
                          INSERT INTO assets VALUES (1, 'terra-luna-2', 'Cryptocurrency', 'LUNA', 300), (2, 'AAPL.US', 'Stock', 'AAPL', NULL), (3, 'apple-coin', 'Cryptocurrency', 'AAPL', 900),
-                                                   (4, 'bitcoin', 'Cryptocurrency', 'BTC', 1);
+                                                   (4, 'bitcoin', 'Cryptocurrency', 'BTC', 1), (5, 'BTC.US', 'Stock', 'BTC', NULL), (6, 'MSFT.US', 'Stock', 'MSFT', NULL);
                          CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC);
                          CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC);").unwrap();
         c
@@ -451,8 +572,61 @@ mod tests {
         assert_eq!(alias_coin("LIT", Some(&venue("binance_us")), None), None, "Binance's own listing only");
         assert_eq!(coin_ids_over(&c, "LUNA", &venue("alpaca"), day("2022-05-01"), day("2022-06-30")),
                    [(day("2022-05-01"), day("2022-05-27"), "terra-luna".to_string()), (day("2022-05-28"), day("2022-06-30"), "terra-luna-2".to_string())]);
-        assert_eq!(catalogue_coin(&c, "AAPL", &venue("alpaca")).as_deref(), Some("AAPL.US"));
+        assert_eq!(catalogue_coin(&c, "AAPL", &venue("alpaca")).as_deref(), Some("apple-coin"), "a coin lookup never answers a security");
         assert_eq!(catalogue_coin(&c, "AAPL", &venue("kraken")).as_deref(), Some("apple-coin"));
+    }
+
+    /// Tax::AssetIdentity.identity and .price_key: at a broker the recorded asset decides, then the venue's listings, then
+    /// the catalogue, and a name that is both is unpriced; a security's key is `stock:SYM` whenever a coin has the symbol.
+    #[test]
+    fn a_broker_name_is_the_asset_recorded_and_a_security_keeps_off_a_coins_key() {
+        let db = catalogue();
+        db.execute_batch("INSERT INTO tickers VALUES (1, 1, 'BTC', 5), (2, 1, 'BTC', 4), (3, 1, 'MSFT', 6)").unwrap();
+        let r = Reference::load(&db, &venue("alpaca"), &names(&["BTC", "MSFT", "AAPL", "LUNA"])).unwrap();
+        let alpaca = venue("alpaca");
+        let coin: Asset = (4, Some("bitcoin".into()), Some("Cryptocurrency".into()));
+        let etf: Asset = (5, Some("BTC.US".into()), Some("Stock".into()));
+        assert_eq!(identity(&r, "BTC", Some(&alpaca), &[]), None);
+        assert_eq!(identity(&r, "BTC", Some(&alpaca), std::slice::from_ref(&coin)), Some((false, Some(coin.clone()))));
+        assert_eq!(identity(&r, "BTC", Some(&venue("binance")), &[]), Some((false, None)));
+        assert_eq!(price_key(&r, "BTC", Some(&alpaca), None, std::slice::from_ref(&etf), false), Some(("stock:BTC".to_string(), Some(etf.clone()))));
+        assert_eq!(price_key(&r, "BTC", Some(&alpaca), None, std::slice::from_ref(&coin), false), Some(("BTC".to_string(), None)));
+        assert_eq!(price_key(&r, "MSFT", Some(&alpaca), None, &[], false).map(|k| k.0).as_deref(), Some("MSFT"), "no coin is MSFT: the key it always had");
+        assert_eq!(price_key(&r, "MSFT", Some(&alpaca), None, &[], true).map(|k| k.0).as_deref(), Some("stock:MSFT"), "a coin recorded under it elsewhere");
+        assert_eq!(price_key(&r, "AAPL", Some(&alpaca), None, &[], false), None, "the catalogue has both and the venue lists neither");
+        for at in ["2022-05-27", "2022-05-28"] { assert_eq!(price_key(&r, "LUNA", Some(&alpaca), Some(day(at)), &[], false).map(|k| k.0).as_deref(), Some("LUNA")); }
+        assert!(dated_alias("LUNA", Some(&alpaca)) && !dated_alias("MATIC", Some(&alpaca)));
+    }
+
+    /// A broker listing only the BTC security still stores its closes off bitcoin's key, whichever is priced first; a
+    /// row naming neither at a broker that lists both asks nothing and warns.
+    #[test]
+    fn a_security_and_bitcoin_never_share_a_key_across_venues() {
+        let db = catalogue();
+        db.execute_batch("INSERT INTO tickers VALUES (1, 1, 'BTC', 5)").unwrap();
+        let r = Reference::load(&db, &venue("alpaca"), &names(&["BTC"])).unwrap();
+        let fx = FxTable::default();
+        let at = At::from_sql("2026-10-08 12:00:00").unwrap();
+        for order in [["alpaca", "binance"], ["binance", "alpaca"]] {
+            let mut script = Script { answers: vec![vec![(day("2026-10-08"), Dec::from_i64(36))], vec![(day("2026-10-08"), Dec::from_i64(83_000))]], asked: vec![] };
+            if order[0] == "binance" { script.answers.reverse(); }
+            {
+                let mut ps = PriceService::new(&r, &fx, day("2026-10-15"), &mut script);
+                for v in order {
+                    let want = if v == "alpaca" { "36.0" } else { "83000.0" };
+                    assert_eq!(ps.price_at("BTC", "USD", at, Some(v)).unwrap().to_s_f(), want, "{v} after {order:?}");
+                }
+            }
+            let mut asked: Vec<(String, String)> = script.asked.iter().map(|f| (f.coin.clone(), f.symbol.clone())).collect();
+            asked.sort();
+            assert_eq!(asked, [("BTC.US".to_string(), "stock:BTC".to_string()), ("bitcoin".to_string(), "BTC".to_string())]);
+        }
+        db.execute_batch("INSERT INTO tickers VALUES (2, 1, 'BTC', 4)").unwrap();
+        let r = Reference::load(&db, &venue("alpaca"), &names(&["BTC"])).unwrap();
+        let mut none = NoFetch;
+        let mut ps = PriceService::new(&r, &fx, day("2026-10-15"), &mut none);
+        assert!(ps.price_at("BTC", "USD", at, Some("alpaca")).unwrap().is_zero());
+        assert_eq!(ps.warnings, ["BTC/USD 2026-10-08"]);
     }
 
     /// fetch_price_range: nothing asked when the table covers the range; else one request from the first midnight to the
@@ -487,20 +661,36 @@ mod tests {
     /// warning with no request.
     #[test]
     fn a_price_nobody_has_is_a_zero_and_a_warning_every_lookup() {
-        let r = Reference::load(&catalogue(), &venue("alpaca"), &names(&["AAPL", "NOSUCH", "BTC"])).unwrap();
+        let r = Reference::load(&catalogue(), &venue("alpaca"), &names(&["MSFT", "NOSUCH", "BTC"])).unwrap();
         let fx = FxTable::default();
         let at = At::from_sql("2026-09-09 12:00:00").unwrap();
         let mut script = Script { answers: vec![vec![], vec![(day("2026-09-09"), Dec::from_i64(200))]], asked: vec![] };
         {
             let mut ps = PriceService::new(&r, &fx, day("2026-10-01"), &mut script);
-            assert!(ps.price_at("AAPL", "USD", at, Some("alpaca")).unwrap().is_zero());
-            assert_eq!(ps.price_at("AAPL", "USD", at, Some("alpaca")).unwrap().to_s_f(), "200.0");
-            assert_eq!(ps.price_at("AAPL", "USD", at, Some("alpaca")).unwrap().to_s_f(), "200.0");
+            assert!(ps.price_at("MSFT", "USD", at, Some("alpaca")).unwrap().is_zero());
+            assert_eq!(ps.price_at("MSFT", "USD", at, Some("alpaca")).unwrap().to_s_f(), "200.0");
+            assert_eq!(ps.price_at("MSFT", "USD", at, Some("alpaca")).unwrap().to_s_f(), "200.0");
             assert!(ps.price_at("NOSUCH", "USD", at, Some("alpaca")).unwrap().is_zero());
-            assert_eq!(ps.warnings, ["AAPL/USD 2026-09-09", "NOSUCH/USD 2026-09-09"]);
+            assert_eq!(ps.warnings, ["MSFT/USD 2026-09-09", "NOSUCH/USD 2026-09-09"]);
         }
         assert_eq!(script.asked.len(), 2);
-        assert_eq!((script.asked[0].coin.as_str(), script.asked[0].from, script.asked[0].to), ("AAPL.US", day("2026-06-03"), day("2026-10-01")));
+        assert_eq!((script.asked[0].coin.as_str(), script.asked[0].symbol.as_str(), script.asked[0].from, script.asked[0].to), ("MSFT.US", "MSFT", day("2026-06-03"), day("2026-10-01")));
+    }
+
+    /// TrackerHelper#tracker_price_key: the table reads a row's price under the key its identity names, with what the
+    /// owner's rows at the venue recorded standing in for a row that recorded nothing; none for a name still both.
+    #[test]
+    fn the_table_reads_a_row_s_price_under_its_identity_s_key() {
+        let c = catalogue();
+        c.execute_batch("INSERT INTO tickers VALUES (1, 1, 'BTC', 5), (2, 1, 'BTC', 4), (3, 1, 'MSFT', 6);
+                         CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, base_currency TEXT, base_asset_id INTEGER);
+                         INSERT INTO account_transactions VALUES (1, 2, 1, 'BTC', 5);").unwrap();
+        let key = |owner: i64, exchange: i64, kind: &str, symbol: &str, own: Option<i64>| row_price_key(&c, owner, exchange, kind, symbol, own, day("2026-10-08")).unwrap();
+        assert_eq!(key(1, 1, "Exchanges::Alpaca", "BTC", None), None, "nothing says which");
+        assert_eq!(key(1, 1, "Exchanges::Alpaca", "BTC", Some(4)).as_deref(), Some("BTC"));
+        assert_eq!(key(1, 1, "Exchanges::Alpaca", "MSFT", None).as_deref(), Some("MSFT"), "a name no coin shares: as before");
+        assert_eq!(key(2, 1, "Exchanges::Alpaca", "BTC", None).as_deref(), Some("stock:BTC"), "the venue's other rows recorded the security");
+        assert_eq!(key(2, 2, "Exchanges::Binance", "BTC", None).as_deref(), Some("BTC"));
     }
 
     /// A missing ECB rate warns on every record that leans on it and falls back to the BTC cross.

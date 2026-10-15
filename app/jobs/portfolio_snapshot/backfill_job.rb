@@ -17,7 +17,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   FIAT = Tax::PriceService::FIAT_CURRENCIES
   STABLECOINS = Tax::PriceService::STABLECOINS
   # Categories whose prices live under the `stock:` namespace and come from the broker's own candles.
-  STOCK_CATEGORIES = ['Stock', 'Common Stock', 'ETF', 'Fund'].freeze
+  STOCK_CATEGORIES = Tax::AssetIdentity::STOCK_CATEGORIES
   ACQUISITIONS = %i[buy swap_in staking_reward lending_interest airdrop mining other_income].freeze
   # How far a last-observed price may be carried. A weekend and a long holiday fit inside it; a
   # broker page limit or a dead feed does not, and those days say so rather than repeating a price
@@ -328,8 +328,10 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       instruments[key] = [symbol, stock, [from, known&.dig(2) || from].min, known&.dig(3) || exchange, known&.dig(4) || coin]
     end
     instruments.each do |key, (symbol, stock, from, exchange, coin)|
+      # A named coin stands for the whole window only where no dated alias cuts it (Terra's LUNA).
       coins = if stock then []
-              elsif coin then [[from..@last_date, coin.external_id]]
+              elsif coin && !Tax::AssetIdentity.dated_alias?(symbol, exchange: exchange)
+                [[from..@last_date, coin.external_id]]
               else Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date)
               end
       fetch_missing(symbol, stock, from, coins, exchange)
@@ -358,16 +360,8 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # the venue's rows recorded decides; with none recorded, what the venue lists under the name, then
   # the catalogue. A name that is still both is not guessed at.
   def identity_of(symbol, exchange)
-    return [:coin] unless exchange.stock_venue?
-
-    candidates = @transactions.select { |row| row.exchange_id == exchange.id && row.base_currency == symbol }
-                              .filter_map(&:base_asset).presence ||
-                 exchange.tickers.where(base: symbol).includes(:base_asset).map(&:base_asset).presence ||
-                 Asset.where(symbol: symbol).to_a
-    stocks, coins = candidates.uniq.partition { |asset| STOCK_CATEGORIES.include?(asset.category) }
-    return [:coin, (coins.first if coins.one?)] if stocks.empty?
-
-    [:stock] if coins.empty?
+    recorded = @transactions.select { |row| row.exchange_id == exchange.id && row.base_currency == symbol }.filter_map(&:base_asset)
+    Tax::AssetIdentity.identity(symbol, exchange: exchange, recorded: recorded)
   end
 
   # Cash needs no price, and a symbol nothing ever touched needs no window. [venue, symbol] → the

@@ -8,8 +8,8 @@ module Tax
   #
   # So, in order: an alias, dated where the symbol changed hands and scoped where a venue's listing
   # differs from the catalogue's; what the VENUE lists under that symbol, which is its own fact; the
-  # coin of that symbol by market rank. Never a stock for a crypto venue — and a stock first for a
-  # stock venue, which trades coins as well.
+  # coin of that symbol by market rank. Never a security: which of the two a broker's name is, is
+  # `identity`'s question.
   #
   # ponytail: prices are still stored by SYMBOL (`historical_prices.asset`), so two coins sharing a
   # ticker on two venues at the same time would share one price row. A dated alias never overlaps
@@ -39,6 +39,8 @@ module Tax
 
     STOCK = 'Stock'.freeze
     CRYPTO = 'Cryptocurrency'.freeze
+    # The categories a broker's securities are filed under.
+    STOCK_CATEGORIES = ['Stock', 'Common Stock', 'ETF', 'Fund'].freeze
 
     class << self
       def coin_id(symbol, exchange: nil, at: nil)
@@ -53,7 +55,8 @@ module Tax
         ALIASES.find { |entry| entry.symbol == symbol && venue_fits?(entry, exchange) && holds_on?(entry, at) }&.coin
       end
 
-      # What the venue lists, then the catalogue by rank.
+      # What the venue lists, then the catalogue by rank. Always a coin, never a security: a broker can
+      # list a security under the coin's ticker (Alpaca's BTC beside BTC/USD).
       def catalogue_coin(symbol, exchange: nil)
         return if symbol.blank?
 
@@ -73,6 +76,44 @@ module Tax
         end
       end
 
+      # What a symbol is at a venue: [:stock, the security], [:coin, the one coin named, if any], or nil
+      # for a name that is still both. On a crypto venue a symbol is a coin. A broker can list a
+      # security and a coin under one ticker, so there the assets recorded under the name decide
+      # (`recorded`: the row's own, or what the venue's rows recorded); with none, what the venue
+      # lists under it, then the catalogue.
+      def identity(symbol, exchange:, recorded: [])
+        return [:coin] unless exchange&.stock_venue?
+
+        candidates = recorded.compact.presence ||
+                     exchange.tickers.where(base: symbol).order(:id).includes(:base_asset).filter_map(&:base_asset).presence ||
+                     Asset.where(symbol: symbol).order(Arel.sql('market_cap_rank IS NULL, market_cap_rank'), :id).to_a
+        stocks, coins = candidates.uniq.partition { |asset| STOCK_CATEGORIES.include?(asset.category) }
+        return [:coin, (coins.first if coins.one?)] if stocks.empty?
+
+        [:stock, stocks.first] if coins.empty?
+      end
+
+      # The `historical_prices` key a symbol's prices are stored under at a venue on a day, and the
+      # security when it is one; nil for a name that is still both. A coin's prices are its symbol's.
+      # A security's are too, unless a coin has that symbol anywhere — in the catalogue or in what
+      # `recorded_coins` holds — when they are `stock:SYM`: the bare key is every venue's, and a coin
+      # elsewhere must never read a security's closes, nor a security a coin's.
+      def price_key(symbol, exchange:, at: nil, recorded: [], recorded_coins: false)
+        return [symbol] if alias_coin(symbol, exchange: exchange, at: at)
+
+        kind, asset = identity(symbol, exchange: exchange, recorded: recorded)
+        return unless kind
+        return [symbol] if kind == :coin
+
+        shared = recorded_coins || Asset.exists?(symbol: symbol, category: CRYPTO)
+        [shared ? "stock:#{symbol}" : symbol, asset]
+      end
+
+      # Whether a dated alias cuts this symbol's history on this venue.
+      def dated_alias?(symbol, exchange: nil)
+        ALIASES.any? { |entry| entry.symbol == symbol && entry.until && venue_fits?(entry, exchange) }
+      end
+
       private
 
       def venue_fits?(entry, exchange)
@@ -84,14 +125,11 @@ module Tax
       end
 
       def listed(symbol, exchange)
-        asset = exchange&.tickers&.find_by(base: symbol)&.base_asset
-        asset if asset && (exchange.stock_venue? || asset.category == CRYPTO)
+        exchange&.tickers&.joins(:base_asset)&.where(base: symbol, assets: { category: CRYPTO })&.order(:id)&.first&.base_asset
       end
 
-      def catalogued(symbol, exchange)
-        assets = Asset.where(symbol: symbol).order(Arel.sql('market_cap_rank IS NULL, market_cap_rank'), :id).to_a
-        stock = assets.find { |asset| asset.category == STOCK } if exchange&.stock_venue?
-        stock || assets.find { |asset| asset.category == CRYPTO }
+      def catalogued(symbol, _exchange)
+        Asset.where(symbol: symbol, category: CRYPTO).order(Arel.sql('market_cap_rank IS NULL, market_cap_rank'), :id).first
       end
     end
   end

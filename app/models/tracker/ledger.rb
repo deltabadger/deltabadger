@@ -551,7 +551,7 @@ module Tracker
       # again — which for a position they have closed is never.
       def cache_key(user)
         scope = AccountTransaction.for_user(user)
-        "tracker_ledger_v11_#{shape}_#{user.id}_" \
+        "tracker_ledger_v12_#{shape}_#{user.id}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 

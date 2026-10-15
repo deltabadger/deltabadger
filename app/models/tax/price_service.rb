@@ -59,7 +59,7 @@ module Tax
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
                 (STABLECOINS.include?(tx.quote_currency) || FIAT_CURRENCIES.include?(tx.quote_currency))
 
-        add_coin_date(coins_needed, tx.base_currency, tx.transacted_at, tx.exchange)
+        add_coin_date(coins_needed, tx.base_currency, tx.transacted_at, tx.exchange, recorded_asset(tx))
         if tx.fee_amount.present? && tx.fee_amount.positive? && !STABLECOINS.include?(tx.fee_currency)
           add_coin_date(coins_needed, tx.fee_currency, tx.transacted_at, tx.exchange)
         end
@@ -72,21 +72,28 @@ module Tax
 
       # One call per COIN over its full range — a symbol that changed coin is two coins, each over
       # the days it was that coin.
-      coins_needed.each_with_index do |((symbol, coin_id), info), index|
-        Rails.logger.info("[TaxReport] Fetching prices for #{symbol} (#{index + 1}/#{coins_needed.size})")
-        fetch_price_range(coin_id: coin_id, symbol: symbol, currency: currency,
+      coins_needed.each_with_index do |((key, coin_id), info), index|
+        Rails.logger.info("[TaxReport] Fetching prices for #{key} (#{index + 1}/#{coins_needed.size})")
+        fetch_price_range(coin_id: coin_id, symbol: key, currency: currency,
                           from: info[:min], to: info[:max])
         on_progress&.call(index + 1, coins_needed.size)
       end
     end
 
     # `exchange` is where the row was booked: which coin a symbol means depends on the venue that
-    # listed it and the day it was booked (`Tax::AssetIdentity`).
-    def price_at(asset:, currency:, timestamp:, exchange: nil)
+    # listed it and the day it was booked (`Tax::AssetIdentity`). `recorded` is the asset the row
+    # recorded, where it did: at a broker listing a security and a coin under one ticker, it decides.
+    def price_at(asset:, currency:, timestamp:, exchange: nil, recorded: nil)
       return 1.to_d if asset == currency
       return stablecoin_rate(currency, timestamp) if STABLECOINS.include?(asset)
 
-      cache_key = "#{asset}/#{currency}/#{timestamp.to_date}"
+      key, security = price_key_for(asset, exchange, timestamp, recorded)
+      unless key
+        @warnings << "#{asset}/#{currency} #{timestamp.to_date}"
+        return 0.to_d
+      end
+
+      cache_key = "#{key}/#{currency}/#{timestamp.to_date}"
       cached = @price_cache[cache_key]
       # A zero is never a price, it is a failed lookup wearing one. `nil.to_d` is `0.0`, so a single
       # null in an upstream prices array becomes a zero here — and a zero that gets past this point
@@ -96,14 +103,15 @@ module Tax
       return cached if cached && !cached.to_d.zero?
 
       # Check DB
-      db_price = HistoricalPrice.lookup(asset: asset, currency: currency, date: timestamp.to_date)
+      db_price = HistoricalPrice.lookup(asset: key, currency: currency, date: timestamp.to_date)
       if db_price && !db_price.to_d.zero?
         @price_cache[cache_key] = db_price
         return db_price
       end
 
       # Fetch from CoinGecko
-      price = fetch_single_price(asset: asset, currency: currency, timestamp: timestamp, exchange: exchange)
+      price = fetch_single_price(asset: asset, key: key, security: security, currency: currency, timestamp: timestamp,
+                                 exchange: exchange)
       if price.nil? || price.zero?
         @warnings << "#{asset}/#{currency} #{timestamp.to_date}"
         return 0.to_d
@@ -121,6 +129,7 @@ module Tax
     # Enriches transactions with fiat values for tax calculation.
     # Progress is split: 0-21% = prefetching prices, 21-100% = enriching transactions.
     def enrich(transactions, currency:, &on_progress)
+      record_assets(transactions)
       # Before any price is looked up: a leg the cash beside it values is never fetched and never warns.
       @cash_legs = cash_leg_context(transactions, currency)
       prefetch(transactions, currency: currency) do |done, total|
@@ -409,16 +418,19 @@ module Tax
       FIAT_CURRENCIES.include?(currency) || STABLECOINS.include?(currency)
     end
 
-    # Keyed by symbol AND coin: a symbol that changed coin (`Tax::AssetIdentity`) is fetched as each
-    # coin over its own days. A symbol nobody can name a coin for is not fetched at all.
-    def add_coin_date(coins, symbol, timestamp, exchange = nil)
+    # Keyed by price key AND coin: a symbol that changed coin (`Tax::AssetIdentity`) is fetched as each
+    # coin over its own days, a security under its own key. A symbol nobody can name is not fetched.
+    def add_coin_date(coins, symbol, timestamp, exchange = nil, recorded = nil)
       return if symbol.blank? || FIAT_CURRENCIES.include?(symbol)
 
-      coin_id = coin_id_for(symbol, exchange, timestamp)
+      price_key, security = price_key_for(symbol, exchange, timestamp, recorded)
+      return unless price_key
+
+      coin_id = security ? security.external_id : coin_id_for(symbol, exchange, timestamp)
       return unless coin_id
 
       date = timestamp.to_date
-      key = [symbol, coin_id]
+      key = [price_key, coin_id]
       coins[key] ||= { min: date, max: date, dates: Set.new }
       coins[key][:min] = date if date < coins[key][:min]
       coins[key][:max] = date if date > coins[key][:max]
@@ -437,6 +449,34 @@ module Tax
       exchange = venue(exchange)
       Tax::AssetIdentity.alias_coin(symbol, exchange: exchange, at: timestamp) ||
         (@coin_ids ||= {})[[symbol, exchange&.id]] ||= Tax::AssetIdentity.catalogue_coin(symbol, exchange: exchange)
+    end
+
+    # The assets each venue's rows recorded under each name, and the names a coin was recorded under
+    # anywhere: what a row that recorded nothing is read by (`Tax::AssetIdentity.identity`).
+    def record_assets(transactions)
+      rows = transactions.select { |tx| tx.respond_to?(:base_asset_id) && tx.base_asset_id }
+      ActiveRecord::Associations::Preloader.new(records: rows.grep(ActiveRecord::Base), associations: :base_asset).call
+      @recorded = rows.group_by { |tx| [tx.exchange_id, tx.base_currency] }
+                      .transform_values { |list| list.map(&:base_asset).uniq }
+      @recorded_coins = rows.select { |tx| tx.base_asset.category == Tax::AssetIdentity::CRYPTO }.to_set(&:base_currency)
+    end
+
+    def recorded_asset(transaction)
+      transaction.base_asset if transaction.respond_to?(:base_asset_id) && transaction.base_asset_id
+    end
+
+    # [the key a symbol's prices are stored under, the security if it is one], nil where the name
+    # is still both a security and a coin (`Tax::AssetIdentity.price_key`). Cached per venue and
+    # recorded asset; a dated alias is a coin's and costs no query.
+    def price_key_for(symbol, exchange, timestamp, recorded)
+      exchange = venue(exchange)
+      return [symbol] if Tax::AssetIdentity.alias_coin(symbol, exchange: exchange, at: timestamp)
+
+      assets = recorded ? [recorded] : @recorded&.dig([exchange&.id, symbol]) || []
+      (@price_keys ||= {}).fetch([symbol, exchange&.id, assets.map(&:id)]) do |cache|
+        @price_keys[cache] = Tax::AssetIdentity.price_key(symbol, exchange: exchange, recorded: assets,
+                                                                  recorded_coins: @recorded_coins&.include?(symbol))
+      end
     end
 
     # A venue handed over as a record, or named — an enriched row carries only its `name_id`, and
@@ -482,7 +522,7 @@ module Tax
       end
 
       price = price_at(asset: record.base_currency, currency: currency, timestamp: record.transacted_at,
-                       exchange: record.exchange)
+                       exchange: record.exchange, recorded: recorded_asset(record))
       price * record.base_amount.to_d
     end
 
@@ -553,7 +593,7 @@ module Tax
     # prices that were fetched anyway, so `fetch_price_range` stores them on the way past and the
     # next row on a neighbouring date costs nothing — which is also why this delegates rather than
     # keeping a second, subtly different fetch-and-store of its own.
-    def fetch_single_price(asset:, currency:, timestamp:, exchange: nil)
+    def fetch_single_price(asset:, key:, security:, currency:, timestamp:, exchange: nil)
       date = timestamp.to_date
       # Anchored on the END, so a recent date whose window would run past today is widened backwards
       # instead of being narrowed under the threshold. Tomorrow has no price and never will.
@@ -563,13 +603,16 @@ module Tax
       # days, or Terra Classic's prices would be stored as LUNA's for days after the relaunch, and
       # storage being insert-only, the right coin could never replace them. A window cut short by
       # the boundary behind it runs forward instead, so the archive still sees a span it answers.
-      range, coin_id = Tax::AssetIdentity.coin_ids_over(asset, exchange: venue(exchange), from: from, to: to)
-                                         .find { |days, _| days.cover?(date) }
+      # A security has no dated alias: its own id, over the whole window.
+      ranges = if security then security.external_id ? [[from..to, security.external_id]] : []
+               else Tax::AssetIdentity.coin_ids_over(asset, exchange: venue(exchange), from: from, to: to)
+               end
+      range, coin_id = ranges.find { |days, _| days.cover?(date) }
       return nil unless coin_id
 
       last = range.end == to ? [range.begin + (SINGLE_PRICE_WINDOW * 2), Date.current].min : range.end
-      fetch_price_range(coin_id: coin_id, symbol: asset, currency: currency, from: range.begin, to: last)
-      @price_cache["#{asset}/#{currency}/#{date}"]&.to_d&.nonzero?
+      fetch_price_range(coin_id: coin_id, symbol: key, currency: currency, from: range.begin, to: last)
+      @price_cache["#{key}/#{currency}/#{date}"]&.to_d&.nonzero?
     end
 
     def stablecoin_rate(currency, timestamp)

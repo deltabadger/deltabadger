@@ -66,7 +66,7 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 66, "the tracker grid");
+    assert_eq!(dirs.len(), 67, "the tracker grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -161,6 +161,11 @@ async fn rails_and_rust_state_identical_figures_snapshots_and_locks_across_the_t
     for name in ["binance_usdt_buy_bnb_fee", "binance_convert_and_dust", "binance_eur_deposit_and_buy", "same_coin_sale_fee", "kraken_style_fiat_leg_fee_sell"] {
         assert_eq!(today(&rails_of(name))["partial"], 0, "{name}");
     }
+    let asked = rails_of("btc_coin_beside_btc_security")["requests"]["market"].clone();
+    assert!(asked.as_array().unwrap().iter().any(|r| r.to_string().contains("\"bitcoin\"")) && !asked.to_string().contains("BTC.US"),
+            "the coin's fees at a broker listing a BTC security are priced as bitcoin: {asked}");
+    assert!(rails_of("btc_coin_beside_btc_security")["tables"]["historical_prices"].as_array().unwrap().iter()
+        .filter(|r| r["asset"] == "BTC").all(|r| r["price"].to_string().contains("60000")), "the bare key holds bitcoin's closes only");
     assert_eq!(rails_of("binance_to_alpaca_linked_transfer")["ledger"]["venues"].as_object().unwrap().len(), 2, "the transfer's two venues");
     // The backfill for every venue (Plan D2b-2b).
     let ecb_path_calls = |name: &str| rails_of(name)["requests"]["ecb"].as_array().unwrap().iter().filter(|r| r[0].as_str().is_some_and(|k| k.contains("/service/data/EXR/"))).count();

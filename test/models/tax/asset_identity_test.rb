@@ -22,13 +22,59 @@ class Tax::AssetIdentityTest < ActiveSupport::TestCase
     assert_equal 'xyz-coin', Tax::AssetIdentity.coin_id('XYZ', exchange: @binance)
   end
 
-  test 'a stock venue means the stock first, and the coin where there is no stock' do
+  # Asked for a coin, a broker's name never answers a security: which of the two a name is there is
+  # `identity`'s question, and the price key keeps their series apart.
+  test 'a coin lookup at a stock venue never answers a security' do
     coin('AAA', 'aaa-coin')
     coin('AAA', 'alpaca_aaa', category: 'Stock')
     coin('BBB', 'bbb-coin')
+    coin('CCC', 'CCC.US', category: 'Stock')
 
-    assert_equal 'alpaca_aaa', Tax::AssetIdentity.coin_id('AAA', exchange: @alpaca)
+    assert_equal 'aaa-coin', Tax::AssetIdentity.coin_id('AAA', exchange: @alpaca)
     assert_equal 'bbb-coin', Tax::AssetIdentity.coin_id('BBB', exchange: @alpaca)
+    assert_nil Tax::AssetIdentity.coin_id('CCC', exchange: @alpaca)
+  end
+
+  test 'what a broker name is: the asset recorded, else what the venue lists, else the catalogue; both is nil' do
+    usd = coin('USD', 'usd', category: 'Fiat')
+    bitcoin = coin('BTC', 'bitcoin', rank: 1)
+    security = coin('BTC', 'BTC.US', category: 'Stock')
+    apple = coin('AAPL', 'AAPL.US', category: 'Stock')
+    create(:ticker, exchange: @alpaca, base_asset: security, quote_asset: usd, ticker: 'BTC', base: 'BTC', quote: 'USD')
+    create(:ticker, exchange: @alpaca, base_asset: bitcoin, quote_asset: usd, ticker: 'BTC/USD', base: 'BTC', quote: 'USD')
+    create(:ticker, exchange: @alpaca, base_asset: apple, quote_asset: usd, ticker: 'AAPL', base: 'AAPL', quote: 'USD')
+
+    assert_nil Tax::AssetIdentity.identity('BTC', exchange: @alpaca)
+    assert_equal [:coin, bitcoin], Tax::AssetIdentity.identity('BTC', exchange: @alpaca, recorded: [bitcoin])
+    assert_equal [:stock, security], Tax::AssetIdentity.identity('BTC', exchange: @alpaca, recorded: [security])
+    assert_equal [:stock, apple], Tax::AssetIdentity.identity('AAPL', exchange: @alpaca)
+    assert_equal [:coin], Tax::AssetIdentity.identity('BTC', exchange: @binance)
+
+    assert_equal ['AAPL', apple], Tax::AssetIdentity.price_key('AAPL', exchange: @alpaca), 'no coin is AAPL: the key it always had'
+    assert_equal ['stock:BTC', security], Tax::AssetIdentity.price_key('BTC', exchange: @alpaca, recorded: [security])
+    assert_equal ['BTC'], Tax::AssetIdentity.price_key('BTC', exchange: @alpaca, recorded: [bitcoin])
+    assert_nil Tax::AssetIdentity.price_key('BTC', exchange: @alpaca)
+    assert_equal ['stock:AAPL', apple], Tax::AssetIdentity.price_key('AAPL', exchange: @alpaca, recorded_coins: true),
+                 'a coin recorded under the name elsewhere owns the bare key'
+  end
+
+  test 'a venue listing only the security still keeps it off a coin\'s key' do
+    usd = coin('USD', 'usd', category: 'Fiat')
+    coin('BTC', 'bitcoin', rank: 1)
+    security = coin('BTC', 'BTC.US', category: 'Stock')
+    create(:ticker, exchange: @alpaca, base_asset: security, quote_asset: usd, ticker: 'BTC', base: 'BTC', quote: 'USD')
+
+    assert_equal ['stock:BTC', security], Tax::AssetIdentity.price_key('BTC', exchange: @alpaca)
+    assert_equal ['BTC'], Tax::AssetIdentity.price_key('BTC', exchange: @binance)
+  end
+
+  test 'a dated alias is a coin at a broker too, on both sides of its cut' do
+    coin('LUNA', 'terra-luna-2', rank: 300)
+
+    assert_equal ['LUNA'], Tax::AssetIdentity.price_key('LUNA', exchange: @alpaca, at: Time.utc(2022, 5, 27))
+    assert_equal ['LUNA'], Tax::AssetIdentity.price_key('LUNA', exchange: @alpaca, at: Time.utc(2022, 5, 28))
+    assert Tax::AssetIdentity.dated_alias?('LUNA', exchange: @alpaca)
+    assert_not Tax::AssetIdentity.dated_alias?('MATIC', exchange: @alpaca), 'an undated alias cuts nothing'
   end
 
   test 'what the venue lists under a symbol is what it means there; elsewhere, the coin by rank' do

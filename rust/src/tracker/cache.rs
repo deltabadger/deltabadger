@@ -9,6 +9,9 @@ use serde_json::{json, Value};
 
 pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
+/// The calculation a stored summary was made by: a summary of another one is cold (4: a broker name that is both a
+/// security and a coin is priced by the asset its rows recorded).
+const SCHEMA: u64 = 4;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
@@ -86,7 +89,7 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     }
     // Schema 3: the page's figures too (round trips, received, realised, fees, cash at today's rates, unpriced proceeds,
     // openings, position dates). Schema 1 and 2 entries read cold and the next pass republishes.
-    let payload=json!({"schema":3,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
+    let payload=json!({"schema":SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
     if payload.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache publish refused: payload exceeds 8388608-byte limit");return Err(FiguresError::NotComputed(PAYLOAD_TOO_LARGE.into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     Ok(true)
@@ -98,7 +101,7 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
     let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(State::Cold)};
     if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(State::Cold)}
     let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(State::Cold)};
-    if v["schema"].as_u64()!=Some(3) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
+    if v["schema"].as_u64()!=Some(SCHEMA) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
     let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(State::Cold)};
     if now>=expires {return Ok(State::Cold)}
     let current=version(c,owner)?;
@@ -259,11 +262,24 @@ mod tests {
         c.execute_batch("DROP TABLE app_configs").unwrap();assert!(read(&c,1,None,now()).is_err());
     }
 
+    /// A summary the previous calculation stored is cold once this one runs, though no row and no price moved.
+    #[test]
+    fn a_summary_of_the_previous_calculation_reads_cold_with_nothing_written() {
+        let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
+        assert!(matches!(read(&c,1,None,now()).unwrap(),State::Warm(_)));
+        let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
+        raw["schema"]=serde_json::json!(3);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
+        c.pragma_update(None,"query_only",true).unwrap();let before=c.total_changes();
+        assert_eq!(version(&c,1).unwrap(),v,"neither the rows nor the prices moved");
+        assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));
+        assert_eq!(c.total_changes(),before);
+    }
+
     #[test]
     fn cache_real_split_walk_roundtrips_long_computed_decimals() {
         use crate::{figures::at::At,tracker::{fx::FxTable,prices::{NoFetch,PriceService,Reference},rows::{Kind,Stored},walk}};
         let row=|id,kind,amount:&str,value:&str|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None};
         let mut rows=vec![row(1,Kind::Buy,"9","100")];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0"));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;
