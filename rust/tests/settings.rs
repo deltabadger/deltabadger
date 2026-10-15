@@ -127,25 +127,27 @@ async fn credential_value_is_absent_from_application_logs_after_a_real_failed_sa
     assert!(!log.contains(placeholder), "credential must not enter logs");
     server.verify().await;
 }
+/// The live trading host is named in exactly one production file, the Alpaca venue, so no other path can reach it.
 #[test]
-fn production_source_contains_no_live_alpaca_host() {
-    fn walk(root: &std::path::Path) {
+fn production_source_names_the_live_alpaca_host_only_in_the_venue() {
+    fn walk(root: &std::path::Path, naming: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(root).unwrap() {
             let path = entry.unwrap().path();
             if path.is_dir() {
-                walk(&path)
-            } else if path.extension().is_some_and(|e| e == "rs") {
-                let text = std::fs::read_to_string(&path).unwrap();
-                let host = ["https://", "api.alpaca.markets"].concat();
-                assert!(
-                    !text.contains(&host),
-                    "{} includes the live host",
-                    path.display()
-                );
+                walk(&path, naming)
+            } else if path.extension().is_some_and(|e| e == "rs")
+                && std::fs::read_to_string(&path)
+                    .unwrap()
+                    .contains(&["https://", "api.alpaca.markets"].concat())
+            {
+                naming.push(path);
             }
         }
     }
-    walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"));
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut naming = Vec::new();
+    walk(&src, &mut naming);
+    assert_eq!(naming, vec![src.join("venue/alpaca.rs")]);
 }
 
 #[derive(Default)]
@@ -555,7 +557,9 @@ async fn missing_otp_seed_get_is_idempotent_foreign_get_enables_nothing_and_patc
     assert_eq!(retained, seed);
 }
 /// Exchanges::Alpaca#get_api_key_validity asks the key's own mode's host: a live key the live server, a paper key the
-/// paper server, never the other. Both save paths (the tracker card and the legacy JSON route).
+/// paper server, never the other. The tracker card validates before it saves; the legacy JSON route saves the key
+/// pending and leaves validation to the woken validator job, as Rails' Api::ApiKeysController (ApiKeyValidatorJob
+/// .perform_later), so it sends nothing itself.
 #[tokio::test(flavor = "current_thread")]
 async fn each_mode_validates_on_its_own_host_and_saves() {
     for mode in ["paper", "live"] {
@@ -571,10 +575,15 @@ async fn each_mode_validates_on_its_own_host_and_saves() {
         let rejected = h.submit("POST", "/tracker/add_api_key", &[("exchange_id", "1"), ("key_type", "trading"), ("api_key[key]", "bad-key"), ("api_key[secret]", "bad-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
         assert_eq!(rejected.status, 422, "{mode}: Alpaca's 401 on the key's own host is an invalid key");
         assert_eq!(h.snapshot(), before, "{mode}");
+        let stored_mode = |h: &Harness| -> String { h.app.cipher.decrypt(&h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1", [h.seed.api_key_id], |r| r.get::<_, String>(0)).unwrap()).unwrap() };
+        let validated = h.submit("POST", "/tracker/add_api_key", &[("exchange_id", "1"), ("key_type", "trading"), ("api_key[key]", "good-key"), ("api_key[secret]", "good-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
+        assert_eq!(validated.status, 200, "{mode}: {}", validated.body);
+        assert_eq!(stored_mode(&h), mode);
+        let flip = if mode == "live" { "paper" } else { "live" };
+        h.c.execute("UPDATE api_keys SET passphrase=?1 WHERE id=?2", (h.app.cipher.encrypt(flip), h.seed.api_key_id)).unwrap();
         let saved = h.submit("POST", "/api/api_keys", &[("api_key[exchange_id]", "1"), ("api_key[key_type]", "trading"), ("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
         assert_eq!(saved.status, 201, "{mode}: {}", saved.body);
-        let stored: String = h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1", [h.seed.api_key_id], |r| r.get(0)).unwrap();
-        assert_eq!(h.app.cipher.decrypt(&stored).unwrap(), mode);
+        assert_eq!(stored_mode(&h), mode);
         used.verify().await;
         unused.verify().await;
     }

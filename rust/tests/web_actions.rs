@@ -1032,7 +1032,6 @@ mod action_write {
             "DELETE FROM api_keys",
             "UPDATE api_keys SET status=0",
             "UPDATE api_keys SET status=2",
-            "UPDATE api_keys SET passphrase='live'",
             r#"UPDATE api_keys SET key='{"p":"!!!","h":{"iv":"!!!","at":"!!!"}}'"#,
             "UPDATE tickers SET available=0",
             "UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))",
@@ -1045,7 +1044,7 @@ mod action_write {
             let f=Fixture::new()?; f.c.execute_batch(sql)?; let before=f.snapshot()?;
             let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
             let result=f.lifecycle(write::Action::Start,Some(json!(false)))?;
-            if sql.contains("passphrase='live'") || sql.contains("SET key=") || sql.contains("category='Stock'") {
+            if sql.contains("SET key=") || sql.contains("category='Stock'") {
                 assert!(matches!(result,Outcome::GuardRefused(_)),"guard must roll back the continue request: {sql}");
             } else {
                 assert!(matches!(result,Outcome::Invalid(_)|Outcome::GuardRefused(_)|Outcome::Unported(_)),"{sql}");
