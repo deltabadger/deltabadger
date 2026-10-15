@@ -25,8 +25,13 @@
     top: 1.5rem
     right: 1.5rem
     z-index: 2
+    // Square, so border-radius 50% is a circle: padding alone left the button's line box taller than wide.
     display: flex
-    padding: 0.75rem
+    align-items: center
+    justify-content: center
+    width: 4rem
+    height: 4rem
+    padding: 0
     // Content scrolls under the ×; a frosted disc in the pane's own colour keeps it legible
     // without a bar across the top.
     background: color-mix(in srgb, var(--washed) 75%, transparent)
