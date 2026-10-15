@@ -82,6 +82,25 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal 'deposit', AccountTransaction.for_user(@user).order(:id).last.entry_type
   end
 
+  # 182 such repeats in one real export; each is a credit of its own.
+  test 'a file repeating a row in one second lands every copy, and once' do
+    row = '1,2021-01-07 21:28:41,Spot,Commission History,USDT,0.06303219,'
+    file = [HEADER, row, row].join("\n")
+
+    assert_equal 2, import(file)[:imported]
+    assert_equal({ imported: 0, duplicates: 2 }, import(file).slice(:imported, :duplicates))
+  end
+
+  test 'a token swap distribution is the dividend the API already synced' do
+    AccountTransactionSync.new(@key).store!([{ entry_type: :airdrop, base_currency: 'USDT', base_amount: '118.55207'.to_d,
+                                               tx_id: 'dividend-4050375634540573989',
+                                               transacted_at: Time.utc(2024, 6, 26, 5, 26, 41), raw_data: {} }])
+
+    result = import([HEADER, '1,2024-06-26 08:26:41,Spot,Token Swap - Distribution,USDT,118.55207,'].join("\n"), offset: '+03:00')
+
+    assert_equal({ imported: 0, duplicates: 1 }, result.slice(:imported, :duplicates))
+  end
+
   # Why the zone is read from the file and never asked for: at the wrong offset nothing matches what
   # is already stored, so the same history lands a second time, hours out of place.
   test 'the same file at a different offset is a whole second history' do
