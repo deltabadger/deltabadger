@@ -327,7 +327,7 @@ fn float_to_d(f: f64) -> Option<BigDec> {
     let (mantissa, exp) = shortest.split_once('e')?;
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
     let n: u64 = digits.parse().ok()?;
-    if digits.len() > 16 || n % 2 == 0 { return Some(d); } // a 17th digit is truncated anyway; an even one is Ruby's
+    if digits.len() > 16 || n.is_multiple_of(2) { return Some(d); } // a 17th digit is truncated anyway; an even one is Ruby's
     let shift = exp.parse::<i64>().ok()? - digits.len() as i64 + 1; // the last digit's power of ten
     // The exact binary value, every digit (a double's expansion ends within 1100 places), trailing zeros dropped.
     let exact = format!("{:.1100e}", f.abs());
