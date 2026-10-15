@@ -1,6 +1,6 @@
 {#- bots/status/_status_button.html.erb, the bot page's or (`tile: true`) the tile's. The hint for an unavailable ticker never renders for these
     bot types: both answer an empty `tickers_for_start`. -#}
-<div id="{{ id }}">
+<div id="{{ id }}"{% if !tile %} class="buttons-no-outline"{% endif %}>
 {% match button %}
 {% when Button::Reactivate %}
     <form class="button_to" method="post" action="{{ path }}/archive"><input type="hidden" name="_method" value="delete" /><button class="{{ class }}" data-turbo-frame="_top" type="submit">{{ v.t("button.reactivate")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>

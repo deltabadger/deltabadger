@@ -46,7 +46,7 @@ class Bots::WashSalePromptsControllerTest < ActionDispatch::IntegrationTest
   test 'Confirm carries a colour — the bare class renders as browser chrome' do
     get new_bot_wash_sale_prompt_path(bot_id: @bot.id)
 
-    assert_select 'button[type=submit].button--sky'
+    assert_select 'button[type=submit].rbutton.rbutton--primary'
   end
 
   test 'an account that has already answered is not asked again' do

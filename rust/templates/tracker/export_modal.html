@@ -12,49 +12,37 @@
       <h1 class="modal__title">{{ ctx.t("tracker.export_modal.title")|safe }}</h1>
     </div>
 
-    <div class="modal__form" data-controller="tracker-export" data-tracker-export-save-url="{{ ctx.path("/tracker/save_export_settings") }}">
-      <div class="flex form__row flex-center gap-3">
-        <label class="form__radio-group">
-          <input type="radio" name="export_type" value="tax_report"
-                 data-action="tracker-export#toggle"
-                 data-tracker-export-target="typeRadio"
-                 {{ checked_tax }}>
-          <span>{{ ctx.t("tracker.export_modal.tax_report")|safe }}</span>
-        </label>
-        <label class="form__radio-group">
-          <input type="radio" name="export_type" value="transactions"
-                 data-action="tracker-export#toggle"
-                 data-tracker-export-target="typeRadio"
-                 {{ checked_transactions }}>
-          <span>{{ ctx.t("tracker.export_modal.transactions")|safe }}</span>
-        </label>
+    <div data-controller="tracker-export" data-tracker-export-save-url="{{ ctx.path("/tracker/save_export_settings") }}">
+      <div class="mb-3" data-action="segmented:change->tracker-export#changeType">
+        
+{{ type_switch|safe }}
+        <input type="hidden" name="export_type" value="{{ export_type }}"
+               data-tracker-export-target="exportType">
       </div>
 
-      <div data-tracker-export-target="taxOptions" class="flex-row full-width {{ hide_tax }}">
-        <div class="form__row form__row--input">
-          <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#toggle">
+      <div data-tracker-export-target="taxOptions" class="{{ hide_tax }}">
+        <div class="srow"><div class="srow__text"><div class="srow__label">{{ ctx.t("tracker.export_modal.country")|safe }}</div></div><div class="srow__control">
+          <select name="country" class="rinput rinput--outline rinput--select" aria-label="{{ ctx.t("tracker.export_modal.country")|safe }}"
+                  data-tracker-export-target="country" data-action="change->tracker-export#toggle">
 {{ countries|safe }}          </select>
-          <label class="form__label form__label--active">{{ ctx.t("tracker.export_modal.country")|safe }}</label>
-        </div>
-
-        <div class="form__row form__row--input">
-          <select name="year" class="form__input" data-tracker-export-target="year" data-action="change->tracker-export#changeYear">
+</div></div>
+        <div class="srow"><div class="srow__text"><div class="srow__label">{{ ctx.t("tracker.export_modal.year")|safe }}</div></div><div class="srow__control">
+          <select name="year" class="rinput rinput--outline rinput--select" aria-label="{{ ctx.t("tracker.export_modal.year")|safe }}"
+                  data-tracker-export-target="year" data-action="change->tracker-export#changeYear">
 {{ years|safe }}          </select>
-          <label class="form__label form__label--active">{{ ctx.t("tracker.export_modal.year")|safe }}</label>
-        </div>
-      </div>
+</div></div>      </div>
 
 {{ scope|safe }}
       {{ panel|safe }}
 
-      <p class="form__row {{ hide_tax }}"
+      <p class="text-inactive {{ hide_tax }}"
          data-tracker-export-target="taxOptions">{{ ctx.t("tracker.export_modal.tax_disclaimer")|safe }}</p>
 
-      <p class="form__row salert salert--danger hidden" data-tracker-export-target="saveError">
+      <p class="salert salert--danger hidden" data-tracker-export-target="saveError">
         {{ ctx.t("tracker.export_modal.classification_save_failed")|safe }}
       </p>
 
-      <div data-tracker-export-target="stablecoinOption" class="form__row hidden">
+      <div data-tracker-export-target="stablecoinOption" class="hidden">
         <label class="form__checkbox-group">
           <input type="checkbox" name="stablecoin_as_fiat"
                  data-tracker-export-target="stablecoinCheckbox"
@@ -64,29 +52,27 @@
         </label>
       </div>
 
-      <div data-tracker-export-target="transactionsOptions" class="flex-row full-width {{ hide_transactions }}">
-        <div class="form__row form__row--input">
-          <input type="date" name="from" class="form__input" data-tracker-export-target="dateFrom"
-                 value="{{ from }}">
-          <label class="form__label form__label--active">{{ ctx.t("tracker.export_modal.from")|safe }}</label>
-        </div>
-        <div class="form__row form__row--input">
-          <input type="date" name="to" class="form__input" data-tracker-export-target="dateTo"
-                 value="{{ to }}">
-          <label class="form__label form__label--active">{{ ctx.t("tracker.export_modal.to")|safe }}</label>
-        </div>
-      </div>
+      <div data-tracker-export-target="transactionsOptions" class="{{ hide_transactions }}">
+        <div class="srow"><div class="srow__text"><div class="srow__label">{{ ctx.t("tracker.export_modal.from")|safe }}</div></div><div class="srow__control">
+          <input type="date" name="from" class="rinput rinput--outline rinput--text" aria-label="{{ ctx.t("tracker.export_modal.from")|safe }}"
+                 data-tracker-export-target="dateFrom" value="{{ from }}">
+</div></div>        <div class="srow"><div class="srow__text"><div class="srow__label">{{ ctx.t("tracker.export_modal.to")|safe }}</div></div><div class="srow__control">
+          <input type="date" name="to" class="rinput rinput--outline rinput--text" aria-label="{{ ctx.t("tracker.export_modal.to")|safe }}"
+                 data-tracker-export-target="dateTo" value="{{ to }}">
+</div></div>      </div>
 
-      <a href="#" class="button button--sky button--large"
-         data-action="click->tracker-export#download"
-         data-tracker-export-target="downloadBtn"
-         data-transactions-url="{{ ctx.path("/tracker/export") }}"
-         data-tax-report-url="{{ ctx.path("/tracker/tax_report") }}"
-         data-fund-classifications-url="{{ ctx.path("/tracker/fund_classifications") }}"
-         data-label-generate="{{ ctx.t("tracker.export_modal.generate")|safe }}"
-         data-label-download="{{ ctx.t("tracker.export_modal.download_label")|safe }}">
-        {{ label|safe }}
-      </a>
+      <div class="modal__footer">
+        <a href="#" class="rbutton rbutton--primary"
+           data-action="click->tracker-export#download"
+           data-tracker-export-target="downloadBtn"
+           data-transactions-url="{{ ctx.path("/tracker/export") }}"
+           data-tax-report-url="{{ ctx.path("/tracker/tax_report") }}"
+           data-fund-classifications-url="{{ ctx.path("/tracker/fund_classifications") }}"
+           data-label-generate="{{ ctx.t("tracker.export_modal.generate")|safe }}"
+           data-label-download="{{ ctx.t("tracker.export_modal.download_label")|safe }}">
+          {{ label|safe }}
+        </a>
+      </div>
     </div>
   </div>
 

@@ -2,7 +2,7 @@
     link are navigation, options without are a radio group. -#}
 <div class="segmented{% if fluid %} segmented--fluid{% endif %}"{% if !links %} role="radiogroup"{% endif %} aria-label="{{ label }}" data-controller="segmented" data-action="click-&gt;segmented#toggle"{% if let Some(key) = key %} data-segmented-key="{{ key }}"{% endif %}>
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
-  <div class="segmented__dropdown" data-segmented-target="dropdown">
+  <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">
       <div class="segmented__pane segmented__menu">
 {%- for option in options %}

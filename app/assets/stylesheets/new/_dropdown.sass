@@ -50,6 +50,25 @@
             background: var(--paper)
             &__item
                 text-align: center
+// A dropdown's row. A mixin as well as the class, for rows that are something else until a menu
+// opens: the segmented control's options are its track's own items until it folds.
+@mixin item
+    display: grid
+    cursor: pointer
+    line-height: 3rem
+    padding: 0.5rem 1.25rem
+    text-align: left
+    text-decoration: none !important
+    border: none     // <button>
+    background: none // <button>
+    width: calc(100% - 2rem)      // <button>
+    color: var(--ink)
+    margin: 0 1rem
+    border-radius: 0.75rem
+    &:hover
+        background: var(--dropdown-hover)
+        color: var(--ink)
+
 .dropdown
     display: none
     flex-direction: column
@@ -87,10 +106,10 @@
             align-items: center
             gap: 1rem
             svg
-                width: 2.5rem
-                height: 2.5rem
-                min-width: 2.5rem
-                fill: var(--concrete)
+                width: 2rem
+                height: 2rem
+                min-width: 2rem
+                fill: var(--ink)
         // The current venue's logo in the text's colour, as a select marks its chosen option.
         .dropdown__item--current svg
             fill: currentColor
@@ -119,21 +138,7 @@
             path, circle
                 stroke: var(--stone)
     &__item
-        display: grid
-        cursor: pointer
-        line-height: 3rem
-        padding: 0.5rem 1.5rem
-        text-align: left
-        text-decoration: none !important
-        border: none     // <button>
-        background: none // <button>
-        width: calc(100% - 2rem)      // <button>
-        color: var(--ink)
-        margin: 0 1rem
-        border-radius: 0.75rem
-        &:hover
-            background: var(--dropdown-hover)
-            color: var(--ink)
+        @include item
         // Label left, switch right. The base item is a grid built for a single label; a row that
         // carries a control needs the two ends held apart.
         &--switch

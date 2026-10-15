@@ -16,7 +16,7 @@
   direct_count = direct_groups.sum { |group| grouped_rows.fetch(group, []).size }
   settled_rows = grouped_rows.fetch(:settled, [])
 %>
-<div data-tracker-export-target="classificationPanel" class="form__row hidden">
+<div data-tracker-export-target="classificationPanel" class="mb-3 hidden">
   <h2><%= t('tracker.export_modal.classification_title') %></h2>
   <p><%= t('tracker.export_modal.classification_hint') %></p>
   <% if direct_count.positive? %>

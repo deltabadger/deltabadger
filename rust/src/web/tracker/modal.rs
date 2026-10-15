@@ -9,7 +9,7 @@ use serde_json::Value;
 pub const COUNTRIES:[&str;18]=["DE","AT","FR","IT","ES","BG","GR","NL","PT","CH","PL","GB","US","SE","IE","DK","CZ","SK"];
 #[derive(Template)]
 #[template(path="tracker/export_modal.html")]
-struct Modal<'a>{ctx:&'a Ctx,countries:String,years:String,checked_tax:&'static str,checked_transactions:&'static str,checked_stable:&'static str,hide_tax:&'static str,hide_transactions:&'static str,from:String,to:String,label:String,scope:String,panel:String}
+struct Modal<'a>{ctx:&'a Ctx,countries:String,years:String,type_switch:String,export_type:&'static str,checked_stable:&'static str,hide_tax:&'static str,hide_transactions:&'static str,from:String,to:String,label:String,scope:String,panel:String}
 fn text(v:&Value)->String{match v{Value::Null=>String::new(),Value::String(s)=>s.clone(),value=>value.to_string()}}
 fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
     let stored:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
@@ -17,6 +17,8 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
     if !settings.is_object(){return Err(invalid())}
     let transactions=settings["export_type"]=="transactions";
     let checked=|yes|if yes{"checked"}else{""};let hidden=|yes|if yes{"hidden"}else{""};
+    let option=|value:&'static str,active:bool|crate::web::bots::SegmentedOption{value,label:ctx.t(&format!("tracker.export_modal.{value}")),active,href:None};
+    let type_switch=crate::web::bots::Segmented{fluid:true,label:ctx.t("tracker.export_modal.title"),key:None,options:vec![option("tax_report",!transactions),option("transactions",transactions)],links:false}.render()?;
     let mut countries=String::new();
     for code in COUNTRIES{
         countries.push_str(&format!("              <option value=\"{code}\" {} data-stablecoin-ambiguous=\"{}\">{}</option>\n",if settings["country"]==code{"selected"}else{""},matches!(code,"AT"|"SK"),ctx.t(&format!("tracker.export_modal.countries.{code}"))));
@@ -34,7 +36,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
     let from=if settings["export_from"].is_null() || settings["export_from"]==false{day(earliest)?.unwrap_or(String::new())}else{text(&settings["export_from"])};
     let to=if settings["export_to"].is_null() || settings["export_to"]==false{day(latest)?.unwrap_or(ctx.now.date_naive().to_string())}else{text(&settings["export_to"])};
     let (scope,panel)=super::classifications::panel(c,ctx,owner,&settings)?;
-    Ok(Modal{ctx,countries,years,checked_tax:checked(!transactions),checked_transactions:checked(transactions),checked_stable:checked(!settings["stablecoin_as_fiat"].is_null() && settings["stablecoin_as_fiat"]!=false),hide_tax:hidden(transactions),hide_transactions:hidden(!transactions),from,to,label:ctx.t(if transactions{"tracker.export_modal.download_label"}else{"tracker.export_modal.generate"}),scope,panel}.render()?)
+    Ok(Modal{ctx,countries,years,type_switch,export_type:if transactions{"transactions"}else{"tax_report"},checked_stable:checked(!settings["stablecoin_as_fiat"].is_null() && settings["stablecoin_as_fiat"]!=false),hide_tax:hidden(transactions),hide_transactions:hidden(!transactions),from,to,label:ctx.t(if transactions{"tracker.export_modal.download_label"}else{"tracker.export_modal.generate"}),scope,panel}.render()?)
 }
 pub async fn export_modal(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};

@@ -50,7 +50,7 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
             let action = if let Some(id) = row.asset.filter(|_| row.can_sell) {
                 let query = form_urlencoded::Serializer::new(String::new()).append_pair("asset_id", &id.to_string()).append_pair("symbol", &row.key).finish();
                 let title = if row.harvest { format!(" title=\"{}\"", escape(&i18n::text(locale, "bot.liquidation.harvest_hint", &[]))) } else { String::new() };
-                format!("<a class=\"rbutton rbutton--small rbutton--outline {}\"{title} data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>", if row.harvest { "rbutton--success" } else { "" }, escape(prefix), s.bot.id, escape(&query), t(locale, "bot.liquidation.sell"))
+                format!("<a class=\"rbutton rbutton--small {}\"{title} data-turbo-frame=\"modal\" href=\"{}/bots/{}/liquidation/new?{}\">{}</a>", if row.harvest { "rbutton--outline rbutton--success" } else { "rbutton--secondary" }, escape(prefix), s.bot.id, escape(&query), t(locale, "bot.liquidation.sell"))
             } else { String::new() };
             let lock = row.lock.as_ref().map(|(days, until, source)| {
                 let label = i18n::t(locale,"bot.liquidation.locked",&[("days",Arg::Count(*days))]);
@@ -186,7 +186,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     }
     let locked: Vec<_> = rows.iter().filter(|r| locked_keys.contains(&r.key)).collect();
     if !locked.is_empty() {
-        out.push_str(&format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,&locked,"wash_sale_list",true,hidden,locale,prefix)?));
+        out.push_str(&format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,&locked,"wash_sale_list",true,hidden,locale,prefix)?));
     }
     if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
         // Never rewrite the user's persisted decline from a GET. No redeploy offer for that invalid state.

@@ -53,7 +53,7 @@
 
   <%# The far end of the line: what the page can hand you, after the scope that decides what goes
       into it. Both read the venue and the dates from the same params the switch writes. %>
-  <div class="tracker-exchanges__end">
+  <div class="tracker-exchanges__end buttons-no-outline">
     <div class="tracker-exchanges__sync">
       <% if @portfolio_last_synced_at %>
         <%# Amber when the prices are older than the balances: the quantities are today's, the money
@@ -63,14 +63,14 @@
         </span>
       <% end %>
       <% if @has_syncable_keys %>
-        <%= button_to sync_tracker_path, method: :post, class: 'rbutton rbutton--icon', aria: { label: t('tracker.sync') } do %>
+        <%= button_to sync_tracker_path, method: :post, class: 'rbutton rbutton--icon rbutton--secondary', aria: { label: t('tracker.sync') } do %>
           <%= render 'svg/24x24_sync' %>
         <% end %>
       <% end %>
     </div>
 
     <% if @exchanges.any? %>
-      <%= link_to t('tracker.get_report'), export_modal_tracker_path, class: 'rbutton', data: { turbo_frame: 'modal' } %>
+      <%= link_to t('tracker.get_report'), export_modal_tracker_path, class: 'rbutton rbutton--secondary', data: { turbo_frame: 'modal' } %>
     <% end %>
 
     <%# The bot view's ⋮, holding what the line no longer has room to say outright. Not

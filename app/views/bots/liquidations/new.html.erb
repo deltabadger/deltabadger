@@ -8,11 +8,11 @@
     </div>
     <div class="modal__body">
       <% harvest = @holdings.any? { |holding| holding[:harvestable] } %>
-      <p class="text-center"><%= t(@holdings.many? ? 'bot.liquidation.sell_all_confirm' : 'bot.liquidation.sell_confirm') %></p>
+      <p><%= t(@holdings.many? ? 'bot.liquidation.sell_all_confirm' : 'bot.liquidation.sell_confirm') %></p>
       <%# The row's colour judged the WHOLE position; the sale submits what the exchange actually
           holds, and a request cannot read the live balance to say which it will be. %>
       <% if harvest %>
-        <p class="text-center text-inactive"><%= t('bot.liquidation.partial_note') %></p>
+        <p class="text-inactive"><%= t('bot.liquidation.partial_note') %></p>
       <% end %>
 
       <%# Named, not counted: the user is approving the disposal of these positions, one row each.
@@ -43,8 +43,8 @@
                                     'change->form--checkbox-enables#toggleSubmitButton' } do %>
         <%= render 'bots/wash_sale_prompts/question' unless current_user.wash_sale_decided? %>
 
-        <div class="buttons buttons--row--2">
-          <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <div class="modal__footer">
+          <%= button_tag type: 'button', class: 'rbutton rbutton--secondary', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
             <%= t('button.cancel') %>
           <% end %>
           <%# Dead while the question above is unanswered — the server refuses that submit anyway,
@@ -57,7 +57,7 @@
                          disabled: !current_user.wash_sale_decided?,
                          data: { form__checkbox_enables_target: 'submit',
                                  turbo_submits_with: t('bot.liquidation.selling') },
-                         class: "button button--large #{@holdings.one? && harvest ? 'button--success' : 'button--danger'}" %>
+                         class: "rbutton #{@holdings.one? && harvest ? 'rbutton--success' : 'rbutton--danger'}" %>
         </div>
       <% end %>
     </div>

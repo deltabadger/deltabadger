@@ -19,7 +19,7 @@
           because this table lives inside the `bot` frame and the account page has no such frame —
           a plain link would swap the panel for "Content missing". %>
       <%= link_to t('bot.wash_sale.settings_link'), settings_account_path,
-                  class: 'rbutton rbutton--small', data: { turbo_frame: '_top' } %>
+                  class: 'rbutton rbutton--small rbutton--secondary', data: { turbo_frame: '_top' } %>
     </div>
     <%= render 'bots/composition/assets_table',
                values: keyed.to_h { |key, member| [key, (values[key] if member[:held]) || { amount: 0 }] },

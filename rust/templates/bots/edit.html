@@ -10,12 +10,12 @@
        <h1 class="modal__title">{{ v.t("utils.change_name")|safe }}</h1>
     </div>
 
-    <form class="modal__form" data-controller="form--label-animations" data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
-      <div class="form__row form__row--input">
-        <input autofocus="autofocus" data-controller="autofocus" class="form__input" type="text" value="{{ bot.label }}" name="{{ bot.param_key() }}[label]" id="{{ bot.param_key() }}_label" />
-        <label class="form__label" for="{{ bot.param_key() }}_label">{{ v.t("bot.bot_name")|safe }}</label>
+    <form data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <input autofocus="autofocus" data-controller="autofocus" class="rinput rinput--outline rinput--text full-width" aria-label="{{ v.t("bot.bot_name")|safe }}" type="text" value="{{ bot.label }}" name="{{ bot.param_key() }}[label]" id="{{ bot.param_key() }}_label" />
+      <div class="modal__footer">
+        <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">{{ v.t("button.cancel")|safe }}</button>
+        <input type="submit" name="commit" value="{{ v.t("button.save")|safe }}" class="rbutton rbutton--primary" data-disable-with="{{ v.t("button.save")|safe }}" />
       </div>
-      <input type="submit" name="commit" value="{{ v.t("button.save")|safe }}" class="button button--sky button--large" data-disable-with="{{ v.t("button.save")|safe }}" />
 </form>
   </div>
 

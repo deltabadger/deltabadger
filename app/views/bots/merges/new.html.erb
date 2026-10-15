@@ -15,11 +15,11 @@
           <%= refusal ? t('button.merge') : t('bot.merge.title', count: @merge.bots.size) %>
         </h1>
       </div>
-      <div class="modal__body text-center">
+      <div class="modal__body">
         <% if refusal %>
           <p><%= refusal %></p>
-          <div class="buttons">
-            <%= button_tag t('button.close'), type: 'button', class: 'button button--outline button--large',
+          <div class="modal__footer">
+            <%= button_tag t('button.close'), type: 'button', class: 'rbutton rbutton--secondary',
                            data: { action: 'modal--base#animateOutCloseAndCleanUp' } %>
           </div>
         <% else %>
@@ -65,13 +65,13 @@
             <p class="text-inactive"><%= t('bot.merge.assets_stay') %></p>
           <% end %>
           <p class="text-danger mb-3"><%= t('bot.merge.deleted_note') %></p>
-          <div class="buttons buttons--row--2">
-            <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <div class="modal__footer">
+            <%= button_tag type: 'button', class: 'rbutton rbutton--secondary', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
               <%= t('button.cancel') %>
             <% end %>
             <%= button_to t('button.confirm'), bots_merge_path, method: :post,
                           params: { ids: @merge.bots.map(&:id), exchange_id: @merge.exchange.id },
-                          class: 'button button--sky button--large', form: { data: { bots_merge_form: true } } %>
+                          class: 'rbutton rbutton--primary', form: { data: { bots_merge_form: true } } %>
           </div>
         <% end %>
       </div>

@@ -9,14 +9,14 @@
 </button>    <div class="modal__header">
       <h1 class="modal__title">{{ bot.label }}</h1>
     </div>
-    <div class="modal__body text-center">
+    <div class="modal__body">
     <p>
       {{ v.t("bot.messages.do_you_want_to_delete")|safe }}
     </p>
-    <div class="buttons buttons--row--2">
-      <button name="button" type="button" class="button button--outline button--large" data-action="modal--base#animateOutCloseAndCleanUp">
+    <div class="modal__footer">
+      <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
         {{ v.t("button.cancel")|safe }}
-</button>      <form class="button_to" method="post" action="{{ path }}/delete"><input type="hidden" name="_method" value="delete" /><button class="button button--danger button--large" type="submit">{{ v.t("button.delete")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+</button>      <form class="button_to" method="post" action="{{ path }}/delete"><input type="hidden" name="_method" value="delete" /><button class="rbutton rbutton--danger" type="submit">{{ v.t("button.delete")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
     </div>
   </div>
 

@@ -6,10 +6,10 @@
     locals: label (the button), text (what happens), confirm (the real button's label), url,
             method (default :delete), params (optional hidden fields) %>
 <details class="sconfirm">
-  <summary class="rbutton rbutton--outline"><%= label %></summary>
+  <summary class="rbutton rbutton--secondary"><%= label %></summary>
   <div class="sconfirm__panel">
     <p><%= text %></p>
     <%= button_to confirm, url, method: local_assigns.fetch(:method, :delete), params: local_assigns.fetch(:params, {}),
-                  class: 'rbutton rbutton--outline rbutton--danger' %>
+                  class: 'rbutton rbutton--secondary rbutton--danger' %>
   </div>
 </details>

@@ -15,7 +15,7 @@
       <%= settings_row label, icon: exchange_icon_svg(api_key.exchange.name_id), class: 'srow--key', data: { api_key: api_key.id } do %>
         <% if api_key_instructions?(api_key) %>
           <%= link_to t('settings.sections.permissions'), settings_api_key_permissions_path(id: api_key.id),
-                      class: 'rbutton rbutton--outline', data: { turbo_frame: 'settings_pane' } %>
+                      class: 'rbutton rbutton--secondary', data: { turbo_frame: 'settings_pane' } %>
         <% end %>
         <%= render 'settings/confirm', label: t('button.remove'), text: t('settings.api_keys.confirm_delete'),
                                        confirm: t('button.delete'), url: settings_destroy_api_key_path(id: api_key.id) %>

@@ -6,15 +6,15 @@
     <div class="modal__header">
       <h1 class="modal__title"><%= @bot.label %></h1>
     </div>
-    <div class="modal__body text-center">
+    <div class="modal__body">
     <p>
       <%= t('bot.messages.do_you_want_to_delete') %>
     </p>
-    <div class="buttons buttons--row--2">
-      <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <div class="modal__footer">
+      <%= button_tag type: 'button', class: 'rbutton rbutton--secondary', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
         <%= t('button.cancel') %>
       <% end %>
-      <%= button_to t('button.delete'), bot_delete_path(@bot), method: :delete, class: 'button button--danger button--large' %>
+      <%= button_to t('button.delete'), bot_delete_path(@bot), method: :delete, class: 'rbutton rbutton--danger' %>
     </div>
   </div>
 <% end %>

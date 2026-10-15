@@ -22,7 +22,7 @@
       <% when :desktop %>
         <%# The desktop build installs updates itself, so it gets the button rather than the
             instructions the container platforms need. app/javascript/tauri.js calls the updater. %>
-        <%= button_tag t('settings.app_update.check_now'), type: 'button', class: 'rbutton rbutton--outline', data: {
+        <%= button_tag t('settings.app_update.check_now'), type: 'button', class: 'rbutton rbutton--secondary', data: {
           desktop_update: true,
           desktop_update_checking: t('settings.app_update.checking'),
           desktop_update_up_to_date: t('settings.app_update.up_to_date'),
@@ -30,7 +30,7 @@
         } %>
       <% when :available %>
         <%= link_to t('settings.app_update.release_notes'), AppUpdate.latest_url, target: '_blank', rel: 'noopener',
-                    class: 'rbutton rbutton--outline' %>
+                    class: 'rbutton rbutton--secondary' %>
       <% end %>
     <% end %>
 

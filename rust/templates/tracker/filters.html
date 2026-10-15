@@ -6,7 +6,7 @@
 </a>{% else %}      
 <div class="segmented segmented--fluid" aria-label="{{ all_label|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle">
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
-  <div class="segmented__dropdown" data-segmented-target="dropdown">
+  <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">
       <div class="segmented__pane segmented__menu">
 {% for chip in chips %}            <a class="segmented__option{% if chip.active %} is-on{% endif %}"{% if chip.active %} aria-current="page"{% endif %} data-value="{{ chip.value }}"{% if chip.broken %} data-broken="true" data-turbo-frame="modal"{% endif %} data-segmented-target="option" data-action="segmented#select" href="{{ chip.href|safe }}">{{ chip.label|safe }}</a>
@@ -14,14 +14,14 @@
             {% include "svg/_24x24_plus.html" %}
 
 </a>      </div>
-{% if !menu.is_empty() %}        <div class="segmented__pane segmented__submenu">
-          <button type="button" class="segmented__back" data-action="segmented#back"
+{% if !menu.is_empty() %}        <div class="segmented__pane segmented__submenu dropdown dropdown--exchanges">
+          <button type="button" class="dropdown__item segmented__back" data-action="segmented#back"
                   aria-label="{{ v.t("button.back")|safe }}">
             {% include "svg/_24x24_back.html" %}
 
           </button>
-{% for item in menu %}            <a class="segmented__submenu-item" data-turbo-frame="modal" href="{{ item.href|safe }}">
-                <span class="segmented__submenu-icon">{{ item.icon|safe }}</span>
+{% for item in menu %}            <a class="dropdown__item" data-turbo-frame="modal" href="{{ item.href|safe }}">
+              {{ item.icon|safe }}
               {{ item.label|safe }}
 </a>{% endfor %}        </div>
 {% endif %}    </div>
@@ -32,14 +32,14 @@
 </span></div>
 {% endif %}  </div>
 
-  <div class="tracker-exchanges__end">
+  <div class="tracker-exchanges__end buttons-no-outline">
     <div class="tracker-exchanges__sync">
-{{ sync|safe }}{% if syncable %}        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
+{{ sync|safe }}{% if syncable %}        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon rbutton--secondary" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
           {% include "svg/_24x24_sync.html" %}
 
 </button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>{% endif %}    </div>
 {% if report %}
-      <a class="rbutton" data-turbo-frame="modal" href="{{ v.path("/tracker/export_modal") }}">{{ v.t("tracker.get_report")|safe }}</a>
+      <a class="rbutton rbutton--secondary" data-turbo-frame="modal" href="{{ v.path("/tracker/export_modal") }}">{{ v.t("tracker.get_report")|safe }}</a>
 {% endif %}
     <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
       {% include "svg/_24x24_dot_menu.html" %}

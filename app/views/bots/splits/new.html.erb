@@ -12,11 +12,11 @@
       <div class="modal__header">
         <h1 class="modal__title"><%= t('button.split') %></h1>
       </div>
-      <div class="modal__body text-center">
+      <div class="modal__body">
         <% if refusal %>
           <p><%= refusal %></p>
-          <div class="buttons">
-            <%= button_tag t('button.close'), type: 'button', class: 'button button--outline button--large',
+          <div class="modal__footer">
+            <%= button_tag t('button.close'), type: 'button', class: 'rbutton rbutton--secondary',
                            data: { action: 'modal--base#animateOutCloseAndCleanUp' } %>
           </div>
         <% else %>
@@ -67,13 +67,13 @@
               <% end %>
             </div>
           </div>
-          <div class="buttons buttons--row--2">
-            <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <div class="modal__footer">
+            <%= button_tag type: 'button', class: 'rbutton rbutton--secondary', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
               <%= t('button.cancel') %>
             <% end %>
             <%= button_to t('button.split'), bots_split_path, method: :post,
                           params: { ids: @split.bots.map(&:id) },
-                          class: 'button button--sky button--large',
+                          class: 'rbutton rbutton--primary',
                           form: { data: { bots_merge_form: true, bots_split_modal_target: 'form' } } %>
           </div>
         <% end %>

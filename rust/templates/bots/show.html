@@ -83,9 +83,9 @@
 {% endif %}
 </div>
 
-    <div style="display: flex; gap: 1rem">
+    <div class="buttons-no-outline" style="display: flex; gap: 1rem">
   <div id="{{ export_id }}" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]' data-class-toggle-reset-after-value="3000">
-    <form class="button_to" method="post" action="{{ path }}/export"><button class="rbutton" data-turbo="false" data-class-toggle-target="togglable" data-action="click->class-toggle#toggle" type="submit">{{ v.t("bot.details.stats.download_csv")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    <form class="button_to" method="post" action="{{ path }}/export"><button class="rbutton rbutton--secondary" data-turbo="false" data-class-toggle-target="togglable" data-action="click->class-toggle#toggle" type="submit">{{ v.t("bot.details.stats.download_csv")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
     <div class="hidden" data-class-toggle-target="togglable" style="font-weight: 600; padding: 0.5rem; color: var(--concrete); display: flex; align-items: center; justify-content: center;">
       <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem; display: flex; align-items: center; justify-content: center;"></div>
       {{ v.t("bot.details.stats.generating_csv")|safe }}
@@ -94,7 +94,7 @@
 
   <div id="{{ import_id }}">
     <form id="{{ import_form_id }}" data-turbo="false" data-controller="file-picker" enctype="multipart/form-data" action="{{ path }}/import" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
-      <button type="button" class="rbutton" data-action="click->file-picker#open">
+      <button type="button" class="rbutton rbutton--secondary" data-action="click->file-picker#open">
         {{ v.t("bot.details.stats.import_csv")|safe }}
       </button>
       <input accept=".csv" hidden="hidden" data-file-picker-target="input" data-action="change->file-picker#submit" type="file" name="file" id="file" />
