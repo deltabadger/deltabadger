@@ -23,13 +23,13 @@ pub fn float_to_s(f: f64) -> String {
     if f.is_nan() { return "NaN".into(); }
     if f.is_infinite() { return if f > 0.0 { "Infinity".into() } else { "-Infinity".into() }; }
     if f == 0.0 { return if f.is_sign_negative() { "-0.0".into() } else { "0.0".into() }; }
-    let sci = format!("{:e}", f.abs());
+    let sci = crate::ruby::float_e(f.abs());
     let (mantissa, exponent) = sci.split_once('e').unwrap_or((&sci, "0"));
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
     let point = exponent.parse::<i64>().unwrap_or(0) + 1; // digits before the decimal point
     let sign = if f < 0.0 { "-" } else { "" };
     let count = digits.len() as i64;
-    if 0 < point && point <= 15 {
+    if 0 < point && (point <= 15 || (point == 16 && count > 16)) { // sixteen integer digits stay plain when a seventeenth follows
         if count <= point {
             format!("{sign}{digits}{}.0", "0".repeat((point - count) as usize))
         } else {
