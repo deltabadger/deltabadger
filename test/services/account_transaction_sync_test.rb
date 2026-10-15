@@ -426,6 +426,208 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal({ imported: 1, duplicates: 1 }, counts.slice(:imported, :duplicates))
   end
 
+  # ---- Binance's export and its API on one transfer -------------------------------------------------
+  # The export dates a deposit when it was credited, seconds to minutes after the API's insertTime, and
+  # writes a withdrawal GROSS (amount plus network fee) at the moment it completed, where the API row is
+  # net at the moment it was requested. Neither is within a second of the other, so each pair is matched
+  # on its own terms: a deposit credited up to ten minutes after it was seen, a withdrawal whose gross is
+  # the file's amount at its completeTime. One file row pairs with one API row, never more.
+
+  def api_deposit(at:, amount: '150.2', id: 'dep-1', coin: 'USDT')
+    { entry_type: :deposit, base_currency: coin, base_amount: amount.to_d, quote_currency: nil, quote_amount: nil,
+      fee_currency: nil, fee_amount: nil, tx_id: id, group_id: nil, description: nil, transacted_at: at,
+      raw_data: { 'amount' => amount, 'coin' => coin, 'status' => 1, 'txId' => id, 'insertTime' => (at.to_f * 1000).to_i } }
+  end
+
+  def api_withdrawal(apply:, complete:, amount: '10.43980476', fee: '0.001', id: 'wd-1')
+    raw = { 'amount' => amount, 'transactionFee' => fee, 'coin' => 'LTC', 'status' => 6, 'txId' => id,
+            'applyTime' => apply.strftime('%F %T') }
+    raw['completeTime'] = complete.is_a?(Time) ? complete.strftime('%F %T') : complete unless complete == :none
+    { entry_type: :withdrawal, base_currency: 'LTC', base_amount: amount.to_d, quote_currency: nil, quote_amount: nil,
+      fee_currency: 'LTC', fee_amount: fee&.to_d, tx_id: id, group_id: nil, description: nil, transacted_at: apply,
+      raw_data: raw }
+  end
+
+  def file_transfer(type, amount, at, coin: type == :deposit ? 'USDT' : 'LTC')
+    operation = type == :deposit ? 'Deposit' : 'Withdraw'
+    { entry_type: type, base_currency: coin, base_amount: amount.to_d, quote_currency: nil, quote_amount: nil,
+      fee_currency: nil, fee_amount: nil, tx_id: nil, group_id: nil, description: operation, transacted_at: at,
+      raw_data: { 'operation' => operation } }
+  end
+
+  def store(*entries) = AccountTransactionSync.new(@api_key).store!(entries)
+
+  test 'an API deposit pairs with the file row credited up to ten minutes later, and claims it' do
+    credited = Time.utc(2021, 7, 1, 11, 7, 4)
+    { -46 => 1, -((9 * 60) + 59) => 1, -10 * 60 => 2, -0.5 => 1, 0.5 => 2, 10 => 2 }.each do |offset, rows|
+      AccountTransaction.delete_all
+      store(file_transfer(:deposit, '150.2', credited))
+      store(api_deposit(at: credited + offset))
+
+      assert_equal rows, AccountTransaction.count, "API #{offset} s from the file row"
+      next unless rows == 1
+
+      row = AccountTransaction.sole
+      assert_equal ['dep-1', credited, { 'operation' => 'Deposit' }], [row.tx_id, row.transacted_at, row.raw_data], 'the file row stays, with the id'
+    end
+  end
+
+  test 'a file deposit pairs with the stored API row it was credited after, and marks it' do
+    seen = Time.utc(2021, 7, 1, 11, 6, 41)
+    { 23 => 0, 10 * 60 => 1, -1 => 1 }.each do |offset, imported|
+      AccountTransaction.delete_all
+      store(api_deposit(at: seen))
+      counts = store(file_transfer(:deposit, '150.2', seen + offset))
+
+      assert_equal imported, counts[:imported], "file #{offset} s after the API row"
+      twin = AccountTransaction.find_by!(tx_id: 'dep-1').raw_data['file_twin_at']
+      imported.zero? ? assert_equal((seen + offset).iso8601(6), twin) : assert_nil(twin)
+    end
+  end
+
+  test 'an API withdrawal pairs with the gross file row at its completeTime' do
+    apply = Time.utc(2021, 8, 23, 13, 8, 10)
+    complete = Time.utc(2021, 8, 23, 13, 20, 44)
+    cases = {
+      'gross at completeTime' => [api_withdrawal(apply:, complete:), '10.44080476', complete, 1],
+      'no fee, equal at completeTime' => [api_withdrawal(apply:, complete:, amount: '0.249', fee: '0'), '0.249', complete, 1],
+      'net while a fee was charged' => [api_withdrawal(apply:, complete:), '10.43980476', complete, 2],
+      'gross two seconds off' => [api_withdrawal(apply:, complete:), '10.44080476', complete + 2, 2],
+      'unreadable completeTime' => [api_withdrawal(apply:, complete: 'soon'), '10.44080476', complete, 2],
+      # No completeTime at all is not this venue's shape: the second-wide match as before.
+      'no completeTime, no fee, same instant' => [api_withdrawal(apply:, complete: :none, amount: '0.249', fee: nil), '0.249', apply, 1],
+      'no completeTime, gross at completion' => [api_withdrawal(apply:, complete: :none), '10.44080476', complete, 2]
+    }
+    cases.each do |name, (api, amount, at, rows)|
+      AccountTransaction.delete_all
+      store(file_transfer(:withdrawal, amount, at))
+      store(api)
+      assert_equal rows, AccountTransaction.count, name
+    end
+  end
+
+  test 'whichever arrived first stands, with its own amount and fee' do
+    apply = Time.utc(2021, 8, 23, 13, 8, 10)
+    complete = Time.utc(2021, 8, 23, 13, 20, 44)
+    store(file_transfer(:withdrawal, '10.44080476', complete))
+    store(api_withdrawal(apply:, complete:))
+    file_first = AccountTransaction.sole
+    assert_equal ['wd-1', '10.44080476'.to_d, nil, complete],
+                 [file_first.tx_id, file_first.base_amount, file_first.fee_amount, file_first.transacted_at]
+
+    AccountTransaction.delete_all
+    store(api_withdrawal(apply:, complete:))
+    counts = store(file_transfer(:withdrawal, '10.44080476', complete))
+    api_first = AccountTransaction.sole
+    assert_equal 0, counts[:imported]
+    assert_equal ['10.43980476'.to_d, '0.001'.to_d, apply], [api_first.base_amount, api_first.fee_amount, api_first.transacted_at]
+  end
+
+  # A claim is written onto the row, so the pairing survives between calls: the sync stores a venue's
+  # history in chunks, and a file is imported on its own.
+  test 'one file row is claimed by one API row, whatever the calls' do
+    file_at = Time.utc(2021, 7, 3, 10, 5)
+    a = api_deposit(at: Time.utc(2021, 7, 3, 10, 0), id: 'dep-a')
+    b = api_deposit(at: Time.utc(2021, 7, 3, 10, 3), id: 'dep-b')
+    [[a, b], [b, a]].each do |first, second|
+      AccountTransaction.delete_all
+      store(file_transfer(:deposit, '150.2', file_at))
+      store(first)
+      store(second)
+
+      assert_equal [first[:tx_id], second[:tx_id]].sort, AccountTransaction.pluck(:tx_id).sort
+      assert_equal file_at, AccountTransaction.find_by!(tx_id: first[:tx_id]).transacted_at
+    end
+
+    counts = store(file_transfer(:deposit, '150.2', file_at))
+    assert_equal 0, counts[:imported], 'the same file row again'
+    assert_nil AccountTransaction.find_by!(tx_id: 'dep-a').raw_data['file_twin_at'], 'the unclaimed API row stays unclaimed'
+  end
+
+  test 'two file rows for one API row are a visible double, not a guess' do
+    store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 1)), file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 2)))
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+    assert_equal 3, AccountTransaction.count
+
+    AccountTransaction.delete_all
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+    counts = store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 1)), file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 2)))
+    assert_equal 2, counts[:imported], 'one file, two equal deposits beside one API row'
+  end
+
+  test 'an unrelated row in the same file is not a rival for the API row' do
+    at = Time.utc(2021, 7, 3, 10, 5)
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+    counts = store(file_transfer(:deposit, '150.2', at), file_transfer(:deposit, '150.2', at, coin: 'BUSD'),
+                   file_transfer(:withdrawal, '150.2', at, coin: 'USDT'))
+    assert_equal 2, counts[:imported], 'the USDT deposit pairs; the BUSD deposit and the withdrawal are their own'
+    assert_equal at.iso8601(6), AccountTransaction.find_by!(tx_id: 'dep-1').raw_data['file_twin_at']
+  end
+
+  test 'a file row paired on an earlier import is not a rival on the next' do
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0), id: 'dep-a'))
+    assert_equal 0, store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 2)))[:imported]
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 1), id: 'dep-b'))
+
+    counts = store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 2)), file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 3)))
+    assert_equal 0, counts[:imported], 'the expanded file adds nothing'
+    assert_equal Time.utc(2021, 7, 3, 10, 3).iso8601(6), AccountTransaction.find_by!(tx_id: 'dep-b').raw_data['file_twin_at']
+  end
+
+  test 'a file row claims an API row once; a different file row later is its own' do
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+    assert_equal 0, store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 5)))[:imported]
+    assert_equal 0, store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 5)))[:imported], 'the same row again'
+    assert_equal 1, store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 6)))[:imported]
+  end
+
+  test 'a claim pairs only its own coin, amount and type' do
+    at = Time.utc(2021, 7, 3, 10, 5)
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+    store(file_transfer(:deposit, '150.2', at))
+
+    counts = store(file_transfer(:deposit, '150.2', at, coin: 'BUSD'), file_transfer(:deposit, '150.3', at),
+                   file_transfer(:withdrawal, '150.2', at, coin: 'USDT'))
+    assert_equal 3, counts[:imported]
+  end
+
+  test 'a row without the file or the API shape is matched as before' do
+    at = Time.utc(2021, 7, 3, 10, 0)
+    store(file_transfer(:deposit, '150.2', at + 46).merge(raw_data: {}))
+    store(api_deposit(at:))
+    assert_equal 2, AccountTransaction.count, 'an id-less row that is not a file transfer'
+
+    AccountTransaction.delete_all
+    store(file_transfer(:deposit, '150.2', at + 46))
+    store(api_deposit(at:).merge(tx_id: ''), api_deposit(at: at + 46.4, id: nil))
+    assert_equal 2, AccountTransaction.count, 'a blank id claims nothing: 46 s apart is two rows, 0.4 s is one'
+  end
+
+  test 'a claim that loses a race is stored, and an id stored meanwhile is a duplicate' do
+    store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 5)))
+    sync = AccountTransactionSync.new(@api_key)
+    sync.expects(:take!).twice.returns(false)
+    assert_equal 1, sync.store!([api_deposit(at: Time.utc(2021, 7, 3, 10, 0))])[:imported]
+
+    AccountTransaction.delete_all
+    store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 5)))
+    sync = AccountTransactionSync.new(@api_key)
+    sync.expects(:take!).raises(ActiveRecord::RecordNotUnique)
+    assert_equal({ imported: 0, duplicates: 1 }, sync.store!([api_deposit(at: Time.utc(2021, 7, 3, 10, 0))]).slice(:imported, :duplicates))
+  end
+
+  test 'a claim leaves the ledger a fresh walk computes' do
+    freeze_time
+    store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 5)))
+    before = Tracker::Ledger.compute!(@user)
+    updated = AccountTransaction.sole.updated_at
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+
+    assert_equal updated, AccountTransaction.sole.updated_at
+    Rails.cache.clear
+    assert_equal Marshal.dump(before), Marshal.dump(Tracker::Ledger.compute!(@user))
+  end
+
   # A Convert out of cash used to be read from the file as a purchase; it is now the swap pair the
   # API books. A file imported under the old reading holds the purchase, and importing it again must
   # not add the pair on top: a swap leg is the purchase (or sale) it replaced when the coin leg is

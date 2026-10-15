@@ -1,17 +1,17 @@
 //! AccountTransaction::SyncJob for an Alpaca key: Exchanges::Alpaca#get_ledger (every page of
 //! GET /v2/account/activities), AccountTransactionSync#sync! (dedup, rows, the bot's own order, split side effects,
 //! asset identity, the watermark) and TransferMatcher.run!. Rails is the oracle (rust/tests/sync_parity.rs).
-use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, SELL};
+use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
 use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread};
 use crate::codec::parse_time;
 use crate::crypto::Credentials;
 use crate::engine::Clock;
-use crate::ruby::BigDec;
+use crate::ruby::{json_to_d, BigDec};
 use crate::venue::alpaca::AlpacaVenue;
 use crate::venue::http::Transport;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -645,6 +645,7 @@ fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: 
         let stored: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
                                        params![key.user_id, key.exchange_id, tx_id], |r| r.get(0))?;
         if stored { return Ok(true); }
+        if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id); }
     }
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
     let second = Duration::seconds(1);
@@ -655,6 +656,66 @@ fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: 
                   AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7)"),
         params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
         |r| r.get(0))?)
+}
+
+/// One transfer as Binance's export and its API each describe it (AccountTransactionSync, "one transfer"): the export
+/// dates a deposit when it was credited and writes a withdrawal gross (amount + network fee) at its completion; the API
+/// row is net, dated when it was requested. #file_transfer?: the importer's `{"operation": "Deposit" | "Withdraw"}`.
+fn file_transfer(entry_type: i64, raw: &Value) -> bool {
+    let operation = match entry_type { DEPOSIT => "Deposit", WITHDRAWAL => "Withdraw", _ => return false };
+    raw["operation"].as_str() == Some(operation)
+}
+
+/// #api_transfer?, for a row whose id is present: the capital endpoint's `insertTime` (deposit) or `completeTime`
+/// (withdrawal) is in its raw, null or not.
+fn api_transfer(entry_type: i64, raw: &Value) -> bool {
+    let time = match entry_type { DEPOSIT => "insertTime", WITHDRAWAL => "completeTime", _ => return false };
+    raw.get(time).is_some()
+}
+
+/// #file_side: the amount the file writes for this API transfer, and the window its date falls in (`true`: open at
+/// both ends). A deposit is credited no earlier than seen and less than ten minutes after; a withdrawal is the gross
+/// within a second of `completeTime`, and a present but unreadable `completeTime` pairs with nothing.
+fn file_side(entry_type: i64, raw: &Value, at: DateTime<Utc>) -> Option<(BigDec, DateTime<Utc>, DateTime<Utc>, bool)> {
+    let amount = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
+    if entry_type == DEPOSIT { return Some((amount("amount"), at, at.checked_add_signed(Duration::minutes(10))?, false)); }
+    let complete = NaiveDateTime::parse_from_str(raw["completeTime"].as_str()?, "%Y-%m-%d %H:%M:%S").ok()?.and_utc();
+    let second = Duration::seconds(1);
+    Some((&amount("amount") + &amount("transactionFee"), complete.checked_sub_signed(second)?, complete.checked_add_signed(second)?, true))
+}
+
+/// #api_transfer_twin?: the second-wide rule still holds against every id-less row but a file transfer; then the one
+/// file row this API transfer pairs with takes its id, and the transfer is not stored again. Two candidates are a
+/// visible double. Raced (the row taken between the read and the write): read once more, then store; the id stored
+/// meanwhile by someone else is this row.
+fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bool, SyncError> {
+    let Some(at) = e.transacted_at else { return Ok(false) };
+    let raws = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<(i64, Value)>, SyncError> {
+        let mut s = c.prepare(sql)?;
+        let rows = s.query_map(p, |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+        Ok(rows.into_iter().map(|(id, raw)| (id, raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null))).collect())
+    };
+    let base = format!("SELECT id, raw_data FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL \
+                        AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5");
+    let second = Duration::seconds(1);
+    let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
+    let same = raws(&format!("{base} AND transacted_at > ?6 AND transacted_at < ?7"),
+                    params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
+    if same.iter().any(|(_, raw)| !file_transfer(e.entry_type, raw)) { return Ok(true); }
+    let Some((amount, from, to, open)) = file_side(e.entry_type, &e.raw.value, at) else { return Ok(false) };
+    let sql = format!("{base} AND transacted_at {} ?6 AND transacted_at < ?7", if open { ">" } else { ">=" });
+    for _ in 0..2 {
+        let rows: Vec<i64> = raws(&sql, params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&amount), sql_time(from), sql_time(to)])?
+            .into_iter().filter(|(_, raw)| file_transfer(e.entry_type, raw)).map(|(id, _)| id).collect();
+        let [row] = rows[..] else { return Ok(false) };
+        match c.execute("UPDATE account_transactions SET tx_id = ?1 WHERE id = ?2 AND tx_id IS NULL", params![tx_id, row]) {
+            Ok(1) => return Ok(true),
+            Ok(_) => {}
+            Err(rusqlite::Error::SqliteFailure(f, _)) if f.code == rusqlite::ErrorCode::ConstraintViolation => return Ok(true),
+            Err(err) => return Err(err.into()),
+        }
+    }
+    Ok(false)
 }
 
 /// #match_bot_transaction!: the bot order this row is, by the row's own id, then by the order the fill names.
@@ -877,5 +938,40 @@ pub(super) async fn link_transfers_for(db: &Db, user_id: i64, version: Option<&c
             None => commit(db, move |c| link(c, &page.pairs, now)).await?,
         }; }
         match page.next { Some(id) => after_id = id, None => return Ok(linked) }
+    }
+}
+
+#[cfg(test)]
+mod transfer_tests {
+    use super::*;
+
+    fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
+
+    #[test]
+    fn a_file_transfer_and_an_api_transfer_are_told_by_their_raw() {
+        assert!(file_transfer(DEPOSIT, &json!({"operation": "Deposit"})) && file_transfer(WITHDRAWAL, &json!({"operation": "Withdraw"})));
+        assert!(!file_transfer(DEPOSIT, &json!({"operation": "Withdraw"})) && !file_transfer(DEPOSIT, &json!({})) && !file_transfer(BUY, &json!({"operation": "Deposit"})));
+        assert!(api_transfer(DEPOSIT, &json!({"insertTime": 1})) && api_transfer(WITHDRAWAL, &json!({"completeTime": null})));
+        assert!(!api_transfer(WITHDRAWAL, &json!({"applyTime": "2021-08-23 13:08:10"})) && !api_transfer(BUY, &json!({"insertTime": 1})));
+    }
+
+    #[test]
+    fn the_file_side_of_a_deposit_is_its_amount_credited_up_to_ten_minutes_later() {
+        let seen = at("2021-07-01T11:06:41.123Z");
+        let (amount, from, to, open) = file_side(DEPOSIT, &json!({"amount": "150.2", "insertTime": 1}), seen).unwrap();
+        assert_eq!((amount, from, to, open), (BigDec::parse("150.2").unwrap(), seen, at("2021-07-01T11:16:41.123Z"), false));
+    }
+
+    #[test]
+    fn the_file_side_of_a_withdrawal_is_its_gross_within_a_second_of_completion() {
+        let apply = at("2021-08-23T13:08:10Z");
+        let raw = json!({"amount": "10.43980476", "transactionFee": "0.001", "completeTime": "2021-08-23 13:20:44"});
+        let (amount, from, to, open) = file_side(WITHDRAWAL, &raw, apply).unwrap();
+        assert_eq!((amount, from, to, open), (BigDec::parse("10.44080476").unwrap(), at("2021-08-23T13:20:43Z"), at("2021-08-23T13:20:45Z"), true));
+        let no_fee = file_side(WITHDRAWAL, &json!({"amount": "0.249", "completeTime": "2021-08-23 13:20:44"}), apply).unwrap();
+        assert_eq!(no_fee.0, BigDec::parse("0.249").unwrap());
+        for unreadable in [json!({"amount": "1", "completeTime": "soon"}), json!({"amount": "1", "completeTime": null}), json!({"amount": "1"})] {
+            assert!(file_side(WITHDRAWAL, &unreadable, apply).is_none(), "{unreadable}");
+        }
     }
 }

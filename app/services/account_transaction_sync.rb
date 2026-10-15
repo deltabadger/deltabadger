@@ -57,6 +57,7 @@ class AccountTransactionSync
     min_skipped = nil
 
     @file_pairs = entries.select { |entry| entry[:group_id].to_s.start_with?('swapcsv_') }.group_by { |entry| entry[:group_id] }
+    @batch = entries
     asset_ids = ledger_asset_ids(entries)
 
     entries.each_with_index do |entry, index|
@@ -340,6 +341,8 @@ class AccountTransactionSync
       # compared exactly, or bucketed by second, every Convert in the overlap between a file and a
       # sync lands a second time. Less than a full second apart is one event, from either side; a
       # row a full second later stays a row of its own.
+      return file_transfer_twin?(entry) if file_transfer?(entry)
+
       return same_event?(entry, scope) || replaced_trade?(entry)
     end
 
@@ -351,6 +354,8 @@ class AccountTransactionSync
     return true if stored_merged_activity_ids.include?(tx_id)
     return true if scope.exists?(tx_id: tx_id)
 
+    return api_transfer_twin?(entry, tx_id) if api_transfer?(entry, tx_id)
+
     # The other way round: a file imported BEFORE the first sync stored this row with no id, and
     # the venue's copy now arrives with one. An id that matches nothing is not yet a new row.
     same_event?(entry, scope.where(tx_id: nil))
@@ -360,8 +365,163 @@ class AccountTransactionSync
   def same_event?(entry, rows)
     return false if entry[:transacted_at].blank?
 
+    same_events(entry, rows).exists?
+  end
+
+  def same_events(entry, rows)
     rows.where(entry_type: entry[:entry_type], base_currency: entry[:base_currency], base_amount: entry[:base_amount])
-        .exists?(within_a_second(entry))
+        .where(within_a_second(entry))
+  end
+
+  # ---- one transfer, as Binance's export and its API each describe it --------------------------------
+  #
+  # The export dates a deposit when it was CREDITED, seconds to minutes after the API's `insertTime`,
+  # and writes a withdrawal GROSS — the amount plus the network fee — at the moment it completed,
+  # where the API row is net, with the fee beside it, at the moment it was requested. Neither copy is
+  # within a second of the other, so the rule above would store the transfer twice, whichever came
+  # first. These two shapes are paired on their own terms instead, and only with each other:
+  #
+  # - a deposit, same coin and amount, credited in the file no earlier than the API saw it and less
+  #   than CREDIT_LAG after;
+  # - a withdrawal whose `amount` + `transactionFee` is the file's amount, the file dated within a
+  #   second of the API's `completeTime`.
+  #
+  # Which row is which is read off the data, not off a missing id (several adapters store API rows
+  # without one): the file row is the importer's `{"operation" => "Deposit" | "Withdraw"}`, the API
+  # row has an id and the capital endpoint's `insertTime` / `completeTime`. A row of neither shape is
+  # matched as before.
+  #
+  # One file row pairs with ONE API row, and the pairing is written down, so it holds across calls (a
+  # sync stores its history in chunks; a file is imported on its own): an API row arriving first-time
+  # takes the file row's empty id, and a file row arriving after the API row stamps that row's raw
+  # with `file_twin_at`. Whichever came first is the row that stays, fields and all. Two candidates
+  # either way are left as a visible double — dropping a real second deposit would be silent.
+  FILE_TRANSFERS = { 'deposit' => 'Deposit', 'withdrawal' => 'Withdraw' }.freeze
+  API_TRANSFER_TIMES = { 'deposit' => 'insertTime', 'withdrawal' => 'completeTime' }.freeze
+  CREDIT_LAG = 10.minutes
+
+  def file_transfer?(row)
+    operation = FILE_TRANSFERS[row[:entry_type].to_s]
+    operation.present? && (row[:raw_data] || {})['operation'] == operation
+  end
+
+  def api_transfer?(row, tx_id = row[:tx_id])
+    time = API_TRANSFER_TIMES[row[:entry_type].to_s]
+    time.present? && tx_id.present? && (row[:raw_data] || {}).key?(time)
+  end
+
+  # A present but unreadable `completeTime` pairs with nothing.
+  def completed_at(raw)
+    ActiveSupport::TimeZone['UTC'].strptime(raw['completeTime'].to_s, '%Y-%m-%d %H:%M:%S')
+  rescue ArgumentError
+    nil
+  end
+
+  # What the file says for this API row: its amount, and the window its date falls in.
+  def file_side(api)
+    raw = api[:raw_data]
+    if api[:entry_type].to_s == 'deposit'
+      at = api[:transacted_at]
+      [raw['amount'].to_d, at, at + CREDIT_LAG, :right_open]
+    else
+      complete = completed_at(raw)
+      complete && [raw['amount'].to_d + raw['transactionFee'].to_d, complete - 1.second, complete + 1.second, :open]
+    end
+  end
+
+  def pairs?(api, file)
+    return false unless file[:entry_type].to_s == api[:entry_type].to_s && file[:base_currency] == api[:base_currency]
+
+    amount, from, to, bounds = file_side(api)
+    return false unless amount && file[:transacted_at]
+
+    at = file[:transacted_at]
+    file[:base_amount].to_d == amount && (bounds == :open ? at > from : at >= from) && at < to
+  end
+
+  def api_transfer_twin?(entry, tx_id)
+    # The second-wide rule still holds against every id-less row except a file transfer: that pairing
+    # is decided below.
+    return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_transfer?(row) }
+
+    amount, from, to, bounds = file_side(entry)
+    return false unless amount
+
+    # Raced: someone took the row between the read and the write. Read once more, then store.
+    2.times do
+      rows = scope.where(tx_id: nil, entry_type: entry[:entry_type], base_currency: entry[:base_currency], base_amount: amount)
+                  .where("transacted_at #{bounds == :open ? '>' : '>='} ? AND transacted_at < ?", from, to)
+                  .select { |row| file_transfer?(row) }
+      return false unless rows.one?
+      return true if take!(rows.first, tx_id)
+    end
+    false
+  rescue ActiveRecord::RecordNotUnique
+    true # the id was stored meanwhile
+  end
+
+  def take!(row, tx_id)
+    AccountTransaction.where(id: row.id, tx_id: nil).update_all(tx_id: tx_id) == 1
+  end
+
+  def file_transfer_twin?(entry)
+    at = entry[:transacted_at]
+    return false if at.blank?
+    # The same file row stored already — claimed or not — or any row this pairing does not govern.
+    return true if same_events(entry, scope).any? { |row| !api_transfer?(row) }
+
+    2.times do
+      candidates = api_rows_for(entry)
+      return true if twinned?(candidates, at)
+
+      free = candidates.reject { |row| row.raw_data.key?('file_twin_at') }
+      return false unless free.one?
+
+      # The file's other rows that could take this API row too; one already paired is not a rival.
+      rivals = @batch.count do |other|
+        other[:tx_id].blank? && file_transfer?(other) && pairs?(free.first, other) &&
+          (other.equal?(entry) || !paired?(other))
+      end
+      return false unless rivals == 1
+      return true if stamp!(free.first, at)
+    end
+    false
+  end
+
+  # A file row whose pairing is written down: stored with an API row's id, or its date stamped on one.
+  # Stored without either, it is still free.
+  def paired?(entry)
+    same_events(entry, scope.where.not(tx_id: nil)).any? { |row| !api_transfer?(row) } ||
+      twinned?(api_rows_for(entry), entry[:transacted_at])
+  end
+
+  def twinned?(rows, at)
+    rows.any? { |row| (twin = file_twin_at(row)) && (twin - at).abs < 1 }
+  end
+
+  # The stored API rows this file row pairs with. An API row is dated when it was requested, so a
+  # withdrawal's is at or before its completion.
+  def api_rows_for(entry)
+    at = entry[:transacted_at]
+    rows = scope.where.not(tx_id: nil).where(entry_type: entry[:entry_type], base_currency: entry[:base_currency])
+    rows = if entry[:entry_type].to_s == 'deposit'
+             rows.where('transacted_at > ? AND transacted_at <= ?', at - CREDIT_LAG,
+                        at)
+           else
+             rows.where('transacted_at < ?', at + 1.second)
+           end
+    rows.select { |row| api_transfer?(row) && pairs?(row, entry) }
+  end
+
+  def file_twin_at(row)
+    Time.iso8601(row.raw_data['file_twin_at'].to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def stamp!(row, at)
+    AccountTransaction.where(id: row.id).where("json_extract(raw_data, '$.file_twin_at') IS NULL")
+                      .update_all(["raw_data = json_set(raw_data, '$.file_twin_at', ?)", at.utc.iso8601(6)]) == 1
   end
 
   def within_a_second(entry)

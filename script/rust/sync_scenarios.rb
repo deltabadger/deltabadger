@@ -725,6 +725,12 @@ module SyncScenarios
                         'tranId' => 2_968_885_920, 'direction' => 1 }]
     }
     everything = basic.merge(others)
+    file_row = lambda do |ctx, type, coin, amount, at|
+      operation = type == 4 ? 'Deposit' : 'Withdraw'
+      P.stored(ctx, exchange: ctx[:binance], entry_type: type, base_currency: coin, base_amount: amount, tx_id: nil, transacted_at: at,
+                    description: operation, raw_data: { 'operation' => operation })
+    end
+    fillers = Array.new(99) { |i| P.bn_deposit(100 + i, 'USDT', "#{i + 1}.25", t.(2026, 8, 20) + (i * 60)) }
     second = everything.merge('trades' => { 'BTCUSDT' => btc + [P.bn_trade(102, 12, '62000', '0.001', t.(2026, 9, 19, 21), buyer: true, asset: 'BNB', commission: '0.0001')],
                                            'ETHBTC' => eth },
                               'converts' => others['converts'] + [others['converts'][0].merge('quoteId' => 'a1b2c3', 'fromAmount' => '40', 'toAmount' => '0.1',
@@ -777,7 +783,35 @@ module SyncScenarios
         steps: [P.binance_ledger(night, { 'symbols' => symbols, 'balances' => [%w[BTC 1]], 'deposits' => [P.bn_deposit(6, 'BTC', '1', t.(2026, 6, 20))] })] },
       { name: 'binance-ledger-garbage_amount', setup: ->(ctx) { P.binance(ctx) },
         steps: [P.binance_ledger(night, basic.merge('deposits' => [P.bn_deposit(7, 'BTC', 'abc', t.(2026, 9, 1))]))] },
-      { name: 'binance-ledger-us_refused', setup: ->(ctx) { P.binance(ctx, us: true) }, steps: [P.binance_ledger(night, basic)] }
+      { name: 'binance-ledger-us_refused', setup: ->(ctx) { P.binance(ctx, us: true) }, steps: [P.binance_ledger(night, basic)] },
+      # ---- a file imported before the sync: the export's copy of a transfer (credited later; gross at completion) ----
+      { name: 'binance-ledger-file_transfers',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          file_row.call(ctx, 4, 'USDT', '1000', Time.at(1_785_578_400_123 / 1000.0).utc + 46) # credited 46 s after it was seen
+          file_row.call(ctx, 4, 'BTC', '0.1', t.(2026, 8, 2, 9, 1))                           # two candidates: a visible double
+          file_row.call(ctx, 4, 'BTC', '0.1', t.(2026, 8, 2, 9, 2))
+          file_row.call(ctx, 5, 'BTC', '0.0505', t.(2026, 8, 10, 12, 12))                     # gross at completeTime
+          file_row.call(ctx, 5, 'USDT', '10', t.(2026, 8, 12, 0, 5))                          # no fee: equal at completeTime
+          file_row.call(ctx, 4, 'ETH', '2', t.(2026, 8, 4, 10, 11))                           # eleven minutes on: its own row
+        end,
+        steps: [P.binance_ledger(night, basic.merge(
+          'deposits' => basic['deposits'] + [P.bn_deposit(8, 'ETH', '2', t.(2026, 8, 4, 10))],
+          'withdrawals' => [P.bn_withdrawal(1, 'BTC', '0.05', t.(2026, 8, 10, 12)).merge('completeTime' => '2026-08-10 12:12:00'),
+                            P.bn_withdrawal(3, 'USDT', '10', t.(2026, 8, 12), fee: nil).merge('completeTime' => '2026-08-12 00:05:00')]
+        ))] },
+      # One file row, two equal API deposits: the first claims it, across the store's 100-row chunks and across nights.
+      { name: 'binance-ledger-file_transfer_claimed_once',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          file_row.call(ctx, 4, 'USDT', '777', t.(2026, 9, 1, 12, 3))
+          file_row.call(ctx, 4, 'USDT', '888', t.(2026, 9, 2, 12, 3))
+        end,
+        steps: [P.binance_ledger(night, basic.merge('deposits' => fillers + [P.bn_deposit(200, 'USDT', '777', t.(2026, 9, 1, 12)),
+                                                                             P.bn_deposit(201, 'USDT', '777', t.(2026, 9, 1, 12, 1)),
+                                                                             P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12))])),
+                P.binance_ledger('2026-09-22T02:00:00.250000Z', basic.merge('deposits' => [P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12)),
+                                                                                           P.bn_deposit(203, 'USDT', '888', t.(2026, 9, 2, 12, 1))]))] }
     ]
   end
 
