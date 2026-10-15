@@ -19,7 +19,8 @@ module McpParity
                        app/services/bot_api/bots/archive.rb app/services/bot_api/bots/lifecycle_support.rb app/services/bot_api/bots/create_index.rb
                        app/services/bot_api/bots/stop.rb app/services/bot_api/bots/create_signal.rb app/services/bot_api/bots/create.rb
                        app/services/bot_api/bots/answer_redeploy.rb app/services/bot_api/bots/unarchive.rb app/services/bot_api/bots/delete.rb
-                       app/services/bot_api/bots/update_settings.rb app/services/bot_api/number.rb app/models/bot/lifecycle.rb app/models/bot/accountable.rb].freeze
+                       app/services/bot_api/bots/update_settings.rb app/services/bot_api/number.rb app/models/bot/lifecycle.rb app/models/bot/accountable.rb
+                       app/services/bot_api/bots/settings_fields.rb app/models/bot/settings_form.rb].freeze
   AT = Pages::AT
   HEADERS = %w[content-type www-authenticate mcp-session-id mcp-protocol-version allow cache-control x-frame-options x-xss-protection
                x-content-type-options x-permitted-cross-domain-policies referrer-policy content-security-policy-report-only].freeze

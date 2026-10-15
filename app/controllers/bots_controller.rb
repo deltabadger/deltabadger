@@ -121,9 +121,7 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_index? || @bot.dca_multi_asset?
-
-    if @bot.update(update_params)
+    if Bot::SettingsForm.save(@bot, form_params)
       # flash.now[:notice] = t('alert.bot.bot_updated')
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
@@ -204,39 +202,11 @@ class BotsController < ApplicationController
     )
   end
 
-  def update_params
-    if @bot.dca_single_asset?
-      {
-        settings: @bot.settings.merge(
-          @bot.parse_params(dca_single_asset_bot_params).stringify_keys
-        ),
-        exchange_id: dca_single_asset_bot_params[:exchange_id],
-        label: dca_single_asset_bot_params[:label].presence
-      }.compact
-    elsif @bot.dca_index?
-      {
-        settings: @bot.settings.merge(
-          @bot.parse_params(dca_index_bot_params).stringify_keys
-        ),
-        exchange_id: dca_index_bot_params[:exchange_id],
-        label: dca_index_bot_params[:label].presence
-      }.compact
-    elsif @bot.dca_multi_asset?
-      {
-        settings: @bot.settings.merge(
-          @bot.parse_params(dca_multi_asset_bot_params).stringify_keys
-        ),
-        exchange_id: dca_multi_asset_bot_params[:exchange_id],
-        label: dca_multi_asset_bot_params[:label].presence
-      }.compact
-    elsif @bot.signal?
-      {
-        settings: @bot.settings.merge(
-          @bot.parse_params(signal_bot_params).stringify_keys
-        ),
-        exchange_id: signal_bot_params[:exchange_id],
-        label: signal_bot_params[:label].presence
-      }.compact
+  def form_params
+    if @bot.dca_single_asset? then dca_single_asset_bot_params
+    elsif @bot.dca_index? then dca_index_bot_params
+    elsif @bot.dca_multi_asset? then dca_multi_asset_bot_params
+    elsif @bot.signal? then signal_bot_params
     else
       raise "Unknown bot type: #{@bot.type}"
     end

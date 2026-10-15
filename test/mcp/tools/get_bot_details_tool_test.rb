@@ -111,6 +111,21 @@ class GetBotDetailsToolTest < ActiveSupport::TestCase
     assert_match(%r{Pair: BTC\+ETH/USD\nAllocations: BTC 70\.00%, ETH 20\.00%}, text)
   end
 
+  test 'lists each basket member with the asset and ticker ids update_bot_settings takes' do
+    bitcoin = create(:asset, :bitcoin)
+    ethereum = create(:asset, :ethereum)
+    bot = create(:dca_multi_asset, user: @user, base_assets: [bitcoin, ethereum])
+    Bots::DcaMultiAsset.any_instance.stubs(:metrics).returns(nil)
+    tickers = bot.composition_tickers.index_by(&:base_asset_id)
+
+    data = BotApi::Bots::Get.call(user: @user, bot_id: bot.id).data
+    assert_equal([tickers[bitcoin.id].id, tickers[ethereum.id].id], data[:allocation_assets].map { |member| member[:ticker_id] })
+
+    text = GetBotDetailsTool.call('bot_id' => bot.id).contents.first.text
+    assert_includes text, "Members: BTC (asset id #{bitcoin.id}, ticker id #{tickers[bitcoin.id].id}), " \
+                          "ETH (asset id #{ethereum.id}, ticker id #{tickers[ethereum.id].id})"
+  end
+
   test 'does not show allocations for a single-asset bot' do
     bot = create(:dca_single_asset, user: @user)
     Bots::DcaSingleAsset.any_instance.stubs(:metrics).returns(nil)

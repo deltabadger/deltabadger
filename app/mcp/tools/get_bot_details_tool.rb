@@ -27,6 +27,10 @@ class GetBotDetailsTool < ApplicationMCPTool
       formatted = data[:allocations].map { |symbol, weight| "#{symbol} #{format('%.2f', weight * 100)}%" }
       lines << "Allocations: #{formatted.join(', ')}"
     end
+    if data[:allocation_assets].present?
+      members = data[:allocation_assets].map { |m| "#{m[:key]} (asset id #{m[:asset_id]}, ticker id #{m[:ticker_id] || 'none'})" }
+      lines << "Members: #{members.join(', ')}"
+    end
     lines << "Holdings (sellable with liquidate_exited_asset): #{data[:holdings].join(', ')}" if data[:holdings].present?
     lines << "Exited holdings: #{data[:exited_holdings].join(', ')}" if data[:exited_holdings].present?
     if data[:locked_members].present?

@@ -46,6 +46,9 @@ pub struct Draft {
     pub errors: Vec<FieldError>,
     pub sliders: Option<Value>,
     pub submitted: Map<String, Value>,
+    /// The zone Rails' Time.current is in when this save runs: the caller's own over MCP (ActionMCP sets it),
+    /// UTC on the web. The *_enabled_at callbacks store their time in it.
+    pub callback_zone: Option<String>,
     parse_errors: Vec<FieldError>,
     exchange_missing: bool,
     error_codes: Vec<(String, String, String)>,
@@ -111,7 +114,7 @@ impl Draft {
 
     pub fn from_bot(bot: Bot) -> Self {
         Self { raw_settings: bot.settings.clone(), raw_transient: bot.transient.clone(), baseline: bot.settings.clone(), candidate: bot.clone(), original: bot,
-            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), parse_errors: vec![], exchange_missing: false, error_codes: vec![] }
+            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, parse_errors: vec![], exchange_missing: false, error_codes: vec![] }
     }
 
     pub fn parse(&mut self, c: &Connection, params: &Value, zone: &str, now: DateTime<Utc>) -> Result<(), ParseError> {
@@ -135,11 +138,7 @@ impl Draft {
         self.parsed.clear();
         // Actual parse_params output, deliberately narrower than stored_attributes / strong params.
         for (key, value) in fields {
-            let common = matches!(key.as_str(), "quote_asset_id" | "quote_amount" | "interval" | "smart_intervaled" | "smart_interval_quote_amount" | "smart_interval_base_amount" |
-                "limit_ordered" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "start_time_of_day" | "start_at" | "rebalance_enabled" | "rebalance_threshold");
-            let basket_field = matches!(key.as_str(), "weighting" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "quote_amount_limited" | "quote_amount_limit" | "base_amount_limited" | "base_amount_limit")
-                || trigger_field(key);
-            if !(common || (basket && basket_field) || (self.candidate.kind == Kind::Index && key == "allocation_flattening")) { continue; }
+            if !form_field(self.candidate.kind, key) { continue; }
             let explicit_null = matches!(key.as_str(), "start_at" | "rebalance_threshold" | "sell_amount" | "sell_quote_amount");
             if key == "rebalance_enabled" { self.parsed.insert(key.clone(), json!(value.as_str().is_some_and(|s| matches!(s, "1" | "true")))); continue; }
             if key == "start_time_enabled" {
@@ -252,6 +251,16 @@ impl Draft {
         let messages: Vec<&str> = self.errors.iter().map(|e| e.message.as_str()).collect();
         sentence(&messages, locale)
     }
+}
+
+/// The scalar settings one bot kind's `parse_params` reads (deliberately narrower than stored_attributes /
+/// strong params). The settings form and the MCP adapter both ask this, so their field sets cannot drift.
+pub(super) fn form_field(kind: Kind, key: &str) -> bool {
+    let common = matches!(key, "quote_asset_id" | "quote_amount" | "interval" | "smart_intervaled" | "smart_interval_quote_amount" | "smart_interval_base_amount" |
+        "limit_ordered" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "start_time_of_day" | "start_at" | "rebalance_enabled" | "rebalance_threshold");
+    let basket_field = matches!(key, "weighting" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "quote_amount_limited" | "quote_amount_limit" | "base_amount_limited" | "base_amount_limit")
+        || trigger_field(key);
+    common || (kind == Kind::Basket && basket_field) || (kind == Kind::Index && key == "allocation_flattening")
 }
 
 fn trigger_field(key: &str) -> bool {
@@ -694,7 +703,10 @@ impl Draft {
                 let key = format!("{prefix}ed");
                 let current = self.read(&key);
                 if self.raw_settings.get(&key).unwrap_or(&Value::Null) != &current {
-                    callback_set(&mut transient, format!("{prefix}_enabled_at"), if current == json!(true) { json!(now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)) } else { Value::Null });
+                    callback_set(&mut transient, format!("{prefix}_enabled_at"), if current == json!(true) { json!(match &self.callback_zone {
+                        Some(zone) => crate::web::timezone::local(now, zone).to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                        None => now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                    }) } else { Value::Null });
                     if prefix != "quote_amount_limit" && prefix != "base_amount_limit" { callback_set(&mut transient, format!("{prefix}_condition_met_at"), Value::Null); }
                 }
             }

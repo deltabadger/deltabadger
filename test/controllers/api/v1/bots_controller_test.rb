@@ -376,6 +376,36 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'New Label', bot.label
   end
 
+  test 'PATCH /api/v1/bots/:id takes the settings page fields; omitted stays, JSON null clears' do
+    @user.set_rest_tool_enabled('update_bot_settings', true)
+    bot = create(:dca_multi_asset, :stopped, user: @user)
+    token = create_token(scopes: 'api')
+
+    patch "/api/v1/bots/#{bot.id}",
+          params: { start_time_enabled: true, start_time_mode: 'date', start_at: '2026-12-01T10:00', rebalance_threshold: 5,
+                    limit_ordered: 'true', limit_order_pcnt_distance: '0.5' },
+          headers: bearer(token), as: :json
+    assert_response :ok
+    assert_equal %w[limit_ordered limit_order_pcnt_distance start_time_enabled start_time_mode start_at rebalance_threshold],
+                 JSON.parse(response.body)['data']['updated']
+    bot.reload
+    assert_equal [true, 'date', '2026-12-01T10:00:00Z', 0.05, true, 0.005],
+                 bot.settings.values_at('start_time_enabled', 'start_time_mode', 'start_at', 'rebalance_threshold', 'limit_ordered',
+                                        'limit_order_pcnt_distance')
+
+    patch "/api/v1/bots/#{bot.id}", params: { label: 'Other' }, headers: bearer(token), as: :json
+    assert_equal '2026-12-01T10:00:00Z', bot.reload.settings['start_at']
+
+    patch "/api/v1/bots/#{bot.id}", params: { start_at: nil, rebalance_threshold: nil }, headers: bearer(token), as: :json
+    assert_response :ok
+    bot.reload
+    assert_equal [nil, nil], bot.settings.values_at('start_at', 'rebalance_threshold')
+    assert bot.settings.key?('start_at')
+
+    patch "/api/v1/bots/#{bot.id}", params: { price_limit: 'abc' }, headers: bearer(token), as: :json
+    assert_equal 'invalid_number', JSON.parse(response.body)['error']['code']
+  end
+
   test 'PATCH /api/v1/bots/:id with no updatable params returns 422' do
     @user.set_rest_tool_enabled('update_bot_settings', true)
     bot = create(:dca_single_asset, user: @user, status: :created)

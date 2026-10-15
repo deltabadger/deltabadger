@@ -107,7 +107,7 @@ async fn control_transcripts() {
         let steps = read(dir.join("steps.json"));
         let rust = tempfile::tempdir().unwrap();
         copy_install(dir, rust.path());
-        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap()=="start_wash_question_held" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds");
+        let unicode_symbol=dir.file_name().unwrap()=="settings_r2_unicode_symbol" || dir.file_name().unwrap()=="start_wash_question_held" || dir.file_name().unwrap().to_string_lossy().ends_with("schedule_bounds") || dir.file_name().unwrap().to_string_lossy().starts_with("settings_form_");
         let before=if unicode_symbol {
             let c=rusqlite::Connection::open(rust.path().join("production.sqlite3")).unwrap();
             for step in steps.as_array().unwrap() {if let Some(sql)=step["sql"].as_array() {for command in sql {c.execute_batch(command.as_str().unwrap()).unwrap();}}}
@@ -193,7 +193,7 @@ async fn control_transcripts() {
             assert_eq!(rails["result"]["content"][0]["text"],"Bot 'Control' settings updated: allocations.","R2 Unicode Rails accepts");
             assert_eq!(want["rows"]["bots"][0]["settings"]["allocations"],json!({"16":0.7,"17":0.3}));
             let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
-            assert_eq!(response["result"]["content"][0]["text"],"ſOL is not in this basket; membership cannot be changed here.","R2 Unicode ASCII-only refusal");
+            assert_eq!(response["result"]["content"][0]["text"],"ſOL is not in this basket; add it with add_asset_id first.","R2 Unicode ASCII-only refusal");
             assert_eq!(response["result"]["isError"],true,"R2 Unicode refusal classification");
             for table in ["oauth_access_tokens","connected_clients","bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
                 assert_eq!(got["rows"][table],got["before_business"][table],"R2 Unicode no commit: {table}");
@@ -211,6 +211,30 @@ async fn control_transcripts() {
                 std::fs::write(std::path::Path::new(&path).join(format!("{name}.json")),serde_json::to_vec_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();
             }
         }
+        if name.starts_with("settings_form_") {
+            // Named divergence: settings that need what this build does not run yet. Rails saves them; Rust
+            // refuses the whole call by its reason and writes nothing. Rebalancing anywhere on the account is
+            // refused by the engine guard; a market-cap basket's derived composition by the writer, as the
+            // settings page refuses that bot.
+            let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["settings"]["rebalance_enabled"]==json!(true));
+            let market_cap=want["rows"]["bots"][0]["settings"]["weighting"]=="market_cap"
+                && (got["before_business"]["bots"][0]["settings"]["allocations"]!=want["rows"]["bots"][0]["settings"]["allocations"]
+                    || got["before_business"]["bots"][0]["settings"]["weighting"]!=json!("market_cap"));
+            if rebalancing || market_cap {
+                let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
+                assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
+                let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
+                let text=response["result"]["content"][0]["text"].as_str().unwrap();
+                let reason=if rebalancing {"rebalance_enabled"} else {"market-cap weights"};
+                assert!(text.starts_with("This app can't run that yet:") && text.contains(reason),"{name}: {text}");
+                assert_eq!(response["result"]["isError"],true,"{name}");
+                for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
+                    assert_eq!(got["rows"][table],got["before_business"][table],"{name} refusal writes nothing: {table}");
+                }
+                continue;
+            }
+            result_without_before(&mut got);
+        }
         let continuation=["start_continue_created","start_continue_empty","start_continue_within"].contains(&name.as_ref());
         assert_eq!(requests,usize::from(continuation),"{name}");
         if got!=want {
@@ -225,6 +249,9 @@ async fn control_transcripts() {
     }
     assert!(failures.is_empty(), "M4 mismatches: {failures:?}");
 }
+
+/// The before-snapshot is evidence for named divergences only, never part of the Rails comparison.
+fn result_without_before(got:&mut Value) { got.as_object_mut().unwrap().shift_remove("before_business"); }
 
 #[derive(Clone)]
 struct PriceBarrier {

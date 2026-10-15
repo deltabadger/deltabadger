@@ -111,7 +111,7 @@ fn settings_inner<T>(
     let mut mcp_carry = None;
     let mut mcp_refused = false;
     if submitted.mcp() {
-        match super::mcp_input::apply(&tx, &mut draft, &fields)? {
+        match super::mcp_input::apply(&tx, &mut draft, &fields, &zone, ctx.now)? {
             super::mcp_input::InputOutcome::Parsed => {},
             super::mcp_input::InputOutcome::AsciiAliasRefused => mcp_refused = true,
         }
@@ -142,6 +142,11 @@ fn settings_inner<T>(
     if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
     if !submitted.mcp() { if let Some(reason) = draft.original.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let mut effects = draft.save_effects(&tx, ctx.now)?;
+    // A market-cap basket's composition is derived from market caps, which this build does not do (the
+    // settings page refuses such a bot for the same reason): refuse rather than store other weights.
+    if submitted.mcp() && effects.composition_changed && draft.candidate.text("weighting") == Some("market_cap") {
+        return Ok(Outcome::Unported("market-cap weights"));
+    }
     // Callback rewrites (notably an exchange change) can change settings after the initial
     // dirty check. Defaults alone are compared to the load-time baseline, not the disk JSON.
     let mut final_settings = draft.candidate.settings.clone();

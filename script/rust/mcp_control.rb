@@ -32,6 +32,9 @@ module McpControl
       Pages.bot('kind' => 'coins', 'columns' => { 'status' => 'stopped', 'label' => 'Control' })
       Pages.bot('kind' => 'index', 'columns' => { 'status' => 'stopped', 'label' => 'Index' })
       Bot.update_all(updated_at: Time.iso8601('2026-01-01T00:00:00Z'))
+      # The ETH ticker of the basket's exchange: what a trading condition names in *_in_ticker_id.
+      basket = Bot.find(1)
+      @eth_ticker = Ticker.where(exchange_id: basket.exchange_id, base_asset_id: 17, quote_asset_id: basket.quote_asset_id).pick(:id)
     end
     File.write(File.join(dir, 'secret_key_base'), Rails.application.secret_key_base)
     ActiveRecord::Base.connection_pool.disconnect!
@@ -171,11 +174,91 @@ module McpControl
     loose = "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run','true')"
     s['paper_loose_string'] = McpParity.ready + [tool('start_bot', {}, [set_status(0), loose])]
     s['paper_stop_bot'] = McpParity.ready + [tool('stop_bot', {}, [set_status(1), paper])]
+    settings_form(s)
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }
     raise 'empty M4 scenario filter' if selected.empty?
 
     selected
+  end
+
+  # update_bot_settings speaks the settings page's fields (BotApi::Bots::SettingsFields): every field on the
+  # basket (bot 1) and the index (bot 2), each switch off again, the four fields null clears, starting times,
+  # the selling side, partial and unbalanced weights, members, and the schema's refusals.
+  def form_value(field)
+    case field.name
+    when /_in_ticker_id\z/ then @eth_ticker
+    when 'add_asset_id' then 1 # the quote asset: the page's own composition check refuses it
+    when 'remove_asset_id' then 17
+    when 'exchange_id' then 1
+    when 'num_coins' then 5
+    when 'label' then 'Form'
+    when 'allocations' then 'BTC:70'
+    when 'start_time_of_day' then '09:30'
+    when 'start_at' then '2026-12-01T10:00'
+    when 'limit_order_pcnt_distance', 'price_drop_limit', 'sell_price_drop_limit', 'rebalance_threshold' then 5
+    when 'allocation_flattening' then 0.25
+    when /_in_period\z/ then 21
+    else
+      if field.enum then field.enum.last
+      elsif field.type == 'boolean' then true
+      else 12.5
+      end
+    end
+  end
+
+  def settings_form(s)
+    fields = BotApi::Bots::SettingsFields::FIELDS
+    selling = "UPDATE bots SET settings=json_set(settings,'$.direction','selling') WHERE id=1"
+    fields.each do |field|
+      [1, 2].each do |bot_id|
+        s["settings_form_#{field.name}_#{bot_id}"] = McpParity.ready + [tool('update_bot_settings', { bot_id:, field.name => form_value(field) })]
+      end
+      if field.type == 'boolean'
+        on = "UPDATE bots SET settings=json_set(settings,'$.#{field.name}',json('true')) WHERE id IN (1,2)"
+        s["settings_form_off_#{field.name}"] = McpParity.ready + [tool('update_bot_settings', { field.name => false }, [on])]
+      end
+      next unless field.nullable
+
+      set = "UPDATE bots SET settings=json_set(settings,'$.direction','selling','$.sell_amount',0.5,'$.sell_quote_amount',25," \
+            "'$.rebalance_threshold',0.05,'$.start_at','2026-12-01T10:00:00Z') WHERE id=1"
+      s["settings_form_null_#{field.name}"] = McpParity.ready + [tool('update_bot_settings', { field.name => nil }, [set])]
+      s["settings_form_omitted_#{field.name}"] = McpParity.ready + [tool('update_bot_settings', { label: 'Other' }, [set])]
+      s["settings_form_set_#{field.name}"] = McpParity.ready + [tool('update_bot_settings', { field.name => form_value(field) }, [set])]
+    end
+    { weekday: { start_time_enabled: true, start_time_mode: 'monday', start_time_of_day: '09:30' },
+      hour: { start_time_enabled: true, start_time_mode: 'hour', start_time_of_day: '23:59' },
+      date_zoneless: { start_time_enabled: true, start_time_mode: 'date', start_at: '2026-12-01T10:00' },
+      date_offset: { start_time_enabled: true, start_time_mode: 'date', start_at: '2026-12-01T10:00:00+02:00' },
+      date_past: { start_time_enabled: true, start_time_mode: 'date', start_at: '2020-01-01T00:00' },
+      rules: { limit_ordered: true, limit_order_pcnt_distance: 0.5, smart_intervaled: true, smart_interval_quote_amount: 5,
+               rebalance_enabled: true, rebalance_threshold: 7.5, quote_amount_limited: true, quote_amount_limit: 300 },
+      price_between: { price_limited: true, price_limit_mode: 'restrict', price_limit_value_condition: 'between',
+                       price_limit_range_lower_bound: 1000, price_limit_range_upper_bound: 2000 },
+      partial: { allocations: 'BTC:70' }, thirds: { allocations: 'BTC:33.3' }, full: { allocations: 'BTC:33.3,ETH:66.7' },
+      add_member: { add_asset_id: 1 }, remove_member: { remove_asset_id: 17 }, normalize: { normalize_allocations: true },
+      weighting: { weighting: 'market_cap' }, interval: { interval: 'week' },
+      schema_enum: { interval: 'fortnight' }, schema_switch: { limit_ordered: 'yes' }, schema_text: { start_time_mode: 3 },
+      schema_number: { price_limit: '50000' }, schema_null: { quote_amount: nil } }.each do |name, args|
+      s["settings_form_case_#{name}"] = McpParity.ready + [tool('update_bot_settings', args)]
+    end
+    s['settings_form_case_market_cap_weights'] =
+      McpParity.ready + [tool('update_bot_settings', { allocations: 'BTC:60,ETH:40' },
+                              ["UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap') WHERE id=1"])]
+    s['settings_form_case_unbalanced_normalize'] =
+      McpParity.ready + [tool('update_bot_settings', { normalize_allocations: true },
+                              ["UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"16\":0.6,\"17\":0.6}')) WHERE id=1"])]
+    { sell_amount: { sell_amount: 0.25, sell_interval: 'week' }, sell_quote: { sell_quote_amount: 40 },
+      sell_trigger: { sell_price_limited: true, sell_price_limit_mode: 'flip', sell_price_limit: 900, sell_price_limit_in_ticker_id: @eth_ticker },
+      sell_drop: { sell_price_drop_limited: true, sell_price_drop_limit: 5, sell_price_drop_limit_time_window_condition: 'seven_days' },
+      sell_cap: { base_amount_limited: true, base_amount_limit: 2 } }.each do |name, args|
+      s["settings_form_selling_#{name}"] = McpParity.ready + [tool('update_bot_settings', args, [selling])]
+    end
+    # Transport order is not catalogue order: the answer lists settings in catalogue order, never bot_id.
+    s['settings_form_order'] = McpParity.ready + [McpParity.tool('update_bot_settings', { rebalance_enabled: true, label: 'Order', quote_amount: 30, bot_id: 1 })]
+    s['settings_form_order_reversed'] =
+      McpParity.ready + [McpParity.tool('update_bot_settings', fields.reverse.select { |f| %w[boolean].include?(f.type) && f.kinds.include?(:index) }
+                                                                .to_h { |f| [f.name, true] }.merge(bot_id: 2))]
   end
 
   def grid(root)
