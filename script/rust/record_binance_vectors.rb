@@ -10,7 +10,7 @@ class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection to #{address}") })
 
 out = {
-  'sources' => %w[app/models/exchanges/binance.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb]
+  'sources' => %w[app/models/exchanges/binance.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb app/models/utilities/math.rb]
     .to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] },
   'honeymaker' => Honeymaker::VERSION
 }
