@@ -227,4 +227,72 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_includes steps, 'Do not enable Withdrawals'
     assert_not_includes steps, 'Do not enable Spot'
   end
+
+  # Each walk stops after 100 pages; one that has not reached the end by then must not pass as complete.
+  test 'get_orders fails when 100 pages do not reach the orders' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:all_orders).times(100)
+             .returns(Result::Success.new((1000..1999).map { |id| { raw: { 'orderId' => id } } }))
+
+    assert @exchange.get_orders(order_ids: ['BTCUSDT-123']).failure?
+  end
+
+  def raw_order(id)
+    { raw: { 'orderId' => id, 'symbol' => 'BTCUSDT', 'status' => 'NEW', 'type' => 'LIMIT', 'side' => 'BUY',
+             'price' => '100', 'origQty' => '0.1', 'executedQty' => '0', 'cummulativeQuoteQty' => '0',
+             'origQuoteOrderQty' => '0' } }
+  end
+
+  # allOrders answers 1000 orders from the asked id up: the next page starts past the last one.
+  test 'get_orders walks past a full page to the orders after it' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.expects(:all_orders).with(symbol: 'BTCUSDT', order_id: 123, limit: 1000, recv_window: 60_000)
+          .returns(Result::Success.new((123..1122).map { |id| raw_order(id) }))
+    client.expects(:all_orders).with(symbol: 'BTCUSDT', order_id: 5000, limit: 1000, recv_window: 60_000)
+          .returns(Result::Success.new([raw_order(5000)]))
+
+    result = @exchange.get_orders(order_ids: %w[BTCUSDT-123 BTCUSDT-5000])
+    assert result.success?
+    assert_equal %w[BTCUSDT-123 BTCUSDT-5000], result.data[:orders].keys.sort
+  end
+
+  # A short page is the end: an id the venue does not return is left out after one call, not asked 100 times.
+  test 'get_orders stops at a short page without an id it never saw' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:all_orders).once.returns(Result::Success.new([raw_order(124)]))
+
+    result = @exchange.get_orders(order_ids: %w[BTCUSDT-123 BTCUSDT-124])
+    assert result.success?
+    assert_equal %w[BTCUSDT-124], result.data[:orders].keys
+  end
+
+  def five_orders(**fields)
+    (1..5).map { |id| { order_id: "BTCUSDT-#{id}", **fields } }
+  end
+
+  def btc_trade(order_id)
+    { 'symbol' => 'BTCUSDT', 'orderId' => order_id, 'price' => '100', 'qty' => '0.1', 'quoteQty' => '10',
+      'commission' => '0', 'commissionAsset' => 'BNB', 'isBuyer' => true, 'isMaker' => false, 'time' => 2 }
+  end
+
+  test 'the trades walk fails when 100 pages do not cover the orders' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:account_trade_list).times(100)
+             .returns(Result::Success.new(Array.new(1000) { { 'orderId' => 999, 'time' => 1 } }))
+
+    result = @exchange.send(:get_aggregated_trades_for_orders, five_orders(amount: 0.1.to_d))
+    assert result.failure?
+  end
+
+  test 'the trades walk stops once quote-sized orders are covered' do
+    page = (1..5).map { |id| btc_trade(id) } + Array.new(995) { { 'orderId' => 999, 'time' => 1 } }
+    @exchange.set_client
+    @exchange.send(:client).expects(:account_trade_list).once.returns(Result::Success.new(page))
+
+    orders = five_orders(amount: nil, quote_amount: 10.to_d, amount_exec_excl_commission: 0.1.to_d)
+    result = @exchange.send(:get_aggregated_trades_for_orders, orders)
+    assert result.success?
+    assert_equal 0.1.to_d, result.data['BTCUSDT-3'][:amount]
+  end
 end
