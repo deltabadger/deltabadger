@@ -811,7 +811,19 @@ module SyncScenarios
                                                                              P.bn_deposit(201, 'USDT', '777', t.(2026, 9, 1, 12, 1)),
                                                                              P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12))])),
                 P.binance_ledger('2026-09-22T02:00:00.250000Z', basic.merge('deposits' => [P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12)),
-                                                                                           P.bn_deposit(203, 'USDT', '888', t.(2026, 9, 2, 12, 1))]))] }
+                                                                                           P.bn_deposit(203, 'USDT', '888', t.(2026, 9, 2, 12, 1))]))] },
+      # The export's copy of a dust sweep: the BNB net of the charge, a second after operateTime. A whole conversion pairs;
+      # a group holding one leg of it pairs with nothing.
+      { name: 'binance-ledger-file_dust',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          sweep = Time.at(1_786_960_801).utc # operateTime 1_786_960_800_777, written a second on
+          [[3, 'USDT', '0.9', 'USDT'], [2, 'BNB', '0.000432', 'USDT'], [3, 'XRP', '1.5', 'XRP']].each do |type, coin, amount, from|
+            P.stored(ctx, exchange: ctx[:binance], entry_type: type, base_currency: coin, base_amount: amount, tx_id: nil, transacted_at: sweep,
+                          group_id: "dustcsv_#{from} to BNB_#{sweep.to_i}")
+          end
+        end,
+        steps: [P.binance_ledger(night, basic.merge(others.slice('dust')))] }
     ]
   end
 
