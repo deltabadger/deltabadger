@@ -3,14 +3,22 @@
 //! #transient_error? / #throttled_error?, #minimum_amount_logic, the order wire format, and when an order the engine
 //! sent can be proven absent.
 
-/// Exchange#minimum_amount_logic for a buy (Bot::OrderSetter#calculate_best_amount_info).
+/// One branch of Bot::OrderSetter#calculate_best_amount_info (order_setter.rb:23-77).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum MinimumLogic {
-    /// Exchanges::Kraken: a market buy is :base_or_quote, a limit buy :base.
-    KrakenBaseOrQuote,
-    /// Exchanges::Alpaca: always :quote, against minimum_quote_size only.
+pub enum AmountLogic {
+    /// :base_or_quote and :base_and_quote (one branch in Rails): quote or base, whichever minimum binds.
+    BaseOrQuote,
+    /// :base_and_quote_in_base: always base, against max(ceil(minimum_quote_size / price), minimum_base_size).
+    BaseAndQuoteInBase,
+    /// :quote, against minimum_quote_size only.
     Quote,
+    /// :base, against minimum_base_size only.
+    Base,
 }
+
+/// Exchange#minimum_amount_logic for a buy, by order type.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MinimumLogic { pub market: AmountLogic, pub limit: AmountLogic }
 
 /// How an OrderPlan becomes the strings the venue receives.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,6 +58,10 @@ pub struct VenueRules {
     /// Bot::FetchAndUpdateOrderJob raises on an unknown status and on a failed fetch. True for
     /// Alpaca (one GET per order, as Exchange#get_order); false keeps Kraken's follow-up exactly as merged.
     pub follow_up_strict: bool, pub market_hours: bool,
+    /// Whether #get_orders names the ids it did not find (`missing`), so polling recovers them from trades and abandons stale
+    /// ones (Bot::StaleOrderResolver). Exchanges::Binance#get_orders always answers `missing: []`: an id it did not return is
+    /// simply left waiting.
+    pub reports_missing: bool,
 }
 
 fn any(patterns: &[&str], messages: &[String]) -> bool { patterns.iter().any(|p| messages.iter().any(|m| m.contains(p))) }
@@ -77,13 +89,15 @@ pub static KRAKEN: VenueRules = VenueRules {
     transient_text: &["EGeneral:Internal error", "EAPI:Invalid nonce", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"],
     // The transient kind minus "EAPI:Invalid nonce", which Kraken returns before it looks at the order.
     add_outcome_unknown: &["EGeneral:Internal error", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"],
-    minimum_logic: MinimumLogic::KrakenBaseOrQuote,
+    // Exchanges::Kraken: a market buy is :base_or_quote, a limit buy :base.
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::Base },
     wire: WireFormat::Kraken,
     deadline_sent: true,
     reach_within_secs: 10,
     absence_margin_secs: 0, // Kraken enforces the deadline server-side: absence is deadline + 60 s (placement::recover_since)
     transport_raises: false,
     follow_up_strict: false, market_hours: false,
+    reports_missing: true,
 };
 
 /// Client::NETWORK_TRANSIENT_PATTERNS: Exchange#transient_error? applies them to every venue.
@@ -100,7 +114,8 @@ pub static ALPACA: VenueRules = VenueRules {
     transient_text: &NETWORK_TRANSIENT_PATTERNS,
     // A 5xx or a lost reply is ambiguous by HTTP status, decided in AlpacaVenue::add_order, never by text.
     add_outcome_unknown: &[],
-    minimum_logic: MinimumLogic::Quote,
+    // Exchanges::Alpaca: always :quote.
+    minimum_logic: MinimumLogic { market: AmountLogic::Quote, limit: AmountLogic::Quote },
     wire: WireFormat::Alpaca,
     deadline_sent: false,
     reach_within_secs: 55, // send window 10 s + request budget 45 s (connect 5 + write 10 + read 30)
@@ -113,8 +128,44 @@ pub static ALPACA: VenueRules = VenueRules {
     absence_margin_secs: 1200,
     transport_raises: true,
     follow_up_strict: true, market_hours: true,
+    reports_missing: true,
+};
+
+/// Exchanges::Binance::ERRORS[:transient]: the -1021 strings (also Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS).
+pub const BINANCE_TIMESTAMP_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
+/// Exchange#transient_error? for Binance: Client::NETWORK_TRANSIENT_PATTERNS plus the venue's own transient strings.
+const BINANCE_TRANSIENT: [&str; 14] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
+
+pub static BINANCE: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Binance",
+    name: "Binance",
+    // Exchanges::Binance::ERRORS (binance.rb:3-9). Rails has no throttle list; the one text is venue::binance::HTTP_THROTTLE,
+    // which only a read answered HTTP 429/418 carries (spec E §2.10, a listed divergence).
+    kinds: [("insufficient_funds", &["Account has insufficient balance for requested action."]),
+            ("invalid_key", &["API-key format invalid.", "Invalid API-key, IP, or permissions for action.", "Invalid Api-Key ID."]),
+            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &["Binance: request rate limit exceeded"]),
+            ("transient", &BINANCE_TIMESTAMP_ERRORS)],
+    transient_text: &BINANCE_TRANSIENT,
+    // Exchange#ambiguous_placement_error? is decided by HTTP status and transport in BinanceVenue::add_order, never by text.
+    add_outcome_unknown: &[],
+    // Exchanges::Binance#minimum_amount_logic: market :base_and_quote (Rails runs the :base_or_quote branch), limit
+    // :base_and_quote_in_base.
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    // Honeymaker::Clients::Binance#new_order sends BigDecimal#to_s('F') strings, as Kraken's client does.
+    wire: WireFormat::Kraken,
+    // No server-side deadline is sent (recvWindow shortening is a separate, listed change): Alpaca's 20-minute margin.
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks Exchanges::Binance#get_order (GET /api/v3/order): one order, strict.
+    follow_up_strict: true, market_hours: false,
+    reports_missing: false,
 };
 
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> {
-    [&KRAKEN, &ALPACA].into_iter().find(|r| r.exchange_type == exchange_type)
+    [&KRAKEN, &ALPACA, &BINANCE].into_iter().find(|r| r.exchange_type == exchange_type)
 }

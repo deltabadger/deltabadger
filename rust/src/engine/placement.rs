@@ -25,6 +25,8 @@ pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this requ
 
 #[derive(Debug, Clone)]
 pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan,
+    /// The pair the order was sent for, as the venue names it (recorded: the ticker row's name can change after the send).
+    pub symbol: String,
     /// In-memory only; no secret, digest or credential is persisted in an intent.
     credential_version: Option<model::CredentialVersion>,
     bot_id: i64,
@@ -36,7 +38,7 @@ impl Intent {
     fn to_json(&self) -> Result<Value, EngineError> {
         let p = &self.plan;
         let d = |name: &str, v: &BigDec| v.to_persisted().map_err(|e| EngineError::Data(format!("the order's {name} {e:?}; not placed")));
-        Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
+        Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id, "symbol": self.symbol,
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
                    "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
@@ -49,7 +51,9 @@ impl Intent {
         // The intent names its own ticker: a basket's leg k is not the bot's first member. base_asset_id is for the logs; an
         // intent written by an earlier build has none.
         let ticker = model::ticker_by_id(c, bot.exchange_id, v["ticker_id"].as_i64().ok_or_else(bad)?)?.ok_or_else(bad)?;
-        Ok(Self { bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+        // An intent written by an earlier build names no symbol: its own ticker's (by id), never the bot's current pair.
+        let symbol = v["symbol"].as_str().map_or_else(|| ticker.ticker.clone(), str::to_string);
+        Ok(Self { symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
@@ -245,7 +249,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let intent = Intent { bot_id: bot.id, run: Some(bot.run_identity()?), credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let intent = Intent { symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: Some(bot.run_identity()?), credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -384,17 +388,20 @@ pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
     Ok(run == bot.run_identity()?)
 }
 
-/// Why this venue must not be asked about an intent: it would ask another Alpaca host (the key's mode changed) or another
+/// Why this venue must not be asked about an intent: it would ask another host (an Alpaca key's mode changed) or another
 /// account (the key id changed). Either would truthfully answer not-found, and past the absence margin that would clear an
 /// order that exists. An intent from before the mode was recorded was sent paper (that build sent every Alpaca order to
-/// the paper host); one without a fingerprint is compared on the mode only. A venue that states no identity (Kraken)
-/// is not compared.
+/// the paper host); one without a fingerprint or a host is compared on what it has. A venue that states no identity (no
+/// key: Rails' unsaved fallback) is not compared.
 fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str> {
     let now = now?;
     let mode = |v: &Value| v["alpaca_live"].as_bool().unwrap_or(false);
     if mode(intent) != mode(&now) { return Some(if mode(intent) { "in Alpaca live mode and the key is now paper" } else { "in Alpaca paper mode and the key is now live" }); }
+    if let (Some(sent), Some(host)) = (intent["host"].as_str(), now["host"].as_str()) {
+        if sent != host { return Some("to another host than the venue is now reached at"); }
+    }
     match intent["key_fingerprint"].as_str() {
-        Some(sent) if Some(sent) != now["key_fingerprint"].as_str() => Some("under another Alpaca key id than the key now holds"),
+        Some(sent) if Some(sent) != now["key_fingerprint"].as_str() => Some("under another API key id than the key now holds"),
         _ => None,
     }
 }
@@ -427,7 +434,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let absent_from = if rules.deadline_sent { intent.deadline.checked_add_signed(Duration::seconds(ABSENCE_AFTER_SECONDS)).ok_or_else(super::schedule::time_range_error)? }
                       else { intent.at.max(process_start).checked_add_signed(Duration::try_seconds(rules.absence_margin_secs).ok_or_else(super::schedule::time_range_error)?).ok_or_else(super::schedule::time_range_error)? };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
-    match venue.recovery_result(&intent.cl_ord_id, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await.value {
+    match venue.recovery_result(&intent.cl_ord_id, &intent.symbol, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await.value {
         Ok(Some(state)) => {
             let now = clock.now();
             let tx = model::immediate(c)?;

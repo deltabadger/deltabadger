@@ -92,6 +92,14 @@ fn kraken_sent(t: &ScriptedTransport) -> Vec<Value> {
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("cl_ord_id"); m.shift_remove("deadline"); } b }).collect()
 }
 
+/// The orders the Binance adapter POSTed, as the Rails harness records them: the query without what changes per send
+/// (timestamp, signature) and without Rust's own newClientOrderId.
+fn binance_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == "/api/v3/order")
+        .map(|r| Value::Object(r.query.into_iter().filter(|(k, _)| !matches!(*k, "timestamp" | "signature" | "newClientOrderId"))
+                                .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
+}
+
 /// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
 /// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language), the quote asset's symbol.
 fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
@@ -172,6 +180,20 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         // The engine's reconciliation tick has no Rails counterpart: what it sent (nothing, expected) goes to the asserters only.
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
+    }
+    if scenario["venue"] == "binance" {
+        // Rust's real Binance adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Binance, with the
+        // scenario's own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["binance"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Binance'", [], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), crate::venue::binance::URL, "s").with_pairs(pairs);
+        let posted = || binance_sent(&transport).len();
+        let (poll, _) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        return Ok(json!({ "sent": binance_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                          "funds_notified": funds_notified, "poll_error": poll_error }));
     }
     // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken.
     let transport = ScriptedTransport::from_script(&kraken_script(&scenario["script"]));

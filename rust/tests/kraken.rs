@@ -120,7 +120,7 @@ async fn orders_query_the_ids_joined_and_parse_as_rails() {
     let (t, v) = venue(json!({ "POST /0/private/QueryOrders": ok(json!({ "error": [], "result": { "O1": raw_order("closed", "x"), "OTHER": raw_order("open", "y") } })) }));
     let got = v.orders(&["O1".into(), "O2".into()]).await.unwrap();
     assert_eq!(got.len(), 1);
-    assert_eq!((got[0].txid.as_str(), got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone()), ("O1", OrderStatus::Closed, bd("0.001"), bd("50.0")));
+    assert_eq!((got[0].txid.as_str(), got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone().unwrap()), ("O1", OrderStatus::Closed, bd("0.001"), bd("50.0")));
     assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(), r#"{"txid":"O1,O2","consolidate_taker":"true"}"#);
     let (t, v) = venue(json!({}));
     assert_eq!(v.orders(&[]).await, Ok(vec![]), "no ids, no request");
@@ -134,11 +134,11 @@ async fn a_client_order_id_is_found_open_or_closed() {
     let cl = "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01";
     let since = at("2026-09-01T09:00:00Z");
     let (t, v) = venue(json!({ "POST /0/private/OpenOrders": ok(json!({ "error": [], "result": { "open": { "OOPEN": raw_order("open", cl) } } })) }));
-    assert_eq!(v.order_by_client_id(cl, since).await.unwrap().map(|o| o.txid), Some("OOPEN".into()));
+    assert_eq!(v.order_by_client_id(cl, "XBTEUR", since).await.unwrap().map(|o| o.txid), Some("OOPEN".into()));
     assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(), format!(r#"{{"cl_ord_id":"{cl}"}}"#));
     let (t, v) = venue(json!({ "POST /0/private/OpenOrders": ok(json!({ "error": [], "result": { "open": {} } })),
                                 "POST /0/private/ClosedOrders": ok(json!({ "error": [], "result": { "closed": { "OC": raw_order("closed", cl) }, "count": 1 } })) }));
-    assert_eq!(v.order_by_client_id(cl, since).await.unwrap().map(|o| o.txid), Some("OC".into()));
+    assert_eq!(v.order_by_client_id(cl, "XBTEUR", since).await.unwrap().map(|o| o.txid), Some("OC".into()));
     assert_eq!(t.requests()[1].body.as_ref().unwrap().to_string(), format!(r#"{{"cl_ord_id":"{cl}","start":"{}"}}"#, since.timestamp()));
 }
 
@@ -149,7 +149,7 @@ async fn a_client_order_id_is_found_open_or_closed() {
 async fn a_lookup_that_finds_nothing_never_proves_absence() {
     let (_, v) = venue(json!({ "POST /0/private/OpenOrders": ok(json!({ "error": [], "result": { "open": { "OX": raw_order("open", "another") } } })),
                                 "POST /0/private/ClosedOrders": ok(json!({ "error": [], "result": { "closed": {}, "count": 0 } })) }));
-    match v.order_by_client_id("5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01", at("2026-09-01T09:00:00Z")).await {
+    match v.order_by_client_id("5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01", "XBTEUR", at("2026-09-01T09:00:00Z")).await {
         Err(VenueError::Ambiguous(m)) => assert!(m.contains("absence"), "{m}"),
         other => panic!("absence must stay unproven: {other:?}"),
     }
@@ -164,7 +164,7 @@ async fn fills_are_recovered_from_every_trades_page_since_the_bound() {
     let since = at("2026-09-01T09:00:00Z");
     let got = v.fills_from_trades(&["O1".into()], since).await.unwrap();
     assert_eq!(got.len(), 1);
-    assert_eq!((got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone(), got[0].price.clone()), (OrderStatus::Closed, bd("0.003"), bd("150"), Some(bd("50000"))));
+    assert_eq!((got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone().unwrap(), got[0].price.clone()), (OrderStatus::Closed, bd("0.003"), bd("150"), Some(bd("50000"))));
     let bodies: Vec<String> = t.requests().iter().map(|r| r.body.as_ref().unwrap().to_string()).collect();
     assert_eq!(bodies, vec![format!(r#"{{"start":"{0}","ofs":"0"}}"#, since.timestamp()), format!(r#"{{"start":"{0}","ofs":"2"}}"#, since.timestamp())]);
 }
@@ -268,13 +268,16 @@ async fn the_factory_routes_each_bot_to_its_venue_and_an_unported_venue_sends_no
     assert!(matches!(f.for_bot("Exchanges::Alpaca", creds.clone()), LiveVenue::Alpaca(_)));
     let kraken = f.for_bot("Exchanges::Kraken", creds.clone());
     assert!(std::ptr::eq(kraken.rules(), &KRAKEN), "a Kraken bot gets Kraken's rules");
+    // Every venue states the key an order goes under, so recovery never asks another key's account (spec E2 T6).
+    assert_eq!(kraken.placement_identity().unwrap()["host"], kraken::URL);
+    assert_eq!(kraken.placement_identity().unwrap()["key_fingerprint"].as_str().map(str::len), Some(64));
     // A factory that has no install to read proxy_kraken from cannot know whether one is configured: it never goes direct.
     match kraken.price(&xbt_eur(), PriceSide::Ask).await {
         Err(VenueError::Transient(m)) => assert!(m.contains("proxy"), "{m}"),
         other => panic!("{other:?}"),
     }
-    match f.for_bot("Exchanges::Binance", creds).price(&xbt_eur(), PriceSide::Ask).await {
-        Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Binance is not connected"), "{m}"),
+    match f.for_bot("Exchanges::Coinbase", creds).price(&xbt_eur(), PriceSide::Ask).await {
+        Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Coinbase is not connected"), "{m}"),
         other => panic!("{other:?}"),
     }
 }

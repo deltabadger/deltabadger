@@ -68,6 +68,9 @@ fn over_limit(limit: usize) -> TransportError { TransportError::MaybeSent(format
 pub trait Transport {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
     fn redact_diagnostic(&self,text:&str)->String{text.to_string()}
+    /// The moment a request signed now is stamped with (Binance's `timestamp`), read just before it is sent: the transport's
+    /// own clock, the one that also bounds a placement's send (`not_after`). A scripted transport reads the system clock.
+    fn now(&self) -> DateTime<Utc> { Utc::now() }
     async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError>;
     /// `send`, refusing a response body over `limit` bytes. The real transport stops reading at the limit; a transport
     /// that has the whole answer in hand (the scripted one, a test wrapper) is checked after the fact.
@@ -201,7 +204,7 @@ impl ReqwestTransport {
     pub fn failure_line(&self, response: &HttpResponse) -> String {
         let diagnostic = |status: Option<u16>, body: &str| {
             let line = diagnostic(status, body);
-            if self.wire == Wire::Kraken { line.replacen("[Alpaca]", "[Kraken]", 1) } else { line }
+            match self.wire { Wire::Kraken => line.replacen("[Alpaca]", "[Kraken]", 1), Wire::Binance => line.replacen("[Alpaca]", "[Binance]", 1), Wire::Alpaca => line }
         };
         self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
     }
@@ -211,6 +214,7 @@ impl ReqwestTransport {
 
 impl Transport for ReqwestTransport {
     fn redact_diagnostic(&self,text:&str)->String{crate::crypto::scrub_known(text,&self.sensitive.iter().map(String::as_str).collect::<Vec<_>>())}
+    fn now(&self) -> DateTime<Utc> { self.clock.now() }
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> { self.send_limited(r, MAX_BODY).await }
 
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
