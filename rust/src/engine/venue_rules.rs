@@ -142,10 +142,12 @@ const BINANCE_TRANSIENT: [&str; 14] = ["Net::ReadTimeout", "Net::OpenTimeout", "
 pub static BINANCE: VenueRules = VenueRules {
     exchange_type: "Exchanges::Binance",
     name: "Binance",
-    // Exchanges::Binance::ERRORS (binance.rb:3-9); no throttle list.
+    // Exchanges::Binance::ERRORS (binance.rb:3-9). Rails has no throttle list; the one text is venue::binance::HTTP_THROTTLE,
+    // which only a read answered HTTP 429/418 carries (spec E §2.10, a listed divergence).
     kinds: [("insufficient_funds", &["Account has insufficient balance for requested action."]),
             ("invalid_key", &["API-key format invalid.", "Invalid API-key, IP, or permissions for action.", "Invalid Api-Key ID."]),
-            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &[]), ("transient", &BINANCE_TIMESTAMP_ERRORS)],
+            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &["Binance: request rate limit exceeded"]),
+            ("transient", &BINANCE_TIMESTAMP_ERRORS)],
     transient_text: &BINANCE_TRANSIENT,
     // Exchange#ambiguous_placement_error? is decided by HTTP status and transport in BinanceVenue::add_order, never by text.
     add_outcome_unknown: &[],

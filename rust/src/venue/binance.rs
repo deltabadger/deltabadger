@@ -2,6 +2,10 @@
 //! engine's one-asset spot buys (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
 //! method names the Ruby it ports. Binance.US trades nowhere here: only the tracker reads it.
 use super::http::{self, HttpRequest, Transport, TransportError};
+use super::{NewOrder, OrderState, PriceSide};
+use crate::engine::model::Ticker;
+use crate::engine::venue_rules::{VenueRules, BINANCE as RULES};
+use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -18,6 +22,10 @@ pub const PLACE_RECV_WINDOW: &str = "5000";
 pub const UNREADABLE: &str = "Binance: unreadable response";
 /// Named on a read answered with HTTP 429/418 (spec E §2.10, a listed divergence: Rails fails it as a generic error), so
 /// VenueRules::is_throttle sees it: BINANCE's only throttle text.
+/// Why a lookup by client order id never ends in "absent" (spec E §2.6): `GET /api/v3/order?origClientOrderId` answering
+/// -2013 for an order that does not exist is not confirmed by a recorded live (or testnet) answer. Until it is, the intent
+/// stays and the operator settles it with `deltabadger resolve-placement`.
+pub const ABSENCE_UNPROVEN: &str = "Binance: no order with this client order id was found, and the lookup is not confirmed live, so absence is not proven";
 pub const HTTP_THROTTLE: &str = "Binance: request rate limit exceeded";
 /// Exchanges::Binance::ERRORS[:invalid_key]: the venue's words that condemn a key (Exchange#condemning_invalid_key_error?).
 pub const INVALID_KEY: [&str; 3] = ["API-key format invalid.", "Invalid API-key, IP, or permissions for action.", "Invalid Api-Key ID."];
@@ -60,11 +68,44 @@ pub fn timestamp_ms(now: DateTime<Utc>) -> i64 {
     (seconds * 1000.0) as i64
 }
 
+/// What Exchanges::Binance reads from the exchange's tickers table while it trades: per venue symbol, its base and quote codes
+/// and price decimals (#parse_order_data / #parse_trade_data `tickers.find_by(ticker:)`), and each venue code's asset symbol
+/// (#asset_from_symbol: available tickers only, the first ticker naming a code wins).
+#[derive(Clone, Debug, Default)]
+pub struct Pairs { pub by_symbol: std::collections::HashMap<String, Pair>, pub assets: std::collections::HashMap<String, String> }
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Pair { pub base: String, pub quote: String, pub price_decimals: u8 }
+
+impl Pairs {
+    /// The exchange's tickers in id order, as the factory loads them for each venue it builds.
+    pub fn load(c: &rusqlite::Connection, exchange_id: i64) -> Result<Self, String> {
+        let mut s = c.prepare("SELECT t.ticker, t.base, t.quote, t.price_decimals, t.available, ba.symbol, qa.symbol FROM tickers t \
+                               LEFT JOIN assets ba ON ba.id = t.base_asset_id LEFT JOIN assets qa ON qa.id = t.quote_asset_id \
+                               WHERE t.exchange_id = ?1 ORDER BY t.id").map_err(|e| e.to_string())?;
+        let rows = s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?,
+                                                      r.get::<_, Option<bool>>(4)?, r.get::<_, Option<String>>(5)?, r.get::<_, Option<String>>(6)?)))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| e.to_string())?;
+        let mut pairs = Self::default();
+        for (symbol, base, quote, decimals, available, base_asset, quote_asset) in rows {
+            let price_decimals = u8::try_from(decimals).map_err(|_| format!("ticker {symbol}: price_decimals {decimals}"))?;
+            if available == Some(true) {
+                if let Some(a) = base_asset { pairs.assets.entry(base.clone()).or_insert(a); }
+                if let Some(a) = quote_asset { pairs.assets.entry(quote.clone()).or_insert(a); }
+            }
+            pairs.by_symbol.entry(symbol).or_insert(Pair { base, quote, price_decimals });
+        }
+        Ok(pairs)
+    }
+}
+
 #[derive(Clone)]
-pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String }
+pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String, pairs: Pairs }
 
 impl<T: Transport> BinanceVenue<T> {
-    pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into() } }
+    pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into(), pairs: Pairs::default() } }
+    /// The exchange's tickers (`Pairs::load`), which the trading methods read.
+    pub fn with_pairs(mut self, pairs: Pairs) -> Self { self.pairs = pairs; self }
 
     /// One signed request as honeymaker builds it, on GET, POST and DELETE alike: the call's params (nils compacted) and
     /// `timestamp`, signed over `build_query` of exactly those, and the signature added; Faraday then sends every pair in the
@@ -148,6 +189,55 @@ pub fn error_message(text: &str) -> String {
 
 /// Exchange#condemning_invalid_key_error? for Binance and Binance.US: the failure names one of the venue's own words.
 pub fn condemns(text: &str) -> bool { INVALID_KEY.iter().any(|m| text.contains(m)) }
+
+/// A Binance decimal string or number: present and readable, or the whole answer is unreadable (never a zero). DIVERGES from
+/// Ruby on purpose (ruby::json_to_d): Rails' `.to_d` reads "garbage" as 0.
+fn required(v: &serde_json::Value) -> Result<BigDec, super::VenueError> {
+    crate::ruby::json_to_d(v).ok().flatten().ok_or_else(unreadable)
+}
+
+impl<T: Transport> super::Venue for BinanceVenue<T> {
+    fn rules(&self) -> &'static VenueRules { &RULES }
+
+    /// Exchanges::Binance#get_ask_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
+    /// askQty are dug for), and #get_last_price (ticker/price). A failure is #parse_error_message's text; a zero price raises
+    /// "Wrong … price", naming the pair.
+    async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, super::VenueError> {
+        let symbol = vec![("symbol", ticker.ticker.clone())];
+        let (price, label) = match side {
+            PriceSide::Ask => {
+                let body = self.call(&self.request("GET", "/api/v3/ticker/bookTicker", symbol), false).await?;
+                for field in ["bidPrice", "bidQty", "askQty"] { required(&body[field])?; }
+                (required(&body["askPrice"])?, "ask")
+            }
+            PriceSide::Last => (required(&self.call(&self.request("GET", "/api/v3/ticker/price", symbol), false).await?["price"])?, "last"),
+        };
+        if price.is_zero() { return Err(super::VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, price.to_s_f())])); }
+        Ok(price)
+    }
+
+    async fn add_order(&self, _o: &NewOrder) -> Result<String, super::VenueError> { Err(super::VenueError::Transient("Binance placement is not ported yet".into())) }
+    async fn orders(&self, _txids: &[String]) -> Result<Vec<OrderState>, super::VenueError> { Err(super::VenueError::Transient("Binance polls are not ported yet".into())) }
+    async fn order_by_client_id(&self, _id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, super::VenueError> { Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) }
+    /// Rails' trade fallback is inside #get_orders (the fill rebuild); a missing order is never looked up in trades.
+    async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, super::VenueError> { Ok(vec![]) }
+
+    /// Exchanges::Binance#get_balances for the quote asset: GET /api/v3/account (omitZeroBalances, the read recvWindow), each
+    /// row's venue code mapped to its asset (#asset_from_symbol), `free`; the last row naming the asset wins, absent is 0.
+    async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, super::VenueError> {
+        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = self.call(&r, false).await?;
+        let rows = body["balances"].as_array().ok_or_else(unreadable)?;
+        let mut free = BigDec::zero();
+        for row in rows {
+            let Some(code) = row["asset"].as_str() else { continue };
+            if self.pairs.assets.get(code).map(String::as_str) != Some(asset_symbol) { continue; }
+            required(&row["locked"])?;
+            free = required(&row["free"])?;
+        }
+        Ok(free)
+    }
+}
 
 #[cfg(test)]
 mod tests {
