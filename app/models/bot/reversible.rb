@@ -5,6 +5,8 @@ module Bot::Reversible
   # How a sell tick is sized: a fixed amount of base ("Sell 0.01 BTC / Day to USD") or a fixed
   # amount of quote ("Sell BTC for 100 USD / Day").
   SELL_DENOMINATIONS = %w[base quote].freeze
+  # Ids of buys a flip cancelled whose unspent reserve is credited when their final state is polled.
+  FLIP_RESERVE_PENDING = 'flip_reserve_pending'.freeze
 
   included do
     store_accessor :settings, :direction, :sell_amount, :sell_interval, :sell_denomination, :sell_quote_amount
@@ -217,6 +219,27 @@ module Bot::Reversible
                                 .any? { |execution| job_matches_record?(execution.job, global_id) }
   end
 
+  # A buy the flip cancelled before the venue had settled it, credited here once its final state is
+  # polled (Transaction#update_with_order_data). The id leaves the list in the same locked write as the
+  # credit, so a repeated poll finds nothing to credit. Capped like the flip's own restore.
+  def settle_flip_reserve!(order)
+    self.class.transaction do
+      fresh = self.class.lock.find(id)
+      data = fresh.transient_data.to_h
+      pending = Array(data[FLIP_RESERVE_PENDING])
+      remainder = final_buy_remainder(order, order.attributes.symbolize_keys.merge(status: order.external_status&.to_sym))
+      # Not final yet: the next poll settles it. An abandoned order's fill is unknown: nothing returns.
+      next unless pending.include?(order.id) && (remainder || order.abandoned?)
+
+      carry = data['missed_quote_amount'].to_d
+      carry = [carry + remainder, fresh.effective_quote_amount].min if remainder&.positive?
+      merged = data.merge(FLIP_RESERVE_PENDING => (pending - [order.id]).presence, 'missed_quote_amount' => carry).compact
+      fresh.update_columns(transient_data: merged)
+      write_attribute(:transient_data, merged)
+      clear_attribute_change(:transient_data)
+    end
+  end
+
   private
 
   # Cancel every still-open DCA order on reversal — they belong to the side we are leaving, and an
@@ -233,10 +256,7 @@ module Bot::Reversible
     transactions.regular.waiting.find_each do |order|
       result = order.cancel
       if result.success?
-        if order.buy?
-          requested = order.quote_amount || (order.amount * order.price)
-          cancelled_buy_reserve += [requested.to_d - order.quote_amount_exec.to_d, 0.to_d].max
-        end
+        cancelled_buy_reserve += unfilled_buy_reserve(order) if order.buy?
         next
       end
 
@@ -248,6 +268,42 @@ module Bot::Reversible
                    level: :warning, details: { order_id: order.external_id })
     end
     cancelled_buy_reserve
+  end
+
+  # The row holds the fill as last polled, and the buy may have filled more before the cancel landed:
+  # the venue is asked again. Only a final answer is credited now. A cancel the venue has not finished
+  # (Alpaca's pending_cancel reads as open) can still fill, so that buy is left for its final poll to
+  # settle (settle_flip_reserve!); an unreadable answer is left the same way. Until then nothing is
+  # restored: spending a fill twice is worse than a late catch-up.
+  def unfilled_buy_reserve(order)
+    result = get_order(order_id: order.external_id)
+    remainder = result.success? ? final_buy_remainder(order, result.data) : nil
+    return remainder if remainder
+
+    leave_flip_reserve_for_final_poll(order)
+    0.to_d
+  rescue StandardError => e # the order is already cancelled: a raise here would strand the flip halfway
+    Rails.logger.warn("flip_direction! could not re-read cancelled order #{order.external_id} for bot #{id}: #{e.message}")
+    leave_flip_reserve_for_final_poll(order)
+    0.to_d
+  end
+
+  # What a stopped buy left unspent, or nil while the order is still live. The fill is taken at the
+  # limit price when that is more than the executed quote: a limit buy never pays above it, and an
+  # executed quote the venue left out (the row then keeps the one from an earlier poll) cannot hide
+  # what was spent. A fill with neither figure is not known yet.
+  def final_buy_remainder(order, data)
+    return unless data[:status].in?(%i[closed cancelled])
+    return if data[:quote_amount_exec].nil? && order.price.nil? && data[:amount_exec].to_d.positive?
+
+    filled = [data[:quote_amount_exec].to_d, data[:amount_exec].to_d * order.price.to_d].max
+    requested = order.quote_amount || (order.amount * order.price)
+    [requested.to_d - filled, 0.to_d].max
+  end
+
+  # Saved by flip_direction!'s update!, with the rest of the carry.
+  def leave_flip_reserve_for_final_poll(order)
+    self.transient_data = transient_data.to_h.merge(FLIP_RESERVE_PENDING => [*transient_data.to_h[FLIP_RESERVE_PENDING], order.id].uniq)
   end
 
   # Each smart-interval split is validated only while ITS side is active (the quote split while
