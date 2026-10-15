@@ -368,7 +368,11 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
             let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
             let ids:Vec<String>=sc["bot_ids"].as_array().unwrap().iter().map(|id|id.to_string()).collect();
+            // The page's read starts a fill, and with no market to ask it needs nothing but the figures' compute permit
+            // to finish: held here, the frame the page sends is read while the figures are still cold, as Rails' was.
+            let held=app.figure_service.compute().acquire_owned().await.unwrap();
             for id in &ids { chart_frames(name,"cold",id,&mut browser,&app,&expected["cold"]["bots"][id]).await; }
+            drop(held);
             loading::publish(&app,user).await.unwrap();
             tokio::time::timeout(std::time::Duration::from_secs(5),async {
                 while !matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Ready(..)) { tokio::task::yield_now().await; }
