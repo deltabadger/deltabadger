@@ -37,7 +37,7 @@ fn a_failed_status_changes_nothing() {
     let row = || -> String { o.primary.query_row("SELECT json_array(status, external_status, price, amount_exec, updated_at) FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap() };
     let before = row();
     let state = OrderState { asset_class: None, txid: "O1".into(), status: OrderStatus::Failed, price: Some(BigDec::zero()), amount: None, quote_amount: None,
-                             amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: false, sell: false, pair: None };
+                             amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: false, sell: false, pair: None };
     { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=deltabadger::engine::model::check_credential_result(&unit,&None).unwrap();
     polling::apply_in(&fenced, bot, tx, &state, true, "2026-09-01T10:00:06Z".parse().unwrap()).unwrap();
     unit.commit().unwrap(); }

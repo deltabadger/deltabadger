@@ -3,6 +3,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
+#   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -46,6 +47,7 @@ module ScriptedAlpaca
   NETWORK = {
     'pre_send_data' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "data.alpaca.markets" port 443')) },
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
+    'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
     # Client.network_failure returns a Failure for an SSL cause (not retried): "Faraday::SSLError: certificate verify failed".
     'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) }
@@ -62,9 +64,11 @@ module ScriptedAlpaca
 
   module Adapter
     def call(env)
-      raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if ScriptedAlpaca.http.nil?
+      # Binance's honeymaker client uses the same adapter: its host is answered by ScriptedBinance.
+      scripted = env.url.host == 'api.binance.com' ? ScriptedBinance : ScriptedAlpaca
+      raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if scripted.http.nil?
 
-      reply = ScriptedAlpaca.reply(env)
+      reply = scripted.reply(env)
       if (kind = reply['network'])
         error = ScriptedAlpaca::NETWORK.fetch(kind).call
         actual = "#{error.class}: #{error.message}" # what Client.network_failure reports
@@ -77,6 +81,20 @@ module ScriptedAlpaca
       save_response(env, reply.fetch('status', 200), body, { 'Content-Type' => 'application/json' })
       @app.call(env)
     end
+  end
+end
+
+# Binance is scripted like Alpaca, at the Faraday adapter beneath Honeymaker::Clients::Binance, so honeymaker's own
+# signing, middleware (json, raise_error), #with_rescue and Exchanges::Binance's parsing all run. A request is named
+# "METHOD path"; the order Rails POSTs is recorded as its query, without the timestamp and signature that change per send.
+module ScriptedBinance
+  mattr_accessor :http, :sent
+
+  def self.reply(env)
+    key = "#{env.method.to_s.upcase} #{env.url.path}"
+    sent << Rack::Utils.parse_query(env.url.query).except('timestamp', 'signature') if key == 'POST /api/v3/order'
+    queue = http[key] or raise Harness::Unscripted, "unscripted Binance call #{key}"
+    queue.size > 1 ? queue.shift : queue.first
   end
 end
 
@@ -145,13 +163,28 @@ module Decisions
     [alpaca, btc, usd, ticker, 'paper']
   end
 
+  # As Exchanges::Binance#get_tickers_info stores BTCUSDT (LOT_SIZE, NOTIONAL, quoteAssetPrecision, PRICE_FILTER).
+  def binance_venue(sc)
+    binance = Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')
+    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
+    usdt = Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
+    [btc, usdt].each { |a| ExchangeAsset.create!(exchange: binance, asset: a, available: true) }
+    ticker = Ticker.create!(exchange: binance, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', base_asset: btc, quote_asset: usdt,
+                            **sc['ticker'].symbolize_keys)
+    [binance, btc, usdt, ticker, nil]
+  end
+
   def build(dir, sc)
     SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
     user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
-    exchange, btc, quote, ticker, passphrase = sc['venue'] == 'alpaca' ? alpaca_venue(sc) : kraken_venue(sc)
+    exchange, btc, quote, ticker, passphrase = case sc['venue']
+                                               when 'alpaca' then alpaca_venue(sc)
+                                               when 'binance' then binance_venue(sc)
+                                               else kraken_venue(sc)
+                                               end
     # A basket's other members, created after BTC so that a one-asset scenario's ids are what they were.
     assets = { 'BTC' => btc }
     (sc['members'] || {}).each_key { |sym| assets[sym] ||= basket_member(exchange, quote, sym) }
@@ -1062,6 +1095,146 @@ module Decisions
     end.tap { |list| raise "the index grid has #{list.size} scenarios, not 66" unless list.size == 66 }
   end
 
+  # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.
+  def bn_order(id, status, type: 'MARKET', executed: '0.00000000', cumulative: '0.00000000', price: nil, qty: nil, quote: '60.00000000')
+    limit = type == 'LIMIT'
+    { 'symbol' => 'BTCUSDT', 'orderId' => id, 'orderListId' => -1, 'clientOrderId' => "web_#{id}", 'price' => price || (limit ? '64000.00000000' : '0.00000000'),
+      'origQty' => qty || (limit ? '0.00093000' : '0.00000000'), 'executedQty' => executed, 'cummulativeQuoteQty' => cumulative, 'status' => status,
+      'timeInForce' => 'GTC', 'type' => type, 'side' => 'BUY', 'origQuoteOrderQty' => limit ? '0.00000000' : quote, 'time' => 1_788_000_000_000 }
+  end
+  def bn_trade(id, order, price, qty, commission: '0', asset: 'BNB', buyer: true)
+    { 'symbol' => 'BTCUSDT', 'id' => id, 'orderId' => order, 'orderListId' => -1, 'price' => price, 'qty' => qty,
+      'quoteQty' => (BigDecimal(price) * BigDecimal(qty)).to_s('F'), 'commission' => commission, 'commissionAsset' => asset,
+      'time' => 1_788_000_000_000 + id, 'isBuyer' => buyer, 'isMaker' => false, 'isBestMatch' => true }
+  end
+  def bn_book(ask) = ok('symbol' => 'BTCUSDT', 'bidPrice' => '64000.10000000', 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')
+  def bn_last(price) = ok('symbol' => 'BTCUSDT', 'price' => price)
+  def bn_account(usdt) = ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => '0.5', 'locked' => '0' },
+                                                                                       { 'asset' => 'USDT', 'free' => usdt, 'locked' => '0' }])
+  def bn_fail(status, code, msg) = { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } }
+  BN_1021 = 'Timestamp for this request is outside of the recvWindow.'
+  BN_1021_AHEAD = "Timestamp for this request was 1000ms ahead of the server's time."
+
+  def binance_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
+    http = {
+      'GET /api/v3/ticker/bookTicker' => [bn_book('64000.11000000')],
+      'GET /api/v3/ticker/price' => [bn_last('64000.05000000')],
+      'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 28_457, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)],
+      'GET /api/v3/account' => [bn_account('100000.00000000')],
+      'GET /api/v3/allOrders' => [ok([])],
+      'GET /api/v3/myTrades' => [ok([])]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'BTCUSDT-100', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64000', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |id, limit: false|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "BTCUSDT-#{id}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.00093' : nil, 'price' => '64000', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }.compact
+    end
+    filled = ->(id, trades) { { 'GET /api/v3/allOrders' => [ok([bn_order(id, 'FILLED', executed: trades.sum { |t| BigDecimal(t['qty']) }.to_s('F'), cumulative: '60.00000000')])],
+                                'GET /api/v3/myTrades' => [ok(trades)] } }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.4 },
+        # A market buy sized in base: LOT_SIZE's minimum in quote is above NOTIONAL's (Bot::OrderSetter :base_and_quote).
+        'base_sized' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '1') },
+        'notional_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '100') },
+        'lot_size_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 2, 'minimum_base_size' => '0.01') },
+        'minus_1021' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [bn_fail(400, -1021, BN_1021)] } },
+        'minus_1021_ahead' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [bn_fail(400, -1021, BN_1021_AHEAD)] } },
+        'insufficient' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [bn_fail(400, -2010, 'Account has insufficient balance for requested action.')] } },
+        'filter_failure' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [bn_fail(400, -1013, 'Filter failure: NOTIONAL')] } },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                           'http' => { 'POST /api/v3/order' => [bn_fail(401, -2015, 'Invalid API-key, IP, or permissions for action.')] } },
+        # Sanctioned divergences (rust/tests/parity.rs BINANCE_DIVERGENCES): Rails writes a failed row (or a "BTCUSDT-" row),
+        # Rust keeps the intent and settles it by client order id, since Binance may have placed the order.
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [bn_fail(503, -1001, 'Internal error; unable to process your request. Please try again.')] } },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [POST_SEND] } },
+        'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT')] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'network' => 'binance_pre_send',
+          'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' }] } },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [bn_account('1.00000000')] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('0.00000000')], 'GET /api/v3/ticker/price' => [bn_last('0.00000000')] } },
+        'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_fail(400, -1121, 'Invalid symbol.')],
+                                                       'GET /api/v3/ticker/price' => [bn_fail(400, -1121, 'Invalid symbol.')] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob) over waiting orders: fills rebuilt from their trades.
+        'sweep_filled_base_commission' => { 'at' => after.(1), 'transactions' => [waiting.(201)],
+          'http' => filled.(201, [bn_trade(1, 201, '64000.11', '0.00060', commission: '0.0000006', asset: 'BTC'), bn_trade(2, 201, '64001.00', '0.00033', commission: '0.00000033', asset: 'BTC')]) },
+        'sweep_filled_quote_commission' => { 'at' => after.(1), 'transactions' => [waiting.(202)],
+          'http' => filled.(202, [bn_trade(1, 202, '64000.11', '0.00093', commission: '0.0595', asset: 'USDT')]) },
+        'sweep_filled_bnb_commission' => { 'at' => after.(1), 'transactions' => [waiting.(203)],
+          'http' => filled.(203, [bn_trade(1, 203, '64000.11', '0.00093', commission: '0.00009', asset: 'BNB')]) },
+        'sweep_rounding_two_decimals' => { 'at' => after.(1), 'transactions' => [waiting.(204)],
+          'http' => filled.(204, [bn_trade(1, 204, '1.00', '1'), bn_trade(2, 204, '1.01', '1'), bn_trade(3, 204, '1.00', '1')]) },
+        'sweep_partially_filled' => { 'at' => after.(1), 'transactions' => [waiting.(205, limit: true)],
+          'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(205, 'PARTIALLY_FILLED', type: 'LIMIT', executed: '0.00040000', cumulative: '25.60000000')])],
+                      'GET /api/v3/myTrades' => [ok([bn_trade(1, 205, '64000.00', '0.00040', commission: '0.0000004', asset: 'BTC')])] } },
+        'sweep_expired_partial' => { 'at' => after.(1), 'transactions' => [waiting.(206)],
+          'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(206, 'EXPIRED', executed: '0.00050000', cumulative: '32.00000000')])],
+                      'GET /api/v3/myTrades' => [ok([bn_trade(1, 206, '64000.00', '0.00050', commission: '0.032', asset: 'USDT')])] } },
+        'sweep_rejected' => { 'at' => after.(1), 'transactions' => [waiting.(207)], 'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(207, 'REJECTED')])] } },
+        'sweep_pending_cancel' => { 'at' => after.(1), 'transactions' => [waiting.(208)], 'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(208, 'PENDING_CANCEL')])] } },
+        'sweep_new_unfilled' => { 'at' => after.(1), 'transactions' => [waiting.(209, limit: true)],
+          'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(209, 'NEW', type: 'LIMIT')])] } },
+        'sweep_not_returned_waits' => { 'at' => after.(1), 'transactions' => [waiting.(210).merge('created_at' => '2026-08-01 10:00:01')] },
+        'sweep_historical_negative_quote' => { 'at' => after.(1), 'transactions' => [waiting.(211)],
+          'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(211, 'CANCELED', cumulative: '-1.00000000')])] } },
+        # Five orders with executions in one sweep, each rebuilt from its own trades.
+        'sweep_five_executed' => { 'at' => after.(1), 'transactions' => (301..305).map { |i| waiting.(i) },
+          'http' => { 'GET /api/v3/allOrders' => [ok((301..305).map { |i| bn_order(i, 'FILLED', executed: '0.00093000', cumulative: '59.52000000') })],
+                      'GET /api/v3/myTrades' => (301..305).map { |i| ok([bn_trade(i, i, '64000.00', '0.00093', commission: '0.0000009', asset: 'BTC')]) } } },
+        # More than 1000 trades: a full page, then the next from the highest id + 1; Binance serves trade 1000 again.
+        'sweep_trades_over_a_page' => { 'at' => after.(1), 'transactions' => [waiting.(212)],
+          'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(212, 'FILLED', executed: '0.00100100', cumulative: '64.06406400')])],
+                      'GET /api/v3/myTrades' => [ok((1..1000).map { |i| bn_trade(i, 212, '64000.00', '0.000001') }),
+                                                 ok([bn_trade(1000, 212, '64000.00', '0.000001'), bn_trade(1001, 212, '64064.00', '0.000001')])] } },
+        'sweep_incomplete_walk' => { 'at' => after.(1), 'transactions' => [waiting.(213)],
+          'http' => filled.(213, [bn_trade(1, 213, '64000.00', '0.0005')]).merge('GET /api/v3/allOrders' => [ok([bn_order(213, 'FILLED', executed: '0.00093000', cumulative: '59.52')])]) },
+        # Listed divergence (spec E §2.10): HTTP 429 on a read waits as a throttle in Rust; Rails fails the run.
+        'sweep_rate_limited' => { 'at' => after.(1), 'transactions' => [waiting.(214)],
+          'http' => { 'GET /api/v3/allOrders' => [bn_fail(429, -1003, 'Too much request weight used; current limit is 6000 request weight per 1 MINUTE.')] } },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-401', 'transactions' => [waiting.(401)],
+          'http' => { 'GET /api/v3/order' => [ok(bn_order(401, 'FILLED', executed: '0.00093000', cumulative: '59.52000000'))],
+                      'GET /api/v3/myTrades' => [ok([bn_trade(1, 401, '64000.00', '0.00093', commission: '0.0595', asset: 'USDT')])] } },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-402', 'transactions' => [waiting.(402, limit: true)],
+          'http' => { 'GET /api/v3/order' => [ok(bn_order(402, 'NEW', type: 'LIMIT'))] } },
+        'poll_pending_cancel' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-403', 'transactions' => [waiting.(403)],
+          'http' => { 'GET /api/v3/order' => [ok(bn_order(403, 'PENDING_CANCEL'))] } },
+        'poll_not_found' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-404', 'transactions' => [waiting.(404)],
+          'http' => { 'GET /api/v3/order' => [bn_fail(400, -2013, 'Order does not exist.')] } },
+        # A tick that places BTCUSDT-28457; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'BTCUSDT-28457', 'transient' => { 'missed_quote_amount' => '12.5' },
+          'http' => { 'GET /api/v3/order' => [ok(bn_order(28_457, 'FILLED', executed: '0.00112000', cumulative: '71.68000000'))],
+                      'GET /api/v3/myTrades' => [ok([bn_trade(1, 28_457, '64000.00', '0.00112', commission: '0.00000112', asset: 'BTC')])] } }
+      }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, and in a sweep's order.
+      { 'nan' => 'NaN', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book(bad)], 'GET /api/v3/ticker/price' => [bn_last(bad)] } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1), 'transactions' => [waiting.(215)],
+          'http' => { 'GET /api/v3/allOrders' => [ok([bn_order(215, 'FILLED', executed: bad, cumulative: '60')])] } }
+      end
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'binance', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'binance' => http.merge(v.fetch('http', {})) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
   def grid(root, list)
     ActiveJob::Base.queue_adapter = :test
     list.each do |sc|
@@ -1124,10 +1297,13 @@ module Decisions
       Rails.cache.clear # Exchanges::Kraken caches prices by exchange/ticker id, which every scenario shares
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       alpaca = sc['venue'] == 'alpaca'
-      ScriptedKraken.http = alpaca ? {} : sc['script']['http'].transform_values(&:dup)
+      binance = sc['venue'] == 'binance'
+      ScriptedKraken.http = alpaca || binance ? {} : sc['script']['http'].transform_values(&:dup)
       ScriptedKraken.sent = []
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
+      ScriptedBinance.http = binance ? sc['script']['binance'].transform_values(&:dup) : {}
+      ScriptedBinance.sent = []
       before = snapshot
       markers = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS)
       mails = []
@@ -1159,7 +1335,7 @@ module Decisions
         rescue StandardError => e
           # A Kraken scenario must not fail its poll, except a listed unreadable-number divergence (honeymaker's strict
           # BigDecimal() raises on "garbage"): that raise is Rails' answer, recorded for rust/tests/parity.rs.
-          raise unless alpaca || File.basename(dir).include?('-unreadable_')
+          raise unless alpaca || binance || File.basename(dir).include?('-unreadable_')
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
@@ -1176,12 +1352,13 @@ module Decisions
         settle.(Time.iso8601(sc['next_at']))
       end
       mails.concat(enqueued_mails)
-      out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
+      sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent else ScriptedKraken.sent end
+      out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
       out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
-      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca
-      out['poll_error'] = poll_error if !alpaca && poll_error
+      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca || binance
+      out['poll_error'] = poll_error if !alpaca && !binance && poll_error
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!
@@ -1218,7 +1395,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1228,6 +1405,7 @@ when 'grid-basket' then Decisions.grid(root, Decisions.basket_scenarios)
 when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
 when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
+when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'
   require_relative 'histories_normalized'

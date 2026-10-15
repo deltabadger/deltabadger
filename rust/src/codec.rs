@@ -102,11 +102,11 @@ pub fn decimal_from_sql(v: ValueRef<'_>) -> Result<Option<Decimal>, CodecError> 
 }
 
 /// Rails' `BigDecimal(float, 0)`: the shortest round-trip digits of the float, which bigdecimal
-/// truncates (not rounds) to 16 significant digits. `{:e}` prints exactly those shortest digits.
+/// truncates (not rounds) to 16 significant digits. `ruby::float_e` prints exactly those shortest digits.
 pub fn real_to_decimal(f: f64) -> Result<Decimal, CodecError> {
     let err = || CodecError::Decimal(format!("{f:e} is outside the decimal range"));
     if !f.is_finite() { return Err(err()); }
-    let sci = format!("{f:e}"); // e.g. "-1.2345678912345679e8"
+    let sci = crate::ruby::float_e(f); // e.g. "-1.2345678912345679e8"
     let (mantissa, exp) = sci.split_once('e').ok_or_else(err)?;
     let exp: i64 = exp.parse().map_err(|_| err())?;
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).take(16).collect();

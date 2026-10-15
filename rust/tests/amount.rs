@@ -286,3 +286,60 @@ fn an_alpaca_limit_quantity_under_the_base_minimum_is_refused_before_sending() {
         assert_eq!(plan.limit_refusal().unwrap().as_deref(), Some(message));
     }
 }
+
+#[test]
+fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
+    use deltabadger::engine::venue_rules::BINANCE;
+    let (_d, o, s) = install();
+    let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
+    let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/binance_vectors.json")).unwrap();
+    let cases = vectors["binance_sizing"].as_array().unwrap();
+    assert_eq!(cases.len(), 10_593);
+    let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
+    let (mut quote, mut refused) = (0, 0);
+    for c in cases {
+        let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
+        let shape = &vectors["binance_tickers"][c["ticker"].as_u64().unwrap() as usize];
+        let t = Ticker { ticker: "BTCUSDT".into(), base_code: "BTC".into(), quote_code: "USDT".into(), quote_symbol: "USDT".into(), exchange_name: "Binance".into(), ..sizing_ticker(shape) };
+        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), BINANCE.minimum_logic).unwrap();
+        let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
+        assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
+        assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
+        assert_eq!(plan.quote_type, c["amount_type"] == "quote", "amount_type {c}");
+        assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
+        // Exchange#limit_buy refuses a quantity under minimum_base_size (or zero): nothing reaches the wire.
+        let refusal = plan.limit_refusal().unwrap();
+        assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
+        if refusal.is_some() { refused += 1; continue; }
+        let order = plan.to_order("cl".into(), deadline, BINANCE.wire).unwrap();
+        let w = &c["wire"];
+        assert_eq!((w["symbol"].as_str(), w["side"].as_str(), order.pair.as_str()), (Some("BTCUSDT"), Some("BUY"), "BTCUSDT"), "{c}");
+        match order.kind {
+            OrderKind::Market => {
+                assert_eq!((w["type"].as_str(), w["self_trade_prevention_mode"].as_str()), (Some("MARKET"), Some("EXPIRE_MAKER")), "{c}");
+                let (sent, absent) = if order.quote_volume { quote += 1; ("quote_order_qty", "quantity") } else { ("quantity", "quote_order_qty") };
+                assert_eq!(Some(order.volume.as_str()), w[sent].as_str(), "{sent} {c}");
+                assert!(w.get(absent).is_none(), "{c}");
+            }
+            OrderKind::Limit { price } => {
+                assert_eq!((w["type"].as_str(), w["time_in_force"].as_str()), (Some("LIMIT"), Some("GTC")), "{c}");
+                assert!(w.get("self_trade_prevention_mode").is_none() && !order.quote_volume, "{c}");
+                assert_eq!((Some(price.as_str()), Some(order.volume.as_str())), (w["price"].as_str(), w["quantity"].as_str()), "price and quantity {c}");
+            }
+        }
+    }
+    assert_eq!((quote, refused), (2_317, 1_785), "both market wires and the limit refusal are exercised");
+}
+
+#[test]
+fn the_binance_port_is_the_ruby_that_was_recorded() {
+    use sha2::{Digest, Sha256};
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/binance_vectors.json")).unwrap();
+    for (file, recorded) in vectors["sources"].as_object().unwrap() {
+        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
+        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the Binance port");
+    }
+}

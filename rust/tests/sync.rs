@@ -1558,7 +1558,7 @@ fn collision_order_parsing_retains_class_without_blocking_stored_fills() {
         let mut row = json!({"symbol":symbol,"asset_class":kind,"filled_qty":"2","filled_avg_price":"30","status":"filled"});
         let parsed = deltabadger::venue::alpaca::parse_order("o",&row).unwrap();
         assert_eq!(parsed.amount_exec.to_s_f(),"2.0");
-        assert_eq!(parsed.quote_amount_exec.to_s_f(),"60.0");
+        assert_eq!(parsed.quote_amount_exec.as_ref().unwrap().to_s_f(),"60.0");
         assert_eq!(parsed.pair.as_deref(),Some(symbol));
         row["asset_class"] = json!(other);
         assert_eq!(deltabadger::venue::alpaca::parse_order("o",&row).unwrap().amount_exec.to_s_f(),"2.0");

@@ -139,7 +139,7 @@ impl Num {
 
 /// The shortest digits that read back as `f`, and the position of the decimal point after the first of them.
 pub(super) fn shortest(f: f64) -> (bool, String, i32) {
-    let sci = format!("{:e}", f.abs()); // "1.2345e-5", "1e16"
+    let sci = crate::ruby::float_e(f.abs()); // "1.2345e-5", "1e16"
     let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
     (f.is_sign_negative(), mantissa.chars().filter(char::is_ascii_digit).collect(), exp.parse().unwrap_or(0))
 }

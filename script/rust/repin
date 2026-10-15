@@ -26,6 +26,7 @@ def runner(script, *args):
 # unchanged sources writes the same bytes, apart from the fields the pattern names (fresh salts and IVs).
 RECORDED = {
     FIX + 'figures_vectors.json': ('test', [runner('record_figures_vectors.rb', '{out}')], None),
+    FIX + 'float_digits.json': ('test', [runner('record_float_digits.rb', '{out}')], None),
     FIX + 'histories.json': ('test', [runner('record_histories.rb', '{out}')], None),
     FIX + 'histories_r1.json': ('test', [runner('record_histories_r1.rb', '{out}')], None),
     # Recorded in development: under the test environment its rails_wire cases come out null.
@@ -34,6 +35,7 @@ RECORDED = {
     FIX + 'index_histories.json': ('test', [runner('index_histories.rb', '{out}')], None),
     FIX + 'mail_vectors.json': ('test', [runner('mail_vectors.rb', '{out}')], None),
     FIX + 'alpaca_hosts.json': ('test', [runner('record_alpaca_hosts.rb', '{out}')], None),
+    FIX + 'binance_vectors.json': ('test', [runner('record_binance_vectors.rb', '{out}')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'settings_r9_vectors.json': ('test', [runner('settings_r9_vectors.rb', '{out}')], None),
     FIX + 'setup_vectors.json': ('test', [runner('setup.rb', '{scratch}', '{out}')], None),

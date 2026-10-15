@@ -158,7 +158,7 @@ async fn a_scripted_lookup_answers_for_the_client_order_id_asked_for() {
         "id": "OTX-L", "client_order_id": "$client_order_id", "status": "filled", "symbol": "ETH/USD", "type": "market", "side": "buy",
         "notional": "36", "qty": null, "filled_qty": "0.0144", "filled_avg_price": "2500", "limit_price": null } }] }));
     let v = deltabadger::venue::alpaca::AlpacaVenue::new(t, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
-    let found = v.order_by_client_id("9b1d2c3e-1111-4000-8000-000000000001", "2026-09-01T10:00:00Z".parse().unwrap()).await;
+    let found = v.order_by_client_id("9b1d2c3e-1111-4000-8000-000000000001", "BTC/USD", "2026-09-01T10:00:00Z".parse().unwrap()).await;
     assert_eq!(found.unwrap().expect("found").txid, "OTX-L", "a recorded answer cannot know the engine's UUID");
 }
 
