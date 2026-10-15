@@ -241,7 +241,7 @@ module Bots::Signal::OrderSetter
   end
 
   def accepted_row(order_id)
-    transactions.find_by(external_id: order_id)
+    transactions.find_by(exchange_id:, external_id: order_id)
   rescue StandardError
     nil
   end

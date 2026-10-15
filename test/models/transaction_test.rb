@@ -185,4 +185,13 @@ class TransactionTest < ActiveSupport::TestCase
     assert_not order.send(:custom_amount_exec_changed?), 'amount_exec did not change'
     assert order.send(:base_cap_relevant_change?), 'the close must still re-evaluate the base cap'
   end
+
+  # Order ids are unique per venue only: Binance and Binance.US can hand out the same one.
+  test 'an external id is unique per exchange' do
+    bot = create(:dca_single_asset, exchange: create(:binance_exchange))
+    create(:transaction, bot:, external_id: 'BTCUSDT-1')
+
+    assert create(:transaction, bot:, exchange: create(:binance_us_exchange), external_id: 'BTCUSDT-1').persisted?
+    assert_raises(ActiveRecord::RecordNotUnique) { create(:transaction, bot:, external_id: 'BTCUSDT-1') }
+  end
 end
