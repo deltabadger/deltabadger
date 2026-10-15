@@ -29,7 +29,7 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
   test 'positions and rebalancer retain class in either ticker order and availability state' do
     [true, false].product([true, false]).each do |coin_first, available|
       listings(coin_first, available)
-      positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10' }])
+      positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' }])
       balances = @exchange.get_balances.data
       assert_equal 10, balances.fetch(@stock.id)[:free]
       assert_equal 0, balances.fetch(@coin.id)[:free]
@@ -38,7 +38,7 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
       bot.stubs(:get_balance).with(asset_id: @coin.id).returns(@exchange.get_balance(asset_id: @coin.id))
       assert_equal 10, bot.send(:live_free_balance, @stock.id)
       assert_equal 0, bot.send(:live_free_balance, @coin.id)
-      positions([{ 'symbol' => 'BTCUSD', 'asset_class' => 'crypto', 'qty' => '2' }])
+      positions([{ 'symbol' => 'BTCUSD', 'asset_class' => 'crypto', 'qty' => '2', 'qty_available' => '2' }])
       balances = @exchange.get_balances.data
       assert_equal 0, balances.fetch(@stock.id)[:free]
       assert_equal 2, balances.fetch(@coin.id)[:free]
@@ -49,7 +49,7 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     listings(true, true)
     coin = @exchange.tickers.find_by!(base_asset: @coin)
     coin.update!(base: "__stale_#{coin.id}_BTC", ticker: "__stale_#{coin.id}_BTC/USD", available: false)
-    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10' }])
+    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' }])
     before = @exchange.get_balances.data
     coin.update!(base: 'BTC', ticker: 'BTC/USD', available: true)
     fresh = Exchanges::Alpaca.find(@exchange.id)
@@ -59,7 +59,7 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     assert_equal 10, before.fetch(@stock.id)[:free]
     assert_equal 0, before.fetch(@coin.id)[:free]
     coin.update!(base: "__stale_#{coin.id}_BTC", ticker: "__stale_#{coin.id}_BTC/USD", available: false)
-    positions([{ 'symbol' => 'BTCUSD', 'asset_class' => 'crypto', 'qty' => '2' }])
+    positions([{ 'symbol' => 'BTCUSD', 'asset_class' => 'crypto', 'qty' => '2', 'qty_available' => '2' }])
     assert_equal 2, fresh.get_balances.data.fetch(@coin.id)[:free]
   end
 
@@ -70,14 +70,14 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     @exchange.stubs(:set_client)
     @exchange.stubs(:get_usd_prices).returns(Result::Success.new({ @stock.external_id => 30 }))
     MarketData.stubs(:get_prices).returns(Result::Success.new({ @coin.external_id => 60_000 }))
-    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10' },
-               { 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'qty' => '2' }])
+    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' },
+               { 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'qty' => '2', 'qty_available' => '2' }])
     2.times { assert_predicate AccountBalance::Sync.new(key).sync!, :success? }
     rows = AccountBalance.where(user: key.user, exchange: @exchange)
     assert_equal 10, rows.find_by!(asset: @stock).free
     assert_equal 2, rows.find_by!(asset: @coin).free
     [nil, 'future_class', 'crypto'].product(%w[10 unreadable]).each do |kind, qty|
-      positions([{ 'symbol' => 'BTC', 'asset_class' => kind, 'qty' => qty }])
+      positions([{ 'symbol' => 'BTC', 'asset_class' => kind, 'qty' => qty, 'qty_available' => qty }])
       result = AccountBalance::Sync.new(key).sync!
       assert_predicate result, :success?
       assert_equal [@usd.id], rows.reload.pluck(:asset_id)
@@ -90,11 +90,11 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
     @exchange.stubs(:set_client)
     @exchange.stubs(:get_usd_prices).returns(Result::Success.new({ @stock.external_id => 30 }))
     MarketData.stubs(:get_prices).returns(Result::Success.new({}))
-    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10' }])
+    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' }])
     assert_predicate AccountBalance::Sync.new(key).sync!, :success?
     synced_at = key.reload.balances_synced_at
 
-    positions([{ 'asset_class' => 'us_equity', 'qty' => '10' }])
+    positions([{ 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' }])
     result = AccountBalance::Sync.new(key).sync!
 
     assert_predicate result, :failure?
