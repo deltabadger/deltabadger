@@ -26,10 +26,10 @@
 //! - a Simple Earn row without Rails' amount field (`rewards`, `purchaseAmount`) is read from the `amount` Binance
 //!   documents for locked rewards, subscriptions and redemptions (Rails stores 0 for those);
 //! - an applyTime is read as UTC (Rails reads it in the process's zone);
-//! - margin and futures are not read (ruling Q11): a run that completes leaves `NOT_SYNCED` in the key's
-//!   `last_sync_error`, where the tracker shows it;
+//! - margin and futures are not read (ruling Q11); the key carries no note of it: `last_sync_error` is the tracker's
+//!   "Sync failed" banner, so a run that completes clears it, as Rails' does;
 //! - a Binance.US key's ledger is not read (Rails reads it from api.binance.com, which refuses the key): the run sends
-//!   nothing, stores nothing, and completes with `US_REFUSED` on the key, so the tracker states the venue's balances.
+//!   nothing, stores nothing, and completes (clearing the key's error), so the tracker states the venue's balances.
 use super::activities::{Entry, Raw};
 use super::ledger::{self, Outcome, Progress};
 use super::wire::{self, Budget, Node};
@@ -67,8 +67,6 @@ pub const MAX_INFO_NODES: usize = 8_000_000;
 pub const MAX_ENTRIES: usize = 500_000;
 /// Ledger rows per write transaction (ledger::BATCH).
 const BATCH: usize = 100;
-pub const NOT_SYNCED: &str = "Binance margin and futures are not synced by this build";
-pub const US_REFUSED: &str = "the Binance.US ledger is not synced by this build";
 
 /// Exchanges::Binance::FIAT_CURRENCIES: a trade quoted in one of these, or a dollar stablecoin, is a buy or a sell;
 /// any other is a swap pair.
@@ -576,12 +574,12 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
         }
     };
     if start.key.exchange_type == BINANCE_US {
-        // Nothing is read, nothing stored, the watermark stays; the run completes, stating why, so the tracker can
-        // state the venue from its balances (Rails' read of it always fails, storing nothing either).
-        let (producer, stale) = (version.clone(), start.key.last_sync_error.as_deref() != Some(US_REFUSED));
+        // Nothing is read, nothing stored, the watermark stays; the run completes, so the tracker can state the venue
+        // from its balances (Rails' read of it always fails, storing nothing either). A completed run clears the error.
+        let (producer, stale) = (version.clone(), start.key.last_sync_error.is_some());
         super::commit_for(db, version, move |c| {
             super::cache::record_ledger(c, key_id, &producer, now)?;
-            if stale { c.execute("UPDATE api_keys SET last_sync_error = ?1, updated_at = ?2 WHERE id = ?3", params![US_REFUSED, sql_time(now), key_id])?; }
+            if stale { c.execute("UPDATE api_keys SET last_sync_error = NULL, updated_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?; }
             Ok(())
         }).await?;
         let mut outcome = Outcome { watermark: start.watermark, complete: true, ..Outcome::default() };
@@ -617,11 +615,12 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     // The watermark: the newest row read, held back by a row that could not be saved and by a transfer still pending,
     // never past the moment this sync began; unchanged when nothing was read.
     let watermark = [max_seen, progress.min_skipped, fetched.pending].into_iter().flatten().min().or(prior).map(|w| w.min(now));
-    let changed = watermark.map(|w| w.timestamp_micros()) != raw_watermark || key.last_sync_error.as_deref() != Some(NOT_SYNCED);
+    // `update!(last_synced_at:, last_sync_error: nil)`: written only when one of them moves.
+    let changed = watermark.map(|w| w.timestamp_micros()) != raw_watermark || key.last_sync_error.is_some();
     let producer = version.clone();
     super::commit_for(db, version, move |c| {
         super::cache::record_ledger(c, key_id, &producer, now)?;
-        if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = ?2, updated_at = ?3 WHERE id = ?4", params![watermark.map(sql_time), NOT_SYNCED, sql_time(now), key_id])?; }
+        if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = NULL, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id])?; }
         Ok(())
     }).await?;
     outcome.watermark = watermark;

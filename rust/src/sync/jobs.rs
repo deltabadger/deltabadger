@@ -209,8 +209,8 @@ impl<C: Connect> Job for BalanceSync<C> {
 }
 
 /// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance or Binance.US key (`ApiKey.reading`,
-/// what Rails' nightly jobs iterate) one ledger job and one balance job (a Binance.US ledger run reads nothing and says
-/// so), every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
+/// what Rails' nightly jobs iterate) one ledger job and one balance job (a Binance.US ledger run reads nothing and
+/// completes), every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
     let mut jobs: Vec<Box<dyn Job>> = vec![];
     for key in ledger_reading_keys(c)? { jobs.push(Box::new(LedgerSync::new(venues.clone(), key))); }

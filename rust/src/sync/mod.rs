@@ -235,8 +235,8 @@ pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_key
 /// either, so `missing_permission?` cannot hold for them).
 pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &BALANCE_VENUES) }
 
-/// The venues with a ledger job: Alpaca, Binance, and Binance.US (whose run reads nothing and says so,
-/// binance_ledger::US_REFUSED).
+/// The venues with a ledger job: Alpaca, Binance, and Binance.US (whose run reads nothing and completes,
+/// see binance_ledger).
 pub const LEDGER_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US];
 
 /// ApiKey.reading over LEDGER_VENUES.

@@ -1649,6 +1649,9 @@ async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
         let (dir, o, s) = common::install();
         let c = o.primary;
         c.execute("UPDATE exchanges SET type = ?1, name = 'Binance' WHERE id = ?2", rusqlite::params![venue, s.exchange_id]).unwrap();
+        // Last night's failure, as the owner's key holds it: the tracker shows "Sync failed" until a run completes.
+        c.execute("UPDATE api_keys SET last_sync_error = ?1 WHERE id = ?2",
+                  rusqlite::params![r#"{"code":-1102,"msg":"Mandatory parameter 'type' was not sent, was empty/null, or malformed."}"#, s.api_key_id]).unwrap();
         let server = MockServer::start().await;
         let reply = |body: Value| ResponseTemplate::new(200).set_body_json(body);
         Mock::given(method("GET")).and(path("/sapi/v1/capital/deposit/hisrec")).respond_with(reply(json!([
@@ -1691,13 +1694,13 @@ async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
         assert!(current, "{venue}: the tracker reads this venue's ledger as current: {:?}", record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id));
         let requests = server.received_requests().await.unwrap();
         if sends {
-            assert_eq!((rows, error.as_deref()), (1, Some(deltabadger::sync::binance_ledger::NOT_SYNCED)));
+            assert_eq!((rows, error.as_deref()), (1, None), "a completed run leaves no error on the key (the tracker's \"Sync failed\")");
             let paths: std::collections::BTreeSet<String> = requests.iter().map(|r| r.url.path().to_string()).collect();
             assert!(paths.iter().all(|p| !p.contains("margin") && !p.contains("income")), "margin and futures are not read: {paths:?}");
             assert_eq!(paths.len(), 15, "every other source is read: {paths:?}");
         } else {
             assert!(requests.is_empty(), "nothing is sent for a Binance.US key");
-            assert_eq!((rows, error.as_deref()), (0, Some(deltabadger::sync::binance_ledger::US_REFUSED)));
+            assert_eq!((rows, error.as_deref()), (0, None), "a completed run leaves no error on the key");
         }
     }
 }

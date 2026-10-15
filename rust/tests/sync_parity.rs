@@ -244,9 +244,10 @@ fn without_requests_and_key(out: &Value) -> Value {
     out["changes"]["api_keys"] = json!([]);
     out
 }
-/// A completed Rust run: the same rows and watermark as Rails, the key saying which sources this build does not read.
+/// A completed Rust run: the same rows and watermark as Rails, and no error left on the key (it is the tracker's
+/// "Sync failed" banner; the sources Rust leaves out, margin and futures, are not noted there).
 fn same_rows_and_watermark(rails: &Value, rust: &Value) -> Result<(), String> {
-    check(key_error(rust) == deltabadger::sync::binance_ledger::NOT_SYNCED, &format!("Rust's key does not state the sources it leaves out: {}", key_error(rust)))?;
+    check(key_error(rust).is_null(), &format!("Rust's completed run left an error on the key: {}", key_error(rust)))?;
     check(key_error(rails).is_null(), &format!("Rails' key: {}", key_error(rails)))?;
     check(moved_watermark(rails) == moved_watermark(rust), &format!("watermarks: rails {:?}, rust {:?}", moved_watermark(rails), moved_watermark(rust)))?;
     check(without_requests_and_key(rails) == without_requests_and_key(rust), &format!("beyond requests and the key the outputs differ:\n  rails: {}\n  rust:  {}", without_requests_and_key(rails), without_requests_and_key(rust)))
@@ -287,7 +288,7 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
             check(ours == flexible, &format!("Rust's flexible rewards: {ours:?}"))?;
             let mut rest = without_requests_and_key(rust);
             if let Some(changes) = rest["changes"]["account_transactions"].as_array_mut() { changes.retain(|r| !r["after"]["tx_id"].as_str().is_some_and(|t| t.starts_with("flex-reward-"))); }
-            check(key_error(rust) == deltabadger::sync::binance_ledger::NOT_SYNCED, "Rust's key")?;
+            check(key_error(rust).is_null(), "Rust's completed run left an error on the key")?;
             check(rest == without_requests_and_key(rails), &format!("beyond the flexible rewards the rows differ:\n  rails: {}\n  rust:  {rest}", without_requests_and_key(rails)))
         })(),
         "binance-ledger-earn_fails" => (|| {
@@ -317,7 +318,12 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
             check(rows(rails, "account_transactions").iter().any(|r| r["after"]["tx_id"] == "0xd7" && num(&r["after"]["base_amount"]) == Some(0.0)), "Rails no longer stores a garbage amount as 0: drop the listed divergence")?;
             refused("deposit: unreadable amount: not a plain decimal number")
         })(),
-        "binance-ledger-us_refused" => rails_has(&BASIC).and_then(|()| refused(deltabadger::sync::binance_ledger::US_REFUSED)),
+        // Listed divergence: Rust sends nothing for a Binance.US key and completes with no error on the key; Rails reads it
+        // from Binance.com (here the fake answers it).
+        "binance-ledger-us_refused" => rails_has(&BASIC).and_then(|()| {
+            check(tx_ids(rust).is_empty() && moved_watermark(rust).is_none() && key_error(rust).is_null(), &format!("Rust stored {:?}, key error {}", tx_ids(rust), key_error(rust)))?;
+            check(rust["steps"][0]["requests"].as_array().is_some_and(Vec::is_empty), "Rust sent a request for a Binance.US key")
+        }),
         _ => Err(format!("{name} is not compared")),
     })
 }
@@ -553,7 +559,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         assert_eq!(row["after"], theirs["after"], "Rust's row over Rails' history is the row Rails writes on its own second night");
     }
     assert_eq!(rows(&rust_over, "api_keys")[0]["after"]["last_synced_at"], rows(&rails_own, "api_keys")[0]["after"]["last_synced_at"]);
-    assert_eq!(key_error(&rust_over), deltabadger::sync::binance_ledger::NOT_SYNCED);
+    assert!(key_error(&rust_over).is_null(), "a completed run leaves no error on the key");
 
     let rails_night = read(&dir.join("rails.json"));
     assert_eq!(after_of(&rails_night, 0), "2026-09-19T01:00:00Z");
