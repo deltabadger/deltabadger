@@ -125,6 +125,7 @@ pub fn password(ctx: &Ctx, csrf: &str, email: &str, errors: &Errors) -> String {
 }
 
 /// A select that submits its row on change: settings/widgets/_locale and _time_zone.
+#[allow(clippy::too_many_arguments)]
 fn select_row(ctx: &Ctx, csrf: &str, frame: &str, action: &str, label: &str, hint: Option<&str>, field: &str, options: &str) -> String {
     let form = format!(
         "\n    {}\n      <select class=\"rinput rinput--outline rinput--select\" aria-label=\"{label}\" data-action=\"change-&gt;form--submit#submit\" name=\"user[{field}]\" id=\"user_{field}\">{options}</select>\n</form>",
