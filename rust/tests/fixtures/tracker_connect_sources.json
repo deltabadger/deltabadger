@@ -12,7 +12,7 @@
   "app/views/shared/_api_key_form.html.erb": "a96b6a9b1fb79978ab534686a6f627c13d84447323319bef7463d5a5eb9b0954",
   "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
   "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-  "config/routes.rb": "3419624238f923699907a0751adddae4b685b72c23a9015982598568a5b4d119",
+  "config/routes.rb": "9b2f5fb0b8eaae582dcd16627ac7d3f290794d7ecec352f0173d29ab6373bfce",
   "app/views/svg/exchanges/_alpaca.html.erb": "49ac864253f38f06a7206e3cb436ab4235defcb110a0343fb84dd024dec81277",
   "app/views/svg/exchanges/_binance.html.erb": "9c8a316f9dde6cbfd17357ad5953d21e7d7cc455ae0d95601cc0f84c5c09574b",
   "app/views/svg/exchanges/_binance_us.html.erb": "a72110a5f0ec436e67b47dea9430a35c85d36b314472979e625ffde22f6ea1f7",

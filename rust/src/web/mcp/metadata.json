@@ -1588,7 +1588,7 @@
   "sources": {
     "Gemfile.lock": "95787405ce2f86cb20a9517ef92f9bef2f7e7975b2737d08737b87b4ad299eed",
     "config/mcp.yml": "f6e14ea3897ca14cf79a06f33b4c65a4df515e2db575b6cab835bcef9a05f951",
-    "config/routes.rb": "3419624238f923699907a0751adddae4b685b72c23a9015982598568a5b4d119",
+    "config/routes.rb": "9b2f5fb0b8eaae582dcd16627ac7d3f290794d7ecec352f0173d29ab6373bfce",
     "config/initializers/rack_attack.rb": "b25478892de782257f505cb1eb3203a7b9495dd4a223d0d4179bcfd7301c3a29",
     "config/initializers/mcp_instructions.rb": "9aa196116e366726e8dbecf2472bc3f3a7fd3ee615441b5491aae4b07a93ac84",
     "config/initializers/version.rb": "0b047ced29695420c080951e60f42c5aef8d05d733e9ca79e70884ff73f74233",

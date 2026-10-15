@@ -1,6 +1,6 @@
 {
   "sources": {
-    "app/controllers/settings_controller.rb": "4ed941e27d85caa8e3c36483774dcb18da50a12b8c502f5082b7211a0d9286a4",
+    "app/controllers/settings_controller.rb": "cdb80bc1d270bfcacb37bb16bb5a794aca7b32113a816f8dbfd2fcc92b58d0b9",
     "app/controllers/api/api_keys_controller.rb": "61dffd76014c70045a8f4f4972dc4e91c458b8e157fd915f2d7bc4fc0f963a04",
     "app/controllers/users/sessions_controller.rb": "ba98149ca299f09f1f813c689aa4285e1fa0300144710fab6dff8add5359ffff",
     "config/initializers/rack_attack.rb": "b25478892de782257f505cb1eb3203a7b9495dd4a223d0d4179bcfd7301c3a29",
@@ -9,9 +9,9 @@
     "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
     "app/models/exchanges/alpaca.rb": "5c69f9e058ab1a5128f07bb31e78ebfeb21067a5e0e8b088a0f9c067accfe483",
     "app/services/account_transaction_sync.rb": "fdb8852cb464e4010a94b123b783105987c9854499949a6a2a66690733579da1",
-    "app/views/settings/widgets/_rest.html.erb": "8e64257817c240aa610b17fe90acba3b4e48697216087fdc5277c90eabef3794",
-    "app/views/settings/widgets/_market_data.html.erb": "b1c0f18834ee98bdf2696d3d0d44924ce2818c09454f2a976184ce3b0c49f246",
-    "app/views/settings/widgets/_email_notifications.html.erb": "5e43547f94a0fd657df40d7176a7b334ac973a6aad7ed25266629be707b10f2f"
+    "app/views/settings/widgets/_rest.html.erb": "70a2b4592164286bfc43a4f37bd34c2d6d33e7c5cb53a5fd2a0473a610754a49",
+    "app/views/settings/widgets/_market_data.html.erb": "aefd3001682ade414f9c1e82844ac6ae17f9633f070ffdf7ebf0725c8250209d",
+    "app/views/settings/widgets/_email_notifications.html.erb": "641d4169a3558f07ca4ceae93364a6388518f04983c0cbeb0cb10880ffcc061f"
   },
   "throttles": {
     "oauth/register": {
