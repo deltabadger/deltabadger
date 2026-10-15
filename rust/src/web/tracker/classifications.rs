@@ -53,7 +53,7 @@ fn rows(c:&Connection,owner:i64,exchange:i64)->Result<Vec<Classification>,WebErr
 fn select(ctx:&Ctx,row:&Classification,category:bool)->String{
     let options=if category{&CATEGORIES[..]}else{&KINDS[..]};let role=if category{"category"}else{"kind"};let indent=if category{"    "}else{"  "};
     let mut out=if category{format!("  <div class=\"{}\">\n",if row.kind==Some(1){""}else{"hidden"})}else{String::new()};
-    out.push_str(&format!("{indent}<select data-role=\"{role}\"\n{indent}        data-action=\"change->tracker-export#changeClassification\">\n{indent}  <option value=\"\">{}</option>\n",ctx.t("tracker.export_modal.classification_select")));
+    out.push_str(&format!("{indent}<select data-role=\"{role}\" class=\"rinput rinput--outline rinput--select\"\n{indent}        data-action=\"change->tracker-export#changeClassification\">\n{indent}  <option value=\"\">{}</option>\n",ctx.t("tracker.export_modal.classification_select")));
     for name in options{out.push_str(&format!("{indent}    <option value=\"{name}\" {}>{}</option>\n",if *name==if category{row.category()}else{row.kind()}{"selected"}else{""},ctx.t(&format!("tax_report.broker.{}.{name}",if category{"fund_categories"}else{"kinds"}))));}
     out.push_str(&format!("{indent}</select>\n"));if category{out.push_str("  </div>\n")}out
 }
@@ -76,7 +76,7 @@ fn card(ctx:&Ctx,row:&Classification)->String{
 }
 fn classifications(ctx:&Ctx,rows:&[Classification])->String{
     if rows.is_empty(){return String::new()}
-    let mut out=format!("<div data-tracker-export-target=\"classificationPanel\" class=\"form__row hidden\">\n  <h2>{}</h2>\n  <p>{}</p>\n",ctx.t("tracker.export_modal.classification_title"),ctx.t("tracker.export_modal.classification_hint"));
+    let mut out=format!("<div data-tracker-export-target=\"classificationPanel\" class=\"mb-3 hidden\">\n  <h2>{}</h2>\n  <p>{}</p>\n",ctx.t("tracker.export_modal.classification_title"),ctx.t("tracker.export_modal.classification_hint"));
     if rows.iter().any(|r|r.group()!="settled"){
         out.push_str("    <div class=\"fund-classification\">\n");
         for group in ["unclassified","refused","proposed_fund"]{
@@ -98,7 +98,7 @@ pub fn panel(c:&Connection,ctx:&Ctx,owner:i64,settings:&Value)->Result<(String,S
     let exchange:Option<i64>=c.query_row("SELECT e.id FROM exchanges e WHERE e.type='Exchanges::Alpaca' AND (EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id=e.id) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=e.id)) ORDER BY e.id LIMIT 1",[owner],|r|r.get(0)).optional()?;
     let Some(exchange)=exchange else{return Ok((String::new(),String::new()))};
     let country=settings["country"].as_str().unwrap_or("DE");let broker=settings["report_scope"]=="broker" && country=="DE";
-    let mut scope=format!("        <div class=\"flex form__row flex-center gap-3 {}\"\n             data-tracker-export-target=\"scopeRow\">\n",if settings["export_type"]=="transactions" || country!="DE"{"hidden"}else{""});
+    let mut scope=format!("        <div class=\"flex gap-3 mb-3 {}\"\n             data-tracker-export-target=\"scopeRow\">\n",if settings["export_type"]=="transactions" || country!="DE"{"hidden"}else{""});
     for kind in ["crypto","broker"]{
         scope.push_str(&format!("          <label class=\"form__radio-group\">\n            <input type=\"radio\" name=\"report_scope\" value=\"{kind}\"\n                   data-action=\"tracker-export#toggle\"\n                   data-tracker-export-target=\"scopeRadio\"\n                   {}>\n            <span>{}</span>\n          </label>\n",if broker==(kind=="broker"){"checked"}else{""},ctx.t(&format!("tracker.export_modal.scope_{kind}"))));
     }

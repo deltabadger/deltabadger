@@ -18,7 +18,7 @@
                                 the walkthrough comes before the actions, and the actions are the
                                 modal's footer. The fields come from the block, so they follow it too. %>
 <% modal = local_assigns[:modal] %>
-<div class="set-api set-api--connect <%= 'set-api--modal' if modal %>">
+<div class="set-api set-api--connect<%= ' set-api--modal' if modal %>">
   <% if modal %>
     <div class="modal__header">
       <h1 class="modal__title set-api__brand">

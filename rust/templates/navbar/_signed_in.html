@@ -17,7 +17,7 @@
 
 <div class="segmented segmented--fluid" role="radiogroup" aria-label="{{ v.t("links.display_currency")|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle" data-currency="true">
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
-  <div class="segmented__dropdown" data-segmented-target="dropdown">
+  <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">
       <div class="segmented__pane segmented__menu">
 {% for (code, unit) in currencies %}            <button type="button" class="segmented__option{% if user.display_currency == *code %} is-on{% endif %}" role="radio" aria-checked="{% if user.display_currency == *code %}true{% else %}false{% endif %}" tabindex="{% if user.display_currency == *code %}0{% else %}-1{% endif %}" data-value="{{ code }}" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ unit }}</button>

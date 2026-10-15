@@ -18,9 +18,11 @@
 
 {% if single %}    <!-- 2: General Note -->
 {% endif %}    <p>{{ note|safe }}</p>
-    <button name="button" type="button" class="button button--sky button--large" data-action="modal--base#animateOutCloseAndCleanUp">
-      {{ understand|safe }}
-</button>  </div>
+    <div class="modal__footer">
+      <button name="button" type="button" class="rbutton rbutton--primary" data-action="modal--base#animateOutCloseAndCleanUp">
+        {{ understand|safe }}
+</button>    </div>
+  </div>
 
     </div>
   </dialog>
