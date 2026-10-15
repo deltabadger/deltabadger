@@ -74,7 +74,9 @@ class SettingsController < ApplicationController
     if current_user.update(update_locale_params)
       flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
       new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
-      render turbo_stream: turbo_stream_redirect(page_behind_path(new_locale))
+      # Reloaded whole: the account menu is turbo-permanent, and a visit would keep its links on the
+      # old locale's prefix, whose param then outranks the preference just saved.
+      render turbo_stream: turbo_stream_reload(page_behind_path(new_locale))
     else
       render_preference_error
     end
@@ -544,7 +546,9 @@ class SettingsController < ApplicationController
   # Rebuilt from the recognised route rather than copied from the Referer, so it can only ever be
   # one of this app's own pages. A settings page has nothing behind it and stays itself.
   def page_behind_path(locale)
-    route = Rails.application.routes.recognize_path(URI(request.referer.to_s).path.presence || '/')
+    return settings_account_path(locale:) if request.referer.blank?
+
+    route = Rails.application.routes.recognize_path(URI(request.referer).path.presence || '/')
     return settings_account_path(locale:) if route[:controller].to_s.start_with?('settings')
 
     url_for(**route, locale:, settings: 'account', only_path: true)

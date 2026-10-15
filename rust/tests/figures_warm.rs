@@ -588,7 +588,7 @@ async fn boot_enqueues_every_user_with_bots() {
     let install = Install::new(2, 0);
     let c = install.connection();
     let t = "'2026-01-01'";
-    // 3: no bots. 4: its only bot deleted. 5: a live (not paper) Alpaca key. 6: no Alpaca key.
+    // 3: no bots. 4: its only bot deleted. 5: a live Alpaca key (warmed: market data reads with either mode's key). 6: no Alpaca key.
     for user in 3..=6 { add_account(&c, &install.app, user); }
     c.execute("DELETE FROM transactions WHERE bot_id=3", []).unwrap();
     c.execute("DELETE FROM bots WHERE user_id=3", []).unwrap();
@@ -598,7 +598,7 @@ async fn boot_enqueues_every_user_with_bots() {
     c.execute(&format!("UPDATE users SET locale='fr',updated_at={t} WHERE id=2"), []).unwrap();
     deltabadger::web::figure::warm::boot(&install.app).await;
     let queued = queued(&install.app);
-    assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![1, 2], "the accounts with bots and a paper Alpaca key");
+    assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![1, 2, 5], "the accounts with bots and an Alpaca key");
     assert_eq!(queued[&1], Work { publish: true, locales: own(), not_before: install.now() });
     assert_eq!(queued[&2].locales, BTreeSet::from([("fr".to_string(), "/fr".to_string())]), "each in its own locale");
 }
@@ -716,10 +716,10 @@ async fn repeated_overtakes_never_lose_the_request() {
 }
 
 #[tokio::test]
-async fn an_account_without_a_paper_key_reads_a_precomputed_reason() {
+async fn an_account_without_an_alpaca_key_reads_a_precomputed_reason() {
     let install = Install::new(1, 0);
     let c = install.connection();
-    c.execute("UPDATE api_keys SET passphrase=?1 WHERE user_id=1", [install.app.cipher.encrypt("live")]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE user_id=1", []).unwrap();
     // A long history, one fill of it executed with no value: the reason Rails' row_readings case shows.
     c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3000) \
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
@@ -771,11 +771,11 @@ impl Walks {
     }
 }
 
-/// An account with no paper key whose one executed fill has no value, beside a long history.
+/// An account with no Alpaca key whose one executed fill has no value.
 fn unkeyed_install() -> Install {
     let install = Install::new(1, 0);
     let c = install.connection();
-    c.execute("UPDATE api_keys SET passphrase=?1 WHERE user_id=1", [install.app.cipher.encrypt("live")]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE user_id=1", []).unwrap();
     c.execute_batch("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
         VALUES (1,1,'AAA',2,'USD',1,1,1,0,0,2,'unpriced','REGULAR','2026-03-10 00:00:00','2026-03-10 00:00:00');").unwrap();
     install
@@ -796,6 +796,19 @@ async fn a_fill_repaired_in_the_same_second_changes_the_no_key_reason() {
     let app = install.app.clone();
     install.app.db(move |c| loading::render_page(&app, c, 1, &stale, "en", "", "")).await.unwrap();
     until(10, "the repaired account's reason", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(None))).await;
+    assert_eq!(fills(&install.app, 1), 0, "no key: the reason comes from the stored fills, never from a market read");
+}
+
+/// A live key reads market data as a paper key does (Rails' market_data_client): its account gets figures, and every
+/// request it made was to the data host (the script answers nothing else).
+#[tokio::test]
+async fn a_live_key_account_gets_its_figures() {
+    let install = Install::new(1, 0);
+    install.connection().execute("UPDATE api_keys SET passphrase=?1 WHERE user_id=1", [install.app.cipher.encrypt("live")]).unwrap();
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the live key's figures", async || published(&install.app, 1).await).await;
+    assert!(matches!(page_figures(&install.app, 1, "en", "").await, (Some(_), _)));
 }
 
 /// The account's figures streams on a `/cable` connection of its own, as a page subscribes to them.

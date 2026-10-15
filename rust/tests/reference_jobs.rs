@@ -607,8 +607,8 @@ async fn reference_ticker_units_guard_members_but_skip_unrelated_rows_without_ca
     assert!(matches!(&out, Err(m) if m.contains("rolled back") && m.contains(&format!("bot {bot}"))), "{out:?}");
     let c = Connection::open(d.path().join("production.sqlite3"))?;
     assert_eq!(c.query_row("SELECT base_decimals FROM tickers WHERE base_asset_id = ?1", [eth], |r| r.get::<_, i64>(0))?, 8);
-    // Live trading credentials make any full guard refuse. An unrelated unit must still commit: this proves the skip path.
-    c.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")])?;
+    // A bot with no key makes any full guard refuse. An unrelated unit must still commit: this proves the skip path.
+    c.execute("DELETE FROM api_keys", [])?;
     c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('other', 'OTHER', 'Other', 'Cryptocurrency', '2026-01-01', '2026-01-01')", [])?;
     import_tickers(&db, s.exchange_id, vec![row("other", "OTHER", 8)], "2026-10-02T10:15:00Z").await?;
     let out = import_tickers(&db, s.exchange_id, vec![row("seed-eth", "ETH", 8)], "2026-10-02T10:15:00Z").await;

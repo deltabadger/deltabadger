@@ -154,7 +154,7 @@ fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::sch
 /// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
 /// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    match begin_checked(c, bot, plan, clock, None, None)? {
+    match begin_checked(c, bot, plan, clock, None, None, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
         Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) => Err(EngineError::Data("unfenced placement skipped".into())),
@@ -171,7 +171,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// edit: it places an order sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None)
+    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None, None)
 }
 
 /// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
@@ -182,10 +182,12 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>) }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
-pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version))
+/// `identity` is the sending venue's `placement_identity()`: recorded in the intent before the send, so recovery never asks
+/// another account or another Alpaca host about this order (`identity_mismatch`).
+pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity)
 }
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>) -> Result<Begun, EngineError> {
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>) -> Result<Begun, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
@@ -255,6 +257,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     v["composition"] = composition_snapshot(&tx, &current)?;
+    if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
     set_intent(&tx, bot.id, Some(&v))?;
     tx.commit()?; // durable before the send
     Ok(Begun::Intent(Box::new(intent)))
@@ -381,6 +384,27 @@ pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
     Ok(run == bot.run_identity()?)
 }
 
+/// Why this venue must not be asked about an intent: it would ask another Alpaca host (the key's mode changed) or another
+/// account (the key id changed). Either would truthfully answer not-found, and past the absence margin that would clear an
+/// order that exists. An intent from before the mode was recorded was sent paper (that build sent every Alpaca order to
+/// the paper host); one without a fingerprint is compared on the mode only. A venue that states no identity (Kraken)
+/// is not compared.
+fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str> {
+    let now = now?;
+    let mode = |v: &Value| v["alpaca_live"].as_bool().unwrap_or(false);
+    if mode(intent) != mode(&now) { return Some(if mode(intent) { "in Alpaca live mode and the key is now paper" } else { "in Alpaca paper mode and the key is now live" }); }
+    match intent["key_fingerprint"].as_str() {
+        Some(sent) if Some(sent) != now["key_fingerprint"].as_str() => Some("under another Alpaca key id than the key now holds"),
+        _ => None,
+    }
+}
+
+/// One line per unresolved order per process: recovery runs every tick.
+fn log_once(cl_ord_id: &str, line: &str) {
+    static SEEN: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::OnceLock::new();
+    if SEEN.get_or_init(Default::default).lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(cl_ord_id.to_string()) { super::log(line); }
+}
+
 pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Recovery, EngineError> {
     recover_since(c, venue, bot, clock, DateTime::<Utc>::MIN_UTC).await
 }
@@ -391,6 +415,10 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
     let venue=&handle;
     let intent = Intent::from_json(c, bot, &raw,venue.producer())?;
+    if let Some(why) = identity_mismatch(&raw, venue.placement_identity()) {
+        log_once(&intent.cl_ord_id, &format!("[engine] bot {}: its unresolved order was sent {why}; it is not looked up anywhere else; settle it with `deltabadger resolve-placement`", bot.id));
+        return Ok(Recovery::Pending);
+    }
     let rules = venue.rules();
     // Kraken drops an order after the deadline it was sent with, so absence is provable from deadline + 60 s whatever the
     // process start. A venue without one (VenueRules::absence_margin_secs): the lookup must start a full margin after the

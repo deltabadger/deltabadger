@@ -72,15 +72,6 @@ fn run_refuses_a_kraken_bot_without_a_key_a_live_key_and_an_unreadable_key_and_c
 
     let (dir, o, s) = common::install_alpaca();
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
-    drop(o);
-    let out = cli(dir.path(), &["run"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("live Alpaca trading is not enabled"), "{}", stderr(&out));
-    assert!(lease_of(dir.path()).is_none());
-
-    let (dir, o, s) = common::install_alpaca();
-    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     drop(o);
     let out = cli(dir.path(), &["run"]).env("SECRET_KEY_BASE", "another-instance").output().unwrap();
     assert_eq!(out.status.code(), Some(1));
@@ -103,16 +94,6 @@ fn run_refuses_a_stopped_bot_whose_orders_it_could_not_poll() {
     let out = cli(dir.path(), &["run"]).output().unwrap();
     assert_eq!(out.status.code(), Some(1));
     assert!(stderr(&out).contains(&format!("bot {bot}: no Kraken API key")), "{}", stderr(&out));
-    assert!(lease_of(dir.path()).is_none());
-
-    let (dir, o, s) = common::install_alpaca();
-    let bot = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
-    open(&o.primary, &s, bot);
-    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
-    drop(o);
-    let out = cli(dir.path(), &["run"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains(&format!("bot {bot}: live Alpaca trading is not enabled")), "{}", stderr(&out));
     assert!(lease_of(dir.path()).is_none());
 }
 

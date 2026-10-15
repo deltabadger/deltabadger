@@ -134,7 +134,7 @@ class SettingsDialogOutlineTest < ActionDispatch::IntegrationTest
   end
 end
 
-# A language change re-renders everything, so it is a full visit — but to the page the dialog was
+# A language change re-renders everything, so it is a full page load — but to the page the dialog was
 # opened over, in the new language, with the dialog open on it again; never to a bare settings page.
 class SettingsLocaleChangeTest < ActionDispatch::IntegrationTest
   setup do
@@ -146,21 +146,21 @@ class SettingsLocaleChangeTest < ActionDispatch::IntegrationTest
     patch settings_update_locale_path, params: { user: { locale: 'pl' } },
                                        headers: { 'Referer' => 'http://www.example.com/bots' }, as: :turbo_stream
 
-    assert_select 'turbo-stream[action=redirect][target=?]', '/pl/bots?settings=account'
+    assert_select 'turbo-stream[action=reload][target=?]', '/pl/bots?settings=account'
   end
 
   test 'from a settings page there is no page behind, so it stays on settings' do
     patch settings_update_locale_path, params: { user: { locale: 'pl' } },
                                        headers: { 'Referer' => 'http://www.example.com/settings/account' }, as: :turbo_stream
 
-    assert_select 'turbo-stream[action=redirect][target=?]', '/pl/settings/account'
+    assert_select 'turbo-stream[action=reload][target=?]', '/pl/settings/account'
   end
 
   test 'a foreign or unknown referer can only land on settings' do
     patch settings_update_locale_path, params: { user: { locale: 'pl' } },
                                        headers: { 'Referer' => 'https://evil.example/nowhere' }, as: :turbo_stream
 
-    assert_select 'turbo-stream[action=redirect][target=?]', '/pl/settings/account'
+    assert_select 'turbo-stream[action=reload][target=?]', '/pl/settings/account'
   end
 
   test '?settings opens the dialog over the page, and only for a real section' do

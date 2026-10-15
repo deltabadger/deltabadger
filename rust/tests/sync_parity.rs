@@ -15,7 +15,8 @@ fn try_rails(args: &[&str]) -> Result<(), String> {
         let mut cmd = Command::new(root.join("bin/rails"));
         cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL")
             .env("APP_ROOT_URL", "http://localhost:3000") // config/environments/development.rb requires it
-            .env("SKIP_TEST_DATABASE", "true"); // schema:load in development also purges the repo's storage/test*.sqlite3
+            .env("SKIP_TEST_DATABASE", "true") // schema:load in development also purges the repo's storage/test*.sqlite3
+            .env("TZ", "UTC"); // as the hosted containers run: Rails reads a Binance applyTime in the process's zone
         for db in ["primary", "queue", "cache", "cable"] {
             cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
         }
@@ -239,6 +240,104 @@ fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(),
     })
 }
 
+// ---- the Binance ledger (D2b-2 slice 1): both sides read one fake account; their requests differ by design ----
+
+fn tx_ids(out: &Value) -> Vec<String> { rows(out, "account_transactions").iter().filter_map(|r| r["after"]["tx_id"].as_str().map(str::to_string)).collect() }
+/// The key's watermark after the run, or None when the run left it as it was.
+fn moved_watermark(out: &Value) -> Option<Value> {
+    rows(out, "api_keys").first().map(|r| r["after"]["last_synced_at"].clone()).filter(|w| rows(out, "api_keys")[0]["before"]["last_synced_at"] != *w)
+}
+/// The two outputs without their requests and the key's row (compared on their own terms by the callers).
+fn without_requests_and_key(out: &Value) -> Value {
+    let mut out = out.clone();
+    for step in out["steps"].as_array_mut().into_iter().flatten() { step["requests"] = Value::Null; }
+    out["changes"]["api_keys"] = json!([]);
+    out
+}
+/// A completed Rust run: the same rows and watermark as Rails, and no error left on the key (it is the tracker's
+/// "Sync failed" banner; the sources Rust leaves out, margin and futures, are not noted there).
+fn same_rows_and_watermark(rails: &Value, rust: &Value) -> Result<(), String> {
+    check(key_error(rust).is_null(), &format!("Rust's completed run left an error on the key: {}", key_error(rust)))?;
+    check(key_error(rails).is_null(), &format!("Rails' key: {}", key_error(rails)))?;
+    check(moved_watermark(rails) == moved_watermark(rust), &format!("watermarks: rails {:?}, rust {:?}", moved_watermark(rails), moved_watermark(rust)))?;
+    check(without_requests_and_key(rails) == without_requests_and_key(rust), &format!("beyond requests and the key the outputs differ:\n  rails: {}\n  rust:  {}", without_requests_and_key(rails), without_requests_and_key(rust)))
+}
+
+fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if !name.starts_with("binance-ledger-") { return None; }
+    let refused = |text: &str| -> Result<(), String> {
+        check(tx_ids(rust).is_empty() && moved_watermark(rust).is_none(), &format!("Rust stored {:?}", tx_ids(rust)))?;
+        check(key_error(rust) == text, &format!("Rust's error: {}", key_error(rust)))
+    };
+    let rails_has = |ids: &[&str]| check(tx_ids(rails) == ids, &format!("Rails now stores {:?}: drop the listed divergence", tx_ids(rails)));
+    let rust_has = |ids: &[&str]| check(tx_ids(rust) == ids, &format!("Rust stores {:?}", tx_ids(rust)));
+    const BASIC: [&str; 8] = ["0xd1", "0xd2", "0xw1", "0xw3", "BTCUSDT-10-100", "BTCUSDT-11-101", "ETHBTC-3-7-in", "ETHBTC-3-7-out"];
+    Some(match name {
+        "binance-ledger-full" | "binance-ledger-idle" | "binance-ledger-other_sources" | "binance-ledger-two_nights" => same_rows_and_watermark(rails, rust),
+        // Listed divergence: Rails reads `purchaseAmount`/`rewards` where Binance writes `amount`, and stores 0.
+        "binance-ledger-earn_documented_amounts" => (|| {
+            let misread = ["lock-reward-1787184000000-BNB", "flex-sub-26055", "lock-sub-26056"];
+            let mut patched = rails.clone();
+            for change in patched["changes"]["account_transactions"].as_array_mut().into_iter().flatten() {
+                let tx_id = change["after"]["tx_id"].as_str().unwrap_or_default().to_string();
+                if !misread.contains(&tx_id.as_str()) { continue; }
+                check(num(&change["after"]["base_amount"]) == Some(0.0), &format!("Rails now reads {tx_id}'s amount: drop the listed divergence"))?;
+                let ours = rows(rust, "account_transactions").into_iter().find(|r| r["after"]["tx_id"] == tx_id.as_str()).ok_or(format!("Rust has no {tx_id}"))?;
+                check(num(&ours["after"]["base_amount"]).is_some_and(|a| a > 0.0), &format!("Rust stored {tx_id} without its amount"))?;
+                change["after"]["base_amount"] = ours["after"]["base_amount"].clone();
+            }
+            same_rows_and_watermark(&patched, rust)
+        })(),
+        // Listed divergence: Binance refuses flexible rewards without a `type`, which Rails never sends; Rails skips the
+        // source in silence. Rust asks once per type. Everything else is the same.
+        "binance-ledger-flexible_rewards_type" => (|| {
+            let flexible = ["flex-reward-1787097600000-USDT", "flex-reward-1787101200000-USDT", "flex-reward-1788393600000-BNB"];
+            check(!tx_ids(rails).iter().any(|t| t.starts_with("flex-reward-")), "Rails now reads flexible rewards: drop the listed divergence")?;
+            let mut ours: Vec<String> = tx_ids(rust).into_iter().filter(|t| t.starts_with("flex-reward-")).collect();
+            ours.sort();
+            check(ours == flexible, &format!("Rust's flexible rewards: {ours:?}"))?;
+            let mut rest = without_requests_and_key(rust);
+            if let Some(changes) = rest["changes"]["account_transactions"].as_array_mut() { changes.retain(|r| !r["after"]["tx_id"].as_str().is_some_and(|t| t.starts_with("flex-reward-"))); }
+            check(key_error(rust).is_null(), "Rust's completed run left an error on the key")?;
+            check(rest == without_requests_and_key(rails), &format!("beyond the flexible rewards the rows differ:\n  rails: {}\n  rust:  {rest}", without_requests_and_key(rails)))
+        })(),
+        "binance-ledger-earn_fails" => (|| {
+            check(!tx_ids(rails).is_empty() && !tx_ids(rails).iter().any(|t| t.starts_with("lock-reward-")), "Rails no longer skips a failed earn read: drop the listed divergence")?;
+            refused(r#"{"code":-1003,"msg":"Too many requests."}"#)
+        })(),
+        // Both fail at the deposits with the venue's body, store nothing, and go on to the transfer matcher.
+        "binance-ledger-deposit_fails" => check(without_requests_and_key(rails) == without_requests_and_key(rust) && rows(rails, "api_keys") == rows(rust, "api_keys"), "both fail alike"),
+        // Listed divergences: Rust reads what Rails misses.
+        "binance-ledger-crypto_pair_later" => rails_has(&["BTCUSDT-12-102"]).and_then(|()| rust_has(&["BTCUSDT-12-102", "ETHBTC-4-8-in", "ETHBTC-4-8-out"])),
+        "binance-ledger-over_500_trades" => (|| {
+            check(tx_ids(rails).len() == 504 && !tx_ids(rails).contains(&"BTCUSDT-1-1".to_string()), "Rails now reads more than the 500 most recent trades: drop the listed divergence")?;
+            check(tx_ids(rust).len() == 505 && tx_ids(rust).contains(&"BTCUSDT-1-1".to_string()), &format!("Rust stored {} rows", tx_ids(rust).len()))
+        })(),
+        "binance-ledger-deposit_credited" => (|| {
+            check(!tx_ids(rails).contains(&"0xd9".to_string()), "Rails now stores a credited deposit: drop the listed divergence")?;
+            check(tx_ids(rust).first().map(String::as_str) == Some("0xd9"), &format!("Rust stores {:?}", tx_ids(rust)))
+        })(),
+        "binance-ledger-pending_withdrawal" => (|| {
+            rails_has(&["0xd4"])?;
+            rust_has(&["0xd4", "0xw5"])?;
+            check(rows(rust, "api_keys")[0]["after"]["last_synced_at"] == "2026-09-18 00:00:00", "after the withdrawal settles the watermark moves on")
+        })(),
+        "binance-ledger-symbol_fails" => rails_has(&BASIC[..6]).and_then(|()| refused(r#"{"code":-1003,"msg":"Too many requests."}"#)),
+        "binance-ledger-away_100_days" => rails_has(&[]).and_then(|()| rust_has(&["0xd6"])),
+        "binance-ledger-garbage_amount" => (|| {
+            check(rows(rails, "account_transactions").iter().any(|r| r["after"]["tx_id"] == "0xd7" && num(&r["after"]["base_amount"]) == Some(0.0)), "Rails no longer stores a garbage amount as 0: drop the listed divergence")?;
+            refused("deposit: unreadable amount: not a plain decimal number")
+        })(),
+        // Listed divergence: Rust sends nothing for a Binance.US key and completes with no error on the key; Rails reads it
+        // from Binance.com (here the fake answers it).
+        "binance-ledger-us_refused" => rails_has(&BASIC).and_then(|()| {
+            check(tx_ids(rust).is_empty() && moved_watermark(rust).is_none() && key_error(rust).is_null(), &format!("Rust stored {:?}, key error {}", tx_ids(rust), key_error(rust)))?;
+            check(rust["steps"][0]["requests"].as_array().is_some_and(Vec::is_empty), "Rust sent a request for a Binance.US key")
+        }),
+        _ => Err(format!("{name} is not compared")),
+    })
+}
+
 /// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
 const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
 fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
@@ -273,13 +372,13 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), dirs.len()), (58, 41, 21, 120), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), dirs.len()), (58, 41, 21, 16, 136), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
-    for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
+    for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
-    let ported = ["ledger-", "balances-", "binance-balances-"];
+    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -289,7 +388,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match unknown_price_origin(name,rails_out,rust_out).or_else(||listed(name, rails_out, rust_out)) {
+        match unknown_price_origin(name,rails_out,rust_out).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -297,7 +396,9 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    let mut expected=["binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+    let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
+                      "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
+                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -450,7 +551,26 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!((rows(&rust_night, "account_transactions").len(), rust_night["splits_read"].clone()), (1, json!(1)));
     only(&dup_dir, 1);
 
+    // The other way round, as on an install that switched engines: Rails imports the first night, Rust's first run
+    // (no watermark of its own, so the whole history) reads everything again over Rails' rows.
+    let (over_dir, only) = hand_back("binance-ledger-two_nights");
+    only(&over_dir, 0);
     rails(&["record", handback.path().to_str().unwrap()]);
+    only(&over_dir, 1);
+    let rust_over = deltabadger::sync::parity::run(&over_dir, cipher.clone()).await.unwrap();
+    let inserted = rows(&rust_over, "account_transactions");
+    assert!(inserted.iter().all(|r| r["before"].is_null()), "Rust rewrote a row Rails imported: {inserted:?}");
+    let mut new_ids = tx_ids(&rust_over);
+    new_ids.sort();
+    assert_eq!(new_ids, ["BTCUSDT-12-102", "a1b2c3-in", "a1b2c3-out", "dividend-1637366105"], "only the second night's rows are new: no duplicate of Rails' rows");
+    let rails_own = rails_of("binance-ledger-two_nights");
+    for row in &inserted {
+        let theirs = rows(&rails_own, "account_transactions").into_iter().find(|r| r["after"]["tx_id"] == row["after"]["tx_id"]).unwrap();
+        assert_eq!(row["after"], theirs["after"], "Rust's row over Rails' history is the row Rails writes on its own second night");
+    }
+    assert_eq!(rows(&rust_over, "api_keys")[0]["after"]["last_synced_at"], rows(&rails_own, "api_keys")[0]["after"]["last_synced_at"]);
+    assert!(key_error(&rust_over).is_null(), "a completed run leaves no error on the key");
+
     let rails_night = read(&dir.join("rails.json"));
     assert_eq!(after_of(&rails_night, 0), "2026-09-19T01:00:00Z");
     assert_eq!(rows(&rails_night, "account_transactions").iter().map(|r| r["after"]["tx_id"].clone()).collect::<Vec<_>>(), [json!("f-between"), json!("int-between")],
@@ -462,6 +582,25 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
                (0, json!(1), own["steps"][1]["generations"].clone()), "Rails on Rust's row: the same as Rails on its own");
     assert!(rows(&rails_night, "bots").is_empty() && rows(&rails_night, "bot_activity_logs").is_empty());
     Ok(())
+}
+
+/// The fake Binance refuses what Binance refuses, so the grid catches a request Binance would not answer: a missing
+/// mandatory parameter (`type` on flexible rewards broke the first live sync) and a window longer than the endpoint's.
+#[test]
+fn the_fake_binance_refuses_what_binance_refuses() {
+    use deltabadger::sync::parity::binance_refusal;
+    let q = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
+    let day = 86_400_000_i64;
+    let flexible = "/sapi/v1/simple-earn/flexible/history/rewardsRecord";
+    assert_eq!(binance_refusal(flexible, &q(&[("timestamp", "1"), ("startTime", "0"), ("endTime", "1")])).as_deref(),
+               Some(r#"{"code":-1102,"msg":"Mandatory parameter 'type' was not sent, was empty/null, or malformed."}"#));
+    assert!(binance_refusal(flexible, &q(&[("timestamp", "1"), ("type", "BONUS")])).is_none());
+    assert!(binance_refusal("/sapi/v1/simple-earn/locked/history/rewardsRecord", &q(&[("timestamp", "1"), ("startTime", "0"), ("endTime", &(31 * day).to_string())])).is_some(), "Simple Earn takes 30 days");
+    assert!(binance_refusal("/sapi/v1/convert/tradeFlow", &q(&[("timestamp", "1"), ("startTime", "0")])).is_some(), "convert needs both ends");
+    assert!(binance_refusal("/sapi/v1/fiat/payments", &q(&[("timestamp", "1")])).is_some(), "fiat needs its transaction type");
+    assert!(binance_refusal("/api/v3/myTrades", &q(&[("timestamp", "1"), ("fromId", "0")])).is_some(), "trades need a symbol");
+    assert!(binance_refusal("/sapi/v1/capital/deposit/hisrec", &q(&[("startTime", "0")])).is_some(), "a signed call needs its timestamp");
+    assert!(binance_refusal("/api/v3/exchangeInfo", &q(&[])).is_none());
 }
 
 #[tokio::test(flavor = "current_thread")]

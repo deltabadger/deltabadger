@@ -230,7 +230,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
             .and_then(crate::web::locale::known)
             .unwrap_or(i18n::DEFAULT);
         flash::set(&ctx.session, flash::NOTICE, i18n::text(locale, notice, &[]));
-        Ok(stream(turbo::redirect(&crate::web::locale::path(
+        Ok(stream(turbo::reload(&crate::web::locale::path(
             locale,
             "/settings/account",
         ))))

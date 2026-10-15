@@ -354,10 +354,9 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             Outcome::Done => println!("{name}: done"),
             // An import larger than one run reads: what was read is stored, and the next run continues.
             Outcome::NothingNew => println!("{name}: not complete yet: run it again to continue"),
-            Outcome::Failed(error) | Outcome::Transient(error) | Outcome::RateLimited(error) => {
-                // Emit only this trusted application constant or fixed text; never a venue body.
-                let text=if error==deltabadger::sync::LIVE_REFUSED { deltabadger::sync::LIVE_REFUSED } else { "venue diagnostic omitted" };
-                eprintln!("deltabadger: {name} failed: {text}");code=EXIT_ENGINE_ERROR;
+            Outcome::Failed(_) | Outcome::Transient(_) | Outcome::RateLimited(_) => {
+                // Fixed text only; never a venue body.
+                eprintln!("deltabadger: {name} failed: venue diagnostic omitted");code=EXIT_ENGINE_ERROR;
             }
         }
     }

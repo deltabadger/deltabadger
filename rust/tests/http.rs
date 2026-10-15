@@ -85,8 +85,8 @@ async fn a_request_past_its_send_bound_is_never_sent_and_a_near_bound_shortens_t
 async fn a_refused_transport_sends_nothing() {
     let server = MockServer::start().await;
     Mock::given(method("POST")).respond_with(ResponseTemplate::new(200)).expect(0).mount(&server).await;
-    let out = ReqwestTransport::refused("live Alpaca trading is not enabled").send(&req(&server.uri(), "POST", "/v2/orders", vec![], Some(json!({})))).await;
-    assert_eq!(out, Err(TransportError::NotSent("live Alpaca trading is not enabled".into())));
+    let out = ReqwestTransport::refused("Exchanges::Example is not connected in this build").send(&req(&server.uri(), "POST", "/v2/orders", vec![], Some(json!({})))).await;
+    assert_eq!(out, Err(TransportError::NotSent("Exchanges::Example is not connected in this build".into())));
 }
 
 #[test]

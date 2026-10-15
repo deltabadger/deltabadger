@@ -18,6 +18,7 @@
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
 pub mod balances;
+pub mod binance_ledger;
 pub mod cache;
 pub mod jobs;
 pub mod ledger;
@@ -37,9 +38,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 /// ApiKey::SYNC_ERROR_LIMIT.
 pub const SYNC_ERROR_LIMIT: usize = 200;
 pub const ALPACA: &str = "Exchanges::Alpaca";
-/// Before 3.0 a live Alpaca key is not synced (the engine refuses it too): nothing is sent, and the key says why.
-/// Worded without the passphrase itself ("live"), which the scrub would redact out of the stored text.
-pub const LIVE_REFUSED: &str = "a real-money Alpaca key is not synced by this build (paper only before 3.0)";
 
 /// This process failing, as opposed to the venue: SQLite, a stored value Rails did not write, a key that is not an
 /// Alpaca key, a database phase whose task was cancelled.
@@ -234,6 +232,13 @@ pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_key
 /// either, so `missing_permission?` cannot hold for them).
 pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &BALANCE_VENUES) }
 
+/// The venues with a ledger job: Alpaca, Binance, and Binance.US (whose run reads nothing and completes,
+/// see binance_ledger).
+pub const LEDGER_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US];
+
+/// ApiKey.reading over LEDGER_VENUES.
+pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &LEDGER_VENUES) }
+
 fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
     let mut s = c.prepare(
         "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
@@ -277,8 +282,6 @@ pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Optio
         passphrase: open(passphrase)?,
     })
 }
-
-pub fn live(credentials: &Credentials) -> bool { credentials.passphrase.as_deref() == Some("live") }
 
 /// How a failed venue read reaches the job: Clients::Alpaca#with_rescue returns a Failure (its first error is the
 /// text), and Client.network_failure raises Client::TransientNetworkError for a transport failure a retry could fix.

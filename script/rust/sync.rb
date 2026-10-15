@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -37,6 +37,10 @@ module ScriptedSync
 
   def self.reply(env)
     host = env.url.host.to_s
+    if binance_state && (%w[binance.com binance.us].any? { |d| host == d || host.end_with?(".#{d}") })
+      requests << ["#{env.method.to_s.upcase} #{env.url.path}", URI.decode_www_form(env.url.query.to_s).sort]
+      return FakeBinance.reply(binance_state, env.url.path, URI.decode_www_form(env.url.query.to_s).to_h)
+    end
     script = if host.end_with?('alpaca.markets') then alpaca
              elsif host.start_with?('api.binance.') then binance
              elsif host == 'data-api' then market
@@ -76,6 +80,109 @@ module ScriptedSync
       env.response = Faraday::Response.new
       save_response(env, reply.fetch('status', 200), body, { 'Content-Type' => 'application/json' })
       @app.call(env)
+    end
+  end
+end
+
+# A Binance account, served from a scenario's `binance_state` as Binance serves it, whatever each side asks: the
+# histories by their documented windows and pages, the trade list by `fromId` (trades >= it, by id), by `startTime`
+# (from it on, by id; ponytail: the docs do not say what an open-ended startTime returns, so nothing is cut off at
+# 24 hours here) or else the most recent `limit`. Rust's half (rust/src/sync/parity.rs FakeBinance) serves the same.
+# Converts, fiat payments, dust, dividends and Simple Earn are served from the state by each row's own time, and paged
+# where Binance pages; margin and futures (not read by Rust, ruling Q11) answer empty.
+module FakeBinance
+  module_function
+
+  EMPTY = {
+    '/sapi/v1/margin/interestHistory' => { 'rows' => [], 'total' => 0 }, '/sapi/v1/margin/forceLiquidationRec' => { 'rows' => [], 'total' => 0 },
+    '/fapi/v1/income' => [], '/dapi/v1/income' => []
+  }.freeze
+
+  def applied(text) = (Time.utc(*text.scan(/\d+/).map(&:to_i)).to_r * 1000).to_i
+
+  # What Binance refuses before reading anything (rust/src/sync/parity.rs binance_refusal is the same table): a missing
+  # mandatory parameter (its docs, and `type` on flexible rewards, which Binance requires though its docs say
+  # otherwise), a signed path without its timestamp, and a window longer than the endpoint accepts.
+  MANDATORY = {
+    '/api/v3/exchangeInfo' => [], '/api/v3/myTrades' => %w[symbol timestamp], '/sapi/v1/convert/tradeFlow' => %w[startTime endTime timestamp],
+    '/sapi/v1/fiat/payments' => %w[transactionType timestamp], '/sapi/v1/simple-earn/flexible/history/rewardsRecord' => %w[type timestamp]
+  }.freeze
+
+  def max_days(path)
+    case path
+    when '/sapi/v1/capital/deposit/hisrec', '/sapi/v1/capital/withdraw/history' then 90
+    when '/sapi/v1/convert/tradeFlow', %r{\A/sapi/v1/simple-earn/} then 30
+    when '/sapi/v1/asset/assetDividend' then 180
+    when '/api/v3/myTrades' then 1
+    end
+  end
+
+  def refusal(path, query)
+    missing = MANDATORY.fetch(path, %w[timestamp]).find { |k| query[k].to_s.empty? }
+    return { 'status' => 400, 'body' => { 'code' => -1102, 'msg' => "Mandatory parameter '#{missing}' was not sent, was empty/null, or malformed." } } if missing
+
+    days = max_days(path)
+    return unless days && query['startTime'] && query['endTime'] && query['endTime'].to_i - query['startTime'].to_i > days * 86_400_000
+
+    { 'status' => 400, 'body' => { 'code' => -1127, 'msg' => "More than #{days * 24} hours between startTime and endTime." } }
+  end
+
+  def reply(state, path, query)
+    refused = refusal(path, query)
+    return refused if refused
+
+    failures = state.fetch('fail', {})
+    failure = failures["#{path}?symbol=#{query['symbol']}"] || failures[path]
+    return failure if failure
+
+    body = case path
+           when '/api/v3/account'
+             { 'accountType' => 'SPOT', 'balances' => state.fetch('balances', []).map { |a, f, l| { 'asset' => a, 'free' => f, 'locked' => l || '0.00000000' } } }
+           when '/api/v3/exchangeInfo'
+             { 'timezone' => 'UTC', 'symbols' => state.fetch('symbols', []).map { |s, b, q, st| { 'symbol' => s, 'status' => st || 'TRADING', 'baseAsset' => b, 'quoteAsset' => q } } }
+           when '/sapi/v1/capital/deposit/hisrec' then window(state.fetch('deposits', []), query) { |d| d['insertTime'] }
+           when '/sapi/v1/capital/withdraw/history' then window(state.fetch('withdrawals', []), query) { |w| applied(w['applyTime']) }
+           when '/api/v3/myTrades' then trades(state.fetch('trades', {}).fetch(query['symbol'], []), query)
+           when '/sapi/v1/convert/tradeFlow' then { 'list' => window(state.fetch('converts', []), query) { |c| c['createTime'] }, 'moreData' => false }
+           when '/sapi/v1/fiat/payments'
+             rows = between(state.fetch(query['transactionType'] == '1' ? 'fiat_sells' : 'fiat_buys', []), query['beginTime'], query['endTime']) { |p| p['createTime'] }
+             size = query.fetch('rows', '100').to_i
+             { 'code' => '000000', 'message' => 'success', 'total' => rows.size, 'success' => true,
+               'data' => rows.drop((query.fetch('page', '1').to_i - 1) * size).first(size) }
+           when '/sapi/v1/asset/dribblet'
+             rows = between(state.fetch('dust', []), query['startTime'], query['endTime']) { |d| d['operateTime'] }
+             { 'total' => rows.size, 'userAssetDribblets' => rows }
+           when '/sapi/v1/asset/assetDividend'
+             rows = window(state.fetch('dividends', []), query) { |d| d['divTime'] }
+             { 'rows' => rows, 'total' => rows.size }
+           when %r{\A/sapi/v1/simple-earn/}
+             key = path.delete_prefix('/sapi/v1/simple-earn/').sub('/history/', '_')
+             rows = between(state.fetch('earn', {}).fetch(key, []), query['startTime'], query['endTime']) { |r| r['time'] || r['deliverDate'] || r['createTime'] }
+             rows = rows.select { |r| r['type'] == query['type'] } if query['type'] && query['type'] != 'ALL'
+             size = query.fetch('size', '10').to_i
+             { 'rows' => rows.drop((query.fetch('current', '1').to_i - 1) * size).first(size), 'total' => rows.size }
+           else EMPTY.fetch(path) { raise Harness::Unscripted, "fake Binance has no #{path}" }
+           end
+    { 'status' => 200, 'body' => body }
+  end
+
+  def between(rows, from, to)
+    rows.select { |r| (t = yield(r)) && (from.nil? || t >= from.to_i) && (to.nil? || t <= to.to_i) }
+  end
+
+  def window(rows, query)
+    from = query['startTime']&.to_i
+    to = query['endTime']&.to_i
+    rows.select { |r| (t = yield(r)) && (from.nil? || t >= from) && (to.nil? || t <= to) }
+        .drop(query.fetch('offset', '0').to_i).first(query.fetch('limit', '1000').to_i)
+  end
+
+  def trades(rows, query)
+    limit = query.fetch('limit', '500').to_i
+    sorted = rows.sort_by { |t| t['id'] }
+    if query['fromId'] then sorted.select { |t| t['id'] >= query['fromId'].to_i }.first(limit)
+    elsif query['startTime'] then sorted.select { |t| t['time'] >= query['startTime'].to_i }.first(limit)
+    else sorted.last(limit)
     end
   end
 end
@@ -249,6 +356,26 @@ module SyncParity
     ctx[:binance] = venue
   end
 
+  def ms(time) = (time.to_r * 1000).to_i
+
+  def bn_trade(id, order, price, qty, at, buyer:, commission: '0.00000000', asset: 'BNB')
+    { 'id' => id, 'orderId' => order, 'orderListId' => -1, 'price' => price, 'qty' => qty,
+      'quoteQty' => (price.to_d * qty.to_d).to_s('F'), 'commission' => commission, 'commissionAsset' => asset,
+      'time' => at.is_a?(Integer) ? at : ms(at), 'isBuyer' => buyer, 'isMaker' => false, 'isBestMatch' => true }
+  end
+
+  def bn_deposit(id, coin, amount, at, status: 1, tx: "0xd#{id}")
+    { 'id' => id.to_s, 'amount' => amount, 'coin' => coin, 'network' => coin, 'status' => status, 'address' => 'addr', 'addressTag' => '',
+      'txId' => tx, 'insertTime' => at.is_a?(Integer) ? at : ms(at), 'transferType' => 0, 'confirmTimes' => '1/1', 'unlockConfirm' => 0, 'walletType' => 0 }
+  end
+
+  def bn_withdrawal(id, coin, amount, at, fee: '0.0005', status: 6, tx: "0xw#{id}")
+    { 'id' => "w#{id}", 'amount' => amount, 'transactionFee' => fee, 'coin' => coin, 'status' => status, 'address' => 'addr',
+      'txId' => tx, 'applyTime' => at.utc.strftime('%Y-%m-%d %H:%M:%S'), 'network' => coin, 'transferType' => 0 }.compact
+  end
+
+  def binance_ledger(at, state) = { 'kind' => 'ledger', 'at' => at, 'binance_state' => state }
+
   BINANCE_ACCOUNT = 'GET /api/v3/account'.freeze
   EXCHANGE_RATES = 'GET /api/v1/exchange_rates'.freeze
 
@@ -315,6 +442,7 @@ module SyncParity
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
         ScriptedSync.binance = step.fetch('binance', {}).transform_values(&:dup)
+        ScriptedSync.binance_state = step['binance_state']
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

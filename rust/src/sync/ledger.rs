@@ -4,7 +4,7 @@
 use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, SELL};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
-use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread, LIVE_REFUSED};
+use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread};
 use crate::codec::parse_time;
 use crate::crypto::Credentials;
 use crate::engine::Clock;
@@ -263,7 +263,6 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
             Ok::<_, SyncError>(Err(Failure { error, raised }))
         }
     };
-    if super::live(credentials) { return fail(LIVE_REFUSED.into(), true).await; }
 
     // Where this run starts: where an unfinished import stopped, or the watermark less the overlap. A stored
     // watermark ahead of now (Rails left one behind a split dated ahead, before it capped the watermark too) is read as now.
@@ -316,14 +315,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
             from = to;
         }
     }
-    // #resolve_recent_assets, a page of candidates at a time.
-    let mut after_id = 0;
-    loop {
-        let (key, listings) = (key.clone(), progress.listings.clone());
-        let page = phase(db, move |c| unresolved_assets(c, &key, &listings, now, after_id)).await?;
-        if !page.found.is_empty() { super::commit_for(db, version, move |c| set_assets(c, &page.found)).await?; }
-        match page.next { Some(id) => after_id = id, None => break }
-    }
+    resolve_recent(db, version, &key, progress.assets.clone(), now).await?;
     let mut outcome = progress.out;
     let max_seen = [import.max_seen, entries.iter().filter_map(|e| e.transacted_at).max()].into_iter().flatten().max();
     let min_skipped = [import.min_skipped, progress.min_skipped].into_iter().flatten().min();
@@ -467,7 +459,43 @@ fn real(d: &BigDec) -> f64 { d.to_f() }
 
 /// [coins, securities], each { SPELLING => [asset ids] }: #ledger_listings over every listing of the venue (Rails
 /// narrows the query to the names in hand; the lookups below only ever ask for those).
-struct Listings { coins: HashMap<String, Vec<i64>>, securities: HashMap<String, Vec<i64>> }
+pub(super) struct Listings { coins: HashMap<String, Vec<i64>>, securities: HashMap<String, Vec<i64>> }
+
+/// Which asset a row moved, by the venue's rule (Exchange#ledger_asset_ids).
+pub(super) enum AssetRule {
+    /// Exchanges::Alpaca#ledger_asset_ids: the activity decides.
+    Alpaca(Listings),
+    /// Exchange#ledger_asset_ids for a crypto venue (Binance): a dated alias of Tax::AssetIdentity names the coin;
+    /// else the one asset the venue lists under that spelling (Ticker.asset_ids_by_spelling: base spellings, tombstoned
+    /// listings included, then quote spellings), and none where two share it.
+    Crypto { venue: crate::tracker::prices::Venue, spellings: HashMap<String, Vec<i64>> },
+}
+
+impl AssetRule {
+    fn asset_id(&self, c: &Connection, base_currency: Option<&str>, raw: &Value, at: Option<DateTime<Utc>>) -> Result<Option<i64>, SyncError> {
+        match self {
+            Self::Alpaca(l) => asset_id(c, l, base_currency, raw),
+            Self::Crypto { venue, spellings } => {
+                let name = base_currency.unwrap_or_default();
+                if let Some(coin) = crate::tracker::prices::alias_coin(name, Some(venue), at.map(|t| t.date_naive())) {
+                    return Ok(c.query_row("SELECT id FROM assets WHERE external_id = ?1 LIMIT 1", [coin], |r| r.get(0)).optional()?);
+                }
+                Ok(only(spellings.get(&name.to_uppercase())))
+            }
+        }
+    }
+}
+
+/// AssetRule::Crypto for a venue: every listing's spellings.
+pub(super) fn crypto_rule(c: &Connection, exchange_id: i64, name_id: &str) -> Result<AssetRule, SyncError> {
+    let mut spellings: HashMap<String, Vec<i64>> = HashMap::new();
+    let mut add = |name: String, id: i64| { let ids = spellings.entry(name).or_default(); if !ids.contains(&id) { ids.push(id); } };
+    let mut s = c.prepare("SELECT base, base_asset_id FROM tickers WHERE exchange_id = ?1 ORDER BY id")?;
+    for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? { let (base, id) = row?; add(spelling(&base), id); }
+    let mut s = c.prepare("SELECT upper(quote), quote_asset_id FROM tickers WHERE exchange_id = ?1 ORDER BY id")?;
+    for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? { let (quote, id) = row?; add(quote, id); }
+    Ok(AssetRule::Crypto { venue: crate::tracker::prices::Venue { id: exchange_id, name_id: name_id.into(), stock: false }, spellings })
+}
 
 fn spelling(base: &str) -> String {
     // Ticker#base_spelling: without "__stale_<digits>_".
@@ -520,12 +548,22 @@ fn ledger_coin(symbol: &str, l: &Listings) -> Option<String> {
 }
 
 /// What one sync carries from unit to unit.
-struct Progress {
-    out: Outcome,
-    listings: Arc<Listings>,
+pub(super) struct Progress {
+    pub(super) out: Outcome,
+    pub(super) assets: Arc<AssetRule>,
     /// Every leg id of every merged split stored: a standalone leg arriving later is a duplicate.
-    merged: HashSet<String>,
-    min_skipped: Option<DateTime<Utc>>,
+    pub(super) merged: HashSet<String>,
+    pub(super) min_skipped: Option<DateTime<Utc>>,
+}
+
+/// The legs of every merged split already stored for the user on this venue.
+pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
+    let mut merged: HashSet<String> = HashSet::new();
+    let mut s = c.prepare("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = ?3")?;
+    for raw in s.query_map(params![key.user_id, key.exchange_id, ADJUSTMENT], |r| r.get::<_, Option<String>>(0))? {
+        merged.extend(merged_ids(&raw?.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null)));
+    }
+    Ok(merged)
 }
 
 /// The read before the store: the activities as entries (#normalize_activity, #merge_split_entries), the venue's
@@ -542,12 +580,8 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Vec<
         }
     }
     let entries = match activities::merge_splits(entries) { Ok(entries) => entries, Err(text) => return Ok(Err(text)) };
-    let mut merged: HashSet<String> = HashSet::new();
-    let mut s = c.prepare("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = ?3")?;
-    for raw in s.query_map(params![key.user_id, key.exchange_id, ADJUSTMENT], |r| r.get::<_, Option<String>>(0))? {
-        merged.extend(merged_ids(&raw?.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null)));
-    }
-    Ok(Ok((entries, Progress { out: Outcome::default(), listings: Arc::new(listings(c, key.exchange_id)?), merged, min_skipped: None })))
+    let merged = stored_merged(c, key)?;
+    Ok(Ok((entries, Progress { out: Outcome::default(), assets: Arc::new(AssetRule::Alpaca(listings(c, key.exchange_id)?)), merged, min_skipped: None })))
 }
 
 /// A split row, as everything that reacts to one tells it.
@@ -556,7 +590,7 @@ fn split(e: &Entry) -> bool { e.entry_type == ADJUSTMENT && e.raw.value["corpora
 /// AccountTransactionSync#store! for one unit, inside the caller's write transaction: at most `BATCH` entries, or one
 /// split with the `effects` the read before it computed. A split row is stored, skipped and announced exactly as
 /// Rails does it: a group is a duplicate when its first leg's id is stored, or is a leg of a stored merged row.
-fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, batch: &[Entry], effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
+pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, batch: &[Entry], effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
     let no_effects = || SyncError("a split row outside a unit of its own".into());
     for (index, e) in batch.iter().enumerate() {
         let tx_id = present(&e.tx_id);
@@ -564,7 +598,8 @@ fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, batch: &[En
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
         let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {
-            crate::engine::log(&format!("[alpaca] Account transaction sync skipped invalid entry {} of {} (entry_type={})", index + 1, batch.len(), e.entry_type));
+            let venue = if key.exchange_type == super::ALPACA { "alpaca" } else { "binance" };
+            crate::engine::log(&format!("[{venue}] Account transaction sync skipped invalid entry {} of {} (entry_type={})", index + 1, batch.len(), e.entry_type));
             p.min_skipped = [p.min_skipped, e.transacted_at].into_iter().flatten().min();
             p.out.skipped += 1;
             continue;
@@ -577,7 +612,7 @@ fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, batch: &[En
              transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, '{}', ?16, ?17, 0, ?18, ?18)",
             params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(real),
                     if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(real) }, tx_id, e.group_id,
-                    e.description, sql_time(at), e.raw.text(), asset_id(c, &p.listings, Some(base_currency), &e.raw.value)?, bot_order, sql_time(now)])?;
+                    e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
         p.merged.extend(merged_ids(&e.raw.value));
         if split(e) {
             let effects = effects.ok_or_else(no_effects)?;
@@ -683,7 +718,7 @@ fn bump(c: &Connection, bots: &[i64]) -> Result<(), SyncError> {
 /// What a split row does to the user's bots, worked out by a read before the row's own write transaction: the scans of
 /// the bots' orders happen outside the write lock, and the write is one statement per bot named here.
 #[derive(Clone, Debug, Default)]
-struct Effects {
+pub(super) struct Effects {
     /// AccountTransactionSync.expire_restated_bots' bots.
     restated: Vec<i64>,
     /// AccountTransactionSync.announce_split's bots; none for a split older than the feed keeps.
@@ -745,21 +780,33 @@ fn bots_holding(c: &Connection, key: &Key, symbol: &str, at: DateTime<Utc>) -> R
     Ok(holding)
 }
 
+/// #resolve_recent_assets, a page of candidates at a time.
+pub(super) async fn resolve_recent(db: &Db, version: &crate::engine::model::CredentialVersion, key: &Arc<Key>, rule: Arc<AssetRule>, now: DateTime<Utc>) -> Result<(), SyncError> {
+    let mut after_id = 0;
+    loop {
+        let (key, rule) = (key.clone(), rule.clone());
+        let page = phase(db, move |c| unresolved_assets(c, &key, &rule, now, after_id)).await?;
+        if !page.found.is_empty() { super::commit_for(db, version, move |c| set_assets(c, &page.found)).await?; }
+        match page.next { Some(id) => after_id = id, None => return Ok(()) }
+    }
+}
+
 /// One page of #resolve_recent_assets' candidates.
 struct AssetPage { found: Vec<(i64, i64)>, next: Option<i64> }
 
 /// #resolve_recent_assets, read side: of at most `BATCH` rows stored in the last seven days with no asset (in id order,
 /// after `after_id`), those the venue's listings now name an asset for, as (asset, row). `next`: where the next page starts.
-fn unresolved_assets(c: &Connection, key: &Key, l: &Listings, now: DateTime<Utc>, after_id: i64) -> Result<AssetPage, SyncError> {
-    let mut s = c.prepare("SELECT id, base_currency, raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND created_at >= ?3 AND base_asset_id IS NULL \
+fn unresolved_assets(c: &Connection, key: &Key, rule: &AssetRule, now: DateTime<Utc>, after_id: i64) -> Result<AssetPage, SyncError> {
+    let mut s = c.prepare("SELECT id, base_currency, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND created_at >= ?3 AND base_asset_id IS NULL \
                            AND id > ?4 ORDER BY id LIMIT ?5")?;
     let rows = s.query_map(params![key.user_id, key.exchange_id, sql_time(now - Duration::days(ASSET_CATCH_UP_DAYS)), after_id, BATCH as i64],
-                           |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+                           |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?)))?.collect::<Result<Vec<_>, _>>()?;
     let next = if rows.len() == BATCH { rows.last().map(|r| r.0) } else { None };
     let mut found = vec![];
-    for (id, base_currency, raw) in rows {
+    for (id, base_currency, raw, at) in rows {
         let raw: Value = raw.as_deref().and_then(|r| serde_json::from_str(r).ok()).unwrap_or(Value::Null);
-        if let Some(asset) = asset_id(c, l, base_currency.as_deref(), &raw)? { found.push((asset, id)); }
+        let at = at.as_deref().map(parse_time).transpose()?;
+        if let Some(asset) = rule.asset_id(c, base_currency.as_deref(), &raw, at)? { found.push((asset, id)); }
     }
     Ok(AssetPage { found, next })
 }
@@ -821,7 +868,7 @@ fn link(c: &Connection, pairs: &[(i64, i64)], now: DateTime<Utc>) -> Result<usiz
 pub async fn link_transfers(db: &Db, user_id: i64, now: DateTime<Utc>) -> Result<usize, SyncError> {
     link_transfers_for(db, user_id, None, now).await
 }
-async fn link_transfers_for(db: &Db, user_id: i64, version: Option<&crate::engine::model::CredentialVersion>, now: DateTime<Utc>) -> Result<usize, SyncError> {
+pub(super) async fn link_transfers_for(db: &Db, user_id: i64, version: Option<&crate::engine::model::CredentialVersion>, now: DateTime<Utc>) -> Result<usize, SyncError> {
     let (mut after_id, mut linked) = (0, 0);
     loop {
         let page = phase(db, move |c| transfer_matches(c, user_id, after_id)).await?;

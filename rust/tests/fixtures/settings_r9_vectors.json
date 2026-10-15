@@ -1,6 +1,6 @@
 {
   "sources": {
-    "app/controllers/settings_controller.rb": "3ea24992ae5ba9d657340c17f8e39dafd03cb8f96d522c097b2be6d4cb24f98c",
+    "app/controllers/settings_controller.rb": "4ed941e27d85caa8e3c36483774dcb18da50a12b8c502f5082b7211a0d9286a4",
     "app/controllers/api/api_keys_controller.rb": "61dffd76014c70045a8f4f4972dc4e91c458b8e157fd915f2d7bc4fc0f963a04",
     "app/controllers/users/sessions_controller.rb": "ba98149ca299f09f1f813c689aa4285e1fa0300144710fab6dff8add5359ffff",
     "config/initializers/rack_attack.rb": "b25478892de782257f505cb1eb3203a7b9495dd4a223d0d4179bcfd7301c3a29",

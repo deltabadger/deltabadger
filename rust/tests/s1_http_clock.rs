@@ -13,7 +13,7 @@ async fn sends(at:&str){
     Mock::given(method("POST")).and(path("/v2/orders")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"r8-accepted"}))).expect(2).mount(&server).await;
     let venue=AlpacaVenue::new(ReqwestTransport::new(http::client(),"key".into(),"secret".into()).with_clock(clock.clone()),Urls{trading:server.uri(),data:server.uri()});
     assert_eq!(venue.add_order(&order(clock.as_ref())).await,Ok("r8-accepted".into()),"R8 local HTTP order sends using the injected clock");
-    let factory=LiveFactory::with_paper_boundary(server.uri()).with_clock(clock.clone());
+    let factory=LiveFactory::with_hosts(deltabadger::venue::alpaca::Hosts::all(&server.uri())).with_clock(clock.clone());
     assert_eq!(factory.for_bot("Exchanges::Alpaca",None).add_order(&order(clock.as_ref())).await,Ok("r8-accepted".into()),"R8 factory carries the same injected clock to HTTP");
     server.verify().await;
 }
