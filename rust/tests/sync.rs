@@ -1654,6 +1654,73 @@ impl Connect for LocalBinance {
         deltabadger::venue::http::ReqwestTransport::binance(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone())
     }
     fn binance_base(&self, _: &str) -> Option<String> { Some(self.0.clone()) }
+    fn binance_pacing(&self) -> deltabadger::sync::binance_ledger::Pacing { deltabadger::sync::binance_ledger::Pacing::NONE }
+}
+
+/// A Binance (and a Binance.US) key's ledger job, through the scheduler's own job: the run stamps its producer and
+/// completes, so the tracker reads the venue's ledger as current (`ledger_is_current`) and publishes its cache. Every
+/// source is asked; margin and futures never are. A Binance.US key sends nothing and still completes, saying why.
+#[tokio::test(flavor = "current_thread")]
+async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
+    use wiremock::{matchers::{method, path, path_regex}, Mock, MockServer, ResponseTemplate};
+    for (venue, sends) in [("Exchanges::Binance", true), ("Exchanges::BinanceUs", false)] {
+        let (dir, o, s) = common::install();
+        let c = o.primary;
+        c.execute("UPDATE exchanges SET type = ?1, name = 'Binance' WHERE id = ?2", rusqlite::params![venue, s.exchange_id]).unwrap();
+        // Last night's failure, as the owner's key holds it: the tracker shows "Sync failed" until a run completes.
+        c.execute("UPDATE api_keys SET last_sync_error = ?1 WHERE id = ?2",
+                  rusqlite::params![r#"{"code":-1102,"msg":"Mandatory parameter 'type' was not sent, was empty/null, or malformed."}"#, s.api_key_id]).unwrap();
+        let server = MockServer::start().await;
+        let reply = |body: Value| ResponseTemplate::new(200).set_body_json(body);
+        Mock::given(method("GET")).and(path("/sapi/v1/capital/deposit/hisrec")).respond_with(reply(json!([
+            { "coin": "BTC", "amount": "0.1", "status": 1, "txId": "0xd1", "insertTime": 1_785_578_400_123_i64 }]))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/api/v3/exchangeInfo")).respond_with(reply(json!({ "symbols": [{ "symbol": "BTCUSDT", "status": "TRADING", "baseAsset": "BTC", "quoteAsset": "USDT" }] }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/api/v3/account")).respond_with(reply(json!({ "balances": [{ "asset": "BTC", "free": "0.1", "locked": "0" }] }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/sapi/v1/convert/tradeFlow")).respond_with(reply(json!({ "list": [], "moreData": false }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/sapi/v1/fiat/payments")).respond_with(reply(json!({ "data": [], "total": 0 }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/sapi/v1/asset/dribblet")).respond_with(reply(json!({ "total": 0, "userAssetDribblets": [] }))).mount(&server).await;
+        // Binance refuses flexible rewards without a `type`: answered only when one is sent.
+        Mock::given(method("GET")).and(path("/sapi/v1/simple-earn/flexible/history/rewardsRecord")).and(|r: &wiremock::Request| r.url.query_pairs().any(|(k, _)| k == "type"))
+            .respond_with(reply(json!({ "rows": [], "total": 0 }))).mount(&server).await;
+        Mock::given(method("GET")).and(path_regex("^/sapi/v1/(asset/assetDividend|simple-earn/(locked/.*|flexible/history/(subscription|redemption)Record))$"))
+            .respond_with(reply(json!({ "rows": [], "total": 0 }))).mount(&server).await;
+        Mock::given(method("GET")).and(path_regex("^/(sapi/v1/capital/withdraw/history|api/v3/myTrades)$")).respond_with(reply(json!([]))).mount(&server).await;
+        drop(c);
+        // The scheduler's own run: it records the outcome, as it does every night.
+        ran_at(dir.path(), s.api_key_id, "2026-09-19T02:00:05Z", "2026-09-19T02:30:05Z");
+        let job = LedgerSync::new(LocalBinance(server.uri()), s.api_key_id);
+        let mut engine = deltabadger::engine::events::EngineEvents::default();
+        let rx = engine.subscribe();
+        let sched = deltabadger::jobs::Scheduler::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher(), vec![Box::new(job)], Some(rx))
+            .with_resolver(deltabadger::jobs::resolve::all(LocalBinance(server.uri()), Rc::new(None::<deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>), deltabadger::tracker::jobs::system_wall()));
+        let clock = FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
+        let (stop, stopped) = tokio::sync::watch::channel(false);
+        let (ended, ()) = tokio::join!(sched.run(stopped, &clock), async {
+            engine.send(EngineEvent::OrderRecorded { bot_id: 1, transaction_id: 1 });
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            stop.send(true).unwrap();
+        });
+        ended.unwrap();
+        let db = Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), seed::cipher());
+        let user = s.user_id;
+        let (rows, error, current): (i64, Option<String>, bool) = db.run(move |c, _| {
+            let origin = deltabadger::sync::cache::capture_read(c, user, None).map_err(|e| format!("{e:?}"))?;
+            Ok((c.query_row("SELECT count(*) FROM account_transactions WHERE tx_id = '0xd1'", [], |r| r.get(0)).map_err(|e| e.to_string())?,
+                c.query_row("SELECT last_sync_error FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).map_err(|e| e.to_string())?,
+                origin.ledger_is_current(c).map_err(|e| format!("{e:?}"))?))
+        }).await.unwrap();
+        assert!(current, "{venue}: the tracker reads this venue's ledger as current: {:?}", record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id));
+        let requests = server.received_requests().await.unwrap();
+        if sends {
+            assert_eq!((rows, error.as_deref()), (1, None), "a completed run leaves no error on the key (the tracker's \"Sync failed\")");
+            let paths: std::collections::BTreeSet<String> = requests.iter().map(|r| r.url.path().to_string()).collect();
+            assert!(paths.iter().all(|p| !p.contains("margin") && !p.contains("income")), "margin and futures are not read: {paths:?}");
+            assert_eq!(paths.len(), 15, "every other source is read: {paths:?}");
+        } else {
+            assert!(requests.is_empty(), "nothing is sent for a Binance.US key");
+            assert_eq!((rows, error.as_deref()), (0, None), "a completed run leaves no error on the key");
+        }
+    }
 }
 
 /// Utilities::Currency.exchange_rate holds a fiat rate 12 hours for every later reader. Through the live scheduler's own

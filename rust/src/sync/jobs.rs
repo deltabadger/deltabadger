@@ -8,7 +8,7 @@ use crate::engine::events::EngineEvent;
 use crate::jobs::data_api::PriceSource;
 use crate::jobs::schedule::{Jitter, Schedule};
 use crate::jobs::{Cx, Db, Job, JobFuture, AttributedJobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
-use super::{balance_reading_keys, credentials_with_version, ledger, reading_keys, Failure, SyncError, ALPACA};
+use super::{balance_reading_keys, credentials_with_version, ledger, ledger_reading_keys, Failure, SyncError, ALPACA};
 use crate::crypto::Credentials;
 use crate::venue::alpaca::{AlpacaVenue, LiveFactory};
 use crate::venue::http::{ReqwestTransport, Transport};
@@ -40,6 +40,8 @@ pub trait Connect {
     fn binance_base(&self, exchange_type: &str) -> Option<String> {
         crate::venue::binance::host(exchange_type).map(|(base, _)| base.to_string())
     }
+    /// How far apart a Binance ledger read's calls go; a test against a local server waits for nothing.
+    fn binance_pacing(&self) -> crate::sync::binance_ledger::Pacing { crate::sync::binance_ledger::Pacing::LIVE }
 }
 impl Connect for LiveFactory {
     fn ecb(&self) -> Option<crate::tracker::fx::Source> { Some(crate::tracker::fx::Source::Live(crate::tracker::fx::Plain::default())) }
@@ -138,7 +140,15 @@ impl<C: Connect> Job for LedgerSync<C> {
             let key = self.key_id.to_string();
             let at = cx.clock.now();
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
-            let outcome = outcome(ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await, |out| out.complete);
+            let done = match venue_of(&cx.db, self.key_id).await {
+                Err(e) => Err(e),
+                Ok((venue, proxy)) if crate::venue::binance::host(&venue).is_some() =>
+                    crate::sync::binance_ledger::sync_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()),
+                                                               &self.venues.binance_base(&venue).unwrap_or_default(), self.key_id, &credentials, cx.clock,
+                                                               self.venues.binance_pacing(), &version).await,
+                Ok(_) => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
+            };
+            let outcome = outcome(done, |out| out.complete);
             // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
@@ -197,13 +207,12 @@ impl<C: Connect> Job for BalanceSync<C> {
     }
 }
 
-/// The jobs of an install, for the scheduler's start: per reading Alpaca key (`ApiKey.reading`, what Rails' nightly
-/// jobs iterate) one ledger job, and per reading Alpaca, Binance or Binance.US key one balance job (the Binance ledger
-/// is not synced by this build yet), every ledger job before every balance job, so jobs due together run in Rails'
-/// order. New scopes are registered by the same constructors on their first wake.
+/// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance or Binance.US key (`ApiKey.reading`,
+/// what Rails' nightly jobs iterate) one ledger job and one balance job (a Binance.US ledger run reads nothing and
+/// completes), every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
     let mut jobs: Vec<Box<dyn Job>> = vec![];
-    for key in reading_keys(c)? { jobs.push(Box::new(LedgerSync::new(venues.clone(), key))); }
+    for key in ledger_reading_keys(c)? { jobs.push(Box::new(LedgerSync::new(venues.clone(), key))); }
     for key in balance_reading_keys(c)? { jobs.push(Box::new(BalanceSync::new(venues.clone(), prices.clone(), key))); }
     jobs.push(Box::new(ScopeFactory { venues: venues.clone(), prices }));
     Ok(jobs)
