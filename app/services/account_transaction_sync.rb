@@ -476,6 +476,7 @@ class AccountTransactionSync
 
       free = candidates.reject { |row| row.raw_data.key?('file_twin_at') }
       return false unless free.one?
+
       # The file's other rows that could take this API row too; one already paired is not a rival.
       rivals = @batch.count do |other|
         other[:tx_id].blank? && file_transfer?(other) && pairs?(free.first, other) &&
