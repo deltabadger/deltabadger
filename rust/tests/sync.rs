@@ -1658,7 +1658,11 @@ async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
         Mock::given(method("GET")).and(path("/sapi/v1/convert/tradeFlow")).respond_with(reply(json!({ "list": [], "moreData": false }))).mount(&server).await;
         Mock::given(method("GET")).and(path("/sapi/v1/fiat/payments")).respond_with(reply(json!({ "data": [], "total": 0 }))).mount(&server).await;
         Mock::given(method("GET")).and(path("/sapi/v1/asset/dribblet")).respond_with(reply(json!({ "total": 0, "userAssetDribblets": [] }))).mount(&server).await;
-        Mock::given(method("GET")).and(path_regex("^/sapi/v1/(asset/assetDividend|simple-earn/.*)$")).respond_with(reply(json!({ "rows": [], "total": 0 }))).mount(&server).await;
+        // Binance refuses flexible rewards without a `type`: answered only when one is sent.
+        Mock::given(method("GET")).and(path("/sapi/v1/simple-earn/flexible/history/rewardsRecord")).and(|r: &wiremock::Request| r.url.query_pairs().any(|(k, _)| k == "type"))
+            .respond_with(reply(json!({ "rows": [], "total": 0 }))).mount(&server).await;
+        Mock::given(method("GET")).and(path_regex("^/sapi/v1/(asset/assetDividend|simple-earn/(locked/.*|flexible/history/(subscription|redemption)Record))$"))
+            .respond_with(reply(json!({ "rows": [], "total": 0 }))).mount(&server).await;
         Mock::given(method("GET")).and(path_regex("^/(sapi/v1/capital/withdraw/history|api/v3/myTrades)$")).respond_with(reply(json!([]))).mount(&server).await;
         drop(c);
         // The scheduler's own run: it records the outcome, as it does every night.

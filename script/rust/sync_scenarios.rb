@@ -722,16 +722,19 @@ module SyncScenarios
                      { 'transId' => 4_359_322, 'serviceChargeAmount' => '0.000009', 'amount' => '1.5', 'operateTime' => 1_786_960_800_777, 'transferedAmount' => '0.000441',
                        'fromAsset' => 'XRP', 'targetAsset' => 'BNB' }] }],
       'dividends' => [{ 'id' => 1_637_366_104, 'amount' => '10.00000000', 'asset' => 'BNB', 'divTime' => at.(2026, 8, 18, 12), 'enInfo' => 'BNB Vault',
-                        'tranId' => 2_968_885_920, 'direction' => 1 }],
-      'earn' => { 'flexible_rewardsRecord' => [{ 'asset' => 'USDT', 'rewards' => '0.05000000', 'projectId' => 'USDT001', 'type' => 'REALTIME', 'time' => at.(2026, 8, 19) }] }
+                        'tranId' => 2_968_885_920, 'direction' => 1 }]
     }
     everything = basic.merge(others)
     second = everything.merge('trades' => { 'BTCUSDT' => btc + [P.bn_trade(102, 12, '62000', '0.001', t.(2026, 9, 19, 21), buyer: true, asset: 'BNB', commission: '0.0001')],
                                            'ETHBTC' => eth },
                               'converts' => others['converts'] + [others['converts'][0].merge('quoteId' => 'a1b2c3', 'fromAmount' => '40', 'toAmount' => '0.1',
                                                                                                'createTime' => at.(2026, 9, 21, 12))],
-                              'earn' => { 'flexible_rewardsRecord' => others['earn']['flexible_rewardsRecord'] +
-                                                                       [{ 'asset' => 'USDT', 'rewards' => '0.06', 'projectId' => 'USDT001', 'type' => 'REALTIME', 'time' => at.(2026, 9, 21) }] })
+                              'dividends' => others['dividends'] + [others['dividends'][0].merge('id' => 1_637_366_105, 'amount' => '2.5', 'divTime' => at.(2026, 9, 21))])
+    # Binance refuses flexible rewards without a `type` (-1102), which Rails never sends.
+    flexible = basic.merge('earn' => { 'flexible_rewardsRecord' => [
+      { 'asset' => 'USDT', 'rewards' => '0.05000000', 'projectId' => 'USDT001', 'type' => 'REALTIME', 'time' => at.(2026, 8, 19) },
+      { 'asset' => 'USDT', 'rewards' => '0.01000000', 'projectId' => 'USDT001', 'type' => 'BONUS', 'time' => at.(2026, 8, 19, 1) },
+      { 'asset' => 'BNB', 'rewards' => '0.00200000', 'projectId' => 'BNB001', 'type' => 'REWARDS', 'time' => at.(2026, 9, 3) }] })
     documented = basic.merge('earn' => {
       'locked_rewardsRecord' => [{ 'positionId' => '123123', 'time' => at.(2026, 8, 20), 'asset' => 'BNB', 'lockPeriod' => '30', 'amount' => '0.00120069', 'type' => 'Locked Rewards' }],
       'flexible_subscriptionRecord' => [{ 'amount' => '100.00000000', 'asset' => 'USDT', 'time' => at.(2026, 8, 21), 'purchaseId' => 26_055, 'productId' => 'USDT001',
@@ -748,9 +751,10 @@ module SyncScenarios
       # Two nights over every source; Rust's second night also runs on Rails' first (rust/tests/sync_parity.rs hand-over).
       { name: 'binance-ledger-two_nights', setup: ->(ctx) { P.binance(ctx) },
         steps: [P.binance_ledger(night, everything), P.binance_ledger('2026-09-22T02:00:00.250000Z', second)] },
+      { name: 'binance-ledger-flexible_rewards_type', setup: ->(ctx) { P.binance(ctx) }, steps: [P.binance_ledger(night, flexible)] },
       { name: 'binance-ledger-earn_documented_amounts', setup: ->(ctx) { P.binance(ctx) }, steps: [P.binance_ledger(night, documented)] },
       { name: 'binance-ledger-earn_fails', setup: ->(ctx) { P.binance(ctx) },
-        steps: [P.binance_ledger(night, everything.merge('fail' => { '/sapi/v1/simple-earn/flexible/history/rewardsRecord' => { 'status' => 400, 'body' => { 'code' => -1003, 'msg' => 'Too many requests.' } } }))] },
+        steps: [P.binance_ledger(night, documented.merge('fail' => { '/sapi/v1/simple-earn/locked/history/rewardsRecord' => { 'status' => 400, 'body' => { 'code' => -1003, 'msg' => 'Too many requests.' } } }))] },
       { name: 'binance-ledger-full', setup: ->(ctx) { P.binance(ctx) }, steps: [P.binance_ledger(night, basic)] },
       { name: 'binance-ledger-idle', setup: incremental.call(t.(2026, 9, 19, 2)) { |ctx| stored.call(ctx) },
         steps: [P.binance_ledger(night, later.merge('trades' => { 'BTCUSDT' => btc.first(1), 'ETHBTC' => eth }))] },

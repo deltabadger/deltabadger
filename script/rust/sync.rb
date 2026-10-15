@@ -99,7 +99,37 @@ module FakeBinance
 
   def applied(text) = (Time.utc(*text.scan(/\d+/).map(&:to_i)).to_r * 1000).to_i
 
+  # What Binance refuses before reading anything (rust/src/sync/parity.rs binance_refusal is the same table): a missing
+  # mandatory parameter (its docs, and `type` on flexible rewards, which Binance requires though its docs say
+  # otherwise), a signed path without its timestamp, and a window longer than the endpoint accepts.
+  MANDATORY = {
+    '/api/v3/exchangeInfo' => [], '/api/v3/myTrades' => %w[symbol timestamp], '/sapi/v1/convert/tradeFlow' => %w[startTime endTime timestamp],
+    '/sapi/v1/fiat/payments' => %w[transactionType timestamp], '/sapi/v1/simple-earn/flexible/history/rewardsRecord' => %w[type timestamp]
+  }.freeze
+
+  def max_days(path)
+    case path
+    when '/sapi/v1/capital/deposit/hisrec', '/sapi/v1/capital/withdraw/history' then 90
+    when '/sapi/v1/convert/tradeFlow', %r{\A/sapi/v1/simple-earn/} then 30
+    when '/sapi/v1/asset/assetDividend' then 180
+    when '/api/v3/myTrades' then 1
+    end
+  end
+
+  def refusal(path, query)
+    missing = MANDATORY.fetch(path, %w[timestamp]).find { |k| query[k].to_s.empty? }
+    return { 'status' => 400, 'body' => { 'code' => -1102, 'msg' => "Mandatory parameter '#{missing}' was not sent, was empty/null, or malformed." } } if missing
+
+    days = max_days(path)
+    return unless days && query['startTime'] && query['endTime'] && query['endTime'].to_i - query['startTime'].to_i > days * 86_400_000
+
+    { 'status' => 400, 'body' => { 'code' => -1127, 'msg' => "More than #{days * 24} hours between startTime and endTime." } }
+  end
+
   def reply(state, path, query)
+    refused = refusal(path, query)
+    return refused if refused
+
     failures = state.fetch('fail', {})
     failure = failures["#{path}?symbol=#{query['symbol']}"] || failures[path]
     return failure if failure
@@ -127,6 +157,7 @@ module FakeBinance
            when %r{\A/sapi/v1/simple-earn/}
              key = path.delete_prefix('/sapi/v1/simple-earn/').sub('/history/', '_')
              rows = between(state.fetch('earn', {}).fetch(key, []), query['startTime'], query['endTime']) { |r| r['time'] || r['deliverDate'] || r['createTime'] }
+             rows = rows.select { |r| r['type'] == query['type'] } if query['type'] && query['type'] != 'ALL'
              size = query.fetch('size', '10').to_i
              { 'rows' => rows.drop((query.fetch('current', '1').to_i - 1) * size).first(size), 'total' => rows.size }
            else EMPTY.fetch(path) { raise Harness::Unscripted, "fake Binance has no #{path}" }

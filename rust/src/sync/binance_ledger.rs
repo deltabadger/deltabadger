@@ -21,6 +21,8 @@
 //!   sync (Rails keeps the first page: 100 converts, 500 dividends, 100 dust sweeps);
 //! - withdrawal history (18000 of the 180000-a-minute account weight), converts (3000 account weight) and Simple Earn
 //!   (150 IP weight) are paced, as are the trade lists; Rails sends everything back to back;
+//! - flexible earn rewards are asked once per reward type, which Binance requires (Rails sends none, is refused, and
+//!   stores no flexible reward);
 //! - a Simple Earn row without Rails' amount field (`rewards`, `purchaseAmount`) is read from the `amount` Binance
 //!   documents for locked rewards, subscriptions and redemptions (Rails stores 0 for those);
 //! - an applyTime is read as UTC (Rails reads it in the process's zone);
@@ -92,9 +94,14 @@ pub const CONVERT_FROM_MS: i64 = 1_577_836_800_000; // 2020-01-01T00:00:00Z
 pub const DUST_FROM_MS: i64 = 1_606_780_800_000; // 2020-12-01T00:00:00Z
 /// Simple Earn's history endpoints opened in 2023; nothing older is served by them.
 pub const EARN_FROM_MS: i64 = 1_672_531_200_000; // 2023-01-01T00:00:00Z
-/// The longest window each source accepts: converts 30 days, dividends 180, Simple Earn three months. Fiat payments
-/// and dust document none; they are asked in the transfers' 89 days.
+/// The longest window each source accepts: converts and Simple Earn 30 days, dividends 180. Fiat payments and dust
+/// document none; they are asked in the transfers' 89 days.
 const CONVERT_DAYS: i64 = 30;
+const EARN_DAYS: i64 = 30;
+/// Flexible rewards are asked once per reward type: Binance refuses the call without one (-1102, "Mandatory parameter
+/// 'type'"), though its docs say it defaults to ALL. Rails sends none, so Binance refuses Rails' every call, and Rails
+/// skips the source in silence.
+const FLEXIBLE_REWARD_TYPES: [&str; 3] = ["BONUS", "REALTIME", "REWARDS"];
 const DIVIDEND_DAYS: i64 = 179;
 /// What one answer of an unpageable source holds at most: past it the window may be cut short.
 const CONVERT_LIMIT: usize = 1000;
@@ -119,9 +126,9 @@ pub struct Pacing { pub withdrawals: std::time::Duration, pub trades: std::time:
 impl Pacing {
     /// Withdrawals at 10 a minute (account weight 18000 of 180000), trades at 4000 of the 6000 IP weight a minute (20
     /// each; a full sync reads every pair of every coin held, a few thousand), converts at 40 a minute (3000 account
-    /// weight each), Simple Earn at 20 a minute (150 IP weight each).
+    /// weight each), Simple Earn at 30 a minute (150 IP weight each, 4500 of the 6000).
     pub const LIVE: Pacing = Pacing { withdrawals: std::time::Duration::from_secs(6), trades: std::time::Duration::from_millis(300),
-                                      converts: std::time::Duration::from_millis(1500), earn: std::time::Duration::from_secs(3) };
+                                      converts: std::time::Duration::from_millis(1500), earn: std::time::Duration::from_secs(2) };
     pub const NONE: Pacing = Pacing { withdrawals: std::time::Duration::ZERO, trades: std::time::Duration::ZERO, converts: std::time::Duration::ZERO, earn: std::time::Duration::ZERO };
 }
 
@@ -515,13 +522,15 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
         } else {
             (&["purchaseId", "redeemId", "time"], &["time", "createTime"], format!("Earn {}", prefix.replace('-', " ")))
         };
-        for (start, end) in windows(since.unwrap_or(EARN_FROM_MS), now, WINDOW_DAYS) {
+        let kinds: &[Option<&str>] = if path == EARN[0].0 { &[Some(FLEXIBLE_REWARD_TYPES[0]), Some(FLEXIBLE_REWARD_TYPES[1]), Some(FLEXIBLE_REWARD_TYPES[2])] } else { &[None] };
+        for (start, end) in windows(since.unwrap_or(EARN_FROM_MS), now, EARN_DAYS) { for kind in kinds {
             let mut current = 1;
             loop {
                 if calls > 0 { tokio::time::sleep(pacing.earn).await; }
                 calls += 1;
-                let page = object_at(venue, clock, path, vec![("startTime", start.to_string()), ("endTime", end.to_string()), ("current", current.to_string()),
-                                                             ("size", EARN_SIZE.to_string())]).await?;
+                let mut query = vec![("startTime", start.to_string()), ("endTime", end.to_string()), ("current", current.to_string()), ("size", EARN_SIZE.to_string())];
+                if let Some(kind) = kind { query.push(("type", kind.to_string())); }
+                let page = object_at(venue, clock, path, query).await?;
                 let rows = listed(&page, "rows", "earn record")?;
                 if rows.is_empty() { break; }
                 for row in &rows {
@@ -538,7 +547,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
                 if (current * EARN_SIZE) as i64 >= total(&page) { break; }
                 current += 1;
             }
-        }
+        } }
     }
     Ok(entries)
 }

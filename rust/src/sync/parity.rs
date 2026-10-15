@@ -138,8 +138,10 @@ impl FakeBinance {
                 let key = path.trim_start_matches("/sapi/v1/simple-earn/").replace("/history/", "_");
                 let (from, to) = (int("startTime"), int("endTime"));
                 let time = |r: &Value| ["time", "deliverDate", "createTime"].iter().find_map(|k| r[*k].as_i64());
+                let kind = q("type").filter(|k| k != "ALL");
                 let rows: Vec<Value> = self.state["earn"][&key].as_array().cloned().unwrap_or_default().into_iter()
-                    .filter(|r| time(r).is_some_and(|t| from.is_none_or(|f| t >= f) && to.is_none_or(|e| t <= e))).collect();
+                    .filter(|r| time(r).is_some_and(|t| from.is_none_or(|f| t >= f) && to.is_none_or(|e| t <= e)))
+                    .filter(|r| kind.as_deref().is_none_or(|k| r["type"] == k)).collect();
                 let (current, size) = (int("current").unwrap_or(1).max(1) as usize, int("size").unwrap_or(10) as usize);
                 json!({ "rows": rows.iter().skip((current - 1) * size).take(size).cloned().collect::<Vec<_>>(), "total": rows.len() })
             }
@@ -148,9 +150,43 @@ impl FakeBinance {
     }
 }
 
+/// What Binance refuses before reading anything, as script/rust/sync.rb's FakeBinance refuses it: a missing mandatory
+/// parameter (its docs, and `type` on flexible rewards, which Binance requires though its docs say otherwise), a
+/// signed path without its timestamp, and a window longer than the endpoint accepts.
+pub fn binance_refusal(path: &str, query: &[(String, String)]) -> Option<String> {
+    let has = |k: &str| query.iter().any(|(name, v)| name == k && !v.is_empty());
+    let int = |k: &str| query.iter().find(|(name, _)| name == k).and_then(|(_, v)| v.parse::<i64>().ok());
+    let mandatory: &[&str] = match path {
+        "/api/v3/exchangeInfo" => &[],
+        "/api/v3/myTrades" => &["symbol", "timestamp"],
+        "/sapi/v1/convert/tradeFlow" => &["startTime", "endTime", "timestamp"],
+        "/sapi/v1/fiat/payments" => &["transactionType", "timestamp"],
+        "/sapi/v1/simple-earn/flexible/history/rewardsRecord" => &["type", "timestamp"],
+        _ => &["timestamp"],
+    };
+    if let Some(missing) = mandatory.iter().find(|k| !has(k)) {
+        return Some(format!(r#"{{"code":-1102,"msg":"Mandatory parameter '{missing}' was not sent, was empty/null, or malformed."}}"#));
+    }
+    let days: Option<i64> = match path {
+        "/sapi/v1/capital/deposit/hisrec" | "/sapi/v1/capital/withdraw/history" => Some(90),
+        "/sapi/v1/convert/tradeFlow" => Some(30),
+        "/sapi/v1/asset/assetDividend" => Some(180),
+        p if p.starts_with("/sapi/v1/simple-earn/") => Some(30),
+        "/api/v3/myTrades" => Some(1),
+        _ => None,
+    };
+    match (days, int("startTime"), int("endTime")) {
+        (Some(days), Some(from), Some(to)) if to - from > days * 86_400_000 =>
+            Some(format!(r#"{{"code":-1127,"msg":"More than {} hours between startTime and endTime."}}"#, days * 24)),
+        _ => None,
+    }
+}
+
 impl Transport for FakeBinance {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         self.requests.borrow_mut().push(r.clone());
+        let query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+        if let Some(body) = binance_refusal(&r.path, &query) { return Ok(HttpResponse { status: 400, body }); }
         let symbol = r.query.iter().find(|(k, _)| *k == "symbol").map(|(_, v)| v.as_str()).unwrap_or_default();
         let fails = &self.state["fail"];
         if let Some(reply) = fails.get(format!("{}?symbol={symbol}", r.path)).or_else(|| fails.get(&r.path)) {
