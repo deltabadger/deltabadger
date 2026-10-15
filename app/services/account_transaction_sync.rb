@@ -430,6 +430,8 @@ class AccountTransactionSync
   end
 
   def pairs?(api, file)
+    return false unless file[:entry_type].to_s == api[:entry_type].to_s && file[:base_currency] == api[:base_currency]
+
     amount, from, to, bounds = file_side(api)
     return false unless amount && file[:transacted_at]
 
@@ -470,14 +472,30 @@ class AccountTransactionSync
 
     2.times do
       candidates = api_rows_for(entry)
-      return true if candidates.any? { |row| (twin = file_twin_at(row)) && (twin - at).abs < 1 }
+      return true if twinned?(candidates, at)
 
       free = candidates.reject { |row| row.raw_data.key?('file_twin_at') }
       return false unless free.one?
-      return false unless @batch.count { |other| other[:tx_id].blank? && file_transfer?(other) && pairs?(free.first, other) } == 1
+      # The file's other rows that could take this API row too; one already paired is not a rival.
+      rivals = @batch.count do |other|
+        other[:tx_id].blank? && file_transfer?(other) && pairs?(free.first, other) &&
+          (other.equal?(entry) || !paired?(other))
+      end
+      return false unless rivals == 1
       return true if stamp!(free.first, at)
     end
     false
+  end
+
+  # A file row whose pairing is written down: stored with an API row's id, or its date stamped on one.
+  # Stored without either, it is still free.
+  def paired?(entry)
+    same_events(entry, scope.where.not(tx_id: nil)).any? { |row| !api_transfer?(row) } ||
+      twinned?(api_rows_for(entry), entry[:transacted_at])
+  end
+
+  def twinned?(rows, at)
+    rows.any? { |row| (twin = file_twin_at(row)) && (twin - at).abs < 1 }
   end
 
   # The stored API rows this file row pairs with. An API row is dated when it was requested, so a

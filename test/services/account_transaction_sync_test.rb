@@ -555,6 +555,25 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 2, counts[:imported], 'one file, two equal deposits beside one API row'
   end
 
+  test 'an unrelated row in the same file is not a rival for the API row' do
+    at = Time.utc(2021, 7, 3, 10, 5)
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
+    counts = store(file_transfer(:deposit, '150.2', at), file_transfer(:deposit, '150.2', at, coin: 'BUSD'),
+                   file_transfer(:withdrawal, '150.2', at, coin: 'USDT'))
+    assert_equal 2, counts[:imported], 'the USDT deposit pairs; the BUSD deposit and the withdrawal are their own'
+    assert_equal at.iso8601(6), AccountTransaction.find_by!(tx_id: 'dep-1').raw_data['file_twin_at']
+  end
+
+  test 'a file row paired on an earlier import is not a rival on the next' do
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0), id: 'dep-a'))
+    assert_equal 0, store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 2)))[:imported]
+    store(api_deposit(at: Time.utc(2021, 7, 3, 10, 1), id: 'dep-b'))
+
+    counts = store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 2)), file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 3)))
+    assert_equal 0, counts[:imported], 'the expanded file adds nothing'
+    assert_equal Time.utc(2021, 7, 3, 10, 3).iso8601(6), AccountTransaction.find_by!(tx_id: 'dep-b').raw_data['file_twin_at']
+  end
+
   test 'a file row claims an API row once; a different file row later is its own' do
     store(api_deposit(at: Time.utc(2021, 7, 3, 10, 0)))
     assert_equal 0, store(file_transfer(:deposit, '150.2', Time.utc(2021, 7, 3, 10, 5)))[:imported]
