@@ -13,6 +13,10 @@ Turbo.StreamActions.redirect = function () {
   Turbo.visit(this.target);
 };
 
+Turbo.StreamActions.reload = function () {
+  window.location.assign(this.target);
+};
+
 Turbo.StreamActions.add_class = function () {
   const className = this.getAttribute("class-name");
   this.targetElements.forEach((element) => element.classList.add(className));

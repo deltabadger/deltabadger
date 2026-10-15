@@ -83,7 +83,9 @@ class SettingsController < ApplicationController
     if current_user.update(update_locale_params)
       flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
       new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
-      render turbo_stream: turbo_stream_redirect(settings_account_path(locale: new_locale))
+      # Reloaded whole: the account menu is turbo-permanent, and a visit would keep its links on the
+      # old locale's prefix, whose param then outranks the preference just saved.
+      render turbo_stream: turbo_stream_reload(settings_account_path(locale: new_locale))
     else
       render_preference_error
     end

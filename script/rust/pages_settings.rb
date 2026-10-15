@@ -180,6 +180,12 @@ module Pages
       grid["settings_origin_#{name}"] = settings_case(settings_write(action, { '_method' => 'patch' }.merge(form), 302,
                                                                      'headers' => TURBO.merge('Origin' => 'http://foreign.example')))
     end
+    # The way back to the default locale, from the prefixed page the switch was made on: the stream
+    # must reload the unprefixed page whole, or the permanent menu keeps its /de/ links.
+    grid['settings_write_locale_back_to_default'] =
+      settings_case(get('/de/settings/account'),
+                    settings_write('update_locale', { '_method' => 'patch', 'user[locale]' => 'en' }).merge('path' => '/de/settings/update_locale'),
+                    user: owner('locale' => 'de'))
     grid['settings_otp_enrollment'] = settings_case(get('/settings/edit_two_fa'), get('/settings/edit_two_fa'))
     grid['settings_otp_enable'] =
       settings_case(get('/settings/edit_two_fa'), settings_write('update_two_fa', { '_method' => 'patch', 'user[otp_code_token]' => code_at(AT) }))
