@@ -3,7 +3,7 @@
     Generate gate reads `[data-role="kind"]` and `[data-role="category"]` on every row and a missing
     one is `null.value` — a TypeError that disables the button silently, in the browser. %>
 <% kind_select = capture do %>
-  <select data-role="kind"
+  <select data-role="kind" class="rinput rinput--outline rinput--select"
           data-action="change->tracker-export#changeClassification">
     <option value=""><%= t('tracker.export_modal.classification_select') %></option>
     <% FundClassification.kinds.each_key do |kind| %>
@@ -14,7 +14,7 @@
 <%# The wrapper div is what changeClassification toggles, so it must stay the select's parent. %>
 <% category_select = capture do %>
   <div class="<%= 'hidden' unless row[:kind] == :fund %>">
-    <select data-role="category"
+    <select data-role="category" class="rinput rinput--outline rinput--select"
             data-action="change->tracker-export#changeClassification">
       <option value=""><%= t('tracker.export_modal.classification_select') %></option>
       <% FundClassification.fund_categories.each_key do |category| %>

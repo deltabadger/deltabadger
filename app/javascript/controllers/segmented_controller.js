@@ -70,7 +70,7 @@ export default class extends Controller {
     // The action slides the box to its own list and back slides it home. Both leave it open.
     if (event.target.closest(".segmented__option--action, .segmented__back")) return;
     // Everything else in here navigates, so the box has done its job.
-    if (event.target.closest(".segmented__option, .segmented__submenu-item")) return this.#close();
+    if (event.target.closest(".segmented__option, .dropdown__item")) return this.#close();
 
     this.element.classList.toggle("is-open");
     this.#listen(this.element.classList.contains("is-open"));

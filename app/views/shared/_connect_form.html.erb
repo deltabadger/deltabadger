@@ -13,22 +13,45 @@
       method                  - optional; :post unless told otherwise
       actions                 - optional html; a second control beside Connect (a Disconnect link)
       instructions_title      - optional; the label over the help block
-      instructions            - optional html; the walkthrough. None given, no help block. %>
-<div class="set-api set-api--connect">
-  <%= render 'shared/connect_brand', title: title, mark: mark, mark_class: local_assigns[:mark_class] %>
+      instructions            - optional html; the walkthrough. None given, no help block.
+      modal                   - optional; true inside a small modal: the name is the modal's title,
+                                the walkthrough comes before the actions, and the actions are the
+                                modal's footer. The fields come from the block, so they follow it too. %>
+<% modal = local_assigns[:modal] %>
+<div class="set-api set-api--connect <%= 'set-api--modal' if modal %>">
+  <% if modal %>
+    <div class="modal__header">
+      <h1 class="modal__title set-api__brand">
+        <span class="set-api__mark <%= local_assigns[:mark_class] %>" aria-hidden="true"><%= render mark %></span>
+        <%= title %>
+      </h1>
+    </div>
+  <% else %>
+    <%= render 'shared/connect_brand', title: title, mark: mark, mark_class: local_assigns[:mark_class] %>
+  <% end %>
+  <% instructions_html = capture do %>
+    <% if local_assigns[:instructions].present? %>
+      <section class="set-api__instructions">
+        <h3 class="set-api__eyebrow"><%= instructions_title %></h3>
+        <%= instructions %>
+      </section>
+    <% end %>
+  <% end %>
   <%= form_with model: local_assigns.fetch(:model, false), url: path, method: local_assigns.fetch(:method, :post),
                 data: form_data, class: "set-api__form form" do |f| %>
     <%= yield f %>
-    <div class="set-api__actions">
-      <%= f.submit t('button.connect'), class: "button button--sky",
+    <%= instructions_html if modal %>
+    <div class="<%= modal ? 'modal__footer' : 'set-api__actions' %>">
+      <%# The primary action sits last: centred in the card, rightmost in a modal's footer. %>
+      <% if modal %>
+        <%= button_tag t('button.cancel'), type: 'button', class: 'rbutton rbutton--secondary',
+                       data: { action: 'modal--base#animateOutCloseAndCleanUp' } %>
+        <%= local_assigns[:actions] %>
+      <% end %>
+      <%= f.submit t('button.connect'), class: (modal ? 'rbutton rbutton--primary' : 'button button--sky'),
                    data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
-      <%= local_assigns[:actions] %>
+      <%= local_assigns[:actions] unless modal %>
     </div>
   <% end %>
-  <% if local_assigns[:instructions].present? %>
-    <section class="set-api__instructions">
-      <h3 class="set-api__eyebrow"><%= instructions_title %></h3>
-      <%= instructions %>
-    </section>
-  <% end %>
+  <%= instructions_html unless modal %>
 </div>

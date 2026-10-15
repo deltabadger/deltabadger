@@ -52,7 +52,7 @@
         <div class="sitem" data-form--market-data-target="coingeckoFields" <%= 'hidden' unless selected == MarketDataSettings::PROVIDER_COINGECKO %>>
           <% if is_coingecko_configured %>
             <%= settings_row 'CoinGecko', t('settings.market_data.coingecko_configured') do %>
-              <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: 'rbutton rbutton--outline' %>
+              <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: 'rbutton rbutton--secondary' %>
               <%= render 'settings/confirm', label: t('settings.market_data.disconnect'), text: t('settings.index.api_key_confirmation'),
                                              confirm: t('settings.market_data.disconnect'), url: settings_disconnect_market_data_path %>
             <% end %>
@@ -62,7 +62,7 @@
               <%= f.hidden_field :market_data_provider, value: MarketDataSettings::PROVIDER_COINGECKO %>
               <%= f.text_field :coingecko_api_key, required: true, autocomplete: 'off', class: 'rinput rinput--outline rinput--text',
                                                    placeholder: t('setup.coingecko_api_key'), aria: { label: t('setup.coingecko_api_key') } %>
-              <%= f.submit t('button.connect'), class: 'rbutton rbutton--outline',
+              <%= f.submit t('button.connect'), class: 'rbutton rbutton--secondary',
                            data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
               <details class="shelp">
                 <summary><%= t('bot.setup.how_to_get_keys', exchange: 'CoinGecko') %></summary>
@@ -83,7 +83,7 @@
               <p class="srow__hint"><%= t('settings.platform.subscription_html') %></p>
               <%= f.text_field :claim_code, required: true, autocomplete: 'off', class: 'rinput rinput--outline rinput--text',
                                             placeholder: t('settings.platform.code'), aria: { label: t('settings.platform.code') } %>
-              <%= f.submit t('button.connect'), class: 'rbutton rbutton--outline',
+              <%= f.submit t('button.connect'), class: 'rbutton rbutton--secondary',
                            data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
             <% end %>
           <% end %>

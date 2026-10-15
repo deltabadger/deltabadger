@@ -1,6 +1,8 @@
 <%# A venue's key form: the connect card with the venue's own fields.
     locals: exchange, api_key, path, form_data,
-            instructions_partial (optional) - replaces the venue's default walkthrough %>
+            instructions_partial (optional) - replaces the venue's default walkthrough
+            modal (optional)                - see shared/connect_form %>
+<% modal = local_assigns[:modal] %>
 <% instructions = if local_assigns[:instructions_partial]
                     render(partial: instructions_partial, locals: { exchange: exchange })
                   else
@@ -12,7 +14,7 @@
       mark_class: "sbutton--exchange--#{exchange.name_id}",
       model: api_key, path: path, form_data: form_data,
       instructions_title: t('bot.setup.how_to_get_keys', exchange: exchange.name),
-      instructions: instructions
+      instructions: instructions, modal: modal
     } do |f| %>
   <% if exchange.is_a?(Exchanges::Alpaca) %>
     <%# Paper or Live, asked before the keys since it decides which dashboard they come from. The
@@ -29,18 +31,34 @@
   <% end %>
   <%# value: nil on every credential. The form is bound to the stored row, which on a reconnect or a
       replacement is a key that may still be trading — its secret has no business in the page. %>
-  <div class="form__row form__row--input">
-    <%= f.text_field :key, value: nil, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input" %>
-    <%= f.label :key, api_key_field_label(exchange, :public_key), class: "form__label" %>
-  </div>
-  <div class="form__row form__row--input">
-    <%= f.text_field :secret, value: nil, autocomplete: "off", class: "form__input" %>
-    <%= f.label :secret, api_key_field_label(exchange, :private_key), class: "form__label" %>
-  </div>
-  <% if exchange.requires_passphrase? && !exchange.is_a?(Exchanges::Alpaca) %>
+  <% if modal %>
+    <%= settings_row api_key_field_label(exchange, :public_key) do %>
+      <%= f.text_field :key, value: nil, autofocus: true, autocomplete: "off", data: { controller: "autofocus" },
+                             class: "rinput rinput--outline rinput--text", aria: { label: api_key_field_label(exchange, :public_key) } %>
+    <% end %>
+    <%= settings_row api_key_field_label(exchange, :private_key) do %>
+      <%= f.text_field :secret, value: nil, autocomplete: "off",
+                                class: "rinput rinput--outline rinput--text", aria: { label: api_key_field_label(exchange, :private_key) } %>
+    <% end %>
+    <% if exchange.requires_passphrase? && !exchange.is_a?(Exchanges::Alpaca) %>
+      <%= settings_row 'API Passphrase' do %>
+        <%= f.text_field :passphrase, value: nil, autocomplete: "off", class: "rinput rinput--outline rinput--text", aria: { label: 'API Passphrase' } %>
+      <% end %>
+    <% end %>
+  <% else %>
     <div class="form__row form__row--input">
-      <%= f.text_field :passphrase, value: nil, autocomplete: "off", class: "form__input" %>
-      <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
+      <%= f.text_field :key, value: nil, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input" %>
+      <%= f.label :key, api_key_field_label(exchange, :public_key), class: "form__label" %>
     </div>
+    <div class="form__row form__row--input">
+      <%= f.text_field :secret, value: nil, autocomplete: "off", class: "form__input" %>
+      <%= f.label :secret, api_key_field_label(exchange, :private_key), class: "form__label" %>
+    </div>
+    <% if exchange.requires_passphrase? && !exchange.is_a?(Exchanges::Alpaca) %>
+      <div class="form__row form__row--input">
+        <%= f.text_field :passphrase, value: nil, autocomplete: "off", class: "form__input" %>
+        <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
+      </div>
+    <% end %>
   <% end %>
 <% end %>

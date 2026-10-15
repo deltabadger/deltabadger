@@ -411,7 +411,7 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_response :success
-    venues = css_select('.segmented__submenu-item')
+    venues = css_select('.segmented__submenu a.dropdown__item')
     # Brokers lead, each group by name. Binance and Coinbase are already on the switch, and
     # Bitmart is retired — there is nothing left to connect to.
     assert_equal(['Alpaca', 'Interactive Brokers', 'Kraken'], venues.map { |a| a.text.strip })

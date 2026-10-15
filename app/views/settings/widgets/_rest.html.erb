@@ -20,7 +20,7 @@
   <% end %>
 
   <%= settings_row t('settings.rest.docs') do %>
-    <%= link_to settings_download_api_docs_path, class: 'rbutton rbutton--outline', title: t('settings.rest.download_api_docs'),
+    <%= link_to settings_download_api_docs_path, class: 'rbutton rbutton--secondary', title: t('settings.rest.download_api_docs'),
                 data: { turbo: false } do %>deltabadger-api.md<% end %>
   <% end %>
 <% end %>

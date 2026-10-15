@@ -12,8 +12,10 @@
     <p><%= t('bot.warning.buffer_explanation', count: skipped_count) %></p>
 
     <p><%= t('bot.warning.general_note') %></p>
-    <%= button_tag type: 'button', class: 'button button--sky button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-      <%= t('button.understand') %>
-    <% end %>
+    <div class="modal__footer">
+      <%= button_tag type: 'button', class: 'rbutton rbutton--primary', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= t('button.understand') %>
+      <% end %>
+    </div>
   </div>
 <% end %>

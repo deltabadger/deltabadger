@@ -13,9 +13,9 @@
                             action: 'turbo:submit-end->modal--base#submitEnd ' \
                                     'change->form--checkbox-enables#toggleSubmitButton' } do %>
         <%= render 'bots/wash_sale_prompts/question' %>
-        <div class="buttons">
+        <div class="modal__footer">
           <%= button_tag t('settings.wash_sale.confirm'), type: :submit, disabled: true,
-                         class: 'button button--sky button--large',
+                         class: 'rbutton rbutton--primary',
                          data: { form__checkbox_enables_target: 'submit' } %>
         </div>
       <% end %>

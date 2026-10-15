@@ -100,10 +100,13 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_select '.modal .set-api--connect' do
-      assert_select 'h2.set-api__title', text: 'Connect CoinGecko'
+      # A small modal's look: its title names the card, the key is an .rinput, Connect is the footer.
+      assert_select '.modal__header h1.modal__title', text: /Connect CoinGecko/
       assert_select '.set-api__note', minimum: 1
-      assert_select 'input[name=api_key].form__input[autofocus]', count: 1
-      assert_select 'input[type=submit][value=Connect][data-turbo-submits-with="Validating…"]'
+      assert_select 'input[name=api_key].rinput[autofocus]', count: 1
+      assert_select '.form__input', count: 0
+      assert_select '.modal__footer input[type=submit].rbutton[value=Connect][data-turbo-submits-with="Validating…"]'
+      assert_select '.modal__footer button[type=button].rbutton--secondary', text: 'Cancel'
       assert_select '.set-api__instructions ol li', count: 7
     end
   end

@@ -4,7 +4,7 @@
 <%= turbo_frame_tag 'two_fa', class: 'sitem' do %>
   <div>
     <%= settings_row t('settings.index.two_factor_section') do %>
-      <%= link_to t('button.cancel'), settings_account_path, class: 'rbutton rbutton--outline' %>
+      <%= link_to t('button.cancel'), settings_account_path, class: 'rbutton rbutton--secondary' %>
     <% end %>
     <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, class: 'sform sform--stack' do |f| %>
       <%= render 'settings/qr_code', qr_code: @qr_code if @qr_code.present? %>
@@ -12,7 +12,7 @@
                                         inputmode: 'numeric', placeholder: t('helpers.label.settings.enter_two_fa_code'),
                                         aria: { label: t('helpers.label.settings.enter_two_fa_code') } %>
       <%= f.submit t(enabled ? 'helpers.label.settings.disable_two_fa' : 'helpers.label.settings.enable_two_fa'),
-                   class: "rbutton rbutton--outline #{'rbutton--danger' if enabled}" %>
+                   class: "rbutton rbutton--secondary #{'rbutton--danger' if enabled}" %>
     <% end %>
   </div>
 <% end %>

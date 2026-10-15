@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = [
-    "typeRadio", "taxOptions", "transactionsOptions", "country", "year",
+    "exportType", "taxOptions", "transactionsOptions", "country", "year",
     "downloadBtn", "stablecoinOption", "stablecoinCheckbox", "dateFrom", "dateTo",
     "scopeRow", "scopeRadio", "classificationPanel", "classificationRow", "saveError"
   ]
@@ -14,6 +14,11 @@ export default class extends Controller {
   toggle() {
     this.updateVisibility()
     this.save()
+  }
+
+  changeType(event) {
+    this.exportTypeTarget.value = event.detail.value
+    this.toggle()
   }
 
   changeYear() { this.save() }
@@ -128,7 +133,7 @@ export default class extends Controller {
 
   updateGenerateAvailability() {
     const complete = !this.isBroker || (this.classificationsComplete && !this.saveFailed)
-    this.downloadBtnTarget.classList.toggle("button--disabled", !complete)
+    this.downloadBtnTarget.classList.toggle("rbutton--disabled", !complete)
     if (this.hasSaveErrorTarget) {
       this.saveErrorTarget.classList.toggle("hidden", !(this.isBroker && this.saveFailed))
     }
@@ -183,7 +188,7 @@ export default class extends Controller {
     }
   }
 
-  get exportType() { return this.typeRadioTargets.find(r => r.checked)?.value }
+  get exportType() { return this.exportTypeTarget.value }
   get isGermany() { return this.countryTarget.value === "DE" }
   // The scope radios stay physically checked when the row hides (another country, or the plain
   // transactions export), so broker mode is what the row's visibility conditions AND the radio say.

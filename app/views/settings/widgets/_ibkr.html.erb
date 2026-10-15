@@ -11,6 +11,6 @@
               end %>
   <%= settings_row t('settings.ibkr.widget_title'), status, id: 'ibkr_settings' do %>
     <%= link_to(ibkr_key ? t('settings.ibkr.manage') : t('settings.ibkr.connect_cta'),
-                settings_ibkr_connect_path, class: 'rbutton rbutton--outline', data: { turbo_frame: '_top' }) %>
+                settings_ibkr_connect_path, class: 'rbutton rbutton--secondary', data: { turbo_frame: '_top' }) %>
   <% end %>
 <% end %>

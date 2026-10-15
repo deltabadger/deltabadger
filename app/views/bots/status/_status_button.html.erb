@@ -6,7 +6,7 @@
 <%# A Start that cannot start: the tile's stays a --start (white glyph) on grey, the bot page's
     drops it for a white button with a grey glyph. %>
 <% start_class = "#{size} #{cannot_start ? (tile ? 'rbutton--start rbutton--disabled' : 'rbutton--disabled') : 'rbutton--start'}" %>
-<%= tag.div id: dom_id(bot, tile ? :tile_status_button : :status_button) do %>
+<%= tag.div id: dom_id(bot, tile ? :tile_status_button : :status_button), class: ("buttons-no-outline" unless tile) do %>
   <% if bot.archived? %>
     <%# The Start button's slot, reading Reactivate: one click puts the bot back where archiving
         found it, and only then can it be started again. %>
@@ -21,7 +21,7 @@
       </p>
     <% end %>
     <% if !bot.stopped? && !bot.created? %>
-      <%= button_to bot_stop_path(bot), method: :patch, class: tile ? "#{size} rbutton--stop" : size, data: { hw_animate_out: "animate-button-to-start-shape", turbo_frame: "_top" }, aria: { label: t('button.stop') } do %>
+      <%= button_to bot_stop_path(bot), method: :patch, class: tile ? "#{size} rbutton--stop" : "#{size} rbutton--secondary", data: { hw_animate_out: "animate-button-to-start-shape", turbo_frame: "_top" }, aria: { label: t('button.stop') } do %>
         <div class="animicon animicon--stop">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
