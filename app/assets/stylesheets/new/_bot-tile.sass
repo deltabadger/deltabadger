@@ -3,6 +3,21 @@
 .bot-tile
   padding: 2rem
   cursor: pointer
+  // The whole tile opens the bot: the title link's box is stretched over the tile, and the
+  // controls (Start/Stop, links in the status bar) sit above it. A disabled button lets the
+  // click through, so it opens the bot too. The link stays draggable="false", so pressing on
+  // it still picks the tile up for reordering.
+  position: relative
+  > a::after
+    content: ""
+    position: absolute
+    inset: 0
+    border-radius: inherit
+  .bot-control a, .bot-control button, .bot-control form, .bot-control .dropdown-wrapper
+    position: relative
+    z-index: 1
+  .bot-control button:disabled, .bot-control form:has(button:disabled)
+    pointer-events: none
   gap: 0rem
   border-radius: 2rem
   // The reserved spot the dragged tile will land in. A real element rather than the dragged tile
