@@ -111,6 +111,18 @@ it:
         account: Account
         sign_up: 'Registrati'
     settings:
+        sections:
+            mcp_server: 'Server MCP'
+            profile: 'Profilo'
+            preferences: 'Preferenze'
+            security: 'Sicurezza'
+            instance: 'Istanza'
+            language: 'Lingua'
+            time_zone: 'Fuso orario'
+            change: 'Modifica'
+            no_keys: 'Ancora nessuna chiave API.'
+            permissions: 'Permessi'
+            provider: 'Fornitore'
         wash_sale:
             title: "Protezione della perdita deducibile"
             sentence_html: "Non ricomprare per %{select_html} dopo una vendita in perdita"

@@ -86,7 +86,7 @@ if (window.__IS_TAURI__) {
             if (!button) return;
             e.preventDefault();
 
-            const status = button.parentElement.querySelector('[data-desktop-update-status]');
+            const status = button.closest('#app_update')?.querySelector('[data-desktop-update-status]');
             const idle = button.textContent;
             button.disabled = true;
             button.textContent = button.dataset.desktopUpdateChecking;

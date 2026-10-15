@@ -30,7 +30,7 @@ pub const ACTIONS: [&str; 6] = [
 ];
 
 /// SettingsController::REDACTED: a stored secret as the page shows it; submitted back, it keeps what is stored.
-const REDACTED: &str = "[redacted]";
+pub(super) const REDACTED: &str = "[redacted]";
 
 fn stream(body: String) -> Response {
     ([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response()

@@ -60,6 +60,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
         .next()
         .unwrap_or("")
         .to_string();
+    let saved_action = action.clone();
     let checked = if action == "update_email" || action == "update_password" {
         app.password_check(
             ctx.params
@@ -230,14 +231,66 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
             .and_then(crate::web::locale::known)
             .unwrap_or(i18n::DEFAULT);
         flash::set(&ctx.session, flash::NOTICE, i18n::text(locale, notice, &[]));
-        Ok(stream(turbo::reload(&crate::web::locale::path(
-            locale,
-            "/settings/account",
-        ))))
+        // Reloaded whole: the account menu is turbo-permanent, and a visit would keep its links on the
+        // old locale's prefix, whose param then outranks the preference just saved.
+        Ok(stream(turbo::reload(&page_behind(&_headers, locale))))
     } else {
-        flash::set(&ctx.session, flash::NOTICE, ctx.t(notice));
-        Ok(stream(turbo::refresh().into()))
+        // render_row: the saved row answers with itself and a flash. A page refresh would re-render the
+        // page behind, where the dialog's frame is empty, and close it under the user.
+        let (frame, id, v) = (saved_action, user.id, ctx.clone());
+        let csrf = ctx.csrf_token();
+        let (target, row) = app
+            .db(move |c| {
+                let Some(saved) = User::find(c, id)? else { return Err(WebError::Config("account no longer exists".into())) };
+                let none = std::collections::BTreeMap::new();
+                let errors = super::sections::Errors(&none);
+                Ok(match frame.as_str() {
+                    "update_email" => {
+                        let pending: Option<String> = c.query_row("SELECT unconfirmed_email FROM users WHERE id=?1", [id], |r| r.get(0))?;
+                        let hint = match pending.filter(|p| !p.is_empty()) {
+                            Some(pending) => i18n::text(v.locale, "devise.registrations.edit.awaiting_confirmation", &[("email", i18n::Arg::Text(&pending))]),
+                            None => saved.email.clone(),
+                        };
+                        ("update_email_form", super::sections::email(&v, &csrf, &hint, &errors))
+                    }
+                    "update_password" => ("update_password_form", super::sections::password(&v, &csrf, &saved.email, &errors)),
+                    _ => ("update_time_zone_form", view::time_zone_row(&v, &csrf, &saved.time_zone)),
+                })
+            })
+            .await?;
+        let flash = flash::render(&flash::take(&ctx.session, &[(flash::NOTICE, ctx.t(notice))]))?;
+        Ok(stream(turbo::stream("replace", target, &row) + &turbo::prepend_flash(flash.trim_end())))
     }
+}
+
+/// SettingsController#page_behind_path: the page the dialog was opened over, in `locale`, with the dialog
+/// open on it again. Only the Referer's path is used, and only one starting with a single slash, so the
+/// reload never leaves this app; a settings page has nothing behind it and stays itself.
+fn page_behind(headers: &HeaderMap, locale: &str) -> String {
+    let settings = crate::web::locale::path(locale, "/settings/account");
+    let referer = headers.get(header::REFERER).and_then(|v| v.to_str().ok()).unwrap_or("");
+    let path = match referer.split_once("://") {
+        Some((_, rest)) => rest.find('/').map_or("", |at| &rest[at..]),
+        None => referer,
+    };
+    let path = path.split(['?', '#']).next().unwrap_or("");
+    if !path.starts_with('/') || path.starts_with("//") {
+        return settings;
+    }
+    let mut rest = path;
+    if let Some(after) = path.strip_prefix('/') {
+        let segment = after.split('/').next().unwrap_or("");
+        if crate::web::locale::known(segment).is_some() {
+            rest = &path[1 + segment.len()..];
+        }
+    }
+    let rest = if rest.is_empty() { "/" } else { rest };
+    if rest == "/settings" || rest.starts_with("/settings/") {
+        return settings;
+    }
+    let prefix = if locale == i18n::DEFAULT { String::new() } else { format!("/{locale}") };
+    let target = if prefix.is_empty() || rest != "/" { format!("{prefix}{rest}") } else { prefix };
+    format!("{target}?settings=account")
 }
 
 /// User save validations at confirmation, after Devise's normalization and before any row effect.

@@ -1,14 +1,16 @@
+<%# The clients of this surface: every client except one that holds only the other surface's scope,
+    so no client is ever missing from both lists — a client the user cannot see is one they cannot
+    revoke. A client holding both appears in both; revoking it from either disconnects it whole. %>
 <%= turbo_frame_tag 'connected_clients' do %>
-  <div class="widget widget--settings">
-    <h4 class="modal__title"><%= t('settings.mcp.connected_clients') %></h4>
-    <% clients = connected_applications.order(created_at: :desc) %>
-    <% if clients.any? %>
-      <p class="text-center" style="text-wrap: balance"><%= t('settings.mcp.client_permissions_hint') %></p>
-      <div class="connected-clients">
-        <%= render partial: 'settings/widgets/connected_client', collection: clients, as: :application %>
-      </div>
-    <% else %>
-      <p class="text-center"><%= t('settings.mcp.no_clients') %></p>
-    <% end %>
-  </div>
+  <h3 class="settings__heading"><%= t('settings.mcp.connected_clients') %></h3>
+  <% own, other = surface == 'mcp' ? %w[mcp api] : %w[api mcp] %>
+  <% clients = connected_applications.order(created_at: :desc).reject do |application|
+       application.scopes.exists?(other) && !application.scopes.exists?(own)
+     end %>
+  <% if clients.any? %>
+    <p class="settings__intro"><%= t('settings.mcp.client_permissions_hint') %></p>
+    <%= render partial: 'settings/widgets/connected_client', collection: clients, as: :application, locals: { surface: surface } %>
+  <% else %>
+    <p class="settings__empty"><%= t('settings.mcp.no_clients') %></p>
+  <% end %>
 <% end %>

@@ -12,19 +12,19 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
 
   # ---- widget render ------------------------------------------------------
 
-  # REST shares the tool matrix with MCP: its switches live in the REST column of the same
-  # table, one per REST tool plus one per REST group, and nowhere else.
-  test 'the REST column carries one switch per REST tool and one per REST group' do
+  # The REST section's own tool list: one switch per REST tool plus one per REST group, and
+  # nowhere else.
+  test 'the REST section carries one switch per REST tool and one per REST group' do
     get settings_api_path
     assert_response :success
-    assert_select 'turbo-frame#tool_permissions td[data-surface=rest] form',
+    assert_select 'turbo-frame#tool_permissions .srow[data-surface=rest] form',
                   AppConfig::REST_TOOL_DEFAULTS.size + AppConfig::REST_TOOL_GROUPS.size
     AppConfig::REST_TOOL_DEFAULTS.each_key do |tool|
-      assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=rest] form[action=?]",
+      assert_select "turbo-frame#tool_permissions .srow--tool[data-tool=#{tool}][data-surface=rest] form[action=?]",
                     settings_update_rest_tool_permissions_path, 1
     end
     AppConfig::REST_TOOL_GROUPS.each_key do |group|
-      assert_select "tr.permissions__group[data-group=#{group}] td[data-surface=rest] form[action=?]",
+      assert_select "turbo-frame#tool_permissions .srow--group[data-group=#{group}][data-surface=rest] form[action=?]",
                     settings_update_rest_tool_group_permissions_path, 1
     end
     assert_select 'turbo-frame#rest_settings input[name=tool_name]', 0
@@ -34,18 +34,19 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
   test 'every tool and every group has a REST switch' do
     get settings_api_path
     AppConfig::TOOL_GROUPS.each do |group, tools|
-      assert_select "tr.permissions__group[data-group=#{group}] td[data-surface=rest] form", 1
+      assert_select "turbo-frame#tool_permissions .srow--group[data-group=#{group}][data-surface=rest] form", 1
       tools.each do |tool|
-        assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=rest] form", 1
+        assert_select "turbo-frame#tool_permissions .srow--tool[data-tool=#{tool}][data-surface=rest] form", 1
       end
     end
   end
 
-  test 'REST widget renders alongside the MCP widget (both present on the page)' do
+  test 'the REST section carries the REST surface, not the MCP one' do
     get settings_api_path
     assert_response :success
-    assert_select 'turbo-frame#mcp_settings'
     assert_select 'turbo-frame#rest_settings'
+    assert_select 'turbo-frame#mcp_settings', 0
+    assert_select 'turbo-frame#tool_permissions .srow[data-surface=mcp]', 0
   end
 
   test 'a REST tool switch re-renders the permissions and the clients, not the REST widget' do

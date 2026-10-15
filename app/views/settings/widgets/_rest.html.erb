@@ -1,30 +1,26 @@
-<%= turbo_frame_tag "rest_settings" do %>
-  <div class="widget widget--settings">
-    <h4 class="modal__title"><%= t('settings.rest.title') %></h4>
-    <p class="text-center" style="text-wrap: balance"><%= t('settings.rest.description') %></p>
+<%= turbo_frame_tag 'rest_settings' do %>
+  <h3 class="settings__heading settings__heading--first"><%= t('settings.rest.title') %></h3>
+  <p class="settings__intro"><%= t('settings.rest.description') %></p>
 
-    <%# Minted on first visit, but shown only in the response to Regenerate: a page load carries no secret. %>
-    <% token = current_user.personal_api_token.token %>
-    <% token = SettingsController::REDACTED unless local_assigns[:reveal_token] %>
-    <dl class="settings-kv">
-      <dt class="label">URL</dt>
-      <dd><%= render 'settings/widgets/copy_tag', value: AppConfig.api_url, id: 'rest_api_url_display' %></dd>
+  <%# Minted on first visit, but shown only in the response to Regenerate: a page load carries no secret. %>
+  <% token = current_user.personal_api_token.token %>
+  <% token = SettingsController::REDACTED unless local_assigns[:reveal_token] %>
 
-      <dt class="label"><%= t('settings.rest.token') %></dt>
-      <dd>
-        <%# When revealed, shown in full, not masked: over plain http from another machine there is no
-            Clipboard API, and a token that can only be copied is then a token that cannot be had at all. %>
-        <%= render 'settings/widgets/copy_tag', value: token %>
-        <%= button_to t('settings.rest.regenerate_token'), settings_regenerate_api_token_path, method: :post,
-                      form: { data: { turbo_frame: 'rest_settings', turbo_confirm: t('settings.rest.regenerate_confirm') } },
-                      class: 'sbutton sbutton--outline' %>
-      </dd>
+  <%= settings_row 'URL' do %>
+    <%= render 'settings/widgets/copy_tag', value: AppConfig.api_url, id: 'rest_api_url_display' %>
+  <% end %>
 
-      <dt class="label"><%= t('settings.rest.docs') %></dt>
-      <dd>
-        <%= link_to settings_download_api_docs_path, class: 'tag tag--copy', title: t('settings.rest.download_api_docs'),
-                    data: { turbo: false } do %><%= render 'svg/24x24_doc' %>deltabadger-api.md<% end %>
-      </dd>
-    </dl>
-  </div>
+  <%= settings_row t('settings.rest.token'), class: 'srow--token' do %>
+    <%# When revealed, shown in full, not masked: over plain http from another machine there is no
+        Clipboard API, and a token that can only be copied is then a token that cannot be had at all. %>
+    <%= render 'settings/widgets/copy_tag', value: token %>
+    <%= render 'settings/confirm', label: t('settings.rest.regenerate_token'), text: t('settings.rest.regenerate_confirm'),
+                                   confirm: t('settings.rest.regenerate_token'), url: settings_regenerate_api_token_path,
+                                   method: :post %>
+  <% end %>
+
+  <%= settings_row t('settings.rest.docs') do %>
+    <%= link_to settings_download_api_docs_path, class: 'rbutton rbutton--outline', title: t('settings.rest.download_api_docs'),
+                data: { turbo: false } do %>deltabadger-api.md<% end %>
+  <% end %>
 <% end %>

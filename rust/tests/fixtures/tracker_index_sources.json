@@ -6,8 +6,8 @@
   "app/models/market_data_settings.rb": "bfce12f2ccc37d11ef7ef9261850fc86d47cf5554877750059b42e81e62f66fa",
   "app/views/tracker/index.html.erb": "9d658aec7fa0c09980f3c31a2832fe761f3fad2d6c4eac34e1ff7a43bdb6392f",
   "app/views/tracker/_sync_warnings.html.erb": "4adc392f2c544a32942fe30e2d7fe459c0cfebd9eea66be955609a1961c64cbb",
-  "app/views/layouts/application.html.erb": "770fd5dc6ae462df7ab1af4901c781a9133b98fafb3bdc817b43cf8ca2243f59",
-  "app/views/layouts/navbar/_signed_in.html.haml": "eda7d670abe7d065c4eeba8d3a2c7e6bb0900be9f8dfc71ee5ddb1a3550ee5a7",
+  "app/views/layouts/application.html.erb": "7fc3d49fdc000849bce981b93b8ac8eae87f8eb2d41b04f9778a7472046faca1",
+  "app/views/layouts/navbar/_signed_in.html.haml": "0618ea5d162cdce964174df79e7fe3ac1fdce5b7e496ece222cd6bd554125b49",
   "app/views/layouts/navbar/_display_currency_picker.html.haml": "42298a723a04fde3abfc2a19c71ba89b9a041eb99feffdbc19d3035b8aecadd3",
   "app/views/layouts/navbar/_hide_balances_toggle.html.haml": "09f78c76bd26982edc6d4db7603ee407cf2427d89cf08bf69f70bc073d54b084"
 }

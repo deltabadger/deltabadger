@@ -111,6 +111,18 @@ nl:
         account: Account
         sign_up: Registreren
     settings:
+        sections:
+            mcp_server: 'MCP-server'
+            profile: 'Profiel'
+            preferences: 'Voorkeuren'
+            security: 'Beveiliging'
+            instance: 'Instantie'
+            language: 'Taal'
+            time_zone: 'Tijdzone'
+            change: 'Wijzigen'
+            no_keys: 'Nog geen API-sleutels.'
+            permissions: 'Rechten'
+            provider: 'Aanbieder'
         wash_sale:
             title: "Verliesaftrek beschermen"
             sentence_html: "Na een verkoop met verlies %{select_html} niet terugkopen"

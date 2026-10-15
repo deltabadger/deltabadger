@@ -111,6 +111,18 @@ da:
         account: Konto
         sign_up: 'Opret konto'
     settings:
+        sections:
+            mcp_server: 'MCP-server'
+            profile: 'Profil'
+            preferences: 'Præferencer'
+            security: 'Sikkerhed'
+            instance: 'Instans'
+            language: 'Sprog'
+            time_zone: 'Tidszone'
+            change: 'Skift'
+            no_keys: 'Ingen API-nøgler endnu.'
+            permissions: 'Tilladelser'
+            provider: 'Udbyder'
         wash_sale:
             title: "Beskyttelse af tabsfradrag"
             sentence_html: "Køb ikke tilbage i %{select_html} efter et salg med tab"

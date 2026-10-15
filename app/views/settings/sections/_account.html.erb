@@ -1,0 +1,22 @@
+<h3 class="settings__heading settings__heading--first"><%= t('settings.sections.profile') %></h3>
+<%= render 'settings/widgets/name' %>
+<%= render 'settings/widgets/email' %>
+<%= render 'settings/widgets/password' %>
+
+<h3 class="settings__heading"><%= t('settings.sections.preferences') %></h3>
+<%= render 'settings/widgets/locale' %>
+<%= render 'settings/widgets/time_zone' %>
+
+<h3 class="settings__heading"><%= t('settings.sections.security') %></h3>
+<%= render 'settings/widgets/two_fa' %>
+
+<h3 class="settings__heading"><%= t('links.bots') %></h3>
+<%= render 'settings/widgets/advanced_bots' %>
+<%= render 'settings/widgets/wash_sale' %>
+
+<% if current_user.admin? %>
+  <h3 class="settings__heading"><%= t('settings.sections.instance') %></h3>
+  <%= render 'settings/widgets/registration' %>
+  <%= render 'settings/widgets/email_notifications' %>
+  <%= render 'settings/widgets/app_update' %>
+<% end %>

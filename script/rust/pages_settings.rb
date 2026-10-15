@@ -139,12 +139,12 @@ module Pages
   def self.settings_scenarios
     grid = {}
     I18n.available_locales.each do |locale|
-      %w[account connect api].each do |page|
+      %w[account api_keys connect mcp api].each do |page|
         grid["settings_page_#{page}_#{locale}"] = settings_case(get("/#{locale}/settings/#{page}"))
         grid["settings_frame_#{page}_#{locale}"] = settings_case(get("/#{locale}/settings/#{page}", 'Turbo-Frame' => 'modal'))
       end
     end
-    %w[account connect api edit_two_fa].each do |page|
+    %w[account api_keys connect mcp api edit_two_fa].each do |page|
       grid["settings_signed_out_#{page}"] = { 'steps' => [get("/settings/#{page}")] }
       grid["settings_nonadmin_#{page}"] = settings_case(get("/settings/#{page}"), user: owner('admin' => false))
     end
@@ -186,31 +186,49 @@ module Pages
       settings_case(get('/de/settings/account'),
                     settings_write('update_locale', { '_method' => 'patch', 'user[locale]' => 'en' }).merge('path' => '/de/settings/update_locale'),
                     user: owner('locale' => 'de'))
-    grid['settings_otp_enrollment'] = settings_case(get('/settings/edit_two_fa'), get('/settings/edit_two_fa'))
+    # 2FA opens inside its own row: the edit form answers the two_fa frame.
+    two_fa = get('/settings/edit_two_fa', 'Turbo-Frame' => 'two_fa')
+    grid['settings_write_locale_page_behind'] =
+      settings_case(settings_write('update_locale', { '_method' => 'patch', 'user[locale]' => 'de' }, 200,
+                                   'headers' => TURBO.merge('Referer' => 'http://localhost:3000/tracker')))
+    grid['settings_write_locale_page_behind_prefixed'] =
+      settings_case(settings_write('update_locale', { '_method' => 'patch', 'user[locale]' => 'en' }, 200,
+                                   'path' => '/de/settings/update_locale', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/de/bots')),
+                    user: owner('locale' => 'de'))
+    grid['settings_write_locale_page_behind_protocol_relative'] =
+      settings_case(settings_write('update_locale', { '_method' => 'patch', 'user[locale]' => 'de' }, 200,
+                                   'headers' => TURBO.merge('Referer' => 'http://localhost:3000//evil.example/x')))
+    # ?settings=<section> on any page opens the dialog over it; an unknown section opens nothing.
+    grid['settings_reopen_account'] = settings_case(get('/tracker?settings=account'))
+    grid['settings_reopen_unknown'] = settings_case(get('/tracker?settings=nope'))
+    grid['settings_otp_enrollment'] = settings_case(two_fa, two_fa)
     grid['settings_otp_enable'] =
-      settings_case(get('/settings/edit_two_fa'), settings_write('update_two_fa', { '_method' => 'patch', 'user[otp_code_token]' => code_at(AT) }))
+      settings_case(two_fa, settings_write('update_two_fa', { '_method' => 'patch', 'user[otp_code_token]' => code_at(AT) }))
     grid['settings_otp_wrong'] =
-      settings_case(get('/settings/edit_two_fa'), settings_write('update_two_fa', { '_method' => 'patch', 'user[otp_code_token]' => '000000' }, 422))
+      settings_case(two_fa, settings_write('update_two_fa', { '_method' => 'patch', 'user[otp_code_token]' => '000000' }, 422))
     grid['settings_otp_no_csrf'] =
-      settings_case(get('/settings/edit_two_fa'),
+      settings_case(two_fa,
                     settings_write('update_two_fa', { '_method' => 'patch', 'user[otp_code_token]' => code_at(AT) }, 302, 'csrf' => 'none'))
     %w[0 1 false true invalid].each do |value|
       grid["settings_wash_#{value}"] =
         settings_case(settings_write('update_wash_sale', { '_method' => 'patch', 'wash_sale[enabled]' => value, 'wash_sale[jurisdiction]' => 'GB' },
-                                     303))
+                                     200))
     end
     grid['settings_wash_missing'] = settings_case(settings_write('update_wash_sale', { '_method' => 'patch' }, 422))
     grid['settings_wash_invalid_jurisdiction'] =
       settings_case(settings_write('update_wash_sale', { '_method' => 'patch', 'wash_sale[enabled]' => '1', 'wash_sale[jurisdiction]' => 'ZZ' }, 422))
+    # Each surface lists its own clients; revoke confirms in place, and answers the section it came from.
     grid['settings_client_list'] = settings_case(get('/settings/api'), fixture: 'clients')
-    grid['settings_client_revoke_modal'] = settings_case(get('/settings/confirm_revoke_mcp_client/1', 'Turbo-Frame' => 'modal'), fixture: 'clients')
+    grid['settings_client_list_mcp'] = settings_case(get('/settings/mcp'), fixture: 'clients')
     grid['settings_client_revoke'] = settings_case(settings_write('revoke_mcp_client/1', { '_method' => 'delete' }), fixture: 'clients')
+    grid['settings_client_revoke_rest'] =
+      settings_case(settings_write('revoke_mcp_client/1', { '_method' => 'delete', 'surface' => 'rest' }), fixture: 'clients')
     %w[read control trade tax].each do |group|
       grid["settings_client_grant_#{group}"] =
         settings_case(settings_write('update_client_tool_permissions/1', { '_method' => 'patch', 'surface' => 'mcp', 'group' => group, 'enabled' => '1' }), # rubocop:disable Layout/LineLength -- Literal parity request values.
                       fixture: 'clients')
     end
-    grid['settings_client_following_list'] = settings_case(get('/settings/api'), fixture: 'clients_following')
+    grid['settings_client_following_list'] = settings_case(get('/settings/mcp'), fixture: 'clients_following')
     [%w[mcp read 0], %w[mcp trade 1], %w[rest read 1], %w[rest read 0]].each do |surface, group, enabled|
       grid["settings_client_following_#{surface}_#{group}_#{enabled}"] =
         settings_case(settings_write('update_client_tool_permissions/1', { '_method' => 'patch', 'surface' => surface, 'group' => group, 'enabled' => enabled }), # rubocop:disable Layout/LineLength -- Literal parity request values.
@@ -384,9 +402,11 @@ module Pages
                   'csrf' => 'header', 'expect' => valid ? 201 : 422, 'settings_snapshot' => true }
       grid["settings_r2_json_key_#{valid ? 'create' : 'invalid'}"] = settings_case(request, fixture: 'keys')
     end
-    grid['settings_key_list'] = settings_case(get('/settings/connect'), fixture: 'keys')
-    grid['settings_key_permissions'] = settings_case(get('/settings/api_key_permissions/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
-    grid['settings_key_delete_modal'] = settings_case(get('/settings/confirm_destroy_api_key/1', 'Turbo-Frame' => 'modal'), fixture: 'keys')
+    grid['settings_key_list'] = settings_case(get('/settings/api_keys'), fixture: 'keys')
+    grid['settings_key_list_warnings'] = settings_case(get('/settings/api_keys'), fixture: 'keys_warnings')
+    # A key's permissions open in the pane, the sidebar with them; remove confirms in place.
+    grid['settings_key_permissions'] = settings_case(get('/settings/api_key_permissions/1', 'Turbo-Frame' => 'settings_pane'), fixture: 'keys')
+    grid['settings_key_permissions_page'] = settings_case(get('/settings/api_key_permissions/1'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
     tracker_connect_scenarios(grid)
     preference_scenarios(grid)

@@ -112,6 +112,18 @@ sk:
         account: Účet
         sign_up: 'Registrácia'
     settings:
+        sections:
+            mcp_server: 'MCP server'
+            profile: 'Profil'
+            preferences: 'Predvoľby'
+            security: 'Zabezpečenie'
+            instance: 'Inštancia'
+            language: 'Jazyk'
+            time_zone: 'Časové pásmo'
+            change: 'Zmeniť'
+            no_keys: 'Zatiaľ žiadne API kľúče.'
+            permissions: 'Oprávnenia'
+            provider: 'Poskytovateľ'
         wash_sale:
             title: "Ochrana odpočtu straty"
             sentence_html: "Po predaji so stratou nekupuj rovnaké aktívum ďalších %{select_html}"

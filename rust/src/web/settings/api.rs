@@ -3,73 +3,15 @@ use crate::{
     codec::format_time,
     web::{
         auth,
-        layout::{Ctx, Page},
+        layout::Ctx,
         oauth::{self, TOOL_GROUPS},
-        shell::{self, Shell},
+        shell::Shell,
         App, WebError,
     },
 };
-use askama::Template;
 use axum::{http::StatusCode, response::Response};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde_json::Value;
-#[derive(Template)]
-#[template(path = "settings/api.html")]
-struct Api<'a> {
-    v: &'a Ctx,
-    connected: String,
-    tools: String,
-    mcp_widget: String,
-    rest_widget: String,
-}
-#[derive(Template)]
-#[template(path = "settings/rest.html")]
-struct Rest<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    root: &'a str,
-    token: &'a str,
-}
-#[derive(Template)]
-#[template(path = "settings/tool_permissions.html")]
-struct Tools<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    mcp: Vec<String>,
-    rest: Vec<String>,
-}
-#[derive(Template)]
-#[template(path = "settings/mcp.html")]
-struct Mcp<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    dry_run: bool,
-    root: String,
-}
-impl Tools<'_> {
-    fn on(&self, surface: &str, tool: &str) -> bool {
-        if surface == "mcp" {
-            self.mcp.iter().any(|s| s == tool)
-        } else {
-            self.rest.iter().any(|s| s == tool)
-        }
-    }
-    fn group_state(&self, surface: &str, group: &str) -> &'static str {
-        let tools = TOOL_GROUPS
-            .iter()
-            .find(|(name, _)| *name == group)
-            .map(|(_, tools)| *tools)
-            .unwrap_or(&[]);
-        let n = tools.iter().filter(|tool| self.on(surface, tool)).count();
-        if n == 0 {
-            "off"
-        } else if n == tools.len() {
-            "on"
-        } else {
-            "partial"
-        }
-    }
-}
 /// User#personal_api_application, created when missing (create_personal_api_app_safely!). Doorkeeper generates a uid,
 /// and no secret for an application that is not confidential (the column is nullable).
 fn personal_app(c: &Connection, user: i64, now: &str) -> Result<i64, WebError> {
@@ -122,7 +64,7 @@ pub async fn regenerate(app: App, ctx: Ctx) -> Result<Response, WebError> {
             )?;
             let token = mint(&tx, id, user.id, &now)?;
             let root = root(&inner);
-            let widget = Rest { v: &v, csrf: &csrf, root: &root, token: &token }.render()?;
+            let widget = super::sections::rest(&v, &csrf, &root, &token);
             tx.commit()?;
             Ok(widget)
         })
@@ -133,79 +75,44 @@ pub async fn regenerate(app: App, ctx: Ctx) -> Result<Response, WebError> {
     )
         .into_response())
 }
-pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
+/// GET /settings/mcp and /settings/api: one surface, its tools and the clients that hold its scope.
+pub async fn show(app: App, ctx: Ctx, surface: &'static str) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
         return Ok(auth::unauthenticated(&ctx));
     };
-    let inner = app.clone();
-    let v = ctx.clone();
-    let csrf = ctx.csrf_token();
+    let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
-    let (mcp, rest, dry_run, connected, shell) = app
+    let (pane, shell, connect) = app
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             ensure_personal(&tx, user.id, &format_time(inner.now()))?;
-            let settings: Option<String> = tx.query_row(
-                "SELECT mcp_settings FROM users WHERE id=?1",
-                [user.id],
-                |r| r.get(0),
-            )?;
-            let settings: Value = settings
-                .map(|s| serde_json::from_str(&s))
-                .transpose()
-                .map_err(|_| WebError::Config("invalid MCP settings".into()))?
-                .unwrap_or(Value::Null);
-            let output = (
-                clients::enabled(&tx, user.id, "mcp")?,
-                clients::enabled(&tx, user.id, "rest")?,
-                settings["dry_run"] == true,
-                clients::widget(&tx, &v, &token, user.id)?,
-                Shell::load(&tx, &inner, &user)?,
+            let root = root(&inner);
+            let widget = if surface == "mcp" {
+                let settings: Option<String> = tx.query_row("SELECT mcp_settings FROM users WHERE id=?1", [user.id], |r| r.get(0))?;
+                let settings: Value = settings
+                    .map(|s| serde_json::from_str(&s))
+                    .transpose()
+                    .map_err(|_| WebError::Config("invalid MCP settings".into()))?
+                    .unwrap_or(Value::Null);
+                super::sections::mcp(&v, &token, &root, settings["dry_run"] == true)
+            } else {
+                super::sections::rest(&v, &token, &root, "[redacted]")
+            };
+            let pane = format!(
+                "  {widget}
+{}
+{}
+",
+                super::sections::tool_permissions(&v, &token, surface, &clients::enabled(&tx, user.id, surface)?),
+                clients::widget(&tx, &v, &token, user.id, surface)?
             );
+            let output = (pane, Shell::load(&tx, &inner, &user)?, super::view::connect_visible(&tx, &inner, &user)?);
             tx.commit()?;
             Ok(output)
         })
         .await?;
-    let user = ctx
-        .user()
-        .ok_or_else(|| WebError::Config("missing API owner".into()))?;
-    let root = root(&app);
-    shell::application(
-        &ctx,
-        &csrf,
-        user,
-        &shell,
-        Page {
-            status: StatusCode::OK,
-            body: Api {
-                v: &ctx,
-                tools: Tools {
-                    v: &ctx,
-                    csrf: &csrf,
-                    mcp,
-                    rest,
-                }
-                .render()?,
-                mcp_widget: Mcp {
-                    v: &ctx,
-                    csrf: &csrf,
-                    dry_run,
-                    root: root.clone(),
-                }
-                .render()?,
-                rest_widget: Rest {
-                    v: &ctx,
-                    csrf: &csrf,
-                    root: &root,
-                    token: "[redacted]",
-                }
-                .render()?,
-                connected,
-            }
-            .render()?,
-            flash_now: vec![],
-        },
-    )
+    let user = ctx.user().ok_or_else(|| WebError::Config("missing API owner".into()))?;
+    super::view::section_page(&ctx, &csrf, user, &shell, if surface == "mcp" { "mcp" } else { "api" }, connect, &pane, StatusCode::OK, vec![])
 }
 
 pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
@@ -304,35 +211,10 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
             }
             let body = if dry_run {
                 let root = root(&inner);
-                turbo::stream(
-                    "replace",
-                    "mcp_settings",
-                    Mcp {
-                        v: &v,
-                        csrf: &token,
-                        dry_run: on,
-                        root,
-                    }
-                    .render()?
-                    .trim_end(),
-                )
+                turbo::stream("replace", "mcp_settings", &super::sections::mcp(&v, &token, &root, on))
             } else {
-                turbo::stream(
-                    "replace",
-                    "tool_permissions",
-                    Tools {
-                        v: &v,
-                        csrf: &token,
-                        mcp: clients::enabled(&tx, user.id, "mcp")?,
-                        rest: clients::enabled(&tx, user.id, "rest")?,
-                    }
-                    .render()?
-                    .trim_end(),
-                ) + &turbo::stream(
-                    "replace",
-                    "connected_clients",
-                    clients::widget(&tx, &v, &token, user.id)?.trim_end(),
-                )
+                turbo::stream("replace", "tool_permissions", &super::sections::tool_permissions(&v, &token, surface, &clients::enabled(&tx, user.id, surface)?))
+                    + &turbo::stream("replace", "connected_clients", &clients::widget(&tx, &v, &token, user.id, surface)?)
             };
             tx.commit()?;
             Ok(body)

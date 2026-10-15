@@ -1,13 +1,8 @@
-<div class="widget widget--settings">
-  <h4 class="modal__title">
-    <%= t('settings.index.two_factor_section') %>:
-    <% if current_user.otp_module_enabled? %>
-      <span class="text-success">ON</span>
-    <% else %>
-      <span class="text-danger">OFF</span>
-    <% end %>
-  </h4>
-  <div class="setting-form">
-    <%= link_to two_fa_button_text, settings_edit_two_fa_path, class: "button button--sky", data: { turbo_frame: "modal" } %>
-  </div>
-</div>
+<% enabled = current_user.otp_module_enabled? %>
+<%= turbo_frame_tag 'two_fa', class: 'sitem' do %>
+  <%= settings_row t('settings.index.two_factor_section'),
+                   t(enabled ? 'helpers.label.settings.enabled' : 'helpers.label.settings.disabled') do %>
+    <%= link_to t(enabled ? 'helpers.label.settings.disable_two_fa' : 'helpers.label.settings.enable_two_fa'),
+                settings_edit_two_fa_path, class: 'rbutton rbutton--outline' %>
+  <% end %>
+<% end %>

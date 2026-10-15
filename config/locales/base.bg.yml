@@ -111,6 +111,18 @@ bg:
         account: Акаунт
         sign_up: 'Регистрация'
     settings:
+        sections:
+            mcp_server: 'MCP сървър'
+            profile: 'Профил'
+            preferences: 'Предпочитания'
+            security: 'Сигурност'
+            instance: 'Инстанция'
+            language: 'Език'
+            time_zone: 'Часова зона'
+            change: 'Промяна'
+            no_keys: 'Все още няма API ключове.'
+            permissions: 'Разрешения'
+            provider: 'Доставчик'
         wash_sale:
             title: "Защита на данъчната загуба"
             sentence_html: "Не купувай обратно в рамките на %{select_html} след продажба на загуба"

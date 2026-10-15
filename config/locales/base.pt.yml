@@ -111,6 +111,18 @@ pt:
         account: Conta
         sign_up: Registar
     settings:
+        sections:
+            mcp_server: 'Servidor MCP'
+            profile: 'Perfil'
+            preferences: 'Preferências'
+            security: 'Segurança'
+            instance: 'Instância'
+            language: 'Idioma'
+            time_zone: 'Fuso horário'
+            change: 'Alterar'
+            no_keys: 'Ainda não há chaves API.'
+            permissions: 'Permissões'
+            provider: 'Fornecedor'
         wash_sale:
             title: "Proteção da dedução do prejuízo"
             sentence_html: "Não recomprar durante %{select_html} depois de vender com prejuízo"

@@ -108,10 +108,21 @@ en:
         tracker: Tracker
         settings: Settings
         connections: Connect
-        api: 'MCP & REST API'
         account: Account
         sign_up: 'Sign up'
     settings:
+        sections:
+            mcp_server: 'MCP Server'
+            profile: 'Profile'
+            preferences: 'Preferences'
+            security: 'Security'
+            instance: 'Instance'
+            language: 'Language'
+            time_zone: 'Time zone'
+            change: 'Change'
+            no_keys: 'No API keys yet.'
+            permissions: 'Permissions'
+            provider: 'Provider'
         wash_sale:
             title: "Wash sale protection"
             sentence_html: "Avoid wash sales by waiting %{select_html} after selling at a loss"

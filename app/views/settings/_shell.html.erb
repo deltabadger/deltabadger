@@ -1,0 +1,36 @@
+<%# The settings dialog: a sidebar of sections and the pane they open. The sidebar lives inside the
+    settings_pane frame with the pane, so a section link swaps both and the active item is drawn by
+    the server — no script keeps them in step.
+
+    Opened from the menu it is a frame over whatever page is behind, and closing it leaves that
+    page alone. Visited as a page (an old link, the IBKR wizard's way back) nothing is behind it,
+    so closing goes to the bots. %>
+<%= turbo_frame_tag 'modal' do %>
+  <%= tag.dialog class: 'dialog sdialog', data: { controller: 'modal--base', action: 'click->modal--base#clickOutside',
+                                                  'modal--base-close-url-value': (bots_path unless turbo_frame_request?) } do %>
+    <div class="settings">
+      <%= button_tag type: 'button', class: 'settings__close', aria: { label: t('button.close') },
+                     data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= render 'svg/24x24_close' %>
+      <% end %>
+      <%= turbo_frame_tag 'settings_pane', class: 'settings__frame' do %>
+        <nav class="settings__nav">
+          <div class="settings__items" data-controller="settings-nav">
+            <% settings_sections.each do |section, label, icon| %>
+              <%= link_to send("settings_#{section}_path"),
+                          class: ['settings__item', ('settings__item--active' if section == @section)],
+                          aria: { current: ('page' if section == @section) } do %>
+                <%= render icon %><span><%= t(label) %></span>
+              <% end %>
+            <% end %>
+          </div>
+          <div class="settings__version"><%= Rails.application.config.version %></div>
+        </nav>
+        <%# autofocus: a shown dialog focuses its first focusable, which would ring the close button. %>
+        <div class="settings__pane" tabindex="-1" autofocus>
+          <%= yield %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

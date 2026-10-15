@@ -36,7 +36,7 @@
     &--primary
         background: var(--sky)
     &--outline
-        border: 0.125rem solid var(--silver)
+        box-shadow: var(--shadow-rbutton-outline)
     &--danger
         background: var(--berry)
     // The affirmative half of a two-answer prompt. Paired with --danger rather than with the
@@ -66,7 +66,7 @@
     &--start, &--stop
         padding: 0 1.75rem
         cursor: pointer
-        box-shadow: var(--shadow-paper)
+        box-shadow: var(--shadow-basic)
         .animicon
             &__a, &__b
                 background: var(--white)
@@ -108,6 +108,39 @@
     color: var(--link)
     padding: 0 1.5rem
     cursor: pointer
+    // The same edge as .rbutton--outline, so an input and its button read as one set.
+    &--outline
+        background: var(--rinput-bg)
+        box-shadow: var(--rinput-shadow)
+        &:focus-visible
+            outline: none !important
+            outline-offset: none !important
+            box-shadow: var(--rinput-focus)
+    // Something typed: a name, an address, a key. Read as written, so no uppercase.
+    &--text
+        width: 28rem
+        max-width: 100%
+        font-weight: 500
+        text-transform: none
+        color: var(--ink)
+        cursor: text
+        &::placeholder
+            color: var(--concrete)
+        &:focus-visible
+            outline: 2px solid var(--link)
+            outline-offset: 2px
+    // A native select in the same box. The caret is two gradients in the text colour, so it
+    // follows the theme without an image per scheme.
+    &--select
+        appearance: none
+        max-width: 100%
+        padding-right: 4rem
+        text-transform: none
+        text-overflow: ellipsis
+        background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)
+        background-position: calc(100% - 2rem) 50%, calc(100% - 1.375rem) 50%
+        background-size: 0.625rem 0.625rem
+        background-repeat: no-repeat
 .segmented
     position: relative
     display: grid

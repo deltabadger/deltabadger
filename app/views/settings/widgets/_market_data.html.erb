@@ -1,9 +1,7 @@
-<%= turbo_frame_tag "market_data_settings" do %>
+<%= turbo_frame_tag 'market_data_settings' do %>
   <% is_coingecko_configured = MarketDataSettings.coingecko? %>
   <% is_deltabadger_configured = MarketDataSettings.deltabadger? %>
-  <% is_deltabadger_available = MarketDataSettings.deltabadger_available? %>
   <% is_platform_connected = AppConfig.platform_connected? %>
-  <% is_configured = MarketData.configured? %>
   <% show_coingecko_form = @show_coingecko_form || false %>
   <% show_platform_form = @show_platform_form || false %>
   <%# What the reader is in the middle of (a claim that failed, a key still to paste) outranks what
@@ -11,95 +9,96 @@
   <% selected = if show_platform_form then MarketDataSettings::PROVIDER_DELTABADGER
                 elsif show_coingecko_form || is_coingecko_configured then MarketDataSettings::PROVIDER_COINGECKO
                 elsif is_deltabadger_configured then MarketDataSettings::PROVIDER_DELTABADGER
-                else ''
                 end %>
-  <div class="widget widget--settings" data-controller="form--market-data"
-       data-action="segmented:change->form--market-data#select"
-       data-form--market-data-platform-connected-value="<%= is_platform_connected %>">
-    <h4 class="modal__title">
-      <%= t('settings.index.resync_assets_section') %>:
-      <% if is_configured %>
-        <span class="text-success">ON</span>
-      <% else %>
-        <span class="text-danger">OFF</span>
-      <% end %>
-    </h4>
+  <% on = selected.present? %>
 
-    <% if is_deltabadger_available %>
-      <%# Platform-provided market data is the only feed there is: nothing to switch. %>
-      <p class="set-api__note"><%= t('settings.market_data.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
-    <% else %>
-      <%# The switch: one segmented control over a hidden field, submitted as soon as it moves. A
-          saved CoinGecko key stays on the server, which uses it when switching back: no re-paste. %>
-      <%= form_with url: settings_update_market_data_path, method: :patch, class: "set-api__mode",
-                    data: { form__market_data_target: "providerForm", turbo_frame: "market_data_settings" } do |f| %>
-        <%= render 'shared/segmented', fluid: true, label: t('settings.index.resync_assets_section'), options: [
-              { value: '', label: t('settings.market_data.none'), active: selected == '' },
-              { value: MarketDataSettings::PROVIDER_COINGECKO, label: 'CoinGecko',
-                active: selected == MarketDataSettings::PROVIDER_COINGECKO },
-              { value: MarketDataSettings::PROVIDER_DELTABADGER, label: t('settings.platform.option'),
-                active: selected == MarketDataSettings::PROVIDER_DELTABADGER }
-            ] %>
-        <%= f.hidden_field :market_data_provider, value: selected, data: { form__market_data_target: "provider" } %>
+  <% if MarketDataSettings.deltabadger_available? %>
+    <%# Platform-provided market data is the only feed there is: nothing to switch. %>
+    <%= settings_row t('settings.index.resync_assets_section'),
+                     t('settings.market_data.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name),
+                     class: 'srow--heading' %>
+  <% else %>
+    <div data-controller="form--market-data" data-action="segmented:change->form--market-data#select"
+         data-form--market-data-platform-connected-value="<%= is_platform_connected %>">
+      <%# The switch turns the feed off (provider '') or back on with the provider it can reach
+          without asking anything: the claimed platform, else CoinGecko — which comes back with its
+          key form when no key is stored. %>
+      <%= settings_row t('settings.index.resync_assets_section'), class: 'srow--heading' do %>
+        <%= render 'settings/switch', url: settings_update_market_data_path, frame: 'market_data_settings',
+                                      name: :market_data_provider, state: (on ? :on : :off),
+                                      enabled: (if on then ''
+                                                elsif is_platform_connected then MarketDataSettings::PROVIDER_DELTABADGER
+                                                else MarketDataSettings::PROVIDER_COINGECKO
+                                                end),
+                                      title: t('settings.index.resync_assets_section') %>
       <% end %>
 
-      <% if is_coingecko_configured %>
-        <div data-form--market-data-target="coingeckoFields" <%= 'hidden' if show_platform_form %>>
-          <p class="set-api__note"><%= t('settings.market_data.coingecko_configured') %></p>
-          <div class="setting-form">
-            <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
-            <%= link_to t('settings.market_data.disconnect'), settings_disconnect_market_data_path, data: { turbo_method: :delete, turbo_frame: "market_data_settings" }, class: "button button--danger", style: "margin-top: 0" %>
-          </div>
+      <% if on %>
+        <%# The provider: one segmented control over a hidden field, submitted as soon as it moves.
+            A saved CoinGecko key stays on the server, which uses it when switching back. %>
+        <%= settings_row t('settings.sections.provider') do %>
+          <%= form_with url: settings_update_market_data_path, method: :patch,
+                        data: { form__market_data_target: 'providerForm', turbo_frame: 'market_data_settings' } do |f| %>
+            <%= render 'shared/segmented', fluid: true, label: t('settings.sections.provider'), options: [
+                  { value: MarketDataSettings::PROVIDER_COINGECKO, label: 'CoinGecko',
+                    active: selected == MarketDataSettings::PROVIDER_COINGECKO },
+                  { value: MarketDataSettings::PROVIDER_DELTABADGER, label: t('settings.platform.option'),
+                    active: selected == MarketDataSettings::PROVIDER_DELTABADGER }
+                ] %>
+            <%= f.hidden_field :market_data_provider, value: selected, data: { form__market_data_target: 'provider' } %>
+          <% end %>
+        <% end %>
+
+        <div class="sitem" data-form--market-data-target="coingeckoFields" <%= 'hidden' unless selected == MarketDataSettings::PROVIDER_COINGECKO %>>
+          <% if is_coingecko_configured %>
+            <%= settings_row 'CoinGecko', t('settings.market_data.coingecko_configured') do %>
+              <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: 'rbutton rbutton--outline' %>
+              <%= render 'settings/confirm', label: t('settings.market_data.disconnect'), text: t('settings.index.api_key_confirmation'),
+                                             confirm: t('settings.market_data.disconnect'), url: settings_disconnect_market_data_path %>
+            <% end %>
+          <% elsif AppConfig.coingecko_api_key.blank? %>
+            <%= form_with url: settings_update_market_data_path, method: :patch, class: 'sform sform--stack sform--inset sitem',
+                          data: { turbo_frame: 'market_data_settings' } do |f| %>
+              <%= f.hidden_field :market_data_provider, value: MarketDataSettings::PROVIDER_COINGECKO %>
+              <%= f.text_field :coingecko_api_key, required: true, autocomplete: 'off', class: 'rinput rinput--outline rinput--text',
+                                                   placeholder: t('setup.coingecko_api_key'), aria: { label: t('setup.coingecko_api_key') } %>
+              <%= f.submit t('button.connect'), class: 'rbutton rbutton--outline',
+                           data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+              <details class="shelp">
+                <summary><%= t('bot.setup.how_to_get_keys', exchange: 'CoinGecko') %></summary>
+                <div class="settings__prose"><%= t('setup.coingecko_api_key_hint_html') %></div>
+              </details>
+            <% end %>
+          <% end %>
         </div>
-      <% elsif !is_deltabadger_configured && AppConfig.coingecko_api_key.blank? %>
-        <%# No key yet: the same connect card as the index wizard's CoinGecko step. %>
-        <div data-form--market-data-target="coingeckoFields" <%= 'hidden' unless show_coingecko_form %>>
-          <%= render layout: 'shared/connect_form', locals: {
-                title: t('bot.setup.connect_to', name: 'CoinGecko'),
-                mark: 'svg/coingecko',
-                path: settings_update_market_data_path, method: :patch,
-                form_data: { turbo_frame: "market_data_settings", controller: "form--html5-validations form--label-animations" },
-                instructions_title: t('bot.setup.how_to_get_keys', exchange: 'CoinGecko'),
-                instructions: t('setup.coingecko_api_key_hint_html')
-              } do |f| %>
-            <%= f.hidden_field :market_data_provider, value: MarketDataSettings::PROVIDER_COINGECKO %>
-            <div class="form__row form__row--input">
-              <%= f.text_field :coingecko_api_key, required: true, autocomplete: "off", class: "form__input" %>
-              <%= f.label :coingecko_api_key, t('setup.coingecko_api_key'), class: "form__label" %>
-            </div>
+
+        <div class="sitem" data-form--market-data-target="deltabadgerButtons" <%= 'hidden' unless selected == MarketDataSettings::PROVIDER_DELTABADGER %>>
+          <% unless is_platform_connected %>
+            <%# Not claimed yet: the code, with what the subscription brings as its help. %>
+            <%= form_with url: settings_platform_connection_path, class: 'sform sform--stack sform--inset sitem',
+                          data: { turbo_frame: 'market_data_settings' } do |f| %>
+              <% if @platform_errors.present? %>
+                <p class="sform__error" role="alert"><%= @platform_errors.to_sentence %></p>
+              <% end %>
+              <p class="srow__hint"><%= t('settings.platform.subscription_html') %></p>
+              <%= f.text_field :claim_code, required: true, autocomplete: 'off', class: 'rinput rinput--outline rinput--text',
+                                            placeholder: t('settings.platform.code'), aria: { label: t('settings.platform.code') } %>
+              <%= f.submit t('button.connect'), class: 'rbutton rbutton--outline',
+                           data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+            <% end %>
           <% end %>
         </div>
       <% end %>
 
+      <%# The claim outlives the switch: it also brings the exchange proxies, so it is shown — and
+          can be dropped — whatever feeds the market data. %>
       <% if is_platform_connected %>
         <% proxy_suffix = AppConfig.platform_proxies_configured? ? 'with_proxies' : 'without_proxies' %>
-        <p class="set-api__note"><%= t("settings.platform.connected_#{proxy_suffix}") %></p>
-        <div class="setting-form">
-          <%= link_to t('settings.platform.disconnect'), settings_platform_connection_path,
-                      data: { turbo_method: :delete, turbo_frame: "market_data_settings" },
-                      class: "button button--danger", style: "margin-top: 0" %>
-        </div>
-      <% else %>
-        <%# Not claimed yet: the same card, with what the subscription brings where a walkthrough would be. %>
-        <div data-form--market-data-target="deltabadgerButtons" <%= 'hidden' unless show_platform_form %>>
-          <%= render layout: 'shared/connect_form', locals: {
-                title: t('bot.setup.connect_to', name: t('settings.platform.option')),
-                mark: 'svg/40x30_logo',
-                path: settings_platform_connection_path,
-                form_data: { turbo_frame: 'market_data_settings', controller: 'form--html5-validations form--label-animations' },
-                instructions_title: t('settings.platform.subscription_title'),
-                instructions: tag.p(t('settings.platform.subscription_html'))
-              } do |f| %>
-            <% if @platform_errors.present? %>
-              <div class="form__info form__info--alert" role="alert"><%= @platform_errors.to_sentence %></div>
-            <% end %>
-            <div class="form__row form__row--input">
-              <%= f.text_field :claim_code, required: true, autocomplete: 'off', class: 'form__input' %>
-              <%= f.label :claim_code, t('settings.platform.code'), class: 'form__label' %>
-            </div>
-          <% end %>
-        </div>
+        <%= settings_row t('settings.platform.option'), t("settings.platform.connected_#{proxy_suffix}") do %>
+          <%= render 'settings/confirm', label: t('settings.platform.disconnect'), text: t('settings.index.api_key_confirmation'),
+                                         confirm: t('settings.platform.disconnect'), url: settings_platform_connection_path %>
+        <% end %>
       <% end %>
-    <% end %>
-  </div>
+    </div>
+  <% end %>
 <% end %>

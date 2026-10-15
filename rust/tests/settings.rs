@@ -662,7 +662,8 @@ async fn tax_guard_rolls_back_unsupported_protection_and_wakes_only_after_commit
         )
         .await
         .status,
-        303
+        200,
+        "the answer replaces the wash-sale row in place"
     );
     assert!(
         tokio::time::timeout(std::time::Duration::ZERO, wake.notified())
@@ -682,7 +683,8 @@ async fn tax_guard_rolls_back_unsupported_protection_and_wakes_only_after_commit
         )
         .await
         .status,
-        303
+        200,
+        "the answer replaces the wash-sale row in place"
     );
     let jurisdiction: String =
         h.c.query_row("SELECT wash_sale_jurisdiction FROM users", [], |r| r.get(0))
@@ -2162,10 +2164,10 @@ async fn configured_connections_show_real_catalog_and_provider_state_without_ech
     assert_eq!(answer.status,200);
     assert!(answer.body.contains("settings/stocks") || answer.body.contains("stocks_settings"));
     let stock=answer.body.split("id=\"stocks_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    assert!(stock.contains("text-success\">ON"),"an existing stock-venue catalog must show ON");
+    assert!(stock.contains("Connected to Alpaca (Paper)"),"an existing stock-venue catalog says it is connected");
     assert!(stock.contains("/settings/disconnect_stocks"),"persisted catalog credentials have Rails' disconnect action");
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    assert!(market.contains("text-success\">ON"));assert!(market.contains("/settings/disconnect_market_data"));
+    assert!(market.contains("id=\"switch-settings-update_market_data\" checked"),"the market data switch is on");assert!(market.contains("/settings/disconnect_market_data"));
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -2567,7 +2569,8 @@ async fn encoded_stored_credentials_are_removed_from_malformed_venue_diagnostics
 async fn stored_query_credentials_are_not_echoed_by_the_tax_referer_redirect(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let answer=h.browser.send(&h.app,"POST","/settings/update_wash_sale",Some(&[("_method","patch"),("wash_sale[enabled]","0"),("wash_sale[jurisdiction]","US")]),Csrf::Header,&[("referer","http://localhost:3000/settings/account?api_key%5Bsecret%5D=previous-secret&marker=keep")]).await;
-    assert_eq!(answer.status,303);let destination=answer.header("location").unwrap();assert!(!destination.contains("previous-secret"));assert!(destination.contains("marker=keep"));assert!(server.received_requests().await.unwrap().is_empty());
+    // The answer is the row itself now, not a redirect back to the referer: nothing of the referer is echoed.
+    assert_eq!(answer.status,200);assert!(answer.header("location").is_none());assert!(!answer.body.contains("previous-secret"));assert!(server.received_requests().await.unwrap().is_empty());
 }
 
 #[tokio::test(flavor="current_thread")]

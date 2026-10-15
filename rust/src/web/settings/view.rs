@@ -1,4 +1,4 @@
-use super::account::Draft;
+use super::{account::Draft, dialog, sections};
 use crate::web::{
     auth::User,
     i18n::{self, escape, Arg},
@@ -6,46 +6,11 @@ use crate::web::{
     shell::{self, Shell},
     timezone, App, WebError,
 };
-use askama::Template;
 use axum::{http::StatusCode, response::Response};
 use chrono::Offset;
 use rusqlite::Connection;
 
-#[derive(Template)]
-#[template(path = "settings/account.html")]
-struct Account<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    user: &'a User,
-    name: String,
-    version: &'static str,
-    locale_label: String,
-    locale_options: String,
-    zone_label: String,
-    zone_options: String,
-    zone_id: String,
-    local_time: String,
-    two_fa: bool,
-    two_fa_button: String,
-    length_label: String,
-    errors: Vec<String>,
-    messages: std::collections::BTreeMap<String, String>,
-    pending_email: String,
-    pending_label: String,
-    excluded_registration_settings: String,
-    excluded_advanced_bots: String,
-    excluded_email_notifications: String,
-    wash_widget: String,
-}
-impl Account<'_> {
-    fn error(&self, field: &str) -> String {
-        self.messages.get(field).cloned().unwrap_or_default()
-    }
-    fn invalid(&self, field: &str) -> bool {
-        self.errors.iter().any(|error| error == field)
-    }
-}
-fn language_options(selected: &str) -> (String, String) {
+pub(super) fn language_options(selected: &str) -> (String, String) {
     let langs = [
         ("en", "English"),
         ("de", "Deutsch"),
@@ -95,7 +60,7 @@ fn zone_label(name: &str, offset: i32) -> String {
         name
     )
 }
-fn zones(ctx: &Ctx, selected: &str) -> (String, String) {
+pub(super) fn zones(ctx: &Ctx, selected: &str) -> (String, String) {
     let mut zones: Vec<_> = timezone::names()
         .map(|name| {
             let seconds = timezone::local(ctx.now, name)
@@ -134,44 +99,13 @@ fn zones(ctx: &Ctx, selected: &str) -> (String, String) {
         options,
     )
 }
-#[derive(Template)]
-#[template(path = "settings/registration_settings.html")]
-struct Registration<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    registration_open: bool,
-}
-#[derive(Template)]
-#[template(path = "settings/advanced_bots.html")]
-struct Advanced<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    advanced: bool,
-}
-#[derive(Template)]
-#[template(path = "settings/email_notifications.html")]
-struct EmailNotifications<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    mail_configured: bool,
-    env_available: bool,
-    env_name: String,
-    custom: bool,
-    env_configured: bool,
-    has_credentials: bool,
-    host: Option<String>,
-    port: Option<String>,
-    configured_label: String,
-    /// `@show_smtp_form`: Custom SMTP was chosen without credentials, so its form opens.
-    show_form: bool,
-}
 /// settings/widgets/_registration.
 pub(super) fn registration(ctx: &Ctx, csrf: &str, registration_open: bool) -> Result<String, WebError> {
-    Ok(Registration { v: ctx, csrf, registration_open }.render()?)
+    Ok(sections::registration(ctx, csrf, registration_open))
 }
 /// settings/widgets/_advanced_bots.
 pub(super) fn advanced(ctx: &Ctx, csrf: &str, advanced: bool) -> Result<String, WebError> {
-    Ok(Advanced { v: ctx, csrf, advanced }.render()?)
+    Ok(sections::advanced(ctx, csrf, advanced))
 }
 /// settings/widgets/_email_notifications, as AppConfig and the environment hold it now.
 pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form: bool) -> Result<String, WebError> {
@@ -180,38 +114,25 @@ pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form:
     let env_available = app.settings_smtp.address.as_deref().is_some_and(|s| !crate::ruby::blank(s));
     let host = read("smtp_host")?;
     let port = read("smtp_port")?;
-    let custom = !env_available && provider.as_deref() == Some("custom_smtp");
     let has_credentials = read("smtp_username")?.is_some_and(|s| !crate::ruby::blank(&s))
         && read("smtp_password")?.is_some_and(|s| !crate::ruby::blank(&s));
-    let configured_label = i18n::t(
+    let configured_hint = i18n::t(
         ctx.locale,
         "settings.email_notifications.smtp_configured_html",
         &[("host", Arg::Text(host.as_deref().filter(|s| !crate::ruby::blank(s)).unwrap_or("smtp.gmail.com")))],
     );
-    Ok(EmailNotifications {
-        v: ctx,
+    Ok(sections::email_notifications(
+        ctx,
         csrf,
-        mail_configured: env_available || provider.as_deref().is_some_and(|s| !crate::ruby::blank(s)),
-        env_available,
-        env_name: app.settings_smtp_provider_name.clone(),
-        custom,
-        env_configured: env_available || provider.as_deref() == Some("env_smtp"),
-        has_credentials,
-        host,
-        port,
-        configured_label,
-        show_form,
-    }
-    .render()?)
-}
-#[derive(Template)]
-#[template(path = "settings/wash.html")]
-struct Wash<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    enabled: Option<bool>,
-    question: String,
-    locked: String,
+        &sections::Mail {
+            env_available,
+            env_name: &app.settings_smtp_provider_name,
+            configured: !env_available && provider.as_deref() == Some("custom_smtp"),
+            show_form,
+            configured_hint: &configured_hint,
+            credentials: has_credentials.then_some((host, port)),
+        },
+    ))
 }
 pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<String, WebError> {
     let (enabled, jurisdiction): (Option<bool>, Option<String>) = c.query_row(
@@ -315,15 +236,25 @@ pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<Strin
         }
         format!("\n          <ul class=\"settings-locked\">{entries}          </ul>\n")
     };
-    Ok(Wash {
-        v: ctx,
-        csrf,
-        enabled,
-        question,
-        locked,
-    }
-    .render()?)
+    Ok(sections::wash(ctx, csrf, &question, enabled.is_some(), enabled == Some(true), &locked))
 }
+/// SettingsHelper#settings_connect_visible?: Connect holds container-wide sources (admin) and IBKR.
+pub(super) fn connect_visible(c: &Connection, app: &App, user: &User) -> Result<bool, WebError> {
+    Ok(user.admin
+        || app.config.market_data_url
+        || c.query_row(
+            "SELECT EXISTS(SELECT 1 FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr')",
+            [user.id],
+            |r| r.get::<_, bool>(0),
+        )?)
+}
+
+/// A section of the dialog as a page (or as the frame it opens in).
+pub(super) fn section_page(ctx: &Ctx, csrf: &str, user: &User, shell_data: &Shell, section: &str, connect: bool, pane: &str, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
+    let body = dialog::shell(ctx, section, connect, pane);
+    shell::application(ctx, csrf, user, shell_data, Page { status, body, flash_now })
+}
+
 pub async fn account(
     app: &App,
     ctx: &Ctx,
@@ -337,7 +268,7 @@ pub async fn account(
     let (v, inner, owner) = (ctx.clone(), app.clone(), user.clone());
     let csrf = ctx.csrf_token();
     let token = csrf.clone();
-    let (name, pending_email, wash_widget, shell, registration_open, advanced, email_widget) = app
+    let (name, pending_email, wash_widget, shell_data, registration_open, advanced, email_widget, connect) = app
         .db(move |c| {
             let (name, email): (Option<String>, Option<String>) = c.query_row(
                 "SELECT name,unconfirmed_email FROM users WHERE id=?1",
@@ -360,73 +291,42 @@ pub async fn account(
                 registration_open,
                 advanced,
                 email_widget,
+                connect_visible(c, &inner, &owner)?,
             ))
         })
         .await?;
-    let (locale_label, locale_options) =
-        language_options(user.locale.as_deref().unwrap_or(i18n::DEFAULT));
-    let (zone_label, zone_options) = zones(ctx, &user.time_zone);
-    let local = timezone::local(ctx.now, &user.time_zone);
-    let local_time = local.format("%Y-%m-%d %I:%M %p").to_string();
-    let pending_label = i18n::t(
-        ctx.locale,
-        "devise.registrations.edit.awaiting_confirmation",
-        &[("email", Arg::Text(&pending_email))],
-    );
+    let (_, locale_options) = language_options(user.locale.as_deref().unwrap_or(i18n::DEFAULT));
     let draft = draft.unwrap_or_default();
-    let mut user = user;
-    if let Some(email) = draft.email {
-        user.email = email;
-    }
-    let body = Account {
-        v: ctx,
-        csrf: &csrf,
-        user: &user,
-        name: draft.name.unwrap_or(name),
-        version: include_str!("../../../../src-tauri/Cargo.toml")
-            .lines()
-            .find_map(|line| {
-                line.strip_prefix("version = ")
-                    .and_then(|s| s.strip_prefix('"'))
-                    .and_then(|s| s.strip_suffix('"'))
-            })
-            .unwrap_or("0.0.0"),
-        locale_label,
-        locale_options,
-        zone_label,
-        zone_options,
-        zone_id: timezone::strict(&user.time_zone).map_or("UTC".into(), |z| z.name().into()),
-        local_time,
-        two_fa: user.otp_enabled,
-        two_fa_button: ctx.t(if user.otp_enabled {
-            "helpers.label.settings.disable_two_fa"
-        } else {
-            "helpers.label.settings.enable_two_fa"
-        }),
-        length_label: i18n::t(
-            ctx.locale,
-            "devise.passwords.validations.length",
-            &[("count", Arg::Count(8))],
-        ),
-        errors: draft.errors,
-        messages: draft.messages,
-        pending_email,
-        pending_label,
-        excluded_registration_settings: registration(ctx, &csrf, registration_open)?,
-        excluded_advanced_bots: self::advanced(ctx, &csrf, advanced)?,
-        excluded_email_notifications: email_widget,
-        wash_widget,
-    }
-    .render()?;
-    shell::application(
+    // A failed email change keeps the address it had: the row shows what is stored, not what was typed.
+    let hint = if pending_email.is_empty() {
+        user.email.clone()
+    } else {
+        i18n::text(ctx.locale, "devise.registrations.edit.awaiting_confirmation", &[("email", Arg::Text(&pending_email))])
+    };
+    // Rails re-renders the whole section on a failed save, and current_user.errors reaches every row: the
+    // email and password rows open, and each field shows its own attribute's message.
+    let errors = sections::Errors(&draft.messages);
+    let registration = registration(ctx, &csrf, registration_open)?;
+    let pane = sections::account(
         ctx,
-        &csrf,
-        &user,
-        &shell,
-        Page {
-            status,
-            body,
-            flash_now,
+        &sections::Account {
+            name: sections::name(ctx, &csrf, &draft.name.clone().unwrap_or(name), &errors),
+            email: sections::email(ctx, &csrf, &hint, &errors),
+            password: sections::password(ctx, &csrf, draft.email.as_deref().unwrap_or(&user.email), &errors),
+            locale: sections::locale(ctx, &csrf, &locale_options),
+            time_zone: time_zone_row(ctx, &csrf, &user.time_zone),
+            two_fa: sections::two_fa(ctx, user.otp_enabled),
+            advanced: self::advanced(ctx, &csrf, advanced)?,
+            wash: wash_widget,
+            admin: user.admin.then_some((registration.as_str(), email_widget.as_str())),
         },
-    )
+    );
+    section_page(ctx, &csrf, &user, &shell_data, "account", connect, &pane, status, flash_now)
+}
+
+/// settings/widgets/_time_zone for `zone`.
+pub(super) fn time_zone_row(ctx: &Ctx, csrf: &str, zone: &str) -> String {
+    let (_, options) = zones(ctx, zone);
+    let local_time = timezone::local(ctx.now, zone).format("%Y-%m-%d %I:%M %p").to_string();
+    sections::time_zone(ctx, csrf, &timezone::strict(zone).map_or("UTC".into(), |z| z.name().to_string()), &local_time, &options)
 }

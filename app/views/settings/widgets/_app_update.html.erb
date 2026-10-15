@@ -11,35 +11,40 @@
            end %>
 
 <% if state %>
-  <div class="widget widget--settings" id="app_update">
-    <h4 class="modal__title"><%= t('settings.app_update.title') %></h4>
-
-    <% case state %>
-    <% when :desktop %>
-      <%# The desktop build installs updates itself, so it gets the button rather than the
-          instructions the container platforms need. app/javascript/tauri.js calls the updater. %>
-      <p data-desktop-update-status><%= t('settings.app_update.desktop') %></p>
-      <%= button_tag t('settings.app_update.check_now'), type: 'button', class: 'button', data: {
-        desktop_update: true,
-        desktop_update_checking: t('settings.app_update.checking'),
-        desktop_update_up_to_date: t('settings.app_update.up_to_date'),
-        desktop_update_failed: t('settings.app_update.check_failed')
-      } %>
-    <% when :up_to_date %>
-      <p><%= t('settings.app_update.up_to_date') %></p>
-    <% when :available %>
-      <p><%= t('settings.app_update.available', version: AppUpdate.latest_version) %></p>
-
-      <% if platform == :umbrel %>
-        <p><%= t('settings.app_update.umbrel') %></p>
-      <% elsif platform == :docker %>
-        <p><%= t('settings.app_update.docker') %></p>
-        <span class="tag tag--copy" data-controller="clipboard" data-clipboard-text-value="<%= AppUpdate::COMPOSE_COMMAND %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppUpdate::COMPOSE_COMMAND %></span>
-      <% else %>
-        <p><%= link_to t('settings.app_update.manual'), "#{Clients::Github::MANUAL_URL}/07-updating.md", target: '_blank', rel: 'noopener' %></p>
+  <% hint = case state
+            when :desktop then tag.span(t('settings.app_update.desktop'), data: { desktop_update_status: true })
+            when :up_to_date then t('settings.app_update.up_to_date')
+            else t('settings.app_update.available', version: AppUpdate.latest_version)
+            end %>
+  <div id="app_update" class="sitem">
+    <%= settings_row t('settings.app_update.title'), hint do %>
+      <% case state %>
+      <% when :desktop %>
+        <%# The desktop build installs updates itself, so it gets the button rather than the
+            instructions the container platforms need. app/javascript/tauri.js calls the updater. %>
+        <%= button_tag t('settings.app_update.check_now'), type: 'button', class: 'rbutton rbutton--outline', data: {
+          desktop_update: true,
+          desktop_update_checking: t('settings.app_update.checking'),
+          desktop_update_up_to_date: t('settings.app_update.up_to_date'),
+          desktop_update_failed: t('settings.app_update.check_failed')
+        } %>
+      <% when :available %>
+        <%= link_to t('settings.app_update.release_notes'), AppUpdate.latest_url, target: '_blank', rel: 'noopener',
+                    class: 'rbutton rbutton--outline' %>
       <% end %>
+    <% end %>
 
-      <p><%= link_to t('settings.app_update.release_notes'), AppUpdate.latest_url, target: '_blank', rel: 'noopener' %></p>
+    <% if state == :available %>
+      <div class="srow__more">
+        <% if platform == :umbrel %>
+          <p><%= t('settings.app_update.umbrel') %></p>
+        <% elsif platform == :docker %>
+          <p><%= t('settings.app_update.docker') %></p>
+          <span class="tag tag--copy" data-controller="clipboard" data-clipboard-text-value="<%= AppUpdate::COMPOSE_COMMAND %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppUpdate::COMPOSE_COMMAND %></span>
+        <% else %>
+          <p><%= link_to t('settings.app_update.manual'), "#{Clients::Github::MANUAL_URL}/07-updating.md", target: '_blank', rel: 'noopener' %></p>
+        <% end %>
+      </div>
     <% end %>
   </div>
 <% end %>

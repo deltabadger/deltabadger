@@ -44,7 +44,7 @@
       </div>
     </main>
 
-    <%= turbo_frame_tag 'modal', src: (content_for(:modal_src) if content_for?(:modal_src)) %>
+    <%= turbo_frame_tag 'modal', src: (content_for?(:modal_src) ? content_for(:modal_src) : settings_reopen_src) %>
 
   <% end %>
 </html>

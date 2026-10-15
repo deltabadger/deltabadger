@@ -17,36 +17,31 @@ class SettingsController < ApplicationController
   before_action :require_admin!, only: %i[
     update_registration
     update_email_notifications disconnect_email send_test_email
-    update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
+    update_market_data disconnect_market_data resync_assets
     update_stocks disconnect_stocks
   ]
 
-  def connect
-    set_connect_instance_variables
-  end
+  # One dialog, five sections. Each is its own URL so the menu, old links and the IBKR wizard's
+  # return can open the dialog on the right one; from inside the dialog the sidebar swaps only the
+  # settings_pane frame.
+  SECTIONS = %w[account api_keys connect mcp api].freeze
 
-  def account
-    set_account_instance_variables
+  SECTIONS.each do |section|
+    define_method(section) { render_section(section) }
   end
-
-  def api; end
 
   def update_name
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')
       render turbo_stream: turbo_stream_prepend_flash
     else
-      set_account_instance_variables
-      render :account, status: :unprocessable_entity
+      render_section('account', status: :unprocessable_entity)
     end
   end
 
   def update_email
     if current_user.update_with_password(update_email_params)
-      # refresh the whole page for password managers to update the password
-      flash[:notice] = t('devise.registrations.update_needs_confirmation')
-      render turbo_stream: turbo_stream_page_refresh
-      # redirect_to settings_path, notice: t('devise.registrations.update_needs_confirmation'), format: :html
+      render_row('update_email_form', 'settings/widgets/email', t('devise.registrations.update_needs_confirmation'))
     else
 
       # for privacy, if the new email is :taken, just act as if registration was successful
@@ -54,26 +49,22 @@ class SettingsController < ApplicationController
         # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
         current_user.errors.delete(:email)
         if current_user.errors.empty?
-          # refresh the whole page for password managers to update the password
           # The old token was sent to the previous pending address; no mail goes to this one, so the
           # token must not survive to confirm it.
           current_user.update(email: current_user.email_was, unconfirmed_email: update_email_params[:email],
                               confirmation_token: nil, confirmation_sent_at: nil)
-          flash[:notice] = t('devise.registrations.update_needs_confirmation')
-          render turbo_stream: turbo_stream_page_refresh
+          render_row('update_email_form', 'settings/widgets/email', t('devise.registrations.update_needs_confirmation'))
           return
         end
       end
 
-      set_account_instance_variables
-      render :account, status: :unprocessable_entity
+      render_section('account', status: :unprocessable_entity)
     end
   end
 
   def update_time_zone
     if current_user.update(update_time_zone_params)
-      flash[:notice] = t('settings.language_and_timezone.updated')
-      render turbo_stream: turbo_stream_page_refresh
+      render_row('update_time_zone_form', 'settings/widgets/time_zone', t('settings.language_and_timezone.updated'))
     else
       render_preference_error
     end
@@ -85,7 +76,7 @@ class SettingsController < ApplicationController
       new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
       # Reloaded whole: the account menu is turbo-permanent, and a visit would keep its links on the
       # old locale's prefix, whose param then outranks the preference just saved.
-      render turbo_stream: turbo_stream_reload(settings_account_path(locale: new_locale))
+      render turbo_stream: turbo_stream_reload(page_behind_path(new_locale))
     else
       render_preference_error
     end
@@ -131,7 +122,7 @@ class SettingsController < ApplicationController
       flash.now[:alert] = t('settings.wash_sale.prompt_missing')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     when false then render_preference_error
-    else redirect_back fallback_location: settings_account_path, status: :see_other
+    else render turbo_stream: turbo_stream.replace('wash_sale', partial: 'settings/widgets/wash_sale')
     end
   end
 
@@ -147,12 +138,9 @@ class SettingsController < ApplicationController
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
-      # refresh the whole page for password managers to update the password
-      flash[:notice] = t('devise.passwords.updated')
-      render turbo_stream: turbo_stream_page_refresh
+      render_row('update_password_form', 'settings/widgets/password', t('devise.passwords.updated'))
     else
-      set_account_instance_variables
-      render :account, status: :unprocessable_entity
+      render_section('account', status: :unprocessable_entity)
     end
   end
 
@@ -161,19 +149,13 @@ class SettingsController < ApplicationController
   # started failing has no way to check what their key is missing (issue #153).
   def api_key_permissions
     @api_key = current_user.api_keys.find(params[:id])
-  end
-
-  def confirm_destroy_api_key
-    @api_key = current_user.api_keys.find(params[:id])
+    @section = 'api_keys'
   end
 
   def destroy_api_key
     api_key = current_user.api_keys.find(params[:id])
     if api_key.present? && stop_working_bots(api_key) && api_key.destroy
-      trading_api_keys = current_user.api_keys.includes(:exchange).where.not(key_type: 'withdrawal')
-      withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
-      render partial: 'settings/widgets/api_keys',
-             locals: { trading_api_keys:, withdrawal_api_keys: }
+      render turbo_stream: turbo_stream.replace('api_keys', partial: 'settings/widgets/api_keys')
     else
       flash.now[:alert] = api_key.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -189,8 +171,7 @@ class SettingsController < ApplicationController
     if Users::VerifyOtp.call(current_user, update_two_fa_params[:otp_code_token])
       update_to = current_user.otp_module_enabled? ? 'disabled' : 'enabled'
       if current_user.update(otp_module: update_to)
-        flash[:notice] = t("settings.two_fa.#{update_to}")
-        render turbo_stream: turbo_stream_page_refresh
+        render_row('two_fa', 'settings/widgets/two_fa', t("settings.two_fa.#{update_to}"))
       else
         flash.now[:alert] = t('errors.unverified_request')
         render turbo_stream: turbo_stream_prepend_flash
@@ -205,31 +186,7 @@ class SettingsController < ApplicationController
   def resync_assets
     AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_IN_PROGRESS
     Setup::SeedAndSyncJob.perform_later
-    redirect_to settings_connect_path
-  end
-
-  def confirm_destroy_coingecko_key; end
-
-  def destroy_coingecko_key
-    AppConfig.coingecko_api_key = ''
-    AppConfig.market_data_provider = nil
-    render partial: 'settings/widgets/market_data'
-  end
-
-  def update_coingecko_key
-    unless validate_coingecko_api_key(params[:coingecko_api_key])
-      flash.now[:alert] = t('setup.invalid_coingecko_api_key')
-      return render turbo_stream: [
-        turbo_stream.prepend('flash', partial: 'layouts/flash'),
-        turbo_stream.replace('market_data_settings', partial: 'settings/widgets/market_data_coingecko_form')
-      ], status: :unprocessable_entity
-    end
-
-    AppConfig.coingecko_api_key = params[:coingecko_api_key]
-    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
-    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_IN_PROGRESS
-    Setup::SeedAndSyncJob.perform_later
-    redirect_to settings_connect_path
+    render turbo_stream: turbo_stream.prepend('flash', partial: 'layouts/flash_syncing')
   end
 
   def update_market_data
@@ -401,7 +358,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_mcp_tool_enabled(tool_name, enabled)
 
-    render_tool_permissions
+    render_tool_permissions('mcp')
   end
 
   def update_mcp_tool_group_permissions
@@ -415,7 +372,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_mcp_tool_group_enabled(group, enabled)
 
-    render_tool_permissions
+    render_tool_permissions('mcp')
   end
 
   def update_mcp_dry_run
@@ -447,7 +404,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_rest_tool_enabled(tool_name, enabled)
 
-    render_tool_permissions
+    render_tool_permissions('rest')
   end
 
   def update_rest_tool_group_permissions
@@ -461,7 +418,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_rest_tool_group_enabled(group, enabled)
 
-    render_tool_permissions
+    render_tool_permissions('rest')
   end
 
   def update_advanced_bots
@@ -501,11 +458,8 @@ class SettingsController < ApplicationController
       )
     end
 
-    render turbo_stream: turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients')
-  end
-
-  def confirm_revoke_mcp_client
-    @mcp_client = connected_application!(params[:id])
+    render turbo_stream: turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients',
+                                                                   locals: { surface: params[:surface] })
   end
 
   def revoke_mcp_client
@@ -528,26 +482,27 @@ class SettingsController < ApplicationController
     flash.now[:notice] = t('settings.mcp.client_revoked')
 
     render turbo_stream: [
-      turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients'),
+      turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients',
+                                                locals: { surface: surface_param }),
       turbo_stream.prepend('flash', partial: 'layouts/flash')
     ]
   end
 
   def send_test_email
     unless SmtpSettings.configured?
-      flash[:alert] = t('settings.email_notifications.not_configured')
-      return redirect_to settings_account_path
+      flash.now[:alert] = t('settings.email_notifications.not_configured')
+      return render turbo_stream: turbo_stream_prepend_flash
     end
 
     begin
       TestMailer.test_email(current_user).deliver_now
-      flash[:notice] = t('settings.email_notifications.test_email_sent', email: current_user.email)
+      flash.now[:notice] = t('settings.email_notifications.test_email_sent', email: current_user.email)
     rescue StandardError => e
       Rails.logger.error "Test email failed: #{e.message}"
-      flash[:alert] = t('settings.email_notifications.test_email_failed', error: e.message)
+      flash.now[:alert] = t('settings.email_notifications.test_email_failed', error: e.message)
     end
 
-    redirect_to settings_account_path
+    render turbo_stream: turbo_stream_prepend_flash
   end
 
   private
@@ -567,11 +522,46 @@ class SettingsController < ApplicationController
   # A user-level switch changes what every client may hold: a grant that covered the whole of a
   # group a moment ago may now cover only part of it. So the client cards re-render with the
   # matrix, or they would keep showing ON for a tool the client was never granted.
-  def render_tool_permissions
+  def render_tool_permissions(surface)
     render turbo_stream: [
-      turbo_stream.replace('tool_permissions', partial: 'settings/widgets/tool_permissions'),
-      turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients')
+      turbo_stream.replace('tool_permissions', partial: 'settings/widgets/tool_permissions', locals: { surface: }),
+      turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients', locals: { surface: })
     ]
+  end
+
+  # The dialog on one section — the whole of it on a full-page visit, the frame on a turbo one.
+  def render_section(section, status: :ok)
+    @section = section
+    render :show, status:
+  end
+
+  # A saved row answers with itself and a flash. Never a page refresh: the dialog lives in a frame
+  # the page behind does not render, so a refresh would close it under the user.
+  def render_row(frame, partial, notice)
+    flash.now[:notice] = notice
+    render turbo_stream: [turbo_stream.replace(frame, partial:), turbo_stream_prepend_flash]
+  end
+
+  # The page the dialog was opened over, in the new language, with the dialog open on it again. Only
+  # the Referer's PATH is used, and only one that starts with a single slash, so the reload can never
+  # leave this app. A settings page has nothing behind it and stays itself.
+  def page_behind_path(locale)
+    path = begin
+      URI(request.referer.to_s).path.to_s
+    rescue URI::InvalidURIError
+      ''
+    end
+    return settings_account_path(locale:) unless path.match?(%r{\A/(?!/)})
+
+    rest = path.sub(%r{\A/(?:#{I18n.available_locales.join('|')})(?=/|\z)}, '').presence || '/'
+    return settings_account_path(locale:) if rest.match?(%r{\A/settings(?:/|\z)})
+
+    prefix = locale ? "/#{locale}" : ''
+    "#{prefix.empty? || rest != '/' ? "#{prefix}#{rest}" : prefix}?settings=account"
+  end
+
+  def surface_param
+    CLIENT_PERMISSION_SURFACES.key?(params[:surface]) ? params[:surface] : 'mcp'
   end
 
   def render_preference_error
@@ -624,14 +614,6 @@ class SettingsController < ApplicationController
       .where('datetime(created_at, \'+\' || expires_in || \' seconds\') > ?', Time.current.utc)
   end
 
-  def validate_coingecko_api_key(api_key)
-    return false if api_key.blank?
-
-    coingecko = Coingecko.new(api_key: api_key)
-    result = coingecko.get_coins_list_with_market_data(ids: ['bitcoin'], limit: 1)
-    result.success?
-  end
-
   def validate_alpaca_api_key(api_key, api_secret, mode)
     return false if api_key.blank? || api_secret.blank?
 
@@ -643,41 +625,10 @@ class SettingsController < ApplicationController
     result.success?
   end
 
-  def set_connect_instance_variables
-    @trading_api_keys = current_user.api_keys.includes(:exchange).where.not(key_type: 'withdrawal')
-    @withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
-  end
-
-  def set_account_instance_variables
-    @name_pattern = User::Name::PATTERN
-    @email_address_pattern = User::Email::ADDRESS_PATTERN
-    @password_length_pattern = User::Password::LENGTH_PATTERN
-    @password_uppercase_pattern = User::Password::UPPERCASE_PATTERN
-    @password_lowercase_pattern = User::Password::LOWERCASE_PATTERN
-    @password_digit_pattern = User::Password::DIGIT_PATTERN
-    @password_symbol_pattern = User::Password::SYMBOL_PATTERN
-    @password_pattern = User::Password::PATTERN
-    @password_minimum_length = Devise.password_length.min
-    @two_fa_button_text = if current_user.otp_module_enabled?
-                            t('helpers.label.settings.disable_two_fa')
-                          else
-                            t('helpers.label.settings.enable_two_fa')
-                          end
-  end
-
   def set_edit_two_fa_instance_variables
-    if current_user.otp_module_enabled?
-      @two_fa_button_text = t('helpers.label.settings.disable_two_fa')
-      @two_fa_status_text = t('helpers.label.settings.enabled')
-    else
-      @two_fa_button_text = t('helpers.label.settings.enable_two_fa')
-      @two_fa_status_text = t('helpers.label.settings.disabled')
-      @qr_code = RQRCode::QRCode.new(
-        current_user.provisioning_uri(nil, { issuer: 'Deltabadger' }),
-        size: 12,
-        level: :h
-      )
-    end
+    return if current_user.otp_module_enabled?
+
+    @qr_code = RQRCode::QRCode.new(current_user.provisioning_uri(nil, { issuer: 'Deltabadger' }), size: 12, level: :h)
   end
 
   def stop_working_bots(api_key)

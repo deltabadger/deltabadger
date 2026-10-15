@@ -111,6 +111,18 @@ es:
         account: Cuenta
         sign_up: Registrarse
     settings:
+        sections:
+            mcp_server: 'Servidor MCP'
+            profile: 'Perfil'
+            preferences: 'Preferencias'
+            security: 'Seguridad'
+            instance: 'Instancia'
+            language: 'Idioma'
+            time_zone: 'Zona horaria'
+            change: 'Cambiar'
+            no_keys: 'Aún no hay claves API.'
+            permissions: 'Permisos'
+            provider: 'Proveedor'
         wash_sale:
             title: "Protección de la deducción de pérdidas"
             sentence_html: "No recomprar durante %{select_html} tras vender con pérdida"

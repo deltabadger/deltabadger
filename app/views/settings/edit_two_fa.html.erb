@@ -1,29 +1,18 @@
-<%= render 'layouts/modal/base' do %>
-  <div class="modal modal--2fa">
-    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-      <%= render partial: 'svg/24x24_close' %>
+<%# The 2FA row, opened: the QR code (when enabling) and the code that confirms the change.
+    Cancel reloads the row from the account section. %>
+<% enabled = current_user.otp_module_enabled? %>
+<%= turbo_frame_tag 'two_fa', class: 'sitem' do %>
+  <div>
+    <%= settings_row t('settings.index.two_factor_section') do %>
+      <%= link_to t('button.cancel'), settings_account_path, class: 'rbutton rbutton--outline' %>
     <% end %>
-    <div class="modal__header">
-       <h1 class="modal__title">2FA</h1>
-    </div>
-
-    <div class="form__row">
-      <%= t('helpers.label.settings.current_status') %>
-      <b class="<%= current_user.otp_module_enabled? ? 'text-success' : 'text-secondary' %>">
-        <%= @two_fa_status_text %>
-      </b>
-    </div>
-
-    <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, class: "setting-form", data: { controller: "form--html5-validations form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
-      <div class="form__row">
-        <%= render partial: 'qr_code', locals: { qr_code: @qr_code } if @qr_code.present? %>
-      </div>
-      <div class="form__row form__row--input">
-        <%= f.text_field :otp_code_token, class: "form__input", required: true, pattern: "\\d{6}" %>
-        <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "form__label" %>
-      </div>
-
-      <%= f.submit @two_fa_button_text, class: "button button--success mt-1" %>
+    <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, class: 'sform sform--stack' do |f| %>
+      <%= render 'settings/qr_code', qr_code: @qr_code if @qr_code.present? %>
+      <%= f.text_field :otp_code_token, class: 'rinput rinput--outline rinput--text', required: true, pattern: '\d{6}', autocomplete: 'one-time-code',
+                                        inputmode: 'numeric', placeholder: t('helpers.label.settings.enter_two_fa_code'),
+                                        aria: { label: t('helpers.label.settings.enter_two_fa_code') } %>
+      <%= f.submit t(enabled ? 'helpers.label.settings.disable_two_fa' : 'helpers.label.settings.enable_two_fa'),
+                   class: "rbutton rbutton--outline #{'rbutton--danger' if enabled}" %>
     <% end %>
   </div>
 <% end %>

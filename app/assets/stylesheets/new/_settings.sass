@@ -1,0 +1,403 @@
+@use "../variables" as *
+
+// The settings dialog: a sidebar of sections beside the pane they open, a row per setting — label
+// and hint on the left, the control on the right. On a phone the sidebar turns into a row of tabs
+// under the title and each control drops under its label.
+
+.sdialog
+    padding: 0
+
+.settings
+    position: relative
+    display: flex
+    width: min(110rem, 100vw - 4rem)
+    height: min(86rem, 100dvh - 4rem)
+    background: var(--washed)
+    border-radius: 2rem
+    box-shadow: var(--shadow-strong)
+    overflow: hidden
+    @media (max-width: 767.9px)
+        width: calc(100vw - 2rem)
+        height: calc(100dvh - 2rem)
+
+.settings__close
+    position: absolute
+    top: 1.5rem
+    right: 1.5rem
+    z-index: 2
+    // Square, so border-radius 50% is a circle: padding alone left the button's line box taller than wide.
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 4rem
+    height: 4rem
+    padding: 0
+    // Content scrolls under the ×; a frosted disc in the pane's own colour keeps it legible
+    // without a bar across the top.
+    background: color-mix(in srgb, var(--washed) 75%, transparent)
+    backdrop-filter: blur(0.75rem)
+    border: 0
+    border-radius: 50%
+    cursor: pointer
+    svg
+        width: 2.5rem
+        height: 2.5rem
+    path
+        fill: var(--stone)
+    // Level with the tabs, which start 2rem down.
+    @media (max-width: 767.9px)
+        top: 2.25rem
+    &:hover
+        background: color-mix(in srgb, var(--paper-on-washed) 90%, transparent)
+        path
+            fill: var(--ink)
+
+// The frame is the layout: the sidebar comes back with every section, so it is drawn by the server
+// with the right item active.
+.settings__frame
+    display: grid
+    grid-template-columns: 26rem minmax(0, 1fr)
+    width: 100%
+    min-height: 0
+    @media (max-width: 767.9px)
+        grid-template-columns: minmax(0, 1fr)
+        grid-template-rows: auto minmax(0, 1fr)
+
+.settings__nav
+    display: flex
+    flex-direction: column
+    gap: 0.25rem
+    padding: 2rem 1.5rem
+    border-right: 1px solid var(--zinc)
+    // The tabs are the top line, and the close button sits at its end: the row stops short of it,
+    // so a tab scrolls out of sight before it can slide under the ×.
+    @media (max-width: 767.9px)
+        padding: 2rem 6rem 0 0
+        border-right: 0
+        border-bottom: 1px solid var(--zinc)
+.settings__items
+    display: flex
+    flex-direction: column
+    gap: 0.25rem
+    // A row of tabs that scrolls sideways when the section names outgrow the screen.
+    @media (max-width: 767.9px)
+        flex-direction: row
+        overflow-x: auto
+        scrollbar-width: none
+        padding: 0 2rem 1.5rem
+        // Faded rather than cut at either end: a tab sliced mid-word reads as a broken label, a
+        // fading one as more to scroll to. At rest the first tab's text starts past the fade.
+        mask-image: linear-gradient(to right, transparent, #000 3rem, #000 calc(100% - 3rem), transparent)
+
+.settings__item
+    display: flex
+    align-items: center
+    gap: 1.25rem
+    padding: 1rem 1.5rem
+    border-radius: 1rem
+    font-size: 1.75rem
+    font-weight: 500
+    color: var(--ash)
+    text-decoration: none
+    white-space: nowrap
+    svg
+        flex: none
+        width: 2.5rem
+        height: 2.5rem
+    path
+        fill: currentColor
+    &:hover
+        color: var(--ink)
+        background: var(--paper-on-washed)
+    &--active, &--active:hover
+        color: var(--ink)
+        background: var(--silver)
+    @media (max-width: 767.9px)
+        flex: none
+        svg
+            display: none
+
+.settings__version
+    margin-top: auto
+    padding: 1rem 2rem
+    font-size: 1.5rem
+    color: var(--concrete)
+    @media (max-width: 767.9px)
+        display: none
+
+.settings__pane
+    overflow-y: auto
+    overscroll-behavior: contain
+    outline: none
+    padding: 3rem 4rem 6rem
+    @media (max-width: 767.9px)
+        padding: 1rem 2rem 4rem
+
+.settings__heading
+    margin: 5rem 0 0.5rem
+    font-size: 2rem
+    font-weight: 600
+    color: var(--ink)
+    &--first
+        margin-top: 0.5rem
+
+.settings__intro, .settings__empty
+    margin: 0.5rem 0 1rem
+    font-size: 1.5rem
+    color: var(--stone)
+    text-wrap: pretty
+
+.settings__empty
+    padding: 1rem 0
+
+.settings__back
+    display: inline-flex
+    align-items: center
+    gap: 1rem
+    margin-bottom: 2rem
+    font-size: 1.5rem
+    color: var(--stone)
+    text-decoration: none
+    svg
+        width: 2rem
+        height: 2rem
+    &:hover
+        color: var(--ink)
+
+.settings__prose
+    font-size: 1.5rem
+    color: var(--ash)
+    ol, ul
+        padding-left: 2.5rem
+
+// One setting.
+.srow
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    justify-content: space-between
+    gap: 1.5rem 3rem
+    padding: 2rem 0
+    &__text
+        flex: 1 1 24rem
+        min-width: 0
+        // With a mark (an exchange logo): the mark in its own column, the label and the hint beside it.
+        &--icon
+            display: grid
+            grid-template-columns: 2rem minmax(0, 1fr)
+            column-gap: 1.5rem
+            .srow__hint
+                grid-column: 2
+    // One label line tall, at the label's size, with the mark centred in it: level with the first
+    // line however the label or the hint wraps.
+    &__icon
+        display: flex
+        align-items: center
+        align-self: start
+        height: 1lh
+        font-size: 1.75rem
+        svg
+            width: 2rem
+            height: 2rem
+            *
+                fill: var(--concrete)
+    &__label
+        font-size: 1.75rem
+        font-weight: 500
+        color: var(--ink)
+    // A qualifier on the label's own line ("Binance  Tracker"): the hint's colour, not its line.
+    &__aside
+        margin-left: 1rem
+        font-size: 1.5rem
+        font-weight: 400
+        color: var(--stone)
+    &__hint
+        margin-top: 0.5rem
+        font-size: 1.5rem
+        color: var(--stone)
+        text-wrap: pretty
+        overflow-wrap: anywhere
+        b
+            color: var(--ash)
+    &__control
+        display: flex
+        flex-wrap: wrap
+        align-items: center
+        justify-content: flex-end
+        gap: 1rem
+        margin-left: auto
+        max-width: 100%
+        form
+            display: flex
+            margin: 0
+    &__more
+        flex-basis: 100%
+        font-size: 1.5rem
+        color: var(--stone)
+    // A setting whose control is a block of its own (the wash-sale question).
+    &--block
+        flex-direction: column
+        align-items: stretch
+        // In a column the text's 24rem basis would be a HEIGHT: a block of empty space under the label.
+        .srow__text
+            flex: none
+        // The row's own padding already closes it; the opened form's would double it.
+        .sform--stack
+            padding-bottom: 0
+    // A group heading in a tool list: the switch beside it covers every tool under it.
+    &--group
+        margin-top: 2rem
+        padding-bottom: 1rem
+        .srow__label
+            font-size: 1.5rem
+            font-weight: 600
+            text-transform: uppercase
+            letter-spacing: 0.02em
+            color: var(--stone)
+    &--tool
+        padding: 1.25rem 0
+    &--client
+        .srow__label
+            font-weight: 600
+    // A group whose heading is itself the switch (market data): the heading's type, the row's layout.
+    &--heading
+        margin-top: 4rem
+        .srow__label
+            font-size: 2rem
+            font-weight: 600
+
+// A row that opens into a small form (email, password): a <details> whose summary is the row, so it
+// needs no script and the button that opened it closes it. Only the disclosure triangle goes.
+summary:has(> .srow)
+    display: block
+    list-style: none
+    cursor: pointer
+    &::-webkit-details-marker
+        display: none
+
+// Dividers go between the items of a section — never above its first item, never between
+// sections. An item is a row, or a box holding one (a frame, a client card, an inset form); a
+// heading, an intro or a tool group's label is not, so the item after one starts clean.
+:is(.srow, .sitem):not(.srow--heading, .srow--group) + :is(.srow, .sitem):not(.srow--group)
+    border-top: 1px solid var(--zinc)
+
+// A frame is inline by default, and an inline box draws its border around each line, not the row.
+turbo-frame.sitem
+    display: block
+
+.sform
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 1rem
+    margin: 0
+    &__error
+        margin: 0
+        font-size: 1.5rem
+        color: var(--berry)
+    // The opened form: one field a line, under the row that opened it.
+    &--stack
+        flex-direction: column
+        align-items: stretch
+        max-width: 44rem
+        padding-bottom: 2rem
+        .rinput--text
+            width: 100%
+        > .rbutton
+            align-self: flex-start
+    // A form that is a row of its own, under the row it belongs to.
+    &--inset
+        padding-top: 2rem
+        max-width: none
+        > :not(.srow)
+            max-width: 44rem
+
+.sswitch
+    display: inline-flex
+    margin: 0
+    .toggle
+        display: inline-flex
+    // Over the whole row it sits in — the row is the nearest positioned box. Anything else the row
+    // offers (a button, a confirm) is lifted above it, so those still get their own clicks.
+    &__hit
+        position: absolute
+        inset: 0
+        cursor: pointer
+
+.srow:has(.sswitch__hit)
+    position: relative
+    .srow__control > :not(.sswitch)
+        position: relative
+        z-index: 1
+
+// A destructive button that asks first: the panel hangs under it with what will happen.
+.sconfirm
+    position: relative
+    > summary
+        list-style: none
+        cursor: pointer
+        &::-webkit-details-marker
+            display: none
+    &[open] > summary
+        color: var(--ink)
+        box-shadow: var(--shadow-indent)
+    &__panel
+        position: absolute
+        top: calc(100% + 0.75rem)
+        right: 0
+        z-index: 10
+        display: flex
+        flex-direction: column
+        align-items: flex-end
+        gap: 1.5rem
+        width: min(32rem, 100vw - 6rem)
+        padding: 1.5rem
+        background: var(--dropdown-bg)
+        border-radius: 1.5rem
+        box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
+        p
+            margin: 0
+            align-self: stretch
+            font-size: 1.5rem
+            color: var(--ash)
+            text-wrap: pretty
+        form
+            margin: 0
+
+// The walkthrough under a key form, closed until asked for.
+.shelp
+    font-size: 1.5rem
+    > summary
+        cursor: pointer
+        color: var(--link)
+    > div
+        margin-top: 1rem
+
+.sclient
+    margin-top: 1rem
+
+.settings-locked
+    margin: 0.5rem 0 0
+    padding: 0
+    list-style: none
+
+// A row inside an opened form: the form's own spacing places it.
+.srow--flush
+    padding: 0
+
+// On a phone a row with an input puts it on its own line, full width — right-aligned under the
+// label it only left a gap where the label had been.
+@media (max-width: 767.9px)
+    .srow__control:has(.rinput)
+        flex: 1 1 100%
+        flex-wrap: nowrap
+        form
+            flex: 1
+            min-width: 0
+        .rinput
+            flex: 1
+            min-width: 0
+            width: auto
+    // A short label keeps its control beside it; only a control that cannot fit drops under.
+    .srow__text
+        flex-basis: 12rem

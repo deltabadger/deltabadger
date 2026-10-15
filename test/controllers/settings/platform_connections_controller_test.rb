@@ -6,49 +6,48 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     sign_in @admin
   end
 
-  test 'independent settings offers Deltabadger alongside None and CoinGecko' do
+  # Off is the switch, never a "None" option: with nothing set up the widget is one switch that
+  # turns the feed on with CoinGecko — the provider it can reach without a claim.
+  test 'independent settings with nothing set up is one switch that turns CoinGecko on' do
     get settings_connect_path
 
     assert_response :success
     assert_select 'turbo-frame#market_data_settings' do
-      # The provider is one segmented control over a hidden field, submitted as soon as it moves.
-      # Fluid: the labels differ in length, so each option takes its own width.
-      assert_select '.segmented.segmented--fluid[role=radiogroup]' do
-        assert_select '.segmented__option.is-on[data-value=""]', text: I18n.t('settings.market_data.none')
-        assert_select '.segmented__option[data-value=coingecko]', text: 'CoinGecko'
-        assert_select '.segmented__option[data-value=deltabadger]', text: 'Deltabadger.com'
+      assert_select 'form.sswitch' do
+        assert_select 'input[type=hidden][name=market_data_provider][value=coingecko]', count: 1
+        assert_select '.toggle input[type=checkbox]:not([checked])', count: 1
       end
-      # Counted in the switch's own form: with no CoinGecko key saved, the widget also carries the
-      # CoinGecko connect card, a separate form with its own provider field.
-      assert_select 'form.set-api__mode input[type=hidden][name=market_data_provider]', count: 1
-      assert_select 'input[type=radio][name=market_data_provider]', count: 0
-      # The claim is the same connect card, with what the subscription brings in place of a walkthrough.
-      assert_select '[data-form--market-data-target=deltabadgerButtons] .set-api--connect' do
-        assert_select '.set-api__mark svg', count: 1
-        assert_select 'h2.set-api__title', text: 'Connect Deltabadger.com'
-        assert_select "form[action='#{settings_platform_connection_path}'] input[name=claim_code].form__input"
-        assert_select 'input[type=submit][value=Connect]'
-        assert_select '.set-api__instructions h3.set-api__eyebrow', text: I18n.t('settings.platform.subscription_title')
-        assert_select '.set-api__instructions p a[href="https://deltabadger.com"]', text: 'Deltabadger'
-      end
+      assert_select '.segmented', count: 0
+      assert_select '.segmented__option[data-value=""]', count: 0
+      assert_select "form[action='#{settings_platform_connection_path}']", count: 0
     end
   end
 
-  test 'choosing CoinGecko without a key shows the connect card, walkthrough below' do
+  test 'choosing CoinGecko without a key offers the key, and Deltabadger beside it' do
     # A stored blank beats whatever key the environment happens to carry (a developer's .env).
     AppConfig.coingecko_api_key = ''
     patch settings_update_market_data_path, params: { market_data_provider: MarketDataSettings::PROVIDER_COINGECKO },
                                             as: :turbo_stream
 
     assert_response :success
-    # Two cards ride in the widget now (the claim one hidden), so look inside the CoinGecko slot.
-    assert_select '[data-form--market-data-target=coingeckoFields]:not([hidden]) .set-api--connect' do
-      assert_select '.set-api__mark svg', count: 1
-      assert_select 'h2.set-api__title', text: 'Connect CoinGecko'
-      assert_select 'input[type=hidden][name=market_data_provider][value=coingecko]', minimum: 1
-      assert_select 'input[name=coingecko_api_key].form__input', count: 1
+    assert_select 'form.sswitch .toggle input[checked]', count: 1
+    # The provider is one segmented control over a hidden field, submitted as soon as it moves.
+    # Fluid: the labels differ in length, so each option takes its own width.
+    assert_select '.segmented.segmented--fluid[role=radiogroup]' do
+      assert_select '.segmented__option', count: 2
+      assert_select '.segmented__option.is-on[data-value=coingecko]', text: 'CoinGecko'
+      assert_select '.segmented__option[data-value=deltabadger]', text: 'Deltabadger.com'
+    end
+    assert_select '[data-form--market-data-target=coingeckoFields]:not([hidden])' do
+      assert_select 'input[type=hidden][name=market_data_provider][value=coingecko]', count: 1
+      assert_select 'input[name=coingecko_api_key].rinput', count: 1
       assert_select 'input[type=submit][value=Connect]'
-      assert_select '.set-api__instructions ol li', count: 7
+      assert_select '.shelp ol li', count: 7
+    end
+    # The claim waits behind the other option, with what the subscription brings as its help.
+    assert_select '[data-form--market-data-target=deltabadgerButtons][hidden]' do
+      assert_select "form[action='#{settings_platform_connection_path}'] input[name=claim_code].rinput"
+      assert_select 'p a[href="https://deltabadger.com"]', text: 'Deltabadger'
     end
   end
 
@@ -90,7 +89,8 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_response :success
     assert_nil AppConfig.market_data_provider
     assert_equal 'https://proxy.example.com', AppConfig.get('proxy_binance')
-    assert_select "a[href='#{settings_platform_connection_path}']", text: I18n.t('settings.platform.disconnect')
+    assert_select '.sconfirm summary', text: I18n.t('settings.platform.disconnect')
+    assert_select ".sconfirm form[action='#{settings_platform_connection_path}']"
     assert_includes response.body, I18n.t('settings.platform.connected_with_proxies')
   end
 
@@ -112,7 +112,8 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_response :success
     assert_equal MarketDataSettings::PROVIDER_COINGECKO, AppConfig.market_data_provider
     assert_equal 'saved-key', AppConfig.coingecko_api_key
-    assert_select "a[href='#{settings_platform_connection_path}']", text: I18n.t('settings.platform.disconnect')
+    assert_select '.sconfirm summary', text: I18n.t('settings.platform.disconnect')
+    assert_select ".sconfirm form[action='#{settings_platform_connection_path}']"
   end
 
   test 'a connected install can reselect Deltabadger with its stored claim credentials' do
