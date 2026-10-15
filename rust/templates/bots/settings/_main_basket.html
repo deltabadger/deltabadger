@@ -66,7 +66,7 @@
                    {% if weights_locked %}disabled{% endif %}>%
           </div>
 {% if !composition_locked && several %}
-            <button name="bots_dca_multi_asset[remove_asset_id]" type="submit" value="{{ slider.pill.asset_id }}" class="rbutton rbutton--small asset-allocation__remove" title="{{ v.t("bot.dca_multi_asset.remove_asset")|safe }}">×</button>
+            <button name="bots_dca_multi_asset[remove_asset_id]" type="submit" value="{{ slider.pill.asset_id }}" class="rbutton rbutton--small rbutton--secondary asset-allocation__remove" title="{{ v.t("bot.dca_multi_asset.remove_asset")|safe }}">×</button>
 {% endif %}
         </div>
       </div>

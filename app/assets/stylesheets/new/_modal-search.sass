@@ -64,6 +64,9 @@
     @media screen and (min-width: 768px)
         align-items: flex-start
         padding-top: 2rem
+    // A full-page step keeps its centred title; only the small modals moved theirs left.
+    .modal__title
+        text-align: center
     .modal__close
         top:   1rem
         right: 1rem
@@ -152,15 +155,17 @@ html:has(#modal dialog[open])
         opacity: 0
         transform: scale(0.7)
 .modal
+    // The side and bottom inset, named once: the footer bleeds back out by exactly this much so
+    // its divider runs edge to edge.
+    --modal-pad: 3rem
     position: relative
-    padding: 3.25rem 4rem 4rem
+    padding: 1.5rem var(--modal-pad) var(--modal-pad)
     width: 100vw
     max-width: calc(100vw - 2rem)
     background: var(--washed)
     border-radius: 2rem
     @media screen and (max-width: 499.9px)
-        padding-left: 3rem
-        padding-right: 3rem
+        --modal-pad: 2rem
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
         width: 64rem
@@ -231,18 +236,25 @@ html:has(#modal dialog[open])
                 border-width: 0.5rem
         p
             margin: 0
+    // The settings dialog's ×: a 4rem disc in the corner, level with the title's line.
     &__close
         cursor: pointer
         position: absolute
-        top: 2.5rem
-        right: 2.5rem
-        width: 5rem
-        height: 5rem
-        padding: 1rem
+        top: 1.5rem
+        right: 1.5rem
+        display: flex
+        align-items: center
+        justify-content: center
+        width: 4rem
+        height: 4rem
+        padding: 0
         border-radius: 50%
         z-index: 1
         background: none // <button>
         border: none     // <button>
+        svg
+            width: 2.5rem
+            height: 2.5rem
         path
             fill: var(--stone)
             .flash__message &
@@ -251,15 +263,35 @@ html:has(#modal dialog[open])
             outline: none !important
         &:hover
             background: var(--close-hover)
+            path
+                fill: var(--ink)
+    // One line as tall as the ×, so the two sit level; the title stops short of it.
     &__header
-        margin-bottom: 4rem
-        min-height: 3rem
-        line-height: 3rem
+        margin-bottom: 1.5rem
+        min-height: 4rem
+        padding-right: 4rem
+        line-height: 4rem
     &__title
         font-size: 2rem
         font-weight: 600
+        line-height: 4rem
         margin-bottom: 0
-        text-align: center
+    // The actions: right-aligned under a rule that runs the modal's full width.
+    &__footer
+        display: flex
+        flex-wrap: wrap
+        justify-content: flex-end
+        align-items: center
+        gap: 1rem
+        margin: 3rem calc(-1 * var(--modal-pad)) calc(-1 * var(--modal-pad))
+        padding: 2rem var(--modal-pad)
+        border-top: 1px solid var(--zinc)
+        form
+            display: flex
+            margin: 0
+    // Fields as the settings dialog lays them out: label left, control right, a rule between.
+    .srow:first-child
+        padding-top: 0
     &__form
         display: flex
         flex-direction: column

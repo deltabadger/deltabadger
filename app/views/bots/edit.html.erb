@@ -7,12 +7,13 @@
        <h1 class="modal__title"><%= t('utils.change_name') %></h1>
     </div>
 
-    <%= form_with model: @bot, url: bot_path(@bot), method: :patch, class: "modal__form", data: { controller: "form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
-      <div class="form__row form__row--input">
-        <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "form__input" %>
-        <%= f.label :label, t('bot.bot_name'), class: "form__label" %>
+    <%= form_with model: @bot, url: bot_path(@bot), method: :patch, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "rinput rinput--outline rinput--text full-width",
+                               aria: { label: t('bot.bot_name') } %>
+      <div class="modal__footer">
+        <%= button_tag t('button.cancel'), type: 'button', class: 'rbutton rbutton--secondary', data: { action: 'modal--base#animateOutCloseAndCleanUp' } %>
+        <%= f.submit t('button.save'), class: "rbutton rbutton--primary" %>
       </div>
-      <%= f.submit t('button.save'), class: "button button--sky button--large" %>
     <% end %>
 
   </div>

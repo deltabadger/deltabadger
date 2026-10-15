@@ -1,4 +1,5 @@
 @use "../variables" as *
+@use "dropdown"
 
 // Segmented control: a recessed track, a raised chip, one option selected.
 //
@@ -35,6 +36,11 @@
             color: #fff
     &--primary
         background: var(--sky)
+    &--secondary
+        box-shadow: var(--shadow-rbutton-outline)
+        @media (prefers-color-scheme: dark)
+            box-shadow: none
+            background: var(--steel)
     &--outline
         box-shadow: var(--shadow-rbutton-outline)
     &--danger
@@ -66,7 +72,7 @@
     &--start, &--stop
         padding: 0 1.75rem
         cursor: pointer
-        box-shadow: var(--shadow-basic)
+        box-shadow: none
         .animicon
             &__a, &__b
                 background: var(--white)
@@ -141,6 +147,32 @@
         background-position: calc(100% - 2rem) 50%, calc(100% - 1.375rem) 50%
         background-size: 0.625rem 0.625rem
         background-repeat: no-repeat
+// display: contents, so the expanded control is laid out exactly as it was — the options are
+// still the track's own grid items. The wrappers only become boxes once they become a dropdown.
+// Scoped under .segmented to outweigh `.dropdown-wrapper--on .dropdown`: the currency picker sits
+// inside the account menu, and that menu opening must not open these. Same for its positioning.
+// Above the collapsed rules, which carry the same weight and have to win.
+.segmented .segmented__dropdown, .segmented .segmented__panes, .segmented .segmented__pane
+    display: contents
+
+// The list the action opens, a .dropdown. Expanded it hangs off the action at the end of the
+// track; collapsed the rules above turn it into the outer dropdown's second pane.
+.segmented .segmented__submenu
+    display: none
+    top: 4.5rem
+    bottom: auto
+    // Anchored by its right edge to the action that opens it — except where the page itself is
+    // barely wider than the list. A switch narrower than what it opens would push the box off
+    // the left of the screen, and the app's hidden horizontal overflow simply cuts the logos
+    // off. There is always room to the RIGHT of a control that starts at the page's own inset.
+    left: auto
+    right: 0
+    @media (max-width: 767.9px)
+        right: auto
+        left: 0
+.segmented.is-submenu .segmented__submenu
+    display: flex
+
 .segmented
     position: relative
     display: grid
@@ -182,21 +214,19 @@
             align-items: center
             padding-right: 0.5rem
             color: var(--stone)
-        // The dropdown is the BOX; the panes inside it are what slides. Wide enough for the
-        // action's list, because the trigger's own width is no measure of what it opens.
+        // The dropdown is the BOX — a .dropdown, so its look is the dropdown's; the panes inside
+        // it are what slides. Wide enough for the action's list, because the trigger's own width is
+        // no measure of what it opens. The padding moves onto the panes: the box's height is the
+        // pane's, set in pixels by the controller, because the two are different heights and
+        // `auto` does not animate.
         .segmented__dropdown
             display: none
-            position: absolute
             top: 4.5rem
+            bottom: auto
             left: 0
-            z-index: 1000
-            width: max(100%, 30rem)
-            overflow: hidden
-            background: var(--dropdown-bg)
-            border-radius: 1.5rem
-            box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
-            // Height is set in pixels by the controller — the two panes are different heights and
-            // `auto` does not animate.
+            right: auto
+            width: max(100%, 32rem)
+            padding: 0
             transition: height 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)
         // flex-start, not the default stretch: the box takes the height of the pane on screen, and
         // a stretched short pane would measure as the tall one.
@@ -205,49 +235,47 @@
             align-items: flex-start
             width: 200%
             transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)
+        // Both panes take the dropdown's own padding; the action's list is a .dropdown of its own,
+        // which here gives up the box it wears when it hangs off the expanded track.
         .segmented__menu, .segmented__submenu
             display: flex
             flex-direction: column
             position: static
             width: 50%
+            min-width: 0
+            max-height: none
             flex: none
-            padding: 0.75rem
+            padding: 1rem 0
             background: none
             box-shadow: none
             border-radius: 0
-        // The selected option is already the trigger, wearing the chip. Listing it again would
-        // offer the reader the thing they are looking at.
-        .segmented__option
+        // The options are the track's own items until the fold, so they take a dropdown row's look
+        // from the mixin rather than its class. The selected one is already the trigger, wearing
+        // the chip; listing it again would offer the reader the thing they are looking at.
+        .segmented__option:not(.segmented__option--action)
+            @include dropdown.item
+            // A row, not a grid: a venue's warning badge rides beside its name.
+            display: flex
             justify-content: flex-start
-            line-height: 3.5rem
+            font-size: inherit
+            font-weight: inherit
+            text-transform: none
+            text-indent: 0
             &.is-on
                 display: none
         // Same separation, turned through the ninety degrees the menu turned: the gap goes above
         // it, and the indent that opened it on the track would only break this column's left edge.
         // The collapse is MEASURED, so the folded look cannot hang off a breakpoint either.
         .segmented__option--action
-            margin-top: 0.5rem
-            margin-left: 0
+            margin: 0.5rem 1rem 0
             min-height: 3rem
             justify-content: center
             background: var(--silver)
             box-shadow: none
-        // The whole row, not the glyph: a 3.5rem target at the head of a full-width list is
-        // something the reader has to aim at. The arrow sits where the icons below it sit.
         .segmented__back
             display: flex
             align-items: center
-            width: 100%
-            min-height: 3.5rem
-            margin-bottom: 0.25rem
-            padding: 0 1rem
             color: var(--stone)
-            background: none
-            border: 0
-            border-radius: 1rem
-            cursor: pointer
-            &:hover
-                color: var(--ink)
         &.is-open
             .segmented__dropdown
                 display: block
@@ -257,74 +285,14 @@
             .segmented__panes
                 transform: translateX(-50%)
 
-// display: contents, so the expanded control is laid out exactly as it was — the options are
-// still the track's own grid items. The wrappers only become boxes once they become a dropdown.
-.segmented__dropdown, .segmented__panes, .segmented__pane
-    display: contents
-
-// The list the action opens. Expanded it is a box of its own hanging off the action at the end
-// of the track; collapsed the rules above turn it into the dropdown's second pane.
-.segmented__submenu
-    display: none
-    position: absolute
-    top: 4.5rem
-    right: 0
-    z-index: 1000
-    min-width: 30rem
-    // Anchored by its right edge to the action that opens it — except where the page itself is
-    // barely wider than the list. A switch narrower than what it opens would push the box off
-    // the left of the screen, and the app's hidden horizontal overflow simply cuts the logos
-    // off. There is always room to the RIGHT of a control that starts at the page's own inset.
-    @media (max-width: 767.9px)
-        right: auto
-        left: 0
-    padding: 0.75rem
-    background: var(--dropdown-bg)
-    border-radius: 1.5rem
-    box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
-.segmented.is-submenu .segmented__submenu
-    display: block
-
-// Same weight and case as an option, and the same hover: colour alone. A background here would
-// paint --dropdown-hover, which is the accent the action owns.
-.segmented__submenu-item
-    display: flex
-    align-items: center
-    gap: 1rem
-    padding: 0 1rem
-    min-height: 3.5rem
-    font-size: 1.5rem
-    font-weight: 600
-    text-indent: 0.1em
-    text-transform: uppercase
-    white-space: nowrap
-    color: var(--stone)
-    text-decoration: none
-    border-radius: 1rem
-    cursor: pointer
-    &:hover
-        color: var(--ink)
-
-.segmented__submenu-icon
-    display: flex
-    flex: none
-    width: 2rem
-    height: 2rem
-    svg
-        width: 100%
-        height: 100%
-        *
-            fill: currentColor
-
 // Only the folded menu has somewhere to go back TO: expanded, the list is its own box and the
-// click that opens it is the click that closes it.
-.segmented__back
+// click that opens it is the click that closes it. A stroked glyph, so the logos' fill stays off it.
+.segmented:not(.segmented--collapsed) .segmented__back
     display: none
-    svg
-        width: 2rem
-        height: 2rem
-        path
-            stroke: currentColor
+.dropdown .segmented__back svg
+    width: 2.5rem
+    height: 2.5rem
+    fill: none
 
 .segmented__caret
     display: none
@@ -385,15 +353,15 @@
     margin-left: .375rem
     color: var(--ink)
     background: var(--washed)
-    box-shadow: var(--shadow-paper)
+    // The look of an .rbutton--secondary under .buttons-no-outline.
+    box-shadow: var(--shadow-basic)
+    @media (prefers-color-scheme: dark)
+        background: var(--steel)
     svg
         width: 1.75rem
         height: 1.75rem
     path
         fill: currentColor
-    &:hover
-        color: #fff
-        background: var(--sky)
 .segmented.is-submenu .segmented__option--action
     color: #fff
     background: var(--sky)
@@ -412,3 +380,7 @@
 .segmented[data-currency]
     .segmented__option, .segmented__thumb
         text-transform: none
+
+.buttons-no-outline
+    .rbutton--secondary
+        box-shadow: var(--shadow-basic) !important

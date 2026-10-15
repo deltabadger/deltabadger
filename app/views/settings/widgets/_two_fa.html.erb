@@ -3,6 +3,6 @@
   <%= settings_row t('settings.index.two_factor_section'),
                    t(enabled ? 'helpers.label.settings.enabled' : 'helpers.label.settings.disabled') do %>
     <%= link_to t(enabled ? 'helpers.label.settings.disable_two_fa' : 'helpers.label.settings.enable_two_fa'),
-                settings_edit_two_fa_path, class: 'rbutton rbutton--outline' %>
+                settings_edit_two_fa_path, class: 'rbutton rbutton--secondary' %>
   <% end %>
 <% end %>

@@ -52,12 +52,12 @@ pub fn name(ctx: &Ctx, csrf: &str, value: &str, errors: &Errors) -> String {
 }
 
 fn submit(label: &str, extra: &str) -> String {
-    format!("<input type=\"submit\" name=\"commit\" value=\"{label}\" class=\"rbutton rbutton--outline\"{extra} data-disable-with=\"{label}\" />")
+    format!("<input type=\"submit\" name=\"commit\" value=\"{label}\" class=\"rbutton rbutton--secondary\"{extra} data-disable-with=\"{label}\" />")
 }
 
 /// A row that opens into a form: the summary is the row with its Change button.
 fn details(frame: &str, label: &str, hint: Option<&str>, open: bool, ctx: &Ctx, form: &str) -> String {
-    let control = format!("\n        <span class=\"rbutton rbutton--outline\">{}</span>\n", ctx.t("settings.sections.change"));
+    let control = format!("\n        <span class=\"rbutton rbutton--secondary\">{}</span>\n", ctx.t("settings.sections.change"));
     format!(
         "<turbo-frame class=\"sitem\" id=\"{frame}\">\n  <details {}>\n    <summary>\n      {}    </summary>\n    {form}  </details>\n</turbo-frame>",
         if open { "open" } else { "" },
@@ -151,7 +151,7 @@ pub fn time_zone(ctx: &Ctx, csrf: &str, zone_id: &str, local_time: &str, options
 /// settings/widgets/_two_fa: the row, closed.
 pub fn two_fa(ctx: &Ctx, enabled: bool) -> String {
     let control = format!(
-        "\n    <a class=\"rbutton rbutton--outline\" href=\"{}\">{}</a>\n",
+        "\n    <a class=\"rbutton rbutton--secondary\" href=\"{}\">{}</a>\n",
         escape(&ctx.path("/settings/edit_two_fa")),
         ctx.t(if enabled { "helpers.label.settings.disable_two_fa" } else { "helpers.label.settings.enable_two_fa" })
     );
@@ -161,7 +161,7 @@ pub fn two_fa(ctx: &Ctx, enabled: bool) -> String {
 
 /// settings/edit_two_fa: the 2FA row opened, the QR code (when enabling) and the code that confirms it.
 pub fn two_fa_open(ctx: &Ctx, csrf: &str, enabled: bool, qr: &str, error: Option<&String>) -> String {
-    let control = format!("\n      <a class=\"rbutton rbutton--outline\" href=\"{}\">{}</a>\n", escape(&ctx.path("/settings/account")), ctx.t("button.cancel"));
+    let control = format!("\n      <a class=\"rbutton rbutton--secondary\" href=\"{}\">{}</a>\n", escape(&ctx.path("/settings/account")), ctx.t("button.cancel"));
     let label = ctx.t("helpers.label.settings.enter_two_fa_code");
     let input = format!(
         "<input class=\"rinput rinput--outline rinput--text\" required=\"required\" pattern=\"\\d{{6}}\" autocomplete=\"one-time-code\" inputmode=\"numeric\" placeholder=\"{label}\" aria-label=\"{label}\" type=\"text\" name=\"user[otp_code_token]\" id=\"user_otp_code_token\" />"
@@ -169,7 +169,7 @@ pub fn two_fa_open(ctx: &Ctx, csrf: &str, enabled: bool, qr: &str, error: Option
     let button = ctx.t(if enabled { "helpers.label.settings.disable_two_fa" } else { "helpers.label.settings.enable_two_fa" });
     let qr = if qr.is_empty() { String::new() } else { format!("{qr}\n") };
     format!(
-        "<turbo-frame class=\"sitem\" id=\"two_fa\">\n  <div>\n    {}    {}\n      {qr}\n      {}\n      <input type=\"submit\" name=\"commit\" value=\"{button}\" class=\"rbutton rbutton--outline {}\" data-disable-with=\"{button}\" />\n</form>  </div>\n</turbo-frame>",
+        "<turbo-frame class=\"sitem\" id=\"two_fa\">\n  <div>\n    {}    {}\n      {qr}\n      {}\n      <input type=\"submit\" name=\"commit\" value=\"{button}\" class=\"rbutton rbutton--secondary {}\" data-disable-with=\"{button}\" />\n</form>  </div>\n</turbo-frame>",
         row(&ctx.t("settings.index.two_factor_section"), None, "", "", None, Some(&control)),
         form_open(" class=\"sform sform--stack\"", &ctx.path("/settings/update_two_fa"), "patch", csrf),
         field(&input, error),
@@ -205,7 +205,7 @@ pub fn wash(ctx: &Ctx, csrf: &str, question: &str, decided: bool, enabled: bool,
         String::new()
     };
     format!(
-        "<turbo-frame class=\"sitem\" id=\"wash_sale\">\n  <div class=\"srow srow--block\">\n    <div class=\"srow__text\"><div class=\"srow__label\">{}</div></div>\n\n    {}\n      {question}\n      <button name=\"button\" type=\"submit\"{} class=\"rbutton rbutton--outline\" data-form--checkbox-enables-target=\"submit\">{}</button>\n</form>{locked}\n  </div>\n</turbo-frame>",
+        "<turbo-frame class=\"sitem\" id=\"wash_sale\">\n  <div class=\"srow srow--block\">\n    <div class=\"srow__text\"><div class=\"srow__label\">{}</div></div>\n\n    {}\n      {question}\n      <button name=\"button\" type=\"submit\"{} class=\"rbutton rbutton--secondary\" data-form--checkbox-enables-target=\"submit\">{}</button>\n</form>{locked}\n  </div>\n</turbo-frame>",
         ctx.t("settings.wash_sale.title"),
         form_open(
             " class=\"sform sform--stack\" data-controller=\"form--checkbox-enables\" data-action=\"change-&gt;form--checkbox-enables#toggleSubmitButton\" data-turbo-frame=\"wash_sale\"",
@@ -267,7 +267,7 @@ pub struct Mail<'a> {
 
 fn send_test(ctx: &Ctx, csrf: &str) -> String {
     format!(
-        "<form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--outline\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>",
+        "<form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--secondary\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>",
         escape(&ctx.path("/settings/send_test_email")),
         ctx.t("settings.email_notifications.send_test")
     )
@@ -317,7 +317,7 @@ pub fn email_notifications(ctx: &Ctx, csrf: &str, m: &Mail) -> String {
                 )
             };
             out.push_str(&format!(
-                "\n      {}\n        <input type=\"hidden\" name=\"smtp_provider\" value=\"custom_smtp\" />\n        {}\n        {}\n        {}\n        {}\n        <p class=\"srow__hint\">{}</p>\n        <input type=\"submit\" name=\"commit\" value=\"{set}\" class=\"rbutton rbutton--outline\" data-disable-with=\"{set}\" />\n</form>",
+                "\n      {}\n        <input type=\"hidden\" name=\"smtp_provider\" value=\"custom_smtp\" />\n        {}\n        {}\n        {}\n        {}\n        <p class=\"srow__hint\">{}</p>\n        <input type=\"submit\" name=\"commit\" value=\"{set}\" class=\"rbutton rbutton--secondary\" data-disable-with=\"{set}\" />\n</form>",
                 form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"email_notifications\"", &ctx.path("/settings/update_email_notifications"), "patch", csrf),
                 input("text", "smtp_host", Some("smtp.gmail.com"), "settings.email_notifications.smtp_host", false),
                 input("number", "smtp_port", Some("587"), "settings.email_notifications.smtp_port", false),
@@ -345,7 +345,7 @@ pub fn segmented(label: &str, fluid: bool, options: &[(&str, String, bool)]) -> 
         })
         .collect();
     format!(
-        "\n<div class=\"segmented{}\" role=\"radiogroup\" aria-label=\"{}\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">{buttons}\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n",
+        "\n<div class=\"segmented{}\" role=\"radiogroup\" aria-label=\"{}\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">{buttons}\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n",
         if fluid { " segmented--fluid" } else { "" },
         escape(label)
     )
@@ -437,7 +437,7 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
         let validating = format!(" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\"", ctx.t("bot.setup.validating"));
         let coingecko = if m.coingecko_configured {
             let control = format!(
-                "\n              <form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--outline\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>\n              {}\n",
+                "\n              <form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--secondary\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>\n              {}\n",
                 escape(&ctx.path("/settings/resync_assets")),
                 ctx.t("settings.resync_assets.button"),
                 super::dialog::confirm(csrf, &ctx.t("settings.market_data.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.market_data.disconnect"), &ctx.path("/settings/disconnect_market_data"), "delete", &[])
@@ -509,7 +509,7 @@ pub fn api_keys(ctx: &Ctx, csrf: &str, keys: &[Key]) -> String {
         for key in group {
             let permissions = if key.instructions {
                 format!(
-                    "\n          <a class=\"rbutton rbutton--outline\" data-turbo-frame=\"settings_pane\" href=\"{}\">{}</a>",
+                    "\n          <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"settings_pane\" href=\"{}\">{}</a>",
                     escape(&ctx.path(&format!("/settings/api_key_permissions/{}", key.id))),
                     ctx.t("settings.sections.permissions")
                 )
@@ -574,7 +574,7 @@ pub fn rest(ctx: &Ctx, csrf: &str, root: &str, token: &str) -> String {
         super::dialog::confirm(csrf, &ctx.t("settings.rest.regenerate_token"), &ctx.t("settings.rest.regenerate_confirm"), &ctx.t("settings.rest.regenerate_token"), &ctx.path("/settings/regenerate_api_token"), "post", &[])
     );
     let docs = format!(
-        "\n    <a class=\"rbutton rbutton--outline\" title=\"{}\" data-turbo=\"false\" href=\"{}\">deltabadger-api.md</a>\n",
+        "\n    <a class=\"rbutton rbutton--secondary\" title=\"{}\" data-turbo=\"false\" href=\"{}\">deltabadger-api.md</a>\n",
         ctx.t("settings.rest.download_api_docs"),
         escape(&ctx.path("/settings/download_api_docs"))
     );

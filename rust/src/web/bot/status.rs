@@ -221,6 +221,8 @@ struct ButtonView<'a> {
     button: &'a Button,
     /// The button's classes: small rbuttons on a tile, full-size ones on the bot page.
     class: String,
+    /// The bot page's wrapper drops the secondary button's outline; the tile's has no class.
+    tile: bool,
 }
 
 impl ButtonView<'_> {
@@ -229,13 +231,13 @@ impl ButtonView<'_> {
         let class = match button {
             Button::Reactivate => format!("{size} rbutton--success"),
             Button::Stop if tile => format!("{size} rbutton--stop"),
-            Button::Stop => size.to_string(),
+            Button::Stop => format!("{size} rbutton--secondary"),
             Button::Restart(false) | Button::Start(false) => format!("{size} rbutton--start"),
             Button::Restart(true) | Button::Start(true) if tile => format!("{size} rbutton--start rbutton--disabled"),
             Button::Restart(true) | Button::Start(true) => format!("{size} rbutton--disabled"),
         };
         let id = bot.dom_id(if tile { "tile_status_button" } else { "status_button" });
-        Ok(ButtonView { v, csrf, id, path: v.path(&format!("/bots/{}", bot.id)), button, class }.render()?)
+        Ok(ButtonView { v, csrf, id, path: v.path(&format!("/bots/{}", bot.id)), button, class, tile }.render()?)
     }
 }
 

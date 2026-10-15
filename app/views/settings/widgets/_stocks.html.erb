@@ -36,7 +36,7 @@
       <%= f.hidden_field :alpaca_mode, value: mode, data: { 'form--segmented-field-target': 'field' } %>
       <%= f.text_field :alpaca_api_key, autocomplete: 'off', class: 'rinput rinput--outline rinput--text', placeholder: 'API Key', aria: { label: 'API Key' } %>
       <%= f.text_field :alpaca_api_secret, autocomplete: 'off', class: 'rinput rinput--outline rinput--text', placeholder: 'API Secret', aria: { label: 'API Secret' } %>
-      <%= f.submit t('button.connect'), class: 'rbutton rbutton--outline',
+      <%= f.submit t('button.connect'), class: 'rbutton rbutton--secondary',
                    data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
       <details class="shelp">
         <summary><%= t('bot.setup.how_to_get_keys', exchange: alpaca.name) %></summary>

@@ -9,14 +9,14 @@
 
 </a>  </div>
 
-  <div class="tracker-exchanges__end">
+  <div class="tracker-exchanges__end buttons-no-outline">
     <div class="tracker-exchanges__sync">
-{% if let Some(cold) = cold %}{{ cold.sync|safe }}{% endif %}        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
+{% if let Some(cold) = cold %}{{ cold.sync|safe }}{% endif %}        <form class="button_to" method="post" action="{{ v.path("/tracker/sync") }}"><button class="rbutton rbutton--icon rbutton--secondary" aria-label="{{ v.t("tracker.sync")|safe }}" type="submit">
           {% include "svg/_24x24_sync.html" %}
 
 </button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>    </div>
 
-      <a class="rbutton" data-turbo-frame="modal" href="{{ v.path("/tracker/export_modal") }}">{{ v.t("tracker.get_report")|safe }}</a>
+      <a class="rbutton rbutton--secondary" data-turbo-frame="modal" href="{{ v.path("/tracker/export_modal") }}">{{ v.t("tracker.get_report")|safe }}</a>
 
     <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
       {% include "svg/_24x24_dot_menu.html" %}
