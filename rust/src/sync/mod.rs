@@ -37,9 +37,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 /// ApiKey::SYNC_ERROR_LIMIT.
 pub const SYNC_ERROR_LIMIT: usize = 200;
 pub const ALPACA: &str = "Exchanges::Alpaca";
-/// Before 3.0 a live Alpaca key is not synced (the engine refuses it too): nothing is sent, and the key says why.
-/// Worded without the passphrase itself ("live"), which the scrub would redact out of the stored text.
-pub const LIVE_REFUSED: &str = "a real-money Alpaca key is not synced by this build (paper only before 3.0)";
 
 /// This process failing, as opposed to the venue: SQLite, a stored value Rails did not write, a key that is not an
 /// Alpaca key, a database phase whose task was cancelled.
@@ -277,8 +274,6 @@ pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Optio
         passphrase: open(passphrase)?,
     })
 }
-
-pub fn live(credentials: &Credentials) -> bool { credentials.passphrase.as_deref() == Some("live") }
 
 /// How a failed venue read reaches the job: Clients::Alpaca#with_rescue returns a Failure (its first error is the
 /// text), and Client.network_failure raises Client::TransientNetworkError for a transport failure a retry could fix.

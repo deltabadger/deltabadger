@@ -253,7 +253,7 @@ impl ReqwestTransport {
             // LISTED RESIDUAL: this bounds when a send may start and how long reqwest keeps it alive, not when the bytes leave.
             // A process frozen mid-write of the order request (SIGSTOP, a VM pause) and resumed later can deliver it after
             // the absence window (placement::recover_since) has already declared it never placed. Escape hatch: the operator
-            // checks the Alpaca paper dashboard and settles the intent with `deltabadger resolve-placement`.
+            // checks the Alpaca dashboard and settles the intent with `deltabadger resolve-placement`.
             // LISTED RESIDUAL: bytes delivered later than the 20-minute absence margin (VenueRules::absence_margin_secs): a
             // kernel configured with a longer retransmission window than Linux's defaults, or a path (proxy, middlebox) that
             // buffers longer than TCP does. Escape hatch: `deltabadger resolve-placement`; before resolving "not placed" the

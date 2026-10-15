@@ -300,7 +300,7 @@ async fn run(dir: &Path) -> Value {
         wiremock::Mock::given(wiremock::matchers::path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID",key)).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(&key_server).await;
     }
     wiremock::Mock::given(wiremock::matchers::path("/v2/positions")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
-    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(key_server.uri(),deltabadger::web::settings::keys::logger()).unwrap();
+    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
     app.attach_jobs(Default::default()).unwrap();

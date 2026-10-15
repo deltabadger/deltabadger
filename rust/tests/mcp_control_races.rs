@@ -373,23 +373,16 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
         f.woke(false).await
     }
 
-    /// MCP paper trading off: a live venue key is still refused by the engine, which runs paper accounts only.
+    /// MCP paper trading off: a bot on a live Alpaca key starts, as in Rails (the key's mode only picks Alpaca's host).
     #[tokio::test(flavor="current_thread")]
-    async fn start_refuses_live_key()->Result {
+    async fn start_accepts_a_live_key()->Result {
         let f=Fixture::new().await?;
         let cipher=seed::cipher();
         f.c.execute("UPDATE api_keys SET passphrase=?1",[cipher.encrypt("live")])?;
         f.c.execute("UPDATE bots SET status=0 WHERE id=?1",[f.id])?;
-        let before=f.snapshot()?;
-        let answer=f.send("PATCH","/start",&[]).await?;
-        let response:Value=serde_json::from_str(&answer.body)?;
-        assert_eq!(response["result"]["isError"],true,"{}",answer.body);
-        let text=response["result"]["content"][0]["text"].as_str().ok_or("paper refusal")?;
-        assert!(text.starts_with("This app can't run that yet:"),"{text}");
-        assert!(text.contains("paper"),"{text}");
-        assert_eq!(f.snapshot()?,before);
-        f.evidence("live-key",&answer,&before)?;
-        f.woke(false).await
+        f.ok("PATCH","/start",&[]).await?;
+        assert_eq!(f.one::<i64>("SELECT status FROM bots WHERE id=?1")?,1);
+        f.woke(true).await
     }
 
     #[tokio::test(flavor="current_thread")]

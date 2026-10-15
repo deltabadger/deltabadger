@@ -1,7 +1,7 @@
 mod common;
 use deltabadger::engine::model::Ticker;
 use deltabadger::ruby::BigDec;
-use deltabadger::venue::alpaca::{self, AlpacaVenue, Urls, DATA_URL, PAPER_TRADING_URL};
+use deltabadger::venue::alpaca::{self, AlpacaVenue, Urls, DATA_URL, PAPER_TRADING_URL, TRADING_URL};
 use deltabadger::venue::http::{client, ReqwestTransport, ScriptedTransport};
 use deltabadger::venue::{NewOrder, OrderKind, OrderStatus, PriceSide, Venue, VenueError};
 use serde_json::{json, Value};
@@ -26,12 +26,12 @@ fn market(volume: &str) -> NewOrder {
                deadline: chrono::Utc::now() + chrono::Duration::seconds(10), day: false, }
 }
 
+/// Exchanges::Alpaca#paper_mode?: the live trading host for exactly "live"; market data on its own host either way.
 #[test]
-fn paper_whatever_the_passphrase_before_3_0() {
-    for p in [Some("live"), None, Some("paper"), Some("Live"), Some("live "), Some("")] {
-        let u = Urls::for_passphrase(p);
-        assert_eq!((u.trading.as_str(), u.data.as_str()), (PAPER_TRADING_URL, DATA_URL), "{p:?}");
-        assert!(![&u.trading, &u.data].iter().any(|h| h.contains("//api.alpaca.markets")), "never the live host: {p:?}");
+fn live_host_for_exactly_live() {
+    assert_eq!(Urls::for_passphrase(Some("live")), Urls { trading: TRADING_URL.into(), data: DATA_URL.into() });
+    for p in [None, Some("paper"), Some("Live"), Some("LIVE"), Some("live "), Some(" live"), Some("")] {
+        assert_eq!(Urls::for_passphrase(p), Urls { trading: PAPER_TRADING_URL.into(), data: DATA_URL.into() }, "{p:?}");
     }
 }
 
@@ -204,22 +204,28 @@ async fn the_real_transport_speaks_to_alpaca_shaped_endpoints() {
         Err(VenueError::Rejected(vec![deltabadger::crypto::VENUE_TEXT_REDACTED.into()])));
 }
 
-// Paper only before 3.0: the factory never connects a live key or another exchange, and preflight refuses both before run claims.
+// The factory's host and the identity an intent records follow the key it signs with; another exchange sends nothing.
+// Only `urls()` and `placement_identity()` are read: nothing is sent.
 #[tokio::test(flavor = "current_thread")]
-async fn live_factory_connects_paper_only() {
+async fn factory_hosts_follow_the_key() {
     use deltabadger::crypto::Credentials;
+    use deltabadger::venue::live::LiveVenue;
     use deltabadger::venue::VenueFactory;
     let f = alpaca::LiveFactory::new();
     let creds = |p: Option<&str>| Some(Credentials { redaction_values:vec![], key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
     for p in [Some("paper"), None, Some("Live"), Some("live ")] {
-        assert_eq!(f.alpaca(creds(p), vec![]).urls().trading, PAPER_TRADING_URL, "{p:?}");
+        let v = f.alpaca(creds(p), vec![]);
+        assert_eq!(v.urls().trading, PAPER_TRADING_URL, "{p:?}");
+        assert_eq!(v.placement_identity().unwrap()["alpaca_live"], false, "{p:?}");
     }
     let live = f.alpaca(creds(Some("live")), vec![]);
-    assert_eq!(live.urls().trading, PAPER_TRADING_URL, "never the live host");
-    match live.price(&btc_usd(), PriceSide::Ask).await {
-        Err(VenueError::Transient(m)) => assert_eq!(m, alpaca::LIVE_REFUSED),
-        other => panic!("a live key sends nothing: {other:?}"),
-    }
+    assert_eq!((live.urls().trading.as_str(), live.urls().data.as_str()), (TRADING_URL, DATA_URL));
+    let identity = live.placement_identity().unwrap();
+    // sha256("PK"): the public key id only.
+    assert_eq!(identity, json!({ "alpaca_live": true, "key_fingerprint": "fcab7fcc2b4cffd9bb45003bfc2e468a04ef6f77ca8200a7341f027631584d25" }));
+    assert!(!identity.to_string().contains("\"s\""), "the secret is never in the identity: {identity}");
+    match f.for_bot("Exchanges::Alpaca", creds(Some("live"))) { LiveVenue::Alpaca(v) => assert_eq!(v.urls().trading, TRADING_URL), _ => panic!("an Alpaca venue") }
+    assert_eq!(f.alpaca(None, vec![]).urls().trading, PAPER_TRADING_URL, "no key is Rails' paper_mode?(nil)");
     match f.for_bot("Exchanges::Kraken", creds(None)).price(&btc_usd(), PriceSide::Ask).await {
         Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Kraken is not connected"), "{m}"),
         other => panic!("another exchange sends nothing: {other:?}"),
@@ -227,14 +233,13 @@ async fn live_factory_connects_paper_only() {
 }
 
 #[test]
-fn preflight_refuses_a_live_key_and_an_undecryptable_passphrase() {
+fn preflight_accepts_a_live_key_and_refuses_an_undecryptable_passphrase() {
     use common::seed::{self, BotSpec};
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]));
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
-    let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
-    assert!(e.iter().any(|p| p == &format!("bot {id}: {}", alpaca::LIVE_REFUSED)), "{e:?}");
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]), "a live key trades as in Rails");
     // Only the passphrase is unreadable: it must never default to paper.
     let other = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-instance").unwrap());
     o.primary.execute("UPDATE api_keys SET passphrase = ?1", [other.encrypt("paper")]).unwrap();

@@ -4,7 +4,7 @@
 use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, SELL};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
-use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread, LIVE_REFUSED};
+use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread};
 use crate::codec::parse_time;
 use crate::crypto::Credentials;
 use crate::engine::Clock;
@@ -263,7 +263,6 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
             Ok::<_, SyncError>(Err(Failure { error, raised }))
         }
     };
-    if super::live(credentials) { return fail(LIVE_REFUSED.into(), true).await; }
 
     // Where this run starts: where an unfinished import stopped, or the watermark less the overlap. A stored
     // watermark ahead of now (Rails left one behind a split dated ahead, before it capped the watermark too) is read as now.

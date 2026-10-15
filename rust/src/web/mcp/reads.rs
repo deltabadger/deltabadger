@@ -65,7 +65,6 @@ fn plan_inner(c:&Connection,app:&App,user:i64,name:&str,args:&Value)->Result<Cal
             let Some((exchange,name,kind))=exchange(c,name)? else{return unknown(c,name)};
             let Some(credentials)=credentials(c,app,user,exchange)? else{return Ok(failed(format!("No valid API key found for {name}. Please add an API key in Settings.")))};
             if kind!="Exchanges::Alpaca" {return Ok(failed(ONLY))} // Rails reads the venue; a failed read is a tool error.
-            if credentials.passphrase.as_deref()==Some("live"){return Ok(failed("Balances unavailable: this build reads Alpaca paper only"))}
             Ok(Called::Fetch(Fetch::Balances{user,exchange,name,credentials}))
         },
         "list_open_orders"=>{
@@ -119,8 +118,7 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
             let mut out=vec![];
             for (id,name,credentials) in venues {
                 let Some(credentials)=credentials else{out.push((id,name,Err("no usable trading key".into())));continue};
-                if credentials.passphrase.as_deref()==Some("live"){out.push((id,name,Err("this build reads Alpaca paper only".into())));continue}
-                let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()),Urls::for_passphrase(None));
+                let venue=AlpacaVenue::new(Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()),Urls::for_passphrase(credentials.passphrase.as_deref()));
                 let result=match venue.read(false,"/v2/orders",vec![("status","open".into()),("limit","50".into())],sync::balances::MAX_LIST_BYTES).await {
                     Err(e)=>Err(sync::venue_failure(e)),
                     Ok(body)=>sync::parsed(body,|text|serde_json::from_str::<RawOrders>(text).map_err(|_|sync::Unread::Raised("Unreadable orders".into()))).await

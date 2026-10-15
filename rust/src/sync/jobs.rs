@@ -24,8 +24,7 @@ pub const BALANCE_SYNC: &str = "balance_sync";
 /// starts from the stored watermark.
 pub const LEDGER_DEADLINE: Duration = Duration::from_secs(3600);
 
-/// How a job reaches Alpaca for one key. `LiveFactory` is the real one (paper host only; a live key gets a transport
-/// that sends nothing).
+/// How a job reaches Alpaca for one key. `LiveFactory` is the real one (the key's own host, paper or live, as Rails).
 pub trait Connect {
     type T: Transport;
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<Self::T>;
@@ -239,7 +238,6 @@ impl<C:Connect> Job for Validator<C>{
         let exchange=match cx.db.run(move|c,_|c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[id],|r|r.get::<_,String>(0)).map_err(|_|"cannot read credential exchange".into())).await{Ok(e)=>e,Err(e)=>return before_result(Outcome::Failed(e))};
         if exchange!=ALPACA{return before_result(Outcome::Failed("credential validation unavailable for this exchange".into()))}
         let kind=match cx.db.run(move|c,_|c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).map_err(|_|"cannot read credential capability".into())).await{Ok(k)=>k,Err(e)=>return before_result(Outcome::Failed(e))};
-        if super::live(handle.credentials()){return before_result(Outcome::NothingNew);}
         let venue=self.venues.connect(handle.credentials());
         let result=match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))};
         use crate::web::settings::validator::Validity;

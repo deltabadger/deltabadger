@@ -10,7 +10,7 @@ pub const ACTIVITY_WINDOW: i64 = 30 * 60;
 /// run never pushes it back (`Work` keeps the earlier due time).
 pub const DEBOUNCE: i64 = 5;
 
-/// The accounts with figures: a non-deleted bot and a paper Alpaca key.
+/// The accounts with figures: a non-deleted bot and an Alpaca key.
 async fn accounts(app: &App) -> Vec<(i64, (String, String))> {
     let inner = app.clone();
     let found = app.db(move |c| {

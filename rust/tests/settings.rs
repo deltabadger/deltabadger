@@ -34,7 +34,7 @@ async fn credential_value_is_absent_from_application_logs_after_a_real_failed_sa
     .unwrap()
     .with_figure_source(deltabadger::web::figure::loading::Source::Disabled)
     .unwrap()
-    .with_settings_key_boundary(server.uri(), logs.clone())
+    .with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()), logs.clone())
     .unwrap();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let id: i64 = c
@@ -127,25 +127,27 @@ async fn credential_value_is_absent_from_application_logs_after_a_real_failed_sa
     assert!(!log.contains(placeholder), "credential must not enter logs");
     server.verify().await;
 }
+/// The live trading host is named in exactly one production file, the Alpaca venue, so no other path can reach it.
 #[test]
-fn production_source_contains_no_live_alpaca_host() {
-    fn walk(root: &std::path::Path) {
+fn production_source_names_the_live_alpaca_host_only_in_the_venue() {
+    fn walk(root: &std::path::Path, naming: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(root).unwrap() {
             let path = entry.unwrap().path();
             if path.is_dir() {
-                walk(&path)
-            } else if path.extension().is_some_and(|e| e == "rs") {
-                let text = std::fs::read_to_string(&path).unwrap();
-                let host = ["https://", "api.alpaca.markets"].concat();
-                assert!(
-                    !text.contains(&host),
-                    "{} includes the live host",
-                    path.display()
-                );
+                walk(&path, naming)
+            } else if path.extension().is_some_and(|e| e == "rs")
+                && std::fs::read_to_string(&path)
+                    .unwrap()
+                    .contains(&["https://", "api.alpaca.markets"].concat())
+            {
+                naming.push(path);
             }
         }
     }
-    walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"));
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut naming = Vec::new();
+    walk(&src, &mut naming);
+    assert_eq!(naming, vec![src.join("venue/alpaca.rs")]);
 }
 
 #[derive(Default)]
@@ -175,7 +177,14 @@ impl Harness {
     async fn with_hook(url:String, hook:Option<deltabadger::web::PasswordHook>)->Self{
         Self::starting(url,hook,web::TestClock::at("2026-09-10T12:00:30.123456Z")).await
     }
+    /// Paper and live trading hosts on two local servers, for tests that tell the modes apart.
+    async fn modes(paper:String, live:String)->Self{
+        Self::starting_on(deltabadger::venue::alpaca::Hosts{data:paper.clone(),paper,live},None,web::TestClock::at("2026-09-10T12:00:30.123456Z")).await
+    }
     async fn starting(url:String, hook:Option<deltabadger::web::PasswordHook>, clock:Arc<web::TestClock>)->Self{
+        Self::starting_on(deltabadger::venue::alpaca::Hosts::all(&url),hook,clock).await
+    }
+    async fn starting_on(hosts:deltabadger::venue::alpaca::Hosts, hook:Option<deltabadger::web::PasswordHook>, clock:Arc<web::TestClock>)->Self{
         let (dir, opened, seed) = fixture::install();
         let env = web::env(web::SECRET);
         let mail=Arc::new(CapturedMail::default());
@@ -190,7 +199,7 @@ impl Harness {
         .with_figure_source(deltabadger::web::figure::loading::Source::Disabled)
         .unwrap()
         .with_settings_mailer(mail.clone()).unwrap()
-        .with_settings_key_boundary(url, logs.clone())
+        .with_settings_key_boundary(hosts, logs.clone())
         .unwrap();
         let app=if let Some(hook)=hook{app.with_password_hook(hook).unwrap()}else{app};
         app.attach_jobs(Default::default()).unwrap();
@@ -547,54 +556,37 @@ async fn missing_otp_seed_get_is_idempotent_foreign_get_enables_nothing_and_patc
     assert_eq!(enabled, 0);
     assert_eq!(retained, seed);
 }
+/// Exchanges::Alpaca#get_api_key_validity asks the key's own mode's host: a live key the live server, a paper key the
+/// paper server, never the other. The tracker card validates before it saves; the legacy JSON route saves the key
+/// pending and leaves validation to the woken validator job, as Rails' Api::ApiKeysController (ApiKeyValidatorJob
+/// .perform_later), so it sends nothing itself.
 #[tokio::test(flavor = "current_thread")]
-async fn live_submitted_or_inherited_mode_is_refused_before_any_network_request() {
-    let server = MockServer::start().await;
-    let mut h = Harness::new(server.uri()).await;
-    let before = h.snapshot();
-    let response = h
-        .submit(
-            "POST",
-            "/tracker/add_api_key",
-            &[
-                ("exchange_id", "1"),
-                ("key_type", "trading"),
-                ("api_key[key]", "new-key"),
-                ("api_key[secret]", "new-secret"),
-                ("api_key[passphrase]", "live"),
-            ],
-            Csrf::Header,
-        )
-        .await;
-    assert!(server.received_requests().await.unwrap().is_empty(),"E refuses live submissions before any HTTP request");
-    assert_eq!(response.status, 422);
-    assert!(response
-        .body
-        .contains("This build accepts paper keys only."));
-    assert_eq!(h.snapshot(), before);
-    h.c.execute(
-        "UPDATE api_keys SET passphrase=?1 WHERE id=?2",
-        (h.app.cipher.encrypt("live"), h.seed.api_key_id),
-    )
-    .unwrap();
-    let before = h.snapshot();
-    assert_eq!(
-        h.submit(
-            "POST",
-            "/tracker/add_api_key",
-            &[
-                ("exchange_id", "1"),
-                ("key_type", "trading"),
-                ("api_key[key]", "new-key")
-            ],
-            Csrf::Header
-        )
-        .await
-        .status,
-        422
-    );
-    assert_eq!(h.snapshot(), before);
-    assert!(server.received_requests().await.unwrap().is_empty());
+async fn each_mode_validates_on_its_own_host_and_saves() {
+    for mode in ["paper", "live"] {
+        let (paper_srv, live_srv) = (MockServer::start().await, MockServer::start().await);
+        let (used, unused) = if mode == "live" { (&live_srv, &paper_srv) } else { (&paper_srv, &live_srv) };
+        Mock::given(method("GET")).and(path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID", "bad-key"))
+            .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).with_priority(1).expect(1).mount(used).await;
+        Mock::given(method("GET")).and(path("/v2/account"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).expect(1).mount(used).await;
+        Mock::given(wiremock::matchers::any()).respond_with(ResponseTemplate::new(500)).expect(0).mount(unused).await;
+        let mut h = Harness::modes(paper_srv.uri(), live_srv.uri()).await;
+        let before = h.snapshot();
+        let rejected = h.submit("POST", "/tracker/add_api_key", &[("exchange_id", "1"), ("key_type", "trading"), ("api_key[key]", "bad-key"), ("api_key[secret]", "bad-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
+        assert_eq!(rejected.status, 422, "{mode}: Alpaca's 401 on the key's own host is an invalid key");
+        assert_eq!(h.snapshot(), before, "{mode}");
+        let stored_mode = |h: &Harness| -> String { h.app.cipher.decrypt(&h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1", [h.seed.api_key_id], |r| r.get::<_, String>(0)).unwrap()).unwrap() };
+        let validated = h.submit("POST", "/tracker/add_api_key", &[("exchange_id", "1"), ("key_type", "trading"), ("api_key[key]", "good-key"), ("api_key[secret]", "good-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
+        assert_eq!(validated.status, 200, "{mode}: {}", validated.body);
+        assert_eq!(stored_mode(&h), mode);
+        let flip = if mode == "live" { "paper" } else { "live" };
+        h.c.execute("UPDATE api_keys SET passphrase=?1 WHERE id=?2", (h.app.cipher.encrypt(flip), h.seed.api_key_id)).unwrap();
+        let saved = h.submit("POST", "/api/api_keys", &[("api_key[exchange_id]", "1"), ("api_key[key_type]", "trading"), ("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
+        assert_eq!(saved.status, 201, "{mode}: {}", saved.body);
+        assert_eq!(stored_mode(&h), mode);
+        used.verify().await;
+        unused.verify().await;
+    }
 }
 #[tokio::test(flavor = "current_thread")]
 async fn rejected_replacement_preserves_encrypted_credential_and_ledger_links() {
@@ -1373,14 +1365,14 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
         let plaintext=stored.map(|v|h.app.cipher.decrypt(&v).unwrap()).unwrap_or_else(||"synthetic-value".into());
         // Identical plaintext, fresh Rails-compatible encryption nonce. No timestamp change.
         h.c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=?2"),(h.app.cipher.encrypt(&plaintext),h.seed.api_key_id)).unwrap();
-        let result=placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,&FixedClock(at)).unwrap();
+        let result=placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,&FixedClock(at)).unwrap();
         assert!(matches!(result,placement::Begun::CredentialsChanged),"each encrypted credential column must prevent an intent after re-encryption: {column}");
         assert!(model::load_bot(&h.c,id).unwrap().rust_placement().is_none());
     }
     let captured=model::credential_version(&h.c,&bot).unwrap();
     h.c.execute("UPDATE api_keys SET updated_at='2099-01-01 00:00:00',last_sync_error=NULL WHERE id=?1",[h.seed.api_key_id]).unwrap();
     assert_eq!(captured,model::credential_version(&h.c,&bot).unwrap(),"sync metadata must not change a credential version");
-    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)),"metadata-only changes must allow placement");
+    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)),"metadata-only changes must allow placement");
 }
 
 // A real sync starts with A while the actual tick is paused before intent. B is
@@ -1805,7 +1797,7 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let registered=sync_jobs::register(&h.c,&factory,std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
-    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -1879,7 +1871,7 @@ async fn r_mcp_inflight_balances_and_orders_must_not_publish_a_for_b() {
     script["GET paper-api.alpaca.markets/v2/positions"]=serde_json::json!({"status":200,"body":[]});
     script["GET paper-api.alpaca.markets/v2/orders?limit=50&status=open"]=serde_json::json!({"status":200,"delay_ms":100,"body":[{"id":"order-a","symbol":"BTC/USD","asset_class":"crypto","side":"buy","type":"market","status":"new","qty":"0.2","filled_qty":"0","filled_avg_price":null}]});
     let env=web::env(web::SECRET);
-    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(Source::Script(script)).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(Source::Script(script)).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(Default::default()).unwrap();
     for tool in ["get_exchange_balances","list_open_orders"] {
         let unchanged=reads::plan(&h.c,&h.app,h.seed.user_id,tool,&serde_json::json!({"exchange_name":"Alpaca"})).unwrap();
@@ -1916,7 +1908,7 @@ async fn a_first_reading_key_wakes_its_real_tracker_in_the_running_scheduler() {
     registered.extend(deltabadger::tracker::jobs::register(&h.c,&factory,std::rc::Rc::new(None::<deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),std::sync::Arc::new({let now=h.app.now();move||now})).unwrap());
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
-    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -1983,7 +1975,7 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     let registered=sync_jobs::register(&h.c,&factory,std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
-    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -2194,12 +2186,6 @@ async fn validator_status_commit_wakes_the_running_engine(){
     server.verify().await;
 }
 
-#[tokio::test(flavor="current_thread")]
-async fn legacy_live_save_uses_the_same_paper_only_message_and_sends_nothing(){
-    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
-    let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]",&h.seed.exchange_id.to_string()),("api_key[key_type]","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret"),("api_key[passphrase]","live")],Csrf::Header).await;
-    assert_eq!(answer.status,422);let body:serde_json::Value=serde_json::from_str(&answer.body).unwrap();assert_eq!(body["message"],"This build accepts paper keys only.");assert_eq!(h.snapshot(),before);assert!(server.received_requests().await.unwrap().is_empty());
-}
 #[tokio::test(flavor="current_thread")]
 async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_rails(){
     use wiremock::matchers::header;
@@ -2604,7 +2590,7 @@ async fn legacy_same_key_revalidation_keeps_the_stored_realm_as_rails_does(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET key_type=0,passphrase=?1 WHERE id=?2",(h.app.cipher.encrypt("live"),h.seed.api_key_id)).unwrap();
     let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"live","Rails same-key revalidation keeps the stored realm; engine still refuses it");
+    assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"live","Rails same-key revalidation keeps the stored realm");
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 
@@ -2731,7 +2717,7 @@ async fn i_engine_diagnostics_redact_all_stored_material_in_every_encoding(){
             _=>panic!("unknown test encoding"),
         };
         let at=h.app.now();let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
-        let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+        let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_hosts(deltabadger::venue::alpaca::Hosts::all(&server.uri())),h.app.cipher.clone(),lock);
         for (column,value) in values.iter().enumerate(){
             server.reset().await;let material=encode(value);let message=format!("engine-diagnostic-visible {material}");
             Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":message}))).expect(4).mount(&server).await;
@@ -3115,7 +3101,7 @@ async fn r3_replacement_wake(route:&str){
     let factory=LocalAlpaca(server.uri());let registered=sync_jobs::register(&h.c,&factory,std::rc::Rc::new(sync::balances::NoPrices)).unwrap();
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(factory,std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
-    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
     let (stop,rx)=tokio::sync::watch::channel(false);let clock=h.clock.clone();
@@ -3313,13 +3299,13 @@ async fn r5_retry_rotation(exhaust:bool,restart:bool){
     let server=MockServer::start().await;let h=Harness::at_real_now(server.uri()).await;let at=h.app.now();let (bot,_)=q_order(&h);
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":"temporary quote failure"}))).mount(&server).await;
     let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
-    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_hosts(deltabadger::venue::alpaca::Hosts::all(&server.uri())),h.app.cipher.clone(),lock);
     for pass in 0..if exhaust {4}else{3} {run::step(&mut engine,&FixedClock(at+chrono::Duration::seconds(pass*100))).await.unwrap();}
     assert_eq!(server.received_requests().await.unwrap().len(),if exhaust {4}else{3},"A generated the intended failure chain");
     let rotated_at=at+chrono::Duration::seconds(if exhaust {301}else{201});
     h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
     common::seed::fresh_stock_jobs(&h.c,rotated_at);
-    if restart {drop(engine);let lock=deltabadger::lease::lock(&paths,rotated_at).unwrap();engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);}
+    if restart {drop(engine);let lock=deltabadger::lease::lock(&paths,rotated_at).unwrap();engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_hosts(deltabadger::venue::alpaca::Hosts::all(&server.uri())),h.app.cipher.clone(),lock);}
     run::step(&mut engine,&FixedClock(rotated_at)).await.unwrap();
     let requests=server.received_requests().await.unwrap();
     assert!(requests.iter().any(|r|r.headers.get("APCA-API-KEY-ID").is_some_and(|h|h=="account-b-key")),"R5 B tick must ignore A retry or persisted failure wait");
@@ -3407,7 +3393,7 @@ async fn r6_legacy_unclassified_failure_upgrade_rotation_ticks_b(){
     h.c.execute("UPDATE bots SET status=5,transient_data=json_set(transient_data,'$.rust_defer_until',json(?1)) WHERE id=?2",(legacy.to_string(),bot.id)).unwrap();
     assert!(model::load_bot(&h.c,bot.id).unwrap().last_failure_kind().is_none());
     let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
-    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_hosts(deltabadger::venue::alpaca::Hosts::all(&server.uri())),h.app.cipher.clone(),lock);
     h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
     let due=at+chrono::Duration::seconds(1);
     h.clock.set(due);
@@ -3432,7 +3418,7 @@ async fn r6_explicit_local_wait_survives_rotation_and_restart(){
     h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
     common::seed::fresh_stock_jobs(&h.c,at);
     let paths=deltabadger::store::Paths::from_env(&|_|None,h._dir.path());let lock=deltabadger::lease::lock(&paths,at).unwrap();
-    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_paper_boundary(server.uri()),h.app.cipher.clone(),lock);
+    let mut engine=Engine::new(rusqlite::Connection::open(&paths.primary).unwrap(),LiveFactory::with_hosts(deltabadger::venue::alpaca::Hosts::all(&server.uri())),h.app.cipher.clone(),lock);
     run::step(&mut engine,&FixedClock(at+chrono::Duration::seconds(1))).await.unwrap();
     assert_eq!(model::load_bot(&h.c,bot.id).unwrap().rust_defer().unwrap(),wait_before,"R6 explicitly local waits survive credential rotation and restart");
     assert!(server.received_requests().await.unwrap().is_empty(),"R6 local wait must suppress the tick");
@@ -3740,7 +3726,7 @@ async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(
     }
     let mut running=d5b_scheduler(&h,&server.uri());
     let env=web::env(web::SECRET);
-    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(server.uri(),Arc::new(Logs::default())).unwrap();
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(running.wakers()).unwrap();
     let started=d5b_slots(&mut running,&h);
     let (kind,status)=match request {
