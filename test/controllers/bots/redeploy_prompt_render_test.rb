@@ -79,7 +79,8 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_response :success
-    assert_no_match(/150/, response.body)
+    # A bare /150/ also matched inside signed stream names' digests, so the test failed on some ids.
+    assert_no_match(/\b150\b/, response.body)
   end
 
   # The composition table used to be "everything that is not a quitter". Those sets diverged once a
