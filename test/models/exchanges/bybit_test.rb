@@ -156,7 +156,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
   def stub_bybit_ledger_client
     hm_client = mock('honeymaker_client')
     Honeymaker.stubs(:client).returns(hm_client)
-    empty = Result::Success.new({ 'result' => { 'list' => [], 'rows' => [] } })
+    empty = Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [], 'rows' => [] } })
     hm_client.stubs(:execution_list).returns(empty)
     hm_client.stubs(:deposit_records).returns(empty)
     hm_client.stubs(:withdraw_records).returns(empty)
@@ -186,6 +186,48 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
   test 'get_ledger fails when the withdrawals read fails' do
     hm_client = stub_bybit_ledger_client
     hm_client.stubs(:withdraw_records).returns(Result::Failure.new('Too many visits'))
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
+  end
+
+  # The client hands an HTTP-200 rejection over as a Success; read as an empty page, a throttle would
+  # let the watermark pass trades the sync never got.
+  test 'get_ledger fails when a read is throttled inside a 200 envelope' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:execution_list).with(has_entry(category: 'spot')).returns(
+      Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
+    )
+
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago)
+
+    assert_predicate result, :failure?
+    assert_match 'Too many visits', result.errors.first
+  end
+
+  test 'get_ledger fails when futures history is throttled' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:execution_list).with(has_entry(category: 'linear')).returns(
+      Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
+    )
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
+  end
+
+  # The setup asks for a Spot - Trade key without Derivatives, so futures history is denied.
+  test 'get_ledger reads a denied futures history as empty' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:execution_list).with(has_entry(category: 'linear')).returns(
+      Result::Success.new({ 'retCode' => 10_005, 'retMsg' => 'Permission denied, please check your API key permissions.' })
+    )
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :success?
+  end
+
+  test 'get_ledger fails when spot history is denied' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:execution_list).with(has_entry(category: 'spot')).returns(
+      Result::Success.new({ 'retCode' => 10_005, 'retMsg' => 'Permission denied, please check your API key permissions.' })
+    )
 
     assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
   end

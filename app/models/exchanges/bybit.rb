@@ -433,12 +433,14 @@ class Exchanges::Bybit < Exchange
     entries = []
 
     # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
-    # past the rows it never got, and they would never be fetched again.
+    # past the rows it never got, and they would never be fetched again. That includes a rejection
+    # inside an HTTP-200 envelope (retCode 10006 "Too many visits"), which the client hands over as
+    # a Success.
 
     # Trades
     cursor = nil
     loop do
-      result = hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor)
+      result = checked_ledger_read(hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor))
       return result if result.failure?
 
       list = result.data.dig('result', 'list') || []
@@ -463,7 +465,7 @@ class Exchanges::Bybit < Exchange
     end
 
     # Deposits
-    result = hm_client.deposit_records(start_time: start_ms)
+    result = checked_ledger_read(hm_client.deposit_records(start_time: start_ms), optional: true)
     return result if result.failure?
 
     (result.data.dig('result', 'rows') || []).each do |dep|
@@ -476,7 +478,7 @@ class Exchanges::Bybit < Exchange
     end
 
     # Withdrawals
-    result = hm_client.withdraw_records(start_time: start_ms)
+    result = checked_ledger_read(hm_client.withdraw_records(start_time: start_ms), optional: true)
     return result if result.failure?
 
     (result.data.dig('result', 'rows') || []).each do |wd|
@@ -492,7 +494,7 @@ class Exchanges::Bybit < Exchange
     # Linear futures trades
     cursor = nil
     loop do
-      result = hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor)
+      result = checked_ledger_read(hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor), optional: true)
       return result if result.failure?
 
       list = result.data.dig('result', 'list') || []
@@ -517,6 +519,22 @@ class Exchanges::Bybit < Exchange
   end
 
   private
+
+  # 10005 is "Permission denied". The key setup asks for Spot - Trade only and warns against
+  # Derivatives, so a key without the scope for futures or wallet history is the normal case; there
+  # the read has nothing to give and counts as empty, as it did before. Spot trades are what the
+  # key is for, so a 10005 there fails like any other code.
+  LEDGER_NOT_PERMITTED = 10_005
+
+  def checked_ledger_read(result, optional: false)
+    return result if result.failure?
+
+    ret_code = result.data['retCode']
+    return result if ret_code.to_s == '0'
+    return Result::Success.new({}) if optional && ret_code.to_i == LEDGER_NOT_PERMITTED
+
+    Result::Failure.new("#{name} ledger read failed: #{ret_code} #{result.data['retMsg']}")
+  end
 
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol

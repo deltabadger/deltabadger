@@ -422,8 +422,7 @@ class Exchanges::Kucoin < Exchange
     now_ms = Time.now.utc.to_i * 1000
     while window_start < now_ms
       window_end = [window_start + (ledger_window.to_i * 1000), now_ms].min
-      fetch = ->(page) { hm_client.get_fills(start_at: window_start, end_at: window_end, current_page: page, limit: 500) }
-      failed = each_page(fetch) do |fill|
+      failed = read_fills(hm_client, window_start, window_end) do |fill|
         symbol = fill['symbol'] # e.g. "BTC-USDT"
         parts = symbol.split('-')
         is_buyer = fill['side'] == 'buy'
@@ -465,16 +464,54 @@ class Exchanges::Kucoin < Exchange
 
   private
 
+  # KuCoin answers at most 50,000 fills for one queried range, however it is paged, and asks for a
+  # shorter range beyond that. A window over it is halved until it fits; at an hour it still does not,
+  # and the sync fails visibly rather than storing a week with fills missing.
+  FILLS_RANGE_CAP = 50_000
+  FILLS_MIN_RANGE = 1.hour
+
+  def read_fills(hm_client, from_ms, to_ms, &)
+    fetch = ->(page) { hm_client.get_fills(start_at: from_ms, end_at: to_ms, current_page: page, limit: 500) }
+    failed = each_page(fetch, max_items: FILLS_RANGE_CAP, &)
+    return failed unless failed&.data.is_a?(Hash) && failed.data[:over_cap]
+    return failed if to_ms - from_ms <= FILLS_MIN_RANGE.to_i * 1000
+
+    middle = from_ms + ((to_ms - from_ms) / 2)
+    read_fills(hm_client, from_ms, middle, &) || read_fills(hm_client, middle, to_ms, &)
+  end
+
+  # Each page costs KuCoin's request quota, and a first sync walks some 400 weekly windows, so a long
+  # history runs into the limit part way. A throttled page is waited out and asked for again, as
+  # Kraken's ledger does: failing here throws away every page read so far, and the next sync starts
+  # over from 2019. Kept out of ERRORS[:throttle] on purpose, which would also change how order
+  # placement and polling treat a 429.
+  LEDGER_THROTTLE = ['429000', 'Too Many Requests'].freeze
+  LEDGER_THROTTLE_WAIT = 10
+  LEDGER_THROTTLE_RETRIES = 6
+
   # KuCoin pages by currentPage up to totalPage. Yields each item; returns the failure that stopped
   # the read, or nil. These reads skip the client's code check, and a rejection arrives as a 200
   # envelope with no items — read as an empty page it would pass for "nothing happened".
-  def each_page(fetch, &)
+  def each_page(fetch, max_items: nil, &)
     page = 1
+    throttled = 0
     loop do
       result = fetch.call(page)
-      return result if result.failure?
-      if result.data['code'].to_s != '200000'
-        return Result::Failure.new("Failed to get #{name} history: #{result.data.values_at('code', 'msg').compact.join(' ')}")
+      if result.success? && result.data['code'].to_s != '200000'
+        result = Result::Failure.new("Failed to get #{name} history: #{result.data.values_at('code', 'msg').compact.join(' ')}")
+      end
+      if result.failure?
+        message = Array(result.errors).join(' ')
+        return result unless LEDGER_THROTTLE.any? { |m| message.include?(m) } && throttled < LEDGER_THROTTLE_RETRIES
+
+        throttled += 1
+        sleep(LEDGER_THROTTLE_WAIT)
+        next
+      end
+      throttled = 0
+
+      if max_items && page == 1 && result.data.dig('data', 'totalNum').to_i > max_items
+        return Result::Failure.new("#{name} has more than #{max_items} fills in one range", data: { over_cap: true })
       end
 
       Array(result.data.dig('data', 'items')).each(&)

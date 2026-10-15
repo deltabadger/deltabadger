@@ -343,4 +343,58 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert(windows.all? { |from, to| to - from <= 7.days.to_i * 1000 })
     assert(windows.each_cons(2).all? { |(_, to), (from, _)| from == to }, 'windows must be contiguous')
   end
+
+  # A first sync walks some 400 weekly windows. A throttle part way must be waited out, not throw
+  # away every window read so far.
+  test 'get_ledger waits out a throttled fills page and asks for it again' do
+    hm_client = stub_ledger_client
+    @exchange.stubs(:sleep)
+    fill = { 'symbol' => 'BTC-USDT', 'side' => 'buy', 'size' => '1', 'funds' => '10', 'feeCurrency' => 'USDT',
+             'fee' => '0', 'tradeId' => 't1', 'createdAt' => 1_710_936_000_000 }
+    hm_client.stubs(:get_fills).returns(Result::Success.new({ 'code' => '429000', 'msg' => 'Too Many Requests' }))
+             .then.returns(kucoin_page([fill]))
+
+    result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago)
+
+    assert_predicate result, :success?
+    assert_equal(['t1'], result.data.map { |e| e[:tx_id] })
+  end
+
+  test 'get_ledger gives up on a throttle that does not lift' do
+    hm_client = stub_ledger_client
+    @exchange.stubs(:sleep)
+    hm_client.stubs(:get_fills).returns(Result::Failure.new('{"code":"429000","msg":"Too Many Requests"}'))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago), :failure?
+  end
+
+  # KuCoin answers at most 50,000 fills per queried range, however it is paged.
+  test 'get_ledger splits a fills window over the 50,000 cap' do
+    hm_client = stub_ledger_client
+    week_start = Time.utc(2026, 10, 1)
+    ranges = []
+    hm_client.stubs(:get_fills).with do |**kw|
+      ranges << [kw[:start_at], kw[:end_at]]
+      true
+    end.returns(Result::Success.new({ 'code' => '200000', 'data' => { 'items' => [], 'totalNum' => 60_000, 'totalPage' => 120 } }))
+       .then.returns(kucoin_page([])).then.returns(kucoin_page([]))
+
+    travel_to week_start + 7.days do
+      assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: week_start), :success?
+    end
+
+    from = week_start.to_i * 1000
+    to = (week_start + 7.days).to_i * 1000
+    mid = from + ((to - from) / 2)
+    assert_equal [[from, to], [from, mid], [mid, to]], ranges
+  end
+
+  test 'get_ledger fails visibly when an hour still holds more than 50,000 fills' do
+    hm_client = stub_ledger_client
+    hm_client.stubs(:get_fills).returns(
+      Result::Success.new({ 'code' => '200000', 'data' => { 'items' => [], 'totalNum' => 60_000, 'totalPage' => 120 } })
+    )
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago), :failure?
+  end
 end
