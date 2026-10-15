@@ -2,6 +2,8 @@
 //! (script/rust/mails.rb), this crate builds the same mails from the same database, and each pair must be the same
 //! message, byte for byte, once Date and Message-ID (the two fields that are each process's own) are set aside.
 //! Then the sender, end to end on a Rails-prepared install against the fake SMTP server.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use deltabadger::engine::notice::Notice;
 use deltabadger::mail::render::{self, Recipient, Urls};
@@ -431,6 +433,7 @@ async fn a_clear_that_fails_is_a_failed_attempt_it_backs_off_and_the_mail_is_not
 }
 
 #[tokio::test]
+#[ignore = "timing: nightly"]
 async fn the_engines_thread_is_never_held_while_the_sender_waits_for_a_locked_database() {
     // The sender's future is not Send (it is polled on the engine's thread), so it runs on a LocalSet here.
     tokio::task::LocalSet::new().run_until(async {

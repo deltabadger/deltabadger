@@ -2,8 +2,11 @@
 //! both apps serve, on fixture pages, in headless Chrome. What it checks lives in the browser alone: the
 //! morph that answers Turbo's preview, the chart updating in place, the stream subscriptions it keeps,
 //! and the tooltip it must not orphan. Needs Chrome and bun; the full suite's runner has both.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 
 #[test]
+#[ignore = "timing: nightly"]
 fn a_bot_page_revisit_keeps_what_the_preview_drew() {
     let root = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
     let out = std::process::Command::new("bun")

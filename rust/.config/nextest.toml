@@ -1,27 +1,5 @@
-# Timing meters sample wall time; reserve the six permitted slots while they run.
-# The bounds and assertions are unchanged. Other tests still use nextest -j 6.
-[[profile.default.overrides]]
-filter = 'binary(one_process)'
-threads-required = 6
-
-# The full-size reference publication meter samples the same wall-time/lock budget.
-[[profile.default.overrides]]
-filter = 'binary(reference_jobs) & test(full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds)'
-threads-required = 6
-
-# The ledger's large-history meter also samples the unchanged wall-time lock bound.
-[[profile.default.overrides]]
-filter = 'binary(sync) & test(over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in)'
-threads-required = 6
-
-# Scheduling order only; nothing is skipped or changed. nextest starts tests by priority and holds the queue
-# while a test that needs six threads waits for every slot, so one long test running ahead of it (the pages grid,
-# about 15 minutes) idled the other five slots. The six-thread meters run first, one at a time, then the longest
-# tests start, so the run's tail is short tests on every slot.
-[[profile.default.overrides]]
-filter = 'binary(one_process) | (binary(reference_jobs) & test(full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds)) | (binary(sync) & test(over_a_large_history_every_write_unit_is_short_and_another_writer_gets_in))'
-priority = 100
-
+# Scheduling order only; nothing is skipped or changed. The longest tests start first, so the run's tail is short tests
+# on every slot.
 [[profile.default.overrides]]
 filter = 'binary(pages) & test(=rails_and_rust_serve_the_same_pages_across_the_scenario_grid)'
 priority = 90
@@ -29,3 +7,18 @@ priority = 90
 [[profile.default.overrides]]
 filter = 'binary(parity) | binary(sync_parity) | binary(figures) | binary(tracker_write_parity) | binary(tracker_first_sync) | binary(mcp_control) | binary(oauth) | binary(tracker_parity) | binary(setup) | binary(tracker_index)'
 priority = 50
+
+# A race test that can hang: ended after two minutes instead of holding a slot until the job's timeout.
+[[profile.default.overrides]]
+filter = 'binary(figure_fx) & test(=a_rate_refreshed_between_render_and_acceptance_refuses_the_publication)'
+slow-timeout = { period = "60s", terminate-after = 2 }
+
+# Wall-clock timing tests: meters of the runtime thread, the write lock and page latency, and tight deadlines. A loaded
+# runner turned them red, so they are #[ignore = "timing: nightly"]: out of every default run, local and PR. The nightly
+# workflow (.github/workflows/rust-timing-nightly.yml) runs them here, one at a time, so nothing else loads the machine:
+#   cargo nextest run --profile timing --run-ignored only
+# Only these binaries' ignored tests are timing tests; a new one elsewhere adds its binary (the nightly checks the count).
+[profile.timing]
+default-filter = 'binary(reference_jobs) | binary(figures_warm) | binary(one_process) | binary(sync) | binary(tracker_deadline) | binary(quiet_revisit_browser) | binary(figure_fx) | binary(jobs) | binary(mail_parity)'
+test-threads = 1
+fail-fast = false
