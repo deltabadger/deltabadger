@@ -36,7 +36,7 @@ module ScriptedSync
 
   def self.reply(env)
     host = env.url.host.to_s
-    if binance_state && (host.end_with?('binance.com') || host.end_with?('binance.us'))
+    if binance_state && (%w[binance.com binance.us].any? { |d| host == d || host.end_with?(".#{d}") })
       requests << ["#{env.method.to_s.upcase} #{env.url.path}", URI.decode_www_form(env.url.query.to_s).sort]
       return FakeBinance.reply(binance_state, env.url.path, URI.decode_www_form(env.url.query.to_s).to_h)
     end
