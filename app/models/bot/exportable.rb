@@ -33,7 +33,8 @@ module Bot::Exportable
                           :price,
                           :base,
                           :quote,
-                          :external_status
+                          :external_status,
+                          :exchange_id
                         )
 
     CsvSafe.generate do |csv|
@@ -207,10 +208,11 @@ module Bot::Exportable
                               price,
                               base,
                               quote,
-                              external_status|
+                              external_status,
+                              exchange_id|
       [
         created_at.in_time_zone(user.time_zone),
-        external_id,
+        venue_order_id(external_id, exchange_id),
         order_type.delete_suffix('_order').humanize.titleize,
         side.humanize.titleize,
         parse_amount(amount_exec, amount),
@@ -221,6 +223,16 @@ module Bot::Exportable
         external_status.humanize.titleize
       ]
     end
+  end
+
+  # Order ids are unique per venue only. A merged bot can hold another venue's order under the same id as one of
+  # its own, so that row names its venue: on import the two stay two orders. The bot's own rows keep the bare id,
+  # which earlier exports and imports used.
+  def venue_order_id(external_id, order_exchange_id)
+    return external_id if order_exchange_id == exchange_id
+
+    @venue_names ||= Exchange.pluck(:id, :name).to_h
+    "#{@venue_names.fetch(order_exchange_id, order_exchange_id)}:#{external_id}"
   end
 
   def parse_amount(amount_exec, amount)

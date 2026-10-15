@@ -867,7 +867,7 @@ class Bot::MergeTest < ActiveSupport::TestCase
     assert_predicate inherited.reload, :closed?
   end
 
-  test 'an accepted order id equal to an inherited row from another venue is refused, not recorded against it' do
+  test 'an accepted order id equal to an inherited row from another venue is its own row, not recorded against it' do
     kraken = create(:kraken_exchange)
     anchor = basket([@btc])
     on_kraken = create(:dca_multi_asset, user: @user, exchange: kraken, quote_asset: @usd, base_assets: [@eth],
@@ -878,8 +878,11 @@ class Bot::MergeTest < ActiveSupport::TestCase
     ticker = Ticker.find_by!(exchange: @exchange, base_asset: @btc, quote_asset: @usd)
     order_data = { ticker:, side: :buy, order_type: :market_order, price: 100, amount: 1, quote_amount: 100, status: :open }
 
-    assert_raises(ActiveRecord::RecordNotUnique) { merged.persist_accepted_order!(order_data, 'shared-id') }
-    assert_equal kraken.id, merged.transactions.find_by(external_id: 'shared-id').exchange_id, 'the inherited row is untouched'
+    accepted = merged.persist_accepted_order!(order_data, 'shared-id')
+
+    assert_equal @exchange.id, accepted.exchange_id
+    assert_equal [@exchange.id, kraken.id].sort, merged.transactions.where(external_id: 'shared-id').pluck(:exchange_id).sort,
+                 'the inherited row is untouched'
   end
 
   test 'a merged bot can sell in the name of an inherited holding only what it bought on its own venue' do

@@ -105,6 +105,10 @@ fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
          "ALTER TABLE app_configs RENAME TO old; CREATE TABLE app_configs (id integer PRIMARY KEY, created_at datetime(6) NOT NULL, key varchar, updated_at datetime(6) NOT NULL, value text); DROP TABLE old; CREATE UNIQUE INDEX index_app_configs_on_key ON app_configs (key);",
          "app_configs.key"),
         ("unique index", false, "DROP INDEX index_app_configs_on_key", "app_configs (key)"),
+        // An order id is unique per venue only; the old global key would refuse one venue's order for another's id.
+        ("transactions' old unique index", false,
+         "DROP INDEX index_transactions_on_exchange_id_and_external_id; CREATE UNIQUE INDEX index_transactions_on_external_id ON transactions (external_id);",
+         "transactions (exchange_id, external_id)"),
         ("queue column", true, "ALTER TABLE solid_queue_processes RENAME COLUMN last_heartbeat_at TO heartbeat", "solid_queue_processes.last_heartbeat_at"),
     ];
     for (name, in_queue, sql, named) in cases {
