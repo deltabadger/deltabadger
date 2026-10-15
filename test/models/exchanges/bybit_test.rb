@@ -149,4 +149,44 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_equal BigDecimal('0.000159'), parsed[:amount]
     assert_empty parsed[:error_messages]
   end
+
+  # == get_ledger ==
+  # A partial Success lets AccountTransactionSync move its watermark past the rows it never got.
+
+  def stub_bybit_ledger_client
+    hm_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(hm_client)
+    empty = Result::Success.new({ 'result' => { 'list' => [], 'rows' => [] } })
+    hm_client.stubs(:execution_list).returns(empty)
+    hm_client.stubs(:deposit_records).returns(empty)
+    hm_client.stubs(:withdraw_records).returns(empty)
+    hm_client
+  end
+
+  test 'get_ledger succeeds when every read succeeds' do
+    stub_bybit_ledger_client
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :success?
+  end
+
+  test 'get_ledger fails when the spot trades read fails' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:execution_list).with(has_entry(category: 'spot')).returns(Result::Failure.new('Too many visits'))
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
+  end
+
+  test 'get_ledger fails when the deposits read fails' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:deposit_records).returns(Result::Failure.new('Too many visits'))
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
+  end
+
+  test 'get_ledger fails when the withdrawals read fails' do
+    hm_client = stub_bybit_ledger_client
+    hm_client.stubs(:withdraw_records).returns(Result::Failure.new('Too many visits'))
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
+  end
 end

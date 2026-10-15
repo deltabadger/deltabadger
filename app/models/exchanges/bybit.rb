@@ -432,11 +432,14 @@ class Exchanges::Bybit < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
+    # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
+    # past the rows it never got, and they would never be fetched again.
+
     # Trades
     cursor = nil
     loop do
       result = hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor)
-      break if result.failure?
+      return result if result.failure?
 
       list = result.data.dig('result', 'list') || []
       break if list.empty?
@@ -461,36 +464,36 @@ class Exchanges::Bybit < Exchange
 
     # Deposits
     result = hm_client.deposit_records(start_time: start_ms)
-    unless result.failure?
-      (result.data.dig('result', 'rows') || []).each do |dep|
-        next unless dep['status'].to_i == 3 # success
+    return result if result.failure?
 
-        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txID'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
-      end
+    (result.data.dig('result', 'rows') || []).each do |dep|
+      next unless dep['status'].to_i == 3 # success
+
+      entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                   tx_id: dep['txID'], group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
     end
 
     # Withdrawals
     result = hm_client.withdraw_records(start_time: start_ms)
-    unless result.failure?
-      (result.data.dig('result', 'rows') || []).each do |wd|
-        next unless wd['status'] == 'success'
+    return result if result.failure?
 
-        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
-                     tx_id: wd['txID'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
-      end
+    (result.data.dig('result', 'rows') || []).each do |wd|
+      next unless wd['status'] == 'success'
+
+      entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
+                   tx_id: wd['txID'], group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
     end
 
     # Linear futures trades
     cursor = nil
     loop do
       result = hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor)
-      break if result.failure?
+      return result if result.failure?
 
       list = result.data.dig('result', 'list') || []
       break if list.empty?
