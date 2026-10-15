@@ -224,10 +224,6 @@ impl<T: Transport> AlpacaVenue<T> {
 
 impl<T: Transport> AlpacaVenue<T> {
 
-    /// Exchanges::Alpaca#get_ask_price / #get_last_price. Crypto: the latest quote's `ap` / trade's `p` by pair in the
-    /// `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in the path, `quote.ap`
-    /// / `trade.p`, no feed parameter (clients/alpaca.rb:172-192). A zero or missing price is Rails' "Wrong … price" raise.
-    /// Clients::Alpaca#get_clock on the trading host, with the bot's key.
     async fn positions_diagnostic_source(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> {
         let bad = || VenueError::Rejected(vec!["unreadable venue positions".into()]);
         let rows = self.raw_positions().await?;
@@ -251,17 +247,21 @@ impl<T: Transport> AlpacaVenue<T> {
         }
     }
 
+    /// Exchanges::Alpaca#get_ask_price / #get_bid_price / #get_last_price. Crypto: the latest quote's `ap` / `bp` / trade's
+    /// `p` by pair in the `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in
+    /// the path, `quote.ap` / `quote.bp` / `trade.p`, no feed parameter. A zero or missing price is Rails' "Wrong … price" raise.
     async fn price_diagnostic_source(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
-        let label = match side { PriceSide::Ask => "ask", PriceSide::Last => "last" };
+        let label = match side { PriceSide::Ask => "ask", PriceSide::Bid => "bid", PriceSide::Last => "last" };
         let raw = if ticker.crypto {
             let (path, key, field) = match side {
                 PriceSide::Ask => ("/v1beta3/crypto/us/latest/quotes", "quotes", "ap"),
+                PriceSide::Bid => ("/v1beta3/crypto/us/latest/quotes", "quotes", "bp"),
                 PriceSide::Last => ("/v1beta3/crypto/us/latest/trades", "trades", "p"),
             };
             let body = self.get(self.request("GET", true, path.into(), vec![("symbols", ticker.ticker.clone())], None)).await?;
             body[key][ticker.ticker.as_str()][field].clone()
         } else {
-            let (path, key, field) = match side { PriceSide::Ask => ("quotes", "quote", "ap"), PriceSide::Last => ("trades", "trade", "p") };
+            let (path, key, field) = match side { PriceSide::Ask => ("quotes", "quote", "ap"), PriceSide::Bid => ("quotes", "quote", "bp"), PriceSide::Last => ("trades", "trade", "p") };
             let body = self.get(self.request("GET", true, format!("/v2/stocks/{}/{path}/latest", ticker.base_code), vec![], None)).await?;
             body[key][field].clone()
         };
@@ -279,7 +279,7 @@ impl<T: Transport> AlpacaVenue<T> {
     /// failure while connecting: nothing sent) is a definitive refusal (Rails' failed row); a 3xx, a 5xx, a lost reply, or
     /// a 2xx without a readable id may have placed the order.
     async fn add_order_diagnostic_source(&self, o: &NewOrder) -> Result<String, VenueError> {
-        let mut body = json!({ "symbol": o.pair, "side": "buy", "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
+        let mut body = json!({ "symbol": o.pair, "side": o.side.as_str(), "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
         match &o.kind {
             OrderKind::Market if o.quote_volume => { body["notional"] = json!(o.volume); }
             OrderKind::Market => { body["qty"] = json!(o.volume); }

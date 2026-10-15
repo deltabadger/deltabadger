@@ -340,16 +340,16 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<serde_json::Value> { self.identity.clone() }
 
-    /// Exchanges::Binance#get_ask_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
+    /// Exchanges::Binance#get_ask_price / #get_bid_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
     /// askQty are dug for), and #get_last_price (ticker/price). A failure is #parse_error_message's text; a zero price raises
     /// "Wrong … price", naming the pair.
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, super::VenueError> {
         let symbol = vec![("symbol", ticker.ticker.clone())];
         let (price, label) = match side {
-            PriceSide::Ask => {
+            PriceSide::Ask | PriceSide::Bid => {
                 let body = self.call(&self.request("GET", "/api/v3/ticker/bookTicker", symbol), false).await?;
-                for field in ["bidPrice", "bidQty", "askQty"] { required(&body[field])?; }
-                (required(&body["askPrice"])?, "ask")
+                for field in ["bidPrice", "bidQty", "askPrice", "askQty"] { required(&body[field])?; }
+                if side == PriceSide::Bid { (required(&body["bidPrice"])?, "bid") } else { (required(&body["askPrice"])?, "ask") }
             }
             PriceSide::Last => (required(&self.call(&self.request("GET", "/api/v3/ticker/price", symbol), false).await?["price"])?, "last"),
         };
@@ -363,7 +363,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     /// default recvWindow. Sent at most once. The stored id is "SYMBOL-<orderId>" (ids repeat across symbols); an answer
     /// without an orderId (Rails would store "SYMBOL-") may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, super::VenueError> {
-        let mut params = vec![("symbol", o.pair.clone()), ("side", "BUY".to_string())];
+        let mut params = vec![("symbol", o.pair.clone()), ("side", o.side.as_str().to_ascii_uppercase())];
         let kind = match &o.kind {
             OrderKind::Market => {
                 params.extend([("type", "MARKET".into()), (if o.quote_volume { "quoteOrderQty" } else { "quantity" }, o.volume.clone()),

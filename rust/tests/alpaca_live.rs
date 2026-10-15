@@ -102,7 +102,7 @@ async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     let (_, not_found) = log.borrow().iter().rev().find(|(r, _)| r.path == "/v2/orders:by_client_order_id").cloned().unwrap();
     assert_eq!(not_found.status, 404);
     assert!(deltabadger::venue::alpaca::alpaca_not_found(&not_found.body), "the real envelope must match the matcher: {}", not_found.body);
-    let order = NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: "10.00".into(), quote_volume: true, cl_ord_id: cl.clone(), deadline: Utc::now(), day: false, };
+    let order = NewOrder { pair: "BTC/USD".into(), side: deltabadger::venue::Side::Buy, kind: OrderKind::Market, volume: "10.00".into(), quote_volume: true, cl_ord_id: cl.clone(), deadline: Utc::now(), day: false, };
     let id = v.add_order(&order).await.unwrap();
     let found = v.order_by_client_id(&cl, "BTC/USD", Utc::now()).await.unwrap().expect("found by client_order_id");
     assert_eq!(found.txid, id);

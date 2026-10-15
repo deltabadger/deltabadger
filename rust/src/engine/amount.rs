@@ -124,7 +124,7 @@ impl OrderPlan {
             WireFormat::Alpaca => (OrderKind::Market,
                 wire_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
         };
-        Ok(NewOrder { pair: t.ticker.clone(), kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
+        Ok(NewOrder { pair: t.ticker.clone(), side: crate::venue::Side::Buy, kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
     }
     /// Bot::OrderSetter#order_log_details: BigDecimals serialise as `to_s('F')` strings.
     pub fn log_details(&self) -> Value {

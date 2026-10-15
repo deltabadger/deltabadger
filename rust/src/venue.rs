@@ -22,17 +22,28 @@ pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value 
     serde_json::json!({ "host": host, "key_fingerprint": hex::encode(Sha256::digest(credentials.key.as_bytes())) })
 }
 
-/// Which price a buy needs (Bot::OrderSetter#reference_price): the ask for a market buy, the last trade for a limit.
+/// Which price an order needs (Bot::OrderSetter#reference_price): the ask for a market buy, the bid for a market sell, the
+/// last trade for a limit either way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum PriceSide { Ask, Last }
+pub enum PriceSide { Ask, Bid, Last }
+
+/// An order's side, as the venue's wire spells it (Kraken `type`, Binance `side` upcased, Alpaca `side`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Side { #[default] Buy, Sell }
+
+impl Side {
+    pub fn as_str(self) -> &'static str { match self { Self::Buy => "buy", Self::Sell => "sell" } }
+    /// transactions.side (Transaction enum: buy 0, sell 1).
+    pub fn code(self) -> i64 { match self { Self::Buy => 0, Self::Sell => 1 } }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OrderKind { Market, Limit { price: String } }
 
-/// A buy, formatted as the venue's wire expects (VenueRules::wire).
+/// An order, formatted as the venue's wire expects (VenueRules::wire).
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewOrder {
-    pub pair: String, pub kind: OrderKind, pub volume: String,
+    pub pair: String, pub side: Side, pub kind: OrderKind, pub volume: String,
     /// The volume is in quote currency (Kraken `oflags=viqc`, Alpaca `notional`).
     pub quote_volume: bool,
     /// The venue-neutral client order id (Kraken `cl_ord_id`, Alpaca `client_order_id`).

@@ -23,7 +23,7 @@ fn venue(script: Value) -> (ScriptedTransport, KrakenVenue<ScriptedTransport>) {
 }
 fn ok(body: Value) -> Value { json!([{ "status": 200, "body": body }]) }
 fn order(kind: OrderKind, quote: bool) -> NewOrder {
-    NewOrder { pair: "XBTEUR".into(), kind, volume: "10.0".into(), quote_volume: quote, cl_ord_id: "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01".into(),
+    NewOrder { pair: "XBTEUR".into(), side: deltabadger::venue::Side::Buy, kind, volume: "10.0".into(), quote_volume: quote, cl_ord_id: "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01".into(),
                deadline: at("2026-09-01T10:00:10.123456Z"), day: false }
 }
 fn raw_order(status: &str, cl: &str) -> Value {
@@ -332,4 +332,20 @@ async fn an_http_throttle_on_a_read_is_rate_limited_and_on_a_placement_stays_def
         let Err(VenueError::Rejected(errs)) = v.add_order(&order(OrderKind::Market, true)).await else { panic!("HTTP {status} on a placement is definitive") };
         assert!(!KRAKEN.is_throttle(&errs), "never RateLimited on a placement: {errs:?}");
     }
+}
+
+// ---- 6a: the sell side (Exchanges::Kraken#get_bid_price, #market_sell / #limit_sell)
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_posts_type_sell_and_the_bid_is_the_books_b() {
+    let (t, v) = venue(json!({ "POST /0/private/AddOrder": ok(json!({ "error": [], "result": { "txid": ["OS-1"] } })) }));
+    let sell = NewOrder { side: deltabadger::venue::Side::Sell, volume: "0.0012".into(), ..order(OrderKind::Limit { price: "51000.1".into() }, false) };
+    v.add_order(&sell).await.unwrap();
+    assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(),
+        r#"{"ordertype":"limit","type":"sell","volume":"0.0012","pair":"XBTEUR","cl_ord_id":"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01","price":"51000.1","deadline":"2026-09-01T10:00:10.123Z"}"#);
+    let body = |b: &str| ok(json!({ "error": [], "result": { "XXBTZEUR": { "a": ["50001.5", "1", "1.000"], "b": [b, "1", "1.000"], "c": ["50000.1", "0.1"] } } }));
+    let (_, v) = venue(json!({ "GET /0/public/Ticker": body("49999.9") }));
+    assert_eq!(v.price(&xbt_eur(), PriceSide::Bid).await, Ok(bd("49999.9")));
+    let (_, v) = venue(json!({ "GET /0/public/Ticker": body("0") }));
+    assert_eq!(v.price(&xbt_eur(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for XBTEUR: 0.0".into()])));
 }

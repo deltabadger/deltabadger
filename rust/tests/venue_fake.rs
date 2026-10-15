@@ -11,7 +11,7 @@ fn xbteur() -> Ticker {
 }
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
 fn order(cl: &str) -> NewOrder {
-    NewOrder { pair: "XBTEUR".into(), kind: OrderKind::Market, volume: "0.0012".into(), quote_volume: false,
+    NewOrder { pair: "XBTEUR".into(), side: deltabadger::venue::Side::Buy, kind: OrderKind::Market, volume: "0.0012".into(), quote_volume: false,
                cl_ord_id: cl.into(), deadline: "2026-09-30T12:00:10Z".parse().unwrap(), day: false, }
 }
 fn at() -> chrono::DateTime<chrono::Utc> { "2026-09-30T11:00:00Z".parse().unwrap() }

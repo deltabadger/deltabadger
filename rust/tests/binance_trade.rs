@@ -113,7 +113,7 @@ async fn the_balance_is_the_free_amount_of_the_quote_assets_venue_code() {
 
 const CL: &str = "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01";
 fn order(kind: OrderKind, quote: bool, volume: &str) -> NewOrder {
-    NewOrder { pair: "BTCUSDT".into(), kind, volume: volume.into(), quote_volume: quote, cl_ord_id: CL.into(),
+    NewOrder { pair: "BTCUSDT".into(), side: deltabadger::venue::Side::Buy, kind, volume: volume.into(), quote_volume: quote, cl_ord_id: CL.into(),
                deadline: "2026-09-01T10:00:10Z".parse().unwrap(), day: false }
 }
 fn accepted() -> Value { ok(json!({ "symbol": "BTCUSDT", "orderId": 28457, "orderListId": -1, "clientOrderId": CL, "transactTime": 1789871400750u64 })) }
@@ -374,4 +374,26 @@ async fn the_factory_builds_binance_through_its_proxy_with_the_exchanges_tickers
 fn the_binance_log_line_is_labelled_binance() {
     let t = http::ReqwestTransport::binance(http::client(), "KEY".into(), "SECRET".into());
     assert_eq!(t.failure_line(&http::HttpResponse { status: 400, body: r#"{"code":-2010,"msg":"x"}"#.into() }), "[Binance] HTTP 400; venue response diagnostic omitted");
+}
+
+// ---- 6a: the sell side (Exchanges::Binance#get_bid_price, #market_sell / #limit_sell: `side.to_s.upcase`)
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_posts_side_sell_and_the_bid_is_the_books_bid_price() {
+    let cases = [
+        (order(OrderKind::Market, false, "0.00123"), vec![("newClientOrderId", CL), ("quantity", "0.00123"), ("recvWindow", "5000"),
+            ("selfTradePreventionMode", "EXPIRE_MAKER"), ("side", "SELL"), ("symbol", "BTCUSDT"), ("type", "MARKET")]),
+        (order(OrderKind::Limit { price: "64150.5".into() }, false, "0.00093"), vec![("newClientOrderId", CL), ("price", "64150.5"),
+            ("quantity", "0.00093"), ("recvWindow", "5000"), ("side", "SELL"), ("symbol", "BTCUSDT"), ("timeInForce", "GTC"), ("type", "LIMIT")]),
+    ];
+    for (o, want) in cases {
+        let (t, v) = venue(json!({ "POST /api/v3/order": accepted() }));
+        v.add_order(&NewOrder { side: deltabadger::venue::Side::Sell, ..o }).await.unwrap();
+        assert_eq!(sent(&t.requests()[0]), pairs_of(&want));
+    }
+    let book = |bid: &str| ok(json!({ "symbol": "BTCUSDT", "bidPrice": bid, "bidQty": "1.5", "askPrice": "64000.11", "askQty": "0.2" }));
+    let (_, v) = venue(json!({ "GET /api/v3/ticker/bookTicker": book("64000.10") }));
+    assert_eq!(v.price(&btc_usdt(), PriceSide::Bid).await, Ok(bd("64000.10")));
+    let (_, v) = venue(json!({ "GET /api/v3/ticker/bookTicker": book("0.00000000") }));
+    assert_eq!(v.price(&btc_usdt(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for BTCUSDT: 0.0".into()])));
 }

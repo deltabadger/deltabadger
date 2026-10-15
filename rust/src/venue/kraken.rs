@@ -171,13 +171,14 @@ pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueErro
     })
 }
 
-/// Exchanges::Kraken#get_ask_price / #get_last_price over a checked Ticker body: the first result entry's `a[0]` / `c[0]`. A
+/// Exchanges::Kraken#get_ask_price / #get_bid_price / #get_last_price over a checked Ticker body: the first result entry's
+/// `a[0]` / `b[0]` / `c[0]`. A
 /// zero book raises "Wrong … price", naming the pair (kraken.rb:225, :255).
 pub(crate) fn ticker_price(body: &Value, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
     let Some((_, t)) = body["result"].as_object().and_then(|m| m.iter().next()) else {
         return Err(VenueError::Rejected(vec![format!("Failed to get Kraken {} ticker information", ticker.ticker)]));
     };
-    let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Last => ("c", "last") };
+    let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Bid => ("b", "bid"), PriceSide::Last => ("c", "last") };
     let p = dec(&t[key][0])?.unwrap_or_else(BigDec::zero);
     if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
     Ok(p)
@@ -285,7 +286,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// `cl_ord_id` and `deadline` (RFC 3339, UTC, milliseconds; Kraken drops the order after it). Sent at most once.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let (ordertype, price) = match &o.kind { OrderKind::Market => ("market", None), OrderKind::Limit { price } => ("limit", Some(price.clone())) };
-        let mut fields = vec![("ordertype", ordertype.to_string()), ("type", "buy".into()), ("volume", o.volume.clone()), ("pair", o.pair.clone()),
+        let mut fields = vec![("ordertype", ordertype.to_string()), ("type", o.side.as_str().into()), ("volume", o.volume.clone()), ("pair", o.pair.clone()),
                               ("cl_ord_id", o.cl_ord_id.clone())];
         if let Some(p) = price { fields.push(("price", p)); }
         if o.quote_volume { fields.push(("oflags", "viqc".into())); }

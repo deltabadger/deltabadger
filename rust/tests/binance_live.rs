@@ -85,7 +85,7 @@ async fn record_the_testnet_answers_the_port_relies_on() {
     let last = v.price(&btc_usdt(), PriceSide::Last).await.expect("last price");
     let rest = last.floor(0).div(&BigDec::from_i64(2)).unwrap().floor(2);
     let resting_id = uuid::Uuid::new_v4().to_string();
-    let limit = NewOrder { pair: "BTCUSDT".into(), kind: OrderKind::Limit { price: rest.to_s_f() }, volume: "0.001".into(), quote_volume: false,
+    let limit = NewOrder { pair: "BTCUSDT".into(), side: deltabadger::venue::Side::Buy, kind: OrderKind::Limit { price: rest.to_s_f() }, volume: "0.001".into(), quote_volume: false,
                            cl_ord_id: resting_id.clone(), deadline: deadline(), day: false };
     let id = v.add_order(&limit).await.expect("a resting limit buy");
     let looked_up = v.order_by_client_id(&resting_id, "BTCUSDT", since).await;
@@ -96,7 +96,7 @@ async fn record_the_testnet_answers_the_port_relies_on() {
     let _ = v.order_identified(&id, |_, _, _| Ok(true)).await; // the CANCELED body
 
     // A MARKET buy by quote, then its order and trades.
-    let market = NewOrder { pair: "BTCUSDT".into(), kind: OrderKind::Market, volume: "15".into(), quote_volume: true,
+    let market = NewOrder { pair: "BTCUSDT".into(), side: deltabadger::venue::Side::Buy, kind: OrderKind::Market, volume: "15".into(), quote_volume: true,
                             cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: deadline(), day: false };
     let filled = v.add_order(&market).await.expect("a market buy by quote");
     let polled = v.orders(&[filled.clone(), id.clone()]).await;
