@@ -1824,7 +1824,7 @@ async fn r_new_account_cannot_reuse_old_accounts_balance_price() {
     use wiremock::matchers::header;
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
-    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{"symbol":"AAA","qty":"2","asset_class":"us_equity"}]))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{"symbol":"AAA","qty":"2","qty_available":"2","asset_class":"us_equity"}]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"AAA":{"latestTrade":{"p":120}}}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -3277,7 +3277,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     balances::sync(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
     jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
     let mut positions=vec![];
-    for n in 0..101 {let symbol=format!("R5{n}");let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,&symbol);h.c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1"}));}
+    for n in 0..101 {let symbol=format!("R5{n}");let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,&symbol);h.c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1","qty_available":"1"}));}
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
@@ -3522,8 +3522,8 @@ async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_posi
     for (account,positions,accepted) in [
         (serde_json::json!({"status":"ACTIVE"}),serde_json::json!([]),false),
         (serde_json::json!({"status":"ACTIVE","cash":null}),serde_json::json!([]),false),
-        (serde_json::json!({"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"us_equity","qty":"2"}]),false),
-        (serde_json::json!({"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"option","qty":"2"}]),true),
+        (serde_json::json!({"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"us_equity","qty":"2","qty_available":"2"}]),false),
+        (serde_json::json!({"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"option","qty":"2","qty_available":"2"}]),true),
     ]{
         let server=MockServer::start().await;
         Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account)).expect(1).mount(&server).await;
