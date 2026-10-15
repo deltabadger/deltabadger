@@ -383,3 +383,21 @@ fn divergence_stale_tick_completion_cannot_write_over_a_new_run() {
     assert!(matches!(model::transition_owned(&o.primary, &bot, deltabadger::enums::BotStatus::Waiting, t0()), Err(deltabadger::engine::EngineError::RunFenced)));
     assert_eq!(reload(&o, &bot).status, deltabadger::enums::BotStatus::Executing);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_binance_minus_1021_writes_no_row_clears_the_intent_and_a_plain_refusal_writes_a_failed_row() {
+    use deltabadger::venue::{binance::BinanceVenue, http::ScriptedTransport};
+    for (msg, rows) in [("Timestamp for this request is outside of the recvWindow.", 0),
+                        ("Timestamp for this request was 1000ms ahead of the server's time.", 0),
+                        ("Account has insufficient balance for requested action.", 1)] {
+        let (_d, o, bot, plan) = setup();
+        let t = ScriptedTransport::default();
+        t.reply("POST /api/v3/order", 400, json!({ "code": -1021, "msg": msg }));
+        let venue = BinanceVenue::new(t.clone(), "https://api.binance.com", "s");
+        let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+        assert!(matches!(placement::send_recorded(&o.primary, &venue, &bot, &intent, &FixedClock(t0())).await.unwrap(), Sent::Rejected(_)), "{msg}");
+        assert_eq!(count(&o, "SELECT count(*) FROM transactions WHERE status = 1"), rows, "{msg}");
+        assert!(reload(&o, &bot).rust_placement().is_none(), "{msg}: a definitive answer clears the intent");
+        assert_eq!(t.requests().len(), 1, "sent once");
+    }
+}

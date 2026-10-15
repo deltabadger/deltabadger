@@ -4,7 +4,7 @@ use deltabadger::engine::model::Ticker;
 use deltabadger::ruby::BigDec;
 use deltabadger::venue::binance::{BinanceVenue, Pair, Pairs};
 use deltabadger::venue::http::{self, ScriptedTransport};
-use deltabadger::venue::{PriceSide, Venue, VenueError};
+use deltabadger::venue::{NewOrder, OrderKind, PriceSide, Venue, VenueError};
 use serde_json::{json, Value};
 
 fn bd(s: &str) -> BigDec { BigDec::parse(s).unwrap() }
@@ -105,4 +105,70 @@ async fn the_balance_is_the_free_amount_of_the_quote_assets_venue_code() {
     assert!(matches!(v.balance("USDT", true).await, Err(VenueError::Ambiguous(_))), "an unreadable balance is never a zero");
     let (_, v) = venue(json!({ "GET /api/v3/account": fail(401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })) }));
     assert_eq!(v.balance("USDT", true).await, Err(VenueError::Rejected(vec!["Invalid API-key, IP, or permissions for action.".into()])));
+}
+
+// ---- placement: Exchanges::Binance#set_market_order / #set_limit_order, Exchange#ambiguous_placement_error?
+
+const CL: &str = "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01";
+fn order(kind: OrderKind, quote: bool, volume: &str) -> NewOrder {
+    NewOrder { pair: "BTCUSDT".into(), kind, volume: volume.into(), quote_volume: quote, cl_ord_id: CL.into(),
+               deadline: "2026-09-01T10:00:10Z".parse().unwrap(), day: false }
+}
+fn accepted() -> Value { ok(json!({ "symbol": "BTCUSDT", "orderId": 28457, "orderListId": -1, "clientOrderId": CL, "transactTime": 1789871400750u64 })) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn each_buy_posts_the_fields_rails_sends_plus_the_client_order_id() {
+    let cases = [
+        (order(OrderKind::Market, true, "60.5"), vec![("newClientOrderId", CL), ("quoteOrderQty", "60.5"), ("recvWindow", "5000"),
+            ("selfTradePreventionMode", "EXPIRE_MAKER"), ("side", "BUY"), ("symbol", "BTCUSDT"), ("type", "MARKET")]),
+        (order(OrderKind::Market, false, "0.00123"), vec![("newClientOrderId", CL), ("quantity", "0.00123"), ("recvWindow", "5000"),
+            ("selfTradePreventionMode", "EXPIRE_MAKER"), ("side", "BUY"), ("symbol", "BTCUSDT"), ("type", "MARKET")]),
+        (order(OrderKind::Limit { price: "64150.5".into() }, false, "0.00093"), vec![("newClientOrderId", CL), ("price", "64150.5"),
+            ("quantity", "0.00093"), ("recvWindow", "5000"), ("side", "BUY"), ("symbol", "BTCUSDT"), ("timeInForce", "GTC"), ("type", "LIMIT")]),
+    ];
+    for (o, want) in cases {
+        let (t, v) = venue(json!({ "POST /api/v3/order": accepted() }));
+        assert_eq!(v.add_order(&o).await, Ok("BTCUSDT-28457".into()), "the stored id is SYMBOL-orderId");
+        let r = &t.requests()[0];
+        assert_eq!((r.method, r.path.as_str(), r.body.is_none()), ("POST", "/api/v3/order", true));
+        assert_eq!(sent(r), pairs_of(&want), "{o:?}");
+        assert!(r.query.iter().any(|(k, _)| *k == "signature") && r.not_after.is_some(), "signed, with its send bound");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn placement_answers_map_to_rails_ambiguity_rules() {
+    let m1021 = "Timestamp for this request is outside of the recvWindow.";
+    let ahead = "Timestamp for this request was 1000ms ahead of the server's time.";
+    let cases: Vec<(Value, Result<String, VenueError>)> = vec![
+        (accepted(), Ok("BTCUSDT-28457".into())),
+        (ok(json!({ "symbol": "BTCUSDT", "orderId": "28458" })), Ok("BTCUSDT-28458".into())),
+        // A definitive refusal: the venue's msg (Exchanges::Binance#parse_error_message).
+        (fail(400, json!({ "code": -2010, "msg": "Account has insufficient balance for requested action." })),
+         Err(VenueError::Rejected(vec!["Account has insufficient balance for requested action.".into()]))),
+        (fail(401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
+         Err(VenueError::Rejected(vec!["Invalid API-key, IP, or permissions for action.".into()]))),
+        // -1021 is placement-safe (definitive, never ambiguous), in both of Rails' wordings, even on a 5xx.
+        (fail(400, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Rejected(vec![m1021.into()]))),
+        (fail(400, json!({ "code": -1021, "msg": ahead })), Err(VenueError::Rejected(vec![ahead.into()]))),
+        (fail(503, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Rejected(vec![m1021.into()]))),
+        // A 429 on placement is a definitive refusal (Rails' 4xx rule), never the read throttle.
+        (fail(429, json!({ "code": -1015, "msg": "Too many new orders." })), Err(VenueError::Rejected(vec!["Too many new orders.".into()]))),
+        // May have been placed: a 5xx, an unreadable 2xx, a 2xx with no orderId, a lost reply.
+        (fail(503, json!({ "code": -1001, "msg": "Internal error; unable to process your request. Please try again." })),
+         Err(VenueError::Ambiguous("Internal error; unable to process your request. Please try again.".into()))),
+        (fail(502, json!("<html>bad gateway</html>")), Err(VenueError::Ambiguous("<html>bad gateway</html>".into()))),
+        (ok(json!("<html>maintenance</html>")), Err(VenueError::Ambiguous("Binance: unreadable response".into()))),
+        (ok(json!(r#"{"symbol":"BTCUSDT","orderId":1e400}"#)), Err(VenueError::Ambiguous("Binance: unreadable response".into()))),
+        (ok(json!({ "symbol": "BTCUSDT" })), Err(VenueError::Ambiguous("Failed to set Binance market order (order_id is BTCUSDT-)".into()))),
+        (ok(json!({ "symbol": "BTCUSDT", "orderId": null })), Err(VenueError::Ambiguous("Failed to set Binance market order (order_id is BTCUSDT-)".into()))),
+        (json!([{ "network": "post_send", "message": "read timeout" }]), Err(VenueError::Ambiguous("read timeout".into()))),
+        (json!([{ "network": "pre_send", "message": "refused" }]), Err(VenueError::Transient("refused".into()))),
+        (json!([{ "network": "permanent", "message": "certificate" }]), Err(VenueError::Rejected(vec!["certificate".into()]))),
+    ];
+    for (reply, want) in cases {
+        let (_, v) = venue(json!({ "POST /api/v3/order": reply }));
+        assert_eq!(v.add_order(&order(OrderKind::Market, true, "60")).await, want, "{reply}");
+    }
+    assert!(deltabadger::engine::placement::safe_rejection(&[m1021.into()]) && deltabadger::engine::placement::safe_rejection(&[ahead.into()]));
 }

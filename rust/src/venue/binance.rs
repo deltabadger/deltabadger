@@ -2,7 +2,7 @@
 //! engine's one-asset spot buys (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
 //! method names the Ruby it ports. Binance.US trades nowhere here: only the tracker reads it.
 use super::http::{self, HttpRequest, Transport, TransportError};
-use super::{NewOrder, OrderState, PriceSide};
+use super::{NewOrder, OrderKind, OrderState, PriceSide};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINANCE as RULES};
 use crate::ruby::BigDec;
@@ -216,7 +216,36 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         Ok(price)
     }
 
-    async fn add_order(&self, _o: &NewOrder) -> Result<String, super::VenueError> { Err(super::VenueError::Transient("Binance placement is not ported yet".into())) }
+    /// #set_market_order / #set_limit_order through Clients::Binance#new_order: POST /api/v3/order, every field in the query.
+    /// A market buy is `quoteOrderQty` or `quantity` with selfTradePreventionMode EXPIRE_MAKER; a limit buy GTC `price` and
+    /// `quantity` (Rails sends no STP there). Plus Rust's `newClientOrderId` (the intent id; Rails sends none) and the gem's
+    /// default recvWindow. Sent at most once. The stored id is "SYMBOL-<orderId>" (ids repeat across symbols); an answer
+    /// without an orderId (Rails would store "SYMBOL-") may have placed the order: Ambiguous.
+    async fn add_order(&self, o: &NewOrder) -> Result<String, super::VenueError> {
+        let mut params = vec![("symbol", o.pair.clone()), ("side", "BUY".to_string())];
+        let kind = match &o.kind {
+            OrderKind::Market => {
+                params.extend([("type", "MARKET".into()), (if o.quote_volume { "quoteOrderQty" } else { "quantity" }, o.volume.clone()),
+                               ("selfTradePreventionMode", "EXPIRE_MAKER".into())]);
+                "market"
+            }
+            OrderKind::Limit { price } => {
+                params.extend([("type", "LIMIT".into()), ("timeInForce", "GTC".into()), ("price", price.clone()), ("quantity", o.volume.clone())]);
+                "limit"
+            }
+        };
+        params.extend([("newClientOrderId", o.cl_ord_id.clone()), ("recvWindow", PLACE_RECV_WINDOW.into())]);
+        // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.
+        let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")),
+                              ..self.signed_now("POST", "/api/v3/order", params) };
+        let body = self.call(&r, true).await?;
+        let id = match &body["orderId"] {
+            serde_json::Value::Number(n) if n.is_u64() || n.is_i64() => n.to_string(),
+            serde_json::Value::String(s) if !s.is_empty() => s.clone(),
+            _ => return Err(super::VenueError::Ambiguous(format!("Failed to set Binance {kind} order (order_id is {}-)", o.pair))),
+        };
+        Ok(format!("{}-{id}", o.pair))
+    }
     async fn orders(&self, _txids: &[String]) -> Result<Vec<OrderState>, super::VenueError> { Err(super::VenueError::Transient("Binance polls are not ported yet".into())) }
     async fn order_by_client_id(&self, _id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, super::VenueError> { Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) }
     /// Rails' trade fallback is inside #get_orders (the fill rebuild); a missing order is never looked up in trades.
