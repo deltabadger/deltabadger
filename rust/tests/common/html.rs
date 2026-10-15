@@ -15,7 +15,9 @@
 //! - the CSP nonce (`meta[name=csp-nonce]`, any `nonce` attribute) -> `[nonce]`;
 //! - an asset fingerprint (`/assets/…-<8 to 64 hex>.<ext>` in any attribute) -> `-[digest]`;
 //! - a signed stream name -> `[signed <the stream name inside>]`, so the name is compared and the
-//!   signature, which each side makes with its own key, is not.
+//!   signature, which each side makes with its own key, is not;
+//! - a settings switch's id (`switch-<8 hex>`, settings/_switch's `SecureRandom.hex(4)`) on its checkbox and on
+//!   the label that points at it -> `switch-[random]`.
 //!
 //! Masking hides whether a token or a signature is genuine, and whether an asset exists.
 //! `masked_values` hands them out so the harness can check that first, on each side, with that
@@ -54,6 +56,10 @@ fn mask_digest(value: &str) -> String {
     }
 }
 
+fn random_switch_id(value: &str) -> bool {
+    value.strip_prefix("switch-").is_some_and(|hex| hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
 fn signed_name(value: &str) -> String {
     let name = value.split_once("--")
         .and_then(|(data, _)| B64.decode(data).ok())
@@ -70,6 +76,7 @@ fn attribute(element: &scraper::node::Element, name: &str, value: &str) -> Strin
         ("meta", "content") if is("name", "csp-nonce") => "[nonce]".into(),
         (_, "nonce") => "[nonce]".into(),
         ("turbo-cable-stream-source", "signed-stream-name") => signed_name(value),
+        ("input", "id") | ("label", "for") if random_switch_id(value) => "switch-[random]".into(),
         _ => mask_digest(value),
     }
 }

@@ -16,7 +16,14 @@ PARTIALS = {
   'svg/24x24_reverse' => 'svg/_24x24_reverse.html',
   'svg/24x24_info' => 'svg/_24x24_info.html',
   'svg/24x24_info-filled' => 'svg/_24x24_info_filled.html',
-  'svg/landscape_empty' => 'svg/_landscape_empty.html'
+  'svg/landscape_empty' => 'svg/_landscape_empty.html',
+  # The settings dialog's sidebar and its copy pills.
+  'svg/24x24_account' => 'svg/_24x24_account.html',
+  'svg/24x24_lock' => 'svg/_24x24_lock.html',
+  'svg/24x24_sync' => 'svg/_24x24_sync.html',
+  'svg/24x24_chat' => 'svg/_24x24_chat.html',
+  'svg/24x24_doc' => 'svg/_24x24_doc.html',
+  'svg/16x16_copy' => 'svg/_16x16_copy.html'
 }.merge(
   # One mark per exchange class (Exchange#name_id), for the tiles and the exchange menu.
   Dir[Rails.root.join('app/views/svg/_exchange-*.html.erb')].sort.to_h do |path|

@@ -4,7 +4,7 @@ use crate::{
     tracker::jobs::TRACKER_LEDGER,
     web::{
         auth, flash, i18n,
-        layout::{self, Ctx},
+        layout::Ctx,
         turbo, App, WebError,
     },
 };
@@ -22,7 +22,7 @@ fn refuse(ctx: &Ctx, message: String) -> Result<Response, WebError> {
     )
         .into_response())
 }
-pub async fn write(app: App, ctx: Ctx, headers: HeaderMap) -> Result<Response, WebError> {
+pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
         return Ok(auth::unauthenticated(&ctx));
     };
@@ -70,7 +70,7 @@ pub async fn write(app: App, ctx: Ctx, headers: HeaderMap) -> Result<Response, W
             },
         );
     }
-    let destination =
-        layout::back(&app.config, &headers).unwrap_or_else(|| ctx.path("/settings/account"));
-    Ok(layout::redirect(StatusCode::SEE_OTHER, &destination))
+    let (v, csrf) = (ctx.clone(), ctx.csrf_token());
+    let widget = app.db(move |c| super::view::wash(c, &v, &csrf, user.id)).await?;
+    Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::stream("replace", "wash_sale", widget.trim_end())).into_response())
 }

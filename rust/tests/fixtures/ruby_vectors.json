@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"HpfkwJntj09d+F/OK29YOO8=\",\"h\":{\"iv\":\"zdavtkt5yKmZwNe6\",\"at\":\"ACgx781r58lBiVgaOS8YKA==\"}}"
+      "cipher": "{\"p\":\"uTDuAq708M9yIWH9F0iNK2g=\",\"h\":{\"iv\":\"CPELDdAAS4TYcTcE\",\"at\":\"Ph47dNlHPAbh72HEZz9o7A==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"mwNibWLsmg/aYi9KjPOg\",\"h\":{\"iv\":\"vIy35U9dVypPCVZi\",\"at\":\"JENf2e1U43gbcESOVVb6Xw==\"}}"
+      "cipher": "{\"p\":\"DXuNJS7kony9fulppSW/\",\"h\":{\"iv\":\"x68alt4wfMNh9oMl\",\"at\":\"8+vDKq5hdQXDR9At5ad+AA==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"oTSKIAG3M5cmqgl5R05g1eY6By6hNE1wXaS1HCe3auT2zY9U9Qe2bpFm876aXAV2mUgaEmUiSMcdiyBoXU/vsa7hmvnOMWUxjM5cIHE=\",\"h\":{\"iv\":\"hDLPC/t/M6N98mPR\",\"at\":\"318VEN+W6Oq9MkuHhD5/Og==\",\"c\":true}}"
+      "cipher": "{\"p\":\"Ms/7QKSCY7VAVh2eLwU+MDObvSxn8ziGvbFTk75kFXoaRgFmvs9GqEckDHzDt6Rjaw0Ucmzlwz7HizpYN+pzsVJp2qVjbCERNliMMqA=\",\"h\":{\"iv\":\"A8yudwvnjVY7xT9e\",\"at\":\"ZJ85W/HyM7kOSgMOasMQkA==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "UHUCERRVLIGYOH3MS5KDKOMUAC65R4VO",
-      "cipher": "{\"p\":\"Ho3LH9A4p/J+ujAcQuokNdYeUvE13WkSxYl/rWG2JzA=\",\"h\":{\"iv\":\"B1ssyjFj6KNPUUqW\",\"at\":\"T/R6OBdwuzNa78G24w1lGQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "3GQDS4V2ZHZLJIQYTBFVETFFEBPQ52IM",
+      "cipher": "{\"p\":\"knkGcEFi2wGLWvK+gLguV0IdpGQKfkY1P1fA80afTgs=\",\"h\":{\"iv\":\"PV5gNMGGRMopJ17P\",\"at\":\"CNMCSeDr8WDg4+BdUNb2ow==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"wBRnIiRIUkR7mohXfzWDodI=\",\"h\":{\"iv\":\"wdrwdh5JKDATFZbC\",\"at\":\"bYUIdZa6Da+QIW8vB8Y2JQ==\"}}"
+      "cipher": "{\"p\":\"fbX72CpXD9QKMT7OI2cAHS4=\",\"h\":{\"iv\":\"ZWdEGhtCkOKfOvHD\",\"at\":\"LXtgBb7VGV1EsjcmU9d+Tg==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$ksvdIC6d134U72skZa2UYe4duWvDYisaASxOWzx.ew7pLFaM.NYJC"
+      "hash": "$2a$11$IhEYaNHGSlNrVbyIZnhow.nJKidgkBlLV5IwJWU0LgcYOW.2pGrk2"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$Omf0OrkbcqFTYKSu./XmWucosbjG.JT8RlUgDdAuwnnkfEWxNB61W"
+      "hash": "$2a$11$yz2RiOVPz48/yYgJD4ddX.xVFWxYzm3yzJeWj8/AiEqWB/0891FCa"
     }
   ],
   "totp": {
@@ -62963,17 +62963,17 @@
       },
       {
         "locale": "en",
-        "key": "links.api",
+        "key": "settings.mcp.tools_tax",
         "args": {},
-        "view": "MCP &amp; REST API",
-        "text": "MCP & REST API"
+        "view": "Tax &amp; Reporting",
+        "text": "Tax & Reporting"
       },
       {
         "locale": "de",
-        "key": "links.api",
+        "key": "settings.mcp.tools_tax",
         "args": {},
-        "view": "MCP &amp; REST API",
-        "text": "MCP & REST API"
+        "view": "Steuern &amp; Berichte",
+        "text": "Steuern & Berichte"
       },
       {
         "locale": "en",
@@ -63890,7 +63890,7 @@
     "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
     "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
     "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
-    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--943992eb97b8a7d94befa47aac0bf1d68f7182778cdf6051ff5916c0cc2a218b\"></turbo-cable-stream-source>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--f82bf584b6f719576aea4e8330b4f6615d4ff24be324d118c2cf92cdd761184c\"></turbo-cable-stream-source>",
     "stream_name": "user_7:bot_updates",
     "content_type": "text/vnd.turbo-stream.html"
   },
@@ -92039,34 +92039,34 @@
         {
           "id": 1,
           "admin": 0,
-          "advanced_bots_enabled": 0,
           "confirmation_sent_at": "2026-09-10 12:00:30.123456",
-          "confirmation_token": "skxM-33rp__D8FKjfjqm",
+          "confirmation_token": "Cr6kiQzktGQJQGQsqYyc",
           "confirmed_at": null,
           "created_at": "2026-09-10 12:00:30.123456",
-          "display_currency": "USD",
           "email": "owner@example.com",
-          "encrypted_password": "$2a$11$9OdhXKZQTtE5mr6Adh/EguCnSZoi0KmU2NtkEH.T01GTBi7AjiRCG",
-          "failed_attempts": 0,
-          "hide_balances": 0,
+          "encrypted_password": "$2a$11$NIxIuYW3zBEz7bDBBericu0ashCuJgPWtQYx2suZho9S3uiMoEHtm",
           "last_otp_at": null,
           "locale": null,
-          "locked_at": null,
-          "mcp_settings": "{}",
           "name": "Fixture Owner",
           "otp_module": 0,
-          "otp_secret_key": "{\"p\":\"5kFIPsrVElRhZaZr3sw2mN3cAWiSSg0t5m8eIdJsj6g=\",\"h\":{\"iv\":\"9zsQuQHnvnoIRRas\",\"at\":\"FHaFJOrbcPBHd45+dpxrHQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+          "otp_secret_key": "{\"p\":\"AIn0XV2TJpEt9PED2vGnXYQc5ZABV6jMuWSSXrD5MRk=\",\"h\":{\"iv\":\"ZcTdeIt6qIo3Hfwe\",\"at\":\"nDdkLIO0mdT4fauPN5cqxg==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
           "remember_created_at": null,
           "reset_password_sent_at": null,
           "reset_password_token": null,
-          "rest_settings": "{}",
           "setup_completed": 0,
           "show_smart_intervals_info": 1,
           "subscribed_to_email_marketing": 1,
           "time_zone": "Eastern Time (US & Canada)",
-          "tracker_settings": "{}",
           "unconfirmed_email": null,
           "updated_at": "2026-09-10 12:00:30.123456",
+          "failed_attempts": 0,
+          "locked_at": null,
+          "mcp_settings": "{}",
+          "tracker_settings": "{}",
+          "advanced_bots_enabled": 0,
+          "rest_settings": "{}",
+          "display_currency": "USD",
+          "hide_balances": 0,
           "wash_sale_enabled": 0,
           "wash_sale_jurisdiction": null,
           "wash_sale_selling_warned_at": null
@@ -92097,24 +92097,24 @@
       "api_keys": [
         {
           "id": 1,
-          "access_token": null,
-          "balances_synced_at": null,
           "created_at": "2026-09-10 12:00:30.123456",
-          "dh_param": null,
           "exchange_id": 1,
           "german_trading_agreement": null,
-          "ibkr_realm": null,
-          "key": "{\"p\":\"9GypwJ2R\",\"h\":{\"iv\":\"0Q+EiwXIQOdINkWW\",\"at\":\"PXEoOVxyUEsh6v9bPQCgzA==\"}}",
+          "key": "{\"p\":\"7ZjZQLEr\",\"h\":{\"iv\":\"TwVA+HL5JBjdCglm\",\"at\":\"3nwE+0OhVejb2qlrmzkyrA==\"}}",
           "key_type": 0,
-          "last_sync_error": null,
-          "last_synced_at": null,
-          "passphrase": "{\"p\":\"gNXMFL8=\",\"h\":{\"iv\":\"phxcTrw7QUwaXw8j\",\"at\":\"5IlfzEVPjt39iR5vx5yhJg==\"}}",
-          "rsa_encryption_key": null,
-          "rsa_signature_key": null,
-          "secret": "{\"p\":\"ptW2PdDx\",\"h\":{\"iv\":\"dt1oPwGUr24HE++1\",\"at\":\"niDm32i5HvLbyDLZQcJKOQ==\"}}",
+          "passphrase": "{\"p\":\"cB+Jz7s=\",\"h\":{\"iv\":\"08dolpUSkcQzcaOZ\",\"at\":\"1R/OHvLbmQzGSYahrfS+ZQ==\"}}",
+          "secret": "{\"p\":\"TcsaojcE\",\"h\":{\"iv\":\"yUJDcXXU+qfTgy1s\",\"at\":\"fJK806yCbZ6MODo3Ay/k2w==\"}}",
           "status": 1,
           "updated_at": "2026-09-10 12:00:30.123456",
-          "user_id": 1
+          "user_id": 1,
+          "last_synced_at": null,
+          "access_token": null,
+          "rsa_signature_key": null,
+          "rsa_encryption_key": null,
+          "dh_param": null,
+          "ibkr_realm": null,
+          "last_sync_error": null,
+          "balances_synced_at": null
         }
       ],
       "assets": [
@@ -92128,14 +92128,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "usd",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "US Dollar",
           "symbol": "USD",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 2,
@@ -92147,14 +92147,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "qqqm.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "QQQM Inc",
           "symbol": "QQQM",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 3,
@@ -92166,14 +92166,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "ibit.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "IBIT Inc",
           "symbol": "IBIT",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 4,
@@ -92185,14 +92185,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "nvda.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "NVDA Inc",
           "symbol": "NVDA",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 5,
@@ -92204,14 +92204,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "msft.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "MSFT Inc",
           "symbol": "MSFT",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 6,
@@ -92223,14 +92223,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "aapl.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "AAPL Inc",
           "symbol": "AAPL",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 7,
@@ -92242,14 +92242,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "amzn.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "AMZN Inc",
           "symbol": "AMZN",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 8,
@@ -92261,14 +92261,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "meta.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "META Inc",
           "symbol": "META",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 9,
@@ -92280,14 +92280,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "avgo.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "AVGO Inc",
           "symbol": "AVGO",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 10,
@@ -92299,14 +92299,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "googl.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "GOOGL Inc",
           "symbol": "GOOGL",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 11,
@@ -92318,14 +92318,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "tsla.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "TSLA Inc",
           "symbol": "TSLA",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 12,
@@ -92337,14 +92337,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "cost.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "COST Inc",
           "symbol": "COST",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 13,
@@ -92356,14 +92356,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "nflx.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "NFLX Inc",
           "symbol": "NFLX",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 14,
@@ -92375,14 +92375,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "amd.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "AMD Inc",
           "symbol": "AMD",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 15,
@@ -92394,14 +92394,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "pep.us",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": null,
           "market_cap_rank": null,
           "name": "PEP Inc",
           "symbol": "PEP",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 16,
@@ -92413,14 +92413,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "btc",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": 1300000000000,
           "market_cap_rank": null,
           "name": "BTC",
           "symbol": "BTC",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         },
         {
           "id": 17,
@@ -92432,14 +92432,14 @@
           "created_at": "2026-09-10 12:00:30.123456",
           "external_id": "eth",
           "image_url": null,
-          "instrument_type": null,
           "isin": null,
           "market_cap": 400000000000,
           "market_cap_rank": null,
           "name": "ETH",
           "symbol": "ETH",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "url": null
+          "url": null,
+          "instrument_type": null
         }
       ],
       "exchange_assets": [
@@ -92684,8 +92684,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "QQQM",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 2,
@@ -92706,8 +92706,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "QQQM",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 3,
@@ -92728,8 +92728,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "IBIT",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 4,
@@ -92750,8 +92750,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "IBIT",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 5,
@@ -92772,8 +92772,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "NVDA",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 6,
@@ -92794,8 +92794,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "MSFT",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 7,
@@ -92816,8 +92816,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "AAPL",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 8,
@@ -92838,8 +92838,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "AMZN",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 9,
@@ -92860,8 +92860,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "META",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 10,
@@ -92882,8 +92882,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "AVGO",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 11,
@@ -92904,8 +92904,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "GOOGL",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 12,
@@ -92926,8 +92926,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "TSLA",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 13,
@@ -92948,8 +92948,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "COST",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 14,
@@ -92970,8 +92970,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "NFLX",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 15,
@@ -92992,8 +92992,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "AMD",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 16,
@@ -93014,8 +93014,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "PEP",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 17,
@@ -93036,8 +93036,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "BTC/USD",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         },
         {
           "id": 18,
@@ -93058,8 +93058,8 @@
           "quote_asset_id": 1,
           "quote_decimals": 2,
           "ticker": "ETH/USD",
-          "trading_enabled": 1,
-          "updated_at": "2026-09-10 12:00:30.123456"
+          "updated_at": "2026-09-10 12:00:30.123456",
+          "trading_enabled": 1
         }
       ],
       "indices": [
@@ -93090,10 +93090,7 @@
           "fetch_restarts": 0,
           "label": "QQQM, IBIT",
           "last_end_of_funds_notification": null,
-          "position": 1,
-          "redeploy_declined_offset": 0,
           "restarts": 0,
-          "restatement_generation": 0,
           "settings": "{\"quote_asset_id\":1,\"quote_amount\":50,\"interval\":\"day\",\"allocations\":{\"2\":0.6,\"3\":0.4},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.01,\"smart_intervaled\":true,\"smart_interval_quote_amount\":5,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":3,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":3,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":3,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":3,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":3,\"sell_price_drop_limit_in_ticker_id\":3,\"sell_moving_average_limit_in_ticker_id\":3,\"sell_indicator_limit_in_ticker_id\":3}",
           "settings_changed_at": "2026-09-10 12:00:30.123456",
           "started_at": null,
@@ -93103,7 +93100,10 @@
           "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
           "type": "Bots::DcaMultiAsset",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "user_id": 1
+          "user_id": 1,
+          "position": 1,
+          "redeploy_declined_offset": 0,
+          "restatement_generation": 0
         },
         {
           "id": 2,
@@ -93115,10 +93115,7 @@
           "fetch_restarts": 0,
           "label": "ND10",
           "last_end_of_funds_notification": null,
-          "position": 2,
-          "redeploy_declined_offset": 0,
           "restarts": 0,
-          "restatement_generation": 0,
           "settings": "{\"quote_asset_id\":1,\"quote_amount\":100,\"interval\":\"week\",\"num_coins\":10,\"hold_all\":false,\"index_type\":\"category\",\"index_category_id\":\"nasdaq-100\",\"index_name\":\"Nasdaq 100\",\"index_name_prefix\":\"ND\",\"allocation_flattening\":0.25,\"smart_intervaled\":false,\"smart_interval_quote_amount\":10.0,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001}",
           "settings_changed_at": "2026-09-10 12:00:30.123456",
           "started_at": null,
@@ -93128,7 +93125,10 @@
           "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
           "type": "Bots::DcaIndex",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "user_id": 1
+          "user_id": 1,
+          "position": 2,
+          "redeploy_declined_offset": 0,
+          "restatement_generation": 0
         },
         {
           "id": 3,
@@ -93140,10 +93140,7 @@
           "fetch_restarts": 0,
           "label": "QQQM Inc",
           "last_end_of_funds_notification": null,
-          "position": 3,
-          "redeploy_declined_offset": 0,
           "restarts": 0,
-          "restatement_generation": 0,
           "settings": "{\"quote_asset_id\":1,\"quote_amount\":25.5,\"interval\":\"day\",\"allocations\":{\"2\":1.0},\"limit_ordered\":true,\"limit_order_pcnt_distance\":0.005,\"quote_amount_limited\":true,\"quote_amount_limit\":1000,\"smart_intervaled\":false,\"smart_interval_quote_amount\":2.55,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":1,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":1,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":1,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":1,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":1,\"sell_price_drop_limit_in_ticker_id\":1,\"sell_moving_average_limit_in_ticker_id\":1,\"sell_indicator_limit_in_ticker_id\":1}",
           "settings_changed_at": "2026-09-10 12:00:30.123456",
           "started_at": null,
@@ -93153,7 +93150,10 @@
           "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null,\"quote_amount_limit_enabled_at\":\"2026-09-01T00:00:00.000Z\"}",
           "type": "Bots::DcaMultiAsset",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "user_id": 1
+          "user_id": 1,
+          "position": 3,
+          "redeploy_declined_offset": 0,
+          "restatement_generation": 0
         },
         {
           "id": 4,
@@ -93165,10 +93165,7 @@
           "fetch_restarts": 0,
           "label": "BTC",
           "last_end_of_funds_notification": null,
-          "position": 4,
-          "redeploy_declined_offset": 0,
           "restarts": 0,
-          "restatement_generation": 0,
           "settings": "{\"quote_asset_id\":1,\"quote_amount\":20,\"interval\":\"hour\",\"allocations\":{\"16\":1.0},\"smart_intervaled\":false,\"smart_interval_quote_amount\":16.7,\"limit_ordered\":false,\"limit_order_pcnt_distance\":0.001,\"quote_amount_limited\":false,\"quote_amount_limit\":1000,\"price_limited\":false,\"price_limit\":1000000,\"price_limit_range_lower_bound\":0,\"price_limit_range_upper_bound\":1000000,\"price_limit_timing_condition\":\"while\",\"price_limit_value_condition\":\"below\",\"price_limit_in_ticker_id\":17,\"price_drop_limited\":false,\"price_drop_limit\":0.2,\"price_drop_limit_time_window_condition\":\"ath\",\"price_drop_limit_in_ticker_id\":17,\"moving_average_limited\":false,\"moving_average_limit_timing_condition\":\"while\",\"moving_average_limit_value_condition\":\"below\",\"moving_average_limit_in_ticker_id\":17,\"moving_average_limit_in_ma_type\":\"sma\",\"moving_average_limit_in_timeframe\":\"one_day\",\"moving_average_limit_in_period\":9,\"indicator_limited\":false,\"indicator_limit\":30,\"indicator_limit_timing_condition\":\"while\",\"indicator_limit_value_condition\":\"below\",\"indicator_limit_in_ticker_id\":17,\"indicator_limit_in_indicator\":\"rsi\",\"indicator_limit_in_timeframe\":\"one_day\",\"sell_price_limit_in_ticker_id\":17,\"sell_price_drop_limit_in_ticker_id\":17,\"sell_moving_average_limit_in_ticker_id\":17,\"sell_indicator_limit_in_ticker_id\":17}",
           "settings_changed_at": "2026-09-10 12:00:30.123456",
           "started_at": null,
@@ -93178,7 +93175,10 @@
           "transient_data": "{\"missed_quote_amount\":0,\"missed_quote_amount_was_set\":null}",
           "type": "Bots::DcaMultiAsset",
           "updated_at": "2026-09-10 12:00:30.123456",
-          "user_id": 1
+          "user_id": 1,
+          "position": 4,
+          "redeploy_declined_offset": 0,
+          "restatement_generation": 0
         }
       ],
       "bot_index_assets": [
@@ -93371,7 +93371,6 @@
           "amount": 0.121250333,
           "amount_exec": 0.121250333,
           "base": "QQQM",
-          "base_asset_id": 2,
           "bot_id": 3,
           "bot_interval": "day",
           "bot_quote_amount": 25.5,
@@ -93385,18 +93384,19 @@
           "quote": "USD",
           "quote_amount": 50,
           "quote_amount_exec": 49.999999,
-          "quote_asset_id": 1,
           "side": 0,
           "status": 0,
           "transaction_type": "REGULAR",
-          "updated_at": "2026-09-09 13:30:01"
+          "updated_at": "2026-09-09 13:30:01",
+          "base_asset_id": 2,
+          "quote_asset_id": 1,
+          "run_identity": null
         },
         {
           "id": 2,
           "amount": 0.12247,
           "amount_exec": 0,
           "base": "QQQM",
-          "base_asset_id": 2,
           "bot_id": 3,
           "bot_interval": "day",
           "bot_quote_amount": 25.5,
@@ -93410,11 +93410,13 @@
           "quote": "USD",
           "quote_amount": null,
           "quote_amount_exec": 0,
-          "quote_asset_id": 1,
           "side": 0,
           "status": 0,
           "transaction_type": "REGULAR",
-          "updated_at": "2026-09-10 11:00:00"
+          "updated_at": "2026-09-10 11:00:00",
+          "base_asset_id": 2,
+          "quote_asset_id": 1,
+          "run_identity": null
         }
       ]
     },

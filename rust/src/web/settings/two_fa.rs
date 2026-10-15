@@ -2,31 +2,18 @@ use crate::{
     codec::format_time,
     web::{
         auth::{self, User},
-        flash,
-        i18n::escape,
+        i18n::{self, escape},
         layout::{Ctx, Page},
         shell::{self, Shell},
-        turbo, App, WebError,
+        App, WebError,
     },
 };
-use askama::Template;
 use axum::{
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
+    http::StatusCode,
+    response::Response,
 };
 use qrcode::Color;
 use rusqlite::{Transaction, TransactionBehavior};
-#[derive(Template)]
-#[template(path = "settings/two_fa.html")]
-struct TwoFa<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    enabled: bool,
-    invalid: bool,
-    status_label: String,
-    button: String,
-    qr: String,
-}
 /// ROTP::Base32.random's shape: 32 characters of base32, 160 random bits.
 pub(crate) fn new_seed() -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -118,51 +105,43 @@ pub async fn handle(app: App, ctx: Ctx, write: bool) -> Result<Response, WebErro
         })
         .await?;
     if valid {
-        flash::set(
-            &ctx.session,
-            flash::NOTICE,
-            ctx.t(if user.otp_enabled {
-                "settings.two_fa.enabled"
-            } else {
-                "settings.two_fa.disabled"
-            }),
-        );
-        return Ok((
-            [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
-            turbo::refresh(),
-        )
-            .into_response());
+        let notice = ctx.t(if user.otp_enabled { "settings.two_fa.enabled" } else { "settings.two_fa.disabled" });
+        return super::view::saved_row(&ctx, "two_fa", &super::view::two_fa_widget(&ctx, user.otp_enabled), notice);
     }
     let csrf = ctx.csrf_token();
-    let body = TwoFa {
-        v: &ctx,
-        csrf: &csrf,
-        enabled: user.otp_enabled,
-        invalid: write,
-        status_label: ctx.t(if user.otp_enabled {
-            "helpers.label.settings.enabled"
-        } else {
-            "helpers.label.settings.disabled"
-        }),
-        button: ctx.t(if user.otp_enabled {
-            "helpers.label.settings.disable_two_fa"
-        } else {
-            "helpers.label.settings.enable_two_fa"
-        }),
-        qr: qr(&ctx, &user, &seed)?,
+    let label = ctx.t("helpers.label.settings.enter_two_fa_code");
+    let mut input = format!(
+        "<input class=\"rinput rinput--outline rinput--text{}\" required=\"required\" pattern=\"\\d{{6}}\" autocomplete=\"one-time-code\" inputmode=\"numeric\" placeholder=\"{label}\" aria-label=\"{label}\" type=\"text\" name=\"user[otp_code_token]\" id=\"user_otp_code_token\" />",
+        if write { " is-invalid" } else { "" }
+    );
+    let mut error = String::new();
+    if write {
+        // errors.add(:otp_code_token, …): the full message on the form, the message under the field.
+        let message = i18n::text(ctx.locale, "errors.messages.wrong_two_fa_token", &[]);
+        let name = crate::web::setup::attribute_name(ctx.locale, "otp_code_token");
+        let full = i18n::text_chain(ctx.locale, &["errors.format".into()], &[("attribute", i18n::Arg::Text(&name)), ("message", i18n::Arg::Text(&message))])
+            .unwrap_or_else(|| format!("{name} {message}"));
+        error = format!("<p class=\"sform__error\">{}</p>", escape(&full));
+        let mut chars = message.chars();
+        let message = chars.next().map(|c| c.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default();
+        input = format!("                   {input}\n             <div class=\"form__info form__info--invalid\">{}</div>\n", escape(&message));
     }
-    .render()?;
+    let button = ctx.t(if user.otp_enabled { "helpers.label.settings.disable_two_fa" } else { "helpers.label.settings.enable_two_fa" });
+    let cancel = format!("<a class=\"rbutton rbutton--outline\" href=\"{}\">{}</a>\n", escape(&ctx.path("/settings/account")), ctx.t("button.cancel"));
+    let body = format!(
+        "<turbo-frame class=\"sitem\" id=\"two_fa\">\n  <div>\n    {}    <form class=\"sform sform--stack\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />\n      {}\n      {error}\n      {input}\n      <input type=\"submit\" name=\"commit\" value=\"{button}\" class=\"rbutton rbutton--outline {}\" data-disable-with=\"{button}\" />\n</form>  </div>\n</turbo-frame>\n",
+        super::view::row(&ctx.t("settings.index.two_factor_section"), None, None, "", "", Some(&cancel)),
+        escape(&ctx.path("/settings/update_two_fa")),
+        qr(&ctx, &user, &seed)?,
+        if user.otp_enabled { "rbutton--danger" } else { "" }
+    );
     shell::application(
         &ctx,
         &csrf,
         &user,
         &shell,
         Page {
-            status: if write {
-                StatusCode::UNPROCESSABLE_ENTITY
-            } else {
-                StatusCode::OK
-            },
+            status: if write { StatusCode::UNPROCESSABLE_ENTITY } else { StatusCode::OK },
             body,
             flash_now: vec![],
         },

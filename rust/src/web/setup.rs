@@ -298,7 +298,7 @@ enum Message {
 }
 
 /// User.human_attribute_name.
-fn attribute_name(locale: &str, attribute: &str) -> String {
+pub(crate) fn attribute_name(locale: &str, attribute: &str) -> String {
     let keys = [format!("activerecord.attributes.user.{attribute}"), format!("attributes.{attribute}")];
     i18n::text_chain(locale, &keys, &[]).unwrap_or_else(|| {
         let mut chars = attribute.replace('_', " ").chars().collect::<Vec<_>>();

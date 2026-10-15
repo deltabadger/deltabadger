@@ -29,32 +29,38 @@ pub async fn show(
     State(app): State<App>,
     Extension(ctx): Extension<Ctx>,
 ) -> Result<Response, WebError> {
+    if removed(&ctx.params.route_path) {
+        return Ok(layout::missing());
+    }
     if ctx.user().is_none() {
         return Ok(auth::unauthenticated(&ctx));
     }
     match ctx.params.route_path.as_str() {
         "/settings/edit_two_fa" => two_fa::handle(app, ctx, false).await,
-        p if p.starts_with("/settings/confirm_revoke_mcp_client/") => clients::show(app, ctx).await,
-        "/settings/api" => api::show(app, ctx).await,
-        "/settings/connect" => keys::show(app, ctx).await,
-        p if p.starts_with("/settings/confirm_destroy_api_key/")
-            || p.starts_with("/settings/api_key_permissions/") =>
-        {
-            keys::modal(app, ctx).await
-        }
-        "/settings/account" => view::account(&app, &ctx, StatusCode::OK, None, vec![]).await,
-        _ => Ok(layout::not_ported_response(
-            &ctx.method,
-            &ctx.params.fullpath,
-            ctx.turbo_frame.as_deref(),
-        )),
+        p if p.starts_with("/settings/api_key_permissions/") => keys::modal(app, ctx).await,
+        p => match SECTIONS.iter().find(|section| p.strip_prefix("/settings/") == Some(**section)) {
+            Some(section) => view::section(&app, &ctx, section, StatusCode::OK, None).await,
+            None => Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())),
+        },
     }
+}
+
+/// SettingsController::SECTIONS: the dialog's sections, each its own URL.
+pub const SECTIONS: [&str; 5] = ["account", "api_keys", "connect", "mcp", "api"];
+
+/// Routes Rails dropped with the settings dialog (it asks in place now): no route, so 404 as Rails answers one.
+fn removed(path: &str) -> bool {
+    ["/settings/confirm_destroy_api_key/", "/settings/confirm_revoke_mcp_client/"].iter().any(|prefix| path.starts_with(prefix))
+        || ["/settings/confirm_destroy_coingecko_key", "/settings/destroy_coingecko_key", "/settings/update_coingecko_key"].contains(&path)
 }
 pub async fn write(
     State(app): State<App>,
     Extension(ctx): Extension<Ctx>,
     headers: HeaderMap,
 ) -> Result<Response, WebError> {
+    if removed(&ctx.params.route_path) {
+        return Ok(layout::missing());
+    }
     if ctx.user().is_none() {
         return Ok(auth::unauthenticated(&ctx));
     }

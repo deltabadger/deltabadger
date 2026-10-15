@@ -67,6 +67,12 @@ impl Ctx {
         locale::path(self.locale, path)
     }
 
+    /// SettingsHelper#settings_reopen_src: `?settings=<section>` on any page opens the settings dialog over it.
+    pub fn settings_reopen_src(&self) -> Option<String> {
+        let section = self.params.form("settings").or_else(|| self.params.query("settings"))?;
+        super::settings::SECTIONS.contains(&section).then(|| self.path(&format!("/settings/{section}")))
+    }
+
     pub fn asset(&self, logical: &str) -> &'static str {
         assets::path(logical)
     }

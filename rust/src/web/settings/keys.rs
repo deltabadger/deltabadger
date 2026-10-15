@@ -356,18 +356,6 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
 }
 
-#[derive(askama::Template)]
-#[template(path = "settings/api_keys.html")]
-struct KeysView<'a> {
-    v: &'a Ctx,
-    trading: Vec<ListKey>,
-    withdrawal: Vec<ListKey>,
-}
-struct ListKey {
-    id: i64,
-    name: String,
-    instructions: bool,
-}
 fn lookup(locale: &str, key: &str) -> Option<&'static str> {
     for language in [locale, i18n::DEFAULT] {
         let key = format!("{language}.{key}");
@@ -377,183 +365,143 @@ fn lookup(locale: &str, key: &str) -> Option<&'static str> {
     }
     None
 }
-pub fn list(c: &Connection, ctx: &Ctx, user: i64) -> Result<String, WebError> {
+/// settings/widgets/_api_keys: the exchange keys, a row each; removing one asks first.
+pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, WebError> {
+    use super::view::{confirm, row};
     let mut s=c.prepare("SELECT k.id,e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 ORDER BY k.id")?;
     let rows = s
-        .query_map([user], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, i64>(3)?,
-            ))
-        })?
+        .query_map([user], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    let mut trading = vec![];
-    let mut withdrawal = vec![];
-    for (id, name, venue, kind) in rows {
-        let name_id = venue
-            .strip_prefix("Exchanges::")
-            .unwrap_or("")
-            .to_lowercase();
-        let prefix = if kind == 1 {
-            "withdrawal_api"
-        } else {
-            "bot.api"
-        };
-        let instructions = lookup(ctx.locale, &format!("{prefix}.{name_id}.instructions"))
-            .is_some()
-            || lookup(
-                ctx.locale,
-                &format!("{prefix}.{name_id}.instructions.0.text_html"),
-            )
-            .is_some();
-        let key = ListKey {
-            id,
-            name,
-            instructions,
-        };
-        if kind == 1 {
-            withdrawal.push(key)
-        } else {
-            trading.push(key)
+    let mut body = String::new();
+    for (index, (heading, withdrawal)) in [("settings.index.trading_keys_section", false), ("settings.index.withdrawal_keys_section", true)].into_iter().enumerate() {
+        let group: Vec<_> = rows.iter().filter(|(_, _, _, kind)| (*kind == 1) == withdrawal).collect();
+        if index > 0 && group.is_empty() { continue; }
+        body += &format!("\n    <h3 class=\"settings__heading {}\">{}</h3>\n", if index == 0 { "settings__heading--first" } else { "" }, ctx.t(heading));
+        if group.is_empty() {
+            body += &format!("      <p class=\"settings__empty\">{}</p>\n", ctx.t("settings.sections.no_keys"));
+        }
+        for (id, name, venue, kind) in group {
+            let name_id = crate::tracker::rows::name_id(venue);
+            let prefix = if *kind == 1 { "withdrawal_api" } else { "bot.api" };
+            let instructions = lookup(ctx.locale, &format!("{prefix}.{name_id}.instructions")).is_some()
+                || lookup(ctx.locale, &format!("{prefix}.{name_id}.instructions.0.text_html")).is_some();
+            let label = format!("{}{}", i18n::escape(name), if *kind == 2 { format!("<span class=\"srow__aside\">{}</span>", ctx.t("links.tracker")) } else { String::new() });
+            let mut control = String::new();
+            if instructions {
+                control += &format!(
+                    "      <a class=\"rbutton rbutton--outline\" data-turbo-frame=\"settings_pane\" href=\"{}\">{}</a>\n        ",
+                    i18n::escape(&ctx.path(&format!("/settings/api_key_permissions/{id}"))),
+                    ctx.t("settings.sections.permissions")
+                );
+            }
+            control += &confirm(csrf, &ctx.t("button.remove"), &ctx.t("settings.api_keys.confirm_delete"), &ctx.t("button.delete"), &ctx.path(&format!("/settings/destroy_api_key/{id}")), true, &[]);
+            body += &format!("      {}", row(&label, None, Some(crate::web::bot::exchange_svg(&name_id)), "srow--key", &format!(" data-api-key=\"{id}\""), Some(&control)));
         }
     }
-    Ok(KeysView {
-        v: ctx,
-        trading,
-        withdrawal,
-    }
-    .render()?)
+    Ok(format!("<turbo-frame id=\"api_keys\">{body}</turbo-frame>\n"))
 }
-#[derive(askama::Template)]
-#[template(path = "settings/connect.html")]
-struct Connect<'a> {v:&'a Ctx,admin:bool,keys:String,stocks:String,market_data:String}
-#[derive(Template)]
-#[template(path="settings/stocks.html")]
-struct Stocks<'a>{v:&'a Ctx,csrf:&'a str,configured:bool,catalog_active:bool,paper:bool,mode:String,hosted:bool,hosted_note:String,configured_note:String,connect_alpaca:String,instructions_alpaca:String,instructions_alpaca_body:String}
-#[derive(Template)]
-#[template(path="settings/market_data.html")]
-struct MarketData<'a>{v:&'a Ctx,csrf:&'a str,configured:bool,selected:String,coingecko:bool,deltabadger:bool,has_coingecko_key:bool,hosted:bool,hosted_note:String,platform_connected:bool,platform_note:String,connect_coingecko:String,connect_platform:String,instructions_coingecko:String}
-fn connection_widgets(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<(String,String),WebError>{
+/// settings/widgets/_stocks and settings/widgets/_market_data, as AppConfig and the catalog hold them now.
+pub(super) fn connection_widgets(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<(String,String),WebError>{
+    use super::view::{confirm, row, switch};
+    use crate::web::bots::{Segmented, SegmentedOption};
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
     let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::ruby::blank(&s)));
-    let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
-    let deltabadger=hosted||provider=="deltabadger";let coingecko=!hosted&&provider=="coingecko";
-    let configured=if !hosted&&deltabadger{has("market_data_url")?&&has("market_data_token")?}else{hosted||!crate::ruby::blank(&provider)};
-    let platform_connected=has("platform_connected_at")?;
-    let proxies:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'proxy_%')",[],|r|r.get(0))?;
-    let connect=|name:&str|i18n::t(v.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))]);
-    let instruction=|name:&str|i18n::t(v.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]);
+    let form=|attrs:&str,path:&str,patch:bool|format!("<form{attrs} action=\"{}\" accept-charset=\"UTF-8\" method=\"post\">{}<input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />",i18n::escape(&v.path(path)),if patch{"<input type=\"hidden\" name=\"_method\" value=\"patch\" />"}else{""});
+    let submit_connect=format!("<input type=\"submit\" name=\"commit\" value=\"{0}\" class=\"rbutton rbutton--outline\" data-turbo-stream=\"true\" data-turbo-submits-with=\"{1}\" data-disable-with=\"{0}\" />",v.t("button.connect"),v.t("bot.setup.validating"));
+    let help=|name:&str,prose:&str,indent:&str|format!("{indent}<details class=\"shelp\">\n{indent}  <summary>{}</summary>\n{indent}  <div class=\"settings__prose\">{prose}</div>\n{indent}</details>",i18n::t(v.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]));
+    let disconnect=|label_key:&str,path:&str|{let label=v.t(label_key);confirm(csrf,&label,&v.t("settings.index.api_key_confirmation"),&label,&v.path(path),true,&[])};
     let hosted_note=|key:&str|i18n::t(v.locale,key,&[("provider_name",i18n::Arg::Text(&app.settings_market_provider_name))]);
-    let market=MarketData{v,csrf,configured,selected:if hosted{"deltabadger".into()}else{provider},coingecko,deltabadger,has_coingecko_key:has("coingecko_api_key")?,hosted,hosted_note:hosted_note("settings.market_data.deltabadger_configured"),platform_connected,platform_note:v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"}),connect_coingecko:connect("CoinGecko"),connect_platform:connect(&v.t("settings.platform.option")),instructions_coingecko:instruction("CoinGecko")}.render()?;
-    let catalog_active=deltabadger||c.query_row("SELECT EXISTS(SELECT 1 FROM tickers t JOIN exchanges e ON e.id=t.exchange_id WHERE t.available=1 AND e.type IN('Exchanges::Alpaca','Exchanges::Ibkr'))",[],|r|r.get::<_,bool>(0))?;
-    let stored_mode=setting("alpaca_mode")?;let mode=if stored_mode.as_deref()==Some("paper"){"paper"}else{"live"};
-    let display_mode=stored_mode.map(|mode|{let mut chars=mode.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+&chars.as_str().to_lowercase()).unwrap_or_default()}).unwrap_or_else(||"Paper".into());
-    let stocks=Stocks{v,csrf,configured:has("alpaca_api_key")?&&has("alpaca_api_secret")?,catalog_active,paper:mode=="paper",mode:mode.into(),hosted:deltabadger,hosted_note:hosted_note("settings.stocks.deltabadger_configured"),configured_note:i18n::t(v.locale,"settings.stocks.configured",&[("mode",i18n::Arg::Text(&display_mode))]),connect_alpaca:connect("Alpaca"),instructions_alpaca:instruction("Alpaca"),instructions_alpaca_body:format!("<p>{}</p>",lookup(v.locale,"bot.api.alpaca.instructions").unwrap_or(""))}.render()?;
+    let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
+    let current=if hosted{"deltabadger".to_string()}else{provider};
+    let (coingecko,deltabadger)=(current=="coingecko",current=="deltabadger");
+    let platform_connected=has("platform_connected_at")?;
+    // Stocks.
+    let stocks_body=if deltabadger{
+        format!("\n    {}\n",row("Alpaca",Some(&hosted_note("settings.stocks.deltabadger_configured")),None,"","",None))
+    }else{
+        let configured=has("alpaca_api_key")?&&has("alpaca_api_secret")?;
+        let stored_mode=setting("alpaca_mode")?;let mode=if stored_mode.as_deref()==Some("paper"){"paper"}else{"live"};
+        let active=c.query_row("SELECT EXISTS(SELECT 1 FROM tickers t JOIN exchanges e ON e.id=t.exchange_id WHERE t.available=1 AND e.type IN('Exchanges::Alpaca','Exchanges::Ibkr'))",[],|r|r.get::<_,bool>(0))?;
+        let hint=if configured{
+            let display=stored_mode.map(|mode|{let mut chars=mode.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+&chars.as_str().to_lowercase()).unwrap_or_default()}).unwrap_or_else(||"Paper".into());
+            Some(i18n::t(v.locale,"settings.stocks.configured",&[("mode",i18n::Arg::Text(&display))]))
+        }else if active{Some(v.t("settings.stocks.not_refreshing"))}else{None};
+        let control=if configured{format!("    {}",disconnect("settings.stocks.disconnect","/settings/disconnect_stocks"))}else{String::new()};
+        let segmented=Segmented{fluid:false,label:"Mode".into(),key:None,links:false,options:vec![
+            SegmentedOption{value:"paper",label:v.t("settings.stocks.mode_paper"),active:mode=="paper",href:None},
+            SegmentedOption{value:"live",label:v.t("settings.stocks.mode_live"),active:mode=="live",href:None}]}.render()?;
+        let input=|name:&str,label:&str|format!("<input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{label}\" aria-label=\"{label}\" type=\"text\" name=\"{name}\" id=\"{name}\" />");
+        format!("\n    {}\n\n    {}\n      {}      <input value=\"{mode}\" data-form--segmented-field-target=\"field\" type=\"hidden\" name=\"alpaca_mode\" id=\"alpaca_mode\" />\n      {}\n      {}\n      {submit_connect}\n{}\n</form>",
+            row("Alpaca",hint.as_deref(),None,"","",Some(&control)),
+            form(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"stocks_settings\" data-controller=\"form--segmented-field\" data-action=\"segmented:change-&gt;form--segmented-field#set\"","/settings/update_stocks",true),
+            row("Mode",None,None,"srow--flush","",Some(&format!("\n{segmented}\n"))),
+            input("alpaca_api_key","API Key"),input("alpaca_api_secret","API Secret"),
+            help("Alpaca",&format!("<p>{}</p>",lookup(v.locale,"bot.api.alpaca.instructions").unwrap_or("")),"      "))
+    };
+    let stocks=format!("<turbo-frame class=\"sitem\" id=\"stocks_settings\">{stocks_body}</turbo-frame>\n");
+    // Market data.
+    let title=v.t("settings.index.resync_assets_section");
+    let market_body=if hosted{
+        format!("\n    {}\n",row(&title,Some(&hosted_note("settings.market_data.deltabadger_configured")),None,"srow--heading","",None))
+    }else{
+        let selected=if coingecko{"coingecko"}else if deltabadger{"deltabadger"}else{""};
+        let on=!selected.is_empty();
+        let enabled=if on{""}else if platform_connected{"deltabadger"}else{"coingecko"};
+        let mut inner=format!("\n      {}\n",row(&title,None,None,"srow--heading","",Some(&switch(v,csrf,"/settings/update_market_data","market_data_settings","market_data_provider",if on{"on"}else{"off"},enabled,Some(&title),&[]))));
+        if on{
+            let provider=v.t("settings.sections.provider");
+            let segmented=Segmented{fluid:true,label:provider.clone(),key:None,links:false,options:vec![
+                SegmentedOption{value:"coingecko",label:"CoinGecko".into(),active:selected=="coingecko",href:None},
+                SegmentedOption{value:"deltabadger",label:v.t("settings.platform.option"),active:selected=="deltabadger",href:None}]}.render()?;
+            let provider_form=format!("{}\n            \n{segmented}\n            <input value=\"{selected}\" data-form--market-data-target=\"provider\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n</form>",
+                form(" data-form--market-data-target=\"providerForm\" data-turbo-frame=\"market_data_settings\"","/settings/update_market_data",true));
+            inner+=&format!("        {}\n",row(&provider,None,None,"","",Some(&provider_form)));
+            let coingecko_fields=if coingecko{
+                let resync=format!("<form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--outline\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>",i18n::escape(&v.path("/settings/resync_assets")),v.t("settings.resync_assets.button"));
+                format!("\n            {}",row("CoinGecko",Some(&v.t("settings.market_data.coingecko_configured")),None,"","",Some(&format!("  {resync}\n              {}",disconnect("settings.market_data.disconnect","/settings/disconnect_market_data")))))
+            }else if !has("coingecko_api_key")?{
+                let key=v.t("setup.coingecko_api_key");
+                format!("\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {submit_connect}\n{}\n</form>",
+                    form(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"","/settings/update_market_data",true),
+                    help("CoinGecko",&v.t("setup.coingecko_api_key_hint_html"),"              "))
+            }else{String::new()};
+            inner+=&format!("        <div class=\"sitem\" data-form--market-data-target=\"coingeckoFields\" {}>{coingecko_fields}        </div>\n\n",if selected=="coingecko"{""}else{"hidden"});
+            let platform_form=if platform_connected{String::new()}else{
+                let code=v.t("settings.platform.code");
+                format!("\n            {}\n              <p class=\"srow__hint\">{}</p>\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{code}\" aria-label=\"{code}\" type=\"text\" name=\"claim_code\" id=\"claim_code\" />\n              {submit_connect}\n</form>",
+                    form(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"","/settings/platform_connection",false),
+                    v.t("settings.platform.subscription_html"))
+            };
+            inner+=&format!("        <div class=\"sitem\" data-form--market-data-target=\"deltabadgerButtons\" {}>{platform_form}        </div>\n",if selected=="deltabadger"{""}else{"hidden"});
+        }
+        if platform_connected{
+            let proxies:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'proxy_%')",[],|r|r.get(0))?;
+            inner+=&format!("\n        {}\n",row(&v.t("settings.platform.option"),Some(&v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"})),None,"","",Some(&disconnect("settings.platform.disconnect","/settings/platform_connection"))));
+        }
+        format!("\n\n    <div data-controller=\"form--market-data\" data-action=\"segmented:change->form--market-data#select\"\n         data-form--market-data-platform-connected-value=\"{platform_connected}\">{inner}\n    </div>\n")
+    };
+    let market=format!("<turbo-frame id=\"market_data_settings\">{market_body}</turbo-frame>\n");
     Ok((stocks,market))
 }
-pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else {
-        return Ok(auth::unauthenticated(&ctx));
-    };
-    let inner=app.clone();let v=ctx.clone();let csrf=ctx.csrf_token();let token=csrf.clone();
-    let (keys,shell,stocks,market_data)=app.db(move|c|{
-        let (stocks,market_data)=connection_widgets(c,&inner,&v,&token)?;
-        Ok((list(c,&v,user.id)?,crate::web::shell::Shell::load(c,&inner,&user)?,stocks,market_data))
-    }).await?;
-    let user=ctx.user().ok_or_else(||WebError::Config("missing key owner".into()))?;
-    let body=Connect{v:&ctx,admin:user.admin,keys,stocks,market_data}.render()?;
-    crate::web::shell::application(
-        &ctx,
-        &csrf,
-        user,
-        &shell,
-        crate::web::layout::Page {
-            status: StatusCode::OK,
-            body,
-            flash_now: vec![],
-        },
-    )
-}
-#[derive(askama::Template)]
-#[template(path = "settings/delete_key.html")]
-struct DeleteKey<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    id: i64,
-    name: String,
-}
-#[derive(askama::Template)]
-#[template(path = "settings/key_permissions.html")]
-struct Permissions {
-    instructions_alpaca: String,
-    instructions: String,
-}
+/// GET /settings/api_key_permissions/:id: how to get the key, inside the dialog.
 pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
         return Ok(auth::unauthenticated(&ctx));
     };
-    let id = ctx
-        .params
-        .route_path
-        .rsplit('/')
-        .next()
-        .and_then(|s| s.parse::<i64>().ok());
-    let Some(id) = id else {
+    let Some(id) = ctx.params.route_path.rsplit('/').next().and_then(|s| s.parse::<i64>().ok()) else {
         return Ok(crate::web::layout::missing());
     };
-    let inner = app.clone();
-    let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;key.map(|k|Ok((k,crate::web::shell::Shell::load(c,&inner,&user)?))).transpose()}).await?;
-    let Some(((name, venue, _kind), shell)) = found else {
+    let found=app.db(move|c|Ok(c.query_row("SELECT e.name,e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?)).await?;
+    let Some((name, venue)) = found else {
         return Ok(crate::web::layout::missing());
     };
-    let csrf = ctx.csrf_token();
-    let body = if ctx
-        .params
-        .route_path
-        .starts_with("/settings/confirm_destroy_api_key/")
-    {
-        DeleteKey {
-            v: &ctx,
-            csrf: &csrf,
-            id,
-            name,
-        }
-        .render()?
-    } else {
-        if venue != "Exchanges::Alpaca" {
-            return Ok(crate::web::layout::not_ported_response(
-                &ctx.method,
-                &ctx.params.fullpath,
-                ctx.turbo_frame.as_deref(),
-            ));
-        }
-        Permissions {
-            instructions_alpaca: i18n::t(
-                ctx.locale,
-                "bot.setup.how_to_get_keys",
-                &[("exchange", i18n::Arg::Text(&name))],
-            ),
-            instructions: format!(
-                "<p>{}</p>",
-                lookup(ctx.locale, "bot.api.alpaca.instructions").unwrap_or("")
-            ),
-        }
-        .render()?
-    };
-    crate::web::shell::application(
-        &ctx,
-        &csrf,
-        ctx.user()
-            .ok_or_else(|| WebError::Config("missing key owner".into()))?,
-        &shell,
-        crate::web::layout::Page {
-            status: StatusCode::OK,
-            body,
-            flash_now: vec![],
-        },
-    )
+    if venue != "Exchanges::Alpaca" {
+        return Ok(crate::web::layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref()));
+    }
+    let heading = i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", i18n::Arg::Text(&name))]);
+    let prose = format!("<p>{}</p>", lookup(ctx.locale, "bot.api.alpaca.instructions").unwrap_or(""));
+    let pane = super::view::permissions_pane(&ctx, &heading, &prose);
+    super::view::page(&app, &ctx, "api_keys", pane).await
 }
 pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {
@@ -570,6 +518,7 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     };
     let inner = app.clone();
     let v = ctx.clone();
+    let csrf = ctx.csrf_token();
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let key:Option<(i64,i64)>=tx.query_row("SELECT exchange_id,key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;let Some((exchange,kind))=key else{return Ok(None);};
@@ -582,13 +531,13 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id))?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
-  let body=list(&tx,&v,user.id)?;tx.commit()?;inner.wake_engine();Ok(Some(Ok(body)))
+  let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;inner.wake_engine();Ok(Some(Ok(body)))
  }).await?;
     match outcome {
         None => Ok(crate::web::layout::missing()),
         Some(Ok(body)) => Ok((
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-            body + "\n",
+            [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+            turbo::stream("replace", "api_keys", body.trim_end()),
         )
             .into_response()),
         Some(Err(reason)) => {
@@ -604,8 +553,6 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
         }
     }
 }
-
-/// The browser's JSON endpoint: #497 replaces in place and resets only changed-key ledger progress.
 pub async fn legacy(
     axum::extract::State(app): axum::extract::State<App>,
     axum::extract::Extension(ctx): axum::extract::Extension<Ctx>,

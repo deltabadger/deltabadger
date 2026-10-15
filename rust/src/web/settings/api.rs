@@ -3,73 +3,14 @@ use crate::{
     codec::format_time,
     web::{
         auth,
-        layout::{Ctx, Page},
+        layout::Ctx,
         oauth::{self, TOOL_GROUPS},
-        shell::{self, Shell},
         App, WebError,
     },
 };
-use askama::Template;
 use axum::{http::StatusCode, response::Response};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde_json::Value;
-#[derive(Template)]
-#[template(path = "settings/api.html")]
-struct Api<'a> {
-    v: &'a Ctx,
-    connected: String,
-    tools: String,
-    mcp_widget: String,
-    rest_widget: String,
-}
-#[derive(Template)]
-#[template(path = "settings/rest.html")]
-struct Rest<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    root: &'a str,
-    token: &'a str,
-}
-#[derive(Template)]
-#[template(path = "settings/tool_permissions.html")]
-struct Tools<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    mcp: Vec<String>,
-    rest: Vec<String>,
-}
-#[derive(Template)]
-#[template(path = "settings/mcp.html")]
-struct Mcp<'a> {
-    v: &'a Ctx,
-    csrf: &'a str,
-    dry_run: bool,
-    root: String,
-}
-impl Tools<'_> {
-    fn on(&self, surface: &str, tool: &str) -> bool {
-        if surface == "mcp" {
-            self.mcp.iter().any(|s| s == tool)
-        } else {
-            self.rest.iter().any(|s| s == tool)
-        }
-    }
-    fn group_state(&self, surface: &str, group: &str) -> &'static str {
-        let tools = TOOL_GROUPS
-            .iter()
-            .find(|(name, _)| *name == group)
-            .map(|(_, tools)| *tools)
-            .unwrap_or(&[]);
-        let n = tools.iter().filter(|tool| self.on(surface, tool)).count();
-        if n == 0 {
-            "off"
-        } else if n == tools.len() {
-            "on"
-        } else {
-            "partial"
-        }
-    }
-}
 /// User#personal_api_application, created when missing (create_personal_api_app_safely!). Doorkeeper generates a uid,
 /// and no secret for an application that is not confidential (the column is nullable).
 fn personal_app(c: &Connection, user: i64, now: &str) -> Result<i64, WebError> {
@@ -89,19 +30,13 @@ fn mint(c: &Connection, app: i64, user: i64, now: &str) -> Result<String, WebErr
     c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,expires_in,created_at)VALUES(?1,?2,?3,'api',NULL,?4)",(app,user,&token,now))?;
     Ok(token)
 }
-fn ensure_personal(c: &Connection, user: i64, now: &str) -> Result<(), WebError> {
+pub(super) fn ensure_personal(c: &Connection, user: i64, now: &str) -> Result<(), WebError> {
     let id = personal_app(c, user, now)?;
     let active:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM oauth_access_tokens WHERE application_id=?1 AND resource_owner_id=?2 AND revoked_at IS NULL AND (expires_in IS NULL OR datetime(created_at,'+'||expires_in||' seconds')>datetime(?3)))",(id,user,now),|r|r.get(0))?;
     if !active {
         mint(c, id, user, now)?;
     }
     Ok(())
-}
-fn root(app: &App) -> String {
-    app.config
-        .own_origin
-        .clone()
-        .unwrap_or_else(|| "http://localhost:3000".into())
 }
 /// POST /settings/regenerate_api_token (User#regenerate_personal_api_token!): every live personal token is revoked and
 /// a new one minted; the answer is the one response that shows it.
@@ -121,8 +56,7 @@ pub async fn regenerate(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 (&now, id, user.id),
             )?;
             let token = mint(&tx, id, user.id, &now)?;
-            let root = root(&inner);
-            let widget = Rest { v: &v, csrf: &csrf, root: &root, token: &token }.render()?;
+            let widget = super::view::rest_widget(&inner, &v, &csrf, &token);
             tx.commit()?;
             Ok(widget)
         })
@@ -133,81 +67,6 @@ pub async fn regenerate(app: App, ctx: Ctx) -> Result<Response, WebError> {
     )
         .into_response())
 }
-pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else {
-        return Ok(auth::unauthenticated(&ctx));
-    };
-    let inner = app.clone();
-    let v = ctx.clone();
-    let csrf = ctx.csrf_token();
-    let token = csrf.clone();
-    let (mcp, rest, dry_run, connected, shell) = app
-        .db(move |c| {
-            let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
-            ensure_personal(&tx, user.id, &format_time(inner.now()))?;
-            let settings: Option<String> = tx.query_row(
-                "SELECT mcp_settings FROM users WHERE id=?1",
-                [user.id],
-                |r| r.get(0),
-            )?;
-            let settings: Value = settings
-                .map(|s| serde_json::from_str(&s))
-                .transpose()
-                .map_err(|_| WebError::Config("invalid MCP settings".into()))?
-                .unwrap_or(Value::Null);
-            let output = (
-                clients::enabled(&tx, user.id, "mcp")?,
-                clients::enabled(&tx, user.id, "rest")?,
-                settings["dry_run"] == true,
-                clients::widget(&tx, &v, &token, user.id)?,
-                Shell::load(&tx, &inner, &user)?,
-            );
-            tx.commit()?;
-            Ok(output)
-        })
-        .await?;
-    let user = ctx
-        .user()
-        .ok_or_else(|| WebError::Config("missing API owner".into()))?;
-    let root = root(&app);
-    shell::application(
-        &ctx,
-        &csrf,
-        user,
-        &shell,
-        Page {
-            status: StatusCode::OK,
-            body: Api {
-                v: &ctx,
-                tools: Tools {
-                    v: &ctx,
-                    csrf: &csrf,
-                    mcp,
-                    rest,
-                }
-                .render()?,
-                mcp_widget: Mcp {
-                    v: &ctx,
-                    csrf: &csrf,
-                    dry_run,
-                    root: root.clone(),
-                }
-                .render()?,
-                rest_widget: Rest {
-                    v: &ctx,
-                    csrf: &csrf,
-                    root: &root,
-                    token: "[redacted]",
-                }
-                .render()?,
-                connected,
-            }
-            .render()?,
-            flash_now: vec![],
-        },
-    )
-}
-
 pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
     use crate::web::{oauth::TOOL_DEFAULTS, turbo};
     use axum::{http::header, response::IntoResponse};
@@ -303,36 +162,11 @@ pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 )?;
             }
             let body = if dry_run {
-                let root = root(&inner);
-                turbo::stream(
-                    "replace",
-                    "mcp_settings",
-                    Mcp {
-                        v: &v,
-                        csrf: &token,
-                        dry_run: on,
-                        root,
-                    }
-                    .render()?
-                    .trim_end(),
-                )
+                turbo::stream("replace", "mcp_settings", super::view::mcp_widget(&inner, &v, &token, on).trim_end())
             } else {
-                turbo::stream(
-                    "replace",
-                    "tool_permissions",
-                    Tools {
-                        v: &v,
-                        csrf: &token,
-                        mcp: clients::enabled(&tx, user.id, "mcp")?,
-                        rest: clients::enabled(&tx, user.id, "rest")?,
-                    }
-                    .render()?
-                    .trim_end(),
-                ) + &turbo::stream(
-                    "replace",
-                    "connected_clients",
-                    clients::widget(&tx, &v, &token, user.id)?.trim_end(),
-                )
+                // A user-level switch changes what every client may hold, so the client cards re-render with the matrix.
+                turbo::stream("replace", "tool_permissions", super::view::tools_widget(&v, &token, surface, &clients::enabled(&tx, user.id, surface)?).trim_end())
+                    + &turbo::stream("replace", "connected_clients", clients::widget(&tx, &v, &token, user.id, surface)?.trim_end())
             };
             tx.commit()?;
             Ok(body)

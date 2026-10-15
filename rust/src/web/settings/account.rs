@@ -21,7 +21,8 @@ pub struct Draft {
     pub name: Option<String>,
     pub email: Option<String>,
     pub errors: Vec<String>,
-    pub messages: std::collections::BTreeMap<String, String>,
+    /// Each field's messages, raw, in the order the model adds them.
+    pub messages: std::collections::BTreeMap<String, Vec<String>>,
 }
 fn matches(pattern: &str, value: &str) -> Result<bool, WebError> {
     Ok(crate::ruby::validation_regex(pattern)
@@ -152,33 +153,31 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
         }
         for field in &draft.errors {
             let message=match field.as_str(){
-              "name"=>i18n::text(view.locale,"devise.registrations.new.name_invalid",&[]),
+              "name"=>vec![i18n::text(view.locale,"devise.registrations.new.name_invalid",&[])],
               "email"=>{
                 let email=draft.email.as_deref().unwrap_or("");let mut messages=vec![];
                 if email.is_empty(){messages.push(i18n::text(view.locale,"errors.messages.blank",&[]));}
                 else if !matches(r"\A[^@\s]+@[^@\s]+\z",email)?{messages.push(i18n::text(view.locale,"errors.messages.invalid",&[]));}
                 if !matches(r"(?m)^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$",email)?{messages.push(i18n::text(view.locale,"devise.registrations.new.email_invalid",&[]));}
-                messages.join(", ")
+                messages
               },
               "password_confirmation"=>{
                 let key=format!("{}.activerecord.attributes.user.password",view.locale);
                 let attribute=i18n::all().iter().find(|(name,_)|*name==key).map_or("Password",|(_,text)|*text);
-                i18n::text(view.locale,"errors.messages.confirmation",&[("attribute",i18n::Arg::Text(attribute))])
+                vec![i18n::text(view.locale,"errors.messages.confirmation",&[("attribute",i18n::Arg::Text(attribute))])]
               },
               "password"=>{
                 let mut messages=vec![];let p=view.params.form("user[password]").unwrap_or("");
-                if crate::ruby::blank(p){i18n::text(view.locale,"errors.messages.blank",&[])}else{let n=p.chars().count();
+                if crate::ruby::blank(p){messages.push(i18n::text(view.locale,"errors.messages.blank",&[]));}else{let n=p.chars().count();
                 if n<8{messages.push(i18n::text(view.locale,"errors.messages.too_short",&[("count",i18n::Arg::Count(8))]));}
                 if n>128{messages.push(i18n::text(view.locale,"errors.messages.too_long",&[("count",i18n::Arg::Count(128))]));}
-                let p=view.params.form("user[password]").unwrap_or("");
-                if !password_complexity(p){messages.push(i18n::text(view.locale,"errors.messages.too_simple_password",&[]));}
-                messages.join(", ")}
+                if !password_complexity(p){messages.push(i18n::text(view.locale,"errors.messages.too_simple_password",&[]));}}
+                messages
               },
-              "current_password"=>i18n::text(view.locale,if view.params.form("user[current_password]").is_none_or(crate::ruby::blank){"errors.messages.blank"}else{"errors.messages.invalid"},&[]),
-              _=>i18n::text(view.locale,"errors.messages.inclusion",&[])
+              "current_password"=>vec![i18n::text(view.locale,if view.params.form("user[current_password]").is_none_or(crate::ruby::blank){"errors.messages.blank"}else{"errors.messages.invalid"},&[])],
+              _=>vec![i18n::text(view.locale,"errors.messages.inclusion",&[])]
             };
-            let mut chars=message.chars();let capitalized=chars.next().map(|ch|ch.to_uppercase().collect::<String>()+chars.as_str()).unwrap_or_default();
-            draft.messages.insert(field.clone(),capitalized);
+            draft.messages.insert(field.clone(),message);
         }
         if draft.errors.is_empty(){tx.commit()?;}else{tx.rollback()?;}
         Ok((draft,salt,notice,mail))
@@ -202,42 +201,60 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
             *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
             return Ok(response);
         }
-        return view::account(
-            &app,
-            &ctx,
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Some(draft),
-            vec![],
-        )
-        .await;
+        return view::section(&app, &ctx, "account", StatusCode::UNPROCESSABLE_ENTITY, Some(draft)).await;
     }
     let Some(notice) = notice else {
         return Ok(crate::web::layout::missing());
     };
-    if ctx.params.route_path == "/settings/update_name" {
-        let flash = flash::render(&flash::take(
-            &ctx.session,
-            &[(flash::NOTICE, ctx.t(notice))],
-        ))?;
-        Ok(stream(turbo::prepend_flash(flash.trim_end())))
-    } else if ctx.params.route_path == "/settings/update_locale" {
-        let id = user.id;
-        let locale = app
-            .db(move |c| Ok(User::find(c, id)?.and_then(|u| u.locale)))
-            .await?;
-        let locale = locale
-            .as_deref()
-            .and_then(crate::web::locale::known)
-            .unwrap_or(i18n::DEFAULT);
-        flash::set(&ctx.session, flash::NOTICE, i18n::text(locale, notice, &[]));
-        Ok(stream(turbo::reload(&crate::web::locale::path(
-            locale,
-            "/settings/account",
-        ))))
-    } else {
-        flash::set(&ctx.session, flash::NOTICE, ctx.t(notice));
-        Ok(stream(turbo::refresh().into()))
+    match ctx.params.route_path.as_str() {
+        "/settings/update_name" => {
+            let flash = flash::render(&flash::take(&ctx.session, &[(flash::NOTICE, ctx.t(notice))]))?;
+            Ok(stream(turbo::prepend_flash(flash.trim_end())))
+        }
+        "/settings/update_locale" => {
+            let id = user.id;
+            let locale = app.db(move |c| Ok(User::find(c, id)?.and_then(|u| u.locale))).await?;
+            let locale = locale.as_deref().and_then(crate::web::locale::known).unwrap_or(i18n::DEFAULT);
+            flash::set(&ctx.session, flash::NOTICE, i18n::text(locale, notice, &[]));
+            Ok(stream(turbo::reload(&page_behind(&_headers, locale))))
+        }
+        path => {
+            let frame = match path {
+                "/settings/update_email" => "update_email_form",
+                "/settings/update_password" => "update_password_form",
+                _ => "update_time_zone_form",
+            };
+            let widget = view::account_row(&app, &ctx, frame).await?;
+            view::saved_row(&ctx, frame, &widget, ctx.t(notice))
+        }
     }
+}
+
+/// SettingsController#page_behind_path: the page the dialog was opened over, in the new language, with the dialog
+/// open on it again. A settings page, or one that is not a page of this app, comes back as the account section.
+fn page_behind(headers: &HeaderMap, locale: &str) -> String {
+    let fallback = || crate::web::locale::path(locale, "/settings/account");
+    let referer = headers.get(header::REFERER).and_then(|v| v.to_str().ok()).unwrap_or("");
+    if crate::ruby::blank(referer) {
+        return fallback();
+    }
+    // URI(referer).path: the path of an absolute URL, or the reference itself when it is one.
+    let path = match referer.split_once("://") {
+        Some((_, rest)) => rest.find('/').map_or("", |at| &rest[at..]),
+        None => referer,
+    };
+    let path = path.split(['?', '#']).next().unwrap_or("");
+    let path = if path.is_empty() { "/" } else { path };
+    let (_, route) = crate::web::locale::split(path);
+    let first = route.trim_start_matches('/').split('/').next().unwrap_or("");
+    // The app's pages under the (:locale) scope (config/routes.rb).
+    // ponytail: matches on the first segment, not the whole route set; a deeper unrouted path comes back as itself.
+    const PAGES: [&str; 10] = ["", "asset_tooltip", "bots", "confirmation", "dashboard", "login", "password", "rules", "signup", "tracker"];
+    if first == "settings" || !PAGES.contains(&first) || route.contains("//") {
+        return fallback();
+    }
+    let route = route.trim_end_matches('/');
+    crate::web::locale::path(locale, &format!("{}?settings=account", if route.is_empty() { "/" } else { route }))
 }
 
 /// User save validations at confirmation, after Devise's normalization and before any row effect.

@@ -46,6 +46,6 @@
       </div>
     </main>
 
-    <turbo-frame id="modal"></turbo-frame>
+    <turbo-frame{% if let Some(src) = v.settings_reopen_src() %} src="{{ src }}"{% endif %} id="modal"></turbo-frame>
 
 </body></html>
