@@ -192,6 +192,15 @@ fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec
     Ok((left, reached))
 }
 
+/// An unresolved placement intent's quote, counted as spent until it settles: a BUY's only. A sell spends nothing of the quote
+/// cap (its rows are not commitments either); an intent written before selling existed names no side and is a buy.
+fn buy_intent_quote(bot: &Bot) -> Result<Option<BigDec>, EngineError> {
+    let Some(intent) = bot.rust_placement() else { return Ok(None) };
+    if intent.get("side").is_some_and(|s| s == "sell") { return Ok(None); }
+    let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
+    BigDec::parse(quote).map(Some).map_err(data)
+}
+
 fn engine_cap(c: &Connection, bot: &Bot, precision: Option<i64>) -> Result<(Option<Num>, bool), EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     let Some(limit) = bot.quote_amount_limit().map_err(EngineError::Data)? else { return Ok((None, false)) };
@@ -199,10 +208,7 @@ fn engine_cap(c: &Connection, bot: &Bot, precision: Option<i64>) -> Result<(Opti
         Some(since) => crate::figures::fill::commitments(c, bot.id, &format_time(at(since)?)).map_err(data)?,
         None => vec![],
     };
-    let intent = bot.rust_placement().map(|intent| {
-        let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
-        BigDec::parse(quote).map_err(data)
-    }).transpose()?;
+    let intent = buy_intent_quote(bot)?;
     let (left, reached) = rails_cap_availability(limit, &rows, intent, precision)?;
     Ok((Some(left), reached))
 }
@@ -245,10 +251,7 @@ pub fn exact_cap_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, 
         let rows = crate::figures::fill::commitments(c, bot.id, &format_time(at(since)?)).map_err(data)?;
         spent = spent_in_window(&rows)?.to_dec().map_err(data)?;
     }
-    if let Some(intent) = bot.rust_placement() {
-        let quote = intent["quote_amount"].as_str().ok_or_else(||EngineError::Data("unreadable intent quote".into()))?;
-        spent = spent.checked_add(&BigDec::parse(quote).map_err(data)?).map_err(data)?;
-    }
+    if let Some(quote) = buy_intent_quote(bot)? { spent = spent.checked_add(&quote).map_err(data)?; }
     Ok(Some(limit.checked_add(&(&BigDec::zero() - &spent)).map_err(data)?.max(BigDec::zero())))
 }
 
@@ -375,7 +378,7 @@ pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Li
         Some(since) => crate::figures::fill::action_commitments(c, bot.id, &since).map_err(web_bot::fill_error)?,
         None => vec![],
     };
-    let intent = bot.transient.get("rust_placement").filter(|v| !v.is_null()).map(|v| {
+    let intent = bot.transient.get("rust_placement").filter(|v| !v.is_null() && v.get("side").is_none_or(|s| s != "sell")).map(|v| {
         BigDec::parse(v["quote_amount"].as_str().ok_or_else(||error("unreadable intent quote"))?).map_err(|_|error("unreadable intent quote"))
     }).transpose()?;
     let precision = bot.tickers.iter().map(|t| i64::from(t.quote_decimals)).min();

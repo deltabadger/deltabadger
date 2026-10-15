@@ -434,3 +434,44 @@ async fn a_recovered_fill_that_spends_the_cap_owes_the_limit_mail_with_its_stop(
     assert_eq!(b.status, BotStatus::Stopped);
     assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "the limit mail is owed: {}", b.transient);
 }
+
+// ---- 6a: the buy cap is direction-aware (quote_amount_limitable.rb:106; placement and intents count buys only)
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_late_buy_fill_after_a_flip_into_selling_does_not_stop_the_seller() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.0)).with("direction", json!("selling")));
+    let order = seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-P"), 0, None, Some("60"), Some("64000"), None, None, IN));
+    let t = script(json!({ "GET /v2/orders/OTX-P": [filled("OTX-P", "0.0009375")] }));
+    polling::follow_up(&o.primary, &venue(&t), id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Scheduled);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 0);
+}
+
+#[test]
+fn an_unresolved_sell_intent_is_not_counted_as_buy_spending() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(100.0)));
+    let set = |side: Value| o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2",
+        rusqlite::params![json!({ "quote_amount": "60", "side": side }).to_string(), id]).unwrap();
+    set(json!("sell"));
+    assert_eq!(available(&o, id), Some(bd("100")), "a sell spends none of the buy cap");
+    assert_eq!(amount::exact_cap_available(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), Some(bd("100")));
+    set(json!("buy"));
+    assert_eq!(available(&o, id), Some(bd("40")));
+    set(Value::Null);
+    assert_eq!(available(&o, id), Some(bd("40")), "an intent from before selling names no side: a buy");
+}
+
+#[test]
+fn an_exhausted_buy_cap_never_trims_a_sell_at_placement() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.0)));
+    seed::insert_tx(&o.primary, &s, id, &closed("OTX-1", "60"));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), Some(BigDec::zero()), "the buy cap is spent");
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let amount::Sizing::Place(plan) = amount::size_sell(&bot, &ticker, &bd("0.001"), &bd("64000")).unwrap() else { panic!() };
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(at(T0))).unwrap();
+    assert_eq!((intent.plan.volume.clone(), intent.plan.quote_amount.clone()), (plan.volume.clone(), plan.quote_amount.clone()), "untrimmed");
+}

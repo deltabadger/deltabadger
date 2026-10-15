@@ -95,7 +95,8 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     // Transaction's after_commit (transaction.rb:31-33) → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
     // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
     // the job that committed the fill.
-    Ok(exec_changed && side == 0 && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
+    // `return if selling?` (quote_amount_limitable.rb:106): a buy that still fills after a flip never stops the seller.
+    Ok(exec_changed && side == 0 && !bot.selling() && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
 }
 
 fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {

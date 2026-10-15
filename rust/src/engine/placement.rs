@@ -9,7 +9,7 @@ use super::model::{self, Bot, Level};
 use super::schedule::{checkpoints, effective};
 use super::{polling, Clock, EngineError};
 use crate::ruby::BigDec;
-use crate::venue::{Venue, VenueError};
+use crate::venue::{Side, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
@@ -41,7 +41,7 @@ impl Intent {
         Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id, "symbol": self.symbol,
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
-                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
+                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -53,8 +53,10 @@ impl Intent {
         let ticker = model::ticker_by_id(c, bot.exchange_id, v["ticker_id"].as_i64().ok_or_else(bad)?)?.ok_or_else(bad)?;
         // An intent written by an earlier build names no symbol: its own ticker's (by id), never the bot's current pair.
         let symbol = v["symbol"].as_str().map_or_else(|| ticker.ticker.clone(), str::to_string);
+        // An intent written before selling existed names no side: it was a buy. Anything else unreadable is refused.
+        let side = match v.get("side") { None | Some(Value::Null) => Side::Buy, Some(x) if x == "buy" => Side::Buy, Some(x) if x == "sell" => Side::Sell, _ => return Err(bad()) };
         Ok(Self { symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
-                  plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
+                  plan: OrderPlan { ticker, side, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")? } })
     }
 }
@@ -240,7 +242,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
     }
     let guarded;
-    let plan = if model::exchange_type(&tx, &current)? == "Exchanges::Alpaca" {
+    // The exact quote cap bounds what a BUY spends; a sell spends nothing (Rails' QuoteAmountLimitable decorates the buy carry).
+    let plan = if plan.side == Side::Buy && model::exchange_type(&tx, &current)? == "Exchanges::Alpaca" {
         let safe = match super::amount::guard_exact_cap(&tx, &current, plan)? {
             super::amount::CapGuard::Place(safe) => safe,
             super::amount::CapGuard::BelowMinimum(skipped) => return Ok(Begun::BelowMinimum(Box::new(skipped))),
@@ -435,6 +438,11 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
                       else { intent.at.max(process_start).checked_add_signed(Duration::try_seconds(rules.absence_margin_secs).ok_or_else(super::schedule::time_range_error)?).ok_or_else(super::schedule::time_range_error)? };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
     match venue.recovery_result(&intent.cl_ord_id, &intent.symbol, intent.at.checked_sub_signed(Duration::hours(1)).ok_or_else(super::schedule::time_range_error)?).await.value {
+        // An answer on the other side is not this intent's order: incomplete, so the intent stays.
+        Ok(Some(state)) if state.sell != (intent.plan.side == Side::Sell) => {
+            log_once(&intent.cl_ord_id, &format!("[engine] bot {}: the venue answered for its unresolved {} order with a {} order; it stays unresolved", bot.id, intent.plan.side.as_str(), if state.sell { "sell" } else { "buy" }));
+            Ok(Recovery::Pending)
+        }
         Ok(Some(state)) => {
             let now = clock.now();
             let tx = model::immediate(c)?;

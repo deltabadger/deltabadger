@@ -6,7 +6,7 @@ use crate::codec::format_time;
 use crate::enums::{TxExternalStatus, TxStatus};
 use crate::ruby::{to_sql, BigDec};
 use super::venue_rules::{AmountLogic, MinimumLogic, WireFormat};
-use crate::venue::{NewOrder, OrderKind};
+use crate::venue::{NewOrder, OrderKind, Side};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -18,7 +18,7 @@ pub use super::accounting::{pending_quote_amount, continue_runs_now, quote_amoun
 
 #[derive(Debug, Clone)]
 pub struct OrderPlan {
-    pub ticker: Ticker, pub limit: bool, pub price: BigDec,
+    pub ticker: Ticker, pub side: Side, pub limit: bool, pub price: BigDec,
     /// order_amount_in_quote / price, unrounded (Transaction#before_save rounds it on write).
     pub amount: BigDec,
     pub quote_amount: BigDec,
@@ -35,12 +35,36 @@ pub enum Sizing { Nothing, Ignored(OrderPlan), BelowMinimum(OrderPlan), Place(Or
 /// market buy is the ask itself. The split values holdings at this price too. Only `Ticker#adjusted_price`'s default rule
 /// (floor to price_decimals) is ported: a venue that overrides adjusted_price (Hyperliquid: 5 significant figures) is not
 /// covered. `Err` only for a price precision outside `ruby::MAX_SCALE`, which eligibility refuses before any tick.
-pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec) -> Result<BigDec, EngineError> {
+pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec) -> Result<BigDec, EngineError> { side_price(bot, ticker, reference, Side::Buy) }
+
+/// Bot::OrderSetter#order_price for either side: a limit sell goes ABOVE the last trade, `(reference × (1 + d))` floored to
+/// the pair's price decimals (Ticker#adjusted_price); a market order is the reference itself (the bid for a sell).
+pub fn side_price(bot: &Bot, ticker: &Ticker, reference: &BigDec, side: Side) -> Result<BigDec, EngineError> {
     let (_, _, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
     Ok(match bot.limit_distance() {
+        Some(d) if side == Side::Sell => (reference * &(&BigDec::one() + &d)).floor(price_decimals),
         Some(d) => (reference * &(&BigDec::one() - &d)).floor(price_decimals),
         None => reference.clone(),
     })
+}
+
+/// set_orders for one sell order (Bot::Composition::OrderSetter#sell_order_data, then #calculate_best_amount_info): `amount`
+/// is the base to sell (already `min(wanted, free)`), `price` the order price (`side_price`). Sells always size in base under
+/// :base_and_quote_in_base, whatever the venue's buy table (order_setter.rb:29-31): the quote minimum in base rounded UP to
+/// base_decimals, against the base floored DOWN. An exactly zero amount is `Ignored` (order_ignored) before the minimums; a
+/// positive one that floors to zero is below the minimum (a skipped row).
+pub fn size_sell(bot: &Bot, ticker: &Ticker, amount: &BigDec, price: &BigDec) -> Result<Sizing, EngineError> {
+    let (base_decimals, _, _) = ticker.scales().map_err(EngineError::Data)?;
+    let minimum = match ticker.minimum_quote_size.div(price) {
+        Some(q) => q.ceil(base_decimals).max(ticker.minimum_base_size.clone()),
+        None => return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }),
+    };
+    let volume = amount.floor(base_decimals);
+    let below = volume < minimum;
+    let plan = OrderPlan { ticker: ticker.clone(), side: Side::Sell, limit: bot.limit_distance().is_some(), price: price.clone(),
+                           amount: amount.clone(), quote_amount: amount * price, quote_type: false, volume };
+    if amount.is_zero() { return Ok(Sizing::Ignored(plan)); }
+    Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
 
 /// `Err` only for a ticker precision outside `ruby::MAX_SCALE`, which eligibility refuses before any tick.
@@ -73,7 +97,7 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
         }
     };
     let volume = if quote_type { x.floor(quote_decimals) } else { amount.floor(base_decimals) };
-    let plan = OrderPlan { ticker: ticker.clone(), limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume };
+    let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume };
     if amount.is_zero() { return Ok(Sizing::Ignored(plan)); } // set_orders checks this before the minimums
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
@@ -124,7 +148,7 @@ impl OrderPlan {
             WireFormat::Alpaca => (OrderKind::Market,
                 wire_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
         };
-        Ok(NewOrder { pair: t.ticker.clone(), side: crate::venue::Side::Buy, kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
+        Ok(NewOrder { pair: t.ticker.clone(), side: self.side, kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
     }
     /// Bot::OrderSetter#order_log_details: BigDecimals serialise as `to_s('F')` strings.
     pub fn log_details(&self) -> Value {
@@ -165,13 +189,13 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
     c.execute(
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'REGULAR', ?17, ?18, ?18)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?19, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'REGULAR', ?17, ?18, ?18)",
         params![
             bot.id, bot.exchange_id, external_id, status as i64, external_status, if plan.limit { 1 } else { 0 },
             to_sql(&plan.amount), to_sql(&plan.quote_amount), to_sql(&plan.price), exec,
             plan.ticker.base_symbol, plan.ticker.quote_symbol, plan.ticker.base_asset_id, plan.ticker.quote_asset_id,
             bot.interval().map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
-            serde_json::to_string(&errors).unwrap(), format_time(created_at),
+            serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(),
         ])?;
     Ok(c.last_insert_rowid())
 }

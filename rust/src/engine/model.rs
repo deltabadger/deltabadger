@@ -197,6 +197,8 @@ impl Bot {
         }
     }
     /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`.
+    /// Bot::Reversible#selling?: `direction` reads "buying" when absent or blank.
+    pub fn selling(&self) -> bool { self.settings.get("direction").and_then(Value::as_str) == Some("selling") }
     pub fn quote_amount_limited(&self) -> bool { self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
     /// The cap as #quote_amount_available_before_limit_reached reads it, as the Ruby Integer or Float the settings JSON holds;
     /// None when the limit is off. A stored nil or false reads as Integer 1000 (after_initialize: `quote_amount_limit ||= 1000`).

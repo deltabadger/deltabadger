@@ -281,7 +281,7 @@ fn an_alpaca_limit_quantity_under_the_base_minimum_is_refused_before_sending() {
     ] {
         let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
             ..sizing_ticker(&json!({"base_decimals": decimals, "quote_decimals": "2", "price_decimals": "2", "minimum_base_size": min, "minimum_quote_size": "1"})) };
-        let plan = amount::OrderPlan { ticker: t, limit: true, price: bd(price), amount: bd("1").div(&bd(price)).unwrap(), quote_amount: bd("1"),
+        let plan = amount::OrderPlan { ticker: t, side: deltabadger::venue::Side::Buy, limit: true, price: bd(price), amount: bd("1").div(&bd(price)).unwrap(), quote_amount: bd("1"),
             quote_type: true, volume: bd("1") };
         assert_eq!(plan.limit_refusal().unwrap().as_deref(), Some(message));
     }
@@ -341,5 +341,37 @@ fn the_binance_port_is_the_ruby_that_was_recorded() {
     for (file, recorded) in vectors["sources"].as_object().unwrap() {
         let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
         assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the Binance port");
+    }
+}
+
+// ---- 6a: a sell's price and size (Bot::OrderSetter#order_price(:sell), #calculate_best_amount_info for side: :sell)
+
+#[test]
+fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_in_base() {
+    use deltabadger::venue::Side;
+    let (_d, o, s) = install();
+    let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.01)))).unwrap();
+    let t = sizing_ticker(&json!({"base_decimals": "5", "quote_decimals": "2", "price_decimals": "2", "minimum_base_size": "0.00001", "minimum_quote_size": "5"}));
+    let last = bd("60000.004");
+    assert_eq!(amount::side_price(&limit, &t, &last, Side::Sell).unwrap(), bd("60600"), "(1 + d), floored");
+    assert_eq!(amount::side_price(&limit, &t, &last, Side::Buy).unwrap(), bd("59400"), "(1 - d), floored");
+    assert_eq!(amount::side_price(&market, &t, &last, Side::Sell).unwrap(), last, "a market sell is the bid itself");
+    let price = bd("60600");
+    // ceil(5 / 60600, 5) = 0.00009 is the floor; the amount is floored to 5 decimals against it.
+    let size = |a: &str| amount::size_sell(&limit, &t, &bd(a), &price).unwrap();
+    let Sizing::Place(p) = size("0.000123456") else { panic!() };
+    assert_eq!((p.side, p.volume.to_s_f(), p.quote_type, p.limit), (Side::Sell, "0.00012".to_string(), false, true));
+    assert_eq!(p.quote_amount, &bd("0.000123456") * &price, "quote_amount is amount × price");
+    assert!(matches!(size("0.00009999"), Sizing::Place(_)), "0.00009 is not below 0.00009");
+    assert!(matches!(size("0.000089"), Sizing::BelowMinimum(_)));
+    assert!(matches!(size("0.000001"), Sizing::BelowMinimum(_)), "positive, floors to zero: a skipped row, not order_ignored");
+    assert!(matches!(size("0"), Sizing::Ignored(_)));
+    // Whatever the venue's buy logic, a sell's wire is a base quantity.
+    for wire in [deltabadger::engine::venue_rules::KRAKEN.wire, ALPACA.wire, deltabadger::engine::venue_rules::BINANCE.wire] {
+        let Sizing::Place(m) = amount::size_sell(&market, &t, &bd("0.5"), &price).unwrap() else { panic!() };
+        let order = m.to_order("cl".into(), "2026-09-01T10:00:10Z".parse().unwrap(), wire).unwrap();
+        assert_eq!((order.side, order.quote_volume, order.volume.as_str()), (Side::Sell, false, if wire == ALPACA.wire { "0.50000" } else { "0.5" }));
     }
 }
