@@ -99,7 +99,7 @@ async fn each_keys_order_reaches_only_its_own_modes_host() {
     }
 }
 
-/// R1 + R4: the intent records the mode and the key's fingerprint before the send; after a restart the order is looked up
+/// R1: the intent records the mode and the key's fingerprint (R4 proves they are committed before the send); after a restart the order is looked up
 /// on the host it went to, found there, and recorded once. No second order.
 #[tokio::test(flavor = "current_thread")]
 async fn a_lost_reply_is_recovered_on_the_host_it_was_sent_to() {
@@ -116,6 +116,36 @@ async fn a_lost_reply_is_recovered_on_the_host_it_was_sent_to() {
         assert_eq!(r.o.primary.query_row("SELECT count(*) FROM transactions WHERE external_id = 'OTX-1'", [], |row| row.get::<_, i64>(0)).unwrap(), 1, "{mode}");
         assert_eq!((r.posts(mode).await, r.lookups(mode).await), (1, 1), "{mode}");
         assert!(r.server(other(mode)).received_requests().await.unwrap().is_empty(), "{mode}: the other host is never asked");
+    }
+}
+
+/// Holds the POST's reply until it has read, through its own connection, what the database has committed for the bot's
+/// intent at the moment the order reaches the venue; then answers 500 (the reply is lost).
+struct PeekAtSend { db: String, bot: i64, seen: Arc<Mutex<Option<Option<serde_json::Value>>>> }
+impl wiremock::Respond for PeekAtSend {
+    fn respond(&self, _: &wiremock::Request) -> ResponseTemplate {
+        let c = rusqlite::Connection::open(&self.db).unwrap();
+        let raw: Option<String> = c.query_row("SELECT json_extract(transient_data,'$.rust_placement') FROM bots WHERE id=?1", [self.bot], |r| r.get(0)).unwrap();
+        *self.seen.lock().unwrap() = Some(raw.map(|r| serde_json::from_str(&r).unwrap()));
+        ResponseTemplate::new(500)
+    }
+}
+
+/// R4: the mode and the key's fingerprint are committed before the order leaves. A crash while Alpaca holds the order
+/// must leave an intent that recovery can match to its host and account, never one without them.
+#[tokio::test(flavor = "current_thread")]
+async fn the_intents_mode_and_fingerprint_are_committed_before_the_send() {
+    for mode in ["paper", "live"] {
+        let r = Rig::new(mode).await;
+        r.account(mode).await;
+        let seen = Arc::new(Mutex::new(None));
+        let db = r.o.primary.path().expect("a file database").to_string();
+        Mock::given(method("POST")).and(path("/v2/orders")).respond_with(PeekAtSend { db, bot: r.id, seen: seen.clone() }).expect(1).mount(r.server(mode)).await;
+        r.tick().await;
+        let at_send = seen.lock().unwrap().take().expect("the order reached the venue").expect("an intent is committed at the send");
+        assert_eq!(at_send["alpaca_live"], json!(mode == "live"), "{mode}: {at_send}");
+        assert!(at_send["key_fingerprint"].as_str().is_some_and(|f| f.len() == 64), "{mode}: {at_send}");
+        r.server(mode).verify().await;
     }
 }
 
