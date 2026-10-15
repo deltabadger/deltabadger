@@ -567,15 +567,14 @@ class AccountTransactionSync
     ['transacted_at >= ? AND transacted_at <= ?', at - DUST_REACH, at + DUST_REACH]
   end
 
-  # The one file group among `rows` holding both legs of the conversion, and each of them once: [out, in],
-  # or nil.
-  def file_dust_legs(rows, conversion)
-    groups = rows.select { |row| dust_leg(row, conversion) }.group_by { |row| row[:group_id] }.values
-                 .map { |legs| legs.group_by { |row| dust_leg(row, conversion) } }
-                 .select { |legs| legs.key?(:out) && legs.key?(:in) }
+  # The one file group among `legs` (rows that match the conversion) holding both of its legs, each
+  # once: [out, in], or nil.
+  def file_dust_legs(legs)
+    groups = legs.group_by { |row| row[:group_id] }.values.map { |rows| rows.group_by { |row| row[:entry_type].to_s } }
+                 .select { |rows| rows.key?('swap_out') && rows.key?('swap_in') }
     return unless groups.one? && groups.first.values.all?(&:one?)
 
-    [groups.first[:out].first, groups.first[:in].first]
+    [groups.first['swap_out'].first, groups.first['swap_in'].first]
   end
 
   def api_dust_twin?(entry, tx_id)
@@ -584,9 +583,12 @@ class AccountTransactionSync
     return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_dust?(row) }
 
     id = tx_id.delete_suffix('-out').delete_suffix('-in')
+    coin, amount, net = conversion(entry[:raw_data])
     2.times do
-      rows = scope.where(tx_id: nil, entry_type: DUST_LEGS).where('group_id LIKE ?', 'dustcsv%').where(dust_reach(at)).to_a
-      out, inn = file_dust_legs(rows, conversion(entry[:raw_data]))
+      # The database compares the amounts, as the rule above does: a stored amount is what the column kept.
+      near = scope.where(tx_id: nil).where('group_id LIKE ?', 'dustcsv%').where(dust_reach(at))
+      out, inn = file_dust_legs(near.where(entry_type: :swap_out, base_currency: coin, base_amount: amount).to_a +
+                                near.where(entry_type: :swap_in, base_currency: 'BNB', base_amount: net).to_a)
       return false unless out
       return true if both? { take!(out, "#{id}-out") && take!(inn, "#{id}-in") }
     end
@@ -602,9 +604,11 @@ class AccountTransactionSync
     return true if same_events(entry, scope).any? { |row| !api_dust?(row) }
 
     2.times do
+      # Only a whole API conversion: one stored a leg short (a sync cut off between them) leaves the file's
+      # BNB credit standing, a visible double rather than a lost one.
       conversions = scope.where('tx_id LIKE ?', 'dust-%').where(entry_type: DUST_LEGS).where(dust_reach(at))
                          .select { |row| api_dust?(row) && dust_leg(entry, conversion(row.raw_data)) }
-                         .group_by(&:group_id).values
+                         .group_by(&:group_id).values.select { |rows| rows.map(&:entry_type).sort == DUST_LEGS.sort }
       return true if conversions.any? { |rows| twinned?(rows, at) }
 
       free = conversions.reject { |rows| rows.any? { |row| row.raw_data.key?('file_twin_at') } }
@@ -615,7 +619,7 @@ class AccountTransactionSync
       file = @batch.select do |other|
         other[:tx_id].blank? && file_dust?(other) && other[:transacted_at] && (other[:transacted_at] - reach).abs <= DUST_REACH
       end
-      out, = file_dust_legs(file, conversion(api.first.raw_data))
+      out, = file_dust_legs(file.select { |other| dust_leg(other, conversion(api.first.raw_data)) })
       return false unless out && out[:group_id] == entry[:group_id]
       return true if both? { api.all? { |row| stamp!(row, at) } }
     end

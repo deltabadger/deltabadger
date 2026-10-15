@@ -423,9 +423,10 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let (taken, stored) = claimed("binance-ledger-file_transfer_claimed_once");
     assert_eq!(taken, ["0xd200", "0xd202"]);
     assert!(["0xd198", "0xd201", "0xd203"].iter().all(|id| stored.contains(&id.to_string())), "{stored:?}");
-    // A dust conversion's export group takes both of its ids; a group holding one leg takes none.
+    // A dust conversion's export group takes both of its ids, an amount the column rounds too; a group holding one
+    // leg takes none.
     let (taken, stored) = claimed("binance-ledger-file_dust");
-    assert_eq!(taken, ["dust-4359321-in", "dust-4359321-out"]);
+    assert_eq!(taken, ["dust-4359321-in", "dust-4359321-out", "dust-4359323-in", "dust-4359323-out"]);
     assert!(["dust-4359322-in", "dust-4359322-out"].iter().all(|id| stored.contains(&id.to_string())), "{stored:?}");
     for value in ["NaN", "Infinity", "-Infinity", "garbage"] {
         for fallback in ["market", "stale"] {

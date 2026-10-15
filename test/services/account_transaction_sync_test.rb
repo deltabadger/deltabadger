@@ -727,6 +727,20 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
                  AccountTransaction.order(:id).map { |row| [row.base_currency, row.tx_id] })
   end
 
+  test 'a file dust group pairs only with a whole API conversion' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(api_dust(at:).first) # a sync cut off after the coin leg
+    assert_equal 2, store(*file_dust(at:))[:imported], 'the BNB credit is never lost'
+    assert_nil AccountTransaction.find_by!(tx_id: 'dust-78240438808-out').raw_data['file_twin_at']
+  end
+
+  test 'a dust amount the column rounds still pairs, as the database compares it' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(*file_dust(at:, amount: '123456789.12345678'))
+    store(*api_dust(at:, amount: '123456789.12345678'))
+    assert_equal %w[dust-78240438808-in dust-78240438808-out], AccountTransaction.pluck(:tx_id).sort
+  end
+
   test 'two dust candidates are a visible double, not a guess' do
     at = Time.utc(2021, 9, 21, 19, 22, 0)
     store(*file_dust(at:), *file_dust(at: at + 1, group: 'dustcsv_other'))
